@@ -10,7 +10,7 @@ energyPATHWAYS can be installed using distutils
 `` $ python setup.py develop``
 
 In addition to installation of the energyPATHWAYS package, a model cannot be created until a set of data is supplied. The input data contains three components:
-- A sqlite database populating your energy system (download the U.S. DDPP team's database [here](https://www.dropbox.com/s/ow64ghp1cpjujmi/pathways.db?dl=0)
+- A sqlite database populating your energy system ([download](https://www.dropbox.com/s/ow64ghp1cpjujmi/pathways.db?dl=0) the U.S. DDPP team's database)
 - Configuration file (an example is given in energyPATHWAYS/us_model_example)
 - Custom unit definitions (an example is given in energyPATHWAYS/us_model_example)
 
@@ -77,4 +77,4 @@ Finally, we believe that an enormous amount of the value from modeling deep deca
 
 
 ## License
-MIT
+The MIT License (MIT)
