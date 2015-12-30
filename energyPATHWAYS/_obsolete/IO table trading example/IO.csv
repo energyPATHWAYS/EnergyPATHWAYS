@@ -1,0 +1,18 @@
+,,Biomass Primary,Biodiesel,Petrodiesel,Biodiesel processing,Wood pellets,Wood pellet processing,Diesel Blend,refining,Biomass Primary,Biodiesel,Petrodiesel,Biodiesel processing,Wood pellets,Wood pellet processing,Diesel Blend,Refining
+,,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2
+Biomass Primary,1,0,0,0,1.2,0,1.1,0,0,0,0,0,0,0,0,0,0
+Biodiesel,1,0,0,0,0,0,0,0.3,0,0,0,0,0,0,0,0,0
+Petrodiesel,1,0,0,0,0,0,0,0.7,0,0,0,0,0,0,0,0,0
+Biodiesel processing,1,0,1.05,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+Wood pellets,1,0,0,0,0,0,0,0,0.01,0,0,0,0,0,0,0,0
+Wood pellet processing,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0
+Diesel Blend,1,0,0,0,0,0,0.1,0,0.05,0,0,0,0,0,0,0,0
+Refining,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0
+Biomass Primary,2,0,0,0,0,0,0,0,0,0,0,0,1.2,0,1.1,0,0
+Biodiesel,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0.3,0
+Petrodiesel,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0.7,0
+Biodiesel processing,2,0,0,0,0,0,0,0,0,0,1.05,0,0,0,0,0,0
+Wood pellets,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0.01
+Wood pellet processing,2,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0
+Diesel Blend,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0.1,0,0.05
+Refining,2,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0

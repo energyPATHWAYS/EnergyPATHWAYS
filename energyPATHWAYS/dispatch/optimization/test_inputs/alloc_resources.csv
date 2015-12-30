@@ -1,0 +1,4 @@
+resource,region,technology,power_capacity,energy_capacity
+CA_Very_Large_Storage,CA,Very_Large_Storage,336000,200000
+R2_Very_Large_Storage,Region2,Very_Large_Storage,336000,200000
+R3_Very_Large_Storage,Region3,Very_Large_Storage,336000,200000

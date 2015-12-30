@@ -55,3 +55,9 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# Database
+/us_model_example/pathways.db
+
+# Temp model copy
+/us_model_example/model.p

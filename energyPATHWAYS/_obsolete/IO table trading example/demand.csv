@@ -1,0 +1,17 @@
+Node,Region,Demand
+Biomass Primary,1,0
+Biodiesel,1,0
+Petrodiesel,1,0
+Biodiesel processing,1,0
+Wood pellets,1,50
+Wood pellet processing,1,0
+Diesel Blend,1,100
+Refining,1,0
+Biomass Primary,2,0
+Biodiesel,2,0
+Petrodiesel,2,0
+Biodiesel processing,2,0
+Wood pellets,2,50
+Wood pellet processing,2,0
+Diesel Blend,2,100
+Refining,2,0
