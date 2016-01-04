@@ -34,7 +34,7 @@ class Demand(object):
             
     def link_to_supply(self, emissions_link, energy_link, cost_link):   
         setattr(self.outputs, 'emissions', self.group_linked_output(emissions_link))
-        setattr(self.outputs, 'energy costs', self.group_linked_output(cost_link))
+        setattr(self.outputs, 'energy_costs', self.group_linked_output(cost_link))
         setattr(self.outputs, 'embodied_energy', self.group_linked_output(energy_link))
 
     def group_output(self, output_type, levels_to_keep=None):

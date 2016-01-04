@@ -14,7 +14,7 @@ db_path = os.path.join(directory, 'pathways.db')
 custom_pint_definitions_path = os.path.join(directory, 'unit_defs.txt')
 
 ###########
-resolve = True
+resolve = False
 ###########
 
 if __name__ == "__main__":
@@ -27,8 +27,7 @@ if __name__ == "__main__":
         model.pass_results_to_supply()
         model.calculate_supply()
         
-        model.supply.loop_calculate()
-        model.export_results()
+
 
         with open(os.path.join(directory, 'model.p'), 'wb') as outfile:
             pickle.dump(model, outfile)
@@ -37,6 +36,7 @@ if __name__ == "__main__":
         with open(os.path.join(directory, 'model.p'), 'rb') as infile:
             model = pickle.load(infile)
         model.model_config(db_path, cfgfile_path, custom_pint_definitions_path)
-
-
+    model.supply.loop_calculate()
+    model.pass_results_to_demand()
+    model.export_results('S:\\E3 Projects\\2050 Model\\PythonModel\\Outputs')
 

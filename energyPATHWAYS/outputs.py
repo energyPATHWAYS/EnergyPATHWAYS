@@ -27,7 +27,6 @@ class DemandSideOutput(object):
         cleaned_output.columns = [x.upper() if isinstance(x, basestring) else x for x in cleaned_output.columns]
         
         return cleaned_output
-        
 
 #class Output(object):
 #    """creates an empty container"""

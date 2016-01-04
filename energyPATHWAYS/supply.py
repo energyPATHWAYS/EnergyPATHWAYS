@@ -330,6 +330,7 @@ class Supply(object):
             name = ['ghg']
             inverse = pd.concat([inverse]*len(keys), keys=keys, names=name)
             inverse = inverse.reorder_levels([self.geography,'supply_node','ghg'])
+            inverse.sort(inplace=True)
             indexer = util.level_specific_indexer(self.io_embodied_emissions_df, 'demand_sector', sector)
             emissions = np.column_stack(self.io_embodied_emissions_df.loc[indexer,year].values).T
             self.emissions_dict[year][sector] = pd.DataFrame(emissions * inverse.values,index=row_index,columns=col_index)
@@ -623,13 +624,10 @@ class Supply(object):
             active_emissions_io = self.adjust_for_imports(active_io,'emissions')
             active_cost_io = self.adjust_for_imports(active_io,'cost')
             active_demand = self.io_total_active_demand_df.loc[indexer,:].values
-            if loop == 1 or loop == 'initial':   
-                self.io_supply_df.loc[indexer,year] = solve_IO(active_io.values, active_demand)
-            elif loop == 2:
-                self.io_supply_df.loc[indexer,year] = solve_IO(active_io.values, active_demand)    
-                self.inverse_dict['energy'][year][sector] = pd.DataFrame(solve_IO(active_io.values), index=index, columns=index)
-                self.inverse_dict['emissions'][year][sector] = pd.DataFrame(solve_IO(active_emissions_io.values), index=index, columns=index)
-                self.inverse_dict['cost'][year][sector] = pd.DataFrame(solve_IO(active_cost_io.values), index=index, columns=index)
+            self.io_supply_df.loc[indexer,year] = solve_IO(active_io.values, active_demand)    
+            self.inverse_dict['energy'][year][sector] = pd.DataFrame(solve_IO(active_io.values), index=index, columns=index)
+            self.inverse_dict['emissions'][year][sector] = pd.DataFrame(solve_IO(active_emissions_io.values), index=index, columns=index)
+            self.inverse_dict['cost'][year][sector] = pd.DataFrame(solve_IO(active_cost_io.values), index=index, columns=index)
             for node in self.nodes.values():
                 indexer = util.level_specific_indexer(self.io_supply_df,levels=['supply_node'], elements = [node.id])
                 node.active_supply = self.io_supply_df.loc[indexer,year].groupby(level=[self.geography, 'demand_sector']).sum().to_frame()
@@ -1124,7 +1122,7 @@ class  Export(Abstract):
                 self.active_values = self.values.loc[:,year].to_frame()
         else:
             self.active_values =  self.values.loc[:,year].to_frame()
-            self.remap(map_from='active_values', map_to='active_values', drivers=active_supply, fill_timeseries=False)
+            self.remap(map_from='active_values', map_to='active_values', drivers=active_supply, fill_timeseries=False, converted_geography =cfg.cfgfile.get('case', 'primary_geography'), current_geography = cfg.cfgfile.get('case', 'primary_geography'))
         self.active_values = self.active_values.reorder_levels([cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])
         
            
@@ -1692,10 +1690,10 @@ class SupplyNode(Node,StockItem):
             if cost.data is True:
                 if cost.capacity is True:
                     stock_values = self.stock.values.groupby(level= self.rollover_group_names+['vintage']).sum()
-                    financial_stock_values = self.stock.values_financial.groupby(level= self.rollover_group_names).sum()
+                    financial_stock_values = self.stock.values_financial.groupby(level= self.rollover_group_names+['vintage']).sum()
                 elif cost.capacity is False:
-                    stock_values = self.stock.values_energy.groupby(level= self.rollover_group_names).sum()
-                    financial_stock_values = self.stock.values_financial_energy.groupby(level= self.rollover_group_names).sum()
+                    stock_values = self.stock.values_energy.groupby(level= self.rollover_group_names+['vintage']).sum()
+                    financial_stock_values = self.stock.values_financial_energy.groupby(level= self.rollover_group_names+['vintage']).sum()
                 if cost.supply_cost_type == 'tariff' or cost.supply_cost_type == 'investment':
                     initial_stock_values = stock_values[start_year].to_frame()
                     initial_stock_values.columns = [year]
@@ -1781,7 +1779,7 @@ class SupplyPotential(Abstract):
     def remap_to_potential_and_normalize(self,active_throughput, year,tradable_geography=None) :
         """returns the proportion of the supply curve that is in each bin"""
         self.remap_to_potential(active_throughput, year, tradable_geography)
-        self.active_supply_curve_normal= self.active_supply_curve.groupby(level='census division').transform(lambda x:x/x.sum()).fillna(0.)
+        self.active_supply_curve_normal= self.active_supply_curve.groupby(level=cfg.cfgfile.get('case', 'primary_geography')).transform(lambda x:x/x.sum()).fillna(0.)
 
         
     def convert(self):        
@@ -2861,9 +2859,9 @@ class ImportNode(Node):
 
     def calculate_costs(self,year,ghgs):
         "calculates the embodied costs of nodes with emissions"
-        if hasattr(self,'costs') and self.costs.data is True:
+        if hasattr(self,'cost') and self.cost.data is True:
             if hasattr(self,'potential') and self.potential.data is True:
-                self.active_emboided_cost = DfOper.mult([self.potential.active_supply_curve_normal,self.costs.values.loc[:,year].to_frame()])
+                self.active_embodied_cost = DfOper.mult([self.potential.active_supply_curve_normal,self.cost.values.loc[:,year].to_frame()])
                 levels = ['demand_sector',cfg.cfgfile.get('case','primary_geography')]
                 disallowed_levels = [x for x in self.active_embodied_cost.index.names if x not in levels]
                 if len(disallowed_levels):
@@ -2871,18 +2869,18 @@ class ImportNode(Node):
                 self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])               
             else:
                 allowed_indices = ['demand_sector', cfg.cfgfile.get('case','primary_geography')]
-                if set(self.costs.values.index.names).issubset(allowed_indices):
-                    self.active_embodied_cost = self.costs.values_direct.loc[:,year].to_frame()
+                if set(self.cost.values.index.names).issubset(allowed_indices):
+                    self.active_embodied_cost = self.cost.values.loc[:,year].to_frame()
                     self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])
                 else:
                     raise ValueError("too many indexes in emissions inputs of node %s" %self.id)
-            names = ['demand_sector', cfg.cfgfile.get('case','primary_geography')]
-            keys = [self.demand_sectors, cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]]
-            active_embodied_cost  = copy.deepcopy(self.active_embodied_cost)
-            for key,name in zip(keys,names):
-                active_embodied_cost  = pd.concat([active_embodied_cost ]*len(key), axis=1, keys=key, names=[name])
-            self.active_embodied_cost = active_embodied_cost 
-            self.active_embodied_cost.columns = self.active_embodied_cost .columns.droplevel(-1)            
+#            names = ['demand_sector', cfg.cfgfile.get('case','primary_geography')]
+#            keys = [self.demand_sectors, cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]]
+#            active_embodied_cost  = copy.deepcopy(self.active_embodied_cost)
+#            for key,name in zip(keys,names):
+#                active_embodied_cost  = pd.concat([active_embodied_cost ]*len(key), axis=1, keys=key, names=[name])
+#            self.active_embodied_cost = active_embodied_cost 
+#            self.active_embodied_cost.columns = self.active_embodied_cost .columns.droplevel(-1)            
 
 
 
@@ -2925,7 +2923,7 @@ class ImportEmissions(Abstract):
         self.years = years
         self.demand_sectors = demand_sectors
         if self.data is True:
-            self.remap()
+            self.remap(lower=None)
             self.convert()
             self.calculate_direct_and_embodied()
 
@@ -2938,7 +2936,7 @@ class ImportEmissions(Abstract):
                                         unit_to_den=cfg.cfgfile.get('case', 'energy_unit'),
                                         unit_to_num=cfg.cfgfile.get('case', 'mass_unit'))
         self.ghgs = util.sql_read_table('GreenhouseGases','id')
-        self.values = util.reindex_df_level_with_new_elements(self.values,'ghg',self.ghgs,fill_value=0).sort()
+        self.values = util.reindex_df_level_with_new_elements(self.values,'ghg',self.ghgs,fill_value=0).sort()     
         self.values = self.values.unstack(level='year')    
         self.values.columns = self.values.columns.droplevel()
         
@@ -2979,9 +2977,9 @@ class PrimaryNode(Node):
 
     def calculate_costs(self,year,ghgs):
         "calculates the embodied costs of nodes with emissions"
-        if hasattr(self,'costs') and self.costs.data is True:
+        if hasattr(self,'cost') and self.cost.data is True:
             if hasattr(self,'potential') and self.potential.data is True:
-                self.active_emboided_cost = DfOper.mult([self.potential.active_supply_curve_normal,self.costs.values.loc[:,year].to_frame()])
+                self.active_embodied_cost = DfOper.mult([self.potential.active_supply_curve_normal,self.cost.values.loc[:,year].to_frame()])
                 levels = ['demand_sector',cfg.cfgfile.get('case','primary_geography')]
                 disallowed_levels = [x for x in self.active_embodied_cost.index.names if x not in levels]
                 if len(disallowed_levels):
@@ -2989,18 +2987,18 @@ class PrimaryNode(Node):
                 self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])               
             else:
                 allowed_indices = ['demand_sector', cfg.cfgfile.get('case','primary_geography')]
-                if set(self.costs.values.index.names).issubset(allowed_indices):
-                    self.active_embodied_cost = self.costs.values_direct.loc[:,year].to_frame()
+                if set(self.cost.values.index.names).issubset(allowed_indices):
+                    self.active_embodied_cost = self.cost.values.loc[:,year].to_frame()
                     self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])
                 else:
                     raise ValueError("too many indexes in emissions inputs of node %s" %self.id)
-            names = ['demand_sector', cfg.cfgfile.get('case','primary_geography')]
-            keys = [self.demand_sectors, cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]]
-            active_embodied_cost  = copy.deepcopy(self.active_embodied_cost)
-            for key,name in zip(keys,names):
-                active_embodied_cost  = pd.concat([active_embodied_cost ]*len(key), axis=1, keys=key, names=[name])
-            self.active_embodied_cost = active_embodied_cost 
-            self.active_embodied_cost.columns = self.active_embodied_cost.columns.droplevel(-1)            
+#            names = ['demand_sector', cfg.cfgfile.get('case','primary_geography')]
+#            keys = [self.demand_sectors, cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]]
+#            active_embodied_cost  = copy.deepcopy(self.active_embodied_cost)
+#            for key,name in zip(keys,names):
+#                active_embodied_cost  = pd.concat([active_embodied_cost ]*len(key), axis=1, keys=key, names=[name])
+#            self.active_embodied_cost = active_embodied_cost 
+#            self.active_embodied_cost.columns = self.active_embodied_cost.columns.droplevel(-1)            
 
      
     def add_conversion(self):
@@ -3118,7 +3116,7 @@ class PrimaryEmissions(Abstract):
         if self.data is True:
             self.conversion = conversion
             self.resource_unit=resource_unit    
-            self.remap()
+            self.remap(lower=None)
             self.convert()
             self.calculate_direct_and_embodied()
             

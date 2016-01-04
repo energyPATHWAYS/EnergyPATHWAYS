@@ -230,7 +230,7 @@ class SupplyTechInvestmentCost(SupplyTechCost):
             rate = self.cost_of_capital - inflation
             if self.is_levelized == 0:
                 self.values_level = - np.pmt(rate, self.book_life, 1, 0, 'end') * self.values
-                util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values_level', reverse=False)
+                util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values_level', attr_to='values_level', reverse=False)
             else:
                 self.values_level = self.values.copy()
                 util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values_level', attr_to='values_level', reverse=False)

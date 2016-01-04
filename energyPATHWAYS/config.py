@@ -44,7 +44,7 @@ class Config:
         self.primary_geography = cfgfile.get('case', 'primary_geography')
         self.cfgfile = cfgfile
 #        case_path = os.path.join(cfgfile.get('directory', 'path'), 'cases', cfgfile.get('case', 'scenario'))
-
+        
     def init_db(self, db_path):
         if not os.path.isfile(db_path):
             raise OSError('config file not found: ' + str(db_path))
@@ -94,16 +94,20 @@ class Config:
 
     def init_outputs_id_map(self):
         self.currency_name = util.sql_read_table('Currencies', 'name', id=int(self.cfgfile.get('case', 'currency_id')))
+        self.output_levels = self.cfgfile.get('case', 'output_levels').split(', ')       
         self.outputs_id_map = defaultdict(dict)
-        self.output_levels = self.cfgfile.get('case', 'output_levels').split(', ')
         if 'primary_geography' in self.output_levels:
             self.output_levels[self.output_levels.index('primary_geography')] = self.primary_geography
         
         primary_geography_id = util.sql_read_table('Geographies', 'id', name=self.primary_geography)
         self.outputs_id_map[self.primary_geography] = util.upper_dict(util.sql_read_table('GeographiesData', ['id', 'name'], geography_id=primary_geography_id, return_unique=True, return_iterable=True))
+        self.outputs_id_map[self.primary_geography+"_supply"] =  self.outputs_id_map[self.primary_geography]       
         self.outputs_id_map['technology'] = util.upper_dict(util.sql_read_table('DemandTechs', ['id', 'name']))
         self.outputs_id_map['final_energy'] = util.upper_dict(util.sql_read_table('FinalEnergy', ['id', 'name']))
-                
+        self.outputs_id_map['supply_node'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name']))       
+        self.outputs_id_map['subsector'] = util.upper_dict(util.sql_read_table('DemandSubsectors', ['id', 'name']))           
+        self.outputs_id_map['sector'] = util.upper_dict(util.sql_read_table('DemandSectors', ['id', 'name']))
+        self.outputs_id_map['ghg'] = util.upper_dict(util.sql_read_table('GreenhouseGases', ['id', 'name']))
         for id, name in util.sql_read_table('OtherIndexes', ('id', 'name'), return_iterable=True):
             if name in ('technology', 'final_energy'):
                 continue
