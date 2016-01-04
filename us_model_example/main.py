@@ -14,7 +14,7 @@ db_path = os.path.join(directory, 'pathways.db')
 custom_pint_definitions_path = os.path.join(directory, 'unit_defs.txt')
 
 ###########
-resolve = False
+resolve = True
 ###########
 
 if __name__ == "__main__":
@@ -38,5 +38,5 @@ if __name__ == "__main__":
         model.model_config(db_path, cfgfile_path, custom_pint_definitions_path)
     model.supply.loop_calculate()
     model.pass_results_to_demand()
-    model.export_results('S:\\E3 Projects\\2050 Model\\PythonModel\\Outputs')
+    model.export_results()
 
