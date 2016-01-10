@@ -6,7 +6,6 @@ from util import ExportMethods
 import time
 from config import cfg
 from supply import Supply
-import pandas as pd
 # from supply import Supply
 
 class PathwaysModel(object):
@@ -27,7 +26,6 @@ class PathwaysModel(object):
         cfg.init_pint(custom_pint_definitions_path)
         cfg.init_geo()
         cfg.init_shapes()
-        cfg.init_outputs_id_map()
 
     def configure_energy_system(self):
         print 'configuring energy system'
@@ -60,7 +58,7 @@ class PathwaysModel(object):
             sector.add_subsectors()
             
     def configure_supply(self):
-        self.supply.add_nodes()
+        self.supply.add_node_list()
 
     def populate_demand_system(self):
         print 'remapping drivers'
@@ -68,16 +66,18 @@ class PathwaysModel(object):
         print 'populating energy system data'
         for sector in self.demand.sectors.values():
             print '  '+sector.name+' sector'
+            # print 'reading energy system data for the %s sector' %sector.name
             for subsector in sector.subsectors.values():
                 print '    '+subsector.name
                 subsector.add_energy_system_data()
         self.demand.precursor_dict()
 
     def populate_supply_system(self):
-        self.supply.add_energy_system_data()
+        self.supply.add_nodes()
 
     def populate_demand_measures(self):
         for sector in self.demand.sectors.values():
+            #            print 'reading %s measures' %sector.name
             for subsector in sector.subsectors.values():
                 subsector.add_measures()
         
@@ -100,13 +100,12 @@ class PathwaysModel(object):
         self.demand.aggregate_results()
         self.demand.link_to_supply(self.supply.emissions_demand_link, self.supply.energy_demand_link, self.supply.cost_demand_link)
         
-    def export_results(self, specified_directory=None):
-        if specified_directory is None:
-            specified_directory = os.path.join(os.getcwd())
-        else:
-            specified_directory = os.path.join(specified_directory)
-        attributes = dir(self.demand.outputs)
-        for att in attributes: 
-            if isinstance(getattr(self.demand.outputs,att),pd.core.frame.DataFrame):
-                output = self.demand.outputs.return_cleaned_output(att)
-                ExportMethods.writedataframe(att, output,specified_directory)
+        
+    def export_results(self):
+        for sector in self.demand.sectors.values():
+            #            print 'reading %s measures' %sector.name
+            for subsector in sector.subsectors.values():
+                subsector.output_results()
+            sector.aggregate_results()
+        self.demand.aggregate_results()
+        ExportMethods.writeclass('pathways model', self.demand.energy_outputs, os.path.join(alt_case_path, 'outputs'))
