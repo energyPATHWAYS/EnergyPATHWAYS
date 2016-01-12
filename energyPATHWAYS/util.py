@@ -15,15 +15,13 @@ import pandas as pd
 import os
 import numpy as np
 from time_series import TimeSeries
-from e3 import utils
-import e3
 from collections import defaultdict, OrderedDict, MutableSet
 import time
 import csv
 import inspect
 import matplotlib
 from matplotlib import cm
-
+import os as _os
 matplotlib.style.use('ggplot')
 import math
 import scipy.special
@@ -469,22 +467,29 @@ def put_in_list(obj):
         except:
             return [obj]
 
+def reduce_levels(df, allowed_levels, total_label=None, agg_function='sum'):
+    reduce_levels = [x for x in df.index.names if x not in allowed_levels]
+    if len(reduce_levels):
+        return remove_df_levels(df, reduce_levels, total_label, agg_function)
 
-def remove_df_levels(data, levels, total_label=None):
+def remove_df_levels(data, levels, total_label=None, agg_function='sum'):
     total_label = config.cfg.cfgfile.get('data_identifiers', 'all') if total_label is None else total_label
     levels = [l for l in put_in_list(levels) if l in data.index.names]
     if not len(levels):
         return data
-
+    
     if data.index.nlevels > 1:
         levels_to_keep = [l for l in data.index.names if l not in levels]
         group_slice = tuple([total_label if ((l in levels) and (total_label in e)) else slice(None)
-                             for l, e in zip(data.index.names, data.index.levels)])
-
+        for l, e in zip(data.index.names, data.index.levels)])
         if total_label in group_slice:
-            return data.loc[group_slice].groupby(level=levels_to_keep).sum()
-        else:
+            data = data.loc[group_slice]
+        if agg_function == 'sum':
             return data.groupby(level=levels_to_keep).sum()
+        elif agg_function =='mean':
+            return data.groupby(level=levels_to_keep).mean()
+        else:
+            raise ValueError('unknown agg function specified')
     else:
         return data.reset_index(drop=True)
 
@@ -637,10 +642,15 @@ class ExportMethods:
             return getattr(obj, 'name')
         else:
             return default
+    def checkexistormakedir(path):
+        '''Checks to see if a directory exists, and creates it if not
+        '''
+        if not _os.path.exists(path):
+            _os.makedirs(path)
 
     @staticmethod
     def writeobj(name, obj, write_directory):
-        e3.fileio.checkexistormakedir(write_directory)
+        ExportMethods.checkexistormakedir(write_directory)
         if is_numeric(obj) or type(obj) == str:
             ExportMethods.csvwrite(os.path.join(write_directory, 'vars.csv'), [[name, obj]], writetype='ab')
         elif (type(obj) == dict) or (type(obj) == defaultdict):  # or (type(obj) == OrderedDict):

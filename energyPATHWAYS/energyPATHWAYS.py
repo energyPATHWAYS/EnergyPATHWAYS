@@ -6,6 +6,7 @@ from util import ExportMethods
 import time
 from config import cfg
 from supply import Supply
+import pandas as pd
 # from supply import Supply
 
 class PathwaysModel(object):
@@ -26,6 +27,7 @@ class PathwaysModel(object):
         cfg.init_pint(custom_pint_definitions_path)
         cfg.init_geo()
         cfg.init_shapes()
+        cfg.init_outputs_id_map()
 
     def configure_energy_system(self):
         print 'configuring energy system'
@@ -102,10 +104,8 @@ class PathwaysModel(object):
         
         
     def export_results(self):
-        for sector in self.demand.sectors.values():
-            #            print 'reading %s measures' %sector.name
-            for subsector in sector.subsectors.values():
-                subsector.output_results()
-            sector.aggregate_results()
-        self.demand.aggregate_results()
-        ExportMethods.writeclass('pathways model', self.demand.energy_outputs, os.path.join(alt_case_path, 'outputs'))
+        for attribute in dir(self.demand.outputs):
+            if isinstance(getattr(self.demand.outputs,attribute),pd.DataFrame):
+                result_df = self.demand.outputs.return_cleaned_output(attribute)
+                ExportMethods.writedataframe(attribute,result_df,os.path.join(os.getcwd(),'outputs'))
+                

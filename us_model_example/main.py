@@ -36,7 +36,7 @@ if __name__ == "__main__":
         with open(os.path.join(directory, 'model.p'), 'rb') as infile:
             model = pickle.load(infile)
         model.model_config(db_path, cfgfile_path, custom_pint_definitions_path)
-    model.supply.loop_calculate()
+    model.supply.calculate_loop()
     model.pass_results_to_demand()
     model.export_results()
 
