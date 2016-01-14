@@ -37,6 +37,7 @@ class Supply(object):
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
         self.dispatch_geography = cfg.cfgfile.get('case','dispatch_geography')
         self.live_wires=[]
+        self.electricity_nodes = []
         self.ghgs = util.sql_read_table('GreenhouseGases','id')
    
     def calculate_technologies(self):
@@ -316,28 +317,139 @@ class Supply(object):
         self.energy_demand_link = self.map_embodied_to_demand(self.inverse_dict['energy'],self.embodied_energy_link_dict)
             
 
+    def set_injection_nodes(self):
+        self.injection_nodes = []
+        for node_id in self.electricity_nodes:
+            node = self.nodes[node_id]
+            if hasattr(node,'active_coefficients'):
+                injection_nodes = [x for x in node.active_coefficients.index.get_level_values('supply_node') if x not in self.electricity_nodes]
+                self.injection_nodes+=injection_nodes
+        self.injection_nodes = list(set(self.injection_nodes))
 
 
-    def check_live_wires(self,electricity_node):
+    def set_live_wires(self,electricity_node):
+        self.set_live_wires_downstream(electricity_node)
+        for node_id in self.electricity_nodes:
+            self.set_live_wires_upstream(self.nodes[node_id])
+        self.electricity_nodes = list(set(self.electricity_nodes))
+        self.live_wires = list(set(self.live_wires))
+
+    def set_live_wires_downstream(self,electricity_node):
         for node in self.nodes.values():
-            if node.active_coefficients_untraded is not None:
-                indexer = util.level_specific_indexer(node.active_coefficients_untraded, ['efficiency_type','supply_node'],[2,electricity_node])
+            if hasattr(node,'active_coefficients_untraded')  and node.active_coefficients_untraded  is not None:
+                indexer = util.level_specific_indexer(node.active_coefficients_untraded, ['efficiency_type','supply_node'],[2,electricity_node.id])
                 live = node.active_coefficients_untraded.loc[indexer,:]
                 if live.empty is False:
+                    if node.supply_type!='Conversion':
+                        self.electricity_nodes.append(node.id)
                     if node.supply_type == 'Delivery':
                         self.live_wires.append(node.id)
-                    self.check_live_wires(node.id)
+                    self.set_live_wires_downstream(node)
+                    
+    def set_live_wires_upstream(self,electricity_node):
+            if hasattr(electricity_node,'active_coefficients_untraded')  and electricity_node.active_coefficients_untraded  is not None:
+                for node_id in list(set(electricity_node.active_coefficients_untraded.index.get_level_values('supply_node'))):
+                    node= self.nodes[node_id]
+                    indexer = util.level_specific_indexer(electricity_node.active_coefficients_untraded, ['efficiency_type','supply_node'],[2,node.id])
+                    live = electricity_node.active_coefficients_untraded.loc[indexer,:]
+                    if live.empty is False:
+                        if node.supply_type!='Conversion':
+                            self.electricity_nodes.append(node.id)
+                        if node.supply_type == 'Delivery':
+                            self.live_wires.append(node.id)
+                        self.set_live_wires_upstream(node)            
 
-#    def add_fixed_demand(self,year,loop):
-#        for nodes in nodes.values():
-#            for wire in self.live_wires:
-#                if hasattr(node,'is_dispatchable') and node.is_dispatchable:
-#                    if node.active_coefficients.index.get_level_values('supply_node'):
+            
+            
+
+    def calculate_non_dispatchable_supply(self,year,loop):
+        io_supply_df = copy.deepcopy(self.io_supply_df)
+        self.non_dispatchable_supply = defaultdict(dict)
+        for wire in self.live_wires:
+            dfs = []
+            for values in self.inverse_dict['energy'][year].values():
+                values = copy.deepcopy(values)            
+                for node in self.nodes.values():
+                    indexer = util.level_specific_indexer(values, 'supply_node', wire, axis=1)
+                    values = values.loc[:, indexer] 
+                    indexer = util.level_specific_indexer(values, 'supply_node', node.id, axis=0)
+                    if node.id not in self.injection_nodes or node.is_dispatchable:
+                        values.loc[indexer,:] = np.nan
+                values.to_clipboard()
+                values = values.groupby(level=values.index.names).filter(lambda x: x.sum().sum()>0) 
+#                values = values.groupby(level=values.index.names).filter(lambda x: x.sum().sum()>0) 
+                values.fillna(0,inplace=True)
+                dfs.append(values)
+            keys = self.demand_sectors
+            name= ['demand_sector']
+            full_df = pd.concat(dfs,keys=keys,names=name,axis=0)
+            full_df= pd.concat([full_df]*len(keys),keys=keys,names=name,axis=1)
+            full_df.columns = full_df.columns.droplevel(-1)
+            full_df = full_df.reorder_levels([self.geography,'demand_sector','supply_node'])
+            full_df = full_df.reorder_levels([self.geography, 'demand_sector'],axis=1)
+            full_df.sort(inplace=True,axis=0)
+            full_df.sort(inplace=True,axis=1)                
+            indexer = util.level_specific_indexer(io_supply_df,'supply_node',wire)
+            supply_df = io_supply_df.loc[indexer, year].to_frame()
+            keys = [self.demand_sectors,self.geographies,]
+            names = ['demand_sector',self.geography]
+            for key,name in zip(keys,names):
+                supply_df = pd.concat([supply_df]*len(key),axis=1,names=[name])
+            for node_id in list(set(full_df.index.get_level_values('supply_node'))):
+                row_indexer = util.level_specific_indexer(full_df, 'supply_node', node_id,axis=0)
+                node = self.nodes[node_id]    
+                geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
+                df = full_df.loc[row_indexer,:]     
+                diag = np.ndarray(df.values.shape)
+                np.fill_diagonal(diag,1)
+                df *= supply_df.values*diag
+                self.non_dispatchable_supply[wire][node_id] = self.geo_map_non_dispatchable(df,
+                                         self.geography, self.dispatch_geography,
+                                         geography_map_key)
+                
+    def geo_map_non_dispatchable(self,df,old_geography, new_geography, geography_map_key):
+        keys=cfg.geo.geographies[new_geography]
+        name = [new_geography]
+        df = pd.concat([df] * len(keys),keys=keys,names=name,axis=0)
+        df = pd.concat([df] * len(keys),keys=keys,names=name,axis=1)
+        map_df = cfg.geo.map_df(new_geography,old_geography,geography_map_key,eliminate_zeros=False)
+        names = [x for x in df.index.names if x not in map_df.index.names]
+        names.reverse()
+        for name in names:
+            keys=list(set(df.index.get_level_values(name)))
+            map_df = pd.concat([map_df]*len(keys),keys=keys,names=[name])
+        names = [x for x in df.columns.names if x not in map_df.columns.names]
+        names.reverse()
+        keys = []
+        for name in names:
+            keys = list(set(df.columns.get_level_values(name)))
+            map_df = pd.concat([map_df]*len(keys),keys=keys,names=[name],axis=1)  
+        map_df.columns = map_df.columns.droplevel(None)
+        map_df=map_df.reorder_levels(df.index.names,axis=0)
+        map_df = map_df.reorder_levels(df.columns.names,axis=1)
+        map_df.sort(inplace=True,axis=0)
+        map_df.sort(inplace=True,axis=1)
+        old_geographies = list(set(map_df.index.get_level_values(old_geography)))
+        new_geographies =list(set(map_df.index.get_level_values(new_geography)))
+#        print map_df
+        self.map_df = map_df
+        for old in old_geographies:
+            for new in new_geographies:
+                row_indexer = util.level_specific_indexer(map_df,[old_geography],[old],axis=0)
+                col_indexer = util.level_specific_indexer(map_df,[old_geography],[old],axis=1)
+                map_df.loc[:,col_indexer] = map_df.loc[row_indexer,:].values.T *  map_df.loc[:,col_indexer].values
+#        print map_df
+        self.map_df = map_df
+        df *= map_df.values
+        df = df.groupby(level=util.ix_excl(df,[old_geography,'supply_node'],axis=0),axis=0).sum()
+        df = df.groupby(level=util.ix_excl(df,old_geography,axis=1),axis=1).sum()
+        return df
                         
-        
-
-
     def calculate_dispatch_nodes(self, year, loop):
+        self.electricity_nodes.append(self.thermal_id)
+        self.set_live_wires(self.nodes[self.thermal_id])
+        self.set_injection_nodes()
+        self.calculate_non_dispatchable_supply(year,loop)
         self.calculate_thermal_dispatch_nodes(year,loop)
         self.calculate_electricity_storage_nodes(year,loop)
     
@@ -662,7 +774,8 @@ class Supply(object):
                   #if this output node is a blend node, the reconciliation happens here. 
                   if output_node.id in self.blend_nodes or isinstance(output_node,ImportNode):
                      indexer = util.level_specific_indexer(output_node.active_trade_adjustment_df,'supply_node', internal_trade_sub)  
-                     output_node.active_trade_adjustment_df.loc[indexer, :]  = output_node.active_trade_adjustment_df.loc[indexer, :].values * internal_trade_adjustment.values
+#                     output_node.active_trade_adjustment_df.loc[indexer, :].values 
+                     output_node.active_trade_adjustment_df.loc[indexer, :]  =  internal_trade_adjustment.values
                      self.reconciled = True
                      output_node.reconciled = True
                   elif output_node.internal_trades is True:
@@ -795,8 +908,12 @@ class Supply(object):
             active_io = self.io_dict[year][sector]
             active_emissions_io = self.adjust_for_not_incremental(active_io,'emissions')
             active_cost_io = self.adjust_for_not_incremental(active_io,'cost')
-            active_demand = self.io_total_active_demand_df.loc[indexer,:].values
-            self.io_supply_df.loc[indexer,year] = solve_IO(active_io.values, active_demand)    
+            active_demand = self.io_total_active_demand_df.loc[indexer,:]
+            try:
+                self.io_supply_df.loc[indexer,year] = solve_IO(active_io.values, active_demand.values)  
+            except:
+                self.active_io = active_io
+                self.active_demand  = active_demand
             self.inverse_dict['energy'][year][sector] = pd.DataFrame(solve_IO(active_io.values), index=index, columns=index)
             self.inverse_dict['emissions'][year][sector] = pd.DataFrame(solve_IO(active_emissions_io.values), index=index, columns=index)
             self.inverse_dict['cost'][year][sector] = pd.DataFrame(solve_IO(active_cost_io.values), index=index, columns=index)
@@ -958,6 +1075,7 @@ class Node(DataMapFunctions):
             self.active_coefficients_total = self.add_column_index(self.active_coefficients_total_untraded)
             self.active_coefficients_total = DfOper.mult([self.active_coefficients_total,self.active_trade_adjustment_df])
             self.active_coefficients_untraded = copy.deepcopy(self.active_coefficients)
+            self.active_coefficients_untraded.sort(inplace=True,axis=0)
             keys = list(set(util.ensure_iterable_and_not_string(self.active_coefficients.index.get_level_values('efficiency_type'))))
             name = ['efficiency_type']
             active_trade_adjustment_df = pd.concat([self.active_trade_adjustment_df]*len(keys), keys=keys, names=name)
@@ -1319,6 +1437,7 @@ class BlendNode(Node):
             self.active_coefficients = self.values.loc[:,year].to_frame()
             self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,'efficiency_type')       
             self.active_coefficients_untraded = copy.deepcopy(self.active_coefficients) 
+            self.active_coefficients_untraded.sort(inplace=True,axis=0)
             self.active_coefficients = self.add_column_index(self.active_coefficients_untraded)
             self.active_coefficients_total = self.add_column_index(self.active_coefficients_total_untraded)
             self.active_coefficients_total_test = copy.deepcopy(self.active_coefficients_total)            
@@ -1363,7 +1482,9 @@ class BlendNode(Node):
             measures.append(measure.values)
         if len(measures):
             self.values = pd.concat(measures)
+            print self.values
             self.calculate_residual()
+            print self.values
         else:
             self.set_residual()
         self.set_adjustments()
@@ -1385,7 +1506,7 @@ class BlendNode(Node):
          residual = 1-self.values.groupby(level=residual_levels).sum()
          residual['supply_node'] = self.residual_supply_node_id
          residual.set_index('supply_node', append=True, inplace=True)
-         residual = residual.reorder_levels(['supply_node']+residual_levels)
+         residual = residual.reorder_levels(residual_levels+['supply_node'])
          # concatenate values
          residual = residual.reorder_levels(self.values.index.names)
          self.values = pd.concat([self.values, residual], join='outer', axis=0)
@@ -1412,7 +1533,7 @@ class BlendNode(Node):
         residual = 1-self.values.loc[:,year].to_frame().groupby(level=residual_levels).sum()
         residual['supply_node'] = self.residual_supply_node_id
         residual.set_index('supply_node', append=True, inplace=True)
-        residual = residual.reorder_levels(['supply_node']+residual_levels)
+        residual = residual.reorder_levels(residual_levels+['supply_node'])
         # concatenate values
         residual = residual.reorder_levels(self.values.index.names)
         self.values.loc[indexer,year] = residual
@@ -1430,6 +1551,7 @@ class BlendNode(Node):
         indexer = util.level_specific_indexer(self.active_coefficients_total, 'supply_node', self.residual_supply_node_id)    
         remainder = 1- self.active_coefficients_total.sum().to_frame()
         existing_residual = self.active_coefficients_total.loc[indexer,:].sum().to_frame()
+        existing_residual.replace(0, 1e-25,inplace=True)
         growth_factor = DfOper.divi([DfOper.add([remainder,existing_residual]), existing_residual])
         indexer = util.level_specific_indexer(self.values.loc[:,year].to_frame(), 'supply_node', self.residual_supply_node_id)
         self.values.loc[indexer,year] = DfOper.mult([self.values.loc[indexer, year].to_frame(), growth_factor]).values
@@ -1439,9 +1561,10 @@ class BlendNode(Node):
         self.values = util.reindex_df_level_with_new_elements(self.values,'supply_node', self.nodes, fill_value = 1e-25)
         if 'demand_sector' not in self.values.index.names:
             self.values = util.expand_multi(self.values, self.demand_sectors, ['demand_sector'], incremental=True)
-            self.values = self.values.swaplevel('demand_sector', 'supply_node')
+#            self.values = self.values.swaplevel('demand_sector', 'supply_node')
         self.values['efficiency_type'] = 2
         self.values.set_index('efficiency_type', append=True, inplace=True)
+        self.values = self.values.reorder_levels([self.geography,'demand_sector','supply_node','efficiency_type','year'])
         self.values = self.values.sort()        
         
          
@@ -1449,7 +1572,6 @@ class BlendNode(Node):
         """creats an empty df with the value for the residual node of 1. For nodes with no blend measures specified"""
         df_index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors, self.nodes, self.years, [2]], names=[cfg.cfgfile.get('case','primary_geography'), 'demand_sector','supply_node','year','efficiency_type' ])
         self.values = util.empty_df(index=df_index,columns=['value'],fill_value=0.0)
-
         indexer = util.level_specific_indexer(self.values, 'supply_node', self.residual_supply_node_id)
         self.values.loc[indexer, 'value'] = 1
         self.values = self.values.unstack(level='year')    
@@ -1740,6 +1862,7 @@ class SupplyNode(Node,StockItem):
             self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,'efficiency_type')     
             self.active_coefficients_total = DfOper.mult([self.active_coefficients_total_untraded, self.active_trade_adjustment_df])
             self.active_coefficients_untraded = copy.deepcopy(self.active_coefficients)
+            self.active_coefficients_untraded.sort(inplace=True,axis=0)
             keys = list(set(util.ensure_iterable_and_not_string(self.active_coefficients.index.get_level_values('efficiency_type'))))
             name = ['efficiency_type']
             active_trade_adjustment_df = pd.concat([self.active_trade_adjustment_df]*len(keys), keys=keys, names=name)
@@ -2895,6 +3018,7 @@ class SupplyStockNode(Node):
             name = ['demand_sector']
             self.active_coefficients = util.remove_df_levels(pd.concat([self.stock.coefficients.loc[:,year].to_frame()]*len(keys), keys=keys,names=name).fillna(0),['supply_technology', 'vintage','resource_bins'])              
             self.active_coefficients_untraded = copy.deepcopy(self.active_coefficients)
+            self.active_coefficients_untraded.sort(inplace=True,axis=0)
             self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([cfg.cfgfile.get('case','primary_geography'),'demand_sector', 'supply_node']).sort().fillna(0)      
         else:            
             self.active_coefficients = util.remove_df_levels(self.stock.coefficients.loc[:,year].to_frame().fillna(0),['supply_technology', 'vintage','resource_bins'])              

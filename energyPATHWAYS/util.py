@@ -22,7 +22,7 @@ import inspect
 import matplotlib
 from matplotlib import cm
 import os as _os
-matplotlib.style.use('ggplot')
+#matplotlib.style.use('ggplot')
 import math
 import scipy.special
 import copy
@@ -557,9 +557,12 @@ def replace_index_name(df, replace_label, label=None):
     df.index.names = [replace_label if x == label else x for x in df.index.names]
 
 
-def ix_excl(df, exclude=None):
+def ix_excl(df, exclude=None,axis=0):
     exclude = ensure_iterable_and_not_string(exclude)
-    return [x for x in df.index.names if x not in exclude]
+    if axis == 0:
+        return [x for x in df.index.names if x not in exclude]
+    if axis == 1:
+        return [x for x in df.columns.names if x not in exclude]
 
 
 def ix_incl(df, include=None):
@@ -1293,7 +1296,14 @@ def reindex_df_level_with_new_elements(df, level_name, new_elements, fill_value=
         const_labels = OrderedSet([tuple([z if i != index_i else -1 for i, z in enumerate(lab)]) for lab in zip(*df.index.labels)])
         new_labels = flatten_list([[tuple([z if i != index_i else n for i, z in enumerate(lab)]) for n in range(len(new_elements))] for lab in const_labels])
         full_elements = [new_elements if name == level_name else level for name, level in zip(df.index.names, df.index.levels)]
+#        try:
         return df.reindex(index=pd.MultiIndex(levels=full_elements, labels=zip(*new_labels), names=df.index.names), fill_value=fill_value)
+#        except:
+#            print df
+#            print full_elements
+#            print zip(*new_labels)
+#            print df.index.names
+
     else:
         return df.reindex(index=pd.Index(new_elements, name=df.index.name), fill_value=fill_value)
 
