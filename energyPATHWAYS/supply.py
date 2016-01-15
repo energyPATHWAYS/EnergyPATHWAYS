@@ -403,6 +403,7 @@ class Supply(object):
                 diag = np.ndarray(df.values.shape)
                 np.fill_diagonal(diag,1)
                 df *= supply_df.values*diag
+                
                 self.non_dispatchable_supply[wire][node_id] = self.geo_map_non_dispatchable(df,
                                          self.geography, self.dispatch_geography,
                                          geography_map_key)
@@ -410,38 +411,45 @@ class Supply(object):
     def geo_map_non_dispatchable(self,df,old_geography, new_geography, geography_map_key):
         keys=cfg.geo.geographies[new_geography]
         name = [new_geography]
-        df = pd.concat([df] * len(keys),keys=keys,names=name,axis=0)
+#       df = pd.concat([df] * len(keys),keys=keys,names=name,axis=0)
         df = pd.concat([df] * len(keys),keys=keys,names=name,axis=1)
-        map_df = cfg.geo.map_df(new_geography,old_geography,geography_map_key,eliminate_zeros=False)
+        df.sort(inplace=True,axis=1)
+        df.sort(inplace=True,axis=0)
+        map_df = cfg.geo.map_df(new_geography,old_geography,geography_map_key,eliminate_zeros=False).transpose()
         names = [x for x in df.index.names if x not in map_df.index.names]
         names.reverse()
         for name in names:
             keys=list(set(df.index.get_level_values(name)))
             map_df = pd.concat([map_df]*len(keys),keys=keys,names=[name])
+        map_df.index = map_df.index.droplevel(None)
+#        self.map_df_lookup = copy.deepcopy(map_df)
+#        map_df = map_df*0
         names = [x for x in df.columns.names if x not in map_df.columns.names]
         names.reverse()
         keys = []
         for name in names:
             keys = list(set(df.columns.get_level_values(name)))
-            map_df = pd.concat([map_df]*len(keys),keys=keys,names=[name],axis=1)  
-        map_df.columns = map_df.columns.droplevel(None)
+            map_df = pd.concat([map_df]*len(keys),keys=keys,names=[name],axis=1)
         map_df=map_df.reorder_levels(df.index.names,axis=0)
         map_df = map_df.reorder_levels(df.columns.names,axis=1)
         map_df.sort(inplace=True,axis=0)
         map_df.sort(inplace=True,axis=1)
-        old_geographies = list(set(map_df.index.get_level_values(old_geography)))
-        new_geographies =list(set(map_df.index.get_level_values(new_geography)))
-#        print map_df
-        self.map_df = map_df
+        old_geographies = list(set(map_df.columns.get_level_values(old_geography)))
+        new_geographies =list(set(map_df.columns.get_level_values(new_geography)))
         for old in old_geographies:
             for new in new_geographies:
-                row_indexer = util.level_specific_indexer(map_df,[old_geography],[old],axis=0)
-                col_indexer = util.level_specific_indexer(map_df,[old_geography],[old],axis=1)
-                map_df.loc[:,col_indexer] = map_df.loc[row_indexer,:].values.T *  map_df.loc[:,col_indexer].values
-#        print map_df
-        self.map_df = map_df
+#                for sector in self.demand_sectors:
+#                    row_indexer_lookup = util.level_specific_indexer(self.map_df_lookup,[old_geography,'demand_sector'],[old,sector],axis=0)
+                    row_indexer = util.level_specific_indexer(df,[old_geography],[old],axis=0)
+                    col_indexer = util.level_specific_indexer(df,[old_geography,new_geography],[old,new],axis=1)
+                    shape = (df.loc[row_indexer,col_indexer].values.shape)
+                    diag = np.ndarray(shape)
+                    np.fill_diagonal(diag,1)
+#                    map_df.loc[row_indexer,col_indexer] = np.resize(self.map_df_lookup.loc[row_indexer_lookup,:].values,shape)*np.resize(self.map_df_lookup.loc[row_indexer_lookup,:].values,shape).T
+#        self.map_df = map_df
+#        self.df = df
         df *= map_df.values
-        df = df.groupby(level=util.ix_excl(df,[old_geography,'supply_node'],axis=0),axis=0).sum()
+#        df = df.groupby(level=util.ix_excl(df,[old_geography,'supply_node'],axis=0),axis=0).sum()
         df = df.groupby(level=util.ix_excl(df,old_geography,axis=1),axis=1).sum()
         return df
                         
@@ -1482,9 +1490,8 @@ class BlendNode(Node):
             measures.append(measure.values)
         if len(measures):
             self.values = pd.concat(measures)
-            print self.values
             self.calculate_residual()
-            print self.values
+
         else:
             self.set_residual()
         self.set_adjustments()
@@ -1513,7 +1520,7 @@ class BlendNode(Node):
          # remove duplicates where a node is specified and is specified as residual node
          self.values = self.values.groupby(level=self.values.index.names).sum()
          # set negative values to 0
-         self.values.loc[self.values['value'] < 0, 'value'] = 0
+         self.values.loc[self.values['value'] <= 0, 'value'] = 1e-25
          self.expand_blend()
          self.values = self.values.unstack(level='year')    
          self.values.columns = self.values.columns.droplevel()
@@ -1540,7 +1547,7 @@ class BlendNode(Node):
         # remove duplicates where a node is specified and is specified as residual node
         self.values.loc[:,year] = self.values.loc[:,year].groupby(level=self.values.index.names).sum()
         # set negative values to 0
-        self.values[self.values < 0] = 0
+        self.values[self.values <= 0] = 1e-25
          
     def update_reconciled_residual(self, year):
         """calculates values for residual node in Blend Node dataframe
