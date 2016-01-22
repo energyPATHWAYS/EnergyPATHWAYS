@@ -6,7 +6,6 @@ import util
 import pandas as pd
 import numpy as np
 from datamapfunctions import DataMapFunctions, Abstract
-import e3
 import copy
 import time
 from util import DfOper
