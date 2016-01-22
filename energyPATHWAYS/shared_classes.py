@@ -47,41 +47,46 @@ class StockItem (object):
                 self.lifetime_variance = ((self.max_lifetime - self.min_lifetime) / 2. * .5) ** 2  # approximate
             self.weibull_beta_parameter = util.find_weibul_beta(self.mean_lifetime*self.spy, self.lifetime_variance*self.spy**2)
             self.weibull_alpha_parameter = self.mean_lifetime*self.spy / util.mean_weibul_factor(self.weibull_beta_parameter)
+            self.max_survival_periods = max((self.mean_lifetime + np.sqrt(self.lifetime_variance)*10), len(self.years))*self.spy + 1
 
         elif self.stock_decay_function == 'linear':
             if self.min_lifetime is None and self.min_lifetime is not None and self.lifetime_variance is not None:
                 self.min_lifetime = self.mean_lifetime - 2 * self.lifetime_variance ** .5  # approximate
             if self.max_lifetime is None and self.min_lifetime is not None and self.lifetime_variance is not None:
                 self.max_lifetime = self.mean_lifetime + 2 * self.lifetime_variance ** .5  # approximate
+            self.max_survival_periods = max(self.max_lifetime, len(self.years))*self.spy + 1
 
         elif self.stock_decay_function == 'exponential':
             if self.mean_lifetime is None and self.min_lifetime is not None and self.max_lifetime is not None:
                 self.mean_lifetime = self.min_lifetime + (self.max_lifetime - self.min_lifetime) / 2.
+            self.max_survival_periods = max((self.mean_lifetime + np.sqrt(self.lifetime_variance)*10), len(self.years))*self.spy + 1
 
-    def set_survival_vintaged(self):
+    def calc_survival_vintaged(self, periods):
         if self.stock_decay_function == 'weibull':
-            self.survival_vintaged = np.exp(-(np.arange(len(self.years)*self.spy + 1) / self.weibull_alpha_parameter) ** self.weibull_beta_parameter)
+            return np.exp(-(np.arange(periods) / self.weibull_alpha_parameter) ** self.weibull_beta_parameter)
         elif self.stock_decay_function == 'linear':
             start = [1] * int(round(self.min_lifetime*self.spy))
             middle = np.linspace(1, 0, int(round((self.max_lifetime - self.min_lifetime)*self.spy)) + 1)
-            end = [0] * (len(self.years) - len(start) - len(middle))*self.spy
-            self.survival_vintaged = np.concatenate((start, middle, end))
+            end = [0] * max(periods - (len(start) + len(middle)), 0)
+            return np.concatenate((start, middle, end))[:periods]
         elif self.stock_decay_function == 'exponential':
             rate = 1. / (self.mean_lifetime*self.spy)
-            self.survival_vintaged = np.exp(-rate * np.arange(len(self.years)*self.spy))
+            return np.exp(-rate * np.arange(periods))
         else:
             raise ValueError('Unsupported stock decay function for stock id %s' % self.id)
+
+    def set_survival_vintaged(self):
+        periods = len(self.years)*self.spy + 1
+        self.survival_vintaged = self.calc_survival_vintaged(periods)
 
     def set_decay_vintaged(self):
         if not hasattr(self, 'survival_vintaged'):
             self.set_survival_vintaged()
-        # self.decay_vintaged = np.append([0.], np.diff(-self.survival_vintaged)[:-1])
         self.decay_vintaged = np.append([0.], np.diff(-self.survival_vintaged))
 
     def set_survival_initial_stock(self):
-        if not hasattr(self, 'survival_vintaged'):
-            self.set_survival_vintaged()
-        self.survival_initial_stock = np.array([np.sum(self.survival_vintaged[i:]) for i in range(int(len(self.years)*self.spy + 1))])
+        long_survival_vintaged = self.calc_survival_vintaged(self.max_survival_periods)
+        self.survival_initial_stock = np.array([np.sum(long_survival_vintaged[i:]) for i in range(int(len(self.years)*self.spy + 1))])
         self.survival_initial_stock /= self.survival_initial_stock[0]
 
     def set_decay_initial_stock(self):

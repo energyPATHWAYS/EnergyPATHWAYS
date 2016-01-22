@@ -279,7 +279,7 @@ class Rollover(object):
             self.stock_change_by_tech *= (self.stock_changes[i] + self.rolloff_summed) / np.sum(self.stock_change_by_tech)
             self.stock_change_by_tech[self.specified] = np.nanmax((self.defined_sales[self.specified], self.stock_change_by_tech[self.specified]), axis=0)
             if np.sum(self.stock_change_by_tech[self.solvable]):
-                self.stock_change_by_tech[self.solvable] *= (self.stock_changes[i]-np.sum(self.stock_change_by_tech[self.specified])) / np.sum(self.stock_change_by_tech[self.solvable])
+                self.stock_change_by_tech[self.solvable] *= (np.sum(self.stock_change_by_tech)-np.sum(self.stock_change_by_tech[self.specified])) / np.sum(self.stock_change_by_tech[self.solvable])
         else:
             if len(self.specified):
                 self.stock_change_by_tech[self.specified] = self.defined_sales[self.specified]
