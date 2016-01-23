@@ -645,6 +645,8 @@ class ExportMethods:
             return getattr(obj, 'name')
         else:
             return default
+            
+    @staticmethod        
     def checkexistormakedir(path):
         '''Checks to see if a directory exists, and creates it if not
         '''

@@ -385,7 +385,7 @@ class Rollover(object):
         if np.any(np.isnan(self.stock)):
             raise ValueError('Stock values of NaN encountered while checking outputs')
         
-        if np.any(np.round(self.stock,6)<0):
+        if np.any(self.stock<0):
             raise ValueError('Negative stock values encountered while checking outputs')
 
     def calculate_outputs(self, list_steps):

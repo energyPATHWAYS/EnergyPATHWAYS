@@ -14,7 +14,7 @@ db_path = os.path.join(directory, 'pathways.db')
 custom_pint_definitions_path = os.path.join(directory, 'unit_defs.txt')
 
 ###########
-resolve = True
+resolve = False
 ###########
 
 if __name__ == "__main__":
