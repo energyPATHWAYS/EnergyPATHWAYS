@@ -2059,40 +2059,40 @@ class Subsector(DataMapFunctions):
         This vector can then be multiplied by clothes washing service demand to create an additional driver for water heating         
         
         """
-        stock_df = copy.deepcopy(getattr(self.stock, 'values_normal'))
-        groupby_level = util.ix_excl(stock_df, ['vintage'])
-        stock_rollover_groups = stock_df.groupby(level=groupby_level).groups
+#        stock_df = copy.deepcopy(getattr(self.stock, 'values_normal'))
+#        groupby_level = util.ix_excl(stock_df, ['vintage'])
+#        stock_rollover_groups = stock_df.groupby(level=groupby_level).groups
         # determines index position for technology and final energy element          
         for id in self.service_links:
-            c = copy.deepcopy(stock_df)
+#            c = copy.deepcopy(stock_df)
             link = self.service_links[id]
-            for tech in self.technologies:
-                tech_links = self.technologies[tech].service_links
-                tech_link = tech_links[id] if tech_links.has_key(id) and tech_links[id].empty is not True else False
-                if tech_link is not False:
-                    tech_link.values = util.expand_multi(tech_link.values, stock_df.index.levels,
-                                                         stock_df.index.names, drop_index=['technology']).fillna(
-                        method='bfill')
-                    for elements in stock_rollover_groups.keys():
-                        elements = util.ensure_tuple(elements)
-                        # removes the tech element for technology dataframe indexer
-                        tech_elements = util.tuple_subset(elements, groupby_level, ['technology'])
-                        # if the technology service efficiency data is not empty, we multiply the normalized stock by
-                        # the technology service efficiency. Otherwise we do nothing, which is equivalent to saying
-                        # the technology service efficiency is 1.
-                        c.loc[elements] = tech_link.values.loc[tech_elements].values * stock_df.loc[elements].values
-            # sum over technology and vintage to get a total stock service efficiency
-            link.values = c.groupby(level=util.ix_excl(c, ['vintage', 'technology'])).sum()
+            link.values = self.rollover_output_dict(tech_dict='service_links',tech_dict_key=id, tech_att='values', stock_att='values_normal')
+#            for tech in self.technologies:
+#                tech_links = self.technologies[tech].service_links
+#                tech_link = tech_links[id] if tech_links.has_key(id) and tech_links[id].empty is not True else False
+#                if tech_link is not False:
+#                    tech_link.values = util.expand_multi(tech_link.values, stock_df.index.levels,
+#                                                         stock_df.index.names, drop_index=['technology']).fillna(
+#                        method='bfill')
+#                    for elements in stock_rollover_groups.keys():
+#                        elements = util.ensure_tuple(elements)
+#                        # removes the tech element for technology dataframe indexer
+#                        tech_elements = util.tuple_subset(elements, groupby_level, ['technology'])
+#                        # if the technology service efficiency data is not empty, we multiply the normalized stock by
+#                        # the technology service efficiency. Otherwise we do nothing, which is equivalent to saying
+#                        # the technology service efficiency is 1.
+#                        c.loc[elements] = tech_link.values.loc[tech_elements].values * stock_df.loc[elements].values
+#            # sum over technology and vintage to get a total stock service efficiency
+            link.values = util.remove_df_levels(link.values,['technology', 'vintage'])
             # normalize stock service efficiency to calibration year
             values = link.values.as_matrix()
             calibration_values = link.values[link.year].as_matrix()
-            calibration_values = np.resize(calibration_values,
-                                           (calibration_values.shape[0], len(link.values.columns.values)))
-            new_values = 1 - values / calibration_values
-            link.new_values = new_values
+            calibration_values = np.column_stack(calibration_values).T
+            new_values = 1-(values / calibration_values)
             # calculate weighted after service efficiency as a function of service demand share
-            new_values = (link.service_demand_share * new_values)
+            new_values = (link.service_demand_share * new_values) 
             link.values = pd.DataFrame(new_values, link.values.index, link.values.columns.values)
+            link.values.fillna(0,inplace=True)
 
     def reformat_service_demand(self):
         """
@@ -2108,6 +2108,8 @@ class Subsector(DataMapFunctions):
         ex. to produce levelized costs for all new vehicles, it takes the capital_costs_new class, the 'values_level' attribute, and the 'values'
         attribute of the stock
         """
+        
+        
         stock_df = getattr(self.stock, stock_att)
         groupby_level = util.ix_excl(stock_df, ['vintage'])
         # determines index position for technology and final energy element          
@@ -2141,6 +2143,45 @@ class Subsector(DataMapFunctions):
         if 'final_energy' in c.index.names:
             c = util.remove_df_elements(c, 9999, 'final_energy')
         return c
+        
+        
+        
+    def rollover_output_dict(self, tech_dict=None, tech_dict_key=None, tech_att='values', stock_att=None,
+                        stack_label=None, other_aggregate_levels=None, efficiency=False):
+        """ Produces rollover outputs for a subsector stock based on the tech_att class, att of the class, and the attribute of the stock
+        ex. to produce levelized costs for all new vehicles, it takes the capital_costs_new class, the 'values_level' attribute, and the 'values'
+        attribute of the stock
+        """
+               
+        stock_df = getattr(self.stock, stock_att)
+        groupby_level = util.ix_excl(stock_df, ['vintage'])
+        # determines index position for technology and final energy element          
+        c = util.empty_df(stock_df.index, stock_df.columns.values, fill_value=0.)
+        # puts technologies on the appropriate basis
+        tech_dfs = []
+        tech_dfs += ([self.reformat_tech_df_dict(stock_df = stock_df, tech=tech, tech_dict=tech_dict,
+                                                 tech_dict_key=tech_dict_key, tech_att=tech_att, id=tech.id, efficiency=efficiency) for tech in self.technologies.values()]) 
+        if len(tech_dfs):
+            tech_df = pd.concat(tech_dfs)
+        # TODO get rid of reindex by using multindex operation
+            tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names])
+            tech_df = tech_df.sort()
+        # TODO figure a better way
+#            tech_df = util.expand_multi(tech_df, stock_df.index.levels, stock_df.index.names).fillna(method='bfill')
+            c = DfOper.mult((tech_df, stock_df), expandable=(True, False), collapsible=(False, True))
+        else:
+            util.empty_df(stock_df.index, stock_df.columns.values, 0.)
+        if stack_label is not None:
+            c = c.stack()
+            util.replace_index_name(c, stack_label)
+            util.replace_column_name(c, 'value')
+        if other_aggregate_levels is not None:
+            groupby_level = util.ix_excl(c, other_aggregate_levels)
+            c = c.groupby(level=groupby_level).sum()
+        # TODO fix
+        if 'final_energy' in c.index.names:
+            c = util.remove_df_elements(c, 9999, 'final_energy')
+        return c
 
     def reformat_tech_df(self, stock_df, tech, tech_class, tech_att, id, efficiency=False):
         """
@@ -2158,6 +2199,23 @@ class Subsector(DataMapFunctions):
             tech_df['final_energy'] = final_energy_id
             tech_df.set_index('final_energy', append=True, inplace=True)
         return tech_df
+
+    def reformat_tech_df_dict(self, stock_df, tech, tech_dict, tech_dict_key, tech_att, id, efficiency=False):
+        """
+        reformat technoology dataframes for use in stock-level dataframe operations
+        """
+        if getattr(tech,tech_dict).has_key(tech_dict_key):
+            tech_df = getattr(getattr(tech,tech_dict)[tech_dict_key],tech_att)
+            if 'technology' not in tech_df.index.names:
+                tech_df['technology'] = id
+                tech_df.set_index('technology', append=True, inplace=True)
+            if efficiency is True and 'final_energy' not in tech_df.index.names:
+                final_energy_id = getattr(getattr(tech,tech_dict)[tech_dict_key], 'final_energy_id')
+                tech_df['final_energy'] = final_energy_id
+                tech_df.set_index('final_energy', append=True, inplace=True)
+            return tech_df
+
+
 
     def calculate_energy_stock(self):
         """

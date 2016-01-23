@@ -2332,9 +2332,6 @@ class SupplyStockNode(Node):
     def calculate_oversupply(self, year, loop):
         """calculates whether the stock would oversupply the IO requirement and returns an oversupply adjustment factor."""  
         if hasattr(self,'stock'):  
-            if self.id == 9:
-                print self.stock.requirement_energy.loc[:,year].to_frame()
-                print self.active_supply.groupby(level='census region').sum()
             oversupply_adjustment = DfOper.divi([self.stock.requirement_energy.loc[:,year].to_frame(), self.throughput], expandable=(False,False), collapsible=(True,True)).fillna(1)
             if (oversupply_adjustment.values>1).any():
                 return oversupply_adjustment

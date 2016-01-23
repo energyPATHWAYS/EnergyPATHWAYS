@@ -107,5 +107,5 @@ class PathwaysModel(object):
         for attribute in dir(self.demand.outputs):
             if isinstance(getattr(self.demand.outputs,attribute),pd.DataFrame):
                 result_df = self.demand.outputs.return_cleaned_output(attribute)
-                ExportMethods.writedataframe(attribute,result_df,os.path.join(os.getcwd(),'outputs'))
+                ExportMethods.writeobj(attribute,result_df,os.path.join(os.getcwd(),'outputs'))
                 
