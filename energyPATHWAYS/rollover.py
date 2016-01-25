@@ -171,7 +171,7 @@ class Rollover(object):
             temp_prinxy[retireable] = np.clip(temp_prinxy[retireable] + inc, 0, self.num_years - 1)
             old_rolloff, new_rolloff = new_rolloff, np.sum(self.calc_stock_rolloff(temp_prinxy))
         temp_prinxy[retireable] -= inc * (
-            1 - (incremental_retirement + starting_rolloff - old_rolloff) / (new_rolloff - old_rolloff))
+            1. - (incremental_retirement + starting_rolloff - old_rolloff) / (new_rolloff - old_rolloff))
         self.prinxy = temp_prinxy
 
     def calc_remaining_stock_initial(self):
@@ -286,7 +286,8 @@ class Rollover(object):
             
             # True up the residual
             if np.sum(self.stock_change_by_tech[self.solvable]):
-                self.stock_change_by_tech[self.solvable] *= round((self.stock_changes[i] + self.rolloff_summed) - self.sum_defined_sales, 9) / np.sum(self.stock_change_by_tech[self.solvable])
+                self.stock_change_by_tech[self.solvable] *= round(((self.stock_changes[i] + self.rolloff_summed) - self.sum_defined_sales), 9) / np.sum(self.stock_change_by_tech[self.solvable])
+                self.stock_change_by_tech[self.solvable] = np.clip(self.stock_change_by_tech[self.solvable], 0, None) #sometimes you can get small negatives based on the rounding elsewhere
 
     def set_final_sales(self):        
         # gross up for retirements within the period (approximation)

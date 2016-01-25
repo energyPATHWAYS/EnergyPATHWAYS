@@ -14,7 +14,7 @@ db_path = os.path.join(directory, 'pathways.db')
 custom_pint_definitions_path = os.path.join(directory, 'unit_defs.txt')
 
 ###########
-resolve = False
+resolve = True
 ###########
 
 if __name__ == "__main__":
@@ -26,8 +26,6 @@ if __name__ == "__main__":
         model.calculate_demand_only()
         model.pass_results_to_supply()
         model.calculate_supply()
-        
-
 
         with open(os.path.join(directory, 'model.p'), 'wb') as outfile:
             pickle.dump(model, outfile)
@@ -39,4 +37,5 @@ if __name__ == "__main__":
     model.supply.calculate_loop()
     model.pass_results_to_demand()
     model.export_results()
+
 
