@@ -58,6 +58,11 @@ target/
 
 # Database
 /us_model_example/pathways.db
+/.idea/misc.xml
+/.idea/vcs.xml
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/encodings.xml
 
 # Temp model copy
 /us_model_example/model.p
