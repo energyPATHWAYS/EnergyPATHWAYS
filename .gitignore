@@ -61,3 +61,6 @@ target/
 
 # Temp model copy
 /us_model_example/model.p
+
+# Results
+/us_model_example/outputs/
