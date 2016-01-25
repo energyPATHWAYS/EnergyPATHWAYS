@@ -5,6 +5,7 @@ __pycache__/
 # C extensions
 *.so
 
+
 # Distribution / packaging
 .Python
 env/
@@ -63,6 +64,7 @@ target/
 /.idea/modules.xml
 /.idea/workspace.xml
 /.idea/encodings.xml
+/.idea/energyPATHWAYS.iml
 
 # Temp model copy
 /us_model_example/model.p
