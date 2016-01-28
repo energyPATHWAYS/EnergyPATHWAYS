@@ -56,6 +56,9 @@ docs/_build/
 # PyBuilder
 target/
 
+# IDE
+.idea/
+
 # Database
 /us_model_example/pathways.db
 
