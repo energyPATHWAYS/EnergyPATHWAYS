@@ -63,6 +63,12 @@ class TestRollover(unittest.TestCase):
         self.vintaged_markov_matrix = None
         self.initial_markov_matrix = None
 
+    # helper method to succinctly set up a rollover, run it, and return outputs
+    def outputs_for(self, *args, **kwargs):
+        rollover = energyPATHWAYS.rollover.Rollover(*args, **kwargs)
+        rollover.run()
+        return rollover.return_formatted_outputs()
+
     def test_basic_stock_changes(self):
         # just some example inputs
         initial_stock = 10000
@@ -71,8 +77,7 @@ class TestRollover(unittest.TestCase):
         
         # set of rollover object
         rollover = energyPATHWAYS.rollover.Rollover(self.vintaged_markov_matrix, self.initial_markov_matrix, self.num_years, self.num_vintages, self.num_techs,
-                                                    initial_stock=initial_stock, sales_share=None, stock_changes=stock_changes, specified_stock=None,
-                                                    specified_retirements=None, specified_sales=None, steps_per_year=1, stock_changes_as_min=False)
+                                                    initial_stock=initial_stock, stock_changes=stock_changes)
         
         # run the rollover
         rollover.run()
@@ -81,3 +86,78 @@ class TestRollover(unittest.TestCase):
         stock_total, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = rollover.return_formatted_outputs()
         #ipdb.set_trace()
         self.assertAlmostEqual(stock_total[:, -1].sum(), initial_stock + change_per_year * self.num_years)
+
+    @unittest.skip("currently rollover returns zeros if output is requested prematurely; should raise an error since this is unlikely to be what the user wants")
+    def test_premature_output_request(self):
+        rollover = energyPATHWAYS.rollover.Rollover(self.vintaged_markov_matrix, self.initial_markov_matrix, self.num_years, self.num_vintages, self.num_techs)
+
+        # Ask for outputs before the rollover has run()
+        with self.assertRaises(RuntimeError):
+            rollover.return_formatted_outputs()
+
+    def test_basic_specified_stock(self):
+        constant_stock = 1000
+        specified_stock = np.array([constant_stock]*self.num_years)
+
+        output = self.outputs_for(self.vintaged_markov_matrix, self.initial_markov_matrix, self.num_years, self.num_vintages, self.num_techs,
+                                  specified_stock=specified_stock)
+
+        self.assertAlmostEqual(output[0][:, -1].sum(), constant_stock)
+
+    # The next few tests see which inputs "win" when there's a conflict. Arguably in some of these cases the response
+    # should be to raise an exception rather than have some input silently disregarded, but we'll start by
+    # characterizing the current behavior.
+
+    # specified_stock "wins" and overrides the initial_stock
+    def test_specified_stock_initial_stock_conflict(self):
+        initial_stock = 10000
+        constant_stock = 1000
+        specified_stock = np.array([constant_stock]*self.num_years)
+
+        output = self.outputs_for(self.vintaged_markov_matrix, self.initial_markov_matrix, self.num_years, self.num_vintages, self.num_techs,
+                                  initial_stock=initial_stock, specified_stock=specified_stock)
+
+        # check that the first and last year's total stock is equal to the constant stock
+        self.assertAlmostEqual(output[0][:, 0].sum(), constant_stock)
+        self.assertAlmostEqual(output[0][:, -1].sum(), constant_stock)
+
+    # specified_stock "wins" and overrides the stock_changes
+    def test_specified_stock_stock_change_conflict(self):
+        constant_stock = 10000
+        specified_stock = np.array([constant_stock]*self.num_years)
+        change_per_year = 500
+        stock_changes = np.array([change_per_year]*self.num_years)
+
+        output = self.outputs_for(self.vintaged_markov_matrix, self.initial_markov_matrix, self.num_years, self.num_vintages, self.num_techs,
+                                  stock_changes=stock_changes, specified_stock=specified_stock)
+
+        # check that the first and last year's total stock is equal to the constant stock
+        self.assertAlmostEqual(output[0][:, 0].sum(), constant_stock)
+        self.assertAlmostEqual(output[0][:, -1].sum(), constant_stock)
+
+    # specified_sales "wins" and overrides stock_changes
+    # I believe the result we see is a combination of specified sales and natural rolloff, but this should be confirmed
+    def test_specified_sales_stock_change_conflict(self):
+        sales_per_year = 100
+        specified_sales = np.array([sales_per_year]*self.num_years)
+        change_per_year = 500
+        stock_changes = np.array([change_per_year]*self.num_years)
+
+        output = self.outputs_for(self.vintaged_markov_matrix, self.initial_markov_matrix, self.num_years, self.num_vintages, self.num_techs,
+                                  stock_changes=stock_changes, specified_sales=specified_sales)
+
+        self.assertAlmostEqual(output[0][:, 0].sum(), sales_per_year)
+        self.assertAlmostEqual(output[0][:, -1].sum(), 1050, places=5)
+
+    # this one does raise an exception noting that the specified sales and specified stock conflict
+    def test_specified_sales_specified_stock_conflict(self):
+        sales_per_year = 100
+        specified_sales = np.array([sales_per_year]*self.num_years)
+        constant_stock = 10000
+        specified_stock = np.array([constant_stock]*self.num_years)
+
+        rollover = energyPATHWAYS.rollover.Rollover(self.vintaged_markov_matrix, self.initial_markov_matrix, self.num_years, self.num_vintages, self.num_techs,
+                                                    specified_stock=specified_stock, specified_sales=specified_sales)
+
+        with self.assertRaises(RuntimeError):
+            rollover.run()
