@@ -14,7 +14,7 @@ In addition to installation of the energyPATHWAYS package, a model cannot be cre
 - Configuration file (an example is given in energyPATHWAYS/us_model_example)
 - Custom unit definitions (an example is given in energyPATHWAYS/us_model_example)
 
-Also located inside of the us_model_example folder is a script that shows how a pathways model can be made and executed. This documentation will become more developed over time as the energyPATHWAYS tool grows and the user community expands.
+Also located inside of the us_model_example folder is a script (main.py) that shows how a pathways model can be made and executed; after running the script, look in the output/ subdirectory for your results (it will be created if it doesn't exist). This documentation will become more developed over time as the energyPATHWAYS tool grows and the user community expands.
 
 
 ## Background
