@@ -125,6 +125,7 @@ class PathwaysModel(object):
         #calculate and format export costs
         setattr(self.outputs,'export_costs',self.supply.export_costs)
         self.export_costs_df = self.outputs.return_cleaned_output('export_costs')
+        del self.outputs.export_costs
         util.replace_index_name(self.export_costs_df, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
         keys = ["EXPORT","SUPPLY"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
@@ -132,14 +133,14 @@ class PathwaysModel(object):
             self.export_costs_df = pd.concat([self.export_costs_df],keys=[key],names=[name])
         #calculate and format emobodied supply costs
         self.embodied_energy_costs_df = self.demand.outputs.return_cleaned_output('demand_embodied_energy_costs')
-#        del self.demand.outputs.demand_embodied_emissions
+        del self.demand.outputs.demand_embodied_energy_costs
         keys = ["DOMESTIC","SUPPLY"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
            self.embodied_energy_costs_df = pd.concat([self.embodied_energy_costs_df],keys=[key],names=[name])       
         #calculte and format direct demand emissions        
         self.demand_costs_df= self.demand.outputs.return_cleaned_output('levelized_costs')  
-#        del self.demand.outputs.demand_direct_emissions
+        del self.demand.outputs.levelized_costs
         keys = ["DOMESTIC","DEMAND"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
@@ -163,7 +164,7 @@ class PathwaysModel(object):
         #calculate and format export emissions
         setattr(self.outputs,'export_emissions',self.supply.export_emissions)
         self.export_emissions_df = self.outputs.return_cleaned_output('export_emissions')
-#        del self.outputs.export_emissions
+        del self.outputs.export_emissions
         util.replace_index_name(self.export_emissions_df, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
         keys = ["EXPORT","SUPPLY"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
@@ -171,14 +172,14 @@ class PathwaysModel(object):
             self.export_emissions_df = pd.concat([self.export_emissions_df],keys=[key],names=[name])
         #calculate and format emobodied supply emissions
         self.embodied_emissions_df = self.demand.outputs.return_cleaned_output('demand_embodied_emissions')
-#        del self.demand.outputs.demand_embodied_emissions
+        del self.demand.outputs.demand_embodied_emissions
         keys = ["DOMESTIC","SUPPLY"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
            self.embodied_emissions_df = pd.concat([self.embodied_emissions_df],keys=[key],names=[name])       
         #calculte and format direct demand emissions        
         self.direct_emissions_df= self.demand.outputs.return_cleaned_output('demand_direct_emissions')  
-#        del self.demand.outputs.demand_direct_emissions
+        del self.demand.outputs.demand_direct_emissions
         keys = ["DOMESTIC","DEMAND"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
