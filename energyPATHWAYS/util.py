@@ -33,9 +33,13 @@ import decimal
 
 from scipy.special import gamma
 
-def upper_dict(query):
-    return {} if query is None else dict([(id, name.upper()) for id, name in (query if is_iterable(query[0]) else [query])])    
-
+def upper_dict(query,append=None):
+    id_dict = {} if query is None else dict([(id, name.upper()) for id, name in (query if is_iterable(query[0]) else [query])])    
+    for key,value in id_dict.iteritems():
+        if append is not None:
+            id_dict[key] = value + append
+    return id_dict
+                
 def df_list_concatenate(df_list, keys, new_names, levels_to_keep=None):
     new_names = put_in_list(new_names)
     #remove any elements in the list that are not pandas df
@@ -571,10 +575,23 @@ def ix_incl(df, include=None):
     return include
 
 
-def replace_column_name(df, replace_label, label=None):
+def replace_column_name(df, replace_labels, labels=None):
     " Use replace_label to replace specified name label"
-    df.columns = [replace_label if x == label else x for x in df.columns.names]
+    if not isinstance(replace_labels,basestring):
+        for replace_label in replace_labels:
+                index = replace_labels.index(replace_label)
+                df.columns.names = [replace_label if x == labels[index]  else x for x in df.columns.names]
+    else:
+        df.columns.names = [replace_labels if x == labels else x for x in df.columns.names]
 
+def replace_column(df, replace_labels, labels=None):
+    " Use replace_label to replace specified name label"
+    if not isinstance(replace_labels,basestring):
+        for replace_label in replace_labels:
+                index = replace_labels.index(replace_label)
+                df.columns = [replace_label if x == labels[index]  else x for x in df.columns.names]
+    else:
+        df.columns= [replace_labels if x == labels else x for x in df.columns.names]
 
 def expand_multi(a, levels_list, levels_names, how='outer', incremental=False, drop_index=None):
     """
@@ -785,18 +802,19 @@ def book_life_df(book_life, vintages, years):
     return df
 
 
-def initial_book_life_df(book_life, vintages, years):
+def initial_book_life_df(book_life, mean_lifetime, vintages, years):
     """ creates a linear decay from initial year to mid-year of book life
     """
     years = np.asarray(years)
     vintages = np.asarray(vintages)
     vintages = np.concatenate(((min(vintages) - 1,), vintages))
     exist = np.zeros((len(vintages), len(years)))
+    maximum_remaining = .5 * book_life/float(mean_lifetime)
     for i, year in enumerate(years):
         for vintage in [vintages[0]]:
             # TODO Ryan, better assumption about remaining useful/book life?
             # Assumes that the stock at time 0 is 50% depreciated
-            exist[0, i] = max(1 - ((year - vintage)) / book_life, 0)
+            exist[0, i] = max(maximum_remaining * 1 - ((year-vintage)/float(book_life)),0)
     df = pd.DataFrame(exist, index=vintages, columns=years)
     df.index.rename('vintage', inplace=True)
     df.columns.names = [None]

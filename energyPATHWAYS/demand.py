@@ -17,7 +17,7 @@ from demand_measures import ServiceDemandMeasure, EnergyEfficiencyMeasure, FuelS
 from demand_technologies import DemandTechnology, SalesShare
 from rollover import Rollover
 from util import DfOper
-from outputs import DemandSideOutput
+from outputs import Output
 
 class Demand(object):
     def __init__(self, **kwargs):
@@ -25,29 +25,63 @@ class Demand(object):
         self.sectors = {}
         self.case = cfg.cfgfile.get('case', 'demand_case')
         self.case_id = util.sql_read_table('DemandCases', 'id', name=self.case)
-        self.outputs = DemandSideOutput()
-
+        self.outputs = Output()
+        self.geographies = cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]
+        self.geography = cfg.cfgfile.get('case', 'primary_geography')
+        
+        
     def aggregate_results(self):
         output_list = ['energy', 'stock', 'investment_costs', 'levelized_costs']
         for output in output_list:
             setattr(self.outputs, output, self.group_output(output))
             
-    def link_to_supply(self, emissions_link, energy_link, cost_link):   
-        setattr(self.outputs, 'emissions', self.group_linked_output(emissions_link))
-        setattr(self.outputs, 'energy_costs', self.group_linked_output(cost_link))
-        setattr(self.outputs, 'embodied_energy', self.group_linked_output(energy_link))
+    def link_to_supply(self, embodied_emissions_link, direct_emissions_link, energy_link, cost_link):   
+        print "linking supply emissions to energy demand"
+        setattr(self.outputs, 'demand_embodied_emissions', self.group_linked_output(embodied_emissions_link))
+        print "calculating direct demand emissions"
+        setattr(self.outputs, 'demand_direct_emissions',self.group_linked_output(direct_emissions_link) )
+        print "linking supply costs to energy demand"
+        setattr(self.outputs, 'demand_embodied_energy_costs', self.group_linked_output(cost_link))
+        print "linking supply energy to energy demand"
+        setattr(self.outputs, 'demand_embodied_energy', self.group_linked_output(energy_link))
+        
 
     def group_output(self, output_type, levels_to_keep=None):
         levels_to_keep = cfg.output_levels if levels_to_keep is None else levels_to_keep
-        df_list = [sector.group_output(output_type, levels_to_keep) for sector in self.sectors.values()]
-        keys = self.sectors.keys()
+#        levels_to_keep = ['census region', 'sector', 'subsector', 'final_energy', 'year', 'technology']
+        sector_lookup = [(sector_id, sector.group_output(output_type, levels_to_keep)) for sector_id,sector in self.sectors.iteritems()]
+        df_list = [x[1] for x in sector_lookup]
+        keys = [x[0] for x in sector_lookup if x[1] is not None]           
+#        df_list = [sector.group_output(output_type, levels_to_keep) for sector in self.sectors.values()]
+#        keys = self.sectors.keys()
         new_names = 'sector'
         return util.df_list_concatenate(df_list, keys, new_names, levels_to_keep)
     
     def group_linked_output(self, supply_link, levels_to_keep=None):
         levels_to_keep = cfg.output_levels if levels_to_keep is None else levels_to_keep
-        return  DfOper.mult([self.outputs.energy.groupby(level=levels_to_keep).sum(), supply_link])
-
+#        levels_to_keep = ['census region', 'sector', 'subsector', 'final_energy', 'year', 'technology']
+#        year_df_list = []
+        demand_df = self.outputs.energy.groupby(level=levels_to_keep).sum()
+#        years =  list(set(supply_link.index.get_level_values('year')))
+#        for year in years:
+#            print year
+        geography_df_list = []
+        for geography in self.geographies:
+            supply_indexer = util.level_specific_indexer(supply_link,[self.geography],[geography])
+            demand_indexer = util.level_specific_indexer(demand_df,[self.geography],[geography])
+#            levels = [x for x in ['supply_node', self.geography + "_supply",'final_energy'] if x in supply_link.index.names]
+            supply_df = supply_link.loc[supply_indexer,:]           
+#            if len(levels):            
+#                supply_df = supply_df.groupby(level=levels).filter(lambda x: x.sum()!=0)
+            geography_df =  DfOper.mult([demand_df.loc[demand_indexer,:],supply_df])
+#                names = geography_df.index.names
+#                geography_df = geography_df.reset_index().dropna().set_index(names)
+            geography_df_list.append(geography_df)
+#            year_df = pd.concat(geography_df_list)
+#            year_df_list.append(year_df)
+        df = pd.concat(geography_df_list)      
+        return df
+        
     def aggregate_sector_energy_for_supply_side(self):
         """Aggregates for the supply side, works with function in sector"""
         names = ['sector', cfg.cfgfile.get('case', 'primary_geography'), 'final_energy', 'year']
@@ -219,7 +253,7 @@ class Sector(object):
         self.case_id = case_id
         for col, att in util.object_att_from_table('DemandSectors', id):
             setattr(self, col, att)
-        self.outputs = DemandSideOutput()
+        self.outputs = Output()
 
     def add_subsectors(self):
         ids = [id for id in
@@ -259,8 +293,9 @@ class Sector(object):
 
     def group_output(self, output_type, levels_to_keep=None):
         levels_to_keep = cfg.output_levels if levels_to_keep is None else levels_to_keep
-        df_list = [subsector.group_output(output_type, levels_to_keep) for subsector in self.subsectors.values()]
-        keys = self.subsectors.keys()
+        sub_lookup = [(subsector_id,subsector.group_output(output_type, levels_to_keep)) for subsector_id,subsector in self.subsectors.iteritems()]
+        df_list = [x[1] for x in sub_lookup]
+        keys = [x[0] for x in sub_lookup if x[1] is not None]
         new_names = 'subsector'
         return util.df_list_concatenate(df_list, keys, new_names, levels_to_keep)
 
@@ -280,7 +315,7 @@ class Subsector(DataMapFunctions):
         for col, att in util.object_att_from_table('DemandSubsectors', id):
             setattr(self, col, att)
         
-        self.outputs = DemandSideOutput()
+        self.outputs = Output()
         self.calculated = False
 
     def add_energy_system_data(self):
@@ -401,19 +436,57 @@ class Subsector(DataMapFunctions):
         if output_type=='energy':
             return self.energy_forecast
         elif output_type=='stock':
-            return self.stock.values if hasattr(self, 'stock') else None
+            return self.format_output_stock(levels_to_keep) if hasattr(self, 'stock') else None
         elif output_type=='investment_costs':
-            return self.format_output_stock_costs('investment', levels_to_keep) if hasattr(self, 'stock') else None
+            return self.format_output_costs('investment', levels_to_keep) 
         elif output_type=='levelized_costs':
-            return self.format_output_stock_costs('levelized_costs', levels_to_keep) if hasattr(self, 'stock') else None
+            return self.format_output_costs('levelized_costs', levels_to_keep)
 
     def format_output_stock(self, override_levels_to_keep=None):
         if not hasattr(self, 'stock'):
             return None
         levels_to_keep = cfg.output_levels if override_levels_to_keep is None else override_levels_to_keep
         levels_to_eleminate = [l for l in self.stock.values.index.names if l not in levels_to_keep]
-        return util.remove_df_levels(self.stock.values, levels_to_eleminate).sort()
-
+        df = util.remove_df_levels(self.stock.values, levels_to_eleminate).sort()
+        df= df.stack().to_frame()
+        util.replace_column_name(df,'value')
+        util.replace_index_name(df, 'year')
+        return df
+        
+    def format_output_measure_costs(self,att,override_levels_to_keep=None):
+        measure_types = [x for x in ['ee_stock','fs_stock','sd_stock'] if hasattr(self,x)]
+        if len(measure_types):
+            df_list = []
+            for measure_type in measure_types:
+                df = getattr(getattr(self,measure_type),att).values()
+                if df.columns != ['value']:
+                    df = df.stack().to_frame()
+                    df.columns = ['value']
+                    util.replace_index_name(df, 'year')
+                df_list.append(df)
+            keys = measure_types
+            names = ['measure_types']
+            df = pd.concat(df_list,keys=keys,names=names)
+            return df
+        else:
+            return None
+        
+    def format_output_costs(self,att,override_levels_to_keep=None):
+        stock_costs = self.format_output_stock_costs(att, override_levels_to_keep)
+        measure_costs = self.format_output_measure_costs(att, override_levels_to_keep)   
+        cost_list = []
+        for cost in [stock_costs, measure_costs]:
+            if cost is not None:
+                cost_list.append(cost)
+        if len(cost_list) == 0:
+            return None
+        if len(cost_list) == 1:
+            return cost_list[0]
+        else:
+            keys = ['stock', 'measure']
+            names = ['cost_type']
+            return util.df_list_concatenate(cost_list,keys=keys,new_names=names).groupby('cost_type').sum()
+  
     def format_output_stock_costs(self, att, override_levels_to_keep=None):
         """ 
         Formats cost outputs
@@ -423,7 +496,16 @@ class Subsector(DataMapFunctions):
         cost_dict = getattr(self.stock, att)
         keys, values = zip(*[(a, b) for a, b in util.unpack_dict(cost_dict)])
         keys = util.flatten_list([[tuple(k)]*len(v) for k, v in zip(keys, values)])
+        values = list(values)
+        for index,value in enumerate(values):
+            if value.columns.names != ['value']:
+                value = value.stack().to_frame()
+                value.columns = ['value']
+                util.replace_index_name(value, 'year')
+                values[index] = value
         return util.df_list_concatenate(values, keys=keys, new_names=['cost category', 'new/replacement'])
+        
+    
 
     def calculate_measures(self):
         """calculates measures for use in subsector calculations """
@@ -460,11 +542,11 @@ class Subsector(DataMapFunctions):
             self.calculate_output_service_drivers()
             self.calculate_output_specified_stocks()
 
+
     def calculate_costs(self):
         """ calculates cost outputs for all subsector types """
-        if self.sub_type == 'stock and service' or self.sub_type == 'stock and energy':
+        if hasattr(self,'stock'):
             self.calculate_costs_stock()
-        else:
             self.calculate_costs_measures()
 
     def calculate_years(self):
@@ -735,8 +817,7 @@ class Subsector(DataMapFunctions):
                                                             self.energy_forecast.columns.values)
         self.fuel_switching_additions = util.empty_df(self.energy_forecast.index, self.energy_forecast.columns.values)
         # add up each measure's savings to return total savings
-        for id in self.fuel_switching_measures:
-            measure = self.fuel_switching_measures[id]
+        for measure in self.fuel_switching_measures.values():
             self.initial_fuel_switching_savings = DfOper.add([self.initial_fuel_switching_savings,
                                                               measure.impact.savings])
             self.fuel_switching_additions = DfOper.add([self.fuel_switching_additions,
@@ -752,8 +833,7 @@ class Subsector(DataMapFunctions):
         else:
             self.fuel_switching_savings = DfOper.subt([self.initial_fuel_switching_savings, excess_savings])
             impact_adjustment = self.fuel_switching_savings / self.initial_fuel_switching_savings
-            for (id,) in self.fuel_switching_savings:
-                measure = self.fuel_switching_measures[id]
+            for measure in self.fuel_switching_measures.values():
                 measure.impact.savings = DfOper.mult([measure.impact.savings, impact_adjustment])
         self.energy_forecast = DfOper.subt([self.energy_forecast, self.fuel_switching_savings])
         self.energy_forecast = DfOper.add([self.energy_forecast, self.fuel_switching_additions])
@@ -1237,7 +1317,7 @@ class Subsector(DataMapFunctions):
         df = df.ix[:, years]
         df = pd.DataFrame(df.stack())
         util.replace_index_name(df, 'year')
-        util.replace_column_name(df, 'value')
+        util.replace_column(df, 'value')
         return df
 
     def convert_energy_to_service(self, other_index):
@@ -1484,37 +1564,36 @@ class Subsector(DataMapFunctions):
     def calculate_costs_measures(self):
         if hasattr(self, 'ee_stock'):
             self.ee_stock.levelized_costs = defaultdict(dict)
-            self.ee_stock.levelized_costs['unspecified']['all'] = self.rollover_measure_output(
+            self.ee_stock.levelized_costs['unspecified'] = self.rollover_measure_output(
                 measures='energy_efficiency_measures', measure_class='cost', measure_att='values_level',
                 stock_class='ee_stock',
                 stock_att='values')
-
             self.ee_stock.investment = defaultdict(dict)
-            self.ee_stock.investment['unspecified']['all'] = self.rollover_measure_output(
+            self.ee_stock.investment['unspecified']= self.rollover_measure_output(
                 measures='energy_efficiency_measures', measure_class='cost', measure_att='values',
                 stock_class='ee_stock',
                 stock_att='sales')
         if hasattr(self, 'fs_stock'):
             self.fs_stock.levelized_costs = defaultdict(dict)
-            self.fs_stock.levelized_costs['unspecified']['all'] = self.rollover_measure_output(
+            self.fs_stock.levelized_costs['unspecified']= self.rollover_measure_output(
                 measures='fuel_switching_measures', measure_class='cost', measure_att='values_level',
                 stock_class='fs_stock',
                 stock_att='values')
 
             self.fs_stock.investment = defaultdict(dict)
-            self.fs_stock.investment['unspecified']['all'] = self.rollover_measure_output(
+            self.fs_stock.investment['unspecified'] = self.rollover_measure_output(
                 measures='fuel_switching_measures', measure_class='cost', measure_att='values', stock_class='fs_stock',
                 stock_att='sales')
 
         if hasattr(self, 'sd_stock'):
             self.sd_stock.levelized_costs = defaultdict(dict)
-            self.sd_stock.levelized_costs['unspecified']['all'] = self.rollover_measure_output(
+            self.sd_stock.levelized_costs['unspecified']= self.rollover_measure_output(
                 measures='service_demand_measures', measure_class='cost', measure_att='values_level',
                 stock_class='sd_stock',
                 stock_att='values')
 
             self.sd_stock.investment = defaultdict(dict)
-            self.sd_stock.investment['unspecified']['all'] = self.rollover_measure_output(
+            self.sd_stock.investment['unspecified']= self.rollover_measure_output(
                 measures='service_demand_measures', measure_class='cost', measure_att='values', stock_class='sd_stock',
                 stock_att='sales')
 
@@ -1539,7 +1618,7 @@ class Subsector(DataMapFunctions):
         if stack_label is not None:
             c = c.stack()
             util.replace_index_name(c, stack_label)
-            util.replace_column_name(c, 'value')
+            util.replace_column(c, 'value')
         if other_aggregate_levels is not None:
             groupby_level = util.ix_excl(c, other_aggregate_levels)
             c = c.groupby(level=groupby_level).sum()
@@ -1772,7 +1851,6 @@ class Subsector(DataMapFunctions):
         self.stock.values = util.empty_df(index=index, columns=pd.Index(columns, dtype='object'))
         self.stock.values_new = copy.deepcopy(self.stock.values)
         self.stock.values_replacement = copy.deepcopy(self.stock.values)
-        self.stock.values_normal = copy.deepcopy(self.stock.values)
         full_levels = self.stock.rollover_group_levels + [self.technologies.keys()] + [self.vintages]
         index = pd.MultiIndex.from_product(full_levels, names=full_names)
         self.stock.retirements = util.empty_df(index=index, columns=['value'])
@@ -1835,7 +1913,8 @@ class Subsector(DataMapFunctions):
         self.stock.values_normal = self.stock.values.groupby(level=levels).transform(lambda x: x / x.sum())
         # normalization of technology stocks (i.e. % by vintage/year)
         self.stock.values_normal_tech = self.stock.values.groupby(
-            level=util.ix_excl(self.stock.values, ['vintage'])).transform(lambda x: x / x.sum()).fillna(0)
+            level=util.ix_excl(self.stock.values, ['vintage'])).transform(lambda x
+            : x / x.sum()).fillna(0)
         self.stock.values_efficiency_main = copy.deepcopy(self.stock.values)
 
         # this section normalizes stocks used for efficiency calculations. There is a different process if the stock
@@ -1892,27 +1971,25 @@ class Subsector(DataMapFunctions):
             # creates binary matrix across years and vintages for a technology based on its book life
             tech.book_life_matrix = util.book_life_df(tech.book_life, self.vintages, self.years)
             # creates a linear decay of initial stock
-            tech.initial_book_life_matrix = util.initial_book_life_df(tech.book_life, self.vintages, self.years)
+            tech.initial_book_life_matrix = util.initial_book_life_df(tech.book_life, tech.mean_lifetime, self.vintages, self.years)
         # reformat the book_life_matrix dataframes to match the stock dataframe
         # creates a list of formatted tech dataframes and concatenates them
-        tech_dfs = [self.reformat_tech_df(self.stock.sales, tech, tech_class=None, tech_att='book_life_matrix', id=tech.id) for
-                    tech in self.technologies.values()]
+        tech_dfs = [self.reformat_tech_df(self.stock.sales, tech, tech_class=None, tech_att='book_life_matrix', id=tech.id) for tech in self.technologies.values()]
         tech_df = pd.concat(tech_dfs)
         # initial_stock_df uses the stock values dataframe and removes vintagesot
         initial_stock_df = self.stock.values[min(self.years)]
         # formats tech dfs to match stock df
-        initial_tech_dfs = [self.reformat_tech_df(initial_stock_df, tech, tech_class=None, tech_att='initial_book_life_matrix',
-                            id=tech.id) for tech in self.technologies.values()]
+        initial_tech_dfs = [self.reformat_tech_df(initial_stock_df, tech, tech_class=None, tech_att='initial_book_life_matrix',id=tech.id) for tech in self.technologies.values()]
         initial_tech_df = pd.concat(initial_tech_dfs)
         # stock values in any year equals vintage sales multiplied by book life
         self.stock.values_financial_new = DfOper.mult([self.stock.sales_new, tech_df])
         self.stock.values_financial_replacement = DfOper.mult([self.stock.sales_replacement, tech_df])
         # initial stock values in any year equals stock.values multiplied by the initial tech_df
-        initial_values_financial_new = DfOper.mult([self.stock.values_new, initial_tech_df])
-        initial_values_financial_replacement = DfOper.mult([self.stock.values_replacement, initial_tech_df])
+        initial_values_financial_new = DfOper.mult([self.stock.values_new, initial_tech_df],non_expandable_levels=('year'))
+        initial_values_financial_replacement = DfOper.mult([self.stock.values_replacement, initial_tech_df],non_expandable_levels=('year'))
         # sum normal and initial stock values
-        self.stock.values_financial_new = DfOper.add([self.stock.values_financial_new, initial_values_financial_new])
-        self.stock.values_financial_replacement = DfOper.add([self.stock.values_financial_replacement, initial_values_financial_replacement])
+        self.stock.values_financial_new = DfOper.add([self.stock.values_financial_new, initial_values_financial_new],non_expandable_levels=('year'))
+        self.stock.values_financial_replacement = DfOper.add([self.stock.values_financial_replacement, initial_values_financial_replacement],non_expandable_levels=('year'))
 
     def calculate_costs_stock(self):
         """
@@ -1936,6 +2013,7 @@ class Subsector(DataMapFunctions):
         if hasattr(self, 'stock'):
             delete_list = ['values_financial_new', 'values_financial_replacement', 'values_new',
                            'values_replacement', 'sales_new', 'sales_replacement','sales_fuel_switch']
+            delete_list = []
             for att in delete_list:
                 if hasattr(self.stock, att):
                     delattr(self.stock, att)
@@ -1995,18 +2073,15 @@ class Subsector(DataMapFunctions):
         fuel_switch_retirements = fuel_switch_retirements.swaplevel('vintage', 'final_energy')
         util.replace_index_name(fuel_switch_retirements, 'final_energy')
         # TODO check that these work!!
-        fuel_switch_sales_energy = fuel_switch_sales.groupby(
-            level=util.ix_excl(fuel_switch_sales, 'technology')).transform(lambda x: x.sum())
-        fuel_switch_retirements_energy = fuel_switch_retirements.groupby(
-            level=util.ix_excl(fuel_switch_retirements, 'technology')).transform(lambda x: x.sum())
+        fuel_switch_sales_energy = util.remove_df_levels(fuel_switch_sales, 'technology')
+        fuel_switch_retirements_energy = util.remove_df_levels(fuel_switch_retirements, 'technology')
         new_energy_sales = DfOper.subt([fuel_switch_sales_energy, fuel_switch_retirements_energy])
-        new_energy_sales_share_by_technology = fuel_switch_sales.groupby(
-            level=util.ix_excl(fuel_switch_sales, 'technology')).transform(lambda x: x / x.sum())
-        new_energy_sales_share_by_technology[new_energy_sales_share_by_technology < 0] = 0
+        new_energy_sales[new_energy_sales<0]=0
+        new_energy_sales_share_by_technology = fuel_switch_sales.groupby(level=util.ix_excl(fuel_switch_sales, 'technology')).transform(lambda x: x / x.sum())
+#        new_energy_sales_share_by_technology[new_energy_sales_share_by_technology < 0] = 0
         new_energy_sales_by_technology = DfOper.mult([new_energy_sales_share_by_technology, new_energy_sales])
-
-        fuel_switch_sales_share = DfOper.divi([new_energy_sales_by_technology, fuel_switch_sales]).groupby(
-            level=util.ix_excl(fuel_switch_sales, 'technology')).sum()
+        fuel_switch_sales_share = DfOper.divi([new_energy_sales_by_technology, fuel_switch_sales]).replace(np.nan,0)
+#        .groupby(level=util.ix_excl(fuel_switch_sales, 'technology')).sum()
         fuel_switch_sales_share = util.remove_df_levels(fuel_switch_sales_share, 'final_energy')
         self.stock.sales_fuel_switch = DfOper.mult([self.stock.sales, fuel_switch_sales_share])
         self.stock.values_fuel_switch = DfOper.mult([self.stock.values, fuel_switch_sales_share])
@@ -2088,12 +2163,12 @@ class Subsector(DataMapFunctions):
             values = link.values.as_matrix()
             calibration_values = link.values[link.year].as_matrix()
             calibration_values = np.column_stack(calibration_values).T
-            new_values = 1-(values / calibration_values)
+            new_values = 1 - (values / calibration_values)
             # calculate weighted after service efficiency as a function of service demand share
             new_values = (link.service_demand_share * new_values) 
             link.values = pd.DataFrame(new_values, link.values.index, link.values.columns.values)
-            link.values.fillna(0,inplace=True)
-
+            link.values.replace([np.inf,-np.inf,np.nan],[0,0,0],inplace=True)
+   
     def reformat_service_demand(self):
         """
         format service demand with year index once calculations are complete
@@ -2135,7 +2210,7 @@ class Subsector(DataMapFunctions):
         if stack_label is not None:
             c = c.stack()
             util.replace_index_name(c, stack_label)
-            util.replace_column_name(c, 'value')
+            util.replace_column(c, 'value')
         if other_aggregate_levels is not None:
             groupby_level = util.ix_excl(c, other_aggregate_levels)
             c = c.groupby(level=groupby_level).sum()
@@ -2174,7 +2249,7 @@ class Subsector(DataMapFunctions):
         if stack_label is not None:
             c = c.stack()
             util.replace_index_name(c, stack_label)
-            util.replace_column_name(c, 'value')
+            util.replace_column(c, 'value')
         if other_aggregate_levels is not None:
             groupby_level = util.ix_excl(c, other_aggregate_levels)
             c = c.groupby(level=groupby_level).sum()
@@ -2231,6 +2306,6 @@ class Subsector(DataMapFunctions):
         self.energy_forecast = DfOper.add([all_energy, self.parasitic_energy])
         self.energy_forecast = pd.DataFrame(self.energy_forecast.stack())
         util.replace_index_name(self.energy_forecast, 'year')
-        util.replace_column_name(self.energy_forecast, 'value')
+        util.replace_column(self.energy_forecast, 'value')
         self.energy_forecast = util.remove_df_elements(self.energy_forecast, 9999, 'final_energy')
 

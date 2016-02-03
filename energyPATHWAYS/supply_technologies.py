@@ -25,6 +25,7 @@ class SupplyTechnology(StockItem):
         self.add_costs()
         self.efficiency = SupplyTechEfficiency(id)
         self.capacity_factor = SupplyTechCapacityFactor(id)
+        self.co2_capture = SupplyTechCO2Capture(id)
         self.reference_sales_shares = {}
         if self.id in util.sql_read_table('SupplySalesShareData', 'supply_technology', return_unique=True, return_iterable=True):
             self.reference_sales_shares[1] = SupplySalesShare(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySalesShare', sql_data_table='SupplySalesShareData')           
@@ -323,6 +324,9 @@ class SupplyTechVariableOMCost(SupplyTechCost):
             self.converted = True
         else:
             self.converted = False
+            
+            
+            
 
 
 class SupplyTechEfficiency(Abstract):
@@ -395,6 +399,39 @@ class SupplyTechCapacityFactor(Abstract):
             self.converted = True
         else:
             self.empty = False   
+ 
+class SupplyTechCO2Capture(Abstract):
+    def __init__(self, id, **kwargs):
+        self.id = id
+        self.input_type = 'intensity'
+        self.sql_id_table = 'SupplyTechsCO2Capture'
+        self.sql_data_table = 'SupplyTechsCO2CaptureData'
+        Abstract.__init__(self, id, 'supply_tech_id')
+            
+        
+    def calculate(self, vintages, years):
+        self.vintages = vintages
+        self.years = years
+        if self.data and self.empty is False:
+            self.remap()
+            util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
+        elif self.data is False:
+            index =  pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],self.vintages], names=[cfg.cfgfile.get('case', 'primary_geography'),'vintage'])
+            self.values = util.empty_df(index,columns=years,fill_value=0.0)    
+            self.data = True
+            self.empty = False
+            setattr(self, 'converted', False)
+        else:
+            self.converted = False
+            # adds fixed output shapes for technologies which are not dispatchable
+        if self.empty is True:
+            # if the class is empty, then there is no data for conversion, so the class is considered converted
+            self.converted = True
+        else:
+            self.empty = False              
+
+
+
 
 class SupplySpecifiedStock(SpecifiedStock):
     def __init__(self, id, node_id, sql_id_table, sql_data_table):
@@ -418,3 +455,5 @@ class SupplySpecifiedStock(SpecifiedStock):
                                             unit_from_num=model_time_step,
                                             unit_to_den=model_energy_unit,
                                             unit_to_num=model_time_step)
+                                            
+    

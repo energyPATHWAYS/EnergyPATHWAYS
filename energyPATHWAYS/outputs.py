@@ -9,7 +9,7 @@ import pandas as pd
 import util
 from config import cfg
 
-class DemandSideOutput(object):
+class Output(object):
     def __init__(self):
         self.output_types = ['energy_outputs', 'cost_outputs', 'stock_outputs', 'emissions_outputs']
     

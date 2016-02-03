@@ -397,14 +397,13 @@ class Rollover(object):
         self.new_sales_fraction[list_steps] = self.new_sales[list_steps] / self.sales_record[list_steps]
         self.new_sales_fraction[np.isnan(self.new_sales_fraction)] = 0
         
-        # new sales fraction starts from the beginning of the simulated years. stock has an additional pre vintage row 0. This is why we have np.array(list_steps)+1
-        self.stock_new[:, np.array(list_steps)+1, :] = np.transpose(np.transpose(self.stock[:, np.array(list_steps)+1, :], [2, 1, 0]) * self.new_sales_fraction[list_steps], [2, 1, 0])
-        self.stock_replacement[:, np.array(list_steps)+1, :] = np.transpose(np.transpose(self.stock[:, np.array(list_steps)+1, :], [2, 1, 0]) * (1 - self.new_sales_fraction[list_steps]), [2, 1, 0])
+        # new sales fraction starts from the beginning of the simulated years. stock has an additional pre vintage row 0. This is why we have np.arange(1, max(list_steps)+2)
+        update_slice = np.arange(1, max(list_steps)+2)
+        self.stock_new[:, update_slice, :] = np.transpose(np.transpose(self.stock[:, update_slice, :], [2, 1, 0]) * self.new_sales_fraction[list_steps], [2, 1, 0])
+        self.stock_replacement[:, update_slice, :] = np.transpose(np.transpose(self.stock[:, update_slice, :], [2, 1, 0]) * (1 - self.new_sales_fraction[list_steps]), [2, 1, 0])
 
-        #first year
-        if 0 in list_steps:
-            self.stock_new[:, 0, :] = np.transpose(np.transpose(self.stock[:, 0, :]) * self.new_sales_fraction[0])
-            self.stock_replacement[:, 0, :] = np.transpose(np.transpose(self.stock[:, 0, :]) * (1 - self.new_sales_fraction[0]))
+        self.stock_new[:, 0, :] = np.transpose(np.transpose(self.stock[:, 0, :]) * self.new_sales_fraction[0])
+        self.stock_replacement[:, 0, :] = np.transpose(np.transpose(self.stock[:, 0, :]) * (1 - self.new_sales_fraction[0]))
     
     def _aggregate_tech_vintage_year_shape(self, x):
         if self.spy==1:
@@ -453,12 +452,12 @@ class Rollover(object):
         return (self.return_formatted_stock(year_offset, stock_type='stock'),
                 self.return_formatted_stock(year_offset, stock_type='stock_new'),
                 self.return_formatted_stock(year_offset, stock_type='stock_replacement'),
-                np.reshape(self._aggregate_tech_year_shape(self.rolloff_record)[slice2], shape2),
-                np.reshape(self._aggregate_tech_year_shape(self.natural_rolloff)[slice2], shape2),
-                np.reshape(self._aggregate_tech_year_shape(self.early_retirements)[slice2], shape2),
-                np.reshape(self._aggregate_tech_year_shape(self.sales_record)[slice2], shape2),
-                np.reshape(self._aggregate_tech_year_shape(self.new_sales)[slice2], shape2),
-                np.reshape(self._aggregate_tech_year_shape(self.replacement_sales)[slice2], shape2))
+                np.reshape(self._aggregate_tech_year_shape(self.rolloff_record)[slice2].T, shape2),
+                np.reshape(self._aggregate_tech_year_shape(self.natural_rolloff)[slice2].T, shape2),
+                np.reshape(self._aggregate_tech_year_shape(self.early_retirements)[slice2].T, shape2),
+                np.reshape(self._aggregate_tech_year_shape(self.sales_record)[slice2].T, shape2),
+                np.reshape(self._aggregate_tech_year_shape(self.new_sales)[slice2].T, shape2),
+                np.reshape(self._aggregate_tech_year_shape(self.replacement_sales)[slice2].T, shape2))
 
 
 # setup

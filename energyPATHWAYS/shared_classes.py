@@ -40,25 +40,21 @@ class StockItem (object):
             sales.reconcile_with_stock_levels(needed_sales_levels, needed_sales_names)
 
     def set_survival_parameters(self):
+        if self.mean_lifetime is None and self.min_lifetime is not None and self.max_lifetime is not None:
+            self.mean_lifetime = self.min_lifetime + (self.max_lifetime - self.min_lifetime) / 2.
+        if self.lifetime_variance is None and self.min_lifetime is not None and self.max_lifetime is not None:
+            self.lifetime_variance = ((self.max_lifetime - self.min_lifetime) / 2. * .5) ** 2  # approximate
         if self.stock_decay_function == 'weibull':
-            if self.mean_lifetime is None and self.min_lifetime is not None and self.max_lifetime is not None:
-                self.mean_lifetime = self.min_lifetime + (self.max_lifetime - self.min_lifetime) / 2.
-            if self.lifetime_variance is None and self.min_lifetime is not None and self.max_lifetime is not None:
-                self.lifetime_variance = ((self.max_lifetime - self.min_lifetime) / 2. * .5) ** 2  # approximate
             self.weibull_beta_parameter = util.find_weibul_beta(self.mean_lifetime*self.spy, self.lifetime_variance*self.spy**2)
             self.weibull_alpha_parameter = self.mean_lifetime*self.spy / util.mean_weibul_factor(self.weibull_beta_parameter)
             self.max_survival_periods = max((self.mean_lifetime + np.sqrt(self.lifetime_variance)*10), len(self.years))*self.spy + 1
-
         elif self.stock_decay_function == 'linear':
             if self.min_lifetime is None and self.min_lifetime is not None and self.lifetime_variance is not None:
                 self.min_lifetime = self.mean_lifetime - 2 * self.lifetime_variance ** .5  # approximate
             if self.max_lifetime is None and self.min_lifetime is not None and self.lifetime_variance is not None:
                 self.max_lifetime = self.mean_lifetime + 2 * self.lifetime_variance ** .5  # approximate
             self.max_survival_periods = max(self.max_lifetime, len(self.years))*self.spy + 1
-
         elif self.stock_decay_function == 'exponential':
-            if self.mean_lifetime is None and self.min_lifetime is not None and self.max_lifetime is not None:
-                self.mean_lifetime = self.min_lifetime + (self.max_lifetime - self.min_lifetime) / 2.
             self.max_survival_periods = max((self.mean_lifetime + np.sqrt(self.lifetime_variance)*10), len(self.years))*self.spy + 1
 
     def calc_survival_vintaged(self, periods):
