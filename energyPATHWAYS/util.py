@@ -171,9 +171,11 @@ def sql_read_table(table_name, column_names='*', return_unique=False, return_ite
             data = [None]
         else:
             query = query + " where " + " and ".join(list_of_filters)
-            data = [tup[0] if len(tup) == 1 else tup for tup in config.cfg.cur.execute(query)]
+            config.cfg.cur.execute(query)
+            data = [tup[0] if len(tup) == 1 else tup for tup in config.cfg.cur.fetchall()]
     else:
-        data = [tup[0] if len(tup) == 1 else tup for tup in config.cfg.cur.execute(query)]
+        config.cfg.cur.execute(query)
+        data = [tup[0] if len(tup) == 1 else tup for tup in config.cfg.cur.fetchall()]
     if return_unique:
         data = list(set(data))
     # pull out the first element if length is 1 and we don't want to return an iterable
@@ -188,9 +190,9 @@ def sql_read_table(table_name, column_names='*', return_unique=False, return_ite
 def sql_get_datatype(table_name, column_names):
     if isinstance(column_names, basestring):
         column_names = [column_names]
-    table_info_cur = config.cfg.cur.execute("PRAGMA table_info(%s)" % table_name)
-    table_info = table_info_cur.fetchall()
-    return dict([(tup[1], tup[2]) for tup in table_info if tup[1] in column_names])
+    config.cfg.cur.execute("select column_name, data_type from INFORMATION_SCHEMA.COLUMNS where table_name = %s;", (table_name.lower(),))
+    table_info = config.cfg.cur.fetchall()
+    return dict([tup for tup in table_info if tup[0] in column_names])
 
 
 def fix_sql_query_type(string, sqltype):
@@ -233,10 +235,10 @@ def sql_read_dataframe(table_name, index_column_name=None, data_column_names='*'
 
 
 def sql_read_headers(table_name):
-    table_info_cur = config.cfg.cur.execute("PRAGMA table_info(%s)" % table_name)
-    table_info = table_info_cur.fetchall()
+    config.cfg.cur.execute("select column_name from INFORMATION_SCHEMA.COLUMNS where table_name = %s;", (table_name.lower(),))
+    table_info = config.cfg.cur.fetchall()
     # return list of all column headers
-    return [tup[1] for tup in table_info]
+    return [tup[0] for tup in table_info]
 
 
 def unpack_dict(dictionary, _keys=None, return_items=True):
