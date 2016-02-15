@@ -184,7 +184,8 @@ def sql_read_table(table_name, column_names='*', return_unique=False, return_ite
     """
     if not isinstance(column_names, basestring):
         column_names = ', '.join(column_names)
-    query = 'select ' + column_names + ' from %s' % table_name
+    distinct = 'DISTINCT ' if return_unique else ''
+    query = 'SELECT ' + distinct + column_names + ' FROM %s' % table_name
     if len(filters):
         datatypes = sql_get_datatype(table_name, filters.keys())
         list_of_filters = ['"' + col + '"=' + fix_sql_query_type(fil, datatypes[col]) for col, fil in filters.items() if
@@ -195,9 +196,8 @@ def sql_read_table(table_name, column_names='*', return_unique=False, return_ite
             query = query + " where " + " and ".join(list_of_filters)
             data = [tup[0] if len(tup) == 1 else tup for tup in config.cfg.cur.execute(query)]
     else:
-        data = [tup[0] if len(tup) == 1 else tup for tup in config.cfg.cur.execute(query)]
-    if return_unique:
-        data = list(set(data))
+        config.cfg.cur.execute(query)
+        data = [tup[0] if len(tup) == 1 else tup for tup in config.cfg.cur.fetchall()]
     # pull out the first element if length is 1 and we don't want to return an iterable
     if len(data) == 0 or data == [None]:
         return [] if return_iterable else None
