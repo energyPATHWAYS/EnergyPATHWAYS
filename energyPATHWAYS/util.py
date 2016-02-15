@@ -130,22 +130,44 @@ def tuple_subset(tup, header, head_to_remove):
     return tuple([t for i, t in enumerate(tup) if i not in index_to_remove])
 
 
-def id_to_name(col, att, return_type='item'):
-    keys = sql_read_table('IDMap', 'identifier_id')
-    id_dict = {}
-    for k in keys:
-        value = sql_read_table('IDMap', 'ref_table', identifier_id=k)
-        id_dict[k] = value
-    if 'name' in sql_read_headers(id_dict[col]):
-        new_att = sql_read_table(id_dict[col], 'name', id=att)
-    else:
-        new_att = att
-    new_col = col[:-3]
-    if return_type == 'tuple':
-        return (new_col, new_att)
-    elif return_type == 'item':
-        return new_att
+def id_to_name(col, id_, return_type='item'):
+    try:
+        # Note: this method has an attribute called lookup_dict (declared just after the method, below) that's used for
+        # caching the contents of the lookup tables from the database. It would be cleaner to build a class around
+        # these database functions and make lookup_dict an attribute of that, but that's too big a refactoring for now.
+        name = id_to_name.lookup_dict[col][id_]
+    except KeyError:
+        if id_to_name.lookup_dict:
+            if not id_to_name.lookup_dict[col]:
+                # the lookup cache has been populated, but we can't find the requested table in it,
+                # so this really is a KeyError.
+                raise
+            else:
+                # otherwise it's the id_ key that wasn't found, which we consider non-fatal, so just pass back None
+                name = None
+        else:
+            # the lookup cache hasn't been populated yet, so take a time out to populate it
+            for id_col, table in sql_read_table('IDMap', 'identifier_id, ref_table'):
+                id_to_name.lookup_dict[id_col] = {}
+                # TODO: this try/except is a workaround until #23 is done.
+                # After that, only the contents of the try will be necessary
+                try:
+                    for id_num, id_name in sql_read_table(table, 'id, name', return_iterable=True):
+                        id_to_name.lookup_dict[id_col][id_num] = id_name
+                except sqlite.OperationalError:
+                    for id_num in sql_read_table(table, 'id', return_iterable=True):
+                        id_to_name.lookup_dict[id_col][id_num] = id_num
 
+            # now that we've populated the cache, try again
+            return id_to_name(col, id_, return_type)
+
+    if return_type == 'item':
+        return name
+    elif return_type == 'tuple':
+        new_col = col[:-3]
+        return (new_col, name)
+
+id_to_name.lookup_dict = {}
 
 def empty_df(index, columns, fill_value=0.0, data_type=None):
     df = pd.DataFrame(fill_value, index=index, columns=columns).sort_index()
