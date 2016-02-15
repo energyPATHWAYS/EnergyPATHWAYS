@@ -477,7 +477,6 @@ def reduce_levels(df, allowed_levels, total_label=None, agg_function='sum'):
         return remove_df_levels(df, reduce_levels, total_label, agg_function)
 
 def remove_df_levels(data, levels, total_label=None, agg_function='sum'):
-    total_label = config.cfg.cfgfile.get('data_identifiers', 'all') if total_label is None else total_label
     levels = [l for l in put_in_list(levels) if l in data.index.names]
     if not len(levels):
         return data
