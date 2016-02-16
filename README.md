@@ -20,7 +20,7 @@ energyPATHWAYS can be installed using distutils
 
 In addition to installation of the energyPATHWAYS package, a model cannot be created until a set of data is supplied. The input data contain three components:
 
-- A sqlite database populating your energy system ([download](https://www.dropbox.com/s/ow64ghp1cpjujmi/pathways.db?dl=0) the U.S. DDPP team's database)
+- A sqlite database populating your energy system ([download](https://www.dropbox.com/s/1gyin06dmwn0ww8/pathways.db?dl=0) the U.S. DDPP team's database)
 - Configuration file (e.g. energyPATHWAYS/us\_model\_example/configurations.INI)
 - Custom unit definitions (e.g. energyPATHWAYS/us\_model\_example/unit_defs.txt)
 
