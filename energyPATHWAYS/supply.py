@@ -396,20 +396,20 @@ class Supply(object):
             self.electricity_nodes = dictionary with dispatch_zone as key and a list of all nodes that transfer electricity (i.e. blend nodes, etc.)
         """
         if hasattr(node,'active_coefficients_untraded')  and node.active_coefficients_untraded  is not None:
-            for node_id in list(set(node.active_coefficients_untraded.index.get_level_values('supply_node'))):
-                node= self.nodes[node_id]
-                indexer = util.level_specific_indexer(node.active_coefficients_untraded, ['efficiency_type','supply_node'],[2,node.id])
-                zone= node.active_coefficients_untraded.loc[indexer,:]
+            for input_node_id in list(set(node.active_coefficients_untraded.index.get_level_values('supply_node'))):
+                input_node= self.nodes[input_node_id]
+                indexer = util.level_specific_indexer(node.active_coefficients_untraded, ['efficiency_type','supply_node'],[2,input_node.id])
+                zone = node.active_coefficients_untraded.loc[indexer,:]
                 if zone.empty is False:
-                    if node_id in self.dispatch_zones:
+                    if input_node_id in self.dispatch_zones:
                         #proceeds to next dispatch zone
-                        self.set_electricity_gen_nodes(node, node)
-                    elif node.supply_type =='Conversion' or node.supply_type =='Storage':
-                        self.injection_nodes[dispatch_zone.id].append(node.id)
+                        self.set_electricity_gen_nodes(input_node, input_node)
+                    elif input_node.supply_type =='Conversion' or input_node.supply_type =='Storage':
+                        self.injection_nodes[dispatch_zone.id].append(input_node.id)
                         continue
                     else:
-                        self.electricity_nodes[dispatch_zone.id].append(node.id)
-                        self.set_electricity_gen_nodes(dispatch_zone, node)
+                        self.electricity_nodes[dispatch_zone.id].append(input_node.id)
+                        self.set_electricity_gen_nodes(dispatch_zone, input_node)
                         
     def set_electricity_load_nodes(self):
         """Determines all nodes that demand electricity from the grid
