@@ -1,4 +1,5 @@
 __author__ = 'Ben Haley & Ryan Jones'
+__author__ = 'Ben Haley & Ryan Jones'
 
 from config import cfg
 from shape import shapes
@@ -67,6 +68,7 @@ class Demand(object):
 #            print year
         geography_df_list = []
         for geography in self.geographies:
+            print geography
             supply_indexer = util.level_specific_indexer(supply_link,[self.geography],[geography])
             demand_indexer = util.level_specific_indexer(demand_df,[self.geography],[geography])
 #            levels = [x for x in ['supply_node', self.geography + "_supply",'final_energy'] if x in supply_link.index.names]
@@ -2092,7 +2094,7 @@ class Subsector(DataMapFunctions):
         
         """
         self.parasitic_energy = self.rollover_output(tech_class='parasitic_energy', tech_att='values',
-                                                     stock_att='values')
+                                                     stock_att='values',stock_expandable=True)
 
     def calculate_output_service_drivers(self):
         """ calculates service drivers for use in linked subsectors
@@ -2178,7 +2180,7 @@ class Subsector(DataMapFunctions):
             util.replace_index_name(self.service_demand.values, 'year')
 
     def rollover_output(self, tech_class=None, tech_att='values', stock_att=None,
-                        stack_label=None, other_aggregate_levels=None, efficiency=False):
+                        stack_label=None, other_aggregate_levels=None, efficiency=False, stock_expandable=False):
         """ Produces rollover outputs for a subsector stock based on the tech_att class, att of the class, and the attribute of the stock
         ex. to produce levelized costs for all new vehicles, it takes the capital_costs_new class, the 'values_level' attribute, and the 'values'
         attribute of the stock
@@ -2198,12 +2200,9 @@ class Subsector(DataMapFunctions):
                             hasattr(getattr(tech, tech_class), tech_att) and getattr(tech, tech_class).empty is not True])       
         if len(tech_dfs):
             tech_df = pd.concat(tech_dfs)
-            # TODO get rid of reindex by using multindex operation
-            tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names])
+            tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names]+[x for x in tech_df.index.names if x not in stock_df.index.names])
             tech_df = tech_df.sort()
-            # TODO figure a better way
-#            tech_df = util.expand_multi(tech_df, stock_df.index.levels, stock_df.index.names).fillna(method='bfill')
-            c = DfOper.mult((tech_df, stock_df), expandable=(True, False), collapsible=(False, True))
+            c = DfOper.mult((tech_df, stock_df), expandable=(True, stock_expandable), collapsible=(False, True))
         else:
             util.empty_df(stock_df.index, stock_df.columns.values, 0.)
 

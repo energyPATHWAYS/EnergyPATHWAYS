@@ -106,7 +106,7 @@ class PathwaysDispatch:
             print "Getting problem formulation..."
         model = dispatch_problem.dispatch_problem_formulation(self.dispatch_inputs, self.start_state_of_charge,
                                                               self.end_state_of_charge, period)
-
+        
         results = run_pyomo_optimization(model, None, self.solver_name, self.stdout_detail, **self.solve_kwargs)
 
         if self.stdout_detail:
@@ -178,7 +178,7 @@ if __name__ == "__main__":
     solve_kwargs = {"keepfiles": False, "tee": False}
 
     # How much to print to standard output; set to 1 for more detailed output, 0 for limited detail
-    stdout_detail = 0
+    stdout_detail = 1
 
     # The directory structure will have to change, but I'm not sure how yet
     current_directory = os.getcwd()
@@ -232,4 +232,6 @@ if __name__ == "__main__":
     #     run_dispatch_multi(pathways_dispatch, p)
 
     print "Done. Total time for dispatch: " + str(datetime.datetime.now()-_start_time)
+
+
 

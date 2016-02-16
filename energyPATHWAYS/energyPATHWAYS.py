@@ -154,9 +154,10 @@ class PathwaysModel(object):
         util.replace_index_name(self.outputs.costs, "ENERGY","FINAL_ENERGY")
 #        util.replace_index_name(self.outputs.costs, self.geography.upper() +'_EARNED', self.geography.upper() +'_SUPPLY')
 #        util.replace_index_name(self.outputs.costs, self.geography.upper() +'_CONSUMED', self.geography.upper())
-        self.outputs.costs= self.outputs.costs.groupby(level=[x for x in self.outputs.costs.index.names if x not in ['VINTAGE', 'YEAR']]).filter(lambda x: x.sum() !=0)
-        self.outputs.costs.sort(inplace=True)       
         self.outputs.costs[self.outputs.costs<0]=0
+        self.outputs.costs= self.outputs.costs[self.outputs.costs['VALUE']!=0]
+#        self.outputs.costs.sort(inplace=True)       
+        
         
     
         
@@ -193,7 +194,7 @@ class PathwaysModel(object):
         util.replace_index_name(self.outputs.emissions, "ENERGY","FINAL_ENERGY")
         util.replace_index_name(self.outputs.emissions, self.geography.upper() +'_EMITTED', self.geography.upper() +'_SUPPLY')
         util.replace_index_name(self.outputs.emissions, self.geography.upper() +'_CONSUMED', self.geography.upper())
-        self.outputs.emissions= self.outputs.emissions.groupby(level=[x for x in self.outputs.emissions.index.names if x not in ['VINTAGE', 'YEAR']]).filter(lambda x: x.sum() !=0)
-        self.outputs.emissions.sort(inplace=True)        
+        self.outputs.emissions= self.outputs.emissions[self.outputs.emissions['VALUE']!=0]
+#        self.outputs.emissions.sort(inplace=True)        
         
     

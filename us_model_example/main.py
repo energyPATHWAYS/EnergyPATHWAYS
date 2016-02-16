@@ -15,7 +15,7 @@ custom_pint_definitions_path = os.path.join(directory, 'unit_defs.txt')
 
 ###########
 #Save models after the demand-side calculation or after the supply-loop calculation
-save_models = True
+save_models = False
 #resolve the demand-side. A completed demand-side model must be saved.
 resolve_demand = True
 #resolve the supply-side. A completed supply-side model must be saved. 
@@ -53,7 +53,8 @@ if __name__ == "__main__":
         with open(os.path.join(directory, 'full_model_run.p'), 'rb') as infile:
             model = pickle.load(infile)
         model.model_config(db_path, cfgfile_path, custom_pint_definitions_path)   
-    model.pass_results_to_demand()
-    model.calculate_combined_results()
-    model.export_results()
+#    model.supply.calculate_supply_outputs()
+#    model.pass_results_to_demand()
+#    model.calculate_combined_results()
+#    model.export_results()
 

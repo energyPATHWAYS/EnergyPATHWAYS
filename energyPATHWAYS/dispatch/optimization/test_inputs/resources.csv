@@ -1,4 +1,4 @@
-period,resource,region,technology,distributed,capacity,duration
+period,resource,region,technology,feeder,capacity,duration
 1,CA_Battery_2h,CA,Battery,0,1000,2
 1,CA_Battery_4h,CA,Battery,0,5000,4
 1,CA_Battery_6h,CA,Battery,0,3000,6

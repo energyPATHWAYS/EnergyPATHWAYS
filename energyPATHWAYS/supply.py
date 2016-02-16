@@ -16,14 +16,15 @@ from shared_classes import SalesShare, SpecifiedStock, Stock, StockItem
 from rollover import Rollover
 from profilehooks import profile, timecall
 from solve_io import solve_IO, inv_IO
+from dispatch_classes import Dispatch, DispatchFeederAllocation
 import inspect
 
 
 # noinspection PyAttributeOutsideInit
-
+           
 class Supply(object):
-    """
-    This module calculates all supply nodes in an IO loop to calculate energy, 
+
+    """This module calculates all supply nodes in an IO loop to calculate energy, 
     emissions, and cost flows through the energy economy
     """    
     
@@ -35,10 +36,19 @@ class Supply(object):
         self.geographies = cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
         self.dispatch_geography = cfg.cfgfile.get('case','dispatch_geography')
-        self.live_wires=[]
-        self.electricity_nodes = []
+        self.dispatch_geographies = cfg.geo.geographies[cfg.cfgfile.get('case','dispatch_geography')]
+        self.thermal_dispatch_node_id = util.sql_read_table('DispatchConfig', 'thermal_dispatch_node_id')
+        self.distribution_node_id = util.sql_read_table('DispatchConfig', 'distribution_node_id')
+        self.transmission_node_id = util.sql_read_table('DispatchConfig', 'transmission_node_id')
+        self.dispatch_zones = [self.distribution_node_id, self.transmission_node_id]
+        self.electricity_nodes = defaultdict(list)
+        self.injection_nodes = defaultdict(list)
         self.ghgs = util.sql_read_table('GreenhouseGases','id')
-   
+        self.dispatch = Dispatch()
+        self.dispatch_feeder_allocation = DispatchFeederAllocation(id=1)
+        self.dispatch_feeders = list(set(self.dispatch_feeder_allocation.values.index.get_level_values('dispatch_feeder')))
+
+        
     def calculate_technologies(self):
         """ initiates calculation of all technology attributes - costs, efficiency, etc.
         """
@@ -56,6 +66,7 @@ class Supply(object):
                     node.remap_tech_attrs(storage_tech_classes)
                 else:
                     node.remap_tech_attrs(tech_classes)
+                    
 
     def calculate_years(self):
         """
@@ -166,9 +177,7 @@ class Supply(object):
             (is_active,) = query.fetchone()
             if is_active == 1:
                 self.add_node(id, supply_type)
-        for node in self.nodes.values():
-            if node.name == 'Thermal Dispatch Blend':
-                self.thermal_id = node.id
+
 
     def add_node(self, id, supply_type, **kwargs):
         """Add node to Supply instance
@@ -276,7 +285,9 @@ class Supply(object):
                             self.update_io_df(year)
                             self.calculate_io(year, loop)
                         self.calculate_stocks(year, loop)
-                        self.calculate_coefficients(year,loop)
+                        self.calculate_embodied_costs(year)
+                    if loop == 3:
+                        self.prepare_dispatch_inputs(year, loop)
                         self.calculate_embodied_costs(year)
                         self.calculate_embodied_emissions(year)
                 else:
@@ -310,10 +321,10 @@ class Supply(object):
                         self.calculate_stocks(year, loop)
                         self.calculate_embodied_costs(year)
                     if loop == 3:
-                        self.calculate_dispatch_nodes(year, loop)
+                        self.prepare_dispatch_inputs(year, loop)
                         self.calculate_embodied_costs(year)
                         self.calculate_embodied_emissions(year)
-        self.calculate_supply_outputs()
+
                         
                         
     def calculate_supply_outputs(self):
@@ -360,189 +371,258 @@ class Supply(object):
                 emissions_rate_indexer = util.level_specific_indexer(self.demand_emissions_rates,['final_energy'],[final_energy])
                 self.demand_emissions_rates.loc[emissions_rate_indexer,:] += df.values
                     
-        
-    def set_injection_nodes(self):
-        """Determines which supply nodes inject electricity onto the grid based on the coefficients
-        matrix of the supply-side. 
+    def set_dispatchability(self):
+        """Determines the dispatchability of electricity generation nodes and nodes that demand electricity
         Sets:
-            injection_nodes (list) = list of all supply nodes that inject electricity onto the grid
+            electricity_gen_nodes = list of all supply nodes that inject electricity onto the grid
+            electricity_load_nodes = dictionary of all supply nodes that demand electricity with keys of 
         """
-        self.injection_nodes = []
-        for node_id in self.electricity_nodes:
-            node = self.nodes[node_id]
-            if hasattr(node,'active_coefficients'):
-                injection_nodes = [x for x in node.active_coefficients.index.get_level_values('supply_node') if x not in self.electricity_nodes]
-                self.injection_nodes+=injection_nodes
-        self.injection_nodes = list(set(self.injection_nodes))
-        
-
-    def set_live_wires(self,electricity_node):
-        """Determines which supply nodes are actual 'live wires', or delivery nodes on the 
-        electricity grid. Also determines which nodes convey electricity through them. 
-        Ex. distribution grid is a 'live wire' and an RPS Blend node is a general electricity node.
-        Args:
-            electricity_node (SupplyNode) = instance of SupplyNode known to be an electricity node. Default is to use thermal dispatch node. 
-        Sets:
-            electricity_nodes (list) = list of all nodes that convey electricity on the supply-side
-            live_wires (list) = list of all delivery nodes that represent the physical conveyance of electricity
-        """
-        self.set_live_wires_downstream(electricity_node)
-        for node_id in self.electricity_nodes:
-            self.set_live_wires_upstream(self.nodes[node_id])
-        self.electricity_nodes = list(set(self.electricity_nodes))
-        self.live_wires = list(set(self.live_wires))
-
-    def set_live_wires_downstream(self,electricity_node):
-        """Determines live wires downstream of the thermal dispatch node."""
-        for node in self.nodes.values():
-            if hasattr(node,'active_coefficients_untraded')  and node.active_coefficients_untraded  is not None:
-                indexer = util.level_specific_indexer(node.active_coefficients_untraded, ['efficiency_type','supply_node'],[2,electricity_node.id])
-                live = node.active_coefficients_untraded.loc[indexer,:]
-                if live.empty is False:
-                    if node.supply_type!='Conversion':
-                        self.electricity_nodes.append(node.id)
-                    if node.supply_type == 'Delivery':
-                        self.live_wires.append(node.id)
-                    self.set_live_wires_downstream(node)
+        self.electricity_gen_nodes = util.recursivedict()
+        self.electricity_load_nodes = util.recursivedict()
+        for zone in self.dispatch_zones:
+            self.electricity_gen_nodes[zone]['dispatchable'] = [x for x in self.injection_nodes[zone] if self.nodes[x].is_dispatchable == 1]
+            self.electricity_gen_nodes[zone]['non_dispatchable'] = [x for x in self.injection_nodes[zone] if self.nodes[x].is_dispatchable != 1]
+        for zone in self.dispatch_zones:
+            self.electricity_load_nodes[zone]['dispatchable'] = [x for x in self.all_electricity_load_nodes[zone] if self.nodes[x].is_dispatchable == 1]
+            self.electricity_load_nodes[zone]['non_dispatchable'] = [x for x in self.all_electricity_load_nodes[zone] if self.nodes[x].is_dispatchable != 1]
                     
-    def set_live_wires_upstream(self,electricity_node):
-        """Determines live wires upstream of the thermal dispatch node."""
-        if hasattr(electricity_node,'active_coefficients_untraded')  and electricity_node.active_coefficients_untraded  is not None:
-            for node_id in list(set(electricity_node.active_coefficients_untraded.index.get_level_values('supply_node'))):
+    def set_electricity_gen_nodes(self,dispatch_zone, node):
+        """Determines all nodes that inject electricity onto the grid in a recursive loop
+        args:
+            dispatch_zone: key for dictionary to indicate whether the generation is at the transmission or distribution level
+            node: checks for injection of electricity into this node from conversion nodes
+        sets:
+            self.injection_nodes = dictionary with dispatch_zone as key and a list of injection nodes as the value
+            self.electricity_nodes = dictionary with dispatch_zone as key and a list of all nodes that transfer electricity (i.e. blend nodes, etc.)
+        """
+        if hasattr(node,'active_coefficients_untraded')  and node.active_coefficients_untraded  is not None:
+            for node_id in list(set(node.active_coefficients_untraded.index.get_level_values('supply_node'))):
                 node= self.nodes[node_id]
-                indexer = util.level_specific_indexer(electricity_node.active_coefficients_untraded, ['efficiency_type','supply_node'],[2,node.id])
-                live = electricity_node.active_coefficients_untraded.loc[indexer,:]
-                if live.empty is False:
-                    #conversion nodes are excluded because they inject electricity but 
-                    #do not convey it
-                    if node.supply_type!='Conversion':
-                        self.electricity_nodes.append(node.id)
-                    if node.supply_type == 'Delivery':
-                        self.live_wires.append(node.id)
-                    self.set_live_wires_upstream(node)
+                indexer = util.level_specific_indexer(node.active_coefficients_untraded, ['efficiency_type','supply_node'],[2,node.id])
+                zone= node.active_coefficients_untraded.loc[indexer,:]
+                if zone.empty is False:
+                    if node_id in self.dispatch_zones:
+                        #proceeds to next dispatch zone
+                        self.set_electricity_gen_nodes(node, node)
+                    elif node.supply_type =='Conversion' or node.supply_type =='Storage':
+                        self.injection_nodes[dispatch_zone.id].append(node.id)
+                        continue
+                    else:
+                        self.electricity_nodes[dispatch_zone.id].append(node.id)
+                        self.set_electricity_gen_nodes(dispatch_zone, node)
                         
-    def calculate_non_dispatchable_supply(self,year,loop):
-        """Calculates the supply of non-dispatchable electricity generation to live wires. 
-        Examples include wind, solar, etc. This helps to create a net-load shape in the lives wires
-        as an initial step of the electricity dispatch.    
+    def set_electricity_load_nodes(self):
+        """Determines all nodes that demand electricity from the grid
+        args:
+        sets:
+            all_electricity_load_nodes = dictionary with dispatch_zone as key and a list of all nodes that demand electricity from that zone
+        """    
+        self.all_electricity_load_nodes = defaultdict(list)
+        for zone in self.dispatch_zones:
+            for node in self.electricity_nodes[zone]+[zone]:
+                for load_node in self.nodes.values():
+                    if hasattr(load_node,'active_coefficients_untraded')  and load_node.active_coefficients_untraded  is not None:
+                        if node in load_node.active_coefficients_untraded.index.get_level_values('supply_node') and load_node not in self.electricity_nodes[zone]+[zone]:
+                            if (load_node.supply_type == 'Conversion') and load_node.id not in self.electricity_nodes[zone]:
+                                self.all_electricity_load_nodes[zone].append(load_node.id)
+                            
+
+                    
+    def prepare_dispatchable_load(self,year,loop):
+        """Calculates the availability of dispatchable load for the hourly dispatch. Used for nodes like hydrogen and P2G.
         Args:
             year (int) = year of analysis 
             loop (int or str) = loop identifier
         Sets:
-            non_dispatchable_supply (dict) = dictionary with keys of wire (i.e. transmission grid
-            or distribution grid) and supply node (representing the node injecting electricity onto 
-            the grid ex. solar pv) with values of a dataframe with dispatch geography as the column 
-            geography and model geography as the row geography. 
+            dispatchable_load (dict) = dictionary with keys of  supply_node_id, 'energy' or 'capacity', 'geography', zone (i.e. transmission grid
+            or distribution grid), and dispatch_feeder and values of a np.array()
         """
-        io_supply_df = copy.deepcopy(self.io_supply_df)
-        self.non_dispatchable_supply = defaultdict(dict)
-        for wire in self.live_wires:
-            dfs = []
-            for values in self.inverse_dict['energy'][year].values():
-                values = copy.deepcopy(values)            
-                #sets all inverse values that are not representative of non-dispatchable
-                #supply to NAN
-                for node in self.nodes.values():
-                    indexer = util.level_specific_indexer(values, 'supply_node', wire, axis=1)
-                    values = values.loc[:, indexer] 
-                    indexer = util.level_specific_indexer(values, 'supply_node', node.id, axis=0)
-                    if node.id not in self.injection_nodes or node.is_dispatchable:
-                        values.loc[indexer,:] = np.nan
-                values.to_clipboard()
-                #filters dataframe by NAN values to leave only non-dispatchable nodes in dataframe
-                dfs.append(values)
-            keys = self.demand_sectors
-            name= ['demand_sector']
-            full_df = pd.concat(dfs,keys=keys,names=name,axis=0)
-            full_df= pd.concat([full_df]*len(keys),keys=keys,names=name,axis=1)
-            full_df = full_df.groupby(level=['supply_node']).filter(lambda x: x.sum().sum()>0) 
-            full_df.fillna(0,inplace=True)
-            full_df.columns = full_df.columns.droplevel(-1)
-            full_df = full_df.reorder_levels([self.geography,'demand_sector','supply_node'])
-            full_df = full_df.reorder_levels([self.geography, 'demand_sector'],axis=1)
-            full_df.sort(inplace=True,axis=0)
-            full_df.sort(inplace=True,axis=1)                
-            indexer = util.level_specific_indexer(io_supply_df,'supply_node',wire)
-            supply_df = io_supply_df.loc[indexer, year].to_frame()
-            keys = [self.demand_sectors,self.geographies,]
-            names = ['demand_sector',self.geography]
-            for key,name in zip(keys,names):
-                supply_df = pd.concat([supply_df]*len(key),axis=1,names=[name])
-            for node_id in list(set(full_df.index.get_level_values('supply_node'))):
-                row_indexer = util.level_specific_indexer(full_df, 'supply_node', node_id,axis=0)
-                if node_id in self.nodes.keys():                  
-                    node = self.nodes[node_id]    
+        self.dispatchable_load= util.recursivedict()
+        for zone in self.dispatch_zones:
+            for node_id in self.electricity_load_nodes[zone]['dispatchable']:
+                node = self.nodes[node_id]
+                if hasattr(node,'coefficients'):
+                    coefficients = node.coefficients.values
                 else:
-                    continue
+                    coefficients = node.stock.coefficients
                 geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
-                df = full_df.loc[row_indexer,:]     
-                diag = np.ndarray(df.values.shape)
-                np.fill_diagonal(diag,1)
-                df *= supply_df.values*diag     
-                self.non_dispatchable_supply[wire][node_id] = self.geo_map_non_dispatchable(df,
-                                         self.geography, self.dispatch_geography,
-                                         geography_map_key)
-                
-    def geo_map_non_dispatchable(self,df,old_geography, new_geography, geography_map_key):
-        """Geography maps a dataframe with columns and rows having the same geography to a dataframe
-        where the column geography is a new geography based on a mapping key 
-        Args:
-            df (pd.Dataframe) = dataframe to be mapped
-            old_geography (int) = id of model geography to be mapped from
-            new_geography (int) = id of model geography to be mapped to
-            geography_map_key (int) = id of key to map on
-        Returns:
-            new_df (pd.Dataframe) = geomapped dataframe with new column geography 
-        """  
-        keys=cfg.geo.geographies[new_geography]
-        name = [new_geography]
-        df = pd.concat([df] * len(keys),keys=keys,names=name,axis=1)
-        df.sort(inplace=True,axis=1)
-        df.sort(inplace=True,axis=0)
-        map_df = cfg.geo.map_df(new_geography,old_geography,geography_map_key,eliminate_zeros=False).transpose()
-        names = [x for x in df.index.names if x not in map_df.index.names]
-        names.reverse()
-        for name in names:
-            keys=list(set(df.index.get_level_values(name)))
-            map_df = pd.concat([map_df]*len(keys),keys=keys,names=[name])
-        map_df.index = map_df.index.droplevel(None)
-        names = [x for x in df.columns.names if x not in map_df.columns.names]
-        names.reverse()
-        keys = []
-        for name in names:
-            keys = list(set(df.columns.get_level_values(name)))
-            map_df = pd.concat([map_df]*len(keys),keys=keys,names=[name],axis=1)
-        map_df=map_df.reorder_levels(df.index.names,axis=0)
-        map_df = map_df.reorder_levels(df.columns.names,axis=1)
-        map_df.sort(inplace=True,axis=0)
-        map_df.sort(inplace=True,axis=1)
-        old_geographies = list(set(map_df.columns.get_level_values(old_geography)))
-        new_geographies =list(set(map_df.columns.get_level_values(new_geography)))
-        for old in old_geographies:
-            for new in new_geographies:
-                row_indexer = util.level_specific_indexer(df,[old_geography],[old],axis=0)
-                col_indexer = util.level_specific_indexer(df,[old_geography,new_geography],[old,new],axis=1)
-                shape = (df.loc[row_indexer,col_indexer].values.shape)
-                diag = np.ndarray(shape)
-                np.fill_diagonal(diag,1)
-        df *= map_df.values
-        new_df = df.groupby(level=util.ix_excl(df,old_geography,axis=1),axis=1).sum()
-        return new_df
+                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)     
+                indexer = util.level_specific_indexer(node.stock.coefficients.loc[:,year].to_frame(),'supply_node',[self.electricity_nodes[zone]+[zone]])
+                energy_demand = DfOper.mult([node.stock.values_energy.loc[:,year].to_frame(), coefficients.loc[indexer,year].to_frame()])
+                capacity = DfOper.mult([node.stock.values.loc[:,year].to_frame(), coefficients.loc[indexer,year].to_frame()])
+                if zone == self.distribution_node_id and 'demand_sector' not in node.stock.values.index.names:
+                    #requires energy on the distribution system to be allocated to feeder for dispatch
+                    energy_demand = DfOper.mult([energy_demand, node.active_supply.groupby(level=[self.geography,'demand_sector']).transform(lambda x: x/x.sum())])   
+                    capacity = DfOper.mult([capacity, node.active_supply.groupby(level=[self.geography,'demand_sector']).transform(lambda x: x/x.sum())])
+                energy_demand = util.remove_df_levels(energy_demand.loc[indexer,:],['vintage', 'supply_technology'])
+                capacity = util.remove_df_levels(capacity,['vintage', 'supply_technology'])
+                #geomap to dispatch geography
+                energy_demand = util.remove_df_levels(DfOper.mult([energy_demand,map_df]),self.geography)
+                capacity = util.remove_df_levels(DfOper.mult([capacity,map_df]),self.geography)
+                if zone == self.distribution_node_id:
+                    #specific for distribution node because of feeder allocation requirement
+                    indexer = util.level_specific_indexer(self.dispatch_feeder_allocation.values, 'year', year)
+                    energy_demand = util.remove_df_levels(util.DfOper.mult([energy_demand, self.dispatch_feeder_allocation.values.loc[indexer, ]]), 'demand_sector')
+                    capacity = util.remove_df_levels(util.DfOper.mult([capacity, self.dispatch_feeder_allocation.values.loc[indexer, ]]), 'demand_sector')
+                    for geography in self.dispatch_geographies:
+                        for dispatch_feeder in self.dispatch_feeders:
+                            indexer = util.level_specific_indexer(energy_demand, [self.dispatch_geography, 'supply_node', 'dispatch_feeder'],[geography,zone,dispatch_feeder])
+                            self.dispatchable_load[node.id]['energy'][geography][zone][dispatch_feeder]= energy_demand.loc[indexer,].values[0][0]
+                            indexer = util.level_specific_indexer(capacity, [self.dispatch_geography, 'supply_node', 'dispatch_feeder'],[geography,zone,dispatch_feeder])
+                            self.dispatchable_load[node.id]['capacity'][geography][zone][dispatch_feeder]= capacity.loc[indexer,].values[0][0]
+                else:
+                    for geography in self.dispatch_geographies:
+                        #feeder is set to 0 for dispatchable load not on the distribution system
+                        indexer = util.level_specific_indexer(energy_demand, [self.dispatch_geography, 'supply_node'],[geography,zone])
+                        self.dispatchable_load[node.id]['energy'][geography][zone][0]= util.remove_df_levels(energy_demand.loc[indexer,:],'demand_sector').values[0][0]
+                        indexer = util.level_specific_indexer(capacity,[self.dispatch_geography, 'supply_node'],[geography,zone])
+                        self.dispatchable_load[node.id]['capacity'][geography][zone][0]= util.remove_df_levels(capacity.loc[indexer,:],'demand_sector').values[0][0]
                         
-    def calculate_dispatch_nodes(self, year, loop):
+                        
+                        
+    def prepare_dispatchable_gen(self,year,loop):
+        """Calculates the availability of dispatchable generation for the hourly dispatch. Used for nodes like hydroelectricity. 
+        Args:
+            year (int) = year of analysis 
+            loop (int or str) = loop identifier
+        Sets:
+            dispatchable_gen (dict) = dictionary with keys of  supply_node_id, 'energy' or 'capacity', 'geography', zone (i.e. transmission grid
+            or distribution grid), and dispatch_feeder and values of a np.array()
+        """
+        self.dispatchable_gen= util.recursivedict()
+        for zone in self.dispatch_zones:
+            non_thermal_dispatch_nodes = [x for x in self.electricity_gen_nodes[zone]['dispatchable'] if x not in self.nodes[self.thermal_dispatch_node_id].values.index.get_level_values('supply_node')]
+            for node_id in non_thermal_dispatch_nodes:
+                node = self.nodes[node_id]
+                geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
+                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)     
+
+                energy = node.stock.values_energy.loc[:,year].to_frame()
+                capacity = node.stock.values.loc[:,year].to_frame()
+                if zone == self.distribution_node_id and 'demand_sector' not in node.stock.values.index.names:
+                    #requires energy on the distribution system to be allocated to feeder for dispatch
+                    energy = DfOper.mult([energy, node.active_supply.groupby(level=[self.geography,'demand_sector']).transform(lambda x: x/x.sum())])   
+                    capacity = DfOper.mult([capacity, node.active_supply.groupby(level=[self.geography,'demand_sector']).transform(lambda x: x/x.sum())])
+                energy = util.remove_df_levels(energy,['vintage', 'supply_technology'])
+                capacity = util.remove_df_levels(capacity,['vintage', 'supply_technology'])
+                #geomap to dispatch geography
+                energy = DfOper.mult([energy,map_df])
+                capacity = DfOper.mult([capacity,map_df])
+                if zone == self.distribution_node_id:
+                    #specific for distribution node because of feeder allocation requirement
+                    indexer = util.level_specific_indexer(self.dispatch_feeder_allocation.values, 'year', year)
+                    energy = util.remove_df_levels(util.DfOper.mult([energy, self.dispatch_feeder_allocation.values.loc[indexer, ]]), 'demand_sector')
+                    capacity = util.remove_df_levels(util.DfOper.mult([capacity, self.dispatch_feeder_allocation.values.loc[indexer, ]]), 'demand_sector')
+                    for geography in self.dispatch_geographies:
+                        for dispatch_feeder in self.dispatch_feeders:
+                            indexer = util.level_specific_indexer(energy, [self.dispatch_geography, 'dispatch_feeder'],[geography,zone,dispatch_feeder])
+                            self.dispatchable_gen['energy'][node.id][geography][zone][dispatch_feeder]= energy.loc[indexer,].values[0][0]
+                            indexer = util.level_specific_indexer(capacity, [self.dispatch_geography, 'dispatch_feeder'],[geography,zone,dispatch_feeder])
+                            self.dispatchable_gen['capacity'][node.id][geography][zone][dispatch_feeder]= capacity.loc[indexer,].values[0][0]
+                else:
+                    for geography in self.dispatch_geographies:
+                        #feeder is set to 0 for dispatchable load not on the distribution system
+                        indexer = util.level_specific_indexer(energy, self.dispatch_geography, geography)
+                        self.dispatchable_gen['energy'][geography][zone][0][node.id]= util.remove_df_levels(energy.loc[indexer,:],['demand_sector',self.geography]).values[0][0]
+                        indexer = util.level_specific_indexer(capacity,self.dispatch_geography, geography)
+                        self.dispatchable_gen['capacity'][geography][zone][0][node.id]= util.remove_df_levels(capacity.loc[indexer,:],['demand_sector',self.geography]).values[0][0]
+
+    def prepare_non_dispatchable_load(self,year,loop):
+        """Calculates the demand from non-dispatchable load on the supply-side
+        Args:
+            year (int) = year of analysis 
+            loop (int or str) = loop identifier
+        Sets:
+            non_dispatchable_load (dict) = dictionary with keys of 'geography', zone (i.e. transmission grid
+            or distribution grid), feeder, and node_id,  with values of a dataframe
+    
+        """
+        self.non_dispatchable_load= util.recursivedict()
+        for zone in self.dispatch_zones:
+            for node_id in self.electricity_load_nodes[zone]['non_dispatchable']:
+                node = self.nodes[node_id]
+                if hasattr(node,'coefficients'):
+                    coefficients = node.coefficients.values
+                else:
+                    coefficients = node.stock.coefficients
+                geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
+                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)     
+                indexer = util.level_specific_indexer(coefficients.loc[:,year].to_frame(),'supply_node',[self.electricity_nodes[zone]+[zone]])
+                energy= DfOper.mult([node.stock.values_energy.loc[:,year].to_frame(), coefficients.loc[indexer,year].to_frame()])
+                if zone == self.distribution_node_id and 'demand_sector' not in node.stock.values.index.names:
+                    #requires energy on the distribution system to be allocated to feeder for dispatch
+                    energy = DfOper.mult([energy, node.active_supply.groupby(level=[self.geography,'demand_sector']).transform(lambda x: x/x.sum())])   
+                energy = util.remove_df_levels(energy,['vintage', 'supply_technology','efficiency_type''supply_node'])
+                #geomap to dispatch geography
+                energy = DfOper.mult([energy,map_df])
+                if zone == self.distribution_node_id:
+                    #specific for distribution node because of feeder allocation requirement
+                    indexer = util.level_specific_indexer(self.dispatch_feeder_allocation.values, 'year', year)
+                    energy = util.remove_df_levels(util.DfOper.mult([energy, self.dispatch_feeder_allocation.values.loc[indexer, ]]), 'demand_sector')
+                    for geography in self.dispatch_geographies:
+                        for dispatch_feeder in self.dispatch_feeders:
+                            indexer = util.level_specific_indexer(energy, [self.dispatch_geography, 'dispatch_feeder'],[geography,dispatch_feeder])
+                            self.non_dispatchable_load[geography][zone][dispatch_feeder][node.id]= energy.loc[indexer,:]
+                else:
+                    for geography in self.dispatch_geographies:
+                        #feeder is set to 0 for dispatchable load not on the distribution system
+                        indexer = util.level_specific_indexer(energy, self.dispatch_geography,geography)
+                        self.non_dispatchable_load[geography][zone][0][node.id]= util.remove_df_levels(energy.loc[indexer,:],['demand_sector'])
+        
+                    
+    def prepare_non_dispatchable_gen(self,year,loop):
+        """Calculates the supply from non-dispatchable generation on the supply-side
+        Args:
+            year (int) = year of analysis 
+            loop (int or str) = loop identifier
+        Sets:
+            non_dispatchable_load (dict) = dictionary with keys of 'geography', zone (i.e. transmission grid
+            or distribution grid), feeder, and node_id,  with values of a dataframe
+        """
+        self.non_dispatchable_gen = util.recursivedict()
+        for zone in self.dispatch_zones:
+            for node_id in self.electricity_gen_nodes[zone]['non_dispatchable']:
+                node = self.nodes[node_id]
+                geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
+                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)     
+                energy_supply = node.stock.values_energy.loc[:,year].to_frame()
+                if zone == self.distribution_node_id and 'demand_sector' not in node.stock.values.index.names:
+                    #requires energy on the distribution system to be allocated to feeder for dispatch
+                    energy_supply= DfOper.mult([energy_supply, node.active_supply.groupby(level=[self.geography,'demand_sector']).transform(lambda x: x/x.sum())])   
+                energy_supply = util.remove_df_levels(energy_supply,['vintage', 'supply_technology'])
+                #geomap to dispatch geography
+                energy_supply = DfOper.mult([energy_supply,map_df])
+                if zone == self.distribution_node_id:
+                    #specific for distribution node because of feeder allocation requirement
+                    indexer = util.level_specific_indexer(self.dispatch_feeder_allocation.values, 'year', year)
+                    energy_supply = util.remove_df_levels(util.DfOper.mult([energy_supply, self.dispatch_feeder_allocation.values.loc[indexer, ]]), 'demand_sector')
+                    for geography in self.dispatch_geographies:
+                        for dispatch_feeder in self.dispatch_feeders:
+                            indexer = util.level_specific_indexer(energy_supply, [self.dispatch_geography, 'dispatch_feeder'],[geography,dispatch_feeder])
+                            self.non_dispatchable_gen[geography][zone][dispatch_feeder][node.id]= energy_supply.loc[indexer,:]
+                else:
+                    for geography in self.dispatch_geographies:
+                        #feeder is set to 0 for dispatchable load not on the distribution system
+                        indexer = util.level_specific_indexer(energy_supply, self.dispatch_geography,geography)
+                        self.non_dispatchable_gen[geography][zone][0][node.id]= util.remove_df_levels(energy_supply.loc[indexer,:],['demand_sector'])
+                        
+    def prepare_dispatch_inputs(self, year, loop):
         """Calculates supply node parameters needed to run electricity dispatch
         Args:
             year (int) = year of analysis 
             loop (int or str) = loop identifier
         """
-        self.electricity_nodes.append(self.thermal_id)
-        self.set_live_wires(self.nodes[self.thermal_id])
-        self.set_injection_nodes()
-        self.calculate_non_dispatchable_supply(year,loop)
-        self.calculate_thermal_dispatch_nodes(year,loop)
-        self.calculate_electricity_storage_nodes(year,loop)
+        self.set_electricity_gen_nodes(self.nodes[self.distribution_node_id],self.nodes[self.distribution_node_id])
+        self.set_electricity_load_nodes()
+        self.set_dispatchability()
+        self.prepare_non_dispatchable_gen(year,loop)
+        self.prepare_dispatchable_gen(year,loop)
+        self.prepare_non_dispatchable_load(year,loop)
+        self.prepare_dispatchable_load(year,loop)
+        self.prepare_thermal_dispatch_nodes(year,loop)
+        self.prepare_electricity_storage_nodes(year,loop)
     
-    def calculate_thermal_dispatch_nodes(self,year,loop):
+    def prepare_thermal_dispatch_nodes(self,year,loop):
         """Calculates the operating cost of all thermal dispatch resources 
         Args:
             year (int) = year of analysis 
@@ -563,8 +643,8 @@ class Supply(object):
         embodied_cost_df = embodied_cost_df.reorder_levels([self.geography,'demand_sector','supply_node']).to_frame()
         embodied_cost_df.sort(inplace=True)   
         self.dispatch_df = embodied_cost_df
-        self.dispatch_cost_dict = defaultdict(dict)
-        self.dispatch_capacity_dict = defaultdict(dict)
+        self.thermal_dispatch_cost_dict = defaultdict(dict)
+        self.thermal_dispatch_capacity_dict = defaultdict(dict)
         for node in [x for x in self.nodes.values() if x.supply_type != 'Storage']:
             if hasattr(node, 'calculate_dispatch_costs'):
                 node.calculate_dispatch_costs(year, embodied_cost_df,loop)
@@ -577,51 +657,80 @@ class Supply(object):
                     for group in groups:
                         dict_key = (node.id,) + group
                         dispatch_location = group[0]
-                        self.dispatch_cost_dict[dispatch_location][dict_key] = active_dispatch_costs.loc[group].values[0]
-                        self.dispatch_capacity_dict[dispatch_location][dict_key] = stock_values.loc[group].values[0]            
+                        self.thermal_dispatch_cost_dict[dispatch_location][dict_key] = active_dispatch_costs.loc[group].values[0]
+                        self.thermal_dispatch_capacity_dict[dispatch_location][dict_key] = stock_values.loc[group].values[0]            
     
     
-    def calculate_electricity_storage_nodes(self,year,loop):
+    def prepare_electricity_storage_nodes(self,year,loop):
         """Calculates the efficiency and capacity (energy and power) of all electric
         storage nodes 
         Args:
             year (int) = year of analysis 
             loop (int or str) = loop identifier
         Sets:
-            storage_efficiency_dict (dict) = dictionary with keys of 'power' or 'energy', the 'geo_location' of the storage, the 'storage_location'
-            or location on the grid (ex. transmission grid), and a tuple of the resource identifier. Values are floats of roundtrip efficiency.  
-            storage_capacity_dict (dict) = dictionary with keys of 'power' or 'energy', the 'geo_location' of the storage, the 'storage_location'
-            or location on the grid (ex. transmission grid), and a tuple of the resource identifier. Values are floats of capacity. 
+            storage_capacity_dict (dict) = dictionary with keys of 'power' or 'duration', dispatch_geography, dispatch_zone, feeder, and technology and 
+            values of type float
+            storage_efficiency_dict (dict) = dictionary with keys dispatch_geography, dispatch_zone, feeder, and technology and 
+            values of type float
         """
         self.storage_efficiency_dict =  util.recursivedict()
         self.storage_capacity_dict = util.recursivedict()
         for node in [x for x in self.nodes.values() if x.supply_type == 'Storage']:
-            node.calculate_dispatch_coefficients(year, loop)
-            stock_capacity_values = node.stock.values.loc[:,year].to_frame().groupby(level=[self.geography,'supply_technology']).sum()
-            stock_energy_values = copy.deepcopy(stock_capacity_values)
-            for tech in node.technologies.values():
-                tech_indexer = util.level_specific_indexer(stock_energy_values,'supply_technology', tech.id)
-                stock_energy_values.loc[tech_indexer,:] *= tech.discharge_duration
-            if hasattr(node,'active_disp_coefficients'):
-                storage_node_location = list(set(node.active_disp_coefficients.index.get_level_values('supply_node')))
-                if len(storage_node_location)>1:
-                    raise ValueError('StorageNode %s has technologies with two different supply node locations' %node.id)
-                else:
-                    storage_node_location = storage_node_location[0]
+            for zone in self.dispatch_zones:
+                node.calculate_dispatch_coefficients(year, loop)
+                if hasattr(node,'active_disp_coefficients'):
+                    storage_node_location = list(set(node.active_disp_coefficients.index.get_level_values('supply_node')))
+                    if len(storage_node_location)>1:
+                        raise ValueError('StorageNode %s has technologies with two different supply node locations' %node.id)
+                if storage_node_location[0] in self.electricity_nodes[zone]+[zone]:
+                    capacity= node.stock.values.loc[:,year].to_frame().groupby(level=[self.geography,'supply_technology']).sum()
+                    efficiency = copy.deepcopy(node.active_disp_coefficients)
+                    if 'demand_sector' not in capacity.index.names and zone == self.distribution_node_id: 
+                        sector_capacity= []
+                        for sector in self.demand_sectors:
+                            #if we have no active supply, we must allocate exports pro-rate across number of sectors
+                            capacity = copy.deepcopy(capacity) * 1/len(self.demand_sectors)  
+                            sector_capacity['demand_sector'] = sector
+                            sector_capacity.append(capacity)
+                        capacity = pd.concat(sector_capacity)
+                        capacity.set_index('demand_sector', append=True, inplace=True)
+                        keys = self.demand_sectors
+                        name = ['demand_sector']
+                        efficiency = pd.concat((efficiency)*len(keys),keys=keys,names=name)
                     geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
                     map_df = cfg.geo.map_df(self.geography, self.dispatch_geography, column=geography_map_key)
-                    active_disp_coefficients = DfOper.mult([node.active_disp_coefficients, map_df],fill_value=0.0).swaplevel(self.geography,self.dispatch_geography)
-                    stock_energy_values = DfOper.mult([stock_energy_values, map_df],fill_value=0.0).swaplevel(self.geography,self.dispatch_geography)
-                    stock_capacity_values = DfOper.mult([stock_capacity_values, map_df],fill_value=0.0).swaplevel(self.geography,self.dispatch_geography)
-                    efficiency = util.remove_df_levels(active_disp_coefficients,'supply_node')
-                    groups = [x[0] for x in efficiency.groupby(level=efficiency.index.names).groups.values()]
-                    for group in groups:
-                        dict_key = (node.id,) + group
-                        geo_location = group[0]
-                        self.storage_efficiency_dict[geo_location][storage_node_location][dict_key] = efficiency.loc[group].values[0]
-                        self.storage_capacity_dict['power'][geo_location][storage_node_location][dict_key] = stock_capacity_values.loc[group,year]     
-                        self.storage_capacity_dict['energy'][geo_location][storage_node_location][dict_key] = stock_energy_values.loc[group].values[0]   
-                        
+                    efficiency = util.remove_df_levels(DfOper.mult([efficiency, map_df],fill_value=0.0),self.geography)
+                    capacity = util.remove_df_levels(DfOper.mult([capacity, map_df],fill_value=0.0),self.geography)
+                    duration = copy.deepcopy(capacity)*0
+                    for tech in node.technologies.values():
+                        tech_indexer = util.level_specific_indexer(duration,'supply_technology', tech.id)
+                        duration.loc[tech_indexer,:] = tech.discharge_duration
+                    efficiency = util.remove_df_levels(efficiency,'supply_node')    
+                    if zone == self.distribution_node_id:
+                        indexer = util.level_specific_indexer(self.dispatch_feeder_allocation.values, 'year', year)
+                        duration = util.remove_df_levels(util.DfOper.mult([duration, self.dispatch_feeder_allocation.values.loc[indexer, ]]), 'demand_sector')
+                        capacity = util.remove_df_levels(util.DfOper.mult([capacity, self.dispatch_feeder_allocation.values.loc[indexer, ]]), 'demand_sector')
+                        efficiency = util.remove_df_levels(util.DfOper.mult([efficiency, self.dispatch_feeder_allocation.values.loc[indexer, ]]), 'demand_sector')
+                        for geography in self.dispatch_geographies:
+                            for dispatch_feeder in self.dispatch_feeders:
+                                for technology in node.technologies.keys():
+                                    indexer = util.level_specific_indexer(efficiency, [self.dispatch_geography, 'dispatch_feeder','supply_technology'],[geography,dispatch_feeder,technology])
+                                    self.storage_efficiency_dict[geography][zone][dispatch_feeder][technology] = efficiency.loc[indexer,:].values[0][0]
+                                    indexer = util.level_specific_indexer(capacity, [self.dispatch_geography, 'dispatch_feeder','supply_technology'],[geography,dispatch_feeder,technology])
+                                    self.storage_capacity_dict['power'][geography][zone][dispatch_feeder][technology] = capacity.loc[indexer,:].values[0][0]
+                                    indexer = util.level_specific_indexer(duration, [self.dispatch_geography, 'dispatch_feeder','supply_technology'],[geography,dispatch_feeder,technology])
+                                    self.storage_capacity_dict['duration'][geography][zone][dispatch_feeder][technology] = duration.loc[indexer,:].values[0][0]
+                    else:
+                        for geography in self.dispatch_geographies:
+                            for technology in node.technologies.keys():
+                                indexer = util.level_specific_indexer(efficiency, [self.dispatch_geography, 'supply_technology'],[geography,technology])
+                                self.storage_efficiency_dict[geography][zone][0][technology] = util.remove_df_levels(efficiency.loc[indexer,:], 'demand_sector').values[0][0]
+                                indexer = util.level_specific_indexer(capacity, [self.dispatch_geography, 'supply_technology'],[geography,technology])
+                                self.storage_capacity_dict['power'][geography][zone][0][technology] = util.remove_df_levels(capacity.loc[indexer,:], 'demand_sector').values[0][0]
+                                indexer = util.level_specific_indexer(duration, [self.dispatch_geography,'supply_technology'],[geography,technology])
+                                self.storage_capacity_dict['duration'][geography][zone][0][technology] = util.remove_df_levels(duration.loc[indexer,:], 'demand_sector').values[0][0]
+                
+                    
                     
     def calculate_embodied_costs(self, year):
         """Calculates the embodied emissions for all supply nodes by multiplying each node's
@@ -696,10 +805,13 @@ class Supply(object):
             sector_df_list = []
             keys = self.demand_sectors
             name = ['sector']
+            idx = pd.IndexSlice
             for sector in self.demand_sectors:
-                for key,value in map_dict.iteritems():
-                    link_dict[year][sector].loc(axis=1)[:,key] = embodied_dict[year][sector].loc(axis=1)[:,value].values
-                sector_df_list.append(link_dict[year][sector].stack([self.geography,'final_energy']).to_frame())     
+                link_dict[year][sector].loc[:,:] = embodied_dict[year][sector].loc[:,idx[:, map_dict.values()]].values
+                link_dict[year][sector]= link_dict[year][sector].stack([self.geography,'final_energy']).to_frame()
+#                levels = [x for x in ['supply_node',self.geography +'_supply', 'ghg',self.geography,'final_energy'] if x in link_dict[year][sector].index.names]
+                link_dict[year][sector] = link_dict[year][sector][link_dict[year][sector][0]!=0]
+                sector_df_list.append(link_dict[year][sector])     
             year_df = pd.concat(sector_df_list, keys=keys,names=name)
             df_list.append(year_df)
         self.sector_df_list  = sector_df_list     
@@ -707,14 +819,11 @@ class Supply(object):
         keys = self.years
         name = ['year']
         df = pd.concat(df_list,keys=keys,names=name)
-        self.test_link_a = copy.deepcopy(df)
         df.columns = ['value']
-        levels = [x for x in ['supply_node',self.geography +'_supply', 'ghg',self.geography,'final_energy'] if x in df.index.names]
-        df = df.groupby(level=levels).filter(lambda x: x.sum()!=0) 
-        self.test_link_b = df
+#       levels = [x for x in ['supply_node',self.geography +'_supply', 'ghg',self.geography,'final_energy'] if x in df.index.names]
         return df
         
-        
+    @timecall    
     def map_embodied_to_export(self, embodied_dict):
         """Maps embodied emissions results for supply node to their associated final energy type and then
         to final energy demand. 
@@ -732,7 +841,7 @@ class Supply(object):
         export_df = self.io_export_df.stack().to_frame()
         util.replace_index_name(export_df, 'year')
         util.replace_column(export_df, 'value')
-        export_df = export_df.groupby(level='supply_node').filter(lambda x: x.sum()!=0)   
+        export_df = export_df[export_df['value']!=0]
         supply_nodes = list(set(export_df.index.get_level_values('supply_node')))
         df_list = []
         idx = pd.IndexSlice
@@ -741,13 +850,14 @@ class Supply(object):
             keys = self.demand_sectors
             name = ['sector']
             for sector in self.demand_sectors:
-                for year in self.years:
-                   df = copy.deepcopy(embodied_dict[year][sector]).loc[:,idx[:,supply_nodes]]
-                   util.replace_column_name(df,'supply_node_export',  'supply_node')
-                   util.replace_index_name(df, self.geography + "_supply", self.geography)
-                   stack_levels =[self.geography, "supply_node_export"] 
-                   sector_df_list.append(df.stack(stack_levels).to_frame())     
-                year_df = pd.concat(sector_df_list, keys=keys,names=name)
+               df = copy.deepcopy(embodied_dict[year][sector]).loc[:,idx[:,supply_nodes]]
+               util.replace_column_name(df,'supply_node_export',  'supply_node')
+               util.replace_index_name(df, self.geography + "_supply", self.geography)
+               stack_levels =[self.geography, "supply_node_export"] 
+               df = df.stack(stack_levels).to_frame()
+               df = df[df[0]!=0]
+               sector_df_list.append(df)     
+            year_df = pd.concat(sector_df_list, keys=keys,names=name)
             df_list.append(year_df)
 #        self.sector_df_list  = sector_df_list     
 #        self.df_list = df_list
@@ -755,21 +865,21 @@ class Supply(object):
         name = ['year']
         df = pd.concat(df_list,keys=keys,names=name)
         df.columns = ['value']
-        levels = [x for x in ['supply_node','supply_node_export',self.geography +'_supply',self.geography +'_export',  'ghg'] if x in df.index.names]
-        df = df.groupby(level=levels).filter(lambda x: x.sum()!=0)                 
+#        levels = [x for x in ['supply_node','supply_node_export',self.geography +'_supply',self.geography +'_export',  'ghg'] if x in df.index.names]
+#        df = df.groupby(level=levels).filter(lambda x: x.sum()!=0)                 
         return df
 
     def calculate_export_result(self, export_result_name, io_dict):
         export_map_df = self.map_embodied_to_export(io_dict)
         export_df = self.io_export_df.stack().to_frame()
-        export_df = export_df.groupby(level='supply_node').filter(lambda x: x.sum()!=0)
+        export_df = export_df[export_df[0]!=0]
         util.replace_index_name(export_df, 'year')
         util.replace_index_name(export_df, 'sector', 'demand_sector')
         util.replace_index_name(export_df,'supply_node_export','supply_node')
         util.replace_column(export_df, 'value') 
         export_result= DfOper.mult([export_df, export_map_df])
-        levels = [x for x in ['supply_node','supply_node_export',self.geography +'_supply',self.geography +'_export',  'ghg'] if x in export_result.index.names]
-        setattr(self, export_result_name, export_result.groupby(level=levels).filter(lambda x: x.sum()!=0))
+#        levels = [x for x in ['supply_node','supply_node_export',self.geography +'_supply',self.geography +'_export',  'ghg'] if x in export_result.index.names]
+        setattr(self, export_result_name, export_result)
 
                     
 ##    @timecall(immediate=True)    
@@ -1166,8 +1276,8 @@ class Supply(object):
             active_cost_io = self.adjust_for_not_incremental(self.active_io,'cost')
             self.active_demand = self.io_total_active_demand_df.loc[indexer,:]
             self.io_supply_df.loc[indexer,year] = solve_IO(self.active_io.values, self.active_demand.values)  
-            self.inverse_dict['energy'][year][sector] = pd.DataFrame(solve_IO(self.active_io.values), index=index, columns=index)
-            self.inverse_dict['cost'][year][sector] = pd.DataFrame(solve_IO(active_cost_io.values), index=index, columns=index)
+            self.inverse_dict['energy'][year][sector] = pd.DataFrame(solve_IO(self.active_io.values).round(6), index=index, columns=index)
+            self.inverse_dict['cost'][year][sector] = pd.DataFrame(solve_IO(active_cost_io.values).round(6), index=index, columns=index)
         for node in self.nodes.values():
             indexer = util.level_specific_indexer(self.io_supply_df,levels=['supply_node'], elements = [node.id])
             node.active_supply = self.io_supply_df.loc[indexer,year].groupby(level=[self.geography, 'demand_sector']).sum().to_frame()
@@ -1517,8 +1627,9 @@ class Node(DataMapFunctions):
                     combustion_emissions.loc[:,:] = self.active_supply.T.values * self.active_physical_emissions_coefficients.loc[indexer,:].values
                     self.active_combustion_emissions = combustion_emissions.groupby(level='ghg').sum() 
                     self.active_combustion_emissions = self.active_combustion_emissions.unstack(self.geography).to_frame()
-                    if hasattr(self,'CO2_capture_rate'):
-                        self.active_combustion_emissions = DfOper.mult([self.active_combustion_emissions, 1- self.CO2_capture_rate.loc[:,year].to_frame()])
+                    if hasattr(self,'calculate_co2_capture_rate'):
+                        self.calculate_co2_capture_rate(year)
+                        self.active_combustion_emissions = DfOper.mult([self.active_combustion_emissions, 1- self.active_co2_capture_rate])
         if hasattr(self,'active_accounting_emissions_rate'):
             self.active_accounting_emissions = DfOper.mult([self.active_accounting_emissions_rate,self.active_supply])    
         if hasattr(self,'active_accounting_emissions') and hasattr(self,'active_combustion_emissions'):
@@ -1774,7 +1885,7 @@ class BlendNode(Node):
          # remove duplicates where a node is specified and is specified as residual node
          self.values = self.values.groupby(level=self.values.index.names).sum()
          # set negative values to 0
-         self.values.loc[self.values['value'] <= 0, 'value'] = 1e-5
+         self.values.loc[self.values['value'] <= 0, 'value'] = 1e-7
          self.expand_blend()
          self.values = self.values.unstack(level='year')    
          self.values.columns = self.values.columns.droplevel()
@@ -1801,7 +1912,7 @@ class BlendNode(Node):
         # remove duplicates where a node is specified and is specified as residual node
         self.values.loc[:,year] = self.values.loc[:,year].groupby(level=self.values.index.names).sum()
         # set negative values to 0
-        self.values[self.values <= 0] = 1e-5
+        self.values[self.values <= 0] = 1e-7
          
     def update_reconciled_residual(self, year):
         """calculates values for residual node in Blend Node dataframe
@@ -1813,16 +1924,16 @@ class BlendNode(Node):
         indexer = util.level_specific_indexer(self.active_coefficients_total, 'supply_node', self.residual_supply_node_id)    
         remainder = 1- self.active_coefficients_total.sum().to_frame()
         existing_residual = self.active_coefficients_total.loc[indexer,:].sum().to_frame()
-        existing_residual.replace(0, 1e-5,inplace=True)
+        existing_residual.replace(0, 1e-7,inplace=True)
         growth_factor = DfOper.divi([DfOper.add([remainder,existing_residual]), existing_residual])
         indexer = util.level_specific_indexer(self.values.loc[:,year].to_frame(), 'supply_node', self.residual_supply_node_id)
         self.values.loc[indexer,year] = DfOper.mult([self.values.loc[indexer, year].to_frame(), growth_factor]).values
-         
+        self.values[self.values <= 0] = 1e-7
          
          
     def expand_blend(self):
         #needs a fill value because if a node is not demanding any energy from another node, it still may be supplied, and reconciliation happens via division (can't multiply by 0)
-        self.values = util.reindex_df_level_with_new_elements(self.values,'supply_node', self.nodes, fill_value = 1e-5)
+        self.values = util.reindex_df_level_with_new_elements(self.values,'supply_node', self.nodes, fill_value = 1e-7)
         if 'demand_sector' not in self.values.index.names:
             self.values = util.expand_multi(self.values, self.demand_sectors, ['demand_sector'], incremental=True)
 #            self.values = self.values.swaplevel('demand_sector', 'supply_node')
@@ -1835,7 +1946,7 @@ class BlendNode(Node):
     def set_residual(self):
         """creats an empty df with the value for the residual node of 1. For nodes with no blend measures specified"""
         df_index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors, self.nodes, self.years, [2]], names=[cfg.cfgfile.get('case','primary_geography'), 'demand_sector','supply_node','year','efficiency_type' ])
-        self.values = util.empty_df(index=df_index,columns=['value'],fill_value=1e-5)
+        self.values = util.empty_df(index=df_index,columns=['value'],fill_value=1e-7)
         indexer = util.level_specific_indexer(self.values, 'supply_node', self.residual_supply_node_id)
         self.values.loc[indexer, 'value'] = 1
         self.values = self.values.unstack(level='year')    
@@ -2517,13 +2628,10 @@ class SupplyCoefficients(Abstract):
             self.values = self.values.unstack(level='year')    
             self.values.columns = self.values.columns.droplevel()
             #TODO fix
-            self.new_values = []
-            for sector in self.demand_sectors:
-                new_value = copy.deepcopy(self.values)
-                new_value['demand_sector'] = sector
-                self.new_values.append(new_value)
-            self.values = pd.concat(self.new_values)
-            self.values.set_index('demand_sector', append=True, inplace=True)
+            if 'demand_sector' not in self.values.index.names:
+                keys = self.demand_sectors
+                names = ['demand_sector']
+                self.values = pd.concat([self.values]*len(keys),keys=keys,names=names)
             self.values = self.values.reorder_levels([cfg.cfgfile.get('case', 'primary_geography'),'demand_sector', 'efficiency_type', 'supply_node'])
             
     def convert(self):
@@ -3262,11 +3370,6 @@ class SupplyStockNode(Node):
         self.stock.installation_cost.loc[:,year] = DfOper.add([self.stock.installation_cost_new.loc[:,year].to_frame(), self.stock.installation_cost_replacement.loc[:,year].to_frame()])
         total_costs = util.remove_df_levels(DfOper.add([self.stock.capital_cost.loc[:,year].to_frame(), self.stock.installation_cost.loc[:,year].to_frame(), self.stock.fixed_om.loc[:,year].to_frame(), self.stock.variable_om.loc[:,year].to_frame()]),['vintage', 'supply_technology'])
         self.embodied_cost.loc[:,year] = DfOper.divi([total_costs, self.active_supply],expandable=(False,False)).replace([np.inf,np.nan,-np.nan],[0,0,0])        
-        if self.id == 15:
-            print year
-            print total_costs
-            print self.active_supply
-            print self.embodied_cost.loc[:,year]
         self.active_embodied_cost = util.expand_multi(self.embodied_cost[year].to_frame(), levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])
 
 
@@ -3294,6 +3397,14 @@ class SupplyStockNode(Node):
         self.stock.values_normal.loc[:,year].replace(np.inf,0,inplace=True)
         self.stock.values_normal_energy.loc[:,year].replace(np.inf,0,inplace=True)
         
+
+    def calculate_co2_capture_rate(self,year):
+         if not hasattr(self,'co2_capture_rate'):
+             index = self.rollover_output(tech_class='co2_capture',stock_att='values_normal_energy',year=year).index
+             self.co2_capture_rate= util.empty_df(index, columns=self.years,fill_value=0)   
+         self.co2_capture_rate.loc[:,year] = self.rollover_output(tech_class = 'co2_capture', stock_att='values_normal_energy',year=year)
+         self.active_co2_capture_rate = util.remove_df_levels(self.co2_capture_rate.loc[:,year].to_frame(),['supply_technology','vintage'])
+         
     def calculate_active_coefficients(self, year,loop):
         """
         Calculate rollover efficiency outputs for a supply node
@@ -3456,8 +3567,7 @@ class StorageNode(SupplyStockNode):
                                                                          stock_att='values_financial_replacement',year=year)            
         self.stock.fixed_om.loc[:,year]=  self.rollover_output(tech_class='fixed_om',tech_att='values_level',
                                                                          stock_att='values',year=year)  
-        self.stock.variable_om.loc[:,year] = self.rollover_output(tech_class='variable_om',tech_att='values',
-                                                                         stock_att='values_energy',year=year)     
+        self.stock.variable_om.loc[:,year] = DfOper.mult([self.rollover_output(tech_class='variable_om',tech_att='values', stock_att='values_normal_energy',year=year), self.active_supply],non_expandable_levels=None).groupby(level=self.stock.variable_om.index.names).sum()      
         self.stock.installation_cost_new.loc[:,year] = self.rollover_output(tech_class='installation_cost_new',tech_att='values_level',
                                                                          stock_att='values_financial_new',year=year)
         self.stock.installation_cost_replacement.loc[:,year] = self.rollover_output(tech_class='installation_cost_replacement',tech_att='values_level',

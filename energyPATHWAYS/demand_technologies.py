@@ -259,8 +259,9 @@ class ParasiticEnergy(Abstract):
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
         self.tech_unit = tech.unit
+        self.demand_tech_unit_type = tech.demand_tech_unit_type
         self.service_demand_unit = tech.service_demand_unit
-        Abstract.__init__(self, id, 'demand_tech_id')
+        Abstract.__init__(self, self.id, 'demand_tech_id')
 
 
     def calculate(self, vintages, years):

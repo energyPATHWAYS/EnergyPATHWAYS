@@ -956,6 +956,10 @@ def difference_in_df_names(a, b, return_bool=True):
 # else:
 # return names_a_not_in_b, names_b_not_in_a
 
+def rotate(l, x):
+  return l[-x:] + l[:-x]
+
+
 def reorder_b_to_match_a(b, a):
     # levels match, but b needs to be reordered
     if a.index.names == b.index.names:
