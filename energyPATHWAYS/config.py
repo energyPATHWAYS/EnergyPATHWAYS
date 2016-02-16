@@ -34,17 +34,13 @@ class Config:
         cfgfile.set('case', 'years', range(int(cfgfile.get('case', 'start_year')),
                                            int(cfgfile.get('case', 'end_year')) + 1,
                                            int(cfgfile.get('case', 'year_step'))))
-        cfgfile.set('case', 'vintages', range(int(cfgfile.get('vintage', 'start_year')),
-                                              int(cfgfile.get('vintage', 'end_year')) + 1,
-                                              int(cfgfile.get('case', 'year_step'))))
         cfgfile.set('case', 'supply_years', range(int(cfgfile.get('case', 'current_year')),
                                                   int(cfgfile.get('case', 'end_year')) + 1,
                                                   int(cfgfile.get('case', 'year_step'))))
         
         self.primary_geography = cfgfile.get('case', 'primary_geography')
         self.cfgfile = cfgfile
-#        case_path = os.path.join(cfgfile.get('directory', 'path'), 'cases', cfgfile.get('case', 'scenario'))
-        
+
     def init_db(self, db_path):
         if not os.path.isfile(db_path):
             raise OSError('config file not found: ' + str(db_path))

@@ -1681,7 +1681,6 @@ class Subsector(DataMapFunctions):
     def format_specified_stock(self):
         """ formats specified stock and linked specified stocks from other subsectors
         overwrites specified stocks with linked specified stocks"""
-        self.stock.specified = util.remove_df_elements(self.stock.specified, cfg.cfgfile.get('data_identifiers', 'all'), 'technology')
         needed_levels = self.stock.rollover_group_levels + [self.tech_ids] + [self.years]
         needed_names = self.stock.rollover_group_names + ['technology'] + ['year']
         groupby_levels = [x for x in self.stock.specified.index.names if x not in needed_names]
