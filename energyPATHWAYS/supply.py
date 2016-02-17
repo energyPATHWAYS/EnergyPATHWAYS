@@ -18,7 +18,7 @@ from profilehooks import profile, timecall
 from solve_io import solve_IO, inv_IO
 from dispatch_classes import Dispatch, DispatchFeederAllocation
 import inspect
-
+import operator
 
 # noinspection PyAttributeOutsideInit
            
@@ -426,7 +426,6 @@ class Supply(object):
                             if (load_node.supply_type == 'Conversion') and load_node.id not in self.electricity_nodes[zone]:
                                 self.all_electricity_load_nodes[zone].append(load_node.id)
                             
-
                     
     def prepare_dispatchable_load(self,year,loop):
         """Calculates the availability of dispatchable load for the hourly dispatch. Used for nodes like hydrogen and P2G.
@@ -546,8 +545,10 @@ class Supply(object):
                 else:
                     coefficients = node.stock.coefficients
                 geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
-                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)     
+                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)   
+                coefficients.sort(inplace=True)
                 indexer = util.level_specific_indexer(coefficients.loc[:,year].to_frame(),'supply_node',[self.electricity_nodes[zone]+[zone]])
+#                node.stock.values_energy.sort(inplace=True)
                 energy= DfOper.mult([node.stock.values_energy.loc[:,year].to_frame(), coefficients.loc[indexer,year].to_frame()])
                 if zone == self.distribution_node_id and 'demand_sector' not in node.stock.values.index.names:
                     #requires energy on the distribution system to be allocated to feeder for dispatch
@@ -645,6 +646,7 @@ class Supply(object):
         self.dispatch_df = embodied_cost_df
         self.thermal_dispatch_cost_dict = defaultdict(dict)
         self.thermal_dispatch_capacity_dict = defaultdict(dict)
+        self.thermal_dispatch_capacity_factor_dict = defaultdict(dict)
         for node in [x for x in self.nodes.values() if x.supply_type != 'Storage']:
             if hasattr(node, 'calculate_dispatch_costs'):
                 node.calculate_dispatch_costs(year, embodied_cost_df,loop)
@@ -652,14 +654,16 @@ class Supply(object):
                     geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
                     map_df = cfg.geo.map_df(self.geography, self.dispatch_geography, column=geography_map_key)
                     active_dispatch_costs = DfOper.mult([node.active_dispatch_costs, map_df],fill_value=0.0).swaplevel(self.geography,self.dispatch_geography)
-                    stock_values = DfOper.mult([node.stock.values.loc[:,year].to_frame(), map_df],fill_value=0.0).swaplevel(self.geography,self.dispatch_geography)      
+                    stock_values = DfOper.mult([node.stock.values.loc[:,year].to_frame(), map_df],fill_value=0.0).swaplevel(self.geography,self.dispatch_geography) 
+                    capacity_factor = DfOper.mult([node.stock.capacity_factor.loc[:,year].to_frame(), map_df],fill_value=0.0).swaplevel(self.geography,self.dispatch_geography) 
                     groups = [x[0] for x in active_dispatch_costs.groupby(level=active_dispatch_costs.index.names).groups.values()]
                     for group in groups:
                         dict_key = (node.id,) + group
                         dispatch_location = group[0]
                         self.thermal_dispatch_cost_dict[dispatch_location][dict_key] = active_dispatch_costs.loc[group].values[0]
-                        self.thermal_dispatch_capacity_dict[dispatch_location][dict_key] = stock_values.loc[group].values[0]            
-    
+                        self.thermal_dispatch_capacity_dict[dispatch_location][dict_key] = stock_values.loc[group].values[0]       
+                        self.thermal_dispatch_capacity_factor_dict[dispatch_location][dict_key] = capacity_factor.loc[group].values[0]
+
     
     def prepare_electricity_storage_nodes(self,year,loop):
         """Calculates the efficiency and capacity (energy and power) of all electric
@@ -873,13 +877,17 @@ class Supply(object):
         export_map_df = self.map_embodied_to_export(io_dict)
         export_df = self.io_export_df.stack().to_frame()
         export_df = export_df[export_df[0]!=0]
-        util.replace_index_name(export_df, 'year')
-        util.replace_index_name(export_df, 'sector', 'demand_sector')
-        util.replace_index_name(export_df,'supply_node_export','supply_node')
-        util.replace_column(export_df, 'value') 
-        export_result= DfOper.mult([export_df, export_map_df])
+        if export_map_df.empty is False and export_df.empty is False:
+            util.replace_index_name(export_df, 'year')
+            util.replace_index_name(export_df, 'sector', 'demand_sector')
+            util.replace_index_name(export_df,'supply_node_export','supply_node')
+            util.replace_column(export_df, 'value') 
+            export_result= DfOper.mult([export_df, export_map_df])
+        else:
+            export_result = None
 #        levels = [x for x in ['supply_node','supply_node_export',self.geography +'_supply',self.geography +'_export',  'ghg'] if x in export_result.index.names]
         setattr(self, export_result_name, export_result)
+    
 
                     
 ##    @timecall(immediate=True)    
@@ -1335,8 +1343,11 @@ class Supply(object):
         map_dict = dict(util.sql_read_table('SupplyNodes',['final_energy_link','id']))
         if None in map_dict.keys():
             del map_dict[None]
+        keys = sorted(map_dict.items(), key=operator.itemgetter(1))
+        keys = [x[0] for x in keys]
+            #sorts final energy in the same order as the supply node dataframes
         index = pd.MultiIndex.from_product([self.geographies, self.all_nodes], names=[cfg.cfgfile.get('case','primary_geography')+"_supply",'supply_node'])  
-        columns = pd.MultiIndex.from_product([self.geographies,map_dict.keys()], names=[self.geography,'final_energy'])
+        columns = pd.MultiIndex.from_product([self.geographies,keys], names=[self.geography,'final_energy'])
         self.embodied_cost_link_dict = util.recursivedict()
         self.embodied_energy_link_dict = util.recursivedict()
         for year in self.years:
@@ -1349,8 +1360,11 @@ class Supply(object):
         map_dict = dict(util.sql_read_table('SupplyNodes',['final_energy_link','id']))
         if None in map_dict.keys():
             del map_dict[None]
-        index = pd.MultiIndex.from_product([self.geographies, self.all_nodes, self.ghgs], names=[cfg.cfgfile.get('case','primary_geography')+"_supply",'supply_node','ghg'])  
-        columns = pd.MultiIndex.from_product([self.geographies,map_dict.keys()], names=[self.geography,'final_energy'])
+        #sorts final energy in the same order as the supply node dataframes
+        keys = sorted(map_dict.items(), key=operator.itemgetter(1))
+        keys = [x[0] for x in keys]
+        index = pd.MultiIndex.from_product([self.geographies, self.all_nodes, self.ghgs], names=[cfg.cfgfile.get('case','primary_geography')+"_supply",'supply_node','ghg'])   
+        columns = pd.MultiIndex.from_product([self.geographies,keys], names=[self.geography,'final_energy'])
         self.embodied_emissions_link_dict = util.recursivedict()
         for year in self.years:
             for sector in self.demand_sectors:
