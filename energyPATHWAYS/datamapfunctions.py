@@ -45,12 +45,14 @@ class DataMapFunctions:
                 self.column_names[index_level] = column_name
 
 
-    def read_timeseries_data(self, **filters):  # This function needs to be sped up
+    def read_timeseries_data(self, data_column_names='value', **filters):  # This function needs to be sped up
         """reads timeseries data to dataframe from database. Stored in self.raw_values"""
         # rowmap is used in ordering the data when read from the sql table
         headers = util.sql_read_headers(self.sql_data_table)
         rowmap = [headers.index(self.column_names[level]) for level in self.index_levels]
-        data_col_ind = headers.index('value')
+        data_col_ind  = []
+        for data_col in util.put_in_list(data_column_names):
+            data_col_ind.append(headers.index(data_col))
         # read each line of the data_table matching an id and assign the value to self.raw_values
         data = []
         if len(filters):
@@ -63,10 +65,10 @@ class DataMapFunctions:
             for row in read_data:
                 try:
                     data.append([row[i] for i in rowmap] +
-                                [row[data_col_ind] * (self.unit_prefix if hasattr(self, 'unit_prefix') else 1)])
+                                [row[i] * (self.unit_prefix if hasattr(self, 'unit_prefix') else 1) for i in data_col_ind ])
                 except:
                     print (self.id, row, i)
-            column_names = self.df_index_names + ['value']
+            column_names = self.df_index_names + util.put_in_list(data_column_names)
             self.raw_values = pd.DataFrame(data, columns=column_names).set_index(keys=self.df_index_names).sort_index()
             self.data = True
         else:

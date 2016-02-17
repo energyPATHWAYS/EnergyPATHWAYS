@@ -6,22 +6,35 @@ Created on Mon Feb 15 22:06:19 2016
 """
 import util
 import numpy as np 
-from datamapfunctions import Abstract
+from datamapfunctions import Abstract,DataMapFunctions
 import copy
 import pandas as pd
 from scipy import optimize, interpolate, stats
 from matplotlib import pyplot as plt
 import time
 
+class DispatchNodeConfig(DataMapFunctions):
+    def __init__(self, id, **kwargs):
+        self.id = id
+        self.sql_id_table = 'DispatchNodeConfig'
+        self.sql_data_table = 'DispatchNodeData'
+        for col, att in util.object_att_from_table(self.sql_id_table, id, primary_key='supply_node_id'):
+            setattr(self, col, att)
+        DataMapFunctions.__init__(self,primary_key='supply_node_id')
+        self.read_timeseries_data(data_column_names=['p_max','p_min','energy_budget'])
+        
 
 class Dispatch(object):
     def __init__(self, **kwargs):
         #TODO replace 1 with a config parameter
         for col, att in util.object_att_from_table('DispatchConfig',1):
             setattr(self, col, att)
-        self.opt_hours = util.sql_read_table('DispatchWindows','hours', id=self.opt_hours)
+        self.opt_hours = util.sql_read_table('OptPeriods','hours', id=self.opt_hours)
         self.set_timeperiods()
-          
+        self.node_config_dict = dict()
+        for supply_node in util.sql_read_table('DispatchNodeConfig','supply_node_id'):
+            self.node_config_dict[supply_node] = DispatchNodeConfig(supply_node)
+      
     
     def set_timeperiods(self):
           """sets optimization periods based on selection of optimization hours
@@ -42,7 +55,7 @@ class Dispatch(object):
               self.period_flex_load_timepoints[period] = dict(zip(self.period_hours,util.rotate(self.period_hours,self.flex_load_constraints_offset)))     
     
 
-    def run(self,thermal_resource_capacity, thermal_resource_costs,
+    def run(self,thermal_resource_capacity, thermal_resource_costs, thermal_resource_cf,
             storage_capacity, storage_efficiency, 
             non_dispatchable_gen, dispatchable_gen, dispatchable_load_supply,
             non_dispatchable_load_supply, demand_load):
@@ -205,7 +218,6 @@ class Dispatch(object):
         capacity_sum = sum(pmax)
         cap_by_group = np.sum(pmaxs, axis=1)
         maintenace_energy = np.dot(pmax, annual_maintenance_rates)*len(load)
-        
         load_cut = np.percentile(load, load_ptile)
         
         group_cuts = list(np.where(np.diff(dispatch_periods)!=0)[0]+1)

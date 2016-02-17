@@ -480,7 +480,6 @@ def remove_df_levels(data, levels, total_label=None, agg_function='sum'):
     levels = [l for l in put_in_list(levels) if l in data.index.names]
     if not len(levels):
         return data
-    
     if data.index.nlevels > 1:
         levels_to_keep = [l for l in data.index.names if l not in levels]
         group_slice = tuple([total_label if ((l in levels) and (total_label in e)) else slice(None)
@@ -494,7 +493,7 @@ def remove_df_levels(data, levels, total_label=None, agg_function='sum'):
         else:
             raise ValueError('unknown agg function specified')
     else:
-        return data.reset_index(drop=True)
+        return data
 
 
 def remove_df_elements(data, elements, level):

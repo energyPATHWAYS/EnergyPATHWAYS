@@ -653,29 +653,33 @@ class Supply(object):
                 if hasattr(node,'active_dispatch_costs'):
                     geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
                     map_df = cfg.geo.map_df(self.geography, self.dispatch_geography, column=geography_map_key)
-                    active_dispatch_costs = DfOper.mult([node.active_dispatch_costs, map_df],fill_value=0.0).swaplevel(self.geography,self.dispatch_geography)
-                    stock_values = DfOper.mult([node.stock.values.loc[:,year].to_frame(), map_df],fill_value=0.0).swaplevel(self.geography,self.dispatch_geography) 
-                    capacity_factor = DfOper.mult([node.stock.capacity_factor.loc[:,year].to_frame(), map_df],fill_value=0.0).swaplevel(self.geography,self.dispatch_geography) 
+                    active_dispatch_costs = DfOper.mult([node.active_dispatch_costs, map_df],fill_value=0.0)
+                    stock_values = DfOper.mult([node.stock.values.loc[:,year].to_frame(), map_df],fill_value=0.0)
+                    capacity_factor = util.remove_df_levels(DfOper.mult([node.stock.capacity_factor.loc[:,year].to_frame(), map_df],fill_value=0.0),self.geography)
                     groups = [x[0] for x in active_dispatch_costs.groupby(level=active_dispatch_costs.index.names).groups.values()]
                     for group in groups:
+                        cap_factor_group = group[1:]
                         dict_key = (node.id,) + group
-                        dispatch_location = group[0]
-                        self.thermal_dispatch_cost_dict[dispatch_location][dict_key] = active_dispatch_costs.loc[group].values[0]
-                        self.thermal_dispatch_capacity_dict[dispatch_location][dict_key] = stock_values.loc[group].values[0]       
-                        self.thermal_dispatch_capacity_factor_dict[dispatch_location][dict_key] = capacity_factor.loc[group].values[0]
+                        dispatch_location = group[1]
+                        if stock_values.loc[group].values[0] == 0:
+                            continue
+                        else:
+                            self.thermal_dispatch_capacity_dict[dispatch_location][dict_key] = stock_values.loc[group].values[0]   
+                            self.thermal_dispatch_cost_dict[dispatch_location][dict_key] = active_dispatch_costs.loc[group].values[0]
+                            self.thermal_dispatch_capacity_factor_dict[dispatch_location][dict_key] = capacity_factor.loc[cap_factor_group].values[0]
 
     
     def prepare_electricity_storage_nodes(self,year,loop):
         """Calculates the efficiency and capacity (energy and power) of all electric
         storage nodes 
-        Args:
             year (int) = year of analysis 
             loop (int or str) = loop identifier
         Sets:
             storage_capacity_dict (dict) = dictionary with keys of 'power' or 'duration', dispatch_geography, dispatch_zone, feeder, and technology and 
             values of type float
             storage_efficiency_dict (dict) = dictionary with keys dispatch_geography, dispatch_zone, feeder, and technology and 
-            values of type float
+            values of type floa
+        Args:t
         """
         self.storage_efficiency_dict =  util.recursivedict()
         self.storage_capacity_dict = util.recursivedict()
@@ -727,13 +731,16 @@ class Supply(object):
                     else:
                         for geography in self.dispatch_geographies:
                             for technology in node.technologies.keys():
-                                indexer = util.level_specific_indexer(efficiency, [self.dispatch_geography, 'supply_technology'],[geography,technology])
-                                self.storage_efficiency_dict[geography][zone][0][technology] = util.remove_df_levels(efficiency.loc[indexer,:], 'demand_sector').values[0][0]
                                 indexer = util.level_specific_indexer(capacity, [self.dispatch_geography, 'supply_technology'],[geography,technology])
-                                self.storage_capacity_dict['power'][geography][zone][0][technology] = util.remove_df_levels(capacity.loc[indexer,:], 'demand_sector').values[0][0]
-                                indexer = util.level_specific_indexer(duration, [self.dispatch_geography,'supply_technology'],[geography,technology])
-                                self.storage_capacity_dict['duration'][geography][zone][0][technology] = util.remove_df_levels(duration.loc[indexer,:], 'demand_sector').values[0][0]
-                
+                                if util.remove_df_levels(capacity.loc[indexer,:], 'demand_sector').values[0][0] == 0:
+                                    continue
+                                else:
+                                    self.storage_capacity_dict['power'][geography][zone][0][technology] = util.remove_df_levels(capacity.loc[indexer,:], 'demand_sector').values[0][0]
+                                    indexer = util.level_specific_indexer(duration, [self.dispatch_geography,'supply_technology'],[geography,technology])
+                                    self.storage_capacity_dict['duration'][geography][zone][0][technology] = util.remove_df_levels(duration.loc[indexer,:], 'demand_sector').values[0][0]
+                                    indexer = util.level_specific_indexer(efficiency, [self.dispatch_geography, 'supply_technology'],[geography,technology])
+                                    self.storage_efficiency_dict[geography][zone][0][technology] = util.remove_df_levels(efficiency.loc[indexer,:], 'demand_sector').values[0][0]
+
                     
                     
     def calculate_embodied_costs(self, year):
