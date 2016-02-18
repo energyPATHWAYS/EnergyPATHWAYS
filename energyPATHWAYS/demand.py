@@ -1405,12 +1405,12 @@ class Subsector(DataMapFunctions):
         self.stock.years = self.years
         if not self.stock.projected or override:
             self.project_total_stock(map_from, service_dependent)
+            self.calculate_specified_stocks()
             self.project_specified_stock(map_from, service_dependent)
             self.stock.set_rollover_groups()
             self.stock.calc_annual_stock_changes()
             self.calc_tech_survival_functions()
             self.calculate_sales_shares()
-            self.calculate_specified_stocks()
             self.reconcile_sales_shares()
             self.stock_rollover()
             self.stock.projected = True
@@ -1439,9 +1439,10 @@ class Subsector(DataMapFunctions):
             current_geography = self.stock.geography
 
         if 'technology' in getattr(self.stock, map_from).index.names:
+
             self.stock.project(map_from=map_from, map_to='specified', current_geography=current_geography,
                                additional_drivers=self.service_demand.values if service_dependent else None,
-                               fill_timeseries=False)
+                               fill_timeseries=True,interpolation_method=None,extrapolation_method=None, fill_value=np.nan)
             # Here, we need fill timeseries backwards starting with the first specified stock using total stock as a driver
         else:
             full_names = self.stock.total.index.names + ['technology']
@@ -1475,6 +1476,16 @@ class Subsector(DataMapFunctions):
                 stock_reduction = DfOper.mult((specified_normal, total_check))
                 linked_specified = DfOper.subt((linked_specified, stock_reduction))
             self.stock.specified = linked_specified
+        for technology in self.technologies.values():
+            if len(technology.specified_stocks):
+               for specified_stock in technology.specified_stocks.values():
+                   specified_stock.remap(map_from='values', drivers=self.stock.total, fill_timeseries=False)
+                   indexer = util.level_specific_indexer(self.stock.specified,'technology',technology.id)
+                   df = util.remove_df_levels(self.stock.specified.loc[indexer,:],'technology')
+                   df = df.combine_first(specified_stock.values)
+                   self.stock.specified.loc[indexer,:] = df.values
+
+                  
 
     def project_ee_measure_stock(self):
         """ 

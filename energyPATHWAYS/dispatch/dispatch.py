@@ -228,13 +228,13 @@ pmaxs = pd.DataFrame.from_csv('pmaxs.csv').values
 outage_rates = pd.DataFrame.from_csv('outage_rates.csv').values
 must_runs = pd.DataFrame.from_csv('must_runs.csv').values
 
-#t = time.time()
-#for i in range(100):
-#    dispatch = dispatch_to_energy_budget(load, [-5000*8760/12]*12, dispatch_periods=dispatch_periods, pmins=0, pmaxs=10000)
-#t = e3.utils.time_stamp(t)
-#
-#plt.plot(load)
-#plt.plot(load+dispatch)
+t = time.time()
+for i in range(100):
+    dispatch = dispatch_to_energy_budget(load, [-5000*8760/12]*12, dispatch_periods=dispatch_periods, pmins=0, pmaxs=10000)
+t = e3.utils.time_stamp(t)
+
+plt.plot(load)
+plt.plot(load+dispatch)
 
 t = time.time()
 for i in range(1):

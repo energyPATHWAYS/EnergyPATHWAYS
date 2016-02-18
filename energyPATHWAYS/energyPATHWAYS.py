@@ -37,21 +37,21 @@ class PathwaysModel(object):
     def configure_energy_system(self):
         print 'configuring energy system'
         self.configure_demand()
-        self.configure_supply()
+#        self.configure_supply()
         cfg.init_outputs_id_map()
 
     def populate_energy_system(self):
         self.populate_demand_system()
-        self.populate_supply_system()
+#        self.populate_supply_system()
 
     def populate_measures(self):
         self.populate_demand_measures()
-        self.populate_supply_measures()
+#        self.populate_supply_measures()
 
     def calculate(self):
         self.calculate_demand_only()
-        self.pass_results_to_supply()
-        self.calculate_supply()
+#        self.pass_results_to_supply()
+#        self.calculate_supply()
 
     def configure_demand(self):
         """Read in and initialize data"""

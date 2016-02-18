@@ -769,18 +769,18 @@ def decay_growth_df(extrap_type, rate, reverse, vintages, years):
         rate = -rate
     vintages = np.asarray(vintages)
     years = np.asarray(years)
-    ages = np.zeros((len(years), len(vintages)))
-    for i, year in enumerate(years):
-        ages[i] = vintages - year
+    ages = np.zeros((len(vintages), len(years)))
+    for i, vintage in enumerate(vintages):
+        ages[i] = years - vintage
     if extrap_type == 'linear':
-        fill = (1 + (rate * ages)).T
-        fill = np.tril(fill, k=(min(years) - min(vintages)))
+        fill = (1 + (rate * ages))
+        fill = np.triu(fill, k=(min(vintages)-min(years)))
     elif extrap_type == 'exponential':
-        fill = ((1 + rate) ** ages).T
-        fill = np.tril(fill, k=(min(years) - min(vintages)))
+        fill = ((1 + rate) ** ages)
+        fill = np.triu(fill, k=(min(vintages)-min(years)))
     elif extrap_type is None:
-        exist = np.ones((len(years), len(vintages)))
-        fill = np.tril(exist, k=(min(years) - min(vintages))).T
+        exist = np.ones((len(vintages), len(years)))
+        fill = np.triu(exist, k=(min(vintages)-min(years)))
     df = pd.DataFrame(fill, index=vintages, columns=years)
     df.index.rename('vintage', inplace=True)
     df.columns.names = [None]

@@ -27,7 +27,7 @@ class StockItem (object):
     def calculate_specified_stocks(self):
         stock_measures = getattr(self, 'specified_stocks')
         for stock_measure in stock_measures.values():
-            stock_measure.calculate(self, vintages=self.vintages, years=self.years)
+            stock_measure.calculate(vintages=self.vintages, years=self.years)
     
     def reconcile_sales_shares(self, sales_shares, needed_sales_share_levels, needed_sales_share_names):
         sales_shares = getattr(self, sales_shares)
@@ -173,8 +173,8 @@ class SpecifiedStock(Abstract, DataMapFunctions):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        self.remap(time_index_name='year', fill_timeseries=False,interpolation_method=None, extrapolation_method=None)
-
+        self.remap()
+        self.values[self.values.index.get_level_values('year')<int(cfg.cfgfile.get('case','current_year'))+1] = np.nan
         
 class SalesShare(Abstract, DataMapFunctions):
     def __init__(self, id, subsector_id, sql_id_table, sql_data_table, reference=False):

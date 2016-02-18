@@ -27,12 +27,11 @@ class Geography:
 
 
     def read_geography_indicies(self):
-        geo_key = util.sql_read_table('Geographies', column_names='name')
-
+        geo_key = util.sql_read_table('Geographies', column_names='name',return_iterable=True)
         for key in geo_key:
             self.geographies[key] = []
 
-        for geography_id, name, id in util.sql_read_table('GeographiesData', column_names=['geography_id', 'name', 'id']):
+        for geography_id, name, id in util.sql_read_table('GeographiesData', column_names=['geography_id', 'name', 'id'],return_iterable=True):
             geography_name = util.id_to_name('geography_id', geography_id)
             self.geographies[geography_name].append(id)
             self.geography_names[id] = name
@@ -40,7 +39,7 @@ class Geography:
         for id, name in util.sql_read_table('TimeZones', column_names=['id', 'name']):
             self.timezone_names[id] = name
 
-        for map_key in util.sql_read_table('GeographyMapKeys', 'name'):
+        for map_key in util.sql_read_table('GeographyMapKeys', 'name',return_iterable=True):
             self.map_keys.append(map_key)
 
     def read_geography_data(self):
@@ -54,7 +53,7 @@ class Geography:
         rowmap = []
         for row in self.geographies.keys():
             rowmap.append(headers.index(row))
-        for row in util.sql_read_table('GeographyMap'):
+        for row in util.sql_read_table('GeographyMap', return_iterable=True):
             self.values.loc[tuple([row[i] for i in rowmap]), tuple(self.map_keys)] = [row[i] for i in colmap]
 
     def map_df(self, subsection, supersection, column=None, reset_index=False, eliminate_zeros=True):

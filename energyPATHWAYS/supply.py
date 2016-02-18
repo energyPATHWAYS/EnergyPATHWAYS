@@ -2645,7 +2645,7 @@ class SupplyCoefficients(Abstract):
         self.demand_sectors = demand_sectors
         if self.data is True:
             self.convert()
-            self.remap(map_from='values')
+            self.remap(map_from='values',lower=None)
             self.values = self.values.unstack(level='year')    
             self.values.columns = self.values.columns.droplevel()
             #TODO fix

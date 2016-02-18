@@ -57,7 +57,7 @@ class DemandTechnology(StockItem):
                                           return_iterable=True)
         for measure_id in measure_ids:
             specified_stocks = util.sql_read_table('DemandStockMeasures', 'id', demand_tech_id=self.id,
-                                                   subsector_id=self.subsector_id, package_id=package_id,
+                                                   subsector_id=self.subsector_id,
                                                    return_iterable=True)
             for specified_stock in specified_stocks:
                 self.specified_stocks[specified_stock] = SpecifiedStock(id=specified_stock,
@@ -342,7 +342,6 @@ class DemandTechEfficiency(Abstract):
                 numerator_unit = self.numerator_unit
                 denominator_unit = self.denominator_unit
                 self.flipped = False
-            
             self.values = util.unit_convert(self.values, unit_from_num=numerator_unit,
                                             unit_from_den=denominator_unit,
                                             unit_to_num=cfg.cfgfile.get('case', 'energy_unit'),
