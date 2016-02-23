@@ -422,34 +422,6 @@ def unit_convert(data, unit_from_num=None, unit_from_den=None, unit_to_num=None,
     else:
         return data * factor
 
-
-def geo_table(cur):
-    """
-    update GeographyMapKey column indexes in pathways.db when new geography or map key is added
-    """
-    table_info_query = "PRAGMA table_info(GeographyMap)"
-    table_info_cur = cur.execute(table_info_query)
-    table_info = table_info_cur.fetchall()
-    # return list of all column headers except 'name'
-    db_column_headers = [tup[1] for tup in table_info]
-    geography_query = 'select "geography" from Geographies'
-    geography_column = cur.execute(geography_query)
-    geographies = [tup[0] for tup in list(set(geography_column))]
-    map_key_query = 'select "geography_map_key" from GeographyMapKeys'
-    map_key_cur = cur.execute(map_key_query)
-    map_keys = [tup[0] for tup in list(set(map_key_cur))]
-    for geography in geographies:
-        # add column names for geographies identified in Geographies table
-        if geography not in db_column_headers:
-            add_geography_query = 'ALTER TABLE GeographyMap ADD COLUMN "%s" TEXT' % geography
-            cur.execute(add_geography_query)
-    for key in map_keys:
-        # add column names for map_keys identified in GeographyMapKeys table
-        if key not in db_column_headers:
-            add_map_key_query = 'ALTER TABLE GeographyMap ADD COLUMN "%s" REAL' % key
-            cur.execute(add_map_key_query)
-
-
 def ensure_iterable_and_not_string(obj):
     if isinstance(obj, basestring):
         return [obj]
