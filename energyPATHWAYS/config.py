@@ -53,7 +53,7 @@ class Config:
         self.cfgfile = cfgfile
 #        case_path = os.path.join(cfgfile.get('directory', 'path'), 'cases', cfgfile.get('case', 'scenario'))
         
-    def init_db(self, db_path):
+    def init_db(self):
         pg_host = self.cfgfile.get('database', 'pg_host')
         if not pg_host:
             pg_host = 'localhost'
@@ -64,12 +64,7 @@ class Config:
         if pg_password:
             conn_str += " password='%s'" % pg_password
 
-
-        if not os.path.isfile(db_path):
-            raise OSError('config file not found: ' + str(db_path))
-            
         # Open pathways database
-        #self.con = sqlite.connect(db_path)
         self.con = psycopg2.connect(conn_str)
         self.cur = self.con.cursor()
 

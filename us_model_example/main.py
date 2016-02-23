@@ -10,7 +10,6 @@ cfg = energyPATHWAYS.cfg
 directory = os.getcwd()
 
 cfgfile_path = os.path.join(directory, 'configurations.INI')
-db_path = os.path.join(directory, 'pathways.db')
 custom_pint_definitions_path = os.path.join(directory, 'unit_defs.txt')
 
 ###########
@@ -24,7 +23,7 @@ resolve_supply = True
 
 if __name__ == "__main__":
     if resolve_demand and resolve_supply:
-        model = energyPATHWAYS.PathwaysModel(db_path, cfgfile_path, custom_pint_definitions_path)
+        model = energyPATHWAYS.PathwaysModel(cfgfile_path, custom_pint_definitions_path)
         model.configure_energy_system()
         model.populate_energy_system()
         model.populate_measures()
