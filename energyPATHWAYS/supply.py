@@ -152,7 +152,7 @@ class Supply(object):
         self.nodes = {}
         self.all_nodes = []
         self.blend_nodes = []
-        cfg.cur.execute('select id from SupplyNodes')
+        cfg.cur.execute('select id from "SupplyNodes"')
         ids = [id for id in cfg.cur.fetchall()]
         for (id,) in ids:
             self.all_nodes.append(id)
@@ -160,10 +160,10 @@ class Supply(object):
     def add_nodes(self):  
         """Adds node instances for all active supply nodes"""
         for id in self.all_nodes:
-            cfg.cur.execute('select supply_type_id from SupplyNodes where id=%s', (id,))
+            cfg.cur.execute('select supply_type_id from "SupplyNodes" where id=%s', (id,))
             (supply_type_id,) = cfg.cur.fetchone()
             supply_type = util.id_to_name("supply_type_id", supply_type_id)
-            cfg.cur.execute('select is_active from SupplyNodes where id=%s', (id,))
+            cfg.cur.execute('select is_active from "SupplyNodes" where id=%s', (id,))
             (is_active,) = cfg.cur.fetchone()
             if is_active == 1:
                 self.add_node(id, supply_type)
@@ -1350,7 +1350,7 @@ class Node(DataMapFunctions):
             add all export measures in a selected package to a dictionary
             """
             self.export_measures = {}
-            cfg.cur.execute('select measure_id from SupplyExportMeasurePackagesData where package_id=%s',
+            cfg.cur.execute('select measure_id from "SupplyExportMeasurePackagesData" where package_id=%s',
                                            (self.export_package_id,))
             ids = [id for id in cfg.cur.fetchall()]
             for (id,) in ids:
@@ -1722,7 +1722,7 @@ class BlendNode(Node):
             add all blend measures in a selected package to a dictionary
             """
             self.blend_measures = {}
-            cfg.cur.execute('select measure_id from BlendNodeBlendMeasurePackagesData where package_id=%s',
+            cfg.cur.execute('select measure_id from "BlendNodeBlendMeasurePackagesData" where package_id=%s',
                                            (self.blend_package_id,))
             ids = [id for id in cfg.cur.fetchall()]
             for (id,) in ids:
@@ -2251,10 +2251,10 @@ class SupplyNode(Node,StockItem):
             return None
                 
     def create_costs(self):
-        cfg.cur.execute('select id from SupplyCost where supply_node_id=%s', (self.id,))
+        cfg.cur.execute('select id from "SupplyCost" where supply_node_id=%s', (self.id,))
         ids = [id for id in cfg.cur.fetchall()]
         for (id,) in ids:
-            cfg.cur.execute('select is_capital_cost from SupplyCost where id=%s', (id,))
+            cfg.cur.execute('select is_capital_cost from "SupplyCost" where id=%s', (id,))
             (is_capital_cost,) = cfg.cur.fetchone()
             self.add_costs(id, is_capital_cost)
 
@@ -2746,7 +2746,7 @@ class SupplyStockNode(Node):
     
     
     def add_technologies(self):
-        cfg.cur.execute('select id from SupplyTechs where supply_node_id=%s', (self.id,))
+        cfg.cur.execute('select id from "SupplyTechs" where supply_node_id=%s', (self.id,))
         ids = [id for id in cfg.cur.fetchall()]
         for (id,) in ids:
             self.add_technology(id)
@@ -2776,7 +2776,7 @@ class SupplyStockNode(Node):
             add all stock measures in a selected package to a dictionary
             """
             self.stock_measures = {}
-            cfg.cur.execute('select measure_id from SupplyStockMeasurePackagesData where package_id=%s',
+            cfg.cur.execute('select measure_id from "SupplyStockMeasurePackagesData" where package_id=%s',
                                            (self.stock_package_id,))
             ids = [id for id in cfg.cur.fetchall()]
             for (id,) in ids:
@@ -2793,7 +2793,7 @@ class SupplyStockNode(Node):
             add all sales measures in a selected package to a dictionary
             """
             self.sales_measures = {}
-            cfg.cur.execute('select measure_id from SupplySalesMeasurePackagesData where package_id=%s',
+            cfg.cur.execute('select measure_id from "SupplySalesMeasurePackagesData" where package_id=%s',
                                            (self.sales_package_id,))
             ids = [id for id in cfg.cur.fetchall()]
             for (id,) in ids:
@@ -2810,7 +2810,7 @@ class SupplyStockNode(Node):
             add all sales share measures in a selected package to a dictionary
             """
             self.sales_share_measures = {}
-            cfg.cur.execute('select measure_id from SupplySalesShareMeasurePackagesData where package_id=%s',
+            cfg.cur.execute('select measure_id from "SupplySalesShareMeasurePackagesData" where package_id=%s',
                                            (self.sales_share_package_id,))
             ids = [id for id in cfg.cur.fetchall()]
             for (id,) in ids:

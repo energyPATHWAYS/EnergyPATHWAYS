@@ -187,7 +187,7 @@ def sql_read_table(table_name, column_names='*', return_unique=False, return_ite
     if not isinstance(column_names, basestring):
         column_names = ', '.join(column_names)
     distinct = 'DISTINCT ' if return_unique else ''
-    query = 'SELECT ' + distinct + column_names + ' FROM %s' % table_name
+    query = 'SELECT ' + distinct + column_names + ' FROM "%s"' % table_name
     if len(filters):
         datatypes = sql_get_datatype(table_name, filters.keys())
         list_of_filters = ['"' + col + '"=' + fix_sql_query_type(fil, datatypes[col]) for col, fil in filters.items() if
@@ -213,7 +213,7 @@ def sql_read_table(table_name, column_names='*', return_unique=False, return_ite
 def sql_get_datatype(table_name, column_names):
     if isinstance(column_names, basestring):
         column_names = [column_names]
-    config.cfg.cur.execute("select column_name, data_type from INFORMATION_SCHEMA.COLUMNS where table_name = %s;", (table_name.lower(),))
+    config.cfg.cur.execute("select column_name, data_type from INFORMATION_SCHEMA.COLUMNS where table_name = %s;", (table_name,))
     table_info = config.cfg.cur.fetchall()
     return dict([tup for tup in table_info if tup[0] in column_names])
 
@@ -258,7 +258,7 @@ def sql_read_dataframe(table_name, index_column_name=None, data_column_names='*'
 
 
 def sql_read_headers(table_name):
-    config.cfg.cur.execute("select column_name from INFORMATION_SCHEMA.COLUMNS where table_name = %s;", (table_name.lower(),))
+    config.cfg.cur.execute("select column_name from INFORMATION_SCHEMA.COLUMNS where table_name = %s;", (table_name,))
     table_info = config.cfg.cur.fetchall()
     # return list of all column headers
     return [tup[0] for tup in table_info]
