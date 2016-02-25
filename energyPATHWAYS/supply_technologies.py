@@ -343,7 +343,7 @@ class SupplyTechEfficiency(Abstract):
         self.years = years
         if self.data and self.empty is False:
             self.convert()
-            self.remap(map_from='values', map_to='values', time_index_name='vintage')
+            self.remap(map_from='values', map_to='values', time_index_name='vintage',lower=None)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         elif self.data is False:
             setattr(self, 'converted', False)

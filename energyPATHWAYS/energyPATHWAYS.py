@@ -123,14 +123,17 @@ class PathwaysModel(object):
     
     def calculate_combined_cost_results(self):
         #calculate and format export costs
-        setattr(self.outputs,'export_costs',self.supply.export_costs)
-        self.export_costs_df = self.outputs.return_cleaned_output('export_costs')
-        del self.outputs.export_costs
-        util.replace_index_name(self.export_costs_df, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
-        keys = ["EXPORT","SUPPLY"]
-        names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
-        for key,name in zip(keys,names):
-            self.export_costs_df = pd.concat([self.export_costs_df],keys=[key],names=[name])
+        if self.supply.export_costs is not None:
+            setattr(self.outputs,'export_costs',self.supply.export_costs)
+            self.export_costs_df = self.outputs.return_cleaned_output('export_costs')
+            del self.outputs.export_costs
+            util.replace_index_name(self.export_costs_df, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
+            keys = ["EXPORT","SUPPLY"]
+            names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
+            for key,name in zip(keys,names):
+                self.export_costs_df = pd.concat([self.export_costs_df],keys=[key],names=[name])
+        else:
+            self.export_costs_df = None
         #calculate and format emobodied supply costs
         self.embodied_energy_costs_df = self.demand.outputs.return_cleaned_output('demand_embodied_energy_costs')
         del self.demand.outputs.demand_embodied_energy_costs
@@ -154,23 +157,27 @@ class PathwaysModel(object):
         util.replace_index_name(self.outputs.costs, "ENERGY","FINAL_ENERGY")
 #        util.replace_index_name(self.outputs.costs, self.geography.upper() +'_EARNED', self.geography.upper() +'_SUPPLY')
 #        util.replace_index_name(self.outputs.costs, self.geography.upper() +'_CONSUMED', self.geography.upper())
-        self.outputs.costs= self.outputs.costs.groupby(level=[x for x in self.outputs.costs.index.names if x not in ['VINTAGE', 'YEAR']]).filter(lambda x: x.sum() !=0)
-        self.outputs.costs.sort(inplace=True)       
         self.outputs.costs[self.outputs.costs<0]=0
+        self.outputs.costs= self.outputs.costs[self.outputs.costs['VALUE']!=0]
+#        self.outputs.costs.sort(inplace=True)       
+        
         
     
         
     def calculate_combined_emissions_results(self):
         #calculate and format export emissions
-        setattr(self.outputs,'export_emissions',self.supply.export_emissions)
-        self.export_emissions_df = self.outputs.return_cleaned_output('export_emissions')
-        del self.outputs.export_emissions
-        util.replace_index_name(self.export_emissions_df, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
-        keys = ["EXPORT","SUPPLY"]
-        names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
-        for key,name in zip(keys,names):
-            self.export_emissions_df = pd.concat([self.export_emissions_df],keys=[key],names=[name])
-        #calculate and format emobodied supply emissions
+        if self.supply.export_emissions is not None:
+            setattr(self.outputs,'export_emissions',self.supply.export_emissions)
+            self.export_emissions_df = self.outputs.return_cleaned_output('export_emissions')
+            del self.outputs.export_emissions
+            util.replace_index_name(self.export_emissions_df, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
+            keys = ["EXPORT","SUPPLY"]
+            names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
+            for key,name in zip(keys,names):
+                self.export_emissions_df = pd.concat([self.export_emissions_df],keys=[key],names=[name])
+        else:
+            self.export_emissions_df = None
+       #calculate and format emobodied supply emissions
         self.embodied_emissions_df = self.demand.outputs.return_cleaned_output('demand_embodied_emissions')
         del self.demand.outputs.demand_embodied_emissions
         keys = ["DOMESTIC","SUPPLY"]
@@ -193,7 +200,7 @@ class PathwaysModel(object):
         util.replace_index_name(self.outputs.emissions, "ENERGY","FINAL_ENERGY")
         util.replace_index_name(self.outputs.emissions, self.geography.upper() +'_EMITTED', self.geography.upper() +'_SUPPLY')
         util.replace_index_name(self.outputs.emissions, self.geography.upper() +'_CONSUMED', self.geography.upper())
-        self.outputs.emissions= self.outputs.emissions.groupby(level=[x for x in self.outputs.emissions.index.names if x not in ['VINTAGE', 'YEAR']]).filter(lambda x: x.sum() !=0)
-        self.outputs.emissions.sort(inplace=True)        
+        self.outputs.emissions= self.outputs.emissions[self.outputs.emissions['VALUE']!=0]
+#        self.outputs.emissions.sort(inplace=True)        
         
     

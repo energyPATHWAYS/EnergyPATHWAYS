@@ -45,12 +45,14 @@ class DataMapFunctions:
                 self.column_names[index_level] = column_name
 
 
-    def read_timeseries_data(self, **filters):  # This function needs to be sped up
+    def read_timeseries_data(self, data_column_names='value', hide_exceptions=False, **filters):  # This function needs to be sped up
         """reads timeseries data to dataframe from database. Stored in self.raw_values"""
         # rowmap is used in ordering the data when read from the sql table
         headers = util.sql_read_headers(self.sql_data_table)
         rowmap = [headers.index(self.column_names[level]) for level in self.index_levels]
-        data_col_ind = headers.index('value')
+        data_col_ind  = []
+        for data_col in util.put_in_list(data_column_names):
+            data_col_ind.append(headers.index(data_col))
         # read each line of the data_table matching an id and assign the value to self.raw_values
         data = []
         if len(filters):
@@ -63,10 +65,11 @@ class DataMapFunctions:
             for row in read_data:
                 try:
                     data.append([row[i] for i in rowmap] +
-                                [row[data_col_ind] * (self.unit_prefix if hasattr(self, 'unit_prefix') else 1)])
+                                [row[i] * (self.unit_prefix if hasattr(self, 'unit_prefix') else 1) for i in data_col_ind ])
                 except:
-                    print (self.id, row, i)
-            column_names = self.df_index_names + ['value']
+                    if hide_exceptions == False:
+                        print (self.id, row, i)
+            column_names = self.df_index_names + util.put_in_list(data_column_names)
             self.raw_values = pd.DataFrame(data, columns=column_names).set_index(keys=self.df_index_names).sort_index()
             self.data = True
         else:
@@ -191,7 +194,6 @@ class DataMapFunctions:
                 current_geography = converted_geography
         else:
             total_driver = DfOper.mult(util.put_in_list(drivers))
-            
             if len(current_geography_index_levels) > 1 and current_geography != converted_geography:
                 # While not on primary geography, geography does have some information we would like to preserve
                 self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
@@ -200,7 +202,7 @@ class DataMapFunctions:
 
             if current_data_type == 'total':
                 # Divide by drivers to turn a total to intensity. multindex_operation will aggregate to common levels.
-                df_intensity = DfOper.divi((getattr(self, map_to), total_driver), expandable=(False, True), collapsible=(False, True))
+                df_intensity = DfOper.divi((getattr(self, map_to), total_driver), expandable=(False, True), collapsible=(False, True),fill_value=fill_value)
                 setattr(self, map_to, df_intensity)
             # Clean the timeseries as an intensity
             if fill_timeseries:
@@ -208,15 +210,15 @@ class DataMapFunctions:
                 # print time_index
                 self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method)
             if current_data_type == 'total':
-                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver)))
+                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver),fill_value=fill_value))
             else:
                 setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver), expandable=(True, False),
-                                                  collapsible=(False, True)))
+                                                  collapsible=(False, True),fill_value=fill_value))
             self.ensure_correct_geography(map_to, converted_geography, current_geography, current_data_type)
 
 
-    def project(self, map_from='raw_values', map_to='values', additional_drivers=None,
-                time_index_name='year', fill_timeseries=True, converted_geography=None, current_geography=None, current_data_type=None):
+    def project(self, map_from='raw_values', map_to='values', additional_drivers=None, interpolation_method='missing',extrapolation_method='missing',
+                time_index_name='year', fill_timeseries=True, converted_geography=None, current_geography=None, current_data_type=None, fill_value=0.):
         
         converted_geography = cfg.cfgfile.get('case', 'primary_geography') if converted_geography is None else converted_geography
         current_data_type = self.input_type if current_data_type is None else current_data_type
@@ -252,9 +254,10 @@ class DataMapFunctions:
             drivers += util.put_in_list(additional_drivers)
         # both map_from and map_to are the same
         self.remap(map_from=map_to, map_to=map_to, drivers=drivers,
-                   time_index_name=time_index_name, fill_timeseries=fill_timeseries,
+                   time_index_name=time_index_name, fill_timeseries=fill_timeseries, interpolation_method=interpolation_method,
+                   extrapolation_method=extrapolation_method,
                    converted_geography=converted_geography, current_geography=current_geography,
-                   current_data_type=current_data_type)
+                   current_data_type=current_data_type, fill_value=fill_value)
         self.projected_input_type = 'total'
 
 

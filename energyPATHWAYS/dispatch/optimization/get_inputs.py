@@ -5,7 +5,10 @@ Input classes for allocation optimization and dispatch optimization.
 
 import csv
 import os
+from  energyPATHWAYS import util
 
+
+    
 
 class AllocationInputs(object):
     """
@@ -47,7 +50,7 @@ class AllocationInputs(object):
 
         # Average load across all periods
         # Data structure: dictionary with regions as keys
-        self.average_net_load = dict()
+        self.average_net_load = util.recursivedict()
         with open(os.path.join(inputs_directory, "alloc_average_net_load.csv"), "Ur") as avg_net_load_file:
             average_net_load_reader = csv.reader(avg_net_load_file)
             average_net_load_reader.next()
@@ -61,7 +64,7 @@ class AllocationInputs(object):
             period_total_net_load_reader = csv.reader(period_net_load_file)
             period_total_net_load_reader.next()
             for row in period_total_net_load_reader:
-                self.period_net_load[str(row[0]), int(row[1])] = float(row[2])
+                self.period_net_load[(str(row[0]), int(row[1]))] = float(row[2])
 
         # List of resources
         self.alloc_resources = list()
@@ -151,13 +154,17 @@ class DispatchInputs(object):
         self.regions = list()
         self.dist_net_load_threshold = dict()
         self.bulk_net_load_threshold = dict()
-        with open(os.path.join(inputs_directory, "regions.csv"), "Ur") as regions_file:
+        with open(os.path.join(inputs_directory, "regions_dist.csv"), "Ur") as regions_file:
             regions_reader = csv.reader(regions_file)
             regions_reader.next()
             for row in regions_reader:
-                self.regions.append(str(row[0]))
-                self.dist_net_load_threshold[str(row[0])] = float(row[1])
-                self.bulk_net_load_threshold[str(row[0])] = float(row[2])
+                self.dist_net_load_threshold[(str(row[0]),int(row[1]))] = float(row[2])
+        with open(os.path.join(inputs_directory, "regions_bulk.csv"), "Ur") as regions_file:
+            regions_reader = csv.reader(regions_file)
+            regions_reader.next()
+            for row in regions_reader:       
+                self.regions.append(str(row[0]))     
+                self.bulk_net_load_threshold[str(row[0])] = float(row[1])
 
         # Dictionary with period as key and the list of timepoints for each period as values
         self.period_timepoints = dict()
@@ -167,23 +174,23 @@ class DispatchInputs(object):
         # e.g. if starting it on timepoint 7, flex_load_timepoint 1 is assigned to timepoint 7
         # {7: 1, 8: 2, 9: 3 ...}
         self.flex_load_timepoints = dict()
-        self.ev_load_timepoints = dict()
+#        self.ev_load_timepoints = dict()
         self.period_flex_load_timepoints = dict()
-        self.period_ev_load_timepoints = dict()
+#        self.period_ev_load_timepoints = dict()
         with open(os.path.join(inputs_directory, "timepoints.csv"), "Ur") as timepoints_file:
             timepoints_reader = csv.reader(timepoints_file)
             timepoints_reader.next()
             for row in timepoints_reader:
                 self.timepoints.append(int(row[1]))
                 self.flex_load_timepoints[int(row[1])] = int(row[2])
-                self.ev_load_timepoints[int(row[1])] = int(row[3])
+#                self.ev_load_timepoints[int(row[1])] = int(row[3])
                 if int(row[1]) == 168:
                     self.period_timepoints[int(row[0])] = self.timepoints
                     self.timepoints = list()
                     self.period_flex_load_timepoints[int(row[0])] = self.flex_load_timepoints
                     self.flex_load_timepoints = dict()
-                    self.period_ev_load_timepoints[int(row[0])] = self.ev_load_timepoints
-                    self.ev_load_timepoints = dict()
+#                    self.period_ev_load_timepoints[int(row[0])] = self.ev_load_timepoints
+#                    self.ev_load_timepoints = dict()
 
         # List of storage technologies
         self.storage_technologies = list()
@@ -223,8 +230,8 @@ class DispatchInputs(object):
         self.region = dict()
         self.period_technology = dict()
         self.technology = dict()
-        self.period_distributed = dict()
-        self.distributed = dict()
+        self.period_feeder = dict()
+        self.feeder = dict()
         self.period_capacity = dict()
         self.capacity = dict()
 
@@ -240,7 +247,7 @@ class DispatchInputs(object):
                     self.resources.append(str(row[1]))
                     self.region[str(row[1])] = str(row[2])
                     self.technology[str(row[1])] = str(row[3])
-                    self.distributed[str(row[1])] = int(row[4])
+                    self.feeder[str(row[1])] = int(row[4])
                     if row[5] == "":
                         pass
                     else:
@@ -254,7 +261,7 @@ class DispatchInputs(object):
                     self.period_resources[last_period] = self.resources
                     self.period_region[last_period] = self.region
                     self.period_technology[last_period] = self.technology
-                    self.period_distributed[last_period] = self.distributed
+                    self.period_feeder[last_period] = self.feeder
                     self.period_capacity[last_period] = self.capacity
                     self.period_duration[last_period] = self.duration
 
@@ -262,7 +269,7 @@ class DispatchInputs(object):
                     self.resources = list()
                     self.region = dict()
                     self.technology = dict()
-                    self.distributed = dict()
+                    self.feeder= dict()
                     self.capacity = dict()
                     self.duration = dict()
 
@@ -273,7 +280,7 @@ class DispatchInputs(object):
                     self.resources.append(str(row[1]))
                     self.region[str(row[1])] = str(row[2])
                     self.technology[str(row[1])] = str(row[3])
-                    self.distributed[str(row[1])] = int(row[4])
+                    self.feeder[str(row[1])] = int(row[4])
                     if row[5] == "":
                         pass
                     else:
@@ -303,87 +310,82 @@ class DispatchInputs(object):
 
         # Loads
         # Dictionary with period as keys, containing dictionary with timepoints as keys and load as values
-        self.period_net_distributed_load = dict()
-        self.net_distributed_load = dict()
+        self.period_net_distributed_load = util.recursivedict()
+        self.net_distributed_load = util.recursivedict()
         # Same as above but for minimum cumulative flexible load,
-        self.period_min_cum_flex_load = dict()
-        self.min_cumulative_flex_load = dict()
+        self.period_min_cum_flex_load = util.recursivedict()
+        self.min_cumulative_flex_load = util.recursivedict()
         # maximum cumulative net load,
-        self.period_max_cum_flex_load = dict()
-        self.max_cumulative_flex_load = dict()
+        self.period_max_cum_flex_load = util.recursivedict()
+        self.max_cumulative_flex_load = util.recursivedict()
         # minimum cumulative EV load,
-        self.period_min_cum_ev_load = dict()
-        self.min_cumulative_ev_load = dict()
-        # maximum cumulative EV load,
-        self.period_max_cum_ev_load = dict()
-        self.max_cumulative_ev_load = dict()
+#        self.period_min_cum_ev_load = util.recursivedict()
+#        self.min_cumulative_ev_load = util.recursivedict()
+#        # maximum cumulative EV load,
+#        self.period_max_cum_ev_load = util.recursivedict()
+#        self.max_cumulative_ev_load = util.recursivedict()
         # renewable output.
-        self.period_bulk_renewables = dict()
-        self.bulk_renewables = dict()
+        self.period_bulk_renewables = util.recursivedict()
+        self.bulk_renewables = util.recursivedict()
 
         with open(os.path.join(inputs_directory, "net_load.csv"), "Ur") as net_load_file:
             net_load_reader = csv.reader(net_load_file)
             net_load_reader.next()
-            region_num = 0
             for row in net_load_reader:
-                self.period_net_distributed_load[row[1], int(row[2])] = float(row[3])
-                self.period_min_cum_flex_load[row[1], int(row[2])] = float(row[4])
-                self.period_max_cum_flex_load[row[1], int(row[2])] = float(row[5])
-                self.period_min_cum_ev_load[row[1], int(row[2])] = float(row[6])
-                self.period_max_cum_ev_load[row[1], int(row[2])] = float(row[7])
-                self.period_bulk_renewables[row[1], int(row[2])] = float(row[8])
-                if int(row[2]) == 168:  # TODO: remove hardcoding; this is super ugly, but works for testing purposes
-                    region_num += 1
-                    if region_num == 3:
-                        self.net_distributed_load[int(row[0])] = self.period_net_distributed_load
-                        self.period_net_distributed_load = dict()
-                        self.min_cumulative_flex_load[int(row[0])] = self.period_min_cum_flex_load
-                        self.period_min_cum_flex_load = dict()
-                        self.max_cumulative_flex_load[int(row[0])] = self.period_max_cum_flex_load
-                        self.period_max_cum_flex_load = dict()
-                        self.min_cumulative_ev_load[int(row[0])] = self.period_min_cum_ev_load
-                        self.period_min_cum_ev_load = dict()
-                        self.max_cumulative_ev_load[int(row[0])] = self.period_max_cum_ev_load
-                        self.period_max_cum_ev_load = dict()
-                        self.bulk_renewables[int(row[0])] = self.period_bulk_renewables
-                        self.period_bulk_renewables = dict()
-                        region_num = 0
-                    else:
-                        pass
-                else:
-                    pass
+                self.net_distributed_load[int(row[0])][(row[1], int(row[2]),int(row[3]))] = float(row[4])   
+                self.min_cumulative_flex_load[int(row[0])][(row[1], int(row[2]),int(row[3]))] = float(row[5])
+                self.max_cumulative_flex_load[int(row[0])][(row[1], int(row[2]),int(row[3]))] = float(row[6])
+#                self.min_cum_ev_load[int(row[0])][(row[1], int(row[2]),int(row[3]))] = float(row[7])
+#                self.max_cum_ev_load[int(row[0])][(row[1], int(row[2]),int(row[3]))] =  float(row[8])
+                self.bulk_renewables[int(row[0])][(row[1], int(row[2]),int(row[3]))] =  float(row[9])
+
+                
+        
+#                self.period_bulk_renewables[row[1], int(row[3], int(row[2]))] = float(row[4])
+#                if int(row[2]) == 168:  # TODO: remove hardcoding; this is super ugly, but works for testing purposes
+#                    region_num += 1
+#                    if region_num == 3:
+#                        self.net_distributed_load[int(row[0])] = self.period_net_distributed_load
+#                        self.period_net_distributed_load = dict()
+#                        self.min_cumulative_flex_load[int(row[0])] = self.period_min_cum_flex_load
+#                        self.period_min_cum_flex_load = dict()
+#                        self.max_cumulative_flex_load[int(row[0])] = self.period_max_cum_flex_load
+#                        self.period_max_cum_flex_load = dict()
+#                        self.min_cumulative_ev_load[int(row[0])] = self.period_min_cum_ev_load
+#                        self.period_min_cum_ev_load = dict()
+#                        self.max_cumulative_ev_load[int(row[0])] = self.period_max_cum_ev_load
+#                        self.period_max_cum_ev_load = dict()
+#                        self.bulk_renewables[int(row[0])] = self.period_bulk_renewables
+#                        self.period_bulk_renewables = dict()
+#                        region_num = 0
+#                    else:
+#                        pass
+#                else:
+#                    pass
 
         # Dictionary with period as key containing a dictionary with regions as keys and maximum flexible load as values
-        self.period_max_flex_load = dict()
-        self.max_flex_load = dict()
+        self.period_max_flex_load = util.recursivedict()
         with open(os.path.join(inputs_directory, "max_flex_load.csv"), "Ur") as max_flex_load_file:
             max_flex_load_reader = csv.reader(max_flex_load_file)
             max_flex_load_reader.next()
-            last_period = 1
             for row in max_flex_load_reader:
-                if int(row[0]) == last_period:
-                    self.max_flex_load[str(row[1])] = float(row[2])
-                else:
-                    self.period_max_flex_load[int(last_period)] = self.max_flex_load
-                    self.max_flex_load = dict()
-                    last_period = int(row[0])
-                    self.max_flex_load[str(row[1])] = float(row[2])
+                self.period_max_flex_load[int(row[0])][(row[1],int(row[2]))] = float(row[3])
 
-        # Dictionary with period as key containing a dictionary with regions as keys and maximum EV load as values
-        self.max_ev_load = dict()
-        self.period_max_ev_load = dict()
-        with open(os.path.join(inputs_directory, "max_ev_load.csv"), "Ur") as max_ev_load_file:
-            max_ev_load_reader = csv.reader(max_ev_load_file)
-            max_ev_load_reader.next()
-            last_period = 1
-            for row in max_ev_load_reader:
-                if int(row[0]) == last_period:
-                    self.max_ev_load[str(row[1])] = float(row[2])
-                else:
-                    self.period_max_ev_load[int(last_period)] = self.max_ev_load
-                    self.max_ev_load = dict()
-                    last_period = int(row[0])
-                    self.max_ev_load[str(row[1])] = float(row[2])
+#        # Dictionary with period as key containing a dictionary with regions as keys and maximum EV load as values
+#        self.max_ev_load = dict()
+#        self.period_max_ev_load = dict()
+#        with open(os.path.join(inputs_directory, "max_ev_load.csv"), "Ur") as max_ev_load_file:
+#            max_ev_load_reader = csv.reader(max_ev_load_file)
+#            max_ev_load_reader.next()
+#            last_period = 1
+#            for row in max_ev_load_reader:
+#                if int(row[0]) == last_period:
+#                    self.max_ev_load[str(row[1])] = float(row[2])
+#                else:
+#                    self.period_max_ev_load[int(last_period)] = self.max_ev_load
+#                    self.max_ev_load = dict()
+#                    last_period = int(row[0])
+#                    self.max_ev_load[str(row[1])] = float(row[2])
 
         # These are all single values and inelegantly instantiated inside the class here because it was easy
         # TODO: define outside of this class
@@ -392,6 +394,7 @@ class DispatchInputs(object):
         self.unserved_energy_cost = 10**5
         self.dist_net_load_penalty = 1.0
         self.bulk_net_load_penalty = 1.0
+        self.feeders = [0,1,2,3]
 
 
 def dispatch_inputs_init(inputs_directory):
@@ -405,7 +408,7 @@ def alloc_inputs_init(inputs_directory):
 
 
 if __name__ == "__main__":
-    _dispatch_inputs = dispatch_inputs_init(os.path.join(os.getcwd(), "inputs_weeks"))
+    _dispatch_inputs = dispatch_inputs_init(os.path.join(os.getcwd(), "test_inputs"))
     # print _dispatch_inputs.timepoints
     # print _dispatch_inputs.technologies
     # print _dispatch_inputs.storage

@@ -474,11 +474,9 @@ def reduce_levels(df, allowed_levels, total_label=None, agg_function='sum'):
         return remove_df_levels(df, reduce_levels, total_label, agg_function)
 
 def remove_df_levels(data, levels, total_label=None, agg_function='sum'):
-    total_label = config.cfg.cfgfile.get('data_identifiers', 'all') if total_label is None else total_label
     levels = [l for l in put_in_list(levels) if l in data.index.names]
     if not len(levels):
         return data
-    
     if data.index.nlevels > 1:
         levels_to_keep = [l for l in data.index.names if l not in levels]
         group_slice = tuple([total_label if ((l in levels) and (total_label in e)) else slice(None)
@@ -492,7 +490,7 @@ def remove_df_levels(data, levels, total_label=None, agg_function='sum'):
         else:
             raise ValueError('unknown agg function specified')
     else:
-        return data.reset_index(drop=True)
+        return data
 
 
 def remove_df_elements(data, elements, level):
@@ -768,18 +766,18 @@ def decay_growth_df(extrap_type, rate, reverse, vintages, years):
         rate = -rate
     vintages = np.asarray(vintages)
     years = np.asarray(years)
-    ages = np.zeros((len(years), len(vintages)))
-    for i, year in enumerate(years):
-        ages[i] = vintages - year
+    ages = np.zeros((len(vintages), len(years)))
+    for i, vintage in enumerate(vintages):
+        ages[i] = years - vintage
     if extrap_type == 'linear':
-        fill = (1 + (rate * ages)).T
-        fill = np.tril(fill, k=(min(years) - min(vintages)))
+        fill = (1 + (rate * ages))
+        fill = np.triu(fill, k=(min(vintages)-min(years)))
     elif extrap_type == 'exponential':
-        fill = ((1 + rate) ** ages).T
-        fill = np.tril(fill, k=(min(years) - min(vintages)))
+        fill = ((1 + rate) ** ages)
+        fill = np.triu(fill, k=(min(vintages)-min(years)))
     elif extrap_type is None:
-        exist = np.ones((len(years), len(vintages)))
-        fill = np.tril(exist, k=(min(years) - min(vintages))).T
+        exist = np.ones((len(vintages), len(years)))
+        fill = np.triu(exist, k=(min(vintages)-min(years)))
     df = pd.DataFrame(fill, index=vintages, columns=years)
     df.index.rename('vintage', inplace=True)
     df.columns.names = [None]
@@ -952,6 +950,10 @@ def difference_in_df_names(a, b, return_bool=True):
 # return True if names_a_not_in_b else False, True if names_b_not_in_a else False
 # else:
 # return names_a_not_in_b, names_b_not_in_a
+
+def rotate(l, x):
+  return l[-x:] + l[:-x]
+
 
 def reorder_b_to_match_a(b, a):
     # levels match, but b needs to be reordered

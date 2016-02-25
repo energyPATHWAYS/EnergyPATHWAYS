@@ -30,8 +30,8 @@ def dispatch_problem_formulation(_inputs, start_state_of_charge, end_state_of_ch
 
     dispatch_model.flex_load_timepoint = Param(dispatch_model.TIMEPOINTS, within=PositiveIntegers,
                                                initialize=_inputs.period_flex_load_timepoints[period])
-    dispatch_model.ev_load_timepoint = Param(dispatch_model.TIMEPOINTS, within=PositiveIntegers,
-                                             initialize=_inputs.period_ev_load_timepoints[period])
+#    dispatch_model.ev_load_timepoint = Param(dispatch_model.TIMEPOINTS, within=PositiveIntegers,
+#                                             initialize=_inputs.period_ev_load_timepoints[period])
 
     def first_timepoint_init(model):
         """
@@ -72,6 +72,7 @@ def dispatch_problem_formulation(_inputs, start_state_of_charge, end_state_of_ch
 
     # ### Geographic structure ### #
     dispatch_model.REGIONS = Set(initialize=_inputs.regions)
+    dispatch_model.FEEDERS = Set(initialize = _inputs.feeders)
 
     # ### Technologies ### #
     dispatch_model.STORAGE_TECHNOLOGIES = Set(initialize=_inputs.storage_technologies)
@@ -106,8 +107,8 @@ def dispatch_problem_formulation(_inputs, start_state_of_charge, end_state_of_ch
                                       initialize=_inputs.period_technology[period])
     dispatch_model.region = Param(dispatch_model.RESOURCES, within=dispatch_model.REGIONS,
                                   initialize=_inputs.period_region[period])
-    dispatch_model.distributed = Param(dispatch_model.RESOURCES, within=Binary,
-                                       initialize=_inputs.period_distributed[period])
+    dispatch_model.feeder= Param(dispatch_model.RESOURCES, within=dispatch_model.FEEDERS,
+                                 initialize=_inputs.period_feeder[period])
 
     def storage_resources_init(model):
         storage_resources = list()
@@ -152,32 +153,32 @@ def dispatch_problem_formulation(_inputs, start_state_of_charge, end_state_of_ch
     # ### System ### #
 
     # Load
-    dispatch_model.net_distributed_load = Param(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS,
+    dispatch_model.net_distributed_load = Param(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS, dispatch_model.FEEDERS,
                                                 initialize=_inputs.net_distributed_load[period], within=Reals)
     # Flex and EV loads
-    dispatch_model.min_cumulative_flex_load = Param(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS,
+    dispatch_model.min_cumulative_flex_load = Param(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS, dispatch_model.FEEDERS,
                                                     within=NonNegativeReals,
                                                     initialize=_inputs.min_cumulative_flex_load[period])
-    dispatch_model.max_cumulative_flex_load = Param(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS,
+    dispatch_model.max_cumulative_flex_load = Param(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS, dispatch_model.FEEDERS,
                                                     within=NonNegativeReals,
                                                     initialize=_inputs.max_cumulative_flex_load[period])
-    dispatch_model.min_cumulative_ev_load = Param(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS,
-                                                  within=NonNegativeReals,
-                                                  initialize=_inputs.min_cumulative_ev_load[period])
-    dispatch_model.max_cumulative_ev_load = Param(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS,
-                                                  within=NonNegativeReals,
-                                                  initialize=_inputs.max_cumulative_ev_load[period])
+#    dispatch_model.min_cumulative_ev_load = Param(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS,
+#                                                  within=NonNegativeReals,
+#                                                  initialize=_inputs.min_cumulative_ev_load[period])
+#    dispatch_model.max_cumulative_ev_load = Param(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS,
+#                                                  within=NonNegativeReals,
+#                                                  initialize=_inputs.max_cumulative_ev_load[period])
 
     # Renewables
-    dispatch_model.bulk_renewables = Param(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS,
+    dispatch_model.renewables = Param(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS, dispatch_model.FEEDERS,
                                            within=NonNegativeReals,
                                            initialize=_inputs.bulk_renewables[period])
 
     # TODO: should this also vary by timepoint
-    dispatch_model.max_flex_load = Param(dispatch_model.REGIONS,
+    dispatch_model.max_flex_load = Param(dispatch_model.REGIONS, dispatch_model.FEEDERS,
                                          within=NonNegativeReals, initialize=_inputs.period_max_flex_load[period])
-    dispatch_model.max_ev_load = Param(dispatch_model.REGIONS,
-                                       within=NonNegativeReals, initialize=_inputs.period_max_ev_load[period])
+#    dispatch_model.max_ev_load = Param(dispatch_model.REGIONS,
+#                                       within=NonNegativeReals, initialize=_inputs.period_max_ev_load[period])
 
     # T&D
 
@@ -188,7 +189,7 @@ def dispatch_problem_formulation(_inputs, start_state_of_charge, end_state_of_ch
     dispatch_model.transmission_capacity = Param(dispatch_model.TRANSMISSION_LINES,
                                                  initialize=_inputs.transmission_capacity)
 
-    dispatch_model.dist_net_load_threshold = Param(dispatch_model.REGIONS, within=NonNegativeReals,
+    dispatch_model.dist_net_load_threshold = Param(dispatch_model.REGIONS, dispatch_model.FEEDERS, within=NonNegativeReals,
                                                    initialize=_inputs.dist_net_load_threshold)
     dispatch_model.bulk_net_load_threshold = Param(dispatch_model.REGIONS, within=NonNegativeReals,
                                                    initialize=_inputs.bulk_net_load_threshold)
@@ -220,14 +221,17 @@ def dispatch_problem_formulation(_inputs, start_state_of_charge, end_state_of_ch
                                         within=Reals)
 
     # System
-    dispatch_model.Flexible_Load = Var(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS, within=NonNegativeReals)
-    dispatch_model.EV_Load = Var(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS, within=NonNegativeReals)
+    dispatch_model.Flexible_Load = Var(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS, dispatch_model.FEEDERS, within=NonNegativeReals)
+#    dispatch_model.EV_Load = Var(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS, within=NonNegativeReals)
 
-    dispatch_model.DistSysCapacityNeed = Var(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS, within=NonNegativeReals)
+    dispatch_model.DistSysCapacityNeed = Var(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS, dispatch_model.FEEDERS, within=NonNegativeReals)
     dispatch_model.BulkSysCapacityNeed = Var(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS, within=NonNegativeReals)
 
     dispatch_model.Curtailment = Var(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS, within=NonNegativeReals)
     dispatch_model.Unserved_Energy = Var(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS, within=NonNegativeReals)
+
+    dispatch_model.Dist_Net_Load = Var(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS, dispatch_model.FEEDERS, within=NonNegativeReals)
+    dispatch_model.Bulk_Net_Load = Var(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS, within=NonNegativeReals)
 
     ##############################
     # ### Objective function ### #
@@ -244,8 +248,9 @@ def dispatch_problem_formulation(_inputs, start_state_of_charge, end_state_of_ch
         unserved_energy_cost = sum(model.Unserved_Energy[r, t] * model.unserved_energy_cost
                                    for r in model.REGIONS
                                    for t in model.TIMEPOINTS)
-        dist_sys_penalty_cost = sum(model.DistSysCapacityNeed[r, t] * model.dist_penalty for r in model.REGIONS
-                                    for t in model.TIMEPOINTS)
+        dist_sys_penalty_cost = sum(model.DistSysCapacityNeed[r, t,f] * model.dist_penalty for r in model.REGIONS
+                                    for t in model.TIMEPOINTS 
+                                    for f in model.FEEDERS)
         bulk_sys_penalty_cost = sum(model.BulkSysCapacityNeed[r, t] * model.bulk_penalty for r in model.REGIONS
                                     for t in model.TIMEPOINTS)
 
@@ -282,28 +287,28 @@ def dispatch_problem_formulation(_inputs, start_state_of_charge, end_state_of_ch
 
         bulk_power = float()
         for r in model.RESOURCES:
-            if model.region[r] == region and not model.distributed[r]:
+            if model.region[r] == region and model.feeder[r] == 0:
                 bulk_power += model.Provide_Power[r, timepoint]
             else:
                 pass
 
         bulk_charging = float()
         for sr in model.STORAGE_RESOURCES:
-            if model.region[sr] == region and not model.distributed[sr]:
+            if model.region[sr] == region and model.feeder[sr] == 0:
                 bulk_charging += model.Charge[sr, timepoint]
             else:
                 pass
 
         distributed_power = float()
         for r in model.RESOURCES:
-            if model.region[r] == region and model.distributed[r]:
+            if model.region[r] == region and model.feeder[r] != 0:
                 distributed_power += model.Provide_Power[r, timepoint]
             else:
                 pass
 
         distributed_charging = float()
         for sr in model.STORAGE_RESOURCES:
-            if model.region[sr] == region and model.distributed[sr]:
+            if model.region[sr] == region and model.feeder[sr] != 0:
                 distributed_charging += model.Charge[sr, timepoint]
             else:
                 pass
@@ -317,16 +322,43 @@ def dispatch_problem_formulation(_inputs, start_state_of_charge, end_state_of_ch
             else:
                 pass
 
-        return bulk_power + model.bulk_renewables[region, timepoint] - bulk_charging \
+        return bulk_power + model.renewables[region, timepoint,0] - bulk_charging \
             + imports_exports \
-            - model.Curtailment[region, timepoint] \
-            == (model.net_distributed_load[region, timepoint] - distributed_power + distributed_charging +
-                model.Flexible_Load[region, timepoint] + model.EV_Load[region, timepoint] -
+            - model.Curtailment[region, timepoint] - model.net_distributed_load[region, timepoint, 0]  \
+            == (sum(model.net_distributed_load[region, timepoint, f] for f in model.FEEDERS if f!=0) - distributed_power - sum(model.renewables[region, timepoint,f] for f in model.FEEDERS if f!=0) + distributed_charging +
+                sum(model.Flexible_Load[region, timepoint,f] for f in model.FEEDERS if f!=0) -
                 model.Unserved_Energy[region, timepoint]) \
             * (1 + model.t_and_d_losses)
 
     dispatch_model.Meet_Load_Constraint = Constraint(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS,
                                                      rule=meet_load_rule)
+
+
+
+    def dist_net_load_rule(model, region, timepoint, feeder):
+        """
+        :param model:
+        :param region:
+        :param timepoint:
+        :param feeder"
+        :return:
+        """
+        distributed_power = sum(model.Provide_Power[resource, timepoint]
+                                for resource in model.RESOURCES
+                                if model.region[resource] == region and model.feeder[resource] == feeder)
+
+        distributed_charging = sum(model.Charge[resource, timepoint]
+                                   for resource in model.STORAGE_RESOURCES
+                                   if model.region[resource] == region and model.feeder[resource] == feeder)
+
+        return model.Dist_Net_Load[region, timepoint, feeder] == (model.net_distributed_load[region, timepoint, feeder] +
+                model.Flexible_Load[region, timepoint, feeder]  +
+                distributed_charging - distributed_power - model.renewables[region,timepoint,feeder]
+                ) 
+    
+    dispatch_model.Dist_Net_Load_Constraint = Constraint(dispatch_model.REGIONS,dispatch_model.TIMEPOINTS, dispatch_model.FEEDERS,
+                                                                       rule=dist_net_load_rule)
+
 
     # ### Project constraints ### #
 
@@ -428,13 +460,14 @@ def dispatch_problem_formulation(_inputs, start_state_of_charge, end_state_of_ch
                                                                              rule=large_storage_end_state_of_charge_rule)
 
     # Flex loads
-    def cumulative_flexible_load_rule(model, region, timepoint):
+    def cumulative_flexible_load_rule(model, region, timepoint, feeder):
         """
         The cumulative flexible load through each timepoint must be between the minimum and maximum cumulative flexible
         load for that timepoint.
         :param model:
         :param region:
         :param timepoint:
+        :param feeder:
         :return:
         """
         previous_timepoints = list()
@@ -443,60 +476,61 @@ def dispatch_problem_formulation(_inputs, start_state_of_charge, end_state_of_ch
                 previous_timepoints.append(tmp)
             else:
                 pass
-        return model.min_cumulative_flex_load[region, timepoint] \
-            <= sum(model.Flexible_Load[region, prev_timepoint] for prev_timepoint in previous_timepoints) \
-            <= model.max_cumulative_flex_load[region, timepoint]
+        return model.min_cumulative_flex_load[region, timepoint,feeder] \
+            <= sum(model.Flexible_Load[region, prev_timepoint,feeder] for prev_timepoint in previous_timepoints) \
+            <= model.max_cumulative_flex_load[region, timepoint,feeder]
 
-    dispatch_model.Cumulative_Flexible_Load_Constraint = Constraint(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS,
+    dispatch_model.Cumulative_Flexible_Load_Constraint = Constraint(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS,dispatch_model.FEEDERS,
                                                                     rule=cumulative_flexible_load_rule)
 
-    def max_flex_load_rule(model, region, timepoint):
+    def max_flex_load_rule(model, region, timepoint, feeder):
         """
         Maximum flexible load that can be shifted to a given timepoint.
         :param model:
         :param region:
         :param timepoint:
+        :param feeder:
         :return:
         """
-        return model.Flexible_Load[region, timepoint] <= model.max_flex_load[region]
+        return model.Flexible_Load[region, timepoint, feeder] <= model.max_flex_load[region,feeder]
 
-    dispatch_model.Max_Flex_Load_Constraint = Constraint(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS,
+    dispatch_model.Max_Flex_Load_Constraint = Constraint(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS, dispatch_model.FEEDERS,
                                                          rule=max_flex_load_rule)
 
     # EV loads; currently same implementation as flex load
-    def cumulative_ev_load_rule(model, region, timepoint):
-        """
+#    def cumulative_ev_load_rule(model, region, timepoint):
+#        """
+#
+#        :param model:
+#        :param region:
+#        :param timepoint:
+#        :return:
+#        """
+#        previous_timepoints = list()
+#        for tmp in model.TIMEPOINTS:
+#            if model.ev_load_timepoint[tmp] <= model.ev_load_timepoint[timepoint]:
+#                previous_timepoints.append(tmp)
+#            else:
+#                pass
+#        return model.min_cumulative_ev_load[region, timepoint] \
+#            <= sum(model.EV_Load[region, prev_timepoint] for prev_timepoint in previous_timepoints) \
+#            <= model.max_cumulative_ev_load[region, timepoint]
+#
+#    dispatch_model.Cumulative_EV_Load_Constraint = Constraint(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS,
+#                                                              rule=cumulative_ev_load_rule)
 
-        :param model:
-        :param region:
-        :param timepoint:
-        :return:
-        """
-        previous_timepoints = list()
-        for tmp in model.TIMEPOINTS:
-            if model.ev_load_timepoint[tmp] <= model.ev_load_timepoint[timepoint]:
-                previous_timepoints.append(tmp)
-            else:
-                pass
-        return model.min_cumulative_ev_load[region, timepoint] \
-            <= sum(model.EV_Load[region, prev_timepoint] for prev_timepoint in previous_timepoints) \
-            <= model.max_cumulative_ev_load[region, timepoint]
-
-    dispatch_model.Cumulative_EV_Load_Constraint = Constraint(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS,
-                                                              rule=cumulative_ev_load_rule)
-
-    def max_ev_load_rule(model, region, timepoint):
-        """
-        Maximum EV load that can be shifted to a given timepoint.
-        :param model:
-        :param region:
-        :param timepoint:
-        :return:
-        """
-        return model.EV_Load[region, timepoint] <= model.max_ev_load[region]
-
-    dispatch_model.Max_EV_Load_Constraint = Constraint(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS,
-                                                       rule=max_ev_load_rule)
+#    def max_ev_load_rule(model, region, timepoint):
+#        """
+#        Maximum EV load that can be shifted to a given timepoint.
+#        :param model:
+#        :param region:
+#        :param timepoint:
+#        :return:
+#        """
+#        return model.EV_Load[region, timepoint] <= model.max_ev_load[region]
+#
+#    dispatch_model.Max_EV_Load_Constraint = Constraint(dispatch_model.REGIONS, dispatch_model.TIMEPOINTS,
+#                                                       rule=max_ev_load_rule)
 
     # Transmission
     def transmission_rule(model, line, timepoint):
@@ -517,7 +551,7 @@ def dispatch_problem_formulation(_inputs, start_state_of_charge, end_state_of_ch
                                                                        rule=transmission_rule)
 
     # Distribution system penalty
-    def dist_system_capacity_need_rule(model, region, timepoint):
+    def dist_system_capacity_need_rule(model, region, timepoint,feeder):
         """
         Apply a penalty whenever distributed net load exceeds a pre-specified threshold
         :param model:
@@ -527,20 +561,20 @@ def dispatch_problem_formulation(_inputs, start_state_of_charge, end_state_of_ch
         """
         distributed_power = sum(model.Provide_Power[resource, timepoint]
                                 for resource in model.RESOURCES
-                                if model.region[resource] == region and model.distributed[resource])
+                                if model.region[resource] == region and model.feeder[resource] == feeder)
 
         distributed_charging = sum(model.Charge[resource, timepoint]
                                    for resource in model.STORAGE_RESOURCES
-                                   if model.region[resource] == region and model.distributed[resource])
+                                   if model.region[resource] == region and model.feeder[resource] == feeder)
 
-        return model.DistSysCapacityNeed[region, timepoint] \
-            >= (model.net_distributed_load[region, timepoint] +
-                model.Flexible_Load[region, timepoint] + model.EV_Load[region, timepoint] +
-                distributed_charging - distributed_power
-                ) - model.dist_net_load_threshold[region]
+        return model.DistSysCapacityNeed[region, timepoint, feeder] \
+            >= (model.net_distributed_load[region, timepoint, feeder] +
+                model.Flexible_Load[region, timepoint, feeder]  +
+                distributed_charging - distributed_power - model.renewables[region,timepoint,feeder]
+                ) - model.dist_net_load_threshold[region, feeder]
 
     dispatch_model.Distribution_System_Penalty_Constraint = Constraint(dispatch_model.REGIONS,
-                                                                       dispatch_model.TIMEPOINTS,
+                                                                       dispatch_model.TIMEPOINTS, dispatch_model.FEEDERS,
                                                                        rule=dist_system_capacity_need_rule)
 
     # Bulk system capacity penalty
@@ -554,20 +588,61 @@ def dispatch_problem_formulation(_inputs, start_state_of_charge, end_state_of_ch
         """
         distributed_power = sum(model.Provide_Power[resource, timepoint]
                                 for resource in model.RESOURCES
-                                if model.region[resource] == region and model.distributed[resource])
+                                if model.region[resource] == region and model.feeder[resource]!=0)
 
         distributed_charging = sum(model.Charge[resource, timepoint]
                                    for resource in model.STORAGE_RESOURCES
-                                   if model.region[resource] == region and model.distributed[resource])
+                                   if model.region[resource] == region and model.feeder[resource]!=0)
+                                
+        bulk_power = sum(model.Provide_Power[resource, timepoint]
+                                for resource in model.RESOURCES
+                                if model.region[resource] == region and model.feeder[resource]==0)
 
+        bulk_charging = sum(model.Charge[resource, timepoint]
+                                   for resource in model.STORAGE_RESOURCES
+                                   if model.region[resource] == region and model.feeder[resource]==0)
+                                       
         return model.BulkSysCapacityNeed[region, timepoint] \
-            >= (model.net_distributed_load[region, timepoint] +
-                model.Flexible_Load[region, timepoint] + model.EV_Load[region, timepoint] +
-                distributed_charging - distributed_power
-                ) * (1 + model.t_and_d_losses) - model.bulk_net_load_threshold[region]
+            >= (sum(model.net_distributed_load[region, timepoint, f] for f in model.FEEDERS if f!=0)  +
+                sum(model.Flexible_Load[region, timepoint, f] for f in model.FEEDERS if f!=0)  +
+                distributed_charging - distributed_power - sum(model.renewables[region,timepoint,f] for f in model.FEEDERS if f!=0)
+                ) * (1 + model.t_and_d_losses) +bulk_charging-bulk_power-model.renewables[region,timepoint,0] + model.net_distributed_load[region, timepoint, 0] - model.bulk_net_load_threshold[region]
 
     dispatch_model.Bulk_System_Penalty_Constraint = Constraint(dispatch_model.REGIONS,
                                                                dispatch_model.TIMEPOINTS,
                                                                rule=bulk_system_capacity_need_rule)
+    def bulk_net_load_rule(model, region, timepoint):
+        """
+        Apply a penalty whenever bulk net load (distributed load + T&D losses) exceeds a pre-specified threshold.
+        :param model:
+        :param region:
+        :param timepoint:
+        :return:
+        """
+        distributed_power = sum(model.Provide_Power[resource, timepoint]
+                                for resource in model.RESOURCES
+                                if model.region[resource] == region and model.feeder[resource]!=0)
+
+        distributed_charging = sum(model.Charge[resource, timepoint]
+                                   for resource in model.STORAGE_RESOURCES
+                                   if model.region[resource] == region and model.feeder[resource]!=0)
+                                
+        bulk_power = sum(model.Provide_Power[resource, timepoint]
+                                for resource in model.STORAGE_RESOURCES
+                                if model.region[resource] == region and model.feeder[resource]==0)
+
+        bulk_charging = sum(model.Charge[resource, timepoint]
+                                   for resource in model.STORAGE_RESOURCES
+                                   if model.region[resource] == region and model.feeder[resource]==0)
+                                       
+        return model.Bulk_Net_Load[region, timepoint] \
+            == (sum(model.net_distributed_load[region, timepoint, f] for f in model.FEEDERS if f!=0)  +
+                sum(model.Flexible_Load[region, timepoint, f] for f in model.FEEDERS if f!=0)  +
+                distributed_charging - distributed_power - sum(model.renewables[region,timepoint,f] for f in model.FEEDERS if f!=0)
+                ) * (1 + model.t_and_d_losses) +bulk_charging-bulk_power-model.renewables[region,timepoint,0] + model.net_distributed_load[region, timepoint, 0] 
+
+    dispatch_model.Bulk_Net_Load_Constraint= Constraint(dispatch_model.REGIONS,
+                                                               dispatch_model.TIMEPOINTS,
+                                                               rule=bulk_net_load_rule)
 
     return dispatch_model

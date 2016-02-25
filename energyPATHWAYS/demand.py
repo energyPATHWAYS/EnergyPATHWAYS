@@ -1,4 +1,5 @@
 __author__ = 'Ben Haley & Ryan Jones'
+__author__ = 'Ben Haley & Ryan Jones'
 
 from config import cfg
 from shape import shapes
@@ -67,6 +68,7 @@ class Demand(object):
 #            print year
         geography_df_list = []
         for geography in self.geographies:
+            print geography
             supply_indexer = util.level_specific_indexer(supply_link,[self.geography],[geography])
             demand_indexer = util.level_specific_indexer(demand_df,[self.geography],[geography])
 #            levels = [x for x in ['supply_node', self.geography + "_supply",'final_energy'] if x in supply_link.index.names]
@@ -1406,12 +1408,12 @@ class Subsector(DataMapFunctions):
         self.stock.years = self.years
         if not self.stock.projected or override:
             self.project_total_stock(map_from, service_dependent)
+            self.calculate_specified_stocks()
             self.project_specified_stock(map_from, service_dependent)
             self.stock.set_rollover_groups()
             self.stock.calc_annual_stock_changes()
             self.calc_tech_survival_functions()
             self.calculate_sales_shares()
-            self.calculate_specified_stocks()
             self.reconcile_sales_shares()
             self.stock_rollover()
             self.stock.projected = True
@@ -1440,9 +1442,10 @@ class Subsector(DataMapFunctions):
             current_geography = self.stock.geography
 
         if 'technology' in getattr(self.stock, map_from).index.names:
+
             self.stock.project(map_from=map_from, map_to='specified', current_geography=current_geography,
                                additional_drivers=self.service_demand.values if service_dependent else None,
-                               fill_timeseries=False)
+                               fill_timeseries=True,interpolation_method=None,extrapolation_method=None, fill_value=np.nan)
             # Here, we need fill timeseries backwards starting with the first specified stock using total stock as a driver
         else:
             full_names = self.stock.total.index.names + ['technology']
@@ -1476,6 +1479,16 @@ class Subsector(DataMapFunctions):
                 stock_reduction = DfOper.mult((specified_normal, total_check))
                 linked_specified = DfOper.subt((linked_specified, stock_reduction))
             self.stock.specified = linked_specified
+        for technology in self.technologies.values():
+            if len(technology.specified_stocks):
+               for specified_stock in technology.specified_stocks.values():
+                   specified_stock.remap(map_from='values', drivers=self.stock.total, fill_timeseries=False)
+                   indexer = util.level_specific_indexer(self.stock.specified,'technology',technology.id)
+                   df = util.remove_df_levels(self.stock.specified.loc[indexer,:],'technology')
+                   df = df.combine_first(specified_stock.values)
+                   self.stock.specified.loc[indexer,:] = df.values
+
+                  
 
     def project_ee_measure_stock(self):
         """ 
@@ -1682,7 +1695,6 @@ class Subsector(DataMapFunctions):
     def format_specified_stock(self):
         """ formats specified stock and linked specified stocks from other subsectors
         overwrites specified stocks with linked specified stocks"""
-        self.stock.specified = util.remove_df_elements(self.stock.specified, cfg.cfgfile.get('data_identifiers', 'all'), 'technology')
         needed_levels = self.stock.rollover_group_levels + [self.tech_ids] + [self.years]
         needed_names = self.stock.rollover_group_names + ['technology'] + ['year']
         groupby_levels = [x for x in self.stock.specified.index.names if x not in needed_names]
@@ -2095,7 +2107,7 @@ class Subsector(DataMapFunctions):
         
         """
         self.parasitic_energy = self.rollover_output(tech_class='parasitic_energy', tech_att='values',
-                                                     stock_att='values')
+                                                     stock_att='values',stock_expandable=True)
 
     def calculate_output_service_drivers(self):
         """ calculates service drivers for use in linked subsectors
@@ -2181,7 +2193,7 @@ class Subsector(DataMapFunctions):
             util.replace_index_name(self.service_demand.values, 'year')
 
     def rollover_output(self, tech_class=None, tech_att='values', stock_att=None,
-                        stack_label=None, other_aggregate_levels=None, efficiency=False):
+                        stack_label=None, other_aggregate_levels=None, efficiency=False, stock_expandable=False):
         """ Produces rollover outputs for a subsector stock based on the tech_att class, att of the class, and the attribute of the stock
         ex. to produce levelized costs for all new vehicles, it takes the capital_costs_new class, the 'values_level' attribute, and the 'values'
         attribute of the stock
@@ -2201,12 +2213,9 @@ class Subsector(DataMapFunctions):
                             hasattr(getattr(tech, tech_class), tech_att) and getattr(tech, tech_class).empty is not True])       
         if len(tech_dfs):
             tech_df = pd.concat(tech_dfs)
-            # TODO get rid of reindex by using multindex operation
-            tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names])
+            tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names]+[x for x in tech_df.index.names if x not in stock_df.index.names])
             tech_df = tech_df.sort()
-            # TODO figure a better way
-#            tech_df = util.expand_multi(tech_df, stock_df.index.levels, stock_df.index.names).fillna(method='bfill')
-            c = DfOper.mult((tech_df, stock_df), expandable=(True, False), collapsible=(False, True))
+            c = DfOper.mult((tech_df, stock_df), expandable=(True, stock_expandable), collapsible=(False, True))
         else:
             util.empty_df(stock_df.index, stock_df.columns.values, 0.)
 

@@ -337,7 +337,7 @@ class TimeSeries:
     @staticmethod
     def cleanxy(x, y, newindex, interpolation_method=None, extrapolation_method=None, **kwargs):
         #if you have no interpolation method, start with the current y (with nans)
-        if interpolation_method is None:
+        if interpolation_method is None or interpolation_method == 'none':
             yhat = y.copy()
             
         goody = np.nonzero(~np.isnan(y))[0]  # Used to isolate only good data (not NaN)
@@ -360,7 +360,7 @@ class TimeSeries:
         ##################
         # if given an extrapolation method and there are points to extrapolate to
         extrap_index = np.nonzero(np.any([newindex < min(x), newindex > max(x)], axis=0))[0]
-        if extrapolation_method is None:
+        if extrapolation_method is None or extrapolation_method  == 'none':
             yhat[extrap_index] = np.NaN
         elif len(extrap_index) and extrapolation_method != interpolation_method:
             yhat[extrap_index] = TimeSeries._run_cleaning_method(x, y, newindex, extrapolation_method, **kwargs)[extrap_index]

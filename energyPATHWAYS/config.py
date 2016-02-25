@@ -35,16 +35,12 @@ class Config:
         cfgfile.set('case', 'years', range(int(cfgfile.get('case', 'start_year')),
                                            int(cfgfile.get('case', 'end_year')) + 1,
                                            int(cfgfile.get('case', 'year_step'))))
-        cfgfile.set('case', 'vintages', range(int(cfgfile.get('vintage', 'start_year')),
-                                              int(cfgfile.get('vintage', 'end_year')) + 1,
-                                              int(cfgfile.get('case', 'year_step'))))
         cfgfile.set('case', 'supply_years', range(int(cfgfile.get('case', 'current_year')),
                                                   int(cfgfile.get('case', 'end_year')) + 1,
                                                   int(cfgfile.get('case', 'year_step'))))
         
         self.primary_geography = cfgfile.get('case', 'primary_geography')
         self.cfgfile = cfgfile
-#        case_path = os.path.join(cfgfile.get('directory', 'path'), 'cases', cfgfile.get('case', 'scenario'))
         
     def init_db(self):
         pg_host = self.cfgfile.get('database', 'pg_host')
@@ -106,8 +102,8 @@ class Config:
         self.outputs_id_map = defaultdict(dict)
         if 'primary_geography' in self.output_levels:
             self.output_levels[self.output_levels.index('primary_geography')] = self.primary_geography
-        
         primary_geography_id = util.sql_read_table('Geographies', 'id', name=self.primary_geography)
+        print primary_geography_id
         self.outputs_id_map[self.primary_geography] = util.upper_dict(util.sql_read_table('GeographiesData', ['id', 'name'], geography_id=primary_geography_id, return_unique=True, return_iterable=True))
         self.outputs_id_map[self.primary_geography+"_supply"] =  self.outputs_id_map[self.primary_geography]       
         self.outputs_id_map['technology'] = util.upper_dict(util.sql_read_table('DemandTechs', ['id', 'name']))
