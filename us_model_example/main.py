@@ -10,7 +10,7 @@ cfg = energyPATHWAYS.cfg
 directory = os.getcwd()
 
 cfgfile_path = os.path.join(directory, 'configurations.INI')
-db_path = os.path.join(directory, 'pathways_shapes.db')
+db_path = os.path.join(directory, 'pathways.db')
 custom_pint_definitions_path = os.path.join(directory, 'unit_defs.txt')
 
 ###########
