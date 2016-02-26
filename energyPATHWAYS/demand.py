@@ -21,11 +21,9 @@ from util import DfOper
 from outputs import Output
 
 class Demand(object):
-    def __init__(self, case_id, **kwargs):
+    def __init__(self, **kwargs):
         self.drivers = {}
         self.sectors = {}
-        self.case_id = case_id
-        self.case = util.sql_read_table('DemandCases', 'name', id=self.case_id)
         self.outputs = Output()
         self.geographies = cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
@@ -141,7 +139,7 @@ class Demand(object):
         if id in self.sectors:
             # ToDo note that a sector by the same name was added twice
             return
-        self.sectors[id] = Sector(id, self.drivers, self.case_id)
+        self.sectors[id] = Sector(id, self.drivers)
 
     def yield_subsectors(self):
         """ yields subsector class instances from sector and subsector dictionaries"""
@@ -248,11 +246,10 @@ class Driver(object, DataMapFunctions):
 
 
 class Sector(object):
-    def __init__(self, id, drivers, case_id, **kwargs):
+    def __init__(self, id, drivers,**kwargs):
         self.drivers = drivers
         self.id = id
         self.subsectors = {}
-        self.case_id = case_id
         for col, att in util.object_att_from_table('DemandSectors', id):
             setattr(self, col, att)
         self.outputs = Output()
@@ -286,7 +283,7 @@ class Sector(object):
         else:
             service_efficiency = False
         self.subsectors[id] = Subsector(id, self.drivers, stock, service_demand, energy_demand, service_efficiency,
-                                        self.id, self.case_id)
+                                        self.id)
 
     def aggregate_subsector_energy_for_supply_side(self):
         """Aggregates for the supply side, works with function in demand"""
@@ -304,7 +301,7 @@ class Sector(object):
 
 class Subsector(DataMapFunctions):
     def __init__(self, id, drivers, stock, service_demand, energy_demand,
-                 service_efficiency, sector_id, case_id, **kwargs):
+                 service_efficiency, sector_id, **kwargs):
         self.id = id
         self.drivers = drivers
         # boolean check on data availability to determine calculation steps
@@ -313,7 +310,6 @@ class Subsector(DataMapFunctions):
         self.has_energy_demand = energy_demand
         self.has_service_efficiency = service_efficiency
         self.sector_id = sector_id
-        self.case_id = case_id
         for col, att in util.object_att_from_table('DemandSubsectors', id):
             setattr(self, col, att)
         
@@ -394,17 +390,17 @@ class Subsector(DataMapFunctions):
         self.calculate_years()
 
 
-    def filter_packages(self):
+    def filter_packages(self,case_id):
         """filters packages by case"""
         packages = [x for x in util.sql_read_headers('DemandCasesData') if x not in ['id', 'subsector_id']]
         for package in packages:
-            package_id = util.sql_read_table('DemandCasesData', package, subsector_id=self.id, id=self.case_id)
+            package_id = util.sql_read_table('DemandCasesData', package, subsector_id=self.id, id=case_id)
             setattr(self, package, package_id)
 
 
-    def add_measures(self):
+    def add_measures(self,case_id):
         """ add measures to subsector based on case and package inputs """
-        self.filter_packages()
+        self.filter_packages(case_id)
         self.add_service_demand_measures()
         self.add_energy_efficiency_measures()
         self.add_fuel_switching_measures()

@@ -20,10 +20,12 @@ class PathwaysModel(object):
         self.model_config(db_path, cfgfile_path, custom_pint_definitions_path)
         self.name = cfg.cfgfile.get('case', 'scenario') if name is None else name
         self.author = cfg.cfgfile.get('case', 'author') if author is None else author
-        self.scenario_list = util.sql_read_table('Scenarios','id',is_active=1,return_iterable=True)
+        self.scenario_dict = dict(zip(util.sql_read_table('Scenarios','id',is_active=1,return_iterable=True),
+                                  util.sql_read_table('Scenarios','name',is_active=1,return_iterable=True)))
+        print 'test'
         self.outputs = Output()
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
-        self.scenario = cfg.cfgfile.get('case', 'scenario')
+        
 
     def model_config(self, db_path, cfgfile_path, custom_pint_definitions_path):
         cfg.init_cfgfile(cfgfile_path)
@@ -33,14 +35,11 @@ class PathwaysModel(object):
         cfg.init_shapes()
         cfg.init_outputs_id_map()
 
-    def configure_energy_system(self,id):
+    def configure_energy_system(self):
         print 'configuring energy system'
-        self.scenario_id = id
-        self.scenario = util.sql_read_table('Scenarios','name',id=self.scenario_id)
-        self.demand_case_id =util.sql_read_table('Scenarios','demand_case',id=self.scenario_id)
-        self.supply_case_id = util.sql_read_table('Scenarios','supply_case',id=self.scenario_id)
-        self.demand = Demand(self.demand_case_id)
-        self.supply = Supply(self.supply_case_id)
+
+        self.demand = Demand()
+        self.supply = Supply()
         self.configure_demand()
         self.configure_supply()
         cfg.init_outputs_id_map()
@@ -49,8 +48,12 @@ class PathwaysModel(object):
         self.populate_demand_system()
         self.populate_supply_system()
 
-    def populate_measures(self):
+    def populate_measures(self, scenario_id):
+        self.scenario_id = scenario_id
+        self.scenario = self.scenario_dict[self.scenario_id]
+        self.demand_case_id = util.sql_read_table('Scenarios','demand_case',id=self.scenario_id)
         self.populate_demand_measures()
+        self.supply_case_id = util.sql_read_table('Scenarios','supply_case',id=self.scenario_id)
         self.populate_supply_measures()
 
     def calculate(self):
@@ -91,10 +94,10 @@ class PathwaysModel(object):
         for sector in self.demand.sectors.values():
             #            print 'reading %s measures' %sector.name
             for subsector in sector.subsectors.values():
-                subsector.add_measures()
+                subsector.add_measures(self.demand_case_id)
         
-    def populate_supply_measures(self):      
-        self.supply.add_measures()
+    def populate_supply_measures(self):
+        self.supply.add_measures(self.supply_case_id)
 
     def calculate_demand_only(self):
         self.demand.manage_calculations()

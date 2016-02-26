@@ -28,10 +28,8 @@ class Supply(object):
     emissions, and cost flows through the energy economy
     """    
     
-    def __init__(self, case_id, **kwargs):
+    def __init__(self, **kwargs):
         """Initializes supply instance"""
-        self.case_id = case_id
-        self.case = util.sql_read_table('SupplyCases', 'name', id=self.case_id)
         self.demand_sectors = util.sql_read_table('DemandSectors','id')
         self.geographies = cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
@@ -186,31 +184,31 @@ class Supply(object):
             supply_type (str): supply type i.e. 'blend'
         """
         if supply_type == "Blend":
-            self.nodes[id] = BlendNode(id, supply_type, self.case_id, **kwargs)
+            self.nodes[id] = BlendNode(id, supply_type, **kwargs)
             self.blend_nodes.append(id)
         elif supply_type == "Storage":
             if len(util.sql_read_table('SupplyEfficiency', 'id', id=id, return_iterable=True)):          
-                self.nodes[id] = SupplyNode(id, supply_type, self.case_id,**kwargs)
+                self.nodes[id] = SupplyNode(id, supply_type, **kwargs)
             elif len(util.sql_read_table('SupplyTechs', 'supply_node_id', supply_node_id=id, return_iterable=True)):          
-                self.nodes[id] = StorageNode(id, supply_type, self.case_id, **kwargs)
+                self.nodes[id] = StorageNode(id, supply_type, **kwargs)
             else:
                 print ValueError('insufficient data in storage node %s' %id)
         elif supply_type == "Import":
-            self.nodes[id] = ImportNode(id, supply_type, self.case_id, **kwargs)
+            self.nodes[id] = ImportNode(id, supply_type, **kwargs)
         elif supply_type == "Primary":
-            self.nodes[id] = PrimaryNode(id, supply_type, self.case_id, **kwargs)
+            self.nodes[id] = PrimaryNode(id, supply_type, **kwargs)
         else:
             if len(util.sql_read_table('SupplyEfficiency', 'id', id=id, return_iterable=True)):          
-                self.nodes[id] = SupplyNode(id, supply_type, self.case_id, **kwargs)
+                self.nodes[id] = SupplyNode(id, supply_type, **kwargs)
             elif len(util.sql_read_table('SupplyTechs', 'supply_node_id', supply_node_id=id, return_iterable=True)):          
-                self.nodes[id] = SupplyStockNode(id, supply_type, self.case_id, **kwargs)
+                self.nodes[id] = SupplyStockNode(id, supply_type,  **kwargs)
             else:
                 print ValueError('insufficient data in supply node %s' %id)
                 
-    def add_measures(self):
+    def add_measures(self,case_id):
         """ Adds measures to supply nodes based on case and package inputs"""
         for node in self.nodes.values():  
-            node.filter_packages('SupplyCasesData', 'supply_node_id')
+            node.filter_packages('SupplyCasesData', 'supply_node_id', case_id)
             #all nodes have export measures
             node.add_export_measures()  
             #once measures are loaded, export classes can be initiated
@@ -1400,10 +1398,9 @@ class Supply(object):
 
         
 class Node(DataMapFunctions):
-    def __init__(self, id, supply_type, case_id, **kwargs):
+    def __init__(self, id, supply_type, **kwargs):
         self.id = id    
         self.supply_type = supply_type
-        self.case_id = case_id
         for col, att in util.object_att_from_table('SupplyNodes', id):
             setattr(self, col, att)
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
@@ -1468,11 +1465,11 @@ class Node(DataMapFunctions):
          data.columns = data.columns.droplevel(-1)
          return data
             
-    def filter_packages(self, case_data_table, node_key):
+    def filter_packages(self, case_data_table, node_key, case_id):
         """filters packages by case"""
         packages = [x for x in util.sql_read_headers(case_data_table) if x not in ['id', node_key]]
         for package in packages:
-            package_id = util.sql_read_table(case_data_table, package, supply_node_id=self.id, id=self.case_id)
+            package_id = util.sql_read_table(case_data_table, package, supply_node_id=self.id, id = case_id)
             setattr(self, package, package_id)
     
     def add_export_measures(self):
@@ -1814,11 +1811,10 @@ class  Export(Abstract):
 
            
 class BlendNode(Node):
-    def __init__(self, id, supply_type, case_id, **kwargs):
-        Node.__init__(self, id, supply_type, case_id)
+    def __init__(self, id, supply_type, **kwargs):
+        Node.__init__(self, id, supply_type)
         self.id = id
         self.supply_type = supply_type
-        self.case_id = case_id
         for col, att in util.object_att_from_table('SupplyNodes', id, ):
             setattr(self, col, att)
         self.nodes = util.sql_read_table('BlendNodeInputsData', 'supply_node_id', blend_node_id=id)
@@ -1949,8 +1945,6 @@ class BlendNode(Node):
         indexer = util.level_specific_indexer(self.values.loc[:,year].to_frame(), 'supply_node', self.residual_supply_node_id)
         self.values.loc[indexer,year] = DfOper.mult([self.values.loc[indexer, year].to_frame(), growth_factor]).values
         self.values[self.values <= 0] = 1e-7
-        if self.id == 6:
-            print self.values.loc[:,year]
          
          
     def expand_blend(self):
@@ -1958,7 +1952,6 @@ class BlendNode(Node):
         self.values = util.reindex_df_level_with_new_elements(self.values,'supply_node', self.nodes, fill_value = 1e-7)
         if 'demand_sector' not in self.values.index.names:
             self.values = util.expand_multi(self.values, self.demand_sectors, ['demand_sector'], incremental=True)
-#            self.values = self.values.swaplevel('demand_sector', 'supply_node')
         self.values['efficiency_type'] = 2
         self.values.set_index('efficiency_type', append=True, inplace=True)
         self.values = self.values.reorder_levels([self.geography,'demand_sector','supply_node','efficiency_type','year'])
@@ -1977,8 +1970,8 @@ class BlendNode(Node):
         
     
 class SupplyNode(Node,StockItem):
-    def __init__(self, id, supply_type, case_id,**kwargs):
-        Node.__init__(self, id, supply_type, case_id)
+    def __init__(self, id, supply_type, **kwargs):
+        Node.__init__(self, id, supply_type)
         StockItem.__init__(self)
         self.input_type = 'total'
         self.coefficients = SupplyCoefficients(self.id)
@@ -2665,8 +2658,8 @@ class SupplyCoefficients(Abstract):
         self.values = util.unit_convert(self.raw_values, unit_from_num=self.input_unit, unit_to_num=self.output_unit)
     
 class SupplyStockNode(Node):
-    def __init__(self, id, supply_type, case_id, **kwargs):
-        Node.__init__(self, id, supply_type, case_id)
+    def __init__(self, id, supply_type,**kwargs):
+        Node.__init__(self, id, supply_type)
         for col, att in util.object_att_from_table('SupplyNodes', id):
             setattr(self, col, att)
         self.tradable_geography = cfg.cfgfile.get('case', 'primary_geography') if self.tradable_geography is None else self.tradable_geography
@@ -3541,8 +3534,8 @@ class SupplyStockNode(Node):
 
 
 class StorageNode(SupplyStockNode):
-    def __init__(self, id, supply_type, case_id,  **kwargs):
-        SupplyStockNode.__init__(self, id, supply_type, case_id,  **kwargs)
+    def __init__(self, id, supply_type,**kwargs):
+        SupplyStockNode.__init__(self, id, supply_type, **kwargs)
         
     
     def add_technology(self, id, **kwargs):
@@ -3627,8 +3620,8 @@ class StorageNode(SupplyStockNode):
 
         
 class ImportNode(Node):
-    def __init__(self, id, supply_type, case_id, **kwargs):
-        Node.__init__(self,id, supply_type, case_id)
+    def __init__(self, id, supply_type, **kwargs):
+        Node.__init__(self,id, supply_type)
         self.cost = ImportCost(self.id)
         self.emissions = ImportEmissions(self.id)
         self.coefficients = SupplyCoefficients(self.id)
@@ -3755,8 +3748,8 @@ class ImportEmissions(Abstract):
 
           
 class PrimaryNode(Node):
-    def __init__(self, id, supply_type, case_id, **kwargs):
-        Node.__init__(self,id, supply_type, case_id)
+    def __init__(self, id, supply_type,**kwargs):
+        Node.__init__(self,id, supply_type)
         self.add_conversion()
         self.potential = PrimaryPotential(self.id)
         self.cost = PrimaryCost(self.id)
@@ -3814,18 +3807,20 @@ class PrimaryNode(Node):
         ex. Biomass input as 'tons' must be converted to energy units using a conversion factor data table
         """
         energy_unit = cfg.cfgfile.get('case', "energy_unit")
-        resource_unit = util.sql_read_table('SupplyPotential', 'unit', supply_node_id=self.id)
-        try:
-            # check to see if unit is in energy terms, if so, no conversion necessary
-            util.unit_conversion_factor(cfg.ureg.Quantity(resource_unit).dimensionality,
-                                        cfg.ureg.Quantity(energy_unit).dimensionality)
+        potential_unit = util.sql_read_table('SupplyPotential', 'unit', supply_node_id=self.id)
+            # check to see if unit is in energy terms, if so, no conversion necessary       
+        if potential_unit is not None:
+            if cfg.ureg.Quantity(potential_unit).dimensionality == cfg.ureg.Quantity(energy_unit).dimensionality:
+                self.conversion = None
+                self.resource_unit = None
+            else:
+                # if the unit is not in energy terms, create a conversion class to convert to energy units
+                self.conversion = PrimaryEnergyConversion(self.id, potential_unit)
+                self.resource_unit = potential_unit
+        else:
             self.conversion = None
-            self.resource_unit = None
-            
-        except:
-            # if the unit is not in energy terms, create a conversion class to convert to energy units
-            self.conversion = PrimaryEnergyConversion(self.id, resource_unit)
-            self.resource_unit = resource_unit
+            self.resource_unit = None   
+
      
 
 class PrimaryPotential(SupplyPotential):
