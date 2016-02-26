@@ -95,7 +95,6 @@ class Config:
         if 'primary_geography' in self.output_levels:
             self.output_levels[self.output_levels.index('primary_geography')] = self.primary_geography
         primary_geography_id = util.sql_read_table('Geographies', 'id', name=self.primary_geography)
-        print primary_geography_id
         self.outputs_id_map[self.primary_geography] = util.upper_dict(util.sql_read_table('GeographiesData', ['id', 'name'], geography_id=primary_geography_id, return_unique=True, return_iterable=True))
         self.outputs_id_map[self.primary_geography+"_supply"] =  self.outputs_id_map[self.primary_geography]       
         self.outputs_id_map['technology'] = util.upper_dict(util.sql_read_table('DemandTechs', ['id', 'name']))

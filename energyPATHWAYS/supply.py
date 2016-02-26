@@ -28,10 +28,10 @@ class Supply(object):
     emissions, and cost flows through the energy economy
     """    
     
-    def __init__(self, **kwargs):
+    def __init__(self, case_id, **kwargs):
         """Initializes supply instance"""
-        self.case = cfg.cfgfile.get('case', 'supply_case')
-        self.case_id = util.sql_read_table('SupplyCases', 'id', name=self.case)
+        self.case_id = case_id
+        self.case = util.sql_read_table('SupplyCases', 'name', id=self.case_id)
         self.demand_sectors = util.sql_read_table('DemandSectors','id')
         self.geographies = cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
@@ -1894,14 +1894,13 @@ class BlendNode(Node):
          90% of hydrogen blend is allocated to residual node
          """
          # calculates sum of all supply_nodes
-         residual_levels = [x for x in self.values.index.names if x != 'supply_node']
          # residual equals 1-sum of all other specified nodes
-         residual = 1-self.values.groupby(level=residual_levels).sum()
+         residual = 1-util.remove_df_levels(self.values,['supply_node'])
          residual['supply_node'] = self.residual_supply_node_id
          residual.set_index('supply_node', append=True, inplace=True)
-         residual = residual.reorder_levels(residual_levels+['supply_node'])
+#         residual = residual.reorder_levels(residual_levels+['supply_node'])
          # concatenate values
-         residual = residual.reorder_levels(self.values.index.names)
+#         residual = residual.reorder_levels(self.values.index.names)
          self.values = pd.concat([self.values, residual], join='outer', axis=0)
          # remove duplicates where a node is specified and is specified as residual node
          self.values = self.values.groupby(level=self.values.index.names).sum()
@@ -1910,7 +1909,7 @@ class BlendNode(Node):
          self.expand_blend()
          self.values = self.values.unstack(level='year')    
          self.values.columns = self.values.columns.droplevel()
-
+         
          
     def update_residual(self, year):
         """calculates values for residual node in Blend Node dataframe
@@ -1918,7 +1917,6 @@ class BlendNode(Node):
          90% of hydrogen blend is allocated to residual node
          """
         # calculates sum of all supply_nodes
-         
         indexer = util.level_specific_indexer(self.values, 'supply_node', self.residual_supply_node_id)
         self.values.loc[indexer,year] = 0
         residual_levels = [x for x in self.values.index.names if x != 'supply_node']
@@ -1934,7 +1932,8 @@ class BlendNode(Node):
         self.values.loc[:,year] = self.values.loc[:,year].groupby(level=self.values.index.names).sum()
         # set negative values to 0
         self.values[self.values <= 0] = 1e-7
-         
+
+            
     def update_reconciled_residual(self, year):
         """calculates values for residual node in Blend Node dataframe
          ex. if 10% of hydrogen blend is supplied by electrolysis and the rest is unspecified,
@@ -1950,6 +1949,8 @@ class BlendNode(Node):
         indexer = util.level_specific_indexer(self.values.loc[:,year].to_frame(), 'supply_node', self.residual_supply_node_id)
         self.values.loc[indexer,year] = DfOper.mult([self.values.loc[indexer, year].to_frame(), growth_factor]).values
         self.values[self.values <= 0] = 1e-7
+        if self.id == 6:
+            print self.values.loc[:,year]
          
          
     def expand_blend(self):
@@ -3576,8 +3577,8 @@ class StorageNode(SupplyStockNode):
         self.stock.values_financial_replacement_energy = copy.deepcopy(self.stock.values_financial_replacement.loc[:,year].to_frame()) 
         for tech in self.technologies.values():
             tech_indexer = util.level_specific_indexer(self.stock.values_financial_new,'supply_technology', tech.id)
-            self.stock.values_financial_new_energy.loc[tech_indexer,:] = self.stock.values_financial_new.loc[tech_indexer,:] * tech.discharge_duration
-            self.stock.values_financial_replacement_energy.loc[tech_indexer,:] = self.stock.values_financial_replacement.loc[tech_indexer,:] * tech.discharge_duration
+            self.stock.values_financial_new_energy.loc[tech_indexer,:] = self.stock.values_financial_new.loc[tech_indexer,year].to_frame() * tech.discharge_duration
+            self.stock.values_financial_replacement_energy.loc[tech_indexer,:] = self.stock.values_financial_replacement.loc[tech_indexer,year].to_frame() * tech.discharge_duration
         self.stock.capital_cost_new_energy.loc[:,year] = self.rollover_output(tech_class='capital_cost_new_energy',tech_att='values_level',
                                                                          stock_att='values_financial_new_energy',year=year)
         self.stock.capital_cost_replacement_energy.loc[:,year] = self.rollover_output(tech_class='capital_cost_replacement_energy',tech_att='values_level',
