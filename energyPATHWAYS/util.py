@@ -669,7 +669,7 @@ class ExportMethods:
             _os.makedirs(path)
 
     @staticmethod
-    def writeobj(name, obj, write_directory):
+    def writeobj(name, obj, write_directory, append_results=False):
         ExportMethods.checkexistormakedir(write_directory)
         if is_numeric(obj) or type(obj) == str:
             ExportMethods.csvwrite(os.path.join(write_directory, 'vars.csv'), [[name, obj]], writetype='ab')
@@ -678,7 +678,7 @@ class ExportMethods:
         elif type(obj) == list or type(obj) == tuple:
             ExportMethods.writelist(name, obj, write_directory)
         elif type(obj) == pd.core.frame.DataFrame:
-            ExportMethods.writedataframe(name, obj, write_directory)
+            ExportMethods.writedataframe(name, obj, write_directory, append_results)
         elif inspect.isclass(type(obj)) and hasattr(obj, '__dict__'):
             ExportMethods.writeclass(name, obj, write_directory)
 
@@ -699,23 +699,12 @@ class ExportMethods:
                 ExportMethods.writeobj(key, value, new_directory)
 
     @staticmethod
-    def writedataframe(name, obj, write_directory):
-        if len(obj.columns.values) > 1:
-            if len(config.cfg.cfgfile.get('case', 'years')) == len(obj.columns.values):
-                label = 'year'
-            else:
-                label = "unidentified_index"
-            write_df = pd.DataFrame(copy.deepcopy(obj.stack()))
-            write_df.rename(columns={0: 'value'}, inplace=True)
-
-            write_df.index.rename([x if x is not None else label for x in write_df.index.names], inplace=True)
+    def writedataframe(name, obj, write_directory, append_results):
+        if os.path.exists(os.path.join(write_directory, name + '.csv')) and append_results:
+            obj.to_csv(os.path.join(write_directory, name + '.csv'), header=False, mode='a')
         else:
-            write_df = copy.deepcopy(obj)
-        # TODO fix this
-        try:
-            write_df.to_csv(os.path.join(write_directory, name + '.csv'))
-        except:
-            pass
+           obj.to_csv(os.path.join(write_directory, name + '.csv'))
+
 
     @staticmethod
     def writeclass(name, obj, write_directory):

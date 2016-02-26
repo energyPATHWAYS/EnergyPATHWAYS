@@ -20,11 +20,10 @@ class PathwaysModel(object):
         self.model_config(db_path, cfgfile_path, custom_pint_definitions_path)
         self.name = cfg.cfgfile.get('case', 'scenario') if name is None else name
         self.author = cfg.cfgfile.get('case', 'author') if author is None else author
-        self.demand = Demand()
-        self.supply = Supply()
+        self.scenario_list = util.sql_read_table('Scenarios','id',is_active=1,return_iterable=True)
         self.outputs = Output()
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
-        
+        self.scenario = cfg.cfgfile.get('case', 'scenario')
 
     def model_config(self, db_path, cfgfile_path, custom_pint_definitions_path):
         cfg.init_cfgfile(cfgfile_path)
@@ -34,24 +33,30 @@ class PathwaysModel(object):
         cfg.init_shapes()
         cfg.init_outputs_id_map()
 
-    def configure_energy_system(self):
+    def configure_energy_system(self,id):
         print 'configuring energy system'
+        self.scenario_id = id
+        self.scenario = util.sql_read_table('Scenarios','name',id=self.scenario_id)
+        self.demand_case_id =util.sql_read_table('Scenarios','demand_case',id=self.scenario_id)
+        self.supply_case_id = util.sql_read_table('Scenarios','supply_case',id=self.scenario_id)
+        self.demand = Demand(self.demand_case_id)
+        self.supply = Supply(self.supply_case_id)
         self.configure_demand()
-#        self.configure_supply()
+        self.configure_supply()
         cfg.init_outputs_id_map()
 
     def populate_energy_system(self):
         self.populate_demand_system()
-#        self.populate_supply_system()
+        self.populate_supply_system()
 
     def populate_measures(self):
         self.populate_demand_measures()
-#        self.populate_supply_measures()
+        self.populate_supply_measures()
 
     def calculate(self):
         self.calculate_demand_only()
-#        self.pass_results_to_supply()
-#        self.calculate_supply()
+        self.pass_results_to_supply()
+        self.calculate_supply()
 
     def configure_demand(self):
         """Read in and initialize data"""
@@ -115,11 +120,11 @@ class PathwaysModel(object):
         print "calculating combined cost results"
         self.calculate_combined_cost_results()
     
-    def export_results(self):
+    def export_results(self, append_results=False):
         for attribute in dir(self.outputs):
             if isinstance(getattr(self.outputs,attribute),pd.DataFrame):
                 result_df = getattr(self.outputs, attribute)
-                ExportMethods.writeobj(attribute,result_df,os.path.join(os.getcwd(),'outputs'))
+                ExportMethods.writeobj(attribute,result_df,os.path.join(os.getcwd(),'outputs'), append_results=append_results)
     
     def calculate_combined_cost_results(self):
         #calculate and format export costs
@@ -160,7 +165,9 @@ class PathwaysModel(object):
         self.outputs.costs[self.outputs.costs<0]=0
         self.outputs.costs= self.outputs.costs[self.outputs.costs['VALUE']!=0]
 #        self.outputs.costs.sort(inplace=True)       
-        
+        keys = [self.scenario.upper()]
+        names = ['SCENARIO']
+        self.outputs.costs = pd.concat([self.outputs.costs],keys=keys,names=names)        
         
     
         
@@ -201,6 +208,10 @@ class PathwaysModel(object):
         util.replace_index_name(self.outputs.emissions, self.geography.upper() +'_EMITTED', self.geography.upper() +'_SUPPLY')
         util.replace_index_name(self.outputs.emissions, self.geography.upper() +'_CONSUMED', self.geography.upper())
         self.outputs.emissions= self.outputs.emissions[self.outputs.emissions['VALUE']!=0]
+        keys = [self.scenario.upper()]
+        names = ['SCENARIO']
+        self.outputs.emissions = pd.concat([self.outputs.emissions],keys=keys,names=names)
+        
 #        self.outputs.emissions.sort(inplace=True)        
         
     

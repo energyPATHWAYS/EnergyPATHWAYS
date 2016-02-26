@@ -21,11 +21,11 @@ from util import DfOper
 from outputs import Output
 
 class Demand(object):
-    def __init__(self, **kwargs):
+    def __init__(self, case_id, **kwargs):
         self.drivers = {}
         self.sectors = {}
-        self.case = cfg.cfgfile.get('case', 'demand_case')
-        self.case_id = util.sql_read_table('DemandCases', 'id', name=self.case)
+        self.case_id = case_id
+        self.case = util.sql_read_table('DemandCases', 'name', id=self.case_id)
         self.outputs = Output()
         self.geographies = cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
@@ -371,13 +371,23 @@ class Subsector(DataMapFunctions):
                                            primary_key='demand_energy_demand_id',
                                            drivers=self.drivers)
             self.sub_type = 'service and energy'
-
         elif self.has_energy_demand is True:
             self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands',
                                            sql_data_table='DemandEnergyDemandsData',
                                            primary_key='demand_energy_demand_id',
                                            drivers=self.drivers)
             self.sub_type = 'energy'
+            
+        elif self.has_stock is True:
+            self.sub_type = 'link'  
+            self.add_stock()
+            if self.stock.demand_stock_unit_type == 'equipment':
+                # service demand unit is equal to the energy demand unit for equipment stocks
+                # where no additional service demand information is given in the form of stock units
+
+                self.add_technologies(None, None)
+            else:
+                raise ValueError("A subsector that has no service demand must have its stock input as equipment")
         else:
             raise ValueError("User has not input enough data")
         self.add_service_links()
@@ -436,7 +446,8 @@ class Subsector(DataMapFunctions):
     def group_output(self, output_type, levels_to_keep=None):
         levels_to_keep = cfg.output_levels if levels_to_keep is None else levels_to_keep
         if output_type=='energy':
-            return self.energy_forecast
+            if self.sub_type != 'link':
+                return self.energy_forecast
         elif output_type=='stock':
             return self.format_output_stock(levels_to_keep) if hasattr(self, 'stock') else None
         elif output_type=='investment_costs':
@@ -505,7 +516,7 @@ class Subsector(DataMapFunctions):
                 value.columns = ['value']
                 util.replace_index_name(value, 'year')
                 values[index] = value
-        return util.df_list_concatenate(values, keys=keys, new_names=['cost category', 'new/replacement'])
+        return util.df_list_concatenate(values, keys=keys, new_names=['cost category', 'new/replacement'], levels_to_keep=override_levels_to_keep)
         
     
 
@@ -595,6 +606,15 @@ class Subsector(DataMapFunctions):
             energy_min_year = min(self.energy_demand.raw_values.index.levels[
                 util.position_in_index(self.energy_demand.raw_values, 'year')])
             self.min_year = min(int(cfg.cfgfile.get('case', 'current_year')), driver_min_year, energy_min_year)
+            
+        elif self.sub_type == 'link':
+            tech_min_year = self.calculate_tech_min_year()
+            stock_min_year = min(
+                self.stock.raw_values.index.levels[util.position_in_index(self.stock.raw_values, 'year')])
+            sales_share_min_year = min(
+                util.sql_read_table('DemandSalesData', 'vintage', return_iterable=True, subsector_id=self.id))    
+            self.min_year = min(int(cfg.cfgfile.get('case', 'current_year')), driver_min_year, tech_min_year,
+                                    stock_min_year, sales_share_min_year)
         self.min_year = max(self.min_year, int(cfg.cfgfile.get('case', 'start_year')))
         self.years = range(self.min_year, int(cfg.cfgfile.get('case', 'end_year')) + 1,
                            int(cfg.cfgfile.get('case', 'year_step')))
@@ -959,8 +979,11 @@ class Subsector(DataMapFunctions):
             self.energy_demand.values = util.unit_convert(self.energy_demand.values,
                                                           unit_from_num=self.energy_demand.unit,
                                                           unit_to_num=cfg.cfgfile.get('case', 'energy_unit'))
-            self.energy_forecast = self.energy_demand.values
-        else:
+            self.energy_forecast = self.energy_demand.values 
+        elif self.sub_type == 'link':
+            self.calculate_technologies()
+            self.project_stock()
+        elif self.sub_type == 'stock and service' or self.sub_type == 'stock and energy':
             self.calculate_technologies()
             # determine what levels the service demand forecast has in order to determine
             # what levels to calculate the service demand modifier on i.e. by technology
@@ -1439,7 +1462,6 @@ class Subsector(DataMapFunctions):
             current_geography = self.stock.geography
 
         if 'technology' in getattr(self.stock, map_from).index.names:
-
             self.stock.project(map_from=map_from, map_to='specified', current_geography=current_geography,
                                additional_drivers=self.service_demand.values if service_dependent else None,
                                fill_timeseries=True,interpolation_method=None,extrapolation_method=None, fill_value=np.nan)
@@ -1903,12 +1925,14 @@ class Subsector(DataMapFunctions):
             self.stock.sales.loc[elements, 'value'], self.stock.sales_new.loc[elements, 'value'], \
             self.stock.sales_replacement.loc[elements, 'value'] = sales_record, sales_new, sales_replacement
         self.stock_normalize(levels)
-        self.fuel_switch_stock_calc()
         self.financial_stock()
+        if self.sub_type != 'link':
+            self.fuel_switch_stock_calc()
+
 
     def determine_need_for_aux_efficiency(self):
         """ determines whether auxiliary efficiency calculations are necessary. Used to avoid unneccessary calculations elsewhere """
-        utility_factor = []
+        utility_factor = []       
         for technology in self.technologies.values():
             if technology.efficiency_main.utility_factor == 1:
                 utility_factor.append(False)
@@ -1918,6 +1942,7 @@ class Subsector(DataMapFunctions):
             self.stock.aux = True
         else:
             self.stock.aux = False
+
 
     def stock_normalize(self, levels):
         """returns normalized stocks for use in other subsector calculations"""
@@ -1931,41 +1956,42 @@ class Subsector(DataMapFunctions):
 
         # this section normalizes stocks used for efficiency calculations. There is a different process if the stock
         # has technologies that use multiple energy types. If it does, it must keep separate dataframes for main and auxiliary efficiency
-        self.determine_need_for_aux_efficiency()
-        if self.stock.aux:
-            self.stock.values_efficiency_aux = copy.deepcopy(self.stock.values)
-        for technology in self.technologies.keys():
-            technology_class = self.technologies[technology]
-            indexer = util.level_specific_indexer(self.stock.values_efficiency_main, 'technology', technology)
-            self.stock.values_efficiency_main.loc[indexer, :] = self.stock.values_efficiency_main.loc[indexer,:] * technology_class.efficiency_main.utility_factor
-            self.stock.values_efficiency_main.loc[indexer, 'final_energy'] = technology_class.efficiency_main.final_energy_id
+        if self.sub_type != 'link':
+            self.determine_need_for_aux_efficiency()
             if self.stock.aux:
-                self.stock.values_efficiency_aux.loc[indexer, :] = self.stock.values.loc[indexer, :] * (
-                    1 - technology_class.efficiency_main.utility_factor)
-                if hasattr(technology_class.efficiency_aux, 'final_energy_id'):
-                    self.stock.values_efficiency_aux.loc[
-                        indexer, 'final_energy'] = technology_class.efficiency_aux.final_energy_id
-                else:
-                    self.stock.values_efficiency_aux.loc[indexer, 'final_energy'] = 9999
-        if self.stock.aux:
-            self.stock.values_efficiency = pd.concat([self.stock.values_efficiency_aux, self.stock.values_efficiency_main])
-        else:
-            # if there is no auxiliary efficiency, efficiency main becomes used for total efficiency
-            self.stock.values_efficiency = self.stock.values_efficiency_main
-        self.stock.values_efficiency = self.set_energy_as_index(self.stock.values_efficiency)
-        self.stock.values_efficiency = self.stock.values_efficiency.reset_index().groupby(
-            self.stock.values_efficiency.index.names).sum()
-        # normalize dataframe for efficiency calculations
-        # self.stock.values_efficiency = pd.concat([self.stock.values_efficiency_main, self.stock.values_efficiency_aux])
-        self.stock.values_efficiency_normal = self.stock.values_efficiency.groupby(
-            level=util.ix_excl(self.stock.values_efficiency, ['final_energy', 'technology', 'vintage'])).transform(
-            lambda x: x / x.sum()).fillna(0)
-        self.stock.values_efficiency_normal_tech = self.stock.values_efficiency.groupby(
-            level=util.ix_excl(self.stock.values_efficiency, ['final_energy', 'vintage'])).transform(
-            lambda x: x / x.sum()).fillna(0)
-        self.stock.values_efficiency_normal_energy = self.stock.values_efficiency.groupby(
-            level=util.ix_excl(self.stock.values_efficiency, ['technology', 'vintage'])).transform(
-            lambda x: x / x.sum()).fillna(0)
+                self.stock.values_efficiency_aux = copy.deepcopy(self.stock.values)
+            for technology in self.technologies.keys():
+                technology_class = self.technologies[technology]
+                indexer = util.level_specific_indexer(self.stock.values_efficiency_main, 'technology', technology)
+                self.stock.values_efficiency_main.loc[indexer, :] = self.stock.values_efficiency_main.loc[indexer,:] * technology_class.efficiency_main.utility_factor
+                self.stock.values_efficiency_main.loc[indexer, 'final_energy'] = technology_class.efficiency_main.final_energy_id
+                if self.stock.aux:
+                    self.stock.values_efficiency_aux.loc[indexer, :] = self.stock.values.loc[indexer, :] * (
+                        1 - technology_class.efficiency_main.utility_factor)
+                    if hasattr(technology_class.efficiency_aux, 'final_energy_id'):
+                        self.stock.values_efficiency_aux.loc[
+                            indexer, 'final_energy'] = technology_class.efficiency_aux.final_energy_id
+                    else:
+                        self.stock.values_efficiency_aux.loc[indexer, 'final_energy'] = 9999
+            if self.stock.aux:
+                self.stock.values_efficiency = pd.concat([self.stock.values_efficiency_aux, self.stock.values_efficiency_main])
+            else:
+                # if there is no auxiliary efficiency, efficiency main becomes used for total efficiency
+                self.stock.values_efficiency = self.stock.values_efficiency_main
+            self.stock.values_efficiency = self.set_energy_as_index(self.stock.values_efficiency)
+            self.stock.values_efficiency = self.stock.values_efficiency.reset_index().groupby(
+                self.stock.values_efficiency.index.names).sum()
+            # normalize dataframe for efficiency calculations
+            # self.stock.values_efficiency = pd.concat([self.stock.values_efficiency_main, self.stock.values_efficiency_aux])
+            self.stock.values_efficiency_normal = self.stock.values_efficiency.groupby(
+                level=util.ix_excl(self.stock.values_efficiency, ['final_energy', 'technology', 'vintage'])).transform(
+                lambda x: x / x.sum()).fillna(0)
+            self.stock.values_efficiency_normal_tech = self.stock.values_efficiency.groupby(
+                level=util.ix_excl(self.stock.values_efficiency, ['final_energy', 'vintage'])).transform(
+                lambda x: x / x.sum()).fillna(0)
+            self.stock.values_efficiency_normal_energy = self.stock.values_efficiency.groupby(
+                level=util.ix_excl(self.stock.values_efficiency, ['technology', 'vintage'])).transform(
+                lambda x: x / x.sum()).fillna(0)
 
     def set_energy_as_index(self, df):
         """ takes a column with an energy id and makes it an index level """
@@ -2002,7 +2028,8 @@ class Subsector(DataMapFunctions):
         # sum normal and initial stock values
         self.stock.values_financial_new = DfOper.add([self.stock.values_financial_new, initial_values_financial_new],non_expandable_levels=('year'))
         self.stock.values_financial_replacement = DfOper.add([self.stock.values_financial_replacement, initial_values_financial_replacement],non_expandable_levels=('year'))
-
+        self.stock.values_financial = DfOper.add([self.stock.values_financial_new,self.stock.values_financial_replacement])
+    
     def calculate_costs_stock(self):
         """
         produce equipment cost outputs based on stock rollover values and equipment specifications
@@ -2013,13 +2040,14 @@ class Subsector(DataMapFunctions):
         self.stock.levelized_costs['fixed_om']['replacement'] = self.rollover_output(tech_class='fixed_om', tech_att='values', stock_att='values_replacement')
         self.stock.levelized_costs['installation']['new'] = self.rollover_output(tech_class='installation_cost_new', tech_att='values_level', stock_att='values_financial_new')
         self.stock.levelized_costs['installation']['replacement'] = self.rollover_output(tech_class='installation_cost_replacement', tech_att='values_level', stock_att='values_financial_replacement')
-        self.stock.levelized_costs['fuel_switching']['new'] = self.rollover_output(tech_class='fuel_switch_cost', tech_att='values_level', stock_att='values_fuel_switch')
-
+        if self.sub_type != 'link':
+            self.stock.levelized_costs['fuel_switching']['new'] = self.rollover_output(tech_class='fuel_switch_cost', tech_att='values_level', stock_att='values_fuel_switch')
         self.stock.investment['capital']['new'] = self.rollover_output(tech_class='capital_cost_new', tech_att='values', stock_att='sales_new')
         self.stock.investment['capital']['replacement'] = self.rollover_output(tech_class='capital_cost_replacement', tech_att='values', stock_att='sales_replacement')
         self.stock.investment['installation']['new'] = self.rollover_output(tech_class='installation_cost_new', tech_att='values', stock_att='sales_new')
         self.stock.investment['installation']['replacement'] = self.rollover_output(tech_class='installation_cost_replacement', tech_att='values', stock_att='sales_replacement')
-        self.stock.investment['fuel_switching']['all'] = self.rollover_output(tech_class='fuel_switch_cost', tech_att='values', stock_att='sales_fuel_switch')
+        if self.sub_type != 'link':
+            self.stock.investment['fuel_switching']['all'] = self.rollover_output(tech_class='fuel_switch_cost', tech_att='values', stock_att='sales_fuel_switch')
 
     def remove_extra_subsector_attributes(self):
         if hasattr(self, 'stock'):
@@ -2096,7 +2124,7 @@ class Subsector(DataMapFunctions):
 #        .groupby(level=util.ix_excl(fuel_switch_sales, 'technology')).sum()
         fuel_switch_sales_share = util.remove_df_levels(fuel_switch_sales_share, 'final_energy')
         self.stock.sales_fuel_switch = DfOper.mult([self.stock.sales, fuel_switch_sales_share])
-        self.stock.values_fuel_switch = DfOper.mult([self.stock.values, fuel_switch_sales_share])
+        self.stock.values_fuel_switch = DfOper.mult([self.stock.values_financial, fuel_switch_sales_share])
 
     def calculate_parasitic(self):
         """ 

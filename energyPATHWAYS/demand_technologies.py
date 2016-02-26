@@ -138,7 +138,7 @@ class DemandTechnology(StockItem):
 
         self.efficiency_main = DemandTechEfficiency(self, 'DemandTechsMainEfficiency', 'DemandTechsMainEfficiencyData')
         self.efficiency_aux = DemandTechEfficiency(self, 'DemandTechsAuxEfficiency', 'DemandTechsAuxEfficiencyData')
-        if self.efficiency_main.definition == 'absolute':
+        if hasattr(self.efficiency_main,'definition') and self.efficiency_main.definition == 'absolute':
             self.efficiency_aux.utility_factor = 1 - self.efficiency_main.utility_factor
         self.service_demand_modifier = ServiceDemandModifier(self, 'DemandTechsServiceDemandModifier',
                                                              'DemandTechsServiceDemandModifierData')
