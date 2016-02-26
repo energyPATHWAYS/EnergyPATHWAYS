@@ -163,7 +163,7 @@ class Supply(object):
         self.nodes = {}
         self.all_nodes = []
         self.blend_nodes = []
-        cfg.cur.execute('select id from "SupplyNodes"')
+        cfg.cur.execute('select id from "SupplyNodes" order by id')
         ids = [id for id in cfg.cur.fetchall()]
         for (id,) in ids:
             self.all_nodes.append(id)
