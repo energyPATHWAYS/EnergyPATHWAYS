@@ -6,11 +6,12 @@ import cPickle as pickle
 import os
 from energyPATHWAYS import *
 cfg = energyPATHWAYS.cfg
+from energyPATHWAYS.shape import shapes
 
 directory = os.getcwd()
 
 cfgfile_path = os.path.join(directory, 'configurations.INI')
-db_path = os.path.join(directory, 'pathways_shapes.db')
+db_path = os.path.join(directory, 'pathways.db')
 custom_pint_definitions_path = os.path.join(directory, 'unit_defs.txt')
 
 ###########
@@ -23,6 +24,7 @@ resolve_supply = True
 
 append_results = True
 ###########
+
 
 if __name__ == "__main__":
     if resolve_demand and resolve_supply:
@@ -71,5 +73,4 @@ if __name__ == "__main__":
             model.pass_results_to_demand()
             model.calculate_combined_results()
             model.export_results(append_results)
-        
-    
+            

@@ -9,6 +9,7 @@ import time
 from config import cfg
 from supply import Supply
 import pandas as pd
+from shape import shapes
 # from supply import Supply
 
 class PathwaysModel(object):
@@ -47,6 +48,9 @@ class PathwaysModel(object):
     def populate_energy_system(self):
         self.populate_demand_system()
         self.populate_supply_system()
+        print 'processing shapes'
+        shapes.initiate_active_shapes()
+        shapes.process_active_shapes()
 
     def populate_measures(self, scenario_id):
         self.scenario_id = scenario_id
