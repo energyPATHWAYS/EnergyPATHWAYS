@@ -70,7 +70,7 @@ target/
 /.idea/energyPATHWAYS.iml
 
 # Temp model copy
-/us_model_example/model.p
+/us_model_example/*.p
 
 # Results
 /us_model_example/outputs/

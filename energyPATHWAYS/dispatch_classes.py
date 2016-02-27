@@ -355,12 +355,13 @@ class Dispatch(object):
         
 class DispatchFeederAllocation(Abstract):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
-    def __init__(self,id,**kwargs):
+    def __init__(self, id,**kwargs):
         self.id = id
-        self.sql_id_table = 'DispatchFeeders'
-        self.sql_data_table = 'DispatchFeedersData'
-        self.interpolation_method = None
-        self.extrapolation_method = None
-        Abstract.__init__(self,self.id)  
-        self.values = self.clean_timeseries('raw_values',inplace=False)
-        self.values.sort(inplace=True)
+        self.sql_id_table = 'DispatchFeedersAllocation'
+        self.sql_data_table = 'DispatchFeedersAllocationData'
+        Abstract.__init__(self,self.id)
+        
+        self.remap()
+        
+#        self.values = self.clean_timeseries('raw_values', inplace=False)
+#        self.values.sort(inplace=True)

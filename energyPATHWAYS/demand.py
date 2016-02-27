@@ -2,7 +2,7 @@ __author__ = 'Ben Haley & Ryan Jones'
 __author__ = 'Ben Haley & Ryan Jones'
 
 from config import cfg
-from shape import shapes
+from shape import shapes, Shape
 
 import util
 from datamapfunctions import DataMapFunctions
@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 from collections import defaultdict
 import copy
-from collections import defaultdict
 from datetime import datetime
 from demand_subsector_classes import DemandStock, SubDemand, ServiceEfficiency, ServiceLink
 from shared_classes import AggregateStock
@@ -19,6 +18,7 @@ from demand_technologies import DemandTechnology, SalesShare
 from rollover import Rollover
 from util import DfOper
 from outputs import Output
+import dispatch_classes
 
 class Demand(object):
     def __init__(self, **kwargs):
@@ -29,8 +29,23 @@ class Demand(object):
         self.outputs = Output()
         self.geographies = cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
+        self.default_electricity_shape = shapes.data[cfg.electricity_energy_type_shape_id]
+
+    def aggregate_electricity_shapes(self, year):
+        """ Final levels that will always return from this function
+        ['dispatch_feeder', 'timeshift_type', 'gau', 'weather_datetime']
+        """ 
+        agg_load = util.DfOper.add([sub.aggregate_electricity_shapes(year, self.default_electricity_shape) for sub in self.sectors.values()], expandable=False, collapsible=False)
+        # TODO multiply by reconsilliation term
         
+        return Shape.geomap_to_dispatch_geography(agg_load)
+
+    def create_electricity_reconsilliation(self):
+        weather_years = np.unique(shapes.active_dates_index.year)
         
+        energy = group_output(self, output_type, levels_to_keep=['year', 'energy_type'])
+        electric_energy = util.df_slice(energy, cfg.electricity_energy_type_id, 'energy_type')
+
     def aggregate_results(self):
         output_list = ['energy', 'stock', 'investment_costs', 'levelized_costs']
         for output in output_list:
@@ -256,6 +271,12 @@ class Sector(object):
         for col, att in util.object_att_from_table('DemandSectors', id):
             setattr(self, col, att)
         self.outputs = Output()
+        if self.shape_id is not None:
+            self.shape = shapes.data[self.shape_id]
+            shapes.activate_shape(self.shape_id)
+        
+        feeder_allocation_class = dispatch_classes.DispatchFeederAllocation(1)
+        self.feeder_allocation = util.df_slice(feeder_allocation_class.values, id, 'demand_sector')
 
     def add_subsectors(self):
         ids = [id for id in
@@ -301,6 +322,23 @@ class Sector(object):
         new_names = 'subsector'
         return util.df_list_concatenate(df_list, keys, new_names, levels_to_keep)
 
+    def aggregate_electricity_shapes(self, year, default_shape=None):
+        """ Final levels that will always return from this function
+        ['dispatch_feeder', 'timeshift_type', 'gau', 'weather_datetime']
+        """ 
+        
+        if default_shape is None and self.shape_id is None:
+            raise ValueError('Electricity shape cannot be aggregated without an active shape in sector ' + self.name)
+        active_shape = self.shape if hasattr(self, 'shape') else default_shape
+        
+        feeder_allocation = util.df_slice(self.feeder_allocation, year, 'year') 
+        default_max_lead_hours = self.max_lead_hours
+        default_max_lag_hours = self.max_lag_hours
+        
+        return util.DfOper.add([sub.aggregate_electricity_shapes(year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours)
+                                for sub in self.subsectors.values()],
+                                expandable=False, collapsible=False)
+
 
 class Subsector(DataMapFunctions):
     def __init__(self, id, drivers, stock, service_demand, energy_demand,
@@ -319,6 +357,53 @@ class Subsector(DataMapFunctions):
         
         self.outputs = Output()
         self.calculated = False
+        if self.shape_id is not None:
+            self.shape = shapes.data[self.shape_id]
+            shapes.activate_shape(self.shape_id)
+
+    def aggregate_electricity_shapes(self, year, default_shape=None, default_feeder_allocation=None, default_max_lead_hours=None, default_max_lag_hours=None):
+        """ Final levels that will always return from this function
+        ['dispatch_feeder', 'timeshift_type', 'gau', 'weather_datetime']
+        """
+        
+        if default_shape is None and self.shape_id is None:
+            raise ValueError('Electricity shape cannot be aggregated without an active shape in subsector ' + self.name)
+        active_shape = self.shape if hasattr(self, 'shape') else default_shape
+        active_feeder_allocation = default_feeder_allocation
+        active_max_lead_hours = self.max_lead_hours if self.max_lead_hours is not None else default_max_lead_hours
+        active_max_lag_hours = self.max_lag_hours if self.max_lag_hours is not None else default_max_lag_hours
+        
+        # subsector consumes no electricity, so we need to just skip it
+        if cfg.electricity_energy_type_id not in util.get_elements_from_level(self.energy_forecast, 'final_energy'):
+            return None
+        
+        # pull out just electricity from the year being run
+        energy_slice = util.df_slice(self.energy_forecast, [cfg.electricity_energy_type_id, year], ['final_energy', 'year'])
+        
+        # if none of the technologies have shapes, great! we can avoid having to aggregate each one separately
+        if not hasattr(self, 'technologies') or np.all([tech.shape_id is None for tech in self.technologies.values()]):
+            energy_slice = energy_slice.groupby(level=cfg.cfgfile.get('case', 'primary_geography')).sum()
+            
+            # TODO read in flexible load measures
+            has_flex_load_measure = False
+            if has_flex_load_measure:
+                # first step is to make the three shifted profiles
+                flex = Shape.produce_flexible_load(active_shape.values, percent_flexible=0, hr_delay=active_max_lag_hours, hr_advance=active_max_lead_hours)
+                return util.DfOper.mult((energy_slice, active_feeder_allocation, flex))
+            else:
+                return util.DfOper.mult((energy_slice, active_feeder_allocation, active_shape.values))
+        
+        # some technologies have their own shapes, so we need to aggregate from that level
+        else:
+            raise ValueError("Technology shapes are not fully implemented")
+            energy_slice = energy_slice.groupby(level=[cfg.cfgfile.get('case', 'primary_geography'), 'technology']).sum()
+            
+            technology_shapes = pd.concat([tech.get_shape(default_shape=active_shape) for tech in self.technologies.values()],
+                                           keys=self.technologies.keys(), names=['technology'])
+            # here we might have a problem because some of the technology shapes had flex load others didn't, this could lead to NaN
+            # it might be possible to simply fill with 2, which would be the native shape
+            return util.remove_df_levels(util.DfOper.mult((energy_slice, active_feeder_allocation, technology_shapes)), levels='technology')
+        
 
     def add_energy_system_data(self):
         """ 
@@ -598,6 +683,7 @@ class Subsector(DataMapFunctions):
         self.min_year = max(self.min_year, int(cfg.cfgfile.get('case', 'start_year')))
         self.years = range(self.min_year, int(cfg.cfgfile.get('case', 'end_year')) + 1,
                            int(cfg.cfgfile.get('case', 'year_step')))
+        
         self.vintages = self.years
 
     def calculate_tech_min_year(self):
@@ -1272,7 +1358,7 @@ class Subsector(DataMapFunctions):
         
         for technology in self.technologies.values():
             if technology.survival_vintaged[1] < rollover_threshold:
-                print 'Using monthly stock rollover time steps per year = ' + str(steps_per_year*12)
+                print '       '+'using ' + str(steps_per_year*12) +' stock rollover time steps per year' 
                 self.calc_tech_survival_functions(steps_per_year=steps_per_year*12)
 
     def calc_measure_survival_functions(self, measures):

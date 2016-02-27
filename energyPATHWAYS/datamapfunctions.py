@@ -94,7 +94,7 @@ class DataMapFunctions:
             return clean_data
 
 
-    def geo_map(self, converted_geography, attr='values', inplace=True, current_geography=None, current_data_type=None,fill_value=0.):
+    def geo_map(self, converted_geography, attr='values', inplace=True, current_geography=None, current_data_type=None, fill_value=0.):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table
         if input type is a total, then the subsection is the geography
         to convert to and the supersection is the initial geography.

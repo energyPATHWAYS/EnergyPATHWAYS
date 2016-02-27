@@ -86,7 +86,9 @@ class Config:
         
         import shape
         shape.shapes.create_empty_shapes()
-        self.time_slice_col = ['year', 'month', 'hour', 'day_type_id']
+        self.time_slice_col = ['year', 'month', 'week', 'hour', 'day_type_id']
+        self.electricity_energy_type_id, self.electricity_energy_type_shape_id = util.sql_read_table('FinalEnergy', column_names=['id', 'shape_id'], name='electricity')
+        shape.shapes.activate_shape(self.electricity_energy_type_shape_id)
 
     def init_outputs_id_map(self):
         self.currency_name = util.sql_read_table('Currencies', 'name', id=int(self.cfgfile.get('case', 'currency_id')))

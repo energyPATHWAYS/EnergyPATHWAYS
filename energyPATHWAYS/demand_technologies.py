@@ -12,7 +12,7 @@ import numpy as np
 import copy
 import inspect
 from shared_classes import StockItem, SalesShare, SpecifiedStock
-
+from shape import shapes
 
 
 class DemandTechnology(StockItem):
@@ -38,6 +38,12 @@ class DemandTechnology(StockItem):
         self.book_life()
         self.add_class()
         self.min_year()
+        if self.shape_id is not None:
+            self.shape = shapes.data[self.shape_id]
+            shapes.activate_shape(self.shape_id)
+
+    def get_shape(default_shape):
+        pass
 
     def add_sales_share_measures(self, package_id):
         self.sales_shares = {}
