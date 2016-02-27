@@ -10,7 +10,6 @@ Contains unclassified global functions
 
 import config
 import pint
-import sqlite3 as sqlite
 import pandas as pd
 import os
 import numpy as np

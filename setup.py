@@ -13,6 +13,7 @@ setup(name='energyPATHWAYS',
                         'pyomo',
                         'datetime',
                         'pytz',
-                        'profilehooks'
+                        'profilehooks',
+                        'psycopg2'
                         ]
       )

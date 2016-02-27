@@ -2,7 +2,6 @@ __author__ = 'Ben Haley & Ryan Jones'
 
 import os
 import ConfigParser
-import sqlite3 as sqlite
 import pint
 import geography
 import warnings
