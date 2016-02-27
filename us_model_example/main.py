@@ -6,6 +6,7 @@ import cPickle as pickle
 import os
 from energyPATHWAYS import *
 cfg = energyPATHWAYS.cfg
+from energyPATHWAYS.shape import shapes
 
 directory = os.getcwd()
 
@@ -23,6 +24,7 @@ resolve_supply = True
 
 append_results = True
 ###########
+
 
 if __name__ == "__main__":
     if resolve_demand and resolve_supply:
@@ -71,5 +73,4 @@ if __name__ == "__main__":
             model.pass_results_to_demand()
             model.calculate_combined_results()
             model.export_results(append_results)
-        
-    
+            

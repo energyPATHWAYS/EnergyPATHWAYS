@@ -965,89 +965,44 @@ def get_elements_from_level(df, level_name):
 class DfOper:
     @staticmethod
     def add(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        if not len(df_iter):
-            return pd.DataFrame()
-        expandable = DfOper.fill_default_char(expandable, len(df_iter))
-        collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
-        c = df_iter[0]  # .copy()
-        for i, b in enumerate(df_iter[1:]):
-            c = DfOper._df_operation(c, b, '+', join, fill_value,
-                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
-                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
-                                     non_expandable_levels=non_expandable_levels)
-        return c
+        return DfOper._operation_helper(df_iter, '+', expandable, collapsible, join, fill_value, non_expandable_levels)
 
     @staticmethod
     def mult(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        if not len(df_iter):
-            return pd.DataFrame()
-        expandable = DfOper.fill_default_char(expandable, len(df_iter))
-        collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
-        c = df_iter[0]  # .copy()
-        for i, b in enumerate(df_iter[1:]):
-            c = DfOper._df_operation(c, b, '*', join, fill_value,
-                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
-                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
-                                     non_expandable_levels=non_expandable_levels)
-        return c
+        return DfOper._operation_helper(df_iter, '*', expandable, collapsible, join, fill_value, non_expandable_levels)
 
     @staticmethod
     def divi(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        if not len(df_iter):
-            return pd.DataFrame()
-        expandable = DfOper.fill_default_char(expandable, len(df_iter))
-        collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
-        c = df_iter[0]  # .copy()
-        for i, b in enumerate(df_iter[1:]):
-            c = DfOper._df_operation(c, b, '/', join, fill_value,
-                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
-                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
-                                     non_expandable_levels=non_expandable_levels)
-        return c
+        return DfOper._operation_helper(df_iter, '/', expandable, collapsible, join, fill_value, non_expandable_levels)
 
     @staticmethod
     def subt(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        if not len(df_iter):
-            return pd.DataFrame()
-        expandable = DfOper.fill_default_char(expandable, len(df_iter))
-        collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
-        c = df_iter[0]  # .copy()
-        for i, b in enumerate(df_iter[1:]):
-            c = DfOper._df_operation(c, b, '-', join, fill_value,
-                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
-                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
-                                     non_expandable_levels=non_expandable_levels)
-        return c
-    
-    
+        return DfOper._operation_helper(df_iter, '-', expandable, collapsible, join, fill_value, non_expandable_levels)
+
     @staticmethod
     def none(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        if not len(df_iter):
-            return pd.DataFrame()
-        expandable = DfOper.fill_default_char(expandable, len(df_iter))
-        collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
-        c = df_iter[0]  # .copy()
-        for i, b in enumerate(df_iter[1:]):
-            c = DfOper._df_operation(c, b, None, join, fill_value,
-                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
-                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
-                                     non_expandable_levels=non_expandable_levels)
-        return c
+        return DfOper._operation_helper(df_iter, None, expandable, collapsible, join, fill_value, non_expandable_levels)
 
     @staticmethod
     def repl(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
+        return DfOper._operation_helper(df_iter, 'replace', expandable, collapsible, join, fill_value, non_expandable_levels)
+
+    @staticmethod
+    def _operation_helper(df_iter, opr, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
         if not len(df_iter):
-            return pd.DataFrame()
+            return None
         expandable = DfOper.fill_default_char(expandable, len(df_iter))
         collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
-        c = df_iter[0]  # .copy()
-        for i, b in enumerate(df_iter[1:]):
-            c = DfOper._df_operation(c, b, 'replace', join, fill_value,
-                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
-                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
-                                     non_expandable_levels=non_expandable_levels)
-        return c
-
+        return_df = None
+        for i, df in enumerate(df_iter):
+            if df is None:
+                continue
+            return_df = df if return_df is None else \
+                        DfOper._df_operation(return_df, df, opr, join, fill_value,
+                                             a_can_collapse=collapsible[i-1], a_can_expand=expandable[i-1],
+                                             b_can_collapse=collapsible[i], b_can_expand=expandable[i],
+                                             non_expandable_levels=non_expandable_levels)
+        return return_df
 
     @staticmethod
     def fill_default_char(char, num):
@@ -1094,8 +1049,6 @@ class DfOper:
             return pd.DataFrame(a.values, index=a.index, columns=col)
         elif action == 'replace':
             return pd.DataFrame(b.values, index=a.index, columns=col)
-
-
 
     @staticmethod
     def _raise_errors(a, b, action, a_can_collapse, a_can_expand, b_can_collapse, b_can_expand):
