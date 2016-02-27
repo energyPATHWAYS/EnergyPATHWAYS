@@ -19,6 +19,7 @@ from solve_io import solve_IO, inv_IO
 from dispatch_classes import Dispatch, DispatchFeederAllocation
 import inspect
 import operator
+from shape import shapes, Shape
 
 # noinspection PyAttributeOutsideInit
            
@@ -75,14 +76,18 @@ class Supply(object):
             node.min_year = int(cfg.cfgfile.get('case', 'current_year'))
             attributes = vars(node)    
             for att in attributes:
-                            obj = getattr(node, att)
-                            if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'data') and obj.data is True:
-                                try:
-                                    min_year = min(obj.raw_values.index.get_level_values('year'))
-                                except:
-                                    min_year = min(obj.raw_values.index.get_level_values('vintage'))
-                                if min_year < node.min_year:
-                                  node.min_year = min_year             
+                obj = getattr(node, att)
+                if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'data') and obj.data is True:
+                    
+                    if 'year' in obj.raw_values.index.names:
+                        min_year = min(obj.raw_values.index.get_level_values('year'))
+                    elif 'vintage' in obj.raw_values.index.names:
+                        min_year = min(obj.raw_values.index.get_level_values('vintage'))
+                    else:
+                        continue
+                        
+                    if min_year < node.min_year:
+                      node.min_year = min_year             
             if hasattr(node,'technologies'):
                 for technology in node.technologies.values():
                     for reference_sales in technology.reference_sales.values():
@@ -1408,6 +1413,9 @@ class Node(DataMapFunctions):
         self.reconciled = False
         self.tradable_geography = cfg.cfgfile.get('case', 'primary_geography') if self.tradable_geography is None else self.tradable_geography
         
+        if self.shape_id is not None:
+            self.shape = shapes.data[self.shape_id]
+            shapes.activate_shape(self.shape_id)
 
     def calculate_active_coefficients(self, year, loop):
         if year == int(cfg.cfgfile.get('case','current_year'))and loop == 'initial' :

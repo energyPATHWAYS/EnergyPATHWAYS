@@ -33,7 +33,7 @@ class Demand(object):
         """ Final levels that will always return from this function
         ['dispatch_feeder', 'timeshift_type', 'gau', 'weather_datetime']
         """ 
-        agg_load = util.DfOper.add([sub.aggregate_electricity_shapes(year, self.default_electricity_shape) for sub in self.sectors.values()], expandable=False, collapsible=False)
+        agg_load = util.DfOper.add([sec.aggregate_electricity_shapes(year, self.default_electricity_shape) for sec in self.sectors.values()], expandable=False, collapsible=False)
         # TODO multiply by reconsilliation term
         
         return Shape.geomap_to_dispatch_geography(agg_load)
@@ -328,7 +328,7 @@ class Sector(object):
             raise ValueError('Electricity shape cannot be aggregated without an active shape in sector ' + self.name)
         active_shape = self.shape if hasattr(self, 'shape') else default_shape
         
-        feeder_allocation = util.df_slice(self.feeder_allocation, year, 'year') 
+        feeder_allocation = util.df_slice(self.feeder_allocation, year, 'year')
         default_max_lead_hours = self.max_lead_hours
         default_max_lag_hours = self.max_lag_hours
         

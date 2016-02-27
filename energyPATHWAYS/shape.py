@@ -149,10 +149,17 @@ class Shape(dmf.DataMapFunctions):
         elif self.shape_type=='time slice':
             self.values = self.create_empty_shape_data()
             
+            non_time_elements_in_levels = [list(util.get_elements_from_level(self.values, e)) for e in self._non_time_keys]
+            time_elements_in_levels = [list(util.get_elements_from_level(self.values, e)) for e in self._active_time_keys]
+            
             for ind, value in self.raw_values.iterrows():
-                indexer = tuple([ind[self._non_time_dict[e]] for e in self._non_time_keys] +
-                                [ind[self._active_time_dict[e]] for e in self._active_time_keys] +
-                                [slice(None)])
+                non_time_portion = [ind[self._non_time_dict[e]] for e in self._non_time_keys]
+                time_portion = [ind[self._active_time_dict[e]] for e in self._active_time_keys]
+                if not np.all([s in l for s, l in zip(non_time_portion+time_portion, non_time_elements_in_levels+time_elements_in_levels)]):
+                    continue
+                
+                indexer = tuple(non_time_portion + time_portion + [slice(None)])
+                                
                 if self.shape_unit_type=='energy':
                     len_slice = len(self.values.loc[indexer])
                     self.values.loc[indexer] = value[0]/float(len_slice)*self.num_active_years

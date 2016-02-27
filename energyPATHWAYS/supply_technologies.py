@@ -14,6 +14,8 @@ from config import cfg
 from shared_classes import StockItem, SpecifiedStock
 from supply_classes import SupplySalesShare, SupplySales
 import pandas as pd
+from shape import shapes, Shape
+
 
 class SupplyTechnology(StockItem):
     def __init__(self, id, cost_of_capital, **kwargs):
@@ -34,6 +36,9 @@ class SupplyTechnology(StockItem):
             self.reference_sales[1] = SupplySales(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySales', sql_data_table='SupplySalesData') 
         StockItem.__init__(self)
         
+        if self.shape_id is not None:
+            self.shape = shapes.data[self.shape_id]
+            shapes.activate_shape(self.shape_id)
         
 
     def calculate(self, vintages, years):
