@@ -445,11 +445,8 @@ class Supply(object):
         geography_map_key = distribution_grid_node.geography_map_key if hasattr(distribution_grid_node, 'geography_map_key') and distribution_grid_node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')       
         map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)             
         self.distribution_losses =  util.remove_df_levels(DfOper.mult([self.distribution_losses,map_df]),self.geography)
-   
-   
-   
-   
-   def prepare_dispatchable_load(self,year,loop):
+    
+    def prepare_dispatchable_load(self,year,loop):
         """Calculates the availability of dispatchable load for the hourly dispatch. Used for nodes like hydrogen and P2G.
         Args:
             year (int) = year of analysis 
@@ -498,8 +495,6 @@ class Supply(object):
                         self.dispatchable_load[node.id]['energy'][geography][zone][0]= util.remove_df_levels(energy_demand.loc[indexer,:],'demand_sector').values[0][0]
                         indexer = util.level_specific_indexer(capacity,[self.dispatch_geography, 'supply_node'],[geography,zone])
                         self.dispatchable_load[node.id]['capacity'][geography][zone][0]= util.remove_df_levels(capacity.loc[indexer,:],'demand_sector').values[0][0]
-                        
-                        
                         
     def prepare_dispatchable_gen(self,year,loop):
         """Calculates the availability of dispatchable generation for the hourly dispatch. Used for nodes like hydroelectricity. 
