@@ -183,7 +183,7 @@ class Shape(dmf.DataMapFunctions):
         """Later these shapes will need a level called timeshift type, and it is faster to add it now if it doesn't already have it"""
         if 'timeshift_type' not in self.values.index.names:
             self.values['timeshift_type'] = 2 # index two is the native demand shape
-            self.values = self.values.set_index('timeshift_type', append=True).sort_index()
+            self.values = self.values.set_index('timeshift_type', append=True).swaplevel('timeshift_type', 'weather_datetime').sort_index()
 
     def normalize(self):
         group_to_normalize = [n for n in self.values.index.names if n!='weather_datetime']

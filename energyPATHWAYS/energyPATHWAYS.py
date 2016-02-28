@@ -23,7 +23,6 @@ class PathwaysModel(object):
         self.author = cfg.cfgfile.get('case', 'author') if author is None else author
         self.scenario_dict = dict(zip(util.sql_read_table('Scenarios','id',is_active=1,return_iterable=True),
                                   util.sql_read_table('Scenarios','name',is_active=1,return_iterable=True)))
-        print 'test'
         self.outputs = Output()
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
         

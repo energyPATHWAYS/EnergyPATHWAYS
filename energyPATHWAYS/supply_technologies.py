@@ -39,7 +39,6 @@ class SupplyTechnology(StockItem):
         if self.shape_id is not None:
             self.shape = shapes.data[self.shape_id]
             shapes.activate_shape(self.shape_id)
-        
 
     def calculate(self, vintages, years):
         self.vintages = vintages
@@ -49,7 +48,6 @@ class SupplyTechnology(StockItem):
             obj = getattr(self, att)
             if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'calculate'):
                     obj.calculate(self.vintages, self.years)
-
 
     def add_sales_share_measures(self, package_id):
         self.sales_shares = {}
@@ -174,8 +172,7 @@ class StorageTechnology(SupplyTechnology):
         self.replace_costs('installation_cost_new', 'installation_cost_replacement')
         self.replace_costs('fixed_om')
         self.replace_costs('variable_om')
-
-
+        
 
 class SupplyTechCost(Abstract):
     def __init__(self, id, sql_id_table, sql_data_table, book_life=None, **kwargs):

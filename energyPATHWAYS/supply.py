@@ -1417,6 +1417,44 @@ class Node(DataMapFunctions):
             self.shape = shapes.data[self.shape_id]
             shapes.activate_shape(self.shape_id)
 
+    def aggregate_electricity_shape(self, year):
+        """ returns a single shape for a year with supply_technology and resource_bin removed and dispatch_feeder added
+        ['dispatch_feeder', 'timeshift_type', 'gau', 'weather_datetime']
+        """
+        # if we don't have a shape or if the node doesn't have a stock, we just return None
+        if self.shape_id is None or not hasattr(self, 'stock'):
+            return None
+        
+        # we don't have technologies or none of the technologies have specific shapes
+        if not hasattr(self, 'technologies') or np.all([tech.shape_id is None for tech in self.technologies.values()]):
+            energy_slice = util.remove_df_levels(self.stock.values_energy[year], ['vintage', 'supply_technology']).to_frame()
+            energy_slice.columns = ['value']
+            df = util.DfOper.mult([energy_slice, self.shape.values])
+            df = util.remove_df_levels(df, 'resource_bin')
+        else:
+            energy_slice = util.remove_df_levels(self.stock.values_energy[year], 'vintage').to_frame()
+            energy_slice.columns = ['value']
+            techs_with_default_shape = [tech_id for tech_id, tech in self.technologies.items() if tech.shape_id is None]
+            techs_with_own_shape = [tech_id for tech_id, tech in self.technologies.items() if tech.shape_id is not None]
+            
+            if techs_with_default_shape:
+                energy_slice_default_shape = util.df_slice(energy_slice, techs_with_default_shape, 'supply_technology')
+                energy_slice_default_shape = util.remove_df_levels(energy_slice_default_shape, 'supply_technology')
+                default_shape_portion = util.DfOper.mult([energy_slice_default_shape, self.shape.values])
+                default_shape_portion = util.remove_df_levels(default_shape_portion, 'resource_bin')
+            
+            if techs_with_own_shape:
+                energy_slice_own_shape = util.df_slice(energy_slice, techs_with_own_shape, 'supply_technology')
+                tech_shapes = pd.concat([self.technologies[tech_id].shape.values for tech_id in techs_with_own_shape])
+                tech_shape_portion = util.DfOper.mult([energy_slice_own_shape, tech_shapes])
+                tech_shape_portion = util.remove_df_levels(tech_shape_portion, 'supply_technology', 'resource_bin')
+            
+            df = util.DfOper.add([default_shape_portion if techs_with_default_shape else None,
+                                  tech_shape_portion if techs_with_own_shape else None],
+                                  expandable=False, collapsible=False)
+        
+        return df
+
     def calculate_active_coefficients(self, year, loop):
         if year == int(cfg.cfgfile.get('case','current_year'))and loop == 'initial' :
             #in the first loop, we take the active coefficients for the year
