@@ -61,12 +61,15 @@ class Dispatch(object):
     def run(self,thermal_resource_capacity, thermal_resource_costs, thermal_resource_cf,
             storage_capacity, storage_efficiency, 
             non_dispatchable_gen, dispatchable_gen, dispatchable_load_supply,
-            non_dispatchable_load_supply, demand_load):
+            non_dispatchable_load_supply, demand_load, distribution_losses):
                 pass
          #Step 1 Prepare Inputs
         #TODO Ryan reformat thermal resource stack from capacity and resource cost dictionaries
         #TODO Ryan reformat dispatchable supply for heuristic optimization
     
+
+                    
+
 
     def set_storage_technologies(self,storage_capacity_dict, storage_efficiency_dict):
       """prepares storage technologies for dispatch optimization
