@@ -17,13 +17,13 @@ class DispatchNodeConfig(DataMapFunctions):
     def __init__(self, id, **kwargs):
         self.id = id
         self.sql_id_table = 'DispatchNodeConfig'
-        self.sql_data_table = 'DispatchNodeData'
+#        self.sql_data_table = 'DispatchNodeData'
         for col, att in util.object_att_from_table(self.sql_id_table, id, primary_key='supply_node_id'):
             setattr(self, col, att)
-        DataMapFunctions.__init__(self,primary_key='supply_node_id')
-        for value in ['p_max','p_min','energy_budget']:
-            self.read_timeseries_data(data_column_names=value, hide_exceptions=True)
-            setattr(self, value + '_raw_values',self.raw_values)
+#        DataMapFunctions.__init__(self,primary_key='supply_node_id')
+#        for value in ['p_max','p_min','energy_budget']:
+#            self.read_timeseries_data(data_column_names=value, hide_exceptions=True)
+#            setattr(self, value + '_raw_values',self.raw_values)
             
         
 
