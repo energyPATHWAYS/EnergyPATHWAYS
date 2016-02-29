@@ -114,7 +114,7 @@ class PathwaysModel(object):
         for sector in self.demand.sectors.values():
              sector.aggregate_subsector_energy_for_supply_side()
         self.demand.aggregate_sector_energy_for_supply_side()
-        self.supply.demand_df = self.demand.energy_demand
+        self.supply.demand_object = self.demand
         
     def pass_results_to_demand(self):
         print "calculating link to supply"

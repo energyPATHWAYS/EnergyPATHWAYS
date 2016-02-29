@@ -434,16 +434,18 @@ class Supply(object):
     def set_distribution_losses(self,year):
         if self.nodes[self.distribution_node_id].supply_type == 'Delivery':
             distribution_grid_node = self.nodes[self.distribution_node_id]
-            coefficients  = self.nodes[self.distribution_node_id].active_coefficients_total.sum()
+            coefficients  = distribution_grid_node.active_coefficients_total.sum().to_frame()
         else:
-            for node in list(set(self.nodes[self.distribution_node_id].active_coefficients_total.index.get_level_values('supply_node'))):
-                if self.nodes[node].supply_type == 'Delivery' and self.transmission_node_id in self.nodes[node].active_coefficients_total.index.get_level_values('supply_node'):
-                    distribution_grid_node = self.nodes[node]                    
-                    coefficients = self.nodes[node].active_coefficients_total.sum()
-        indexer = util.level_specific_indexer(self.dispatch_feeder_allocation, 'year', year)
-        self.distribution_losses = util.remov_df_levels(coefficients * self.dipatch_feeder_allocation.values.loc[indexer],'demand_sector')
+            for node_id in list(set(self.nodes[self.distribution_node_id].active_coefficients_total.index.get_level_values('supply_node'))):
+                if self.nodes[node_id].supply_type == 'Delivery' and self.transmission_node_id in self.nodes[node_id].active_coefficients_total.index.get_level_values('supply_node'):
+                    distribution_grid_node = self.nodes[node_id]                    
+                    coefficients = distribution_grid_node.active_coefficients_total.sum().to_frame()
+        indexer = util.level_specific_indexer(self.dispatch_feeder_allocation.values, 'year', year)
+        a = DfOper.mult([coefficients, self.dispatch_feeder_allocation.values.loc[indexer,:], distribution_grid_node.active_supply])     
+        b = DfOper.mult([self.dispatch_feeder_allocation.values.loc[indexer,:], distribution_grid_node.active_supply])
+        self.distribution_losses = DfOper.divi([util.remove_df_levels(a,'demand_sector'),util.remove_df_levels(b,'demand_sector')])
         geography_map_key = distribution_grid_node.geography_map_key if hasattr(distribution_grid_node, 'geography_map_key') and distribution_grid_node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')       
-        map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)             
+        map_df = cfg.geo.map_df(self.geography,self.dispatch_geography,geography_map_key,eliminate_zeros=False)             
         self.distribution_losses =  util.remove_df_levels(DfOper.mult([self.distribution_losses,map_df]),self.geography)
     
     def prepare_dispatchable_load(self,year,loop):
@@ -640,6 +642,7 @@ class Supply(object):
         self.prepare_thermal_dispatch_nodes(year,loop)
         self.prepare_electricity_storage_nodes(year,loop)
         self.set_distribution_losses(year)
+        self.set_shapes(year)
     
     def prepare_thermal_dispatch_nodes(self,year,loop):
         """Calculates the operating cost of all thermal dispatch resources 
@@ -760,55 +763,64 @@ class Supply(object):
                                     self.storage_efficiency_dict[geography][zone][0][technology] = util.remove_df_levels(efficiency.loc[indexer,:], 'demand_sector').values[0][0]
 
                     
-        def shaped_dist(self, year, load_or_gen_dict):
-            index = pd.MultiIndex.from_product([self.dispatch_geographies, self.feeders, self.active_dates_index,self.timeshift_types], 
-                                               names=[self.dispatch_geography,'dispatch_feeder', 'timeshift_type', 'weather_datetime'])                                                    
-            df = util.empty_df(index,['value'],0.0)
-            for geography in self.dispatch_geographies:
-                    for node_id in load_or_gen_dict[geography][self.distribution_node_id].keys():
-                        node = self.nodes[node_id]
-                        total_shape = node.aggregate_electricity_shapes(year)
-                        for feeder in self.dispatch_feeders:
-                            gen = load_or_gen_dict[geography][self.distribution_node_id][feeder][node_id]
-                            if 'dispatch_feeder' in total_shape.index.names:
-                                indexer = util.level_specific_indexer(total_shape, 'dispatch_feeder', feeder)
-                                shape = total_shape.loc[indexer,:]
-                            else:
-                                shape=total_shape
-                        shape = shape.groupby(level=[self.geography,'timeshift_type','weather_datetime']).transform(lambda x: x/x.sum())
-                        indexer = util.level_specific_indexer(df,[self.dispatch_geography,'dispatch_feeder','timeshift_type'],[geography,feeder,2])
-                        df.loc[indexer,:] = DfOper.add([df.loc[indexer,:],util.remove_df_levels(DfOper.mult([gen,shape]),self.geography)]).values                        
-            return df    
-            
-            
-        def shaped_bulk(self, year, load_or_gen_dict):
-            index = pd.MultiIndex.from_product([self.dispatch_geographies,self.active_dates_index,self.timeshift_types], 
-                                               names=[self.dispatch_geography,'timeshift_type', 'weather_datetime'])                                                    
-            df = util.empty_df(index,['value'],0.0)
-            for geography in self.dispatch_geographies:
-                for node_id in load_or_gen_dict[geography][self.transmission_node_id].keys():
-                    node = self.nodes[node_id]
-                    gen = load_or_gen_dict[geography][self.transmission_node_id][node_id]
-                    if 'dispatch_feeder' in node.calculated_shapes.index.names:
-                        shape = util.remove_df_levels(node.aggregate_electricity_shapes(year),'dispatch_feeder')
+    def set_shapes(self,year):
+       for zone in self.dispatch_zones:
+           for node_id in self.electricity_load_nodes[zone]['non_dispatchable'] + self.electricity_gen_nodes[zone]['non_dispatchable'] :
+               self.nodes[node_id].active_shape = self.nodes[node_id].aggregate_electricity_shapes(year)   
+        
+   
+    def shaped_dist(self, year, load_or_gen_dict):
+        df_geo = []      
+        for geography in self.dispatch_geographies:
+            df_node = []
+            node_ids = load_or_gen_dict[geography][self.distribution_node_id].keys()
+            for node_id in node_ids:
+                node = self.nodes[node_id]
+                df_feeder = []
+                for feeder in self.dispatch_feeders:
+                    gen = load_or_gen_dict[geography][self.distribution_node_id][node_id][feeder].groupby(level=self.geography).sum()
+                    if node.active_shape is not None and 'dispatch_feeder' in node.active_shape.index.names:
+                        indexer = util.level_specific_indexer(node.active_shape, 'dispatch_feeder', feeder)
+                        shape = node.active_shape.loc[indexer,:]
                     else:
-                        shape = node.aggregate_electricity_shapes(year)
-                    shape = shape.groupby(level=[self.geography,'timeshift_type','weather_datetime']).transform(lambda x: x/x.sum())
-                    indexer = util.level_specific_indexer(df,[self.dispatch_geography,'timeshift_type'],[geography,2])
-                    df.loc[indexer,:] = DfOper.add([df.loc[indexer,:],util.remove_df_levels(DfOper.mult([gen,shape]),self.geography)]).values                        
-            return df     
-            
-        def set_initial_net_load_signals(self,year):
-            self.distribution_load = DfOper.add([self.shaped_demand,self.shaped_dist(year, self.non_dispatchable_load)])
-            self.distribution_gen = self.shaped_dist(year, self.non_dispatchable_gen)
-            self.bulk_gen = self.shaped_bulk(year, self.non_dispatchable_gen)
-            self.bulk_load = self.shaped_bulk(year, self.non_dispatchable_load)
-            self.update_net_load_signal()            
+                        shape= node.active_shape
+                    if shape is not None:
+                        shape = shape.groupby(level=[self.geography,'timeshift_type']).transform(lambda x: x/x.sum())
+                    df_feeder.append(util.remove_df_levels(DfOper.mult([gen,shape]),self.geography))
+                df_node.append(pd.concat(df_feeder, keys=self.dispatch_feeders, names=['dispatch_feeder']))
+            df_geo.append(DfOper.add(df_node, expandable=False, collapsible=False))
+        return pd.concat(df_geo, keys=self.dispatch_geographies, names=[self.dispatch_geography])    
             
             
-        def update_net_load_signal(self):    
-            self.bulk_net_load = DfOper.subt([DfOper.add([util.remove_df_levels(DfOper.mult([DfOper.subt([self.distribution_load,self.distribution_gen]),self.distribution_losses]),'dispatch_feeder'),self.bulk_load]),self.bulk_gen])
-            self.dist_net_load_no_feeders = DfOper.subt([DfOper.add([DfOper.divi([DfOper.subt([self.bulk_load,self.bulk_gen]),util.remove_df_levels(self.distribution_losses,'dispatch_feeder',agg_function='mean')]),self.distribution_load]),self.distribution_gen])
+    def shaped_bulk(self, year, load_or_gen_dict):
+        df_geo = []
+        for geography in self.dispatch_geographies:
+            df_node = []
+            node_ids = load_or_gen_dict[geography][self.transmission_node_id].keys()
+            for node_id in node_ids:
+                node = self.nodes[node_id]
+                gen = load_or_gen_dict[geography][self.transmission_node_id][node_id][0].groupby(level=self.geography).sum()
+                if node.active_shape is not None and 'dispatch_feeder' in node.active_shape.index.names:
+                    shape = util.remove_df_levels(node.active_shape,'dispatch_feeder')
+                else:
+                    shape = node.active_shape
+                if shape is not None:
+                    shape = shape.groupby(level=[self.geography,'timeshift_type']).transform(lambda x: x/x.sum())
+                df_node.append(util.remove_df_levels(DfOper.mult([gen,shape]), self.geography))              
+            df_geo.append(DfOper.add(df_node))
+        return pd.concat(df_geo, keys=self.dispatch_geographies, names=[self.dispatch_geography])
+            
+    def set_initial_net_load_signals(self,year):
+        self.distribution_load = DfOper.add([self.demand_object.aggregate_electricity_shapes(year),self.shaped_dist(year, self.non_dispatchable_load)])
+        self.distribution_gen = self.shaped_dist(year, self.non_dispatchable_gen)
+        self.bulk_gen = self.shaped_bulk(year, self.non_dispatchable_gen)
+        self.bulk_load = self.shaped_bulk(year, self.non_dispatchable_load)
+        self.update_net_load_signal()            
+        
+        
+    def update_net_load_signal(self):    
+        self.bulk_net_load = DfOper.subt([DfOper.add([util.remove_df_levels(DfOper.mult([DfOper.subt([self.distribution_load,self.distribution_gen]),self.distribution_losses]),'dispatch_feeder'),self.bulk_load]),self.bulk_gen])
+        self.dist_net_load_no_feeders = DfOper.subt([DfOper.add([DfOper.divi([DfOper.subt([self.bulk_load,self.bulk_gen]),util.remove_df_levels(self.distribution_losses,'dispatch_feeder',agg_function='mean')]),self.distribution_load]),self.distribution_gen])
             
         
             
@@ -1451,7 +1463,7 @@ class Supply(object):
         """maps final energy demand ids to node nodes for IO table demand calculation"""    
         #loops through all final energy types in demand df and adds 
         map_dict = dict(util.sql_read_table('SupplyNodes',['final_energy_link','id']))
-        self.demand_df = self.demand_df.unstack(level='year')    
+        self.demand_df = self.demand_object.energy_demand.unstack(level='year')   
         self.demand_df.columns = self.demand_df.columns.droplevel()       
         for demand_sector, geography, final_energy in self.demand_df.groupby(level = self.demand_df.index.names).groups:        
             supply_indexer = util.level_specific_indexer(self.io_demand_df, levels=[cfg.cfgfile.get('case', 'primary_geography'), 'demand_sector','supply_node'],elements=[geography, demand_sector, map_dict[final_energy]])      
@@ -1483,7 +1495,7 @@ class Node(DataMapFunctions):
             self.shape = shapes.data[self.shape_id]
             shapes.activate_shape(self.shape_id)
 
-    def aggregate_electricity_shape(self, year):
+    def aggregate_electricity_shapes(self, year):
         """ returns a single shape for a year with supply_technology and resource_bin removed and dispatch_feeder added
         ['dispatch_feeder', 'timeshift_type', 'gau', 'weather_datetime']
         """
