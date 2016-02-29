@@ -48,6 +48,10 @@ if __name__ == "__main__":
             model.pass_results_to_demand()
             model.calculate_combined_results()
             model.export_results(append_results)
+        
+        with open(os.path.join(directory, 'shapes.p'), 'wb') as outfile:
+            pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
+        
     elif resolve_demand and not resolve_supply: 
         raise ValueError('Cant resolve demand and not resolve supply')
     elif resolve_supply and not resolve_demand:

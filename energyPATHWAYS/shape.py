@@ -13,6 +13,8 @@ import pytz
 import datetime as DT
 import time
 import numpy as np
+import cPickle as pickle
+import os
 
 #http://stackoverflow.com/questions/27491988/canonical-offset-from-utc-using-pytz
 
@@ -73,6 +75,11 @@ class Shapes(object):
             shape = self.data[id]
             print '     shape: ' + shape.name
             shape.process_shape(self.active_dates_index, self.time_slice_elements)
+        dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))
+        self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.geography_names[dispatch_outputs_timezone_id])
+        self.active_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H', tz=self.dispatch_outputs_timezone)
+    
+    
     
     @staticmethod
     def create_time_slice_elements(active_dates_index):
@@ -207,7 +214,6 @@ class Shape(dmf.DataMapFunctions):
         subsection, supersection = 'time zones', self.geography
         # create dataframe with map from one geography to another
         map_df = cfg.geo.map_df(subsection, supersection, column=geography_map_key)
-        map_df[:] = 1
         self.map_df = map_df
 
         mapped_data = util.DfOper.mult([getattr(self, attr), map_df])
@@ -359,8 +365,17 @@ class Shape(dmf.DataMapFunctions):
                           advance*percent_flexible + native*(1-percent_flexible)], keys=[1,2,3], names=['timeshift_type'])
 
 
+directory = os.getcwd()
+rerun_shapes = False
+
 #######################
 #######################
-shapes = Shapes()
+if rerun_shapes:
+    shapes = Shapes()
+else:
+    with open(os.path.join(directory, 'shapes.p'), 'rb') as infile:
+        shapes = pickle.load(infile)
+    
 #######################
+
 

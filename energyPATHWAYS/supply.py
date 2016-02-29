@@ -779,13 +779,12 @@ class Supply(object):
                 df_feeder = []
                 for feeder in self.dispatch_feeders:
                     gen = load_or_gen_dict[geography][self.distribution_node_id][node_id][feeder].groupby(level=self.geography).sum()
-                    if node.active_shape is not None and 'dispatch_feeder' in node.active_shape.index.names:
+                    if 'dispatch_feeder' in node.active_shape.index.names:
                         indexer = util.level_specific_indexer(node.active_shape, 'dispatch_feeder', feeder)
                         shape = node.active_shape.loc[indexer,:]
                     else:
                         shape= node.active_shape
-                    if shape is not None:
-                        shape = shape.groupby(level=[self.geography,'timeshift_type']).transform(lambda x: x/x.sum())
+                    shape = shape.groupby(level=[self.geography,'timeshift_type']).transform(lambda x: x/x.sum())
                     df_feeder.append(util.remove_df_levels(DfOper.mult([gen,shape]),self.geography))
                 df_node.append(pd.concat(df_feeder, keys=self.dispatch_feeders, names=['dispatch_feeder']))
             df_geo.append(DfOper.add(df_node, expandable=False, collapsible=False))
@@ -800,12 +799,11 @@ class Supply(object):
             for node_id in node_ids:
                 node = self.nodes[node_id]
                 gen = load_or_gen_dict[geography][self.transmission_node_id][node_id][0].groupby(level=self.geography).sum()
-                if node.active_shape is not None and 'dispatch_feeder' in node.active_shape.index.names:
+                if 'dispatch_feeder' in node.active_shape.index.names:
                     shape = util.remove_df_levels(node.active_shape,'dispatch_feeder')
                 else:
                     shape = node.active_shape
-                if shape is not None:
-                    shape = shape.groupby(level=[self.geography,'timeshift_type']).transform(lambda x: x/x.sum())
+                shape = shape.groupby(level=[self.geography,'timeshift_type']).transform(lambda x: x/x.sum())
                 df_node.append(util.remove_df_levels(DfOper.mult([gen,shape]), self.geography))              
             df_geo.append(DfOper.add(df_node))
         return pd.concat(df_geo, keys=self.dispatch_geographies, names=[self.dispatch_geography])
@@ -1501,10 +1499,10 @@ class Node(DataMapFunctions):
         """
         # if we don't have a shape or if the node doesn't have a stock, we just return None
         if self.shape_id is None or not hasattr(self, 'stock'):
-            return None
-        
+            index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],[2],shapes.active_dates_index], names=[self.geography,'timeshift_type','weather_datetime'])
+            df = util.empty_df(fill_value=1/float(len(shapes.active_dates_index)),index=index, columns=['value'])
         # we don't have technologies or none of the technologies have specific shapes
-        if not hasattr(self, 'technologies') or np.all([tech.shape_id is None for tech in self.technologies.values()]):
+        elif not hasattr(self, 'technologies') or np.all([tech.shape_id is None for tech in self.technologies.values()]):
             energy_slice = util.remove_df_levels(self.stock.values_energy[year], ['vintage', 'supply_technology']).to_frame()
             energy_slice.columns = ['value']
             df = util.DfOper.mult([energy_slice, self.shape.values])
