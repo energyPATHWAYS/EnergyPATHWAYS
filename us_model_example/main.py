@@ -29,10 +29,12 @@ append_results = True
 
 if __name__ == "__main__":
     if resolve_demand and resolve_supply:
-        model = energyPATHWAYS.PathwaysModel(db_path, cfgfile_path, custom_pint_definitions_path)
+        model = energyPATHWAYS.PathwaysModel(db_path, cfgfile_path, custom_pint_definitions_path)   
+        model.configure_energy_system()
+        model.populate_energy_system()
+        with open(os.path.join(directory, 'shapes.p'), 'wb') as outfile:
+            pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
         for scenario_id in model.scenario_dict.keys():
-            model.configure_energy_system()
-            model.populate_energy_system()
             model.populate_measures(scenario_id)
             model.calculate_demand_only()
             if save_models:
@@ -48,10 +50,6 @@ if __name__ == "__main__":
             model.pass_results_to_demand()
             model.calculate_combined_results()
             model.export_results(append_results)
-        
-        with open(os.path.join(directory, 'shapes.p'), 'wb') as outfile:
-            pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
-        
     elif resolve_demand and not resolve_supply: 
         raise ValueError('Cant resolve demand and not resolve supply')
     elif resolve_supply and not resolve_demand:

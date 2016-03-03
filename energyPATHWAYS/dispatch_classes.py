@@ -12,6 +12,7 @@ import pandas as pd
 from scipy import optimize, interpolate, stats
 from matplotlib import pyplot as plt
 import time
+import numpy as np
 
 class DispatchNodeConfig(DataMapFunctions):
     def __init__(self, id, **kwargs):
@@ -24,6 +25,7 @@ class DispatchNodeConfig(DataMapFunctions):
 #        for value in ['p_max','p_min','energy_budget']:
 #            self.read_timeseries_data(data_column_names=value, hide_exceptions=True)
 #            setattr(self, value + '_raw_values',self.raw_values)
+        
             
         
 
@@ -37,6 +39,14 @@ class Dispatch(object):
         self.node_config_dict = dict()
         for supply_node in util.sql_read_table('DispatchNodeConfig','supply_node_id'):
             self.node_config_dict[supply_node] = DispatchNodeConfig(supply_node)
+        self.set_dispatch_order()
+        self.dispatch_window_dict = dict(util.sql_read_table('DispatchWindows'))  
+   
+    def set_dispatch_order(self):
+        order = [x.dispatch_order for x in self.node_config_dict.values()]
+        order_index = np.argsort(order)
+        self.dispatch_order = [self.node_config_dict.keys()[i] for i in order_index]
+            
       
     
     def set_timeperiods(self):
@@ -115,7 +125,7 @@ class Dispatch(object):
       self.region = self.convert_to_period(self.region)
             
     
-    def convert_to_period(self,dictionary):
+    def convert_to_period(self, dictionary):
         """repeats a dictionary's values of all periods in the optimization
         args:
             dictionary
@@ -126,18 +136,13 @@ class Dispatch(object):
         for period in self.periods:
             new_dictionary[period] = dictionary
         return new_dictionary
-        
-        
-    def flatten_list(list_to_flatten):
-        """Returns a list with sublists removed"""
-        return [item for sublist in list_to_flatten for item in sublist]
 
     ##################################################################
     ##################################################################
     ## POWER TO GAS, ELECTROLYSIS AND HYDRO DISPATCH
     ##################################################################
-    
-    def residual_energy(self,load_cutoff, load, energy_budget, pmin=0, pmax=None):
+    @staticmethod
+    def residual_energy(load_cutoff, load, energy_budget, pmin=0, pmax=None):
         """
         energy_budget > 0 is generation (hydro)
         energy_budget < 0 is load (P2G)
@@ -145,7 +150,7 @@ class Dispatch(object):
         dct = (1 if energy_budget>0 else -1)
         return np.sum(np.clip(dct*load[dct*load>dct*(load_cutoff + pmin)] - dct*load_cutoff, a_min=pmin, a_max=pmax) - pmin) + len(load)*pmin - dct*energy_budget
     
-    
+    @staticmethod
     def dispatch_shape(load, load_cutoff, dct, pmin=0, pmax=None):
         """
         dct = 1 is generation (hydro)
@@ -155,14 +160,17 @@ class Dispatch(object):
         dispatch[dct*load>dct*(load_cutoff + pmin)] -= dct*(np.clip(dct*load[dct*load>dct*(load_cutoff + pmin)] - dct*load_cutoff, a_min=pmin, a_max=pmax) - pmin)
         return dispatch #negative if gen, positive if load
     
-    def solve_for_load_cutoff(self,load, energy_budget, pmin=0, pmax=None):
-        return optimize.root(self.residual_energy, x0=np.mean(load), args=(load, energy_budget, pmin, pmax))['x']
+    @staticmethod
+    def solve_for_load_cutoff(load, energy_budget, pmin=0, pmax=None):
+        return optimize.root(Dispatch.residual_energy, x0=np.mean(load), args=(load, energy_budget, pmin, pmax))['x']
     
-    def solve_for_dispatch_shape(self,load, energy_budget, pmin=0, pmax=None):
-        load_cutoff = self.solve_for_load_cutoff(load, energy_budget, pmin, pmax)
-        return self.dispatch_shape(load, load_cutoff, (1 if energy_budget>0 else -1), pmin, pmax)
+    @staticmethod
+    def solve_for_dispatch_shape(load, energy_budget, pmin=0, pmax=None):
+        load_cutoff = Dispatch.solve_for_load_cutoff(load, energy_budget, pmin, pmax)
+        return Dispatch.dispatch_shape(load, load_cutoff, (1 if energy_budget>0 else -1), pmin, pmax)
     
-    def dispatch_to_energy_budget(self,load, energy_budgets, dispatch_periods=None, pmins=0, pmaxs=None):
+    @staticmethod
+    def dispatch_to_energy_budget(load, energy_budgets, dispatch_periods=None, pmins=0, pmaxs=None):
         """ Dispatch to energy budget produces a dispatch shape for a load or generating energy budget
     
         Common uses would be hydro, power2gas, and hydrogen electrolysis
@@ -211,15 +219,15 @@ class Dispatch(object):
                 raise ValueError('Number of pmax values must match the number of dispatch periods')
         
         #call solve for dispatch on each group and concatenate
-        return np.concatenate([self.solve_for_dispatch_shape(load_group, energy_budget, pmin, pmax)
+        return np.concatenate([Dispatch.solve_for_dispatch_shape(load_group, energy_budget, pmin, pmax)
             for load_group, energy_budget, pmin, pmax in zip(load_groups, energy_budgets, pmins, pmaxs)])
     
     ##################################################################
     ##################################################################
     ## GENERATOR DISPATCH (LOOKUP HEURISTIC)
     ##################################################################
-    
-    def schedule_generator_maintenance(self,load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.15, load_ptile=99.8):
+    @staticmethod
+    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.15, load_ptile=99.8):
         pmax = np.max(pmaxs, axis=0) if len(pmaxs.shape) > 1 else pmaxs
         capacity_sum = sum(pmax)
         cap_by_group = np.sum(pmaxs, axis=1)
@@ -235,12 +243,13 @@ class Dispatch(object):
                 load_for_maint[cut_start:cut_end] = max(load)
         
         
-        energy_allocation = self.dispatch_to_energy_budget(load_for_maint, -maintenace_energy, pmins=capacity_sum*min_maint, pmaxs=capacity_sum*max_maint)
+        energy_allocation = Dispatch.dispatch_to_energy_budget(load_for_maint, -maintenace_energy, pmins=capacity_sum*min_maint, pmaxs=capacity_sum*max_maint)
         common_rates = [sum(group)/len(group)/float(cap) for group, cap in zip(np.array_split(energy_allocation, group_cuts), cap_by_group)]
         
         return np.array([common_rates]*len(pmax)).T
     
-    def solve_gen_dispatch(self,load, pmax, marginal_cost, FORs, MORs, must_run, decimals=0, operating_reserves=0.03):
+    @staticmethod
+    def solve_gen_dispatch(load, pmax, marginal_cost, FORs, MORs, must_run, decimals=0, operating_reserves=0.03):
         must_run_index = np.nonzero(must_run)[0]
         dispat_index = np.nonzero(~must_run)[0]
         
@@ -253,7 +262,7 @@ class Dispatch(object):
         marginal_cost_order = np.concatenate(([mc for mc in sorted_cost if mc in must_run_index],
                                               [mc for mc in sorted_cost if mc in dispat_index]))
         
-        full_mp = np.array([0] + self.flatten_list([[marginal_cost[i]]*derated_capacity[i] for i in marginal_cost_order]))
+        full_mp = np.array([0] + util.flatten_list([[marginal_cost[i]]*derated_capacity[i] for i in marginal_cost_order]))
         full_pc = np.cumsum(full_mp)/10**decimals
         
         plt.plot(full_mp)
@@ -274,7 +283,8 @@ class Dispatch(object):
         
         return market_price, production_cost, energy, np.array(lookup / 10**decimals, dtype=float)
     
-    def generator_stack_dispatch(self,load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, periods_per_year=8760):
+    @staticmethod
+    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, periods_per_year=8760):
         """ Dispatch generators to a net load signal
         
         Args:
@@ -308,7 +318,7 @@ class Dispatch(object):
         market_prices, production_costs, gen_dispatch_shape = [], [], []
         gen_energies = np.zeros(pmaxs.shape[1])
         for i, load_group in enumerate(load_groups):
-            market_price, production_cost, gen_energy, shape = self.solve_gen_dispatch(load_group, pmaxs[i], marginal_costs[i], FOR[i], MOR[i], must_runs[i])
+            market_price, production_cost, gen_energy, shape = Dispatch.solve_gen_dispatch(load_group, pmaxs[i], marginal_costs[i], FOR[i], MOR[i], must_runs[i])
             market_prices += list(market_price)
             production_costs += list(production_cost)
             gen_dispatch_shape += list(shape)
