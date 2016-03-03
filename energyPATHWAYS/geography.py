@@ -5,10 +5,12 @@ import pandas as pd
 import os
 import copy
 import util
+from collections import OrderedDict
+import textwrap
 
 class Geography:
     def __init__(self):
-        self.geographies = {}
+        self.geographies = OrderedDict()
         self.geography_names = {}
         self.timezone_names = {}
         self.map_keys = []
@@ -27,34 +29,63 @@ class Geography:
 
 
     def read_geography_indicies(self):
-        geo_key = util.sql_read_table('Geographies', column_names='name',return_iterable=True)
-        for key in geo_key:
-            self.geographies[key] = []
+        config.cfg.cur.execute(textwrap.dedent("""\
+            SELECT "Geographies".name, ARRAY_AGG("GeographiesData".id) AS geography_data_ids
+            FROM "Geographies"
+            JOIN "GeographiesData" ON "Geographies".id = "GeographiesData".geography_id
+            GROUP BY "Geographies".id
+            ORDER BY "Geographies".id;
+        """))
 
-        for geography_id, name, id in util.sql_read_table('GeographiesData', column_names=['geography_id', 'name', 'id'],return_iterable=True):
-            geography_name = util.id_to_name('geography_id', geography_id)
-            self.geographies[geography_name].append(id)
-            self.geography_names[id] = name
+        for row in config.cfg.cur.fetchall():
+            self.geographies[row[0]] = row[1]
 
         for id, name in util.sql_read_table('TimeZones', column_names=['id', 'name']):
             self.timezone_names[id] = name
 
-        for map_key in util.sql_read_table('GeographyMapKeys', 'name',return_iterable=True):
-            self.map_keys.append(map_key)
+        config.cfg.cur.execute('SELECT name FROM "GeographyMapKeys" ORDER BY id')
+        self.map_keys = [name for (name,) in config.cfg.cur.fetchall()]
 
     def read_geography_data(self):
-        # df2.loc[('kentucky', 'total', 'east north central', 'western interconnection'), 'households']
-        headers = util.sql_read_headers('GeographyMap')
+        config.cfg.cur.execute('SELECT COUNT(*) FROM "GeographyIntersection"')
+        expected_rows = config.cfg.cur.fetchone()[0]
 
-        # colmap and rowmap are used in ordering the data when read from the sql table
-        colmap = []
-        for col in self.map_keys:
-            colmap.append(headers.index(col))
-        rowmap = []
-        for row in self.geographies.keys():
-            rowmap.append(headers.index(row))
-        for row in util.sql_read_table('GeographyMap', return_iterable=True):
-            self.values.loc[tuple([row[i] for i in rowmap]), tuple(self.map_keys)] = [row[i] for i in colmap]
+        # This query pulls together the geography map from its constituent tables. Its rows look like:
+        # intersection_id, [list of geographical units that define intersection],
+        # [list of values for map keys for this intersection]
+        # Note that those internal lists are specifically being drawn out in the order of their Geographies and
+        # GeographyMapKeys, respectively, so that they are in the same order as the expected dataframe indexes
+        # and column headers
+        config.cfg.cur.execute(textwrap.dedent("""\
+            SELECT intersections.id,
+                   intersections.intersection,
+                   ARRAY_AGG("GeographyMap".value ORDER BY "GeographyMap".geography_map_key_id) AS values
+            FROM
+            (
+                SELECT "GeographyIntersection".id,
+                       ARRAY_AGG("GeographyIntersectionData".gau_id ORDER BY "GeographiesData".geography_id) AS intersection
+                FROM "GeographyIntersection"
+                JOIN "GeographyIntersectionData"
+                     ON "GeographyIntersectionData".intersection_id = "GeographyIntersection".id
+                JOIN "GeographiesData"
+                     ON "GeographyIntersectionData".gau_id = "GeographiesData".id
+                GROUP BY "GeographyIntersection".id
+            ) AS intersections
+
+            JOIN "GeographyMap" ON "GeographyMap".intersection_id = intersections.id
+            GROUP BY intersections.id, intersections.intersection;
+        """))
+
+        map = config.cfg.cur.fetchall()
+        assert len(map) == expected_rows, "Expected %i rows in the geography map but found %i" % (expected_rows, len(map))
+
+        expected_layers = len(self.geographies)
+        expected_values = len(self.map_keys)
+        for row in map:
+            id_, intersection, values = row
+            assert len(intersection) == expected_layers, "Expected each geography map row to have %i geographic layers but row id %i has %i" % (expected_layers, id_, len(intersection))
+            assert len(values) == expected_values, "Expected each geography map row to have %i data values but row id %i has %i" % (expected_values, id_, len(values))
+            self.values.loc[tuple(intersection), tuple(self.map_keys)] = values
 
     def map_df(self, subsection, supersection, column=None, reset_index=False, eliminate_zeros=True):
         """ main function that maps geographies to one another
