@@ -16,14 +16,6 @@ class Geography:
         self.map_keys = []
 
         self.read_geography_indicies()
-
-        names = self.geographies.keys()
-        iterables = self.geographies.values()
-        # values is the actual container for the data
-        self.values = pd.DataFrame(0, index=pd.MultiIndex.from_product(iterables, names=names), columns=self.map_keys)
-        # sortlevel sorts all of the indicies so that we can slice the dataframe
-        self.values.sortlevel(0, inplace=True)
-
         self.read_geography_data()
         self.normalize = lambda x: x / (x.sum())
 
@@ -79,15 +71,27 @@ class Geography:
         map = config.cfg.cur.fetchall()
         assert len(map) == expected_rows, "Expected %i rows in the geography map but found %i" % (expected_rows, len(map))
 
+        # convert the query results into a list of indexes and a list of data (column values) that can be used
+        # to construct a data frame
         expected_layers = len(self.geographies)
         expected_values = len(self.map_keys)
+        index = []
+        data = []
         for row in map:
             id_, intersection, values = row
             assert len(intersection) == expected_layers, "Expected each geography map row to have %i geographic layers but row id %i has %i" % (expected_layers, id_, len(intersection))
             assert len(values) == expected_values, "Expected each geography map row to have %i data values but row id %i has %i" % (expected_values, id_, len(values))
-            self.values.loc[tuple(intersection), tuple(self.map_keys)] = values
+            index.append(tuple(intersection))
+            data.append(values)
 
-    def map_df(self, subsection, supersection, column=None, reset_index=False, eliminate_zeros=True):
+        # construct the data frame
+        names = self.geographies.keys()
+        # values is the actual container for the data
+        self.values = pd.DataFrame(data, index=pd.MultiIndex.from_tuples(index, names=names), columns=self.map_keys)
+        # sortlevel sorts all of the indicies so that we can slice the dataframe
+        self.values.sortlevel(0, inplace=True)
+
+    def map_df(self, subsection, supersection, column=None, reset_index=False):
         """ main function that maps geographies to one another
         Two options for two overlapping areas
             (A u B) / A     (A is supersection)
@@ -105,13 +109,8 @@ class Geography:
         table = self.values[column].groupby(level=[supersection]+subsection).sum()
         table = pd.DataFrame(table.groupby(level=supersection).transform(self.normalize))
         
-        if reset_index or eliminate_zeros:
-            names = table.index.names
+        if reset_index:
             table.reset_index(inplace=True)
-        if eliminate_zeros:
-            table = table[table[column]>0]
-        if not reset_index and eliminate_zeros:
-            table.set_index(names, inplace=True)
         
         return table
 

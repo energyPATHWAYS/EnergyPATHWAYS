@@ -446,7 +446,7 @@ class Supply(object):
                 else:
                     coefficients = node.stock.coefficients
                 geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
-                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)     
+                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key)
                 indexer = util.level_specific_indexer(node.stock.coefficients.loc[:,year].to_frame(),'supply_node',[self.electricity_nodes[zone]+[zone]])
                 energy_demand = DfOper.mult([node.stock.values_energy.loc[:,year].to_frame(), coefficients.loc[indexer,year].to_frame()])
                 capacity = DfOper.mult([node.stock.values.loc[:,year].to_frame(), coefficients.loc[indexer,year].to_frame()])
@@ -495,7 +495,7 @@ class Supply(object):
             for node_id in non_thermal_dispatch_nodes:
                 node = self.nodes[node_id]
                 geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
-                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)     
+                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key)
 
                 energy = node.stock.values_energy.loc[:,year].to_frame()
                 capacity = node.stock.values.loc[:,year].to_frame()
@@ -546,7 +546,7 @@ class Supply(object):
                 else:
                     coefficients = node.stock.coefficients
                 geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
-                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)   
+                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key)
                 coefficients.sort(inplace=True)
                 indexer = util.level_specific_indexer(coefficients.loc[:,year].to_frame(),'supply_node',[self.electricity_nodes[zone]+[zone]])
 #                node.stock.values_energy.sort(inplace=True)
@@ -586,7 +586,7 @@ class Supply(object):
             for node_id in self.electricity_gen_nodes[zone]['non_dispatchable']:
                 node = self.nodes[node_id]
                 geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
-                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)     
+                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key)
                 energy_supply = node.stock.values_energy.loc[:,year].to_frame()
                 if zone == self.distribution_node_id and 'demand_sector' not in node.stock.values.index.names:
                     #requires energy on the distribution system to be allocated to feeder for dispatch
