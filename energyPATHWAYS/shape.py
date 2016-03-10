@@ -372,9 +372,11 @@ rerun_shapes = False
 #######################
 if rerun_shapes:
     shapes = Shapes()
+    shapes.rerun = True
 else:
     with open(os.path.join(directory, 'shapes.p'), 'rb') as infile:
         shapes = pickle.load(infile)
+    shapes.rerun = False
     
 #######################
 

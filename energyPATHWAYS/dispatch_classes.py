@@ -13,6 +13,8 @@ from scipy import optimize, interpolate, stats
 from matplotlib import pyplot as plt
 import time
 import numpy as np
+import math
+
 
 class DispatchNodeConfig(DataMapFunctions):
     def __init__(self, id, **kwargs):
@@ -117,11 +119,11 @@ class Dispatch(object):
                      else:
                         self.large_storage[tech_dispatch_id] = 0
                      self.charging_efficiency[tech_dispatch_id] = 1/np.sqrt(storage_efficiency_dict[dispatch_geography][zone][feeder][tech])
-                     self.discharging_efficiency[tech_dispatch_id] = 1/copy.deepcopy(self.charging_efficiency)
+                     self.discharging_efficiency[tech_dispatch_id] = 1/copy.deepcopy(self.charging_efficiency)[tech_dispatch_id] 
                      self.feeder[tech_dispatch_id] = feeder
       self.capacity = self.convert_to_period(self.capacity)
       self.duration = self.convert_to_period(self.duration)
-      self.feeder= self.convert_to_period(self.feeder)
+      self.feeder = self.convert_to_period(self.feeder)
       self.region = self.convert_to_period(self.region)
             
     
@@ -158,7 +160,7 @@ class Dispatch(object):
         """
         dispatch = np.zeros_like(load) - dct*pmin
         dispatch[dct*load>dct*(load_cutoff + pmin)] -= dct*(np.clip(dct*load[dct*load>dct*(load_cutoff + pmin)] - dct*load_cutoff, a_min=pmin, a_max=pmax) - pmin)
-        return dispatch #negative if gen, positive if load
+        return dispatch * -dct #always positive
     
     @staticmethod
     def solve_for_load_cutoff(load, energy_budget, pmin=0, pmax=None):
@@ -228,63 +230,139 @@ class Dispatch(object):
     ##################################################################
     @staticmethod
     def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.15, load_ptile=99.8):
-        pmax = np.max(pmaxs, axis=0) if len(pmaxs.shape) > 1 else pmaxs
+        group_cuts = list(np.where(np.diff(dispatch_periods)!=0)[0]+1) if dispatch_periods is not None else None
+        # we have to have dispatch periods or we can't allocate, if we don't have them, we just return the base maintenance rates
+        if dispatch_periods is None or not group_cuts:
+            return annual_maintenance_rates
+        
+        pmax = np.max(pmaxs, axis=0) if pmaxs.ndim > 1 else pmaxs
         capacity_sum = sum(pmax)
-        cap_by_group = np.sum(pmaxs, axis=1)
-        maintenace_energy = np.dot(pmax, annual_maintenance_rates)*len(load)
+        cap_by_group = np.sum(pmaxs, axis=1) if pmaxs.ndim > 1 else [sum(pmaxs)]*len(dispatch_periods)
+        maintenance_energy = np.dot(pmax, annual_maintenance_rates)*len(load)
         load_cut = np.percentile(load, load_ptile)
         
-        group_cuts = list(np.where(np.diff(dispatch_periods)!=0)[0]+1)
         okay_for_maint = [np.all(group) for group in np.array_split(load<load_cut, group_cuts)]
         
         load_for_maint = np.copy(load)
         for ok, cut_start, cut_end in zip(okay_for_maint, [0]+group_cuts[:-1], group_cuts):
             if not ok:
                 load_for_maint[cut_start:cut_end] = max(load)
-        
-        
-        energy_allocation = Dispatch.dispatch_to_energy_budget(load_for_maint, -maintenace_energy, pmins=capacity_sum*min_maint, pmaxs=capacity_sum*max_maint)
+        energy_allocation = Dispatch.dispatch_to_energy_budget(load_for_maint, -maintenance_energy, pmins=capacity_sum*min_maint, pmaxs=capacity_sum*max_maint)
         common_rates = [sum(group)/len(group)/float(cap) for group, cap in zip(np.array_split(energy_allocation, group_cuts), cap_by_group)]
-        
-        return np.array([common_rates]*len(pmax)).T
     
+        return np.array([common_rates]*len(pmax)).T
+
     @staticmethod
-    def solve_gen_dispatch(load, pmax, marginal_cost, FORs, MORs, must_run, decimals=0, operating_reserves=0.03):
-        must_run_index = np.nonzero(must_run)[0]
-        dispat_index = np.nonzero(~must_run)[0]
-        
-        combined_rate = MORs + (1 - MORs) * FORs
-        derated_capacity = np.array(np.round(pmax * (1 - combined_rate) * 10**decimals), dtype=int)
-        
-        derated_sum, must_run_sum = sum(derated_capacity), sum(derated_capacity[must_run_index])
-        
+    def _get_combined_outage_rate(FORs, MORs):
+        return MORs + (1 - MORs) * FORs
+
+    @staticmethod
+    def _get_derated_capacity(pmax, combined_rate, decimals=0):
+        return np.array(np.round(pmax * (1 - combined_rate) * 10**decimals), dtype=int)
+
+    @staticmethod
+    def _get_marginal_cost_order(marginal_cost, must_run=None):
+        if must_run is None:
+            must_run = np.zeros_like(marginal_cost)
+        must_run_index, dispat_index = np.nonzero(must_run)[0], np.nonzero(must_run==0)[0] 
         sorted_cost = np.argsort(marginal_cost)
         marginal_cost_order = np.concatenate(([mc for mc in sorted_cost if mc in must_run_index],
-                                              [mc for mc in sorted_cost if mc in dispat_index]))
+                                              [mc for mc in sorted_cost if mc in dispat_index])).astype(int)
+        return marginal_cost_order
+
+    @staticmethod
+    def generator_supply_curve(pmax, marginal_cost, FORs, MORs, must_run, decimals=0, zero_mc_4_must_run=False):
+        combined_rate = Dispatch._get_combined_outage_rate(FORs, MORs)
+        derated_capacity = Dispatch._get_derated_capacity(pmax, combined_rate, decimals)
         
-        full_mp = np.array([0] + util.flatten_list([[marginal_cost[i]]*derated_capacity[i] for i in marginal_cost_order]))
+        marginal_cost_order = Dispatch._get_marginal_cost_order(marginal_cost, must_run)
+        
+        must_run_index = np.nonzero(must_run)[0]
+        mc_lookup = lambda i: 0 if (zero_mc_4_must_run and i in must_run_index) else marginal_cost[i]
+        
+        full_mp = np.array([0] + util.flatten_list([[mc_lookup(i)]*derated_capacity[i] for i in marginal_cost_order]))
+    
+        return full_mp
+
+    @staticmethod
+    def _get_load_level_lookup(load, must_run_sum=0, operating_reserves=0, decimals=0):
+        return np.array(np.clip(np.round(load * (1 + operating_reserves) * 10**decimals), a_min=must_run_sum, a_max=None), dtype=int)
+
+    @staticmethod
+    def _fix_energy_due_to_rounding(energy, marginal_cost, pmax, derated_capacity, combined_rate, lookup, decimals=0):
+        nonzero_cap_index = np.nonzero(derated_capacity)
+        for i, cap in enumerate(derated_capacity):
+            if cap!=0:
+                continue
+            cf_index = np.argsort((marginal_cost[nonzero_cap_index]-marginal_cost[i])**2)[0]
+            ratio = energy[nonzero_cap_index][cf_index]/np.array(derated_capacity[nonzero_cap_index][cf_index], dtype=float)
+            energy[i] = pmax[i]*(1-combined_rate[i])*ratio*10**decimals        
+        return energy
+
+    @staticmethod
+    def _get_energy_by_generator(lookup, derated_capacity, marginal_cost, must_run, pmax, combined_rate, decimals=0):
+        marginal_cost_order = Dispatch._get_marginal_cost_order(marginal_cost, must_run)
+        derated_sum = sum(derated_capacity)
+        hist = np.array_split(np.cumsum(np.histogram(lookup, bins=derated_sum, range=(0, derated_sum))[0][-1:0:-1])[-1:0:-1],
+                              np.cumsum(derated_capacity[marginal_cost_order])[:-1])
+        energy = np.array([np.sum(group) for group in hist], dtype=float)[np.argsort(marginal_cost_order)] / 10**decimals
+        
+        energy = Dispatch._fix_energy_due_to_rounding(energy, marginal_cost, pmax, derated_capacity, combined_rate, lookup, decimals)
+        
+        return energy
+
+    @staticmethod
+    def solve_gen_dispatch(load, pmax, marginal_cost, FORs, MORs, must_run, decimals=0, operating_reserves=0.03):
+        combined_rate = Dispatch._get_combined_outage_rate(FORs, MORs)
+        derated_capacity = Dispatch._get_derated_capacity(pmax, combined_rate, decimals)
+        
+        full_mp = Dispatch.generator_supply_curve(pmax, marginal_cost, FORs, MORs, must_run, decimals)
         full_pc = np.cumsum(full_mp)/10**decimals
         
-        plt.plot(full_mp)
-        
-        lookup = np.array(np.clip(np.round(load * 10**decimals), a_min=must_run_sum, a_max=None), dtype=int)
-        lookup_plus_reserves = np.array(np.clip(np.round(load * (1 + operating_reserves) * 10**decimals), a_min=must_run_sum, a_max=None), dtype=int)
-        
-        if max(lookup_plus_reserves)>derated_sum:
-            raise ValueError('Gen dispatch resulted in unserved energy')
+        must_run_sum = sum(derated_capacity[np.nonzero(must_run)])
+        lookup = Dispatch._get_load_level_lookup(load, must_run_sum, operating_reserves=0, decimals=decimals)
+        lookup_plus_reserves = Dispatch._get_load_level_lookup(load, must_run_sum, operating_reserves, decimals=decimals)
         
         market_price = full_mp[lookup_plus_reserves]
-        market_price[np.where(load*10**decimals<must_run_sum)] = -1
+        market_price[np.where(load*10**decimals<must_run_sum)] = 0
         production_cost = full_pc[lookup]
         
-        energy = np.array([np.sum(group) for group in 
-                           np.array_split(np.cumsum(np.histogram(lookup, bins=derated_sum, range=(0, derated_sum))[0][-1:0:-1])[-1:0:-1],
-                                          np.cumsum(derated_capacity[marginal_cost_order])[:-1])])[np.argsort(marginal_cost_order)] / 10**decimals
-        
+        energy = Dispatch._get_energy_by_generator(lookup, derated_capacity, marginal_cost, must_run, pmax, combined_rate, decimals)
+
         return market_price, production_cost, energy, np.array(lookup / 10**decimals, dtype=float)
+
+    @staticmethod
+    def _format_gen_dispatch_inputs(num_groups, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None):
+        marginal_costs = np.tile(marginal_costs, (num_groups,1)) if len(marginal_costs.shape)==1 else marginal_costs
+        pmaxs = np.tile(pmaxs, (num_groups,1)) if len(pmaxs.shape)==1 else pmaxs
+        FOR = np.zeros_like(pmaxs) if FOR is None else (np.tile(FOR, (num_groups,1)) if len(FOR.shape)==1 else FOR)
+        MOR = np.zeros_like(pmaxs) if MOR is None else (np.tile(MOR, (num_groups,1)) if len(MOR.shape)==1 else MOR)
+        must_runs = np.ones_like(pmaxs, dtype=bool) if must_runs is None else np.array(np.tile(must_runs, (num_groups,1)) if len(must_runs.shape)==1 else must_runs, dtype=bool)
+        capacity_weights = np.full(pmaxs.shape, 1/float(len(pmaxs)), dtype=float) if capacity_weights is None else np.array(capacity_weights, dtype=float)
+        
+        return marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights
+
+    @staticmethod
+    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals=0, reserves=0.03):
+        stock_changes = np.zeros(len(capacity_weights))
+        
+        for i, load_group in enumerate(load_groups):
+            max_lookup = Dispatch._get_load_level_lookup(np.array([max(load_group)]), 0, reserves+0.01, decimals)[0]
+            combined_rate = Dispatch._get_combined_outage_rate(FOR[i], MOR[i])
+            derated_capacity = Dispatch._get_derated_capacity(pmaxs[i]+stock_changes, combined_rate, decimals)
+            total_capacity_weight = sum(capacity_weights)
+            
+            residual_for_load_balance = float(max_lookup - sum(derated_capacity))/10**decimals + (1./10**decimals)
+            
+            # we need more capacity
+            if residual_for_load_balance > 0:
+                    residual_capacity_growth= residual_for_load_balance/float(total_capacity_weight)
+                    stock_changes += capacity_weights * residual_capacity_growth / (1 - combined_rate)
+        
+        return stock_changes
     
     @staticmethod
-    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, periods_per_year=8760):
+    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, operating_reserves=0.03):
         """ Dispatch generators to a net load signal
         
         Args:
@@ -305,30 +383,40 @@ class Dispatch(object):
         if len(pmaxs) != len(marginal_costs):
             raise ValueError('Number of generator pmaxs must equal number of marginal_costs')
         
+        if capacity_weights is not None and capacity_weights.ndim>1:
+            raise ValueError('capacity weights should not vary across dispatch periods')
+        
+        decimals = 6 - int(math.log10(max(load)))
+        
         load_groups = (load,) if dispatch_periods is None else np.array_split(load, np.where(np.diff(dispatch_periods)!=0)[0]+1)
         num_groups = len(load_groups)
-            
-        marginal_costs = np.tile(marginal_costs, (num_groups,1)) if len(marginal_costs.shape)==1 else marginal_costs
-        pmaxs = np.tile(pmaxs, (num_groups,1)) if len(pmaxs.shape)==1 else pmaxs
-        FOR = np.zeros_like(pmaxs) if FOR is None else (np.tile(FOR, (num_groups,1)) if len(FOR.shape)==1 else FOR)
-        MOR = np.zeros_like(pmaxs) if MOR is None else MOR
         
-        must_runs = np.zeros_like(pmaxs, dtype=bool) if must_runs is None else np.array(np.tile(must_runs, (num_groups,1)) if len(must_runs.shape)==1 else must_runs, dtype=bool)
+        marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights = Dispatch._format_gen_dispatch_inputs(num_groups, pmaxs, marginal_costs, dispatch_periods, FOR, MOR, must_runs, capacity_weights)
         
         market_prices, production_costs, gen_dispatch_shape = [], [], []
         gen_energies = np.zeros(pmaxs.shape[1])
+        
+        stock_changes = Dispatch._get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals, reserves=operating_reserves)
+        
         for i, load_group in enumerate(load_groups):
-            market_price, production_cost, gen_energy, shape = Dispatch.solve_gen_dispatch(load_group, pmaxs[i], marginal_costs[i], FOR[i], MOR[i], must_runs[i])
+            market_price, production_cost, gen_energy, shape = Dispatch.solve_gen_dispatch(load_group, pmaxs[i]+stock_changes, marginal_costs[i], FOR[i], MOR[i], must_runs[i], decimals, operating_reserves)
             market_prices += list(market_price)
             production_costs += list(production_cost)
             gen_dispatch_shape += list(shape)
             gen_energies += gen_energy
         
-        gen_cf = gen_energies/pmaxs[i]/len(load)
-        dispatch_results = dict(zip(['market_price', 'production_cost', 'gen_energies', 'gen_cf', 'gen_dispatch_shape'],
-                                    [market_prices,    production_costs,   gen_energies,   gen_cf,   gen_dispatch_shape]))
+        #fix up rounding
+        combined_rate = Dispatch._get_combined_outage_rate(FOR, MOR)
+        pmax_est = np.max((pmaxs+stock_changes)*(1-combined_rate), axis=0)
+        pmax_rounded = np.round(pmax_est, decimals)
+        rounding_error = pmax_est/pmax_rounded
+        gen_energies[pmax_rounded!=0] *= rounding_error[pmax_rounded!=0]
+#        gen_energies *= sum(load)/sum(gen_energies) #this can cause problems if you have too much must run
+        
+        gen_cf = gen_energies/np.max((pmaxs+stock_changes), axis=0)/float(len(load))
+        dispatch_results = dict(zip(['market_price', 'production_cost', 'gen_energies', 'gen_cf', 'gen_dispatch_shape', 'stock_changes'],
+                                    [market_prices,    production_costs,   gen_energies,   gen_cf,   gen_dispatch_shape, stock_changes]))
         return dispatch_results
-    
         
 #    
 ##    load = pd.DataFrame.from_csv('load.csv')

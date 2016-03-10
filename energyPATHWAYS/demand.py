@@ -1230,7 +1230,7 @@ class Subsector(DataMapFunctions):
     def efficiency_removal(self):
         if self.service_subset is None:
             # base the efficiency conversion on the total stock
-            self.convert_energy_to_service('total')
+            self.convert_energy_to_service('all')
             self.service_demand.map_from = 'int_values'
         elif self.service_subset == 'technology':
             # base the efficiency conversion on individual technology efficiencies
@@ -1457,7 +1457,7 @@ class Subsector(DataMapFunctions):
         self.service_demand = copy.deepcopy(self.energy_demand)
 
         self.service_demand.raw_values = self.service_demand.values
-        self.service_demand.int_values = DfOper.divi([self.service_demand.raw_values, eff])
+        self.service_demand.int_values = DfOper.divi([self.service_demand.raw_values * eff])
         self.service_demand.int_values.replace([np.inf, -np.inf], 1, inplace=True)
 
     def output_efficiency_stock(self):

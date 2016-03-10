@@ -385,7 +385,7 @@ class SupplyTechCapacityFactor(Abstract):
         self.vintages = vintages
         self.years = years
         if self.data and self.empty is False:
-            self.remap()
+            self.remap(time_index_name='vintage')
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         elif self.data is False:
             index =  pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],self.vintages], names=[cfg.cfgfile.get('case', 'primary_geography'),'vintage'])
@@ -415,7 +415,7 @@ class SupplyTechCO2Capture(Abstract):
         self.vintages = vintages
         self.years = years
         if self.data and self.empty is False:
-            self.remap()
+            self.remap(time_index_name='vintage')
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         elif self.data is False:
             index =  pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],self.vintages], names=[cfg.cfgfile.get('case', 'primary_geography'),'vintage'])
