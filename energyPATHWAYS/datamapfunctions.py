@@ -182,8 +182,8 @@ class DataMapFunctions:
         mapf = getattr(self, map_from)
         if current_geography not in (mapf.index.names if mapf.index.nlevels > 1 else [mapf.index.name]):
             raise ValueError('current geography does not match the geography of the dataframe in remap')
-        else:
-            current_geography_index_levels = mapf.index.levels[util.position_in_index(mapf, current_geography)] if mapf.index.nlevels > 1 else mapf.index.tolist()
+#        else:
+#            current_geography_index_levels = mapf.index.levels[util.position_in_index(mapf, current_geography)] if mapf.index.nlevels > 1 else mapf.index.tolist()
 
         if (drivers is None) or (not len(drivers)):
             if fill_timeseries:     
@@ -194,7 +194,7 @@ class DataMapFunctions:
                 current_geography = converted_geography
         else:
             total_driver = DfOper.mult(util.put_in_list(drivers))
-            if len(current_geography_index_levels) > 1 and current_geography != converted_geography:
+            if current_geography != converted_geography:
                 # While not on primary geography, geography does have some information we would like to preserve
                 self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
                              current_data_type=current_data_type, fill_value=fill_value)
@@ -235,7 +235,7 @@ class DataMapFunctions:
             if current_data_type != 'intensity':
                 raise ValueError(str(self.__class__) + ' id ' + str(self.id) + ': type must be intensity if variable has denominator drivers')
 
-            if len(self.index_levels['geography_id']) > 1 and (current_geography != converted_geography):
+            if current_geography != converted_geography:
                 # While not on primary geography, geography does have some information we would like to preserve
                 self.geo_map(converted_geography, attr=map_to, inplace=True)
                 current_geography = converted_geography

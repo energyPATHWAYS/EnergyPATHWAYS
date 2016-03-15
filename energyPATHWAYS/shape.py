@@ -13,6 +13,8 @@ import pytz
 import datetime as DT
 import time
 import numpy as np
+import cPickle as pickle
+import os
 
 #http://stackoverflow.com/questions/27491988/canonical-offset-from-utc-using-pytz
 
@@ -51,7 +53,7 @@ class Shapes(object):
                 date_position = util.position_in_index(shape.raw_values, 'weather_datetime')
                 
                 shape.start_date, shape.end_date = min(shape.raw_values.index.levels[date_position]), max(shape.raw_values.index.levels[date_position])
-    
+                
                 self.start_date = shape.start_date if self.start_date is None else max(shape.start_date, self.start_date)
                 self.end_date = shape.end_date if self.end_date is None else min(shape.end_date, self.end_date)
         
@@ -73,6 +75,11 @@ class Shapes(object):
             shape = self.data[id]
             print '     shape: ' + shape.name
             shape.process_shape(self.active_dates_index, self.time_slice_elements)
+        dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))
+        self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.geography_names[dispatch_outputs_timezone_id])
+        self.active_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H', tz=self.dispatch_outputs_timezone)
+    
+    
     
     @staticmethod
     def create_time_slice_elements(active_dates_index):
@@ -82,7 +89,7 @@ class Shapes(object):
         time_slice_elements = {}
         for ti in cfg.time_slice_col:
             if ti=='day_type_id':
-                time_slice_elements['day_type_id'] = [biz_map['workday'] if s.date() in business_days else biz_map['non-workday'] for s in active_dates_index]
+                time_slice_elements['day_type_id'] = np.array([biz_map['workday'] if s.date() in business_days else biz_map['non-workday'] for s in active_dates_index], dtype=int)
             else:
                 time_slice_elements[ti] = getattr(active_dates_index, ti)
         time_slice_elements['hour24'] = time_slice_elements['hour'] + 1
@@ -137,12 +144,7 @@ class Shape(dmf.DataMapFunctions):
         self.time_slice_elements = Shapes.create_time_slice_elements(active_dates_index) if time_slice_elements is None else time_slice_elements
         
         if self.shape_type=='weather date':
-#            self.convert_index_to_datetime('raw_values', 'weather_datetime') moved into shapes
-            # Reindex with a day on either side so that data is preserved when it is shifted for time zones
             self.values = util.reindex_df_level_with_new_elements(self.raw_values, 'weather_datetime', active_dates_index) # this step is slow, consider replacing
-#            self.values = pd.merge(self.raw_values.reset_index(), 
-#                                   pd.DataFrame(self.active_dates_index, columns=['weather_datetime']), 
-#                                   how='right').set_index(self.raw_values.index.names)
             if self.values.isnull().values.any():
                 raise ValueError('Weather data did not give full coverage of the active dates')
 
@@ -170,10 +172,11 @@ class Shape(dmf.DataMapFunctions):
                 raise ValueError('Shape time slice data did not give full coverage of the active dates')
             # reindex to remove the helper columns
             self.values.index = self.values.index.droplevel(self._active_time_keys)
-            self.values.sort()
-
+        
+        self.values = self.values.swaplevel('weather_datetime', -1).sort_index()
         self.geomap_to_time_zone()
         self.localize_shapes()
+        self.standardize_time_across_timezones()
         self.geomap_to_primary_geography()
         self.sum_over_time_zone()
         self.normalize()
@@ -183,11 +186,19 @@ class Shape(dmf.DataMapFunctions):
         """Later these shapes will need a level called timeshift type, and it is faster to add it now if it doesn't already have it"""
         if 'timeshift_type' not in self.values.index.names:
             self.values['timeshift_type'] = 2 # index two is the native demand shape
-            self.values = self.values.set_index('timeshift_type', append=True).sort_index()
+            self.values = self.values.set_index('timeshift_type', append=True).swaplevel('timeshift_type', 'weather_datetime').sort_index()
 
     def normalize(self):
         group_to_normalize = [n for n in self.values.index.names if n!='weather_datetime']
-        self.values = self.values.groupby(level=group_to_normalize).transform(lambda x: x / (x.sum()))*self.num_active_years
+        # here is a special case where I have p_min and p_max in my dispatch constraints and these should not be normalized
+        if 'dispatch_constraint' in group_to_normalize:
+            temp = self.values.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
+            # TODO: 2, and 3 should not be hard coded here, they represent p_min and p_max
+            indexer = util.level_specific_indexer(temp, 'dispatch_constraint', [[2,3]])
+            temp.loc[indexer, :] = self.values.loc[indexer, :]
+            self.values = temp
+        else:
+            self.values = self.values.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
 
     def geomap_to_time_zone(self, attr='values', inplace=True):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table
@@ -203,11 +214,10 @@ class Shape(dmf.DataMapFunctions):
         subsection, supersection = 'time zones', self.geography
         # create dataframe with map from one geography to another
         map_df = cfg.geo.map_df(subsection, supersection, column=geography_map_key)
-        map_df[:] = 1
         self.map_df = map_df
 
         mapped_data = util.DfOper.mult([getattr(self, attr), map_df])
-        mapped_data = mapped_data.swaplevel('time zones', 1)
+        mapped_data = mapped_data.swaplevel('weather_datetime', -1)
         mapped_data.sort(inplace=True)
         if inplace:
             setattr(self, attr, mapped_data)
@@ -234,6 +244,7 @@ class Shape(dmf.DataMapFunctions):
         mapped_data = util.DfOper.mult((getattr(self, attr), map_df), fill_value=None)
         levels = [ind for ind in mapped_data.index.names if (ind!=self.geography and self.geography!='time zones')]
         mapped_data = mapped_data.groupby(level=levels).sum()
+        mapped_data = mapped_data.swaplevel('weather_datetime', -1)
         mapped_data.sort(inplace=True)
 
         if inplace:
@@ -272,12 +283,7 @@ class Shape(dmf.DataMapFunctions):
                 return getattr(self, attr)
                 
         levels = [ind for ind in getattr(self, attr).index.names if ind!='time zones']
-        target_length = len(util.get_elements_from_level(getattr(self, attr), 'time zones'))
-        
-        def sum_or_nan(group, target_length):
-            return pd.Series(np.nan, ['value']) if len(group)!=target_length else group.sum()
-        
-        df = getattr(self, attr).groupby(level=levels).apply(sum_or_nan, target_length).ffill().bfill() # this is extremely slow
+        df = getattr(self, attr).groupby(level=levels).sum()
         df.sort(inplace=True)
 
         if inplace:
@@ -285,37 +291,22 @@ class Shape(dmf.DataMapFunctions):
         else:
             return df
 
-#    def localize_shapes(self, attr='values', inplace=True):
-#        """ Step through time zones and put each profile maped to time zone in that time zone
-#        """
-#        dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))
-#        dispatch_outputs_timezone = pytz.timezone(cfg.geo.geography_names[dispatch_outputs_timezone_id])
-#        new_df = []
-#        self.start_dates, self.end_dates = [], []
-#        for tz_id, group in getattr(self, attr).groupby(level='time zones'):
-#            # get the time zone name and figure out the offset from UTC
-#            tz_id = tz_id if self.time_zone_id is None else self.time_zone_id
-#            tz = pytz.timezone(cfg.geo.geography_names[tz_id])
-#            _dt = DT.datetime(2015, 1, 1)
-#            offset = (tz.utcoffset(_dt) + tz.dst(_dt)).total_seconds()/60.
-#            # localize and then convert to dispatch_outputs_timezone
-#            df = group.tz_localize(pytz.FixedOffset(offset), level='weather_datetime').tz_convert(dispatch_outputs_timezone, level='weather_datetime')
-#            self.start_dates.append(min(util.get_elements_from_level(df, 'weather_datetime')))
-#            self.end_dates.append(max(util.get_elements_from_level(df, 'weather_datetime')))
-#            new_df.append(df)
-#        
-#        good_dates = pd.date_range(max(self.start_dates), min(self.end_dates), freq='H')
-#        
-#        if inplace:
-#            setattr(self, attr, util.reindex_df_level_with_new_elements(pd.concat(new_df), 'weather_datetime', good_dates))
-#        else:
-#            return util.reindex_df_level_with_new_elements(pd.concat(new_df), 'weather_datetime', good_dates)
+    def standardize_time_across_timezones(self, attr='values', inplace=True):
+        self.final_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H', tz=self.dispatch_outputs_timezone)
+        df = util.reindex_df_level_with_new_elements(getattr(self, attr).copy(), 'weather_datetime', self.final_dates_index)
+        levels = [n for n in self.values.index.names if n!='weather_datetime']
+        df = df.groupby(level=levels).fillna(method='bfill').fillna(method='ffill')
+        
+        if inplace:
+            setattr(self, attr, df)
+        else:
+            return df
 
     def localize_shapes(self, attr='values', inplace=True):
         """ Step through time zones and put each profile maped to time zone in that time zone
         """
         dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))
-        dispatch_outputs_timezone = pytz.timezone(cfg.geo.geography_names[dispatch_outputs_timezone_id])
+        self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.geography_names[dispatch_outputs_timezone_id])
         new_df = []
         for tz_id, group in getattr(self, attr).groupby(level='time zones'):
             # get the time zone name and figure out the offset from UTC
@@ -324,13 +315,13 @@ class Shape(dmf.DataMapFunctions):
             _dt = DT.datetime(2015, 1, 1)
             offset = (tz.utcoffset(_dt) + tz.dst(_dt)).total_seconds()/60.
             # localize and then convert to dispatch_outputs_timezone
-            df = group.tz_localize(pytz.FixedOffset(offset), level='weather_datetime').tz_convert(dispatch_outputs_timezone, level='weather_datetime')
+            df = group.tz_localize(pytz.FixedOffset(offset), level='weather_datetime').tz_convert(self.dispatch_outputs_timezone, level='weather_datetime')
             new_df.append(df)
         
         if inplace:
-            setattr(self, attr, pd.concat(new_df))
+            setattr(self, attr, pd.concat(new_df).sort_index())
         else:
-            return pd.concat(new_df)
+            return pd.concat(new_df).sort_index()
 
     def convert_index_to_datetime(self, dataframe_name, index_name='weather_datetime'):
         df = getattr(self, dataframe_name)
@@ -374,8 +365,19 @@ class Shape(dmf.DataMapFunctions):
                           advance*percent_flexible + native*(1-percent_flexible)], keys=[1,2,3], names=['timeshift_type'])
 
 
+directory = os.getcwd()
+rerun_shapes = True
+
 #######################
 #######################
-shapes = Shapes()
+if rerun_shapes:
+    shapes = Shapes()
+    shapes.rerun = True
+else:
+    with open(os.path.join(directory, 'shapes.p'), 'rb') as infile:
+        shapes = pickle.load(infile)
+    shapes.rerun = False
+    
 #######################
+
 

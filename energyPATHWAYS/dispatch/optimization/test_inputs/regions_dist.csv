@@ -1,0 +1,13 @@
+regions,feeder,dist_net_load_threshold
+CA,0,12500
+Region2,0,12500
+Region3,0,12500
+CA,1,12500
+Region2,1,12500
+Region3,1,12500
+CA,2,12500
+Region2,2,12500
+Region3,2,12500
+CA,3,12500
+Region2,3,12500
+Region3,3,12500

@@ -81,7 +81,6 @@ class Demand(object):
 #            print year
         geography_df_list = []
         for geography in self.geographies:
-            print geography
             supply_indexer = util.level_specific_indexer(supply_link,[self.geography],[geography])
             demand_indexer = util.level_specific_indexer(demand_df,[self.geography],[geography])
 #            levels = [x for x in ['supply_node', self.geography + "_supply",'final_energy'] if x in supply_link.index.names]
@@ -1230,7 +1229,7 @@ class Subsector(DataMapFunctions):
     def efficiency_removal(self):
         if self.service_subset is None:
             # base the efficiency conversion on the total stock
-            self.convert_energy_to_service('total')
+            self.convert_energy_to_service('all')
             self.service_demand.map_from = 'int_values'
         elif self.service_subset == 'technology':
             # base the efficiency conversion on individual technology efficiencies
@@ -1377,8 +1376,8 @@ class Subsector(DataMapFunctions):
         
         for technology in self.technologies.values():
             if technology.survival_vintaged[1] < rollover_threshold:
-                print '       '+'using ' + str(steps_per_year*12) +' stock rollover time steps per year' 
-                self.calc_tech_survival_functions(steps_per_year=steps_per_year*12)
+                print '       '+'increasing ' + ' stock rollover time steps per year to ' + str(steps_per_year*2) + 'to account for short lifetimes of equipment'
+                self.calc_tech_survival_functions(steps_per_year=steps_per_year*2)
 
     def calc_measure_survival_functions(self, measures):
         for measure in measures.values():
@@ -1444,11 +1443,11 @@ class Subsector(DataMapFunctions):
             level=util.ix_excl(self.stock.efficiency[other_index]['all'], exclude=exclude_index)).sum()
         eff = self.stack_and_reduce_years(eff, self.min_year,
                                           self.max_year)
-        if hasattr(self.energy_demand, 'map_from') and self.energy_demand.map_from != 'values':
-            # if map from is 'values', then energy demand has already been projected. Reprojecting it is redundant and could cause issues with input type vs. values
-            self.energy_demand.project(map_from=self.energy_demand.map_from, map_to='values',
-                                       additional_drivers=self.stock.total if self.energy_demand.is_stock_dependent else None,
-                                       fill_timeseries=False)
+#        if hasattr(self.energy_demand, 'map_from') and self.energy_demand.map_from != 'values':
+#            # if map from is 'values', then energy demand has already been projected. Reprojecting it is redundant and could cause issues with input type vs. values
+#            self.energy_demand.project(map_from=self.energy_demand.map_from, map_to='values',
+#                                       additional_drivers=self.stock.total if self.energy_demand.is_stock_dependent else None,
+#                                       fill_timeseries=False)
 
         # convert from original energy demand units to model energy demand units for service conversion, because stock efficiency has already been converted in this way
         self.energy_demand.values = util.unit_convert(self.energy_demand.values, unit_from_num=self.energy_demand.unit,
@@ -1457,7 +1456,7 @@ class Subsector(DataMapFunctions):
         self.service_demand = copy.deepcopy(self.energy_demand)
 
         self.service_demand.raw_values = self.service_demand.values
-        self.service_demand.int_values = DfOper.divi([self.service_demand.raw_values, eff])
+        self.service_demand.int_values = DfOper.divi([self.service_demand.raw_values * eff])
         self.service_demand.int_values.replace([np.inf, -np.inf], 1, inplace=True)
 
     def output_efficiency_stock(self):

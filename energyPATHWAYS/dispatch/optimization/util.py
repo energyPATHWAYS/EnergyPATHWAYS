@@ -477,9 +477,11 @@ def reduce_levels(df, allowed_levels, total_label=None, agg_function='sum'):
         return remove_df_levels(df, reduce_levels, total_label, agg_function)
 
 def remove_df_levels(data, levels, total_label=None, agg_function='sum'):
+    total_label = config.cfg.cfgfile.get('data_identifiers', 'all') if total_label is None else total_label
     levels = [l for l in put_in_list(levels) if l in data.index.names]
     if not len(levels):
         return data
+    
     if data.index.nlevels > 1:
         levels_to_keep = [l for l in data.index.names if l not in levels]
         group_slice = tuple([total_label if ((l in levels) and (total_label in e)) else slice(None)
@@ -493,7 +495,7 @@ def remove_df_levels(data, levels, total_label=None, agg_function='sum'):
         else:
             raise ValueError('unknown agg function specified')
     else:
-        return data
+        return data.reset_index(drop=True)
 
 
 def remove_df_elements(data, elements, level):
@@ -669,7 +671,7 @@ class ExportMethods:
             _os.makedirs(path)
 
     @staticmethod
-    def writeobj(name, obj, write_directory, append_results=False):
+    def writeobj(name, obj, write_directory):
         ExportMethods.checkexistormakedir(write_directory)
         if is_numeric(obj) or type(obj) == str:
             ExportMethods.csvwrite(os.path.join(write_directory, 'vars.csv'), [[name, obj]], writetype='ab')
@@ -678,7 +680,7 @@ class ExportMethods:
         elif type(obj) == list or type(obj) == tuple:
             ExportMethods.writelist(name, obj, write_directory)
         elif type(obj) == pd.core.frame.DataFrame:
-            ExportMethods.writedataframe(name, obj, write_directory, append_results)
+            ExportMethods.writedataframe(name, obj, write_directory)
         elif inspect.isclass(type(obj)) and hasattr(obj, '__dict__'):
             ExportMethods.writeclass(name, obj, write_directory)
 
@@ -699,12 +701,23 @@ class ExportMethods:
                 ExportMethods.writeobj(key, value, new_directory)
 
     @staticmethod
-    def writedataframe(name, obj, write_directory, append_results):
-        if os.path.exists(os.path.join(write_directory, name + '.csv')) and append_results:
-            obj.to_csv(os.path.join(write_directory, name + '.csv'), header=False, mode='a')
-        else:
-           obj.to_csv(os.path.join(write_directory, name + '.csv'))
+    def writedataframe(name, obj, write_directory):
+        if len(obj.columns.values) > 1:
+            if len(config.cfg.cfgfile.get('case', 'years')) == len(obj.columns.values):
+                label = 'year'
+            else:
+                label = "unidentified_index"
+            write_df = pd.DataFrame(copy.deepcopy(obj.stack()))
+            write_df.rename(columns={0: 'value'}, inplace=True)
 
+            write_df.index.rename([x if x is not None else label for x in write_df.index.names], inplace=True)
+        else:
+            write_df = copy.deepcopy(obj)
+        # TODO fix this
+        try:
+            write_df.to_csv(os.path.join(write_directory, name + '.csv'))
+        except:
+            pass
 
     @staticmethod
     def writeclass(name, obj, write_directory):
@@ -758,18 +771,18 @@ def decay_growth_df(extrap_type, rate, reverse, vintages, years):
         rate = -rate
     vintages = np.asarray(vintages)
     years = np.asarray(years)
-    ages = np.zeros((len(vintages), len(years)))
-    for i, vintage in enumerate(vintages):
-        ages[i] = years - vintage
+    ages = np.zeros((len(years), len(vintages)))
+    for i, year in enumerate(years):
+        ages[i] = vintages - year
     if extrap_type == 'linear':
-        fill = (1 + (rate * ages))
-        fill = np.triu(fill, k=(min(vintages)-min(years)))
+        fill = (1 + (rate * ages)).T
+        fill = np.tril(fill, k=(min(years) - min(vintages)))
     elif extrap_type == 'exponential':
-        fill = ((1 + rate) ** ages)
-        fill = np.triu(fill, k=(min(vintages)-min(years)))
+        fill = ((1 + rate) ** ages).T
+        fill = np.tril(fill, k=(min(years) - min(vintages)))
     elif extrap_type is None:
-        exist = np.ones((len(vintages), len(years)))
-        fill = np.triu(exist, k=(min(vintages)-min(years)))
+        exist = np.ones((len(years), len(vintages)))
+        fill = np.tril(exist, k=(min(years) - min(vintages))).T
     df = pd.DataFrame(fill, index=vintages, columns=years)
     df.index.rename('vintage', inplace=True)
     df.columns.names = [None]
@@ -812,20 +825,17 @@ def convert_age(self, reverse, vintages, years, attr_from='values', attr_to='val
     """
     Broadcasts vintage values that decay over time to year columns
     """
-    
-    df = getattr(self,attr_from)
-    index_order = df.index.names
     if hasattr(self, 'age_growth_or_decay') and self.age_growth_or_decay is not None:
         decay = decay_growth_df(self.age_growth_or_decay_type, self.age_growth_or_decay, reverse, vintages, years)
         # decay = expand_multi(decay, getattr(self,attr_from).index.levels, getattr(self,attr_from).index.names)
         decay.data_type = 'total'
         setattr(self, attr_to,
-                DfOper.mult([decay, df]).reorder_levels(index_order))
+                DfOper.mult([decay, getattr(self, attr_from)]))
     else:
         decay = decay_growth_df(None, None, False, vintages, years)
         # decay = expand_multi(decay, getattr(self,attr_from).groupyby(level=ix_excl(getattr(self,attr_from), 'vintage')).sum().index.levels,  getattr(self,attr_from).groupyby(level=ix_excl(getattr(self,attr_from), 'vintage')).sum().index.names)
         decay.data_type = 'total'
-        setattr(self, attr_to, DfOper.mult([decay, df]).reorder_levels(index_order))
+        setattr(self, attr_to, DfOper.mult([decay, getattr(self, attr_from)]))
 
 
 def create_markov_matrix(markov_vector, num_techs, num_years, steps_per_year=1):
@@ -968,44 +978,89 @@ def get_elements_from_level(df, level_name):
 class DfOper:
     @staticmethod
     def add(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        return DfOper._operation_helper(df_iter, '+', expandable, collapsible, join, fill_value, non_expandable_levels)
+        if not len(df_iter):
+            return pd.DataFrame()
+        expandable = DfOper.fill_default_char(expandable, len(df_iter))
+        collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
+        c = df_iter[0]  # .copy()
+        for i, b in enumerate(df_iter[1:]):
+            c = DfOper._df_operation(c, b, '+', join, fill_value,
+                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
+                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
+                                     non_expandable_levels=non_expandable_levels)
+        return c
 
     @staticmethod
     def mult(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        return DfOper._operation_helper(df_iter, '*', expandable, collapsible, join, fill_value, non_expandable_levels)
+        if not len(df_iter):
+            return pd.DataFrame()
+        expandable = DfOper.fill_default_char(expandable, len(df_iter))
+        collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
+        c = df_iter[0]  # .copy()
+        for i, b in enumerate(df_iter[1:]):
+            c = DfOper._df_operation(c, b, '*', join, fill_value,
+                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
+                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
+                                     non_expandable_levels=non_expandable_levels)
+        return c
 
     @staticmethod
     def divi(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        return DfOper._operation_helper(df_iter, '/', expandable, collapsible, join, fill_value, non_expandable_levels)
+        if not len(df_iter):
+            return pd.DataFrame()
+        expandable = DfOper.fill_default_char(expandable, len(df_iter))
+        collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
+        c = df_iter[0]  # .copy()
+        for i, b in enumerate(df_iter[1:]):
+            c = DfOper._df_operation(c, b, '/', join, fill_value,
+                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
+                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
+                                     non_expandable_levels=non_expandable_levels)
+        return c
 
     @staticmethod
     def subt(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        return DfOper._operation_helper(df_iter, '-', expandable, collapsible, join, fill_value, non_expandable_levels)
-
+        if not len(df_iter):
+            return pd.DataFrame()
+        expandable = DfOper.fill_default_char(expandable, len(df_iter))
+        collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
+        c = df_iter[0]  # .copy()
+        for i, b in enumerate(df_iter[1:]):
+            c = DfOper._df_operation(c, b, '-', join, fill_value,
+                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
+                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
+                                     non_expandable_levels=non_expandable_levels)
+        return c
+    
+    
     @staticmethod
     def none(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        return DfOper._operation_helper(df_iter, None, expandable, collapsible, join, fill_value, non_expandable_levels)
+        if not len(df_iter):
+            return pd.DataFrame()
+        expandable = DfOper.fill_default_char(expandable, len(df_iter))
+        collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
+        c = df_iter[0]  # .copy()
+        for i, b in enumerate(df_iter[1:]):
+            c = DfOper._df_operation(c, b, None, join, fill_value,
+                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
+                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
+                                     non_expandable_levels=non_expandable_levels)
+        return c
 
     @staticmethod
     def repl(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        return DfOper._operation_helper(df_iter, 'replace', expandable, collapsible, join, fill_value, non_expandable_levels)
-
-    @staticmethod
-    def _operation_helper(df_iter, opr, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
         if not len(df_iter):
-            return None
+            return pd.DataFrame()
         expandable = DfOper.fill_default_char(expandable, len(df_iter))
         collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
-        return_df = None
-        for i, df in enumerate(df_iter):
-            if df is None:
-                continue
-            return_df = df if return_df is None else \
-                        DfOper._df_operation(return_df, df, opr, join, fill_value,
-                                             a_can_collapse=collapsible[i-1], a_can_expand=expandable[i-1],
-                                             b_can_collapse=collapsible[i], b_can_expand=expandable[i],
-                                             non_expandable_levels=non_expandable_levels)
-        return return_df
+        c = df_iter[0]  # .copy()
+        for i, b in enumerate(df_iter[1:]):
+            c = DfOper._df_operation(c, b, 'replace', join, fill_value,
+                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
+                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
+                                     non_expandable_levels=non_expandable_levels)
+        return c
+
 
     @staticmethod
     def fill_default_char(char, num):
@@ -1052,6 +1107,8 @@ class DfOper:
             return pd.DataFrame(a.values, index=a.index, columns=col)
         elif action == 'replace':
             return pd.DataFrame(b.values, index=a.index, columns=col)
+
+
 
     @staticmethod
     def _raise_errors(a, b, action, a_can_collapse, a_can_expand, b_can_collapse, b_can_expand):
