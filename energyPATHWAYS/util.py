@@ -812,17 +812,20 @@ def convert_age(self, reverse, vintages, years, attr_from='values', attr_to='val
     """
     Broadcasts vintage values that decay over time to year columns
     """
+    
+    df = getattr(self,attr_from)
+    index_order = df.index.names
     if hasattr(self, 'age_growth_or_decay') and self.age_growth_or_decay is not None:
         decay = decay_growth_df(self.age_growth_or_decay_type, self.age_growth_or_decay, reverse, vintages, years)
         # decay = expand_multi(decay, getattr(self,attr_from).index.levels, getattr(self,attr_from).index.names)
         decay.data_type = 'total'
         setattr(self, attr_to,
-                DfOper.mult([decay, getattr(self, attr_from)]))
+                DfOper.mult([decay, df]).reorder_levels(index_order))
     else:
         decay = decay_growth_df(None, None, False, vintages, years)
         # decay = expand_multi(decay, getattr(self,attr_from).groupyby(level=ix_excl(getattr(self,attr_from), 'vintage')).sum().index.levels,  getattr(self,attr_from).groupyby(level=ix_excl(getattr(self,attr_from), 'vintage')).sum().index.names)
         decay.data_type = 'total'
-        setattr(self, attr_to, DfOper.mult([decay, getattr(self, attr_from)]))
+        setattr(self, attr_to, DfOper.mult([decay, df]).reorder_levels(index_order))
 
 
 def create_markov_matrix(markov_vector, num_techs, num_years, steps_per_year=1):

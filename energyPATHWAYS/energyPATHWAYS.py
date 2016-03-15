@@ -33,8 +33,9 @@ class PathwaysModel(object):
         cfg.init_pint(custom_pint_definitions_path)
         cfg.init_geo()
         cfg.init_date_lookup()
-        shape.shapes.create_empty_shapes()
-        shape.shapes.activate_shape(cfg.electricity_energy_type_shape_id)
+        if shape.shapes.rerun:
+            shape.shapes.create_empty_shapes()
+            shape.shapes.activate_shape(cfg.electricity_energy_type_shape_id)
         cfg.init_outputs_id_map()
 
     def configure_energy_system(self):
@@ -230,10 +231,13 @@ class PathwaysModel(object):
         
     def calculate_combined_energy_results(self):
          self.embodied_energy = self.demand.outputs.return_cleaned_output('demand_embodied_energy')
-         self.final_energy = self.demand.outputs.energy
-         keys = ['EMBODIED','FINAL']
-         name = ['ENERGY ACCOUNTING']
-         self.outputs.energy = pd.concat([self.embodied_energy,self.final_energy],keys=keys, name=name)
-         
+         self.final_energy = self.demand.outputs.return_cleaned_output('energy')
+         self.final_energy = self.final_energy[self.final_energy.index.get_level_values('YEAR')>=int(cfg.cfgfile.get('case','current_year'))]  
+         self.embodied_energy['ENERGY ACCOUNTING'] = 'EMBODIED'
+         self.final_energy['ENERGY ACCOUNTING'] = 'FINAL'
+         self.embodied_energy.set_index('ENERGY ACCOUNTING',append=True,inplace=True)
+         self.final_energy.set_index('ENERGY ACCOUNTING',append=True,inplace=True)
+#         self.outputs.energy = pd.concat([self.embodied_energy, self.final_energy],keys=['DROP'],names=['DROP'])
+         self.outputs.energy = util.DfOper.add([self.embodied_energy,self.final_energy])
          
          

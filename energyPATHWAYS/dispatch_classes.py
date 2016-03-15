@@ -347,7 +347,7 @@ class Dispatch(object):
         stock_changes = np.zeros(len(capacity_weights))
         
         for i, load_group in enumerate(load_groups):
-            max_lookup = Dispatch._get_load_level_lookup(np.array([max(load_group)]), 0, reserves+0.01, decimals)[0]
+            max_lookup = Dispatch._get_load_level_lookup(np.array([max(load_group)]), 0, reserves+.01, decimals)[0]
             combined_rate = Dispatch._get_combined_outage_rate(FOR[i], MOR[i])
             derated_capacity = Dispatch._get_derated_capacity(pmaxs[i]+stock_changes, combined_rate, decimals)
             total_capacity_weight = sum(capacity_weights)

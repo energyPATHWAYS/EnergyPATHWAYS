@@ -81,7 +81,6 @@ class Demand(object):
 #            print year
         geography_df_list = []
         for geography in self.geographies:
-            print geography
             supply_indexer = util.level_specific_indexer(supply_link,[self.geography],[geography])
             demand_indexer = util.level_specific_indexer(demand_df,[self.geography],[geography])
 #            levels = [x for x in ['supply_node', self.geography + "_supply",'final_energy'] if x in supply_link.index.names]
