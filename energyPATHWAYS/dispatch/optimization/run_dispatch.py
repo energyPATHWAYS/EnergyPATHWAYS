@@ -16,6 +16,10 @@ import multiprocessing
 from functools import partial
 import logging
 from pyomo.opt import SolverFactory
+import logging
+
+# energyPATHWAYS non-dispatch modules
+import energyPATHWAYS.config as config
 
 # Dispatch modules
 import dispatch_problem
@@ -169,7 +173,27 @@ if __name__ == "__main__":
     available_cpus = multiprocessing.cpu_count()
 
     # Solver info
-    solver_name = "glpk"
+    # TODO: remove the following line once dispatch is integrated with the rest of the package
+    config.cfg.init_cfgfile('../../../us_model_example/configurations.INI')
+
+    requested_solvers = config.cfg.cfgfile.get('case', 'dispatch_solver').replace(' ', '').split(',')
+    solver_name = None
+
+    # inspired by the solver detection code at https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/scripting/driver_help.py#L336
+    # suppress logging of warnings for solvers that are not found
+    logger = logging.getLogger('pyomo.solvers')
+    _level = logger.getEffectiveLevel()
+    logger.setLevel(logging.ERROR)
+    for requested_solver in requested_solvers:
+        print "Looking for %s solver" % requested_solver
+        if SolverFactory(requested_solver).available(False):
+            solver_name = requested_solver
+            print "Using %s solver" % requested_solver
+            break
+    # restore logging
+    logger.setLevel(_level)
+
+    assert solver_name is not None, "Dispatch could not find any of the solvers requested in your configuration (%s) please see README.md, check your configuration, and make sure you have at least one requested solver installed." % ', '.join(requested_solvers)
     solver_settings = None
 
     # Pyomo solve keyword arguments
