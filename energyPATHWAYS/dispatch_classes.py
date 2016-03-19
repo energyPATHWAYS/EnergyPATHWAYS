@@ -217,7 +217,7 @@ class Dispatch(object):
 
 
     def set_opt_result_dfs(self, year):
-        index = pd.MultiIndex.from_product([self.dispatch_geographies, self.storage_technologies,['charge','discharge'],self.hours], names=[self.dispatch_geography,'storage_technology','charge_discharge','hour'])
+        index = pd.MultiIndex.from_product([self.dispatch_geographies, ['charge','discharge'],self.hours], names=[self.dispatch_geography,'charge_discharge','hour'])
         self.bulk_storage_df = util.empty_df(index=index,columns=[year],fill_value=0.0)
         index = pd.MultiIndex.from_product([self.dispatch_geographies, self.storage_technologies, self.dispatch_feeders,['charge','discharge'], self.hours], names=[self.dispatch_geography,'storage_technology','dispatch_feeder','charge_discharge','hour'])
         self.dist_storage_df = util.empty_df(index=index,columns=[year],fill_value=0.0)  
@@ -664,7 +664,7 @@ class Dispatch(object):
         if parallel:
             available_cpus = multiprocessing.cpu_count()
         else:
-            for period in [0]:
+            for period in self.periods:
                 self.results = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)
                 self.export_storage_results(self.results, period) 
                 self.export_flex_load_results(self.results, period)
@@ -684,8 +684,6 @@ class Dispatch(object):
         :param period:
         :return:
         """
-
-        start_time = datetime.datetime.now()
 
         if self.stdout_detail:
             print "Optimizing dispatch for period " + str(period)
@@ -715,25 +713,26 @@ class Dispatch(object):
             charge = []
             discharge = []
             if feeder == 0:
-                charge_indexer = util.level_specific_indexer(self.bulk_storage_df, [self.dispatch_geography, 'storage_technology', 'charge_discharge', 'hour'], [geography, tech, 'charge',(hours)])
-                discharge_indexer = util.level_specific_indexer(self.bulk_storage_df, [self.dispatch_geography, 'storage_technology','charge_discharge', 'hour'], [geography, tech, 'discharge',(hours)]) 
+                charge_indexer = util.level_specific_indexer(self.bulk_storage_df, [self.dispatch_geography, 'charge_discharge', 'hour'], [geography, 'charge',(hours)])
+                discharge_indexer = util.level_specific_indexer(self.bulk_storage_df, [self.dispatch_geography, 'charge_discharge', 'hour'], [geography, 'discharge',(hours)]) 
                 for timepoint in timepoints_set:                
                     charge.append(instance.Charge[tech, timepoint].value)
                     discharge.append(instance.Provide_Power[tech, timepoint].value)
-                charge = np.asarray(charge)
-                discharge = np.asarray(discharge)
-                self.bulk_storage_df.loc[charge_indexer,:] = charge
-                self.bulk_storage_df.loc[discharge_indexer,:] = discharge
+                charge = np.column_stack(np.asarray(charge)).T
+                discharge = np.column_stack(np.asarray(discharge)).T
+                self.charge = charge
+                self.bulk_storage_df.loc[charge_indexer,:] += charge
+                self.bulk_storage_df.loc[discharge_indexer,:] += discharge
             else:
-                charge_indexer = util.level_specific_indexer(self.dist_storage_df, [self.dispatch_geography, 'storage_technology', 'charge_discharge','dispatch_feeder','hour'], [geography, tech, 'charge', feeder, (hours)])
-                discharge_indexer = util.level_specific_indexer(self.dist_storage_df, [self.dispatch_geography, 'storage_technology','charge_discharge','dispatch_feeder','hour'], [geography, tech, 'discharge', feeder, (hours)]) 
+                charge_indexer = util.level_specific_indexer(self.dist_storage_df, [self.dispatch_geography,'dispatch_feeder','charge_discharge','hour'], [geography, feeder, 'charge', (hours)])
+                discharge_indexer = util.level_specific_indexer(self.dist_storage_df, [self.dispatch_geography,'dispatch_feeder','charge_discharge','hour'], [geography, feeder, 'discharge', (hours)]) 
                 for timepoint in timepoints_set:                
                     charge.append(instance.Charge[tech, timepoint].value)
                     discharge.append(instance.Provide_Power[tech, timepoint].value)
-                charge = np.asarray(charge)
-                discharge = np.asarray(discharge)
-                self.dist_storage_df.loc[charge_indexer,:] = charge
-                self.dist_storage_df.loc[discharge_indexer,:] = discharge
+                charge = np.column_stack(np.asarray(charge)).T
+                discharge = np.column_stack(np.asarray(discharge)).T
+                self.dist_storage_df.loc[charge_indexer,:] += charge
+                self.dist_storage_df.loc[discharge_indexer,:] += discharge
        
     def export_flex_load_results(self,instance, period):   
         hours = list(period * 876 + np.asarray(self.period_hours)) 
