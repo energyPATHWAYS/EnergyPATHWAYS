@@ -16,7 +16,6 @@ import multiprocessing
 from functools import partial
 import logging
 from pyomo.opt import SolverFactory
-import logging
 
 # energyPATHWAYS non-dispatch modules
 import energyPATHWAYS.config as config

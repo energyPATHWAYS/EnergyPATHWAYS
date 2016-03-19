@@ -22,6 +22,8 @@ To install Cbc, see the official [download and install instructions](https://pro
 
 To install GLPK on Windows, see [these instructions](https://en.wikibooks.org/wiki/GLPK/Windows_executables). Note that "the archive from Sourceforge" referred to can be found at the [winglpk Sourceforge site](https://sourceforge.net/projects/winglpk/); use the green "download" button to get the latest version. OS X and Linux users will likely find it easiest to install GLPK using a package manager. On OS X you can use [macports](https://www.macports.org/) (run `port install glpk` after installing macports) or [homebrew](http://brew.sh/) (`brew install homebrew/science/glpk`). On Linux you can [use your usual package manager](https://en.wikibooks.org/wiki/GLPK/Linux_packages).
 
+Our experience with COIN or GLPK is that each must be added to the system path manually on a PC. For instructions on how to add the solvers to your system path, Google “adding a new application to system path windows” or similar and follow the instructions for your version of Windows.
+
 Once you have a solver in your system path, energyPATHWAYS should detect and use it automatically. If you would like to customize the list of solvers that energyPATHAWAYS searches for, see the `dispatch_solver` option in the example configurations.INI file discussed below.
 
 ### Installation
