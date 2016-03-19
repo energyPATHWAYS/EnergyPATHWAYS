@@ -5,19 +5,19 @@ Formulation of the "very large storage" allocation optimization.
 from pyomo.environ import *
 
 
-# TODO: do the regions need to be linked in the allocation?
+# TODO: do the geographies need to be linked in the allocation?
 def year_to_period_allocation_formulation(dispatch):
     """
     Formulation of year to period allocation problem.
-    If _inputs contains data, the data are initialized with the formulation of the model (concrete model).
+    If dispatch contains data, the data are initialized with the formulation of the model (concrete model).
     Model is defined as "abstract," however, so data can also be loaded when create_instance() is called instead.
-    :param _inputs:
+    :param dispatch:
     :return:
     """
 
     allocation_model = AbstractModel()
 
-    allocation_model.PERIODS = Set(within=NonNegativeIntegers, ordered=True, initialize=_inputs.periods)
+    allocation_model.PERIODS = Set(within=NonNegativeIntegers, ordered=True, initialize=dispatch.periods)
 
     def first_period_init(model):
         """
@@ -56,21 +56,20 @@ def year_to_period_allocation_formulation(dispatch):
 
     allocation_model.previous_period = Param(allocation_model.PERIODS, initialize=previous_period_init)
 
-    allocation_model.REGIONS = Set(initialize=_inputs.regions)
+    allocation_model.GEOGRAPHIES = Set(initialize=dispatch.dispatch_geographies)
     
-    dispatch_model.STORAGE_TECHNOLOGIES =  Set(initialize=dispatch.storage_technologies)
 
-    dispatch_model.VERY_LARGE_STORAGE_TECHNOLOGIES = SET(dispatch_model.STORAGE_TECHNOLOGIES, initialize=dispatch.large_storage,within=Binary)
+    allocation_model.VERY_LARGE_STORAGE_TECHNOLOGIES = Set(initialize =dispatch.alloc_technologies)
 
-    allocation_model.region = Param(allocation_model.VERY_LARGE_STORAGE_TECHNOLOGIES, initialize=dispatch.region)
+    allocation_model.geography = Param(allocation_model.VERY_LARGE_STORAGE_TECHNOLOGIES, initialize=dispatch.alloc_geography)
     # TODO: careful with capacity means in the context of, say, a week instead of an hour
     allocation_model.power_capacity = Param(allocation_model.VERY_LARGE_STORAGE_TECHNOLOGIES,
-                                            initialize=dispatch.capacity)
+                                            initialize=dispatch.alloc_capacity)
     allocation_model.energy_capacity = Param(allocation_model.VERY_LARGE_STORAGE_TECHNOLOGIES,
-                                             initialize=dispatch.energy)
+                                             initialize=dispatch.alloc_energy)
 
-    allocation_model.average_net_load = Param(allocation_model.REGIONS, initialize=dispatch.average_net_load)
-    allocation_model.period_net_load = Param(allocation_model.REGIONS, allocation_model.PERIODS,
+    allocation_model.average_net_load = Param(allocation_model.GEOGRAPHIES, initialize=dispatch.average_net_load)
+    allocation_model.period_net_load = Param(allocation_model.GEOGRAPHIES, allocation_model.PERIODS,
                                              initialize=dispatch.period_net_load)
 
     allocation_model.upward_imbalance_penalty = Param(initialize=dispatch.upward_imbalance_penalty)
@@ -85,32 +84,32 @@ def year_to_period_allocation_formulation(dispatch):
                                              within=NonNegativeReals)
 
     # System variables
-    allocation_model.Upward_Imbalance = Var(allocation_model.REGIONS, allocation_model.PERIODS,
+    allocation_model.Upward_Imbalance = Var(allocation_model.GEOGRAPHIES, allocation_model.PERIODS,
                                             within=NonNegativeReals)
-    allocation_model.Downward_Imbalance = Var(allocation_model.REGIONS, allocation_model.PERIODS,
+    allocation_model.Downward_Imbalance = Var(allocation_model.GEOGRAPHIES, allocation_model.PERIODS,
                                               within=NonNegativeReals)
 
     # Objective function
     def total_imbalance_penalty_rule(model):
-        return sum((model.Upward_Imbalance[r, p] * model.upward_imbalance_penalty +
-                    model.Downward_Imbalance[r, p] * model.downward_imbalance_penalty)
-                   for r in model.REGIONS
+        return sum((model.Upward_Imbalance[g, p] * model.upward_imbalance_penalty +
+                    model.Downward_Imbalance[g, p] * model.downward_imbalance_penalty)
+                   for g in model.GEOGRAPHIES
                    for p in model.PERIODS)
     allocation_model.Total_Imbalance = Objective(rule=total_imbalance_penalty_rule, sense=minimize)
 
     # Constraints
-    def power_balance_rule(model, region, period):
+    def power_balance_rule(model, geography, period):
 
         discharge = sum(model.Discharge[technology, period] for technology in model.VERY_LARGE_STORAGE_TECHNOLOGIES
-                        if model.region[resource] == region)
+                        if model.geography[technology] == geography)
         charge = sum(model.Charge[technology, period] for technology in model.VERY_LARGE_STORAGE_TECHNOLOGIES
-                     if model.region[resource] == region)
+                     if model.geography[technology] == geography)
 
-        return discharge + model.Upward_Imbalance[region, period] \
-            == model.period_net_load[region, period] - model.average_net_load[region] \
-            + charge + model.Downward_Imbalance[region, period]
+        return discharge + model.Upward_Imbalance[geography, period] \
+            == model.period_net_load[geography, period] - model.average_net_load[geography] \
+            + charge + model.Downward_Imbalance[geography, period]
 
-    allocation_model.Power_Balance_Constraint = Constraint(allocation_model.REGIONS,
+    allocation_model.Power_Balance_Constraint = Constraint(allocation_model.GEOGRAPHIES,
                                                            allocation_model.PERIODS,
                                                            rule=power_balance_rule)
 

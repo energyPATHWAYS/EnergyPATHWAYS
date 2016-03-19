@@ -18,7 +18,7 @@ import logging
 from pyomo.opt import SolverFactory
 
 # Dispatch modules
-import dispatch_problem
+import dispatch_problem_PATHWAYS
 import year_to_period_allocation
 import get_inputs
 import export_results
@@ -56,17 +56,16 @@ class PathwaysOptAllocation:
     """
     Data and functions for the allocation optimization.
     """
-    def __init__(self, _alloc_inputs, _solver_name, _stdout_detail, _solve_kwargs, _results_directory):
+    def __init__(self, _solver_name, _stdout_detail, _solve_kwargs, _results_directory):
         # ### Data ### #
-        self.allocation_inputs = _alloc_inputs
         self.solver_name = _solver_name
         self.stdout_detail = _stdout_detail
         self.solve_kwargs = _solve_kwargs
         self.results_directory = _results_directory
 
-    def run_year_to_month_allocation(self):
+    def run_year_to_month_allocation(self, dispatch):
         start_time = datetime.datetime.now()
-        model = year_to_period_allocation.year_to_period_allocation_formulation(self.allocation_inputs)
+        model = year_to_period_allocation.year_to_period_allocation_formulation(dispatch)
         results = run_pyomo_optimization(model, None, self.solver_name, self.stdout_detail, **self.solve_kwargs)
         state_of_charge = export_results.export_allocation_results(results, self.results_directory)
         print "   ...total time for allocation: " + str(datetime.datetime.now()-start_time)
@@ -77,20 +76,15 @@ class PathwaysOpt:
     """
     Data and functions for the dispatch optimization.
     """
-    def __init__(self, _dispatch_inputs, _start_state_of_charge, _end_state_of_charge, _solver_name, _stdout_detail,
+    def __init__(self,  _solver_name, _stdout_detail,
                  _solve_kwargs, _results_directory):
-        # ### Data ### #
-        self.dispatch_inputs = _dispatch_inputs
-        self.start_state_of_charge = _start_state_of_charge
-        self.end_state_of_charge = _end_state_of_charge
-
         # Settings, etc.
         self.solver_name = _solver_name
         self.stdout_detail = _stdout_detail
         self.solve_kwargs = _solve_kwargs
         self.results_directory = _results_directory
 
-    def run_dispatch_optimization(self, period):
+    def run_dispatch_optimization(self, dispatch, start_state_of_charge, end_state_of_charge, period):
         """
         :param period:
         :return:
@@ -106,8 +100,8 @@ class PathwaysOpt:
 
         if self.stdout_detail:
             print "Getting problem formulation..."
-        model = dispatch_problem.dispatch_problem_formulation(self.dispatch_inputs, self.start_state_of_charge,
-                                                              self.end_state_of_charge, period)
+        model = dispatch_problem_PATHWAYS.dispatch_problem_formulation(dispatch, start_state_of_charge,
+                                                              end_state_of_charge, period)
         
         results = run_pyomo_optimization(model, None, self.solver_name, self.stdout_detail, **self.solve_kwargs)
 

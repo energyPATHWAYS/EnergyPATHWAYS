@@ -14,6 +14,22 @@ from matplotlib import pyplot as plt
 import time
 import numpy as np
 import math
+from config import cfg
+from util import DfOper
+from collections import defaultdict
+import os
+import datetime
+import multiprocessing
+from functools import partial
+import logging
+from pyomo.opt import SolverFactory
+
+# Dispatch modules
+import dispatch_problem_PATHWAYS
+import year_to_period_allocation
+import export_results
+from ast import literal_eval
+
 
 
 class DispatchNodeConfig(DataMapFunctions):
@@ -28,30 +44,42 @@ class DispatchNodeConfig(DataMapFunctions):
 #            self.read_timeseries_data(data_column_names=value, hide_exceptions=True)
 #            setattr(self, value + '_raw_values',self.raw_values)
         
-            
-        
 
 class Dispatch(object):
-    def __init__(self, **kwargs):
+    def __init__(self, dispatch_feeders, dispatch_geography, dispatch_geographies, 
+                 solver_name, stdout_detail, results_directory,  **kwargs):
         #TODO replace 1 with a config parameter
         for col, att in util.object_att_from_table('DispatchConfig',1):
             setattr(self, col, att)
         self.opt_hours = util.sql_read_table('OptPeriods','hours', id=self.opt_hours)
-        self.set_timeperiods()
         self.node_config_dict = dict()
         for supply_node in util.sql_read_table('DispatchNodeConfig','supply_node_id'):
             self.node_config_dict[supply_node] = DispatchNodeConfig(supply_node)
         self.set_dispatch_order()
         self.dispatch_window_dict = dict(util.sql_read_table('DispatchWindows'))  
-   
+        self.curtailment_cost = util.unit_convert(10**2,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
+        self.unserved_energy_cost = util.unit_convert(10**5,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
+        self.dist_net_load_penalty = 1000
+        self.bulk_net_load_penalty = 1000
+        self.dispatch_feeders = dispatch_feeders
+        self.feeders = [0] + dispatch_feeders
+        self.dispatch_geography = dispatch_geography
+        self.dispatch_geographies = dispatch_geographies
+        self.solver_name = solver_name
+        self.stdout_detail = stdout_detail
+        self.results_directory = results_directory
+        self.solve_kwargs = {"keepfiles": False, "tee": False}
+        self.upward_imbalance_penalty = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
+        self.downward_imbalance_penalty = util.unit_convert(100.0,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
+  
     def set_dispatch_order(self):
         order = [x.dispatch_order for x in self.node_config_dict.values()]
         order_index = np.argsort(order)
         self.dispatch_order = [self.node_config_dict.keys()[i] for i in order_index]
-            
       
-    
-    def set_timeperiods(self):
+      
+      
+    def set_timeperiods(self, time_index):
           """sets optimization periods based on selection of optimization hours
           in the dispatch configuration
           sets:
@@ -61,29 +89,144 @@ class Dispatch(object):
             period_flex_load_timepoints = dictionary with keys of period and values of a nested dictionary with the keys of period_hours and the values of those period hours offset
             by the flexible_load_constraint_offset configuration parameter
           """
+          self.hours = np.arange(1,len(time_index)+1)
           self.period_hours = range(1,self.opt_hours+1)
-          self.periods = range(0,8760/self.opt_hours-1)
+          self.periods = range(0,len(time_index)/(self.opt_hours-1))
           self.period_timepoints = dict()
           self.period_flex_load_timepoints = dict()
+          self.period_previous_timepoints = dict()
           for period in self.periods:
-              self.period_timepoints[period] = self.period_hours
-              self.period_flex_load_timepoints[period] = dict(zip(self.period_hours,util.rotate(self.period_hours,self.flex_load_constraints_offset)))     
+              hours = [int(x) for x in list(period * 876 + np.asarray(self.period_hours,dtype=int))]
+              self.period_timepoints[period] = hours
+              self.period_flex_load_timepoints[period] = dict(zip(hours,util.rotate(hours,self.flex_load_constraints_offset)))     
+              self.period_previous_timepoints[period] = dict(zip(hours,util.rotate(hours,1)))
+
+    def set_losses(self,distribution_losses):
+        self.t_and_d_losses = dict()
+        for geography in self.dispatch_geographies:
+            for feeder in self.feeders:
+                if feeder == 0:
+                    self.t_and_d_losses[(geography,feeder)] = 0
+                else:
+                    self.t_and_d_losses[(geography,feeder)] = util.df_slice(distribution_losses, [geography,feeder],[self.dispatch_geography, 'dispatch_feeder']).values[0][0]
+
+    def set_thresholds(self,distribution_stock, transmission_stock):
+        self.bulk_net_load_thresholds = dict()
+        self.dist_net_load_thresholds = dict()
+        for geography in self.dispatch_geographies:
+            self.bulk_net_load_thresholds[geography] = transmission_stock.loc[geography].values[0]
+            for feeder in self.feeders:
+                if feeder == 0:
+                    self.dist_net_load_thresholds[(geography,feeder)] = 0 
+                else:
+                    self.dist_net_load_thresholds[(geography,feeder)] =  util.df_slice(distribution_stock,[geography, feeder],[self.dispatch_geography, 'dispatch_feeder']).values[0][0]
+
+    def set_opt_loads(self, distribution_load, distribution_gen, bulk_load, bulk_gen):
+        self.distribution_load = util.recursivedict()
+        self.distribution_gen = util.recursivedict()
+        self.min_cumulative_flex_load = util.recursivedict()
+        self.max_cumulative_flex_load = util.recursivedict()
+        self.cumulative_distribution_load = util.recursivedict()
+        self.bulk_load = util.recursivedict()
+        self.bulk_gen = util.recursivedict()
+        self.set_opt_distribution_net_loads(distribution_load,distribution_gen)
+        self.set_opt_bulk_net_loads(bulk_load,bulk_gen)
+        
+    def set_opt_distribution_net_loads(self, distribution_load, distribution_gen):
+        self.set_max_flex_loads(distribution_load)
+        active_timeshift_types = list(set(distribution_load.index.get_level_values('timeshift_type')))
+        for geography in self.dispatch_geographies:
+            for feeder in self.feeders:
+                for period in self.periods:
+                       if feeder != 0:
+                           for timeshift in [2,1,3]:      
+                               load_df = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type'])
+                               gen_df = util.df_slice(distribution_gen, [geography, feeder], [self.dispatch_geography, 'dispatch_feeder'])
+                               if timeshift == 2:
+                                  for timepoint in self.period_timepoints[period]:
+                                      time_index =  timepoint-1
+                                      self.distribution_load[period][(geography,timepoint,feeder)] = load_df.iloc[time_index].values[0]
+                                      self.cumulative_distribution_load[period][(geography,timepoint,feeder)] = load_df.cumsum().iloc[time_index].values[0]
+                                      self.distribution_gen[period][(geography,timepoint,feeder)] = gen_df.iloc[time_index].values[0] 
+                               elif timeshift == 1:
+                                   if timeshift in active_timeshift_types:
+                                       df = util.df_slice(distribution_load, [geography, feeder, timeshift], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).cumsum()
+                                       for timepoint in self.period_timepoints[period]:
+                                           time_index = timepoint-1
+                                           self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0][0]
+                                   else:
+                                       df = load_df 
+                                       df = df.cumsum() 
+                                       for timepoint in self.period_timepoints[period]:
+                                           time_index = timepoint-1
+                                           self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0] 
+                               elif timeshift == 3:
+                                    if timeshift in active_timeshift_types:
+                                       df = util.df_slice(distribution_load, [geography, feeder, timeshift], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).cumsum()
+                                       for timepoint in self.period_timepoints[period]:
+                                           time_index = timepoint -1
+                                           self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0][0] 
+                                    else:
+                                        df = load_df 
+                                        df = df.cumsum()
+                                        for timepoint in self.period_timepoints[period]:
+                                            time_index = timepoint -1
+                                            self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0] 
+                       else:
+                            for timepoint in self.period_timepoints[period]:
+                                self.distribution_load[period][(geography,timepoint,feeder)] = 0.0
+                                self.distribution_gen[period][(geography,timepoint,feeder)] = 0.0
+                                self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = 0.0
+                                self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = 0.0
+                                self.cumulative_distribution_load[period][(geography,timepoint,feeder)] = 0.0
+                                
+                                
+                                
+    def set_opt_bulk_net_loads(self, bulk_load, bulk_gen):
+        for geography in self.dispatch_geographies:
+            for period in self.periods:
+                load_df = util.df_slice(bulk_load, [geography, 2], [self.dispatch_geography, 'timeshift_type'])
+                gen_df = util.df_slice(bulk_gen, [geography, 2], [self.dispatch_geography, 'timeshift_type'])
+                for timepoint in self.period_timepoints[period]:
+                   time_index = timepoint -1
+                   self.bulk_load[period][(geography,timepoint)] = load_df.iloc[time_index].values[0]     
+                   self.bulk_gen[period][(geography,timepoint)] = gen_df.iloc[time_index].values[0]
+                   
+    def set_max_flex_loads(self, distribution_load):
+        self.max_flex_load = defaultdict(dict)
+        for geography in self.dispatch_geographies:
+            for feeder in self.feeders:
+                for period in self.periods:
+                    start = period * self.opt_hours
+                    stop = (period+1) * self.opt_hours - 1
+                    if feeder !=0:
+                        self.max_flex_load[period][(geography,feeder)] = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).iloc[start:stop].max()[0] 
+                    else:
+                        self.max_flex_load[period][(geography,feeder)] = 0.0
+   
+    def set_average_net_loads(self,total_net_load):
+        self.period_net_load = defaultdict(dict)
+        self.average_net_load = dict()
+        for geography in self.dispatch_geographies:
+            df = util.df_slice(total_net_load, [geography, 2], [self.dispatch_geography,'timeshift_type'])
+            self.average_net_load[geography] =  (df).mean()[0]
+            for period in self.periods:
+                start = period * self.opt_hours
+                stop = (period+1) * self.opt_hours- 1
+                self.period_net_load[(geography, period)] = df.iloc[start:stop].mean()[0]
+
+
+    def set_opt_result_dfs(self, year):
+        index = pd.MultiIndex.from_product([self.dispatch_geographies, self.storage_technologies,['charge','discharge'],self.hours], names=[self.dispatch_geography,'storage_technology','charge_discharge','hour'])
+        self.bulk_storage_df = util.empty_df(index=index,columns=[year],fill_value=0.0)
+        index = pd.MultiIndex.from_product([self.dispatch_geographies, self.storage_technologies, self.dispatch_feeders,['charge','discharge'], self.hours], names=[self.dispatch_geography,'storage_technology','dispatch_feeder','charge_discharge','hour'])
+        self.dist_storage_df = util.empty_df(index=index,columns=[year],fill_value=0.0)  
+        index = pd.MultiIndex.from_product([self.dispatch_geographies, self.dispatch_feeders, self.hours], names=[self.dispatch_geography,'dispatch_feeder','hour'])
+        self.flex_load_df = util.empty_df(index=index,columns=[year],fill_value=0.0)    
+    
     
 
-    def run(self,thermal_resource_capacity, thermal_resource_costs, thermal_resource_cf,
-            storage_capacity, storage_efficiency, 
-            non_dispatchable_gen, dispatchable_gen, dispatchable_load_supply,
-            non_dispatchable_load_supply, demand_load, distribution_losses):
-                pass
-         #Step 1 Prepare Inputs
-        #TODO Ryan reformat thermal resource stack from capacity and resource cost dictionaries
-        #TODO Ryan reformat dispatchable supply for heuristic optimization
-    
-
-                    
-
-
-    def set_storage_technologies(self,storage_capacity_dict, storage_efficiency_dict):
+    def set_technologies(self,storage_capacity_dict, storage_efficiency_dict, thermal_dispatch_dict, generators_per_region=2):
       """prepares storage technologies for dispatch optimization
         args:
             storage_capacity_dict = dictionary of storage discharge capacity and storage discharge duration
@@ -97,35 +240,66 @@ class Dispatch(object):
             discharging_efficiency = dictionary of storage discharging efficiency (equal to charging efficiency) with keys of unique tech_dispatch_id, a tuple of dispatch_geography,zone,feeder,and technology
             large_storage = dictionary of binary flags indicating whether a resource is considered large storage with keys of unique tech_dispatch_id, a tuple of dispatch_geography,zone,feeder,and technology
       """
-      self.region = dict()
+      self.geography= dict()
       self.capacity = dict()
       self.charging_efficiency = dict()
       self.discharging_efficiency = dict()
       self.duration = dict()
       self.feeder = dict()
       self.large_storage = dict()
+      self.energy = dict()
       self.storage_technologies = []
+      self.alloc_technologies = []
+      self.alloc_geography = dict()
+      self.alloc_capacity = dict()
+      self.alloc_energy = dict()
       for dispatch_geography in storage_capacity_dict['power'].keys():
           for zone in storage_capacity_dict['power'][dispatch_geography].keys():
              for feeder in storage_capacity_dict['power'][dispatch_geography][zone].keys():
                  for tech in storage_capacity_dict['power'][dispatch_geography][zone][feeder].keys():
-                     tech_dispatch_id = (dispatch_geography,zone,feeder,tech)
+                     tech_dispatch_id = str((dispatch_geography,zone,feeder,tech))
                      self.storage_technologies.append(tech_dispatch_id)
-                     self.region[tech_dispatch_id ] = dispatch_geography
+                     self.geography[tech_dispatch_id ] = dispatch_geography
                      self.capacity[tech_dispatch_id] = storage_capacity_dict['power'][dispatch_geography][zone][feeder][tech]
                      self.duration[tech_dispatch_id] = storage_capacity_dict['duration'][dispatch_geography][zone][feeder][tech]
+                     self.energy[tech_dispatch_id] = self.capacity[tech_dispatch_id] * self.duration[tech_dispatch_id]
                      if self.duration[tech_dispatch_id ]>=self.large_storage_duration:
+                        self.alloc_technologies.append(tech_dispatch_id)
                         self.large_storage[tech_dispatch_id] = 1
+                        self.alloc_geography[tech_dispatch_id] = dispatch_geography
+                        self.alloc_capacity[tech_dispatch_id] = self.capacity[tech_dispatch_id]
+                        self.alloc_energy[tech_dispatch_id] = self.energy[tech_dispatch_id]
                      else:
                         self.large_storage[tech_dispatch_id] = 0
                      self.charging_efficiency[tech_dispatch_id] = 1/np.sqrt(storage_efficiency_dict[dispatch_geography][zone][feeder][tech])
-                     self.discharging_efficiency[tech_dispatch_id] = 1/copy.deepcopy(self.charging_efficiency)[tech_dispatch_id] 
+                     self.discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.charging_efficiency)[tech_dispatch_id] 
                      self.feeder[tech_dispatch_id] = feeder
+      self.set_gen_technologies(thermal_dispatch_dict, generators_per_region)
       self.capacity = self.convert_to_period(self.capacity)
       self.duration = self.convert_to_period(self.duration)
+      self.energy = self.convert_to_period(self.energy)
       self.feeder = self.convert_to_period(self.feeder)
-      self.region = self.convert_to_period(self.region)
+      self.geography = self.convert_to_period(self.geography)
             
+    
+    def set_gen_technologies(self, thermal_dispatch_dict, generators_per_region):
+        #TODO Ryan - link to supply curve 
+        self.generation_technologies = []
+        self.variable_costs = {}
+        for geography in self.dispatch_geographies:
+            generator_numbers = np.arange(1,generators_per_region+1,1)
+            generators = thermal_dispatch_dict[geography]['capacity'].keys()
+            for number in generator_numbers:
+                generator = str(generators[number])
+                self.generation_technologies.append(generator)
+                self.geography[generator] = geography
+                self.feeder[generator] = 0
+                if number == 1:
+                    self.capacity[generator] = util.unit_convert(100000,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
+                    self.variable_costs[generator] = util.unit_convert(50,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
+                else:
+                    self.capacity[generator] = util.unit_convert(1000000,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
+                    self.variable_costs[generator] = util.unit_convert(150,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
     
     def convert_to_period(self, dictionary):
         """repeats a dictionary's values of all periods in the optimization
@@ -454,16 +628,294 @@ class Dispatch(object):
     #print np.mean(dispatch_results['market_price'])
     #print np.sum(dispatch_results['production_cost'])
         
+
+
+
+    def run_pyomo(self,model, data, **kwargs):
+        """
+        Pyomo optimization steps: create model instance from model formulation and data,
+        get solver, solve instance, and load solution.
+        :param model:
+        :param data:
+        :param solver_name:
+        :param stdout_detail:
+        :param kwargs:
+        :return: instance
+        """
+        if self.stdout_detail:
+            print "Creating model instance..."
+        instance = model.create_instance(data)
+        if self.stdout_detail:
+            print "Getting solver..."
+        solver = SolverFactory(self.solver_name)
+        if self.stdout_detail:
+            print "Solving..."
+        solution = solver.solve(instance, **kwargs)
+        if self.stdout_detail:
+            print "Loading solution..."
+        instance.solutions.load_from(solution)
+        return instance
+   
+    def run_optimization(self,parallel=False):
+        state_of_charge = self.run_year_to_month_allocation()
+        alloc_start_state_of_charge, alloc_end_state_of_charge = state_of_charge[0], state_of_charge[1]
+        self.alloc_start_state_of_charge = alloc_start_state_of_charge
+        self.alloc_end_state_of_charge = alloc_end_state_of_charge
+        if parallel:
+            available_cpus = multiprocessing.cpu_count()
+        else:
+            for period in [0]:
+                self.results = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)
+                self.export_storage_results(self.results, period) 
+                self.export_flex_load_results(self.results, period)
+#                self.export_dispatch_results(results,os.path.join(os.getcwd(),"dispatch_outputs"),period)                
+#                model = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)               
+#                self.model = model
+                
+    def run_year_to_month_allocation(self):
+        model = year_to_period_allocation.year_to_period_allocation_formulation(self)
+        results = self.run_pyomo(model,None)
+        state_of_charge = export_results.export_allocation_results(results, self.results_directory)
+        return state_of_charge
+
+
+    def run_dispatch_optimization(self, start_state_of_charge, end_state_of_charge, period):
+        """
+        :param period:
+        :return:
+        """
+
+        start_time = datetime.datetime.now()
+
+        if self.stdout_detail:
+            print "Optimizing dispatch for period " + str(period)
+
+        # Directory structure
+        # This won't be needed when inputs are loaded from memory
+
+        if self.stdout_detail:
+            print "Getting problem formulation..."
+        model = dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
+                                                              end_state_of_charge, period)
+        
+        results = self.run_pyomo(model,None)
+        return results
+
+
+
+
+    def export_storage_results(self,instance,period):
+        hours = list(period * 876 + np.asarray(self.period_hours))        
+        timepoints_set = getattr(instance, "TIMEPOINTS")
+        storage_tech_set = getattr(instance, "STORAGE_TECHNOLOGIES")
+        #TODO Ryan List Comprehension
+        for tech in storage_tech_set:
+            feeder = instance.feeder[tech] 
+            geography = instance.geography[tech]
+            charge = []
+            discharge = []
+            if feeder == 0:
+                charge_indexer = util.level_specific_indexer(self.bulk_storage_df, [self.dispatch_geography, 'storage_technology', 'charge_discharge', 'hour'], [geography, tech, 'charge',(hours)])
+                discharge_indexer = util.level_specific_indexer(self.bulk_storage_df, [self.dispatch_geography, 'storage_technology','charge_discharge', 'hour'], [geography, tech, 'discharge',(hours)]) 
+                for timepoint in timepoints_set:                
+                    charge.append(instance.Charge[tech, timepoint].value)
+                    discharge.append(instance.Provide_Power[tech, timepoint].value)
+                charge = np.asarray(charge)
+                discharge = np.asarray(discharge)
+                self.bulk_storage_df.loc[charge_indexer,:] = charge
+                self.bulk_storage_df.loc[discharge_indexer,:] = discharge
+            else:
+                charge_indexer = util.level_specific_indexer(self.dist_storage_df, [self.dispatch_geography, 'storage_technology', 'charge_discharge','dispatch_feeder','hour'], [geography, tech, 'charge', feeder, (hours)])
+                discharge_indexer = util.level_specific_indexer(self.dist_storage_df, [self.dispatch_geography, 'storage_technology','charge_discharge','dispatch_feeder','hour'], [geography, tech, 'discharge', feeder, (hours)]) 
+                for timepoint in timepoints_set:                
+                    charge.append(instance.Charge[tech, timepoint].value)
+                    discharge.append(instance.Provide_Power[tech, timepoint].value)
+                charge = np.asarray(charge)
+                discharge = np.asarray(discharge)
+                self.dist_storage_df.loc[charge_indexer,:] = charge
+                self.dist_storage_df.loc[discharge_indexer,:] = discharge
+       
+    def export_flex_load_results(self,instance, period):   
+        hours = list(period * 876 + np.asarray(self.period_hours)) 
+        timepoints_set = getattr(instance, "TIMEPOINTS")
+        geographies_set = getattr(instance, "GEOGRAPHIES")
+        feeder_set = getattr(instance,"FEEDERS")
+        #TODO Ryan List Comprehension
+        for geography in geographies_set:
+            for feeder in feeder_set:
+                if feeder != 0:
+                    flex_load = []
+                    indexer = util.level_specific_indexer(self.flex_load_df, [self.dispatch_geography,'dispatch_feeder','hour'], [geography, feeder,(hours)])
+                    for timepoint in timepoints_set:                
+                        flex_load.append(instance.Flexible_Load[geography, timepoint, feeder].value)
+                    flex_load = np.asarray(flex_load)
+                    self.flex_load_df.loc[indexer,:] = flex_load 
+
+#class PathwaysOpt:
+#    """
+#    Data and functions for the dispatch optimization.
+#    """
+#    def __init__(self,  solver_name, stdout_detail,
+#                 solve_kwargs, results_directory):
+#        # Settings, etc.
+#        self.solver_name = solver_name
+#        self.stdout_detail = stdout_detail
+#        self.solve_kwargs = solve_kwargs
+#        self.results_directory = results_directory
+#
+#    def run_dispatch_optimization(self, Dispatch, start_state_of_charge, end_state_of_charge, period):
+#        """
+#        :param period:
+#        :return:
+#        """
+#
+#        start_time = datetime.datetime.now()
+#
+#        if self.stdout_detail:
+#            print "Optimizing dispatch for period " + str(period)
+#
+#        # Directory structure
+#        # This won't be needed when inputs are loaded from memory
+#
+#        if self.stdout_detail:
+#            print "Getting problem formulation..."
+#        model = dispatch_problem_PATHWAYS.dispatch_problem_formulation(Dispatch, start_state_of_charge,
+#                                                              end_state_of_charge, period)
+#        
+#        results = Dispatch.run_pyomo(model, None, self.solver_name, self.stdout_detail, **self.solve_kwargs)
+#
+#        if self.stdout_detail:
+#            print "Exporting results..."
+#        # TODO: currently exports results to CSVs; need to figure out what outputs are needed and how to pass them
+#        export_results.export_dispatch_results(results, self.results_directory, period)
+#
+#        print "   ...total time for period " + str(period) + ": " + str(datetime.datetime.now()-start_time)
+
+
+#def run_opt_multi(_dispatch, period):
+#    """
+#    This function is in a sense redundant, as it simply calls the run_optimization function.
+#    However, it is needed outside of class to avoid pickling error while multiprocessing on Windows
+#    (see https://docs.python.org/2/library/multiprocessing.html#windows).
+#    :param _dispatch:
+#    :param period:
+#    :return:
+#    """
+#    _dispatch.run_dispatch_optimization(period)
+#
+#
+#def process_handler(_periods, n_processes):
+#    """
+#    Process periods in parallel.
+#    NOTE: On Windows, this function must be run using if__name__ == ' __main__' to avoid a RuntimeError
+#    (see https://docs.python.org/2/library/multiprocessing.html#windows).
+#    :param _periods:
+#    :param n_processes:
+#    :return:
+#    """
+#    pool = multiprocessing.Pool(processes=n_processes)
+#
+#    # TODO: maybe change to pool.map() if at some point we need to run map_async(...).get() (two are equivalent)
+#    # Other option is to use imap,
+#    # which will return the results as soon as they are ready rather than wait for all workers to finish,
+#    # but that probably doesn't help us, as wee need to pass on everything at once
+#    # http://stackoverflow.com/questions/26520781/multiprocessing-pool-whats-the-difference-between-map-async-and-imap
+#    # TODO: experiment with chunksize option
+#    pool.map_async(run_opt_multi, _periods)
+#    pool.close()
+#    pool.join()
+#
+#
+#def multiprocessing_debug_info():
+#    """
+#    Run this to see what multiprocessing is doing.
+#    :return:
+#    """
+#    multiprocessing.log_to_stderr().setLevel(logging.DEBUG)
+#
+#
+#if __name__ == "__main__":
+#    _start_time = datetime.datetime.now()
+#    print "Running dispatch..."
+#    multiprocessing.freeze_support()  # can be omitted if we won't be producing a Windows executable
+#
+#    # ############# SETTINGS ############# #
+#    # Currently using all available CPUs in multiprocessing function below
+#    available_cpus = multiprocessing.cpu_count()
+#
+#    # Solver info
+#    solver_name = cfgfile.get('case','solver')
+#    solver_settings = None
+#
+#    # Pyomo solve keyword arguments
+#    # Set 'keepfiles' to True if you want the problem and solution files
+#    # Set 'tee' to True if you want to stream the solver output
+#    solve_kwargs = {"keepfiles": False, "tee": False}
+#
+#    # How much to print to standard output; set to 1 for more detailed output, 0 for limited detail
+#    stdout_detail = 1
+#
+#    # The directory structure will have to change, but I'm not sure how yet
+#    current_directory = os.getcwd()
+#    results_directory = current_directory + "/results"
+#    inputs_directory = current_directory + "/test_inputs"
+#
+#    # Make results directory if it doesn't exist
+#    if not os.path.exists(results_directory):
+#            os.mkdir(results_directory)
+#
+#    # ################### OPTIMIZATIONS ##################### #
+#
+#    # ### Create allocation instance and run optimization ### #
+#
+#    # This currently exports results to the dispatch optimization inputs directory (that part won't be needed)
+#    # It also returns the needed params for the main dispatch optimization
+#    allocation = PathwaysOptAllocation(_alloc_inputs=get_inputs.alloc_inputs_init(inputs_directory),
+#                                    _solver_name=solver_name, _stdout_detail=stdout_detail, _solve_kwargs=solve_kwargs,
+#                                    _results_directory=inputs_directory)
+#
+#    print "...running large storage allocation..."
+#    state_of_charge = allocation.run_year_to_month_allocation()
+#    alloc_start_state_of_charge, alloc_end_state_of_charge = state_of_charge[0], state_of_charge[1]
+#
+#    # # ### Instantiate hourly dispatch class and run optimization ### #
+#    pathways_dispatch = PathwaysOpt(_dispatch_inputs=get_inputs.dispatch_inputs_init(inputs_directory),
+#                                         _start_state_of_charge=alloc_start_state_of_charge,
+#                                         _end_state_of_charge=alloc_end_state_of_charge,
+#                                         _solver_name=solver_name, _stdout_detail=stdout_detail,
+#                                         _solve_kwargs=solve_kwargs,
+#                                         _results_directory=results_directory)
+#    periods = pathways_dispatch.dispatch_inputs.periods
+#
+#    print "...running main dispatch optimization..."
+#    # Run periods in parallel
+#    pool = multiprocessing.Pool(processes=available_cpus)
+#    partial_opt = partial(run_opt_multi, pathways_dispatch)
+#
+#    # TODO: maybe change to pool.map() if at some point we need to run map_async(...).get() (two are equivalent)
+#    # Other option is to use imap,
+#    # which will return the results as soon as they are ready rather than wait for all workers to finish,
+#    # but that probably doesn't help us, as wee need to pass on everything at once
+#    # http://stackoverflow.com/questions/26520781/multiprocessing-pool-whats-the-difference-between-map-async-and-imap
+#    # TODO: experiment with chunksize option
+#    pool.map_async(partial_opt, periods)
+#    pool.close()
+#    pool.join()
+#
+#    # # Run periods in sequence
+#    # for p in periods:
+#    #     run_dispatch_multi(pathways_dispatch, p)
+#
+#    print "Done. Total time for dispatch: " + str(datetime.datetime.now()-_start_time)
+
+
 class DispatchFeederAllocation(Abstract):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
     def __init__(self, id,**kwargs):
         self.id = id
         self.sql_id_table = 'DispatchFeedersAllocation'
         self.sql_data_table = 'DispatchFeedersAllocationData'
-        Abstract.__init__(self,self.id)
-        
+        Abstract.__init__(self,self.id)     
         self.remap()
         self.values.sort_index(inplace=True)
-        
-#        self.values = self.clean_timeseries('raw_values', inplace=False)
-#        self.values.sort(inplace=True)
+

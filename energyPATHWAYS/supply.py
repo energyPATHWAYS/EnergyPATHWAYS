@@ -30,7 +30,7 @@ class Supply(object):
     emissions, and cost flows through the energy economy
     """    
     
-    def __init__(self, **kwargs):
+    def __init__(self, outputs_directory, **kwargs):
         """Initializes supply instance"""
         self.demand_sectors = util.sql_read_table('DemandSectors','id')
         self.geographies = cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]
@@ -39,15 +39,16 @@ class Supply(object):
         self.dispatch_geographies = cfg.geo.geographies[cfg.cfgfile.get('case','dispatch_geography')]
         self.thermal_dispatch_node_id = util.sql_read_table('DispatchConfig', 'thermal_dispatch_node_id')
         self.distribution_node_id = util.sql_read_table('DispatchConfig', 'distribution_node_id')
+        self.distribution_grid_node_id = util.sql_read_table('DispatchConfig', 'distribution_grid_node_id')
         self.transmission_node_id = util.sql_read_table('DispatchConfig', 'transmission_node_id')
         self.dispatch_zones = [self.distribution_node_id, self.transmission_node_id]
         self.electricity_nodes = defaultdict(list)
         self.injection_nodes = defaultdict(list)
         self.ghgs = util.sql_read_table('GreenhouseGases','id')
-        self.dispatch = Dispatch()
         self.dispatch_feeder_allocation = DispatchFeederAllocation(id=1)
         self.dispatch_feeders = list(set(self.dispatch_feeder_allocation.values.index.get_level_values('dispatch_feeder')))
-
+        self.dispatch = Dispatch(self.dispatch_feeders, self.dispatch_geography, self.dispatch_geographies,
+                                 cfg.cfgfile.get('opt','solver_name'),  cfg.cfgfile.get('opt','stdout_detail'), outputs_directory)
      
 
      
@@ -152,7 +153,7 @@ class Supply(object):
         """Performs an initial calculation for all import, conversion, delivery, and storage nodes"""
         for node in self.nodes.values():
             if isinstance(node, SupplyNode) or isinstance(node, SupplyStockNode) or isinstance(node, StorageNode):
-                node.calculate(node.years, self.demand_sectors, self.ghgs)
+                node.calculate(node.years, self.demand_sectors, self.ghgs, self.distribution_grid_node_id)
     
     def create_IO(self):
         """Creates a dictionary with year and demand sector keys to store IO table structure"""
@@ -542,25 +543,56 @@ class Supply(object):
                                 self.distribution_gen.loc[indexer,:] += dispatch
                                 self.dispatched_dist_gen.loc[indexer,:] += dispatch
                     self.update_net_load_signal()
-                            
-      
+           
+
+    def prepare_optimization_inputs(self,year):
+        self.dispatch.set_timeperiods(shapes.active_dates_index)
+        self.dispatch.set_losses(self.distribution_losses)
+        self.set_net_load_thresholds(year)
+        self.dispatch.set_opt_loads(self.distribution_load,self.distribution_gen,self.bulk_load,self.bulk_gen)
+        self.dispatch.set_technologies(self.storage_capacity_dict, self.storage_efficiency_dict, self.thermal_dispatch_dict, 2)
+        self.dispatch.set_average_net_loads(self.bulk_net_load)
+        self.dispatch.set_opt_result_dfs(year)
+     
+    def solve_optimization(self):
+        self.dispatch.run_optimization()
+     
+     
     def set_distribution_losses(self,year):
-        if self.nodes[self.distribution_node_id].supply_type == 'Delivery':
-            distribution_grid_node = self.nodes[self.distribution_node_id]
-            coefficients  = distribution_grid_node.active_coefficients_total.sum().to_frame()
-        else:
-            for node_id in list(set(self.nodes[self.distribution_node_id].active_coefficients_total.index.get_level_values('supply_node'))):
-                if self.nodes[node_id].supply_type == 'Delivery' and self.transmission_node_id in self.nodes[node_id].active_coefficients_total.index.get_level_values('supply_node'):
-                    distribution_grid_node = self.nodes[node_id]                    
-                    coefficients = distribution_grid_node.active_coefficients_total.sum().to_frame()
+#        if self.nodes[self.distribution_node_id].supply_type == 'Delivery':
+#            distribution_grid_node = self.nodes[self.distribution_node_id]
+#            coefficients  = distribution_grid_node.active_coefficients_total.sum().to_frame()
+#        else:
+#            for node_id in list(set(self.nodes[self.distribution_node_id].active_coefficients_total.index.get_level_values('supply_node'))):
+#                if self.nodes[node_id].supply_type == 'Delivery' and self.transmission_node_id in self.nodes[node_id].active_coefficients_total.index.get_level_values('supply_node'):
+#                    distribution_grid_node = self.nodes[node_id]                    
+#                    coefficients = distribution_grid_node.active_coefficients_total.sum().to_frame()
+        distribution_grid_node =self.nodes[self.distribution_grid_node_id] 
+        coefficients = distribution_grid_node.active_coefficients_total.sum().to_frame()
         indexer = util.level_specific_indexer(self.dispatch_feeder_allocation.values, 'year', year)
-        a = DfOper.mult([coefficients, self.dispatch_feeder_allocation.values.loc[indexer,:], distribution_grid_node.active_supply])     
-        b = DfOper.mult([self.dispatch_feeder_allocation.values.loc[indexer,:], distribution_grid_node.active_supply])
-        self.distribution_losses = DfOper.divi([util.remove_df_levels(a,'demand_sector'),util.remove_df_levels(b,'demand_sector')])
+        a = util.DfOper.mult([coefficients, self.dispatch_feeder_allocation.values.loc[indexer,:], distribution_grid_node.active_supply])     
+        b = util.DfOper.mult([self.dispatch_feeder_allocation.values.loc[indexer,:], distribution_grid_node.active_supply])
+        self.distribution_losses = util.DfOper.divi([util.remove_df_levels(a,'demand_sector'),util.remove_df_levels(b,'demand_sector')])
         geography_map_key = distribution_grid_node.geography_map_key if hasattr(distribution_grid_node, 'geography_map_key') and distribution_grid_node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')       
         map_df = cfg.geo.map_df(self.geography,self.dispatch_geography,geography_map_key,eliminate_zeros=False)             
         self.distribution_losses =  util.remove_df_levels(DfOper.mult([self.distribution_losses,map_df]),self.geography)
     
+    
+    def set_net_load_thresholds(self, year):
+        distribution_grid_node = self.nodes[self.distribution_grid_node_id]
+        dist_stock = distribution_grid_node.stock.values.groupby(level=[self.geography,'demand_sector']).sum().loc[:,year].to_frame()
+        dist_stock = util.remove_df_levels(DfOper.mult([dist_stock, util.df_slice(self.dispatch_feeder_allocation.values,year,'year')]),'demand_sector')
+        geography_map_key = distribution_grid_node.geography_map_key if hasattr(distribution_grid_node, 'geography_map_key') and distribution_grid_node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')       
+        map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)             
+        dist_stock =  util.remove_df_levels(DfOper.mult([dist_stock,map_df]),self.geography)   
+        transmission_grid_node = self.nodes[self.transmission_node_id]
+        transmission_stock = transmission_grid_node.stock.values.groupby(level=[self.geography]).sum().loc[:,year].to_frame()
+        geography_map_key = transmission_grid_node.geography_map_key if hasattr(distribution_grid_node, 'geography_map_key') and transmission_grid_node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')       
+        map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)             
+        transmission_stock =  util.remove_df_levels(DfOper.mult([transmission_stock,map_df]),self.geography)   
+        self.dispatch.set_thresholds(dist_stock,transmission_stock)
+   
+   
     def prepare_flexible_load(self,year,loop):
         """Calculates the availability of flexible load for the hourly dispatch. Used for nodes like hydrogen and P2G.
         Args:
@@ -818,11 +850,6 @@ class Supply(object):
                                 self.thermal_dispatch_dict[dispatch_location]['residual_resource'][dict_key] = 0
        
        
-       
-
-
-        
-
     def capacity_weights(self,year):
         weights = self.nodes[self.thermal_dispatch_node_id].values.loc[:,year].to_frame().groupby(level=[self.geography,'supply_node']).mean()
         map_df = cfg.geo.map_df(self.geography,self.dispatch_geography)
@@ -1025,9 +1052,12 @@ class Supply(object):
                         name = ['demand_sector']
                         efficiency = pd.concat((efficiency)*len(keys),keys=keys,names=name)
                     geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
-                    map_df = cfg.geo.map_df(self.geography, self.dispatch_geography, column=geography_map_key)
-                    efficiency = util.remove_df_levels(DfOper.mult([efficiency, map_df],fill_value=0.0),self.geography)
-                    capacity = util.remove_df_levels(DfOper.mult([capacity, map_df],fill_value=0.0),self.geography)
+                    map_df = cfg.geo.map_df(self.dispatch_geography,self.geography, column=geography_map_key)
+                    capacity = DfOper.mult([capacity, map_df],fill_value=0.0)                
+                    efficiency = DfOper.divi([util.remove_df_levels(DfOper.mult([efficiency, capacity]), self.geography),util.remove_df_levels(capacity,self.geography)])
+                    
+                    capacity = util.remove_df_levels(capacity, self.geography)
+                   #creates an empty database to fill with duration values, which are a technology parameter
                     duration = copy.deepcopy(capacity)*0
                     for tech in node.technologies.values():
                         tech_indexer = util.level_specific_indexer(duration,'supply_technology', tech.id)
@@ -1035,18 +1065,19 @@ class Supply(object):
                     efficiency = util.remove_df_levels(efficiency,'supply_node')    
                     if zone == self.distribution_node_id:
                         indexer = util.level_specific_indexer(self.dispatch_feeder_allocation.values, 'year', year)
-                        duration = util.remove_df_levels(util.DfOper.mult([duration, self.dispatch_feeder_allocation.values.loc[indexer, ]]), 'demand_sector')
-                        capacity = util.remove_df_levels(util.DfOper.mult([capacity, self.dispatch_feeder_allocation.values.loc[indexer, ]]), 'demand_sector')
-                        efficiency = util.remove_df_levels(util.DfOper.mult([efficiency, self.dispatch_feeder_allocation.values.loc[indexer, ]]), 'demand_sector')
+                        capacity = util.DfOper.mult([capacity, self.dispatch_feeder_allocation.values.loc[indexer, ]])
+                        duration = DfOper.divi([util.remove_df_levels(DfOper.mult([duration, capacity]),'demand_sector'),util.remove_df_levels(capacity,'demand_sector')])
+                        efficiency = DfOper.divi([util.remove_df_levels(DfOper.mult([efficiency, capacity]),'demand_sector'),util.remove_df_levels(capacity,'demand_sector')])
+                        capacity = util.remove_df_levels(capacity,'demand_sector')
                         for geography in self.dispatch_geographies:
-                            for dispatch_feeder in self.dispatch_feeders:
-                                for technology in node.technologies.keys():
-                                    indexer = util.level_specific_indexer(efficiency, [self.dispatch_geography, 'dispatch_feeder','supply_technology'],[geography,dispatch_feeder,technology])
-                                    self.storage_efficiency_dict[geography][zone][dispatch_feeder][technology] = efficiency.loc[indexer,:].values[0][0]
-                                    indexer = util.level_specific_indexer(capacity, [self.dispatch_geography, 'dispatch_feeder','supply_technology'],[geography,dispatch_feeder,technology])
-                                    self.storage_capacity_dict['power'][geography][zone][dispatch_feeder][technology] = capacity.loc[indexer,:].values[0][0]
-                                    indexer = util.level_specific_indexer(duration, [self.dispatch_geography, 'dispatch_feeder','supply_technology'],[geography,dispatch_feeder,technology])
-                                    self.storage_capacity_dict['duration'][geography][zone][dispatch_feeder][technology] = duration.loc[indexer,:].values[0][0]
+                                for dispatch_feeder in self.dispatch_feeders:
+                                    for technology in node.technologies.keys():
+                                        indexer = util.level_specific_indexer(efficiency, [self.dispatch_geography, 'dispatch_feeder','supply_technology'],[geography,dispatch_feeder,technology])
+                                        self.storage_efficiency_dict[geography][zone][dispatch_feeder][technology] = efficiency.loc[indexer,:].values[0][0]
+                                        indexer = util.level_specific_indexer(capacity, [self.dispatch_geography, 'dispatch_feeder','supply_technology'],[geography,dispatch_feeder,technology])
+                                        self.storage_capacity_dict['power'][geography][zone][dispatch_feeder][technology] = capacity.loc[indexer,:].values[0][0]
+                                        indexer = util.level_specific_indexer(duration, [self.dispatch_geography, 'dispatch_feeder','supply_technology'],[geography,dispatch_feeder,technology])
+                                        self.storage_capacity_dict['duration'][geography][zone][dispatch_feeder][technology] = duration.loc[indexer,:].values[0][0]
                     else:
                         for geography in self.dispatch_geographies:
                             for technology in node.technologies.keys():
@@ -2510,10 +2541,11 @@ class SupplyNode(Node,StockItem):
         self.costs = {}
         self.create_costs()
                     
-    def calculate(self,years, demand_sectors, ghgs):
+    def calculate(self,years, demand_sectors, ghgs, distribution_grid_node_id):
         self.years = years
         self.demand_sectors = demand_sectors
         self.ghgs = ghgs
+        self.distribution_grid_node_id = distribution_grid_node_id
         self.add_stock()
         self.set_rollover_groups()
         attributes = vars(self)
@@ -2529,6 +2561,7 @@ class SupplyNode(Node,StockItem):
             self.nodes = set(self.coefficients.values.index.get_level_values('supply_node'))
         self.set_adjustments()
         self.set_pass_through_df_dict()
+
 
 
     def set_rollover_groups(self):
@@ -2551,6 +2584,10 @@ class SupplyNode(Node,StockItem):
                 if name == 'resource_bins' or name == 'demand_sector':
                     self.rollover_group_levels.append(list(level))
                     self.rollover_group_names.append(name)
+        if self.id == self.distribution_grid_node_id:
+            #requires distribution grid node to maintain demand sector resolution in its stocks
+            self.rollover_group_levels.append(self.demand_sectors)
+            self.rollover_group_names.append('demand_sector')
         self.rollover_group_names = [cfg.cfgfile.get('case', 'primary_geography')] + self.rollover_group_names
         self.rollover_group_levels = [cfg.geo.geographies[cfg.cfgfile.get('case', 'primary_geography')]] + self.rollover_group_levels
 
@@ -2673,11 +2710,14 @@ class SupplyNode(Node,StockItem):
             self.financial_stock(year)
                                      
     def ensure_capacity_factor(self):
-        if self.capacity_factor.data is False:
-            index = pd.MultiIndex.from_product(self.rollover_group_levels, names=self.rollover_group_names)
-            columns = self.years
-            self.capacity_factor.values = util.empty_df(index=index, columns=pd.Index(columns, dtype='object'),fill_value=1.0)
-            self.capacity_factor.data is True
+        index = pd.MultiIndex.from_product(self.rollover_group_levels, names=self.rollover_group_names)
+        columns = self.years
+        df = util.empty_df(index=index, columns=pd.Index(columns, dtype='object'),fill_value=1.0)
+        if self.capacity_factor.data is True:
+            self.capacity_factor.values = DfOper.mult([df,self.capacity_factor.values])
+        else:
+            self.capacity_factor.values = df
+        
     
     def calculate_dispatch_costs(self, year, embodied_cost_df, loop=None):
         if hasattr(self, 'is_flexible') and self.is_flexible:
@@ -2701,7 +2741,7 @@ class SupplyNode(Node,StockItem):
         if min(self.years) == year:
             for elements in self.rollover_groups.keys():    
                 elements = util.ensure_tuple(elements)
-                self.rollover_dict[elements].initial_stock = self.stock.requirement.loc[elements, year].values  
+                self.rollover_dict[elements].initial_stock = self.stock.requirement.loc[elements, year]  
         #run the stock rollover for the year and record values                
         for elements in self.rollover_groups.keys():    
             elements = util.ensure_tuple(elements)
@@ -2982,7 +3022,9 @@ class SupplyCapacityFactor(Abstract):
         self.demand_sectors = demand_sectors
         if self.data is True:
             self.remap()
-            self.convert()
+#            self.convert()
+            self.values = self.values.unstack('year')
+            self.values.columns = self.values.columns.droplevel()
 
 
 class SupplyPotential(Abstract):
@@ -3241,6 +3283,10 @@ class SupplyStockNode(Node):
                         if name == 'resource_bins' or name == 'demand_sector':
                             self.stock.rollover_group_levels.append(list(level))
                             self.stock.rollover_group_names.append(name)
+        if self.id == self.distribution_grid_node_id:
+            #requires distribution grid node to maintain demand sector resolution in its stocks
+            self.stock.rollover_group_levels.append(self.demand_sectors)
+            self.stock.rollover_group_names.append('demand_sector')
         self.stock.rollover_group_names = [cfg.cfgfile.get('case', 'primary_geography')] + self.stock.rollover_group_names
         self.stock.rollover_group_levels = [cfg.geo.geographies[cfg.cfgfile.get('case', 'primary_geography')]] + self.stock.rollover_group_levels
         
@@ -3250,10 +3296,11 @@ class SupplyStockNode(Node):
         self.stock.input_type = 'total'
 
 
-    def calculate(self, years, demand_sectors, ghgs): 
+    def calculate(self, years, demand_sectors, ghgs, distribution_grid_node_id): 
         self.years = years
         self.demand_sectors = demand_sectors
         self.ghgs = ghgs
+        self.distribution_grid_node_id = distribution_grid_node_id
         self.set_rollover_groups()
         attributes = vars(self)
         for att in attributes:
@@ -3710,7 +3757,7 @@ class SupplyStockNode(Node):
             self.stock.sales.loc[elements_indexer, 'value'], self.stock.sales_new.loc[elements_indexer, 'value'], \
             self.stock.sales_replacement.loc[elements_indexer, 'value'] = sales_record, sales_new, sales_replacement  
         if loop!= 'initial':
-            if self.thermal_dispatch_node:
+            if not self.thermal_dispatch_node:
                 self.calculate_actual_stock(year,loop)             
                 adjustment_factor = self.calculate_adjustment_factor(year)
                 for elements in self.rollover_groups.keys():

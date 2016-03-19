@@ -68,7 +68,7 @@ def dispatch_problem_formulation(_inputs, start_state_of_charge, end_state_of_ch
                 previous_timepoints[timepoint] = timepoint - 1
         return previous_timepoints
 
-    dispatch_model.previous_timepoint = Param(dispatch_model.TIMEPOINTS, initialize=previous_timepoint_init)
+    dispatch_model.previous_timepoint = Param(dispatch_model.TIMEPOINTS, within=PositiveIntegers initialize=previous_timepoint_init)
 
     # ### Geographic structure ### #
     dispatch_model.REGIONS = Set(initialize=_inputs.regions)

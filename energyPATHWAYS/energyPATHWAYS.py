@@ -41,7 +41,7 @@ class PathwaysModel(object):
     def configure_energy_system(self):
         print 'configuring energy system'
         self.demand = Demand()
-        self.supply = Supply()
+        self.supply = Supply(os.path.join(os.getcwd(),'outputs'))
         self.configure_demand()
         self.configure_supply()
         cfg.init_outputs_id_map()
@@ -228,16 +228,22 @@ class PathwaysModel(object):
         self.outputs.emissions = pd.concat([self.outputs.emissions],keys=keys,names=names)
         
 #        self.outputs.emissions.sort(inplace=True)        
-        
+            
     def calculate_combined_energy_results(self):
          self.embodied_energy = self.demand.outputs.return_cleaned_output('demand_embodied_energy')
+         self.embodied_energy = self.embodied_energy[self.embodied_energy ['VALUE']!=0]
          self.final_energy = self.demand.outputs.return_cleaned_output('energy')
          self.final_energy = self.final_energy[self.final_energy.index.get_level_values('YEAR')>=int(cfg.cfgfile.get('case','current_year'))]  
          self.embodied_energy['ENERGY ACCOUNTING'] = 'EMBODIED'
          self.final_energy['ENERGY ACCOUNTING'] = 'FINAL'
          self.embodied_energy.set_index('ENERGY ACCOUNTING',append=True,inplace=True)
          self.final_energy.set_index('ENERGY ACCOUNTING',append=True,inplace=True)
-#         self.outputs.energy = pd.concat([self.embodied_energy, self.final_energy],keys=['DROP'],names=['DROP'])
-         self.outputs.energy = util.DfOper.add([self.embodied_energy,self.final_energy])
+    #         self.outputs.energy = pd.concat([self.embodied_energy, self.final_energy],keys=['DROP'],names=['DROP'])
+         for name in [x for x in self.embodied_energy.index.names if x not in self.final_energy.index.names]:
+             self.final_energy[name] = "N/A"
+             self.final_energy.set_index(name,append=True,inplace=True)
+         self.final_energy = self.final_energy.reorder_levels(self.embodied_energy.index.names)
+         self.outputs.energy = pd.concat([self.embodied_energy,self.final_energy])
+         self.outputs.energy= self.outputs.energy[self.outputs.energy['VALUE']!=0]
          
          
