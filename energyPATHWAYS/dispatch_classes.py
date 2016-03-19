@@ -96,7 +96,7 @@ class Dispatch(object):
           self.period_flex_load_timepoints = dict()
           self.period_previous_timepoints = dict()
           for period in self.periods:
-              hours = [int(x) for x in list(period * 876 + np.asarray(self.period_hours,dtype=int))]
+              hours = [int(x) for x in list(period * self.opt_hours + np.asarray(self.period_hours,dtype=int))]
               self.period_timepoints[period] = hours
               self.period_flex_load_timepoints[period] = dict(zip(hours,util.rotate(hours,self.flex_load_constraints_offset)))     
               self.period_previous_timepoints[period] = dict(zip(hours,util.rotate(hours,1)))
@@ -145,7 +145,14 @@ class Dispatch(object):
                                if timeshift == 2:
                                   for timepoint in self.period_timepoints[period]:
                                       time_index =  timepoint-1
-                                      self.distribution_load[period][(geography,timepoint,feeder)] = load_df.iloc[time_index].values[0]
+                                      try:
+                                          self.distribution_load[period][(geography,timepoint,feeder)] = load_df.iloc[time_index].values[0]
+                                      except IndexError:
+                                          print self.distribution_load[period][(geography,timepoint,feeder)]
+                                          print len(load_df)
+                                          print time_index
+                                          print load_df.iloc[time_index].values[0]
+                                          asdf
                                       self.cumulative_distribution_load[period][(geography,timepoint,feeder)] = load_df.cumsum().iloc[time_index].values[0]
                                       self.distribution_gen[period][(geography,timepoint,feeder)] = gen_df.iloc[time_index].values[0] 
                                elif timeshift == 1:
