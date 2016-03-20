@@ -1252,7 +1252,6 @@ def flatten_list(list_to_flatten):
     """Returns a list with sublists removed"""
     return [item for sublist in list_to_flatten for item in sublist]
 
-
 def reindex_df_level_with_new_elements(df, level_name, new_elements, fill_value=np.nan):
     if (df.index.nlevels > 1 and level_name not in df.index.names) or (df.index.nlevels == 1 and level_name != df.index.name):
         return df
@@ -1263,14 +1262,7 @@ def reindex_df_level_with_new_elements(df, level_name, new_elements, fill_value=
         const_labels = OrderedSet([tuple([z if i != index_i else -1 for i, z in enumerate(lab)]) for lab in zip(*df.index.labels)])
         new_labels = flatten_list([[tuple([z if i != index_i else n for i, z in enumerate(lab)]) for n in range(len(new_elements))] for lab in const_labels])
         full_elements = [new_elements if name == level_name else level for name, level in zip(df.index.names, df.index.levels)]
-#        try:
         return df.reindex(index=pd.MultiIndex(levels=full_elements, labels=zip(*new_labels), names=df.index.names), fill_value=fill_value)
-#        except:
-#            print df
-#            print full_elements
-#            print zip(*new_labels)
-#            print df.index.names
-
     else:
         return df.reindex(index=pd.Index(new_elements, name=df.index.name), fill_value=fill_value)
 
@@ -1283,10 +1275,11 @@ def find_weibul_beta(mean_lifetime, lifetime_variance):
         return config.cfg.weibul_coeff_of_var['beta'][nearest_index(config.cfg.weibul_coeff_of_var['mean/std'], mean_to_std)]
 
 
-def add_and_set_index(df, index, value):
+def add_and_set_index(df, index, value, index_location=None):
     df[index] = value
-    df = df.set_index(index, append=True)
-    replace_index_name(df, index)
+    df = df.set_index(index, append=True).sort_index()
+    if index_location:
+        df = df.swaplevel(-1, index_location).sort_index()
     return df
     
 
