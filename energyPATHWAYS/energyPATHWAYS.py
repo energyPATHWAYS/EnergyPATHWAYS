@@ -133,9 +133,9 @@ class PathwaysModel(object):
     
     def export_results(self, append_results=False):
         for attribute in dir(self.outputs):
-            if isinstance(getattr(self.outputs,attribute),pd.DataFrame):
+            if isinstance(getattr(self.outputs,attribute), pd.DataFrame):
                 result_df = getattr(self.outputs, attribute)
-                ExportMethods.writeobj(attribute,result_df,os.path.join(os.getcwd(),'outputs'), append_results=append_results)
+                ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'outputs'), append_results=append_results)
     
     def calculate_combined_cost_results(self):
         #calculate and format export costs
