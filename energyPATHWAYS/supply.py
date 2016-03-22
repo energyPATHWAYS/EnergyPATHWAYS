@@ -166,18 +166,19 @@ class Supply(object):
         self.nodes = {}
         self.all_nodes = []
         self.blend_nodes = []
-        ids = [id for id in cfg.cur.execute('select id from SupplyNodes')]
+        cfg.cur.execute('select id from "SupplyNodes" order by id')
+        ids = [id for id in cfg.cur.fetchall()]
         for (id,) in ids:
             self.all_nodes.append(id)
 
     def add_nodes(self):  
         """Adds node instances for all active supply nodes"""
         for id in self.all_nodes:
-            query = cfg.cur.execute('select supply_type_id from SupplyNodes where id=?', (id,))
-            (supply_type_id,) = query.fetchone()
+            cfg.cur.execute('select supply_type_id from "SupplyNodes" where id=%s', (id,))
+            (supply_type_id,) = cfg.cur.fetchone()
             supply_type = util.id_to_name("supply_type_id", supply_type_id)
-            query = cfg.cur.execute('select is_active from SupplyNodes where id=?', (id,))
-            (is_active,) = query.fetchone()
+            cfg.cur.execute('select is_active from "SupplyNodes" where id=%s', (id,))
+            (is_active,) = cfg.cur.fetchone()
             if is_active == 1:
                 self.add_node(id, supply_type)
 
@@ -448,7 +449,7 @@ class Supply(object):
                 else:
                     coefficients = node.stock.coefficients
                 geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
-                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)     
+                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key)
                 indexer = util.level_specific_indexer(node.stock.coefficients.loc[:,year].to_frame(),'supply_node',[self.electricity_nodes[zone]+[zone]])
                 energy_demand = DfOper.mult([node.stock.values_energy.loc[:,year].to_frame(), coefficients.loc[indexer,year].to_frame()])
                 capacity = DfOper.mult([node.stock.values.loc[:,year].to_frame(), coefficients.loc[indexer,year].to_frame()])
@@ -497,7 +498,7 @@ class Supply(object):
             for node_id in non_thermal_dispatch_nodes:
                 node = self.nodes[node_id]
                 geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
-                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)     
+                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key)
 
                 energy = node.stock.values_energy.loc[:,year].to_frame()
                 capacity = node.stock.values.loc[:,year].to_frame()
@@ -548,7 +549,7 @@ class Supply(object):
                 else:
                     coefficients = node.stock.coefficients
                 geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
-                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)   
+                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key)
                 coefficients.sort(inplace=True)
                 indexer = util.level_specific_indexer(coefficients.loc[:,year].to_frame(),'supply_node',[self.electricity_nodes[zone]+[zone]])
 #                node.stock.values_energy.sort(inplace=True)
@@ -588,7 +589,7 @@ class Supply(object):
             for node_id in self.electricity_gen_nodes[zone]['non_dispatchable']:
                 node = self.nodes[node_id]
                 geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
-                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key,eliminate_zeros=False)     
+                map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key)
                 energy_supply = node.stock.values_energy.loc[:,year].to_frame()
                 if zone == self.distribution_node_id and 'demand_sector' not in node.stock.values.index.names:
                     #requires energy on the distribution system to be allocated to feeder for dispatch
@@ -1485,9 +1486,9 @@ class Node(DataMapFunctions):
             add all export measures in a selected package to a dictionary
             """
             self.export_measures = {}
-            ids = [id for id in
-                   cfg.cur.execute('select measure_id from SupplyExportMeasurePackagesData where package_id=?',
-                               (self.export_package_id,))]
+            cfg.cur.execute('select measure_id from "SupplyExportMeasurePackagesData" where package_id=%s',
+                                           (self.export_package_id,))
+            ids = [id for id in cfg.cur.fetchall()]
             for (id,) in ids:
                 self.add_export_measure(id)     
         
@@ -1857,9 +1858,9 @@ class BlendNode(Node):
             add all blend measures in a selected package to a dictionary
             """
             self.blend_measures = {}
-            ids = [id for id in
-                   cfg.cur.execute('select measure_id from BlendNodeBlendMeasurePackagesData where package_id=?',
-                               (self.blend_package_id,))]
+            cfg.cur.execute('select measure_id from "BlendNodeBlendMeasurePackagesData" where package_id=%s',
+                                           (self.blend_package_id,))
+            ids = [id for id in cfg.cur.fetchall()]
             for (id,) in ids:
                 self.add_blend_measure(id)     
             
@@ -2383,11 +2384,12 @@ class SupplyNode(Node,StockItem):
         else:
             return None
                 
-    def create_costs(self):        
-        ids = [id for id in cfg.cur.execute('select id from SupplyCost where supply_node_id=?', (self.id,))]
+    def create_costs(self):
+        cfg.cur.execute('select id from "SupplyCost" where supply_node_id=%s', (self.id,))
+        ids = [id for id in cfg.cur.fetchall()]
         for (id,) in ids:
-            query = cfg.cur.execute('select is_capital_cost from SupplyCost where id=?', (id,))
-            (is_capital_cost,) = query.fetchone()
+            cfg.cur.execute('select is_capital_cost from "SupplyCost" where id=%s', (id,))
+            (is_capital_cost,) = cfg.cur.fetchone()
             self.add_costs(id, is_capital_cost)
 
     def add_costs(self, id, is_capital_cost, **kwargs):
@@ -2875,8 +2877,8 @@ class SupplyStockNode(Node):
     
     
     def add_technologies(self):
-        ids = [id for id in cfg.cur.execute('select id from SupplyTechs where supply_node_id=?',
-                                        (self.id,))]
+        cfg.cur.execute('select id from "SupplyTechs" where supply_node_id=%s', (self.id,))
+        ids = [id for id in cfg.cur.fetchall()]
         for (id,) in ids:
             self.add_technology(id)
             
@@ -2905,9 +2907,9 @@ class SupplyStockNode(Node):
             add all stock measures in a selected package to a dictionary
             """
             self.stock_measures = {}
-            ids = [id for id in
-                   cfg.cur.execute('select measure_id from SupplyStockMeasurePackagesData where package_id=?',
-                               (self.stock_package_id,))]
+            cfg.cur.execute('select measure_id from "SupplyStockMeasurePackagesData" where package_id=%s',
+                                           (self.stock_package_id,))
+            ids = [id for id in cfg.cur.fetchall()]
             for (id,) in ids:
                 self.add_stock_measure(id)     
             
@@ -2922,9 +2924,9 @@ class SupplyStockNode(Node):
             add all sales measures in a selected package to a dictionary
             """
             self.sales_measures = {}
-            ids = [id for id in
-                   cfg.cur.execute('select measure_id from SupplySalesMeasurePackagesData where package_id=?',
-                               (self.sales_package_id,))]
+            cfg.cur.execute('select measure_id from "SupplySalesMeasurePackagesData" where package_id=%s',
+                                           (self.sales_package_id,))
+            ids = [id for id in cfg.cur.fetchall()]
             for (id,) in ids:
                 self.add_sales_measure(id)     
             
@@ -2939,9 +2941,9 @@ class SupplyStockNode(Node):
             add all sales share measures in a selected package to a dictionary
             """
             self.sales_share_measures = {}
-            ids = [id for id in
-                   cfg.cur.execute('select measure_id from SupplySalesShareMeasurePackagesData where package_id=?',
-                               (self.sales_share_package_id,))]
+            cfg.cur.execute('select measure_id from "SupplySalesShareMeasurePackagesData" where package_id=%s',
+                                           (self.sales_share_package_id,))
+            ids = [id for id in cfg.cur.fetchall()]
             for (id,) in ids:
                 self.add_sales_share_measure(id)     
             

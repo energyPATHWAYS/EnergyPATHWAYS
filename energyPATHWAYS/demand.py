@@ -105,7 +105,8 @@ class Demand(object):
         
     def add_drivers(self):
         """Loops through driver ids and call create driver function"""
-        ids = [id for id in cfg.cur.execute('select id from DemandDrivers')]
+        cfg.cur.execute('select id from "DemandDrivers"')
+        ids = [id for id in cfg.cur.fetchall()]
         for (id,) in ids:
             self.add_driver(id)
 
@@ -145,7 +146,8 @@ class Demand(object):
 
     def add_sectors(self):
         """Loop through sector ids and call add sector function"""
-        ids = [id for id in cfg.cur.execute('select id from DemandSectors')]
+        cfg.cur.execute('select id from "DemandSectors"')
+        ids = [id for id in cfg.cur.fetchall()]
         for (id,) in ids:
             self.add_sector(id)
 
@@ -276,8 +278,8 @@ class Sector(object):
         self.feeder_allocation = util.df_slice(feeder_allocation_class.values, id, 'demand_sector')
 
     def add_subsectors(self):
-        ids = [id for id in
-               cfg.cur.execute('select id from DemandSubsectors where sector_id=? and is_active=1', (self.id,))]
+        cfg.cur.execute("select id from \"DemandSubsectors\" where sector_id=%s and is_active='1'", (self.id,))
+        ids = [id for id in cfg.cur.fetchall()]
         for (id,) in ids:
             self.add_subsector(id, self.id)
 
@@ -767,9 +769,9 @@ class Subsector(DataMapFunctions):
         add all energy efficiency measures in a selected package to a dictionary
         """
         self.energy_efficiency_measures = {}
-        ids = [id for id in
-               cfg.cur.execute('select measure_id from DemandEnergyEfficiencyMeasurePackagesData where package_id=?',
-                           (self.energy_efficiency_package_id,))]
+        cfg.cur.execute('select measure_id from "DemandEnergyEfficiencyMeasurePackagesData" where package_id=%s',
+                                   (self.energy_efficiency_package_id,))
+        ids = [id for id in cfg.cur.fetchall()]
         for (id,) in ids:
             self.add_energy_efficiency_measure(id, self.cost_of_capital)
 
@@ -823,9 +825,9 @@ class Subsector(DataMapFunctions):
         add all service dmeand measures in a selected package to a dictionary
         """
         self.service_demand_measures = {}
-        ids = [id for id in
-               cfg.cur.execute('select measure_id from DemandServiceDemandMeasurePackagesData where package_id=?',
-                           (self.service_demand_package_id,))]
+        cfg.cur.execute('select measure_id from "DemandServiceDemandMeasurePackagesData" where package_id=%s',
+                                   (self.service_demand_package_id,))
+        ids = [id for id in cfg.cur.fetchall()]
 
         for (id,) in ids:
             self.add_service_demand_measure(id, self.cost_of_capital)
@@ -881,9 +883,9 @@ class Subsector(DataMapFunctions):
         add all fuel switching measures in a selected package to a dictionary
         """
         self.fuel_switching_measures = {}
-        ids = [id for id in
-               cfg.cur.execute('select measure_id from DemandFuelSwitchingMeasurePackagesData where package_id=?',
-                           (self.fuel_switching_package_id,))]
+        cfg.cur.execute('select measure_id from "DemandFuelSwitchingMeasurePackagesData" where package_id=%s',
+                                   (self.fuel_switching_package_id,))
+        ids = [id for id in cfg.cur.fetchall()]
         for (id,) in ids:
             self.add_fuel_switching_measure(id, self.cost_of_capital)
 
@@ -964,7 +966,8 @@ class Subsector(DataMapFunctions):
     def add_technologies(self, service_demand_unit, stock_time_unit):
         """loops through subsector technologies and adds technology instances to subsector"""
         self.technologies = {}
-        ids = [id for id in cfg.cur.execute('select id from DemandTechs where subsector_id=?', (self.id,))]
+        cfg.cur.execute('select id from "DemandTechs" where subsector_id=%s', (self.id,))
+        ids = [id for id in cfg.cur.fetchall()]
         for (id,) in ids:
             self.add_technology(id, self.id, service_demand_unit, stock_time_unit, self.cost_of_capital)
         self.tech_ids = self.technologies.keys()

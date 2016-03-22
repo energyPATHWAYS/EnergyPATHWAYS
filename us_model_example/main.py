@@ -11,7 +11,6 @@ from energyPATHWAYS.shape import shapes
 directory = os.getcwd()
 
 cfgfile_path = os.path.join(directory, 'configurations.INI')
-db_path = os.path.join(directory, 'pathways.db')
 custom_pint_definitions_path = os.path.join(directory, 'unit_defs.txt')
 
 ###########
@@ -28,25 +27,19 @@ append_results = True
 
 if __name__ == "__main__":
     if resolve_demand and resolve_supply:
-        model = energyPATHWAYS.PathwaysModel(db_path, cfgfile_path, custom_pint_definitions_path)
-        for scenario_id in model.scenario_dict.keys():
-            model.configure_energy_system()
-            model.populate_energy_system()
-            model.populate_measures(scenario_id)
-            model.calculate_demand_only()
-            if save_models:
-                with open(os.path.join(directory, str(scenario_id)+'_model.p'), 'wb') as outfile:
-                    pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)
-            model.pass_results_to_supply()
-            model.calculate_supply()
-            model.supply.calculate_loop()
-            if save_models:
-                with open(os.path.join(directory, str(scenario_id)+'full_model_run.p'), 'wb') as outfile:
-                    pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)
-            model.supply.calculate_supply_outputs()
-            model.pass_results_to_demand()
-            model.calculate_combined_results()
-            model.export_results(append_results)
+        model = energyPATHWAYS.PathwaysModel(cfgfile_path, custom_pint_definitions_path)
+        model.configure_energy_system()
+        model.populate_energy_system()
+        model.populate_measures()
+        model.calculate_demand_only()
+        with open(os.path.join(directory, 'model.p'), 'wb') as outfile:
+            pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)
+        model.pass_results_to_supply()
+        model.calculate_supply()
+        model.supply.calculate_loop()
+        if save_models:
+            with open(os.path.join(directory, 'full_model_run.p'), 'wb') as outfile:
+                pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)
     elif resolve_demand and not resolve_supply: 
         raise ValueError('Cant resolve demand and not resolve supply')
     elif resolve_supply and not resolve_demand:

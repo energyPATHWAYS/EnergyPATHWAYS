@@ -20,12 +20,34 @@ energyPATHWAYS can be installed using distutils
 
 In addition to installation of the energyPATHWAYS package, a model cannot be created until a set of data is supplied. The input data contain three components:
 
-- A sqlite database populating your energy system ([download](https://www.dropbox.com/s/1gyin06dmwn0ww8/pathways.db?dl=0) the U.S. DDPP team's database)
+- A database describing your energy system (see below)
 - Configuration file (e.g. energyPATHWAYS/us\_model\_example/configurations.INI)
 - Custom unit definitions (e.g. energyPATHWAYS/us\_model\_example/unit_defs.txt)
 
-Also located inside of the us\_model\_example folder is a script (main.py) that shows how a pathways model can be created and executed; after running the script, look in the output/ subdirectory for your results (it will be created if it doesn't exist). This documentation will become more developed over time as the energyPATHWAYS tool grows and the user community expands.
+### Database Setup
 
+Pathways currently requires access to an energy system database in a particular format, stored in [PostgreSQL](http://www.postgresql.org/). (As noted in `setup.py`, the psycopg2 package is therefore also required so that python can connect to PostgreSQL.) Future versions of energyPATHWAYS may support a wider variety of databases and/or input formats. If you are unfamiliar with PostgreSQL, we recommend installing it in the following ways:
+
+- Windows: [installers](http://www.postgresql.org/download/windows/)
+- Mac OS X: [Postgres.app](http://postgresapp.com/)
+- Linux: your preferred package manager (e.g. apt)
+
+As of this writing, energyPATHWAYS is being developed and tested against PostgreSQL 9.5.1, but this is subject to change.
+
+Once you have your PostgreSQL server up and running, you can load the energyPATHWAYS U.S. example model from energyPATHWAYS/us\_model\_example/pathways\_us.sql. Using the command line client, you can issue the following commands from the energyPATHWAYS/us\_model\_example/ directory. Depending on how your PostgreSQL installation is set up, you may need to provide a username to these commands using the `-U` option.
+
+```bash
+$ createdb pathways
+$ psql pathways < pathways_us.sql
+```
+
+You will then need to edit the database connection parameters at the top of energyPATHWAYS/us\_model\_example/configurations.INI so that energyPATHWAYS can find your database.
+
+Please note that energyPATHWAYS is under development and the database structure is subject to change; if you update to a new version of the code, you may need to update your database as well. Presently this requires either starting over with a new U.S. example database, or using git to examine the changes in the pathways\_us.sql file and applying them manually to your database. We are investigating ways to make this process easier.
+
+### Running the Model
+
+Also located inside of the us\_model\_example folder is a script (main.py) that shows how a pathways model can be created and executed; after running the script, look in the output/ subdirectory for your results (it will be created if it doesn't exist). This documentation will become more developed over time as the energyPATHWAYS tool grows and the user community expands.
 
 ## Background
 
