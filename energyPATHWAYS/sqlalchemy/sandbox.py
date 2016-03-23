@@ -40,35 +40,46 @@ class DemandDriver(Base):
     other_index_1 = relationship(u'OtherIndex', primaryjoin='DemandDriver.other_index_1_id == OtherIndex.id')
     other_index_2 = relationship(u'OtherIndex', primaryjoin='DemandDriver.other_index_2_id == OtherIndex.id')
 
-    #data = sqlalchemy.orm.column_property()
-
-    #demand_drivers_data = relationship(u'DemandDriversData', lazy='dynamic') # collection_class=pd.DataFrame - doesn't work: Type DataFrame must elect a remover method to be a collection class
-
     @classmethod
     def with_data(cls, df, **kw_args):
         new_obj = cls(**kw_args)
-        new_obj.data = df
+        new_obj.raw_values = df
         # can do whatever other validation we like here too
         new_obj.validate_data
         return new_obj
 
     @reconstructor
     def setup(self):
-        self.load_data()
-        self.validate_data()
+        self.load_raw_values()
+        self.validate_raw_values()
 
-    #@validates(data)
-    def validate_data(self):
-        assert len(self.data) > 1
+    #@validates(raw_values)
+    def validate_raw_values(self):
+        assert len(self.raw_values) > 1
 
-    def data_table(self):
+    def data_table_name(self):
         return getattr(sys.modules['generated'], 't_' + self.__tablename__ + 'Data')
 
-    def load_data(self):
-        self.data = data_provider.load(self.data_table(), self.id)
+    def load_raw_values(self):
+        self.raw_values = data_provider.load(self.data_table(), self.id)
 
-    def save_data(self):
-        data_provider.save(self.data_table(), self.id, self.data)
+    def save_raw_values(self):
+        data_provider.save(self.data_table_name(), self.id, self.raw_values)
+
+
+# FIXME: 'after_update' only happens if the object is "dirty"
+# so maybe we mark some random attribute as dirty in a setter for raw_values?
+# (http://stackoverflow.com/questions/29830229/force-object-to-be-dirty-in-sqlalchemy)
+# that covers the case where raw_values is replaced wholesale, but would not cover in-place updates within the
+# DataFrame. Also, it feels risky to dirty attributes that aren't really dirty.
+# Another option would be to register an event at the level of the session being flushed, and then loop through
+# all of the objects being saved (dirty or not) and see if their current raw_values are equal to what
+# data_provider.load() gives, saving the raw_values if they are different. That would be more foolproof
+# (assuming there's an easy way to test DataFrames for equality of contents?) but slower.
+@event.listens_for(DemandDriver, 'after_update')
+@event.listens_for(DemandDriver, 'after_insert')
+def updated(mapper, connection, target):
+    target.save_raw_values()
 
 
 # class DemandDriversData(Base):
