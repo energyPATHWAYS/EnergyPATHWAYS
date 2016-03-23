@@ -1,10 +1,12 @@
 import sqlalchemy
 import sqlalchemy.orm
+import dbConf
+from sqlalchemy.engine.url import URL
 import pandas as pd
-import ipdb
+#import ipdb
 
 # sandbox is just a copy of my pathways us_model_example database so I don't have to muck around
-engine = sqlalchemy.create_engine('postgresql://michael@localhost:5432/sandbox')
+engine = sqlalchemy.create_engine(URL(**dbConf.conf))
 Session = sqlalchemy.orm.sessionmaker(bind=engine)
 session = Session()
 
@@ -27,6 +29,9 @@ def refresh(table):
     frames[table] = pd.read_sql_table(table.name, engine, index_col=indexes).sort_index()
     #ipdb.set_trace()
 
+def simpleLoad(name):
+    return pd.read_sql_table(name, engine)
+
 def save(table, id_, df, refresh_after=True):
     # FIXME: need to add id column!
     del_rows = session.query(table).filter(table.c.id == id_)
@@ -39,3 +44,9 @@ def save(table, id_, df, refresh_after=True):
 
     if refresh_after:
         refresh(table)
+
+
+if __name__ == '__main__':
+    print 'testing data provider'
+    df = simpleLoad('DemandDriversData')
+    print(df)

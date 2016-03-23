@@ -14,6 +14,10 @@ setup(name='energyPATHWAYS',
                         'datetime',
                         'pytz',
                         'profilehooks',
-                        'psycopg2'
+                        'psycopg2',
+                        #'sqlalchemy',
+                        #'ipdb',
+                        #'jupyter',
+                        #'path.py'
                         ]
       )
