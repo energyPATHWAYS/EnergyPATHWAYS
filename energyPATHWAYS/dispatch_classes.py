@@ -145,7 +145,14 @@ class Dispatch(object):
                                if timeshift == 2:
                                   for timepoint in self.period_timepoints[period]:
                                       time_index =  timepoint-1
-                                      self.distribution_load[period][(geography,timepoint,feeder)] = load_df.iloc[time_index].values[0]
+                                      try:
+                                          self.distribution_load[period][(geography,timepoint,feeder)] = load_df.iloc[time_index].values[0]
+                                      except IndexError:
+                                          print self.distribution_load[period][(geography,timepoint,feeder)]
+                                          print len(load_df)
+                                          print time_index
+                                          print load_df.iloc[time_index].values[0]
+                                          asdf
                                       self.cumulative_distribution_load[period][(geography,timepoint,feeder)] = load_df.cumsum().iloc[time_index].values[0]
                                       self.distribution_gen[period][(geography,timepoint,feeder)] = gen_df.iloc[time_index].values[0] 
                                elif timeshift == 1:

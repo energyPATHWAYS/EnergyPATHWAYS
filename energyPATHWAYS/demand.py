@@ -45,9 +45,17 @@ class Demand(object):
         electric_energy = util.df_slice(energy, cfg.electricity_energy_type_id, 'energy_type')
 
     def aggregate_results(self):
-        output_list = ['energy', 'stock', 'investment_costs', 'levelized_costs']
-        for output in output_list:
-            setattr(self.outputs, output, self.group_output(output))
+        def remove_na_levels(df):
+            if df is None:
+                return None
+            levels_with_na_only = [name for level, name in zip(df.index.levels, df.index.names) if list(level)==[u'N/A']]
+            return util.remove_df_levels(df, levels_with_na_only).sort_index()
+            
+        output_list = ['energy', 'stock', 'investment_costs', 'levelized_costs', 'service_demand']
+        for output_name in output_list:
+            df = self.group_output(output_name)
+            df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
+            setattr(self.outputs, output_name, df)
             
     def link_to_supply(self, embodied_emissions_link, direct_emissions_link, energy_link, cost_link):   
         print "linking supply emissions to energy demand"
@@ -62,15 +70,13 @@ class Demand(object):
 
     def group_output(self, output_type, levels_to_keep=None):
         levels_to_keep = cfg.output_levels if levels_to_keep is None else levels_to_keep
-#        levels_to_keep = ['census region', 'sector', 'subsector', 'final_energy', 'year', 'technology']
-        sector_lookup = [(sector_id, sector.group_output(output_type, levels_to_keep)) for sector_id,sector in self.sectors.iteritems()]
-        df_list = [x[1] for x in sector_lookup]
-        keys = [x[0] for x in sector_lookup if x[1] is not None]           
-#        df_list = [sector.group_output(output_type, levels_to_keep) for sector in self.sectors.values()]
-#        keys = self.sectors.keys()
+        dfs = [sector.group_output(output_type, levels_to_keep) for sector in self.sectors.values()]
+        if all([df is None for df in dfs]) or not len(dfs):
+            return None
+        dfs, keys = zip(*[(df, key) for df, key in zip(dfs, self.sectors.keys()) if df is not None])
         new_names = 'sector'
-        return util.df_list_concatenate(df_list, keys, new_names, levels_to_keep)
-    
+        return util.df_list_concatenate(dfs, keys, new_names, levels_to_keep)
+
     def group_linked_output(self, supply_link, levels_to_keep=None):
         levels_to_keep = cfg.output_levels if levels_to_keep is None else levels_to_keep
 #        levels_to_keep = ['census region', 'sector', 'subsector', 'final_energy', 'year', 'technology']
@@ -312,11 +318,12 @@ class Sector(object):
 
     def group_output(self, output_type, levels_to_keep=None):
         levels_to_keep = cfg.output_levels if levels_to_keep is None else levels_to_keep
-        sub_lookup = [(subsector_id,subsector.group_output(output_type, levels_to_keep)) for subsector_id,subsector in self.subsectors.iteritems()]
-        df_list = [x[1] for x in sub_lookup]
-        keys = [x[0] for x in sub_lookup if x[1] is not None]
+        dfs = [subsector.group_output(output_type, levels_to_keep) for subsector in self.subsectors.values()]
+        if all([df is None for df in dfs]) or not len(dfs):
+            return None
+        dfs, keys = zip(*[(df, key) for df, key in zip(dfs, self.subsectors.keys()) if df is not None])
         new_names = 'subsector'
-        return util.df_list_concatenate(df_list, keys, new_names, levels_to_keep)
+        return util.df_list_concatenate(dfs, keys, new_names, levels_to_keep)
 
     def aggregate_electricity_shapes(self, year, default_shape=None):
         """ Final levels that will always return from this function
@@ -526,14 +533,26 @@ class Subsector(DataMapFunctions):
     def group_output(self, output_type, levels_to_keep=None):
         levels_to_keep = cfg.output_levels if levels_to_keep is None else levels_to_keep
         if output_type=='energy':
+            # a subsector type link would be something like building shell, which does not have an energy demand
             if self.sub_type != 'link':
-                return self.energy_forecast
+                return util.add_and_set_index(self.energy_forecast, 'unit', cfg.cfgfile.get('case', 'energy_unit').upper())
         elif output_type=='stock':
-            return self.format_output_stock(levels_to_keep) if hasattr(self, 'stock') else None
+            return self.format_output_stock(levels_to_keep)
         elif output_type=='investment_costs':
             return self.format_output_costs('investment', levels_to_keep) 
         elif output_type=='levelized_costs':
             return self.format_output_costs('levelized_costs', levels_to_keep)
+        elif output_type=='service_demand':
+            return self.format_output_service_demand(levels_to_keep)
+
+    def format_output_service_demand(self, override_levels_to_keep):
+        if not hasattr(self, 'service_demand'):
+            return None
+        levels_to_keep = cfg.output_levels if override_levels_to_keep is None else override_levels_to_keep
+        levels_to_eleminate = [l for l in self.service_demand.values.index.names if l not in levels_to_keep]
+        df = util.remove_df_levels(self.service_demand.values, levels_to_eleminate).sort()
+        df = util.add_and_set_index(df, 'unit', self.service_demand.unit.upper(), index_location=-2)
+        return df
 
     def format_output_stock(self, override_levels_to_keep=None):
         if not hasattr(self, 'stock'):
@@ -541,12 +560,15 @@ class Subsector(DataMapFunctions):
         levels_to_keep = cfg.output_levels if override_levels_to_keep is None else override_levels_to_keep
         levels_to_eleminate = [l for l in self.stock.values.index.names if l not in levels_to_keep]
         df = util.remove_df_levels(self.stock.values, levels_to_eleminate).sort()
-        df= df.stack().to_frame()
+        # stock starts with vintage as an index and year as a column, but we need to stack it for export
+        df = df.stack().to_frame()
         util.replace_column_name(df,'value')
         util.replace_index_name(df, 'year')
+        index_location = -3 if ('year' in levels_to_keep and 'vintage' in levels_to_keep) else -2
+        df = util.add_and_set_index(df, 'unit', self.stock.unit.upper(), index_location)
         return df
         
-    def format_output_measure_costs(self,att,override_levels_to_keep=None):
+    def format_output_measure_costs(self, att, override_levels_to_keep=None):
         measure_types = [x for x in ['ee_stock','fs_stock','sd_stock'] if hasattr(self,x)]
         if len(measure_types):
             df_list = []
@@ -560,6 +582,7 @@ class Subsector(DataMapFunctions):
             keys = measure_types
             names = ['measure_types']
             df = pd.concat(df_list,keys=keys,names=names)
+            df = util.add_and_set_index(df, 'unit', cfg.output_currency.upper())
             return df
         else:
             return None
@@ -596,9 +619,9 @@ class Subsector(DataMapFunctions):
                 value.columns = ['value']
                 util.replace_index_name(value, 'year')
                 values[index] = value
-        return util.df_list_concatenate(values, keys=keys, new_names=['cost category', 'new/replacement'], levels_to_keep=override_levels_to_keep)
-        
-    
+        df = util.df_list_concatenate(values, keys=keys, new_names=['cost category', 'new/replacement'], levels_to_keep=override_levels_to_keep)
+        df = util.add_and_set_index(df, 'unit', cfg.output_currency.upper())
+        return df
 
     def calculate_measures(self):
         """calculates measures for use in subsector calculations """
@@ -1376,7 +1399,7 @@ class Subsector(DataMapFunctions):
         
         for technology in self.technologies.values():
             if technology.survival_vintaged[1] < rollover_threshold:
-                print '       '+'increasing ' + ' stock rollover time steps per year to ' + str(steps_per_year*2) + 'to account for short lifetimes of equipment'
+                print '       '+'increasing stock rollover time steps per year to ' + str(steps_per_year*2) + ' to account for short lifetimes of equipment'
                 self.calc_tech_survival_functions(steps_per_year=steps_per_year*2)
 
     def calc_measure_survival_functions(self, measures):
