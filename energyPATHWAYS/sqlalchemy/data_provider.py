@@ -3,12 +3,11 @@ import sqlalchemy.orm
 import dbConf
 from sqlalchemy.engine.url import URL
 import pandas as pd
-#import ipdb
+import ipdb
 
 # sandbox is just a copy of my pathways us_model_example database so I don't have to muck around
-engine = sqlalchemy.create_engine(URL(**dbConf.conf))
+engine = sqlalchemy.create_engine(URL(**dbConf.conf)) #,echo=True)
 Session = sqlalchemy.orm.sessionmaker(bind=engine)
-session = Session()
 
 frames = {}
 
@@ -32,7 +31,11 @@ def refresh(table):
 def simpleLoad(name):
     return pd.read_sql_table(name, engine)
 
-def save(table, id_, df, refresh_after=True):
+def save(table, id_, df, session=None, refresh_after=True):
+    internalSession = False
+    if session is None: 
+        session = Session()
+        internalSession = True
     # FIXME: need to add id column!
     del_rows = session.query(table).filter(table.c.id == id_)
     # I think synchronize_session= is only necessary here because the data table is a full-fledged Model;
@@ -44,6 +47,10 @@ def save(table, id_, df, refresh_after=True):
 
     if refresh_after:
         refresh(table)
+
+    if internalSession: 
+        session.commit()
+        session.close()
 
 
 if __name__ == '__main__':

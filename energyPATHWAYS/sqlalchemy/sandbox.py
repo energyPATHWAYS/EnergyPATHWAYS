@@ -83,8 +83,8 @@ class DemandDriver(Base):
 #
 #     demand_driver = relationship(DemandDriver)
 
-Session = sessionmaker(bind=data_provider.engine)
-session = Session()
+
+session = data_provider.Session()
 
 with ipdb.launch_ipdb_on_exception():
     dd = session.query(DemandDriver).first()
