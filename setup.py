@@ -5,6 +5,8 @@ setup(name='energyPATHWAYS',
       description='Software package for long-term energy system modeling',
       url='https://github.com/energyPATHWAYS/energyPATHWAYS',
       author='Ben Haley, Ryan Jones, Ana Mileva',
+      test_suite='nose.collector',
+      tests_require=['nose'],
       packages=find_packages(),
       install_requires=['pandas',
                         'numpy',
@@ -18,6 +20,7 @@ setup(name='energyPATHWAYS',
                         #'sqlalchemy',
                         #'ipdb',
                         #'jupyter',
-                        #'path.py'
+                        #'path.py',
+                        #'mock',
                         ]
       )

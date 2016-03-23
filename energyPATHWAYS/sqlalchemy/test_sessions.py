@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+__author__ = 'Sam'
+
 import sqlalchemy as sa
 from sqlalchemy.orm import sessionmaker, backref, validates, reconstructor
 from sqlalchemy.orm import relationship
@@ -36,7 +39,7 @@ def timed(prefix='time'):
     start = time.time()
     yield
     end = time.time()
-    print '%s: %0.4f s' % (prefix, end - start)
+    print '%s: %0.4fs' % (prefix, end - start)
 
 
 class TestData(Base):
@@ -116,7 +119,7 @@ class SessionTest(unittest.TestCase):
 
     def test_ORM_object_select(self):
         session = Session()
-        with timed():
+        with timed('ORM objects'):
             foo = session.query(TestData).filter(TestData.parent_id==1).all()
             print '%d TestData objects instantiated' % len(foo)
             print 'Conversion of objects into data frame TBD!'
@@ -129,7 +132,7 @@ class SessionTest(unittest.TestCase):
         session.close()
         print(tid)
         session = Session()
-        with timed('Core sql'):
+        with timed('Core sql into pd.DF'):
             s = select([TestData]).where(TestData.__table__.c.parent_id == tid)
             df = pd.read_sql_query(s,engine)
             #print(df)
