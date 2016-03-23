@@ -59,8 +59,8 @@ class Dispatch(object):
         self.dispatch_window_dict = dict(util.sql_read_table('DispatchWindows'))  
         self.curtailment_cost = util.unit_convert(10**2,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
         self.unserved_energy_cost = util.unit_convert(10**5,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
-        self.dist_net_load_penalty = 1000
-        self.bulk_net_load_penalty = 1000
+        self.dist_net_load_penalty = util.unit_convert(10**3,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
+        self.bulk_net_load_penalty = util.unit_convert(10**3,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
         self.dispatch_feeders = dispatch_feeders
         self.feeders = [0] + dispatch_feeders
         self.dispatch_geography = dispatch_geography
@@ -96,7 +96,7 @@ class Dispatch(object):
           self.period_flex_load_timepoints = dict()
           self.period_previous_timepoints = dict()
           for period in self.periods:
-              hours = [int(x) for x in list(period * 876 + np.asarray(self.period_hours,dtype=int))]
+              hours = [int(x) for x in list(period * self.opt_hours + np.asarray(self.period_hours,dtype=int))]
               self.period_timepoints[period] = hours
               self.period_flex_load_timepoints[period] = dict(zip(hours,util.rotate(hours,self.flex_load_constraints_offset)))     
               self.period_previous_timepoints[period] = dict(zip(hours,util.rotate(hours,1)))
@@ -224,8 +224,8 @@ class Dispatch(object):
         index = pd.MultiIndex.from_product([self.dispatch_geographies, self.dispatch_feeders, self.hours], names=[self.dispatch_geography,'dispatch_feeder','hour'])
         self.flex_load_df = util.empty_df(index=index,columns=[year],fill_value=0.0)    
     
+        
     
-
     def set_technologies(self,storage_capacity_dict, storage_efficiency_dict, thermal_dispatch_dict, generators_per_region=2):
       """prepares storage technologies for dispatch optimization
         args:
@@ -591,43 +591,6 @@ class Dispatch(object):
         dispatch_results = dict(zip(['market_price', 'production_cost', 'gen_energies', 'gen_cf', 'gen_dispatch_shape', 'stock_changes'],
                                     [market_prices,    production_costs,   gen_energies,   gen_cf,   gen_dispatch_shape, stock_changes]))
         return dispatch_results
-        
-#    
-##    load = pd.DataFrame.from_csv('load.csv')
-#    load = load.values.flatten()
-#    
-#    dispatch_periods = pd.DataFrame.from_csv('dispatch_periods.csv')
-#    dispatch_periods = dispatch_periods.values.flatten()
-#    
-#    marginal_costs = pd.DataFrame.from_csv('marginal_costs.csv').values
-#    pmaxs = pd.DataFrame.from_csv('pmaxs.csv').values
-#    outage_rates = pd.DataFrame.from_csv('outage_rates.csv').values
-#    must_runs = pd.DataFrame.from_csv('must_runs.csv').values
-    
-    #t = time.time()
-    #for i in range(100):
-    #    dispatch = dispatch_to_energy_budget(load, [-5000*8760/12]*12, dispatch_periods=dispatch_periods, pmins=0, pmaxs=10000)
-    #t = e3.utils.time_stamp(t)
-    #
-    #plt.plot(load)
-    #plt.plot(load+dispatch)
-    
-#    t = time.time()
-#    for i in range(1):
-#        maintenance_rates = schedule_generator_maintenance(load, pmaxs, outage_rates[0], dispatch_periods=dispatch_periods)
-#    t = e3.utils.time_stamp(t)
-#    
-#    for i in range(1):
-#        dispatch_results = generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods, outage_rates, maintenance_rates, must_runs)
-#    e3.utils.time_stamp(t)
-    
-    #plt.plot(dispatch_results['gen_cf'])
-    #plt.plot(dispatch_results['market_price'])
-    #plt.plot(dispatch_results['production_cost'])
-    
-    #print np.mean(dispatch_results['market_price'])
-    #print np.sum(dispatch_results['production_cost'])
-        
 
 
 
@@ -645,6 +608,7 @@ class Dispatch(object):
         if self.stdout_detail:
             print "Creating model instance..."
         instance = model.create_instance(data)
+        self.instance = instance
         if self.stdout_detail:
             print "Getting solver..."
         solver = SolverFactory(self.solver_name)
@@ -668,9 +632,7 @@ class Dispatch(object):
                 self.results = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)
                 self.export_storage_results(self.results, period) 
                 self.export_flex_load_results(self.results, period)
-#                self.export_dispatch_results(results,os.path.join(os.getcwd(),"dispatch_outputs"),period)                
-#                model = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)               
-#                self.model = model
+
                 
     def run_year_to_month_allocation(self):
         model = year_to_period_allocation.year_to_period_allocation_formulation(self)
@@ -703,7 +665,7 @@ class Dispatch(object):
 
 
     def export_storage_results(self,instance,period):
-        hours = list(period * 876 + np.asarray(self.period_hours))        
+        hours = list(period * self.opt_hours + np.asarray(self.period_hours))        
         timepoints_set = getattr(instance, "TIMEPOINTS")
         storage_tech_set = getattr(instance, "STORAGE_TECHNOLOGIES")
         #TODO Ryan List Comprehension
@@ -735,7 +697,7 @@ class Dispatch(object):
                 self.dist_storage_df.loc[discharge_indexer,:] += discharge
        
     def export_flex_load_results(self,instance, period):   
-        hours = list(period * 876 + np.asarray(self.period_hours)) 
+        hours = list(period * self.opt_hours + np.asarray(self.period_hours)) 
         timepoints_set = getattr(instance, "TIMEPOINTS")
         geographies_set = getattr(instance, "GEOGRAPHIES")
         feeder_set = getattr(instance,"FEEDERS")
@@ -750,45 +712,6 @@ class Dispatch(object):
                     flex_load = np.asarray(flex_load)
                     self.flex_load_df.loc[indexer,:] = flex_load 
 
-#class PathwaysOpt:
-#    """
-#    Data and functions for the dispatch optimization.
-#    """
-#    def __init__(self,  solver_name, stdout_detail,
-#                 solve_kwargs, results_directory):
-#        # Settings, etc.
-#        self.solver_name = solver_name
-#        self.stdout_detail = stdout_detail
-#        self.solve_kwargs = solve_kwargs
-#        self.results_directory = results_directory
-#
-#    def run_dispatch_optimization(self, Dispatch, start_state_of_charge, end_state_of_charge, period):
-#        """
-#        :param period:
-#        :return:
-#        """
-#
-#        start_time = datetime.datetime.now()
-#
-#        if self.stdout_detail:
-#            print "Optimizing dispatch for period " + str(period)
-#
-#        # Directory structure
-#        # This won't be needed when inputs are loaded from memory
-#
-#        if self.stdout_detail:
-#            print "Getting problem formulation..."
-#        model = dispatch_problem_PATHWAYS.dispatch_problem_formulation(Dispatch, start_state_of_charge,
-#                                                              end_state_of_charge, period)
-#        
-#        results = Dispatch.run_pyomo(model, None, self.solver_name, self.stdout_detail, **self.solve_kwargs)
-#
-#        if self.stdout_detail:
-#            print "Exporting results..."
-#        # TODO: currently exports results to CSVs; need to figure out what outputs are needed and how to pass them
-#        export_results.export_dispatch_results(results, self.results_directory, period)
-#
-#        print "   ...total time for period " + str(period) + ": " + str(datetime.datetime.now()-start_time)
 
 
 #def run_opt_multi(_dispatch, period):

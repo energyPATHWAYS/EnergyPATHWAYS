@@ -554,19 +554,34 @@ class Supply(object):
         self.dispatch.set_average_net_loads(self.bulk_net_load)
         self.dispatch.set_opt_result_dfs(year)
      
-    def solve_optimization(self):
-        self.dispatch.run_optimization()
      
+    def set_grid_capacity_factors(self, year):
+        dist_cap_factor = DfOper.divi([self.dist_only_net_load.mean(),self.dist_only_net_load.max()])
+        bulk_flow = DfOper.add([self.dist_net_load_no_feeders,self.bulk_load])
+        bulk_cap_factor = DfOper.divi([bulk_flow.mean(),bulk_flow.max()]) 
+        
+                
+        
+        
+        
+    def solve_storage_and_flex_load_optimization(self,year):
+        self.prepare_optimization_inputs(year)
+        self.dispatch.run_optimization()
+        for geography in self.dispatch.geographies:
+            for feeder in self.dispatch_feeders:
+                load_indexer = util.level_specific_indexer(self.distribution_load, [self.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, 2])
+                self.distribution_load.loc[load_indexer,: ] += util.df_slice(self.dispatch.dist_storage_df,[geography, feeder, 'charge'], [self.dispatch_geography, 'dispatch_feeder', 'charge_discharge']).values
+                self.distribution_load.loc[load_indexer,: ] += util.df_slice(self.dispatch.flex_load_df,[geography, feeder], [self.dispatch_geography, 'dispatch_feeder']).values             
+                gen_indexer = util.level_specific_indexer(self.distribution_gen,[self.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, 2])
+                self.distribution_gen.loc[gen_indexer,: ] += util.df_slice(self.dispatch.dist_storage_df,[geography, feeder, 'discharge'], [self.dispatch_geography, 'dispatch_feeder', 'charge_discharge']).values
+        for geography in self.dispatch.geographies:       
+            load_indexer = util.level_specific_indexer(self.bulk_load, [self.dispatch_geography], [geography])
+            self.bulk_load.loc[load_indexer,: ] += util.df_slice(self.dispatch.bulk_storage_df,[geography,'charge'], [self.dispatch_geography, 'charge_discharge']).values
+            gen_indexer = util.level_specific_indexer(self.bulk_gen, [self.dispatch_geography], [geography])
+            self.bulk_gen.loc[gen_indexer,: ] += util.df_slice(self.dispatch.bulk_storage_df,[geography,'discharge'], [self.dispatch_geography, 'charge_discharge']).values    
+        self.update_net_load_signal()  
      
     def set_distribution_losses(self,year):
-#        if self.nodes[self.distribution_node_id].supply_type == 'Delivery':
-#            distribution_grid_node = self.nodes[self.distribution_node_id]
-#            coefficients  = distribution_grid_node.active_coefficients_total.sum().to_frame()
-#        else:
-#            for node_id in list(set(self.nodes[self.distribution_node_id].active_coefficients_total.index.get_level_values('supply_node'))):
-#                if self.nodes[node_id].supply_type == 'Delivery' and self.transmission_node_id in self.nodes[node_id].active_coefficients_total.index.get_level_values('supply_node'):
-#                    distribution_grid_node = self.nodes[node_id]                    
-#                    coefficients = distribution_grid_node.active_coefficients_total.sum().to_frame()
         distribution_grid_node =self.nodes[self.distribution_grid_node_id] 
         coefficients = distribution_grid_node.active_coefficients_total.sum().to_frame()
         indexer = util.level_specific_indexer(self.dispatch_feeder_allocation.values, 'year', year)
@@ -792,6 +807,7 @@ class Supply(object):
         
     def solve_electricity_dispatch(self,year):
         self.solve_heuristic_load_and_gen(year)
+#        self.solve_storage_and_flex_load_optimization(year)
         self.solve_thermal_dispatch(year)        
         
     def prepare_thermal_dispatch_nodes(self,year,loop):
@@ -1117,8 +1133,7 @@ class Supply(object):
                 df_node.append(pd.concat(df_feeder, keys=self.dispatch_feeders, names=['dispatch_feeder']))
             df_geo.append(DfOper.add(df_node, expandable=False, collapsible=False))
         return pd.concat(df_geo, keys=self.dispatch_geographies, names=[self.dispatch_geography])    
-            
-            
+        
     def shaped_bulk(self, year, load_or_gen_dict):
         df_geo = []
         for geography in self.dispatch_geographies:
@@ -1145,9 +1160,11 @@ class Supply(object):
         
         
     def update_net_load_signal(self):    
-        self.bulk_net_load = DfOper.subt([DfOper.add([util.remove_df_levels(DfOper.mult([DfOper.subt([self.distribution_load,self.distribution_gen]),self.distribution_losses]),'dispatch_feeder'),self.bulk_load]),self.bulk_gen])
-        self.dist_net_load_no_feeders = DfOper.subt([DfOper.add([DfOper.divi([DfOper.subt([self.bulk_load,self.bulk_gen]),util.remove_df_levels(self.distribution_losses,'dispatch_feeder',agg_function='mean')]),self.distribution_load]),self.distribution_gen])
-            
+        self.dist_only_net_load =  DfOper.subt([self.distribution_load,self.distribution_gen])
+        self.bulk_only_net_load = DfOper.subt([self.bulk_load,self.bulk_gen])
+        self.bulk_net_load = DfOper.add([util.remove_df_levels(DfOper.mult([self.dist_only_net_load,self.distribution_losses]),'dispatch_feeder'),self.bulk_only_net_load])                      
+        self.dist_net_load_no_feeders = DfOper.add([DfOper.divi([self.bulk_only_net_load,util.remove_df_levels(self.distribution_losses,'dispatch_feeder',agg_function='mean')]), self.dist_only_net_load])
+
         
             
     def calculate_embodied_costs(self, year):
