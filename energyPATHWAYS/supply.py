@@ -468,6 +468,7 @@ class Supply(object):
 
 
     def solve_heuristic_load_and_gen(self, year):
+        """solves dispatch shapes for heuristically dispatched nodes (ex. conventional hydro)"""
         def split_and_apply(array, dispatch_periods, fun):
             energy_by_block = np.array_split(array, np.where(np.diff(dispatch_periods)!=0)[0]+1)
             return [fun(block) for block in energy_by_block]     
@@ -477,6 +478,7 @@ class Supply(object):
         self.dispatched_dist_gen = copy.deepcopy(self.distribution_gen)*0
         for node_id in [x for x in self.dispatch.dispatch_order if x in self.nodes.keys()]:
             node = self.nodes[node_id]
+            print "solving dispatch for %s" %node.name
             full_energy_shape, p_min_shape, p_max_shape = node.aggregate_flexible_electricity_shapes(year, util.remove_df_levels(util.df_slice(self.dispatch_feeder_allocation.values,year,'year'),year))
             if node_id in self.flexible_gen.keys():
                 lookup = self.flexible_gen
@@ -546,6 +548,7 @@ class Supply(object):
            
 
     def prepare_optimization_inputs(self,year):
+        print "preparing optimization inputs"
         self.dispatch.set_timeperiods(shapes.active_dates_index)
         self.dispatch.set_losses(self.distribution_losses)
         self.set_net_load_thresholds(year)
@@ -556,25 +559,37 @@ class Supply(object):
      
      
     def set_grid_capacity_factors(self, year):
-        dist_cap_factor = DfOper.divi([self.dist_only_net_load.mean(),self.dist_only_net_load.max()])
+        max_year = max(self.years)
+        distribution_grid_node = self.nodes[self.distribution_grid_node_id]        
+        dist_cap_factor = DfOper.divi([self.dist_only_net_load.groupby(level=[self.dispatch_geography,'dispatch_feeder']).mean(),self.dist_only_net_load.groupby(level=[self.dispatch_geography,'dispatch_feeder']).max()])
+        geography_map_key = distribution_grid_node.geography_map_key if hasattr(distribution_grid_node, 'geography_map_key') and distribution_grid_node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')       
+        map_df = cfg.geo.map_df(self.dispatch_geography, self.geography, geography_map_key, eliminate_zeros=False)
+        dist_cap_factor = util.remove_df_levels(DfOper.mult([dist_cap_factor,map_df]),self.dispatch_geography)        
+        dist_cap_factor = util.remove_df_levels(DfOper.mult([dist_cap_factor, util.df_slice(self.dispatch_feeder_allocation.values,year, 'year')]),'dispatch_feeder')
+        distribution_grid_node.capacity_factor.values.loc[:,year] = dist_cap_factor.values
+        distribution_grid_node.capacity_factor.values.loc[:,min(year+1,max_year)] = dist_cap_factor.values
         bulk_flow = DfOper.add([self.dist_net_load_no_feeders,self.bulk_load])
-        bulk_cap_factor = DfOper.divi([bulk_flow.mean(),bulk_flow.max()]) 
-        
-                
-        
-        
+        bulk_cap_factor = DfOper.divi([bulk_flow.groupby(level=self.dispatch_geography).mean(),bulk_flow.groupby(level=self.dispatch_geography).max()]) 
+        transmission_grid_node = self.nodes[self.transmission_node_id]        
+        geography_map_key = transmission_grid_node.geography_map_key if hasattr(transmission_grid_node, 'geography_map_key') and transmission_grid_node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')       
+        map_df = cfg.geo.map_df(self.dispatch_geography, self.geography, geography_map_key, eliminate_zeros=False)
+        bulk_cap_factor = util.remove_df_levels(DfOper.mult([bulk_cap_factor,map_df]),self.dispatch_geography)       
+        transmission_grid_node.capacity_factor.values.loc[:,year] = bulk_cap_factor.values
+        transmission_grid_node.capacity_factor.values.loc[:,min(year+1,max_year)] = bulk_cap_factor.values
         
     def solve_storage_and_flex_load_optimization(self,year):
+        """prepares, solves, and updates the net load with results from the storage and flexible load optimization""" 
         self.prepare_optimization_inputs(year)
+        print "solving storage and dispatchable load optimization"
         self.dispatch.run_optimization()
-        for geography in self.dispatch.geographies:
+        for geography in self.dispatch_geographies:
             for feeder in self.dispatch_feeders:
                 load_indexer = util.level_specific_indexer(self.distribution_load, [self.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, 2])
                 self.distribution_load.loc[load_indexer,: ] += util.df_slice(self.dispatch.dist_storage_df,[geography, feeder, 'charge'], [self.dispatch_geography, 'dispatch_feeder', 'charge_discharge']).values
                 self.distribution_load.loc[load_indexer,: ] += util.df_slice(self.dispatch.flex_load_df,[geography, feeder], [self.dispatch_geography, 'dispatch_feeder']).values             
                 gen_indexer = util.level_specific_indexer(self.distribution_gen,[self.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, 2])
                 self.distribution_gen.loc[gen_indexer,: ] += util.df_slice(self.dispatch.dist_storage_df,[geography, feeder, 'discharge'], [self.dispatch_geography, 'dispatch_feeder', 'charge_discharge']).values
-        for geography in self.dispatch.geographies:       
+        for geography in self.dispatch_geographies:       
             load_indexer = util.level_specific_indexer(self.bulk_load, [self.dispatch_geography], [geography])
             self.bulk_load.loc[load_indexer,: ] += util.df_slice(self.dispatch.bulk_storage_df,[geography,'charge'], [self.dispatch_geography, 'charge_discharge']).values
             gen_indexer = util.level_specific_indexer(self.bulk_gen, [self.dispatch_geography], [geography])
@@ -792,6 +807,7 @@ class Supply(object):
             year (int) = year of analysis 
             loop (int or str) = loop identifier
         """
+        print "initiating electricity dispatch"
         self.set_electricity_gen_nodes(self.nodes[self.distribution_node_id],self.nodes[self.distribution_node_id])
         self.set_electricity_load_nodes()
         self.set_dispatchability()
@@ -807,8 +823,10 @@ class Supply(object):
         
     def solve_electricity_dispatch(self,year):
         self.solve_heuristic_load_and_gen(year)
-#        self.solve_storage_and_flex_load_optimization(year)
+        self.solve_storage_and_flex_load_optimization(year)
+        self.set_grid_capacity_factors(year)
         self.solve_thermal_dispatch(year)        
+                
         
     def prepare_thermal_dispatch_nodes(self,year,loop):
         """Calculates the operating cost of all thermal dispatch resources 
@@ -1004,8 +1022,6 @@ class Supply(object):
                 keys=list(set(df.index.get_level_values(name)))
                 map_df = pd.concat([map_df]*len(keys),keys=keys,names=[name])
             map_df.index = map_df.index.droplevel(None)
-    #        self.map_df_lookup = copy.deepcopy(map_df)
-    #        map_df = map_df*0
             names = [x for x in df.columns.names if x not in map_df.columns.names]
             names.reverse()
             keys = []
@@ -1020,13 +1036,11 @@ class Supply(object):
             new_geographies =list(set(map_df.columns.get_level_values(new_geography)))
             for old in old_geographies:
                 for new in new_geographies:
-    #                for sector in self.demand_sectors:
-    #                    row_indexer_lookup = util.level_specific_indexer(self.map_df_lookup,[old_geography,'demand_sector'],[old,sector],axis=0)
-                        row_indexer = util.level_specific_indexer(df,[new_geography],[new],axis=0)
-                        col_indexer = util.level_specific_indexer(df,[old_geography,new_geography],[old,new],axis=1)
-                        shape = (df.loc[row_indexer,col_indexer].values.shape)
-                        diag = np.ndarray(shape)
-                        np.fill_diagonal(diag,1)
+                    row_indexer = util.level_specific_indexer(df,[new_geography],[new],axis=0)
+                    col_indexer = util.level_specific_indexer(df,[old_geography,new_geography],[old,new],axis=1)
+                    shape = (df.loc[row_indexer,col_indexer].values.shape)
+                    diag = np.ndarray(shape)
+                    np.fill_diagonal(diag,1)
             df *= map_df.values
             df = df.groupby(level=util.ix_excl(df,old_geography,axis=1),axis=1).sum()
             return df
@@ -1163,7 +1177,7 @@ class Supply(object):
         self.dist_only_net_load =  DfOper.subt([self.distribution_load,self.distribution_gen])
         self.bulk_only_net_load = DfOper.subt([self.bulk_load,self.bulk_gen])
         self.bulk_net_load = DfOper.add([util.remove_df_levels(DfOper.mult([self.dist_only_net_load,self.distribution_losses]),'dispatch_feeder'),self.bulk_only_net_load])                      
-        self.dist_net_load_no_feeders = DfOper.add([DfOper.divi([self.bulk_only_net_load,util.remove_df_levels(self.distribution_losses,'dispatch_feeder',agg_function='mean')]), self.dist_only_net_load])
+        self.dist_net_load_no_feeders = DfOper.add([DfOper.divi([self.bulk_only_net_load,util.remove_df_levels(self.distribution_losses,'dispatch_feeder',agg_function='mean')]), util.remove_df_levels(self.dist_only_net_load,'dispatch_feeder')])
 
         
             
@@ -1258,7 +1272,7 @@ class Supply(object):
 #       levels = [x for x in ['supply_node',self.geography +'_supply', 'ghg',self.geography,'final_energy'] if x in df.index.names]
         return df
         
-    @timecall    
+
     def map_embodied_to_export(self, embodied_dict):
         """Maps embodied emissions results for supply node to their associated final energy type and then
         to final energy demand. 

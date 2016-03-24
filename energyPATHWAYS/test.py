@@ -19,25 +19,19 @@ from energyPATHWAYS import util
 import pandas as pd
 
 
-
-def set_thermal_coefficients(self,year):
-    row_index = pd.MultiIndex.from_product([self.geographies, self.thermal_dispatch_nodes], names=[self.geography, 'supply_node'])
-    col_index = pd.multiIndex.from_product([self.dispatch_geographies])
-    df = util.empty_df(index=row_index,columns=col_index)
+def solve_storage_and_flex_load_optimization(self,year):
+    self.prepare_optimization_inputs(year)
+    self.dispatch.run_optimization()
     for geography in self.dispatch_geographies:
-        for node_id in self.thermal_dispatch_nodes:
-            resources = [x for x in self.thermal_dispatch_dict[geography]['generation'].keys() if x[0] == node_id]
-            for resource in resources:
-                location = resource[1]
-                node = resource[0]
-                df.loc[(location,node),(geography)] += self.thermal_dispatch_dict[geography]['generation'][resource]
-                
-                
-def capacity_weights(self,year):
-    weights = self.nodes[self.thermal_dispatch_node_id].values.loc[:,year].to_frame()
-    for geography in self.dispatch_geographies:
-        for resource in self.thermal_dispatch_dict[geography]['capacity'].keys():
-            for node_id in self.thermal_nodes:
-                if resource[0] == node_id:                 
-                    loc_geo = resource[1]
-                    self.thermal_dispatch_dict[geography]['capacity_weights'][resource] = util.index_slice(weights,[loc_geo,node_id],[self.geography,'supply_node']).sum().values
+        for feeder in self.dispatch_feeders:
+            load_indexer = util.level_specific_indexer(self.distribution_load, [self.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, 2])
+            self.distribution_load.loc[load_indexer,: ] += util.df_slice(self.dispatch.dist_storage_df,[geography, feeder, 'charge'], [self.dispatch_geography, 'dispatch_feeder', 'charge_discharge']).values
+            self.distribution_load.loc[load_indexer,: ] += util.df_slice(self.dispatch.flex_load_df,[geography, feeder], [self.dispatch_geography, 'dispatch_feeder']).values             
+            gen_indexer = util.level_specific_indexer(self.distribution_gen,[self.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, 2])
+            self.distribution_gen.loc[gen_indexer,: ] += util.df_slice(self.dispatch.dist_storage_df,[geography, feeder, 'discharge'], [self.dispatch_geography, 'dispatch_feeder', 'charge_discharge']).values
+    for geography in self.dispatch.geographies:       
+        load_indexer = util.level_specific_indexer(self.bulk_load, [self.dispatch_geography], [geography])
+        self.bulk_load.loc[load_indexer,: ] += util.df_slice(self.dispatch.bulk_storage_df,[geography,'charge'], [self.dispatch_geography, 'charge_discharge']).values
+        gen_indexer = util.level_specific_indexer(self.bulk_gen, [self.dispatch_geography], [geography])
+        self.bulk_gen.loc[gen_indexer,: ] += util.df_slice(self.dispatch.bulk_storage_df,[geography,'discharge'], [self.dispatch_geography, 'charge_discharge']).values    
+    self.update_net_load_signal()  

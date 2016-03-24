@@ -17,13 +17,13 @@ custom_pint_definitions_path = os.path.join(directory, 'unit_defs.txt')
 
 ###########
 #Save models after the demand-side calculation or after the supply-loop calculation
-save_models = True
+save_models = False
 #resolve the demand-side. A completed demand-side model must be saved.
-resolve_demand = False
+resolve_demand = True
 #resolve the supply-side. A completed supply-side model must be saved. 
-resolve_supply = False
+resolve_supply = True
 
-append_results = False
+append_results = True
 ###########
 
 
@@ -46,10 +46,10 @@ if __name__ == "__main__":
             if save_models:
                 with open(os.path.join(directory, str(scenario_id)+'_full_model_run.p'), 'wb') as outfile:
                     pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)
-#            model.supply.calculate_supply_outputs()
-#            model.pass_results_to_demand()
-#            model.calculate_combined_results()
-#            model.export_results(append_results)
+            model.supply.calculate_supply_outputs()
+            model.pass_results_to_demand()
+            model.calculate_combined_results()
+            model.export_results(append_results)
     elif resolve_demand and not resolve_supply: 
         raise ValueError('Cant resolve demand and not resolve supply')
     elif resolve_supply and not resolve_demand:
@@ -64,21 +64,18 @@ if __name__ == "__main__":
             if save_models:
                 with open(os.path.join(directory, str(scenario_id)+'_full_model_run.p'), 'wb') as outfile:
                     pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)
-#            model.supply.calculate_supply_outputs()
-#            model.pass_results_to_demand()
-#            model.calculate_combined_results()
-#            model.export_results(append_results)
+            model.supply.calculate_supply_outputs()
+            model.pass_results_to_demand()
+            model.calculate_combined_results()
+            model.export_results(append_results)
     else:
         model = energyPATHWAYS.PathwaysModel(db_path, cfgfile_path, custom_pint_definitions_path)
         for scenario_id in model.scenario_dict.keys():
             with open(os.path.join(directory, str(scenario_id)+'_full_model_run.p'), 'rb') as infile:
                 model = pickle.load(infile)
-#            model.model_config(db_path, cfgfile_path, custom_pint_definitions_path)
-#            model.supply.calculate_supply_outputs()
-#            model.pass_results_to_demand()
-#            model.calculate_combined_results()
-#            model.export_results(append_results)
+            model.model_config(db_path, cfgfile_path, custom_pint_definitions_path)
+            model.supply.calculate_supply_outputs()
+            model.pass_results_to_demand()
+            model.calculate_combined_results()
+            model.export_results(append_results)
 
-model.supply.prepare_optimization_inputs(2015)
-model.supply.dispatch.run_optimization()
-            

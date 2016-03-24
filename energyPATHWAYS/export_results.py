@@ -135,14 +135,3 @@ def export_dispatch_results(instance, results_directory, period):
 
 
 
-def nested_dict(dic, keys, value):
-    """
-    Create a nested dictionary.
-    :param dic:
-    :param keys:
-    :param value:
-    :return:
-    """
-    for key in keys[:-1]:
-        dic = dic.setdefault(key, {})
-    dic[keys[-1]] = value

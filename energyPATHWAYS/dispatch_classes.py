@@ -10,25 +10,17 @@ from datamapfunctions import Abstract,DataMapFunctions
 import copy
 import pandas as pd
 from scipy import optimize, interpolate, stats
-from matplotlib import pyplot as plt
-import time
 import numpy as np
 import math
 from config import cfg
-from util import DfOper
 from collections import defaultdict
 import os
-import datetime
-import multiprocessing
-from functools import partial
-import logging
 from pyomo.opt import SolverFactory
+import csv
 
 # Dispatch modules
 import dispatch_problem_PATHWAYS
 import year_to_period_allocation
-import export_results
-from ast import literal_eval
 
 
 
@@ -145,14 +137,7 @@ class Dispatch(object):
                                if timeshift == 2:
                                   for timepoint in self.period_timepoints[period]:
                                       time_index =  timepoint-1
-                                      try:
-                                          self.distribution_load[period][(geography,timepoint,feeder)] = load_df.iloc[time_index].values[0]
-                                      except IndexError:
-                                          print self.distribution_load[period][(geography,timepoint,feeder)]
-                                          print len(load_df)
-                                          print time_index
-                                          print load_df.iloc[time_index].values[0]
-                                          asdf
+                                      self.distribution_load[period][(geography,timepoint,feeder)] = load_df.iloc[time_index].values[0]
                                       self.cumulative_distribution_load[period][(geography,timepoint,feeder)] = load_df.cumsum().iloc[time_index].values[0]
                                       self.distribution_gen[period][(geography,timepoint,feeder)] = gen_df.iloc[time_index].values[0] 
                                elif timeshift == 1:
@@ -226,7 +211,7 @@ class Dispatch(object):
     def set_opt_result_dfs(self, year):
         index = pd.MultiIndex.from_product([self.dispatch_geographies, ['charge','discharge'],self.hours], names=[self.dispatch_geography,'charge_discharge','hour'])
         self.bulk_storage_df = util.empty_df(index=index,columns=[year],fill_value=0.0)
-        index = pd.MultiIndex.from_product([self.dispatch_geographies, self.storage_technologies, self.dispatch_feeders,['charge','discharge'], self.hours], names=[self.dispatch_geography,'storage_technology','dispatch_feeder','charge_discharge','hour'])
+        index = pd.MultiIndex.from_product([self.dispatch_geographies, self.dispatch_feeders,['charge','discharge'], self.hours], names=[self.dispatch_geography,'dispatch_feeder','charge_discharge','hour'])
         self.dist_storage_df = util.empty_df(index=index,columns=[year],fill_value=0.0)  
         index = pd.MultiIndex.from_product([self.dispatch_geographies, self.dispatch_feeders, self.hours], names=[self.dispatch_geography,'dispatch_feeder','hour'])
         self.flex_load_df = util.empty_df(index=index,columns=[year],fill_value=0.0)    
@@ -632,21 +617,69 @@ class Dispatch(object):
         alloc_start_state_of_charge, alloc_end_state_of_charge = state_of_charge[0], state_of_charge[1]
         self.alloc_start_state_of_charge = alloc_start_state_of_charge
         self.alloc_end_state_of_charge = alloc_end_state_of_charge
-        if parallel:
-            available_cpus = multiprocessing.cpu_count()
-        else:
-            for period in self.periods:
-                self.results = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)
-                self.export_storage_results(self.results, period) 
-                self.export_flex_load_results(self.results, period)
+        #replace with multiprocessing if parallel
+        for period in self.periods:
+            self.results = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)
+            self.export_storage_results(self.results, period) 
+            self.export_flex_load_results(self.results, period)
 
                 
     def run_year_to_month_allocation(self):
         model = year_to_period_allocation.year_to_period_allocation_formulation(self)
         results = self.run_pyomo(model,None)
-        state_of_charge = export_results.export_allocation_results(results, self.results_directory)
+        state_of_charge = self.export_allocation_results(results, self.results_directory)
         return state_of_charge
 
+    @staticmethod
+    def nested_dict(dic, keys, value):
+        """
+        Create a nested dictionary.
+        :param dic:
+        :param keys:
+        :param value:
+        :return:
+        """
+        for key in keys[:-1]:
+             dic = dic.setdefault(key, {})
+        dic[keys[-1]] = value
+
+    def export_allocation_results(self, instance, results_directory, write_to_file=False):
+
+        periods_set = getattr(instance, "PERIODS")
+        geographies_set = getattr(instance, "GEOGRAPHIES")
+        tech_set = getattr(instance, "VERY_LARGE_STORAGE_TECHNOLOGIES")
+
+        if write_to_file:
+            load_writer = csv.writer(open(os.path.join(results_directory, "alloc_loads.csv"), "wb"))
+            load_writer.writerow(["geography", "period", "avg_net_load", "period_net_load"])
+
+            for g in geographies_set:
+                for p in periods_set:
+                    load_writer.writerow([g, p, instance.average_net_load[g], instance.period_net_load[g, p]])
+
+            net_charge_writer = csv.writer(open(os.path.join(results_directory, "alloc_results_state_of_charge.csv"), "wb"))
+            net_charge_writer.writerow(["technology", "period", "geography", "discharge", "charge", "net_power", "start_state_of_charge",
+                                    "end_state_of_charge"])
+        start_soc = dict()
+        end_soc = dict()
+
+        for t in tech_set:
+            for p in periods_set:
+                if write_to_file:
+                    net_charge_writer.writerow([t, p, instance.region[t],
+                                            instance.Discharge[t, p].value, instance.Charge[t, p].value,
+                                            (instance.Discharge[t, p].value-instance.Charge[t, p].value),
+                                            instance.Energy_in_Storage[t, p].value,
+                                            (instance.Energy_in_Storage[t, p].value -
+                                             (instance.Discharge[t, p].value-instance.Charge[t, p].value)
+                                             )]
+                                           )
+
+                Dispatch.nested_dict(start_soc, [p, t], instance.Energy_in_Storage[t, p].value)
+                Dispatch.nested_dict(end_soc, [p, t], instance.Energy_in_Storage[t, p].value - (instance.Discharge[t, p].value-instance.Charge[t, p].value))
+
+        state_of_charge = [start_soc, end_soc]
+        return state_of_charge
 
     def run_dispatch_optimization(self, start_state_of_charge, end_state_of_charge, period):
         """
@@ -847,4 +880,5 @@ class DispatchFeederAllocation(Abstract):
         Abstract.__init__(self,self.id)     
         self.remap()
         self.values.sort_index(inplace=True)
+
 
