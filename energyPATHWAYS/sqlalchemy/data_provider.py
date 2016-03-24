@@ -3,7 +3,7 @@ import sqlalchemy.orm
 import dbConf
 from sqlalchemy.engine.url import URL
 import pandas as pd
-import ipdb
+#import ipdb
 
 # sandbox is just a copy of my pathways us_model_example database so I don't have to muck around
 engine = sqlalchemy.create_engine(URL(**dbConf.conf)) #,echo=True)
