@@ -6,6 +6,7 @@ from util import ExportMethods
 import util
 from outputs import Output
 import time
+import config
 from config import cfg
 from supply import Supply
 import pandas as pd
@@ -17,7 +18,7 @@ class PathwaysModel(object):
     Includes the primary geography of the energy system (i.e. country name) as well as the author.
     """
     def __init__(self, cfgfile_path, custom_pint_definitions_path=None, name=None, author=None):
-        self.model_config(cfgfile_path, custom_pint_definitions_path)
+        config.cfg = config.initialize_global_config(cfgfile_path, custom_pint_definitions_path)
         self.name = cfg.cfgfile.get('case', 'scenario') if name is None else name
         self.author = cfg.cfgfile.get('case', 'author') if author is None else author
         self.demand = Demand()
@@ -25,14 +26,13 @@ class PathwaysModel(object):
         self.outputs = Output()
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
         
-
-    def model_config(self, cfgfile_path, custom_pint_definitions_path):
-        cfg.init_cfgfile(cfgfile_path)
-        cfg.init_db()
-        cfg.init_pint(custom_pint_definitions_path)
-        cfg.init_geo()
-        cfg.init_shapes()
-        cfg.init_outputs_id_map()
+    # def model_config(self, cfgfile_path, custom_pint_definitions_path):
+    #     cfg.init_cfgfile(cfgfile_path)
+    #     cfg.init_db()
+    #     cfg.init_pint(custom_pint_definitions_path)
+    #     cfg.init_geo()
+    #     cfg.init_shapes()
+    #     cfg.init_outputs_id_map()
 
     def configure_energy_system(self):
         print 'configuring energy system'

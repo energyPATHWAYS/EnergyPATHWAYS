@@ -4,8 +4,15 @@ import pandas as pd
 import numpy as np
 import cPickle as pickle
 import os
+import energyPATHWAYS
 from energyPATHWAYS import *
+<<<<<<< HEAD
 cfg = energyPATHWAYS.cfg
+=======
+#cfg = energyPATHWAYS.config
+from energyPATHWAYS.shape import shapes
+import ipdb
+>>>>>>> 698734a... heading towards unit testing of config
 
 directory = os.getcwd()
 
@@ -21,6 +28,7 @@ resolve_demand = True
 resolve_supply = True
 ###########
 
+<<<<<<< HEAD
 if __name__ == "__main__":
     if resolve_demand and resolve_supply:
         model = energyPATHWAYS.PathwaysModel(cfgfile_path, custom_pint_definitions_path)
@@ -57,3 +65,49 @@ if __name__ == "__main__":
     model.calculate_combined_results()
     model.export_results()
 
+=======
+
+with ipdb.launch_ipdb_on_exception():
+    if __name__ == "__main__":
+        if resolve_demand and resolve_supply:
+            model = energyPATHWAYS.PathwaysModel(cfgfile_path, custom_pint_definitions_path)
+            model.configure_energy_system()
+            model.populate_energy_system()
+            model.populate_measures()
+            model.calculate_demand_only()
+            with open(os.path.join(directory, 'model.p'), 'wb') as outfile:
+                pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)
+            model.pass_results_to_supply()
+            model.calculate_supply()
+            model.supply.calculate_loop()
+            if save_models:
+                with open(os.path.join(directory, 'full_model_run.p'), 'wb') as outfile:
+                    pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)
+        elif resolve_demand and not resolve_supply: 
+            raise ValueError('Cant resolve demand and not resolve supply')
+        elif resolve_supply and not resolve_demand:
+            for scenario_id in model.scenario_dict.keys():
+                with open(os.path.join(directory, str(scenario)+'model.p'), 'rb') as infile:
+                    model = pickle.load(infile)
+                model.model_config(db_path, cfgfile_path, custom_pint_definitions_path)
+                model.pass_results_to_supply()
+                model.calculate_supply()
+                model.supply.calculate_loop()
+                if save_models:
+                    with open(os.path.join(directory, str(scenario_id)+'full_model_run.p'), 'wb') as outfile:
+                        pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)
+                model.supply.calculate_supply_outputs()
+                model.pass_results_to_demand()
+                model.calculate_combined_results()
+                model.export_results(append_results)
+        else:
+            for scenario_id in model.scenario_dict.keys():
+                with open(os.path.join(directory, str(scenario_id)+'full_model_run.p'), 'rb') as infile:
+                    model = pickle.load(infile)
+                model.model_config(db_path, cfgfile_path, custom_pint_definitions_path)
+                model.supply.calculate_supply_outputs()
+                model.pass_results_to_demand()
+                model.calculate_combined_results()
+                model.export_results(append_results)
+                
+>>>>>>> 698734a... heading towards unit testing of config

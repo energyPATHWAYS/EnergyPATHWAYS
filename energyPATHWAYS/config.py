@@ -9,17 +9,33 @@ import pandas as pd
 from collections import defaultdict
 import util
 import psycopg2
+#import ipdb
+
 
 # Don't print warnings
 warnings.simplefilter("ignore")
 
+cfg = None
+
+def initialize_global_config(cfgfile_path, custom_pint_definitions_path):
+    return Config(cfgfile_path, custom_pint_definitions_path)
+
 class Config:
-    def __init__(self):
+    def __init__(self, cfgfile_path, custom_pint_definitions_path):
+        # TODO: this is obviously bad practice and needs to change. N globals
+        global cfg 
+        cfg = self
         # sys.path.insert(0, os.getcwd())
-#        self.directory = os.getcwd().rstrip('code')
-        
+        # self.directory = os.getcwd().rstrip('code')
         # weibul_coefficient_of_variation is used to find weibul parameters given lifetime statistics
         self.weibul_coeff_of_var = util.create_weibul_coefficient_of_variation()
+        self.init_cfgfile(cfgfile_path)
+        # TODO: this requires the cfg global to be assigned to a config object but note that it is in the constructor. Thus the global assignment above. Yuck.
+        self.init_db()
+        self.init_pint(custom_pint_definitions_path)
+        self.init_geo()
+        self.init_shapes()
+        self.init_outputs_id_map()
 
     def init_cfgfile(self, cfgfile_path):
         if not os.path.isfile(cfgfile_path):
@@ -118,7 +134,8 @@ class Config:
             self.outputs_id_map[name] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name'], other_index_id=id, return_unique=True))
 
 
+
 #######################
 #######################
-cfg = Config()
+
 #######################
