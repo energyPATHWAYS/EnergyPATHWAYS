@@ -7,7 +7,7 @@ Created on Mon Oct 26 19:11:59 2015
 
 import pandas as pd
 import util
-from config import cfg
+import config as cfg
 
 class Output(object):
     def __init__(self):

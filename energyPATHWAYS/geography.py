@@ -1,6 +1,6 @@
 __author__ = 'ryan'
 
-import config
+import config as cfg
 import pandas as pd
 import os
 import copy
@@ -21,7 +21,7 @@ class Geography:
 
 
     def read_geography_indicies(self):
-        config.cfg.cur.execute(textwrap.dedent("""\
+        cfg.cur.execute(textwrap.dedent("""\
             SELECT "Geographies".name, ARRAY_AGG("GeographiesData".id) AS geography_data_ids
             FROM "Geographies"
             JOIN "GeographiesData" ON "Geographies".id = "GeographiesData".geography_id
@@ -29,18 +29,18 @@ class Geography:
             ORDER BY "Geographies".id;
         """))
 
-        for row in config.cfg.cur.fetchall():
+        for row in cfg.cur.fetchall():
             self.geographies[row[0]] = row[1]
 
         for id, name in util.sql_read_table('TimeZones', column_names=['id', 'name']):
             self.timezone_names[id] = name
 
-        config.cfg.cur.execute('SELECT name FROM "GeographyMapKeys" ORDER BY id')
-        self.map_keys = [name for (name,) in config.cfg.cur.fetchall()]
+        cfg.cur.execute('SELECT name FROM "GeographyMapKeys" ORDER BY id')
+        self.map_keys = [name for (name,) in cfg.cur.fetchall()]
 
     def read_geography_data(self):
-        config.cfg.cur.execute('SELECT COUNT(*) FROM "GeographyIntersection"')
-        expected_rows = config.cfg.cur.fetchone()[0]
+        cfg.cur.execute('SELECT COUNT(*) FROM "GeographyIntersection"')
+        expected_rows = cfg.cur.fetchone()[0]
 
         # This query pulls together the geography map from its constituent tables. Its rows look like:
         # intersection_id, [list of geographical units that define intersection],
@@ -48,7 +48,7 @@ class Geography:
         # Note that those internal lists are specifically being drawn out in the order of their Geographies and
         # GeographyMapKeys, respectively, so that they are in the same order as the expected dataframe indexes
         # and column headers
-        config.cfg.cur.execute(textwrap.dedent("""\
+        cfg.cur.execute(textwrap.dedent("""\
             SELECT intersections.id,
                    intersections.intersection,
                    ARRAY_AGG("GeographyMap".value ORDER BY "GeographyMap".geography_map_key_id) AS values
@@ -68,7 +68,7 @@ class Geography:
             GROUP BY intersections.id, intersections.intersection;
         """))
 
-        map = config.cfg.cur.fetchall()
+        map = cfg.cur.fetchall()
         assert len(map) == expected_rows, "Expected %i rows in the geography map but found %i" % (expected_rows, len(map))
 
         # convert the query results into a list of indexes and a list of data (column values) that can be used
@@ -105,7 +105,7 @@ class Geography:
             "what fraction of each state is in each census division
         """
         subsection = util.ensure_iterable_and_not_string(subsection)
-        column = config.cfg.cfgfile.get('case', 'default_geography_map_key') if column is None else column
+        column = cfg.cfgfile.get('case', 'default_geography_map_key') if column is None else column
         table = self.values[column].groupby(level=[supersection]+subsection).sum()
         table = pd.DataFrame(table.groupby(level=supersection).transform(self.normalize))
         

@@ -5,7 +5,7 @@ Created on Mon Sep 28 10:03:57 2015
 @author: Ben
 """
 
-from config import cfg
+import config as cfg
 import util
 from collections import defaultdict
 from datamapfunctions import DataMapFunctions, Abstract

@@ -3,18 +3,35 @@ import sqlalchemy
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, backref, validates, reconstructor
 #from sqlalchemy.ext.automap import automap_base
-from sqlalchemy.ext.declarative import declarative_base
-from generated import *
+from model import *
 import pandas as pd
 import data_provider
 import sys
 
+from alchemy_util import engine, Session, Base, metadata
+from alchemy_util import RawDataHelp
+
 import ipdb
 
-# Using same Base as generated.py
-#Base = declarative_base()
+class DemandDriverData(Base):
+    __tablename__ = 'DemandDriversData'
 
-class DemandDriver(Base):
+    def __init__(self, name, value, floatVal, date):
+        self.name = name
+        self.value = intVal
+        self.floatVal = floatVal
+        self.date = date
+
+    id        = Column( Integer, primary_key=True )
+    parent_id = Column( Integer, ForeignKey('DemandDriver.id') )
+    parent    = relationship("DemandDriver", primaryjoin='DemandDriverData.parent_id == DemandDriver.id', back_populates="data")
+    gau_id    = Column( Integer ) # TODO: ForeignKey('Geography.id')
+    oth_1_id  = Column( Integer ) # TODO: ForeignKey('???')
+    oth_2_id  = Column( Integer )
+    year      = Column( Integer )
+    value     = Column( Float )
+
+class DemandDriver(Base, RawDataHelp):
     __tablename__ = 'DemandDrivers'
 
     id = Column(Integer, primary_key=True, server_default=text("nextval('\"DemandDrivers_id_seq\"'::regclass)"))
@@ -39,6 +56,7 @@ class DemandDriver(Base):
     interpolation_method = relationship(u'CleaningMethod', primaryjoin='DemandDriver.interpolation_method_id == CleaningMethod.id')
     other_index_1 = relationship(u'OtherIndex', primaryjoin='DemandDriver.other_index_1_id == OtherIndex.id')
     other_index_2 = relationship(u'OtherIndex', primaryjoin='DemandDriver.other_index_2_id == OtherIndex.id')
+    data = relationship(DemandDriverData, order_by=DemandDriverData.id, back_populates='parent')
 
     @classmethod
     def with_data(cls, df, **kw_args):
@@ -95,11 +113,13 @@ def updated(mapper, connection, target):
 #     demand_driver = relationship(DemandDriver)
 
 
-session = data_provider.Session()
+if __name__ == '__main__':
+    session = Session()
 
-with ipdb.launch_ipdb_on_exception():
-    dd = session.query(DemandDriver).first()
-    dd.save_data()
+    with ipdb.launch_ipdb_on_exception():
+        dd = session.query(DemandDriver).first()
+        print dd.get_raw_data().head()
 
+    session.close()
 
 ipdb.set_trace()

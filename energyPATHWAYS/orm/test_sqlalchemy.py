@@ -4,10 +4,10 @@ __author__ = 'Sam'
 import sqlalchemy as sa
 from sqlalchemy.orm import sessionmaker, backref, validates, reconstructor
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
 
-from data_provider import engine, Session
-import sys, time
+
+from data_provider import engine, Session, Base, metadata
+import sys, time, os
 import datetime as dt
 #from generated import *
 import pandas as pd
@@ -18,10 +18,10 @@ import StringIO
 import pstats
 import contextlib
 
-from alchemy_util import RawDataHelp
+import energyPATHWAYS as ep
 
-Base = declarative_base()
-metadata = Base.metadata
+from alchemy_util import engine, Session, Base, metadata
+from alchemy_util import RawDataHelp
 
 @contextlib.contextmanager
 def profiled():
@@ -47,9 +47,9 @@ def timed(prefix='time'):
 class TestData(Base):
     __tablename__ = 'TestData'
 
-    def __init__(self, name, intVal, floatVal, date):
+    def __init__(self, name, value, floatVal, date):
         self.name = name
-        self.intVal = intVal
+        self.value = intVal
         self.floatVal = floatVal
         self.date = date
 
@@ -57,7 +57,7 @@ class TestData(Base):
     parent_id = sa.Column( sa.Integer,sa.ForeignKey('Test.id') )
     parent    = relationship("Test", back_populates="data")
     name      = sa.Column( sa.String )
-    intVal    = sa.Column( sa.Integer )
+    value     = sa.Column( sa.Integer )
     floatVal  = sa.Column( sa.Float )
     date      = sa.Column( sa.DateTime )
 
@@ -121,7 +121,7 @@ class SQLAlchemyTest(ut.TestCase):
             [
                 dict(name="NAME " + str(i),
                     parent_id=t.id,
-                    intVal=i, 
+                    value=i, 
                     floatVal=i*1.0, 
                     date=dt.datetime.now())
                 for i in xrange( n )
@@ -133,7 +133,7 @@ class SQLAlchemyTest(ut.TestCase):
             [
                 dict(name="NAME " + str(i),
                     parent_id=t2.id,
-                    intVal=i, 
+                    value=i, 
                     floatVal=i*1.0, 
                     date=dt.datetime.now())
                 for i in xrange( n )
@@ -187,12 +187,13 @@ class SQLAlchemyTest(ut.TestCase):
         session = Session()
         t = session.query(Test).first()
 
-        self.assertIsNotNone( Test.getAllRawData() )
-        rd = t.getRawData() # throws attribute error if not found
+        self.assertIsNotNone( Test.get_all_raw_data() )
+        rd = t.get_raw_data() # throws attribute error if not found
 
         self.assertIsNotNone( Test.all_raw_data )
         self.assertIsNotNone( t.raw_data )
         self.assertTrue( (rd.parent_id == t.id).all() )
+        session.close()
 
 
 if __name__ == '__main__':

@@ -5,10 +5,10 @@ import numpy as np
 from collections import defaultdict
 import pandas as pd
 import energyPATHWAYS
-import unittest
+import unittest as ut
 import ipdb
 
-class TestRollover(unittest.TestCase):
+class TestRollover(ut.TestCase):
     def setUp(self):
         start_year = 2000
         end_year = 2050
@@ -87,7 +87,7 @@ class TestRollover(unittest.TestCase):
         #ipdb.set_trace()
         self.assertAlmostEqual(stock_total[:, -1].sum(), initial_stock + change_per_year * self.num_years)
 
-    @unittest.skip("currently rollover returns zeros if output is requested prematurely; should raise an error since this is unlikely to be what the user wants")
+    @ut.skip("currently rollover returns zeros if output is requested prematurely; should raise an error since this is unlikely to be what the user wants")
     def test_premature_output_request(self):
         rollover = energyPATHWAYS.rollover.Rollover(self.vintaged_markov_matrix, self.initial_markov_matrix, self.num_years, self.num_vintages, self.num_techs)
 
@@ -161,3 +161,6 @@ class TestRollover(unittest.TestCase):
 
         with self.assertRaises(RuntimeError):
             rollover.run()
+
+if __name__ == '__main__':
+    ut.main()

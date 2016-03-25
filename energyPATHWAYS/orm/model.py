@@ -3,10 +3,7 @@ from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, Table, Text,
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 
-
-Base = declarative_base()
-metadata = Base.metadata
-
+from alchemy_util import engine, Session, Base, metadata, RawDataHelp
 
 class AgeGrowthOrDecayType(Base):
     __tablename__ = 'AgeGrowthOrDecayType'
@@ -201,15 +198,15 @@ class DemandDriverColumn(Base):
 #     other_index_2 = relationship(u'OtherIndex', primaryjoin='DemandDriver.other_index_2_id == OtherIndex.id')
 
 
-t_DemandDriversData = Table(
-    'DemandDriversData', metadata,
-    Column('id', ForeignKey(u'DemandDrivers.id')),
-    Column('gau_id', ForeignKey(u'GeographiesData.id')),
-    Column('oth_1_id', ForeignKey(u'OtherIndexesData.id')),
-    Column('oth_2_id', ForeignKey(u'OtherIndexesData.id')),
-    Column('year', Integer),
-    Column('value', Float(53))
-)
+# t_DemandDriversData = Table(
+#     'DemandDriversData', metadata,
+#     Column('id', ForeignKey(u'DemandDrivers.id')),
+#     Column('gau_id', ForeignKey(u'GeographiesData.id')),
+#     Column('oth_1_id', ForeignKey(u'OtherIndexesData.id')),
+#     Column('oth_2_id', ForeignKey(u'OtherIndexesData.id')),
+#     Column('year', Integer),
+#     Column('value', Float(53))
+# )
 
 
 class DemandEnergyDemand(Base):

@@ -4,7 +4,7 @@ Created on Mon Sep 28 09:55:19 2015
 
 @author: Ben
 """
-from config import cfg
+import config as cfg
 import pandas as pd
 import util
 from datamapfunctions import Abstract

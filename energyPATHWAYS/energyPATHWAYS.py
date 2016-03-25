@@ -6,8 +6,7 @@ from util import ExportMethods
 import util
 from outputs import Output
 import time
-import config
-from config import cfg
+import config as cfg
 from supply import Supply
 import pandas as pd
 # from supply import Supply
@@ -18,14 +17,16 @@ class PathwaysModel(object):
     Includes the primary geography of the energy system (i.e. country name) as well as the author.
     """
     def __init__(self, cfgfile_path, custom_pint_definitions_path=None, name=None, author=None):
-        config.cfg = config.initialize_global_config(cfgfile_path, custom_pint_definitions_path)
+
+        cfg.initialize_config(cfgfile_path, custom_pint_definitions_path)
+        
         self.name = cfg.cfgfile.get('case', 'scenario') if name is None else name
         self.author = cfg.cfgfile.get('case', 'author') if author is None else author
         self.demand = Demand()
         self.supply = Supply()
         self.outputs = Output()
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
-        
+    # moved to config 
     # def model_config(self, cfgfile_path, custom_pint_definitions_path):
     #     cfg.init_cfgfile(cfgfile_path)
     #     cfg.init_db()
@@ -34,18 +35,18 @@ class PathwaysModel(object):
     #     cfg.init_shapes()
     #     cfg.init_outputs_id_map()
 
-    def configure_energy_system(self):
-        print 'configuring energy system'
-        self.configure_demand()
-        self.configure_supply()
-        cfg.init_outputs_id_map()
+    # def configure_energy_system(self):
+    #     print 'configuring energy system'
+    #     #self.configure_demand()
+    #     #self.configure_supply()
+    #     #cfg.init_outputs_id_map()
 
     def populate_energy_system(self):
-        self.populate_demand_system()
+        #self.populate_demand_system() # demand does this already
         self.populate_supply_system()
 
     def populate_measures(self):
-        self.populate_demand_measures()
+        #self.populate_demand_measures()
         self.populate_supply_measures()
 
     def calculate(self):
@@ -53,45 +54,38 @@ class PathwaysModel(object):
         self.pass_results_to_supply()
         self.calculate_supply()
 
-    def configure_demand(self):
-        """Read in and initialize data"""
-        # Drivers must come first
-        self.demand.add_drivers()
-
-        # Sectors requires drivers be read in
-        self.demand.add_sectors()
-        for sector in self.demand.sectors.values():
-            # print 'configuring the %s sector'  %sector.name
-            sector.add_subsectors()
             
     def configure_supply(self):
         self.supply.add_node_list()
 
-    def populate_demand_system(self):
-        print 'remapping drivers'
-        self.demand.remap_drivers()
-        print 'populating energy system data'
-        for sector in self.demand.sectors.values():
-            print '  '+sector.name+' sector'
-            # print 'reading energy system data for the %s sector' %sector.name
-            for subsector in sector.subsectors.values():
-                print '    '+subsector.name
-                subsector.add_energy_system_data()
-        self.demand.precursor_dict()
+    # def populate_demand_system(self):
+    #     print 'populate demand'
+    #     print 'remapping drivers'
+    #     self.demand.remap_drivers()
+    #     print 'populating energy system data'
+    #     for sector in self.demand.sectors.values():
+    #         print '  '+sector.name+' sector'
+    #         # print 'reading energy system data for the %s sector' %sector.name
+    #         for subsector in sector.subsectors.values():
+    #             print '    '+subsector.name
+    #             subsector.add_energy_system_data()
+    #     self.demand.precursor_dict()
 
     def populate_supply_system(self):
+        print 'populate supply'
         self.supply.add_nodes()
 
-    def populate_demand_measures(self):
-        for sector in self.demand.sectors.values():
-            #            print 'reading %s measures' %sector.name
-            for subsector in sector.subsectors.values():
-                subsector.add_measures()
+    # def populate_demand_measures(self):
+    #     for sector in self.demand.sectors.values():
+    #         #            print 'reading %s measures' %sector.name
+    #         for subsector in sector.subsectors.values():
+    #             subsector.add_measures()
         
     def populate_supply_measures(self):      
         self.supply.add_measures()
 
     def calculate_demand_only(self):
+        print 'Demand calculations'
         self.demand.manage_calculations()
         print "aggregating demand results"
         self.demand.aggregate_results()

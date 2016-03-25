@@ -5,7 +5,7 @@ Created on Mon Sep 28 10:01:16 2015
 @author: Ben
 """
 
-from config import cfg
+import config as cfg
 import util
 from datamapfunctions import Abstract
 import numpy as np

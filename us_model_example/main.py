@@ -29,7 +29,6 @@ with ipdb.launch_ipdb_on_exception():
     if __name__ == "__main__":
         if resolve_demand and resolve_supply:
             model = energyPATHWAYS.PathwaysModel(cfgfile_path, custom_pint_definitions_path)
-            model.configure_energy_system()
             model.populate_energy_system()
             model.populate_measures()
             model.calculate_demand_only()

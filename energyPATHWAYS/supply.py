@@ -1,6 +1,6 @@
 __author__ = 'Ben Haley & Ryan Jones'
 
-from config import cfg
+import config as cfg
 from shape import shapes
 import util
 import pandas as pd
@@ -47,6 +47,7 @@ class Supply(object):
         self.dispatch = Dispatch()
         self.dispatch_feeder_allocation = DispatchFeederAllocation(id=1)
         self.dispatch_feeders = list(set(self.dispatch_feeder_allocation.values.index.get_level_values('dispatch_feeder')))
+        self.add_node_list()
 
         
     def calculate_technologies(self):

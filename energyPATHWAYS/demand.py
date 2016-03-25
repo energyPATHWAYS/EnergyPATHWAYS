@@ -1,7 +1,7 @@
 __author__ = 'Ben Haley & Ryan Jones'
 __author__ = 'Ben Haley & Ryan Jones'
 
-from config import cfg
+import config as cfg
 from shape import shapes
 
 import util
@@ -29,7 +29,35 @@ class Demand(object):
         self.outputs = Output()
         self.geographies = cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
+
+        # Drivers must come first
+        self.add_drivers()
+
+        # Sectors requires drivers be read in
+        self.add_sectors()
+        for sector in self.sectors.values():
+            # print 'configuring the %s sector'  %sector.name
+            sector.add_subsectors()
         
+        # populate_demand_system
+        print '[Demand] populate demand'
+        print '[Demand] remapping drivers'
+        self.remap_drivers()
+        print '[Demand] populating energy system data'
+        for sector in self.sectors.values():
+            print '  '+sector.name+' sector'
+            # print 'reading energy system data for the %s sector' %sector.name
+            for subsector in sector.subsectors.values():
+                print '    '+subsector.name
+                subsector.add_energy_system_data()
+        self.precursor_dict()
+
+        # populate_demand_measures
+        print '[Demand] populating demand measures'
+        for sector in self.sectors.values():
+            #            print 'reading %s measures' %sector.name
+            for subsector in sector.subsectors.values():
+                subsector.add_measures()
         
     def aggregate_results(self):
         output_list = ['energy', 'stock', 'investment_costs', 'levelized_costs']

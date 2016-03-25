@@ -1,8 +1,6 @@
 __author__ = 'ryan'
 
-#from config import cfgfile, cur, geo, dnmtr_col_names, drivr_col_names
-#import config as cfg
-from config import cfg
+import config as cfg
 import util
 import numpy as np
 import pandas as pd

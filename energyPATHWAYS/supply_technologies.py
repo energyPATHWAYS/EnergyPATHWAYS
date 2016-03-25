@@ -10,7 +10,7 @@ from datamapfunctions import Abstract
 import util
 import copy
 import numpy as np
-from config import cfg
+import config as cfg
 from shared_classes import StockItem, SpecifiedStock
 from supply_classes import SupplySalesShare, SupplySales
 import pandas as pd

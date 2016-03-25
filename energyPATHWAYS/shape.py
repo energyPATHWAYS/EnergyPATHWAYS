@@ -5,8 +5,7 @@ Created on Mon Oct 05 14:45:48 2015
 @author: ryan
 """
 
-#import config as cfg
-from config import cfg
+import config as cfg
 #import config
 import datamapfunctions as dmf
 import util

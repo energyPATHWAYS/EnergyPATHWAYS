@@ -3,7 +3,6 @@ __author__ = 'Ben Haley & Ryan Jones'
 import pandas as pd
 import numpy as np
 from scipy import optimize, interpolate, stats
-import config
 import util
 
 pd.options.mode.chained_assignment = None

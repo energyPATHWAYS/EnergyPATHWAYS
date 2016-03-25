@@ -1,13 +1,12 @@
+import os
 import sqlalchemy
 import sqlalchemy.orm
-import dbConf
 from sqlalchemy.engine.url import URL
 import pandas as pd
-#import ipdb
+import dbConf
 
-# sandbox is just a copy of my pathways us_model_example database so I don't have to muck around
-engine = sqlalchemy.create_engine(URL(**dbConf.conf)) #,echo=True)
-Session = sqlalchemy.orm.sessionmaker(bind=engine)
+from alchemy_util import engine, Session, Base, metadata
+#import ipdb
 
 frames = {}
 
