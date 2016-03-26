@@ -9,6 +9,7 @@ import pandas as pd
 from collections import defaultdict
 import util
 import psycopg2
+import data_source
 #import ipdb
 
 # Don't print warnings
@@ -103,6 +104,8 @@ def init_db():
       'password':   pg_password,
       'database':   pg_database
     }
+    data_source.init(dbCfg)
+
     # Open pathways database
     con = psycopg2.connect(conn_str)
     cur = con.cursor()
