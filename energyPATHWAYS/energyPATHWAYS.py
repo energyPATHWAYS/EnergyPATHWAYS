@@ -17,19 +17,19 @@ class PathwaysModel(object):
     Highest level classification of the definition of an energy system.
     Includes the primary geography of the energy system (i.e. country name) as well as the author.
     """
-    def __init__(self, db_path, cfgfile_path, custom_pint_definitions_path=None, name=None, author=None):
-        self.model_config(db_path, cfgfile_path, custom_pint_definitions_path)
+    def __init__(self, cfgfile_path, custom_pint_definitions_path=None, name=None, author=None):
+        self.model_config(cfgfile_path, custom_pint_definitions_path)
         self.name = cfg.cfgfile.get('case', 'scenario') if name is None else name
         self.author = cfg.cfgfile.get('case', 'author') if author is None else author      
-        self.scenario_dict = dict(zip(util.sql_read_table('Scenarios','id',is_active=1,return_iterable=True),
-                                  util.sql_read_table('Scenarios','name',is_active=1,return_iterable=True)))
+        self.scenario_dict = dict(zip(util.sql_read_table('Scenarios','id', return_iterable=True, is_active=True),
+                                  util.sql_read_table('Scenarios','name', return_iterable=True, is_active=True)))
         self.outputs = Output()
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
         
 
-    def model_config(self, db_path, cfgfile_path, custom_pint_definitions_path):
+    def model_config(self, cfgfile_path, custom_pint_definitions_path):
         cfg.init_cfgfile(cfgfile_path)
-        cfg.init_db(db_path)
+        cfg.init_db()
         cfg.init_pint(custom_pint_definitions_path)
         cfg.init_geo()
         cfg.init_date_lookup()

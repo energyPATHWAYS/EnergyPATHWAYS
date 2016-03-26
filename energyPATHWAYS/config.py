@@ -2,13 +2,13 @@ __author__ = 'Ben Haley & Ryan Jones'
 
 import os
 import ConfigParser
-import sqlite3 as sqlite
 import pint
 import geography
 import warnings
 import pandas as pd
 from collections import defaultdict
 import util
+import psycopg2
 
 # Don't print warnings
 warnings.simplefilter("ignore")
@@ -40,13 +40,20 @@ class Config:
         
         self.primary_geography = cfgfile.get('case', 'primary_geography')
         self.cfgfile = cfgfile
+        
+    def init_db(self):
+        pg_host = self.cfgfile.get('database', 'pg_host')
+        if not pg_host:
+            pg_host = 'localhost'
+        pg_user = self.cfgfile.get('database', 'pg_user')
+        pg_password = self.cfgfile.get('database', 'pg_password')
+        pg_database = self.cfgfile.get('database', 'pg_database')
+        conn_str = "host='%s' dbname='%s' user='%s'" % (pg_host, pg_database, pg_user)
+        if pg_password:
+            conn_str += " password='%s'" % pg_password
 
-    def init_db(self, db_path):
-        if not os.path.isfile(db_path):
-            raise OSError('config file not found: ' + str(db_path))
-            
         # Open pathways database
-        self.con = sqlite.connect(db_path)
+        self.con = psycopg2.connect(conn_str)
         self.cur = self.con.cursor()
 
         # common data inputs

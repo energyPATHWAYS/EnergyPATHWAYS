@@ -12,7 +12,6 @@ import time
 directory = os.getcwd()
 
 cfgfile_path = os.path.join(directory, 'configurations.INI')
-db_path = os.path.join(directory, 'pathways.db')
 custom_pint_definitions_path = os.path.join(directory, 'unit_defs.txt')
 
 ###########
@@ -29,7 +28,7 @@ append_results = True
 
 if __name__ == "__main__":
     if resolve_demand and resolve_supply:
-        model = energyPATHWAYS.PathwaysModel(db_path, cfgfile_path, custom_pint_definitions_path)   
+        model = energyPATHWAYS.PathwaysModel(cfgfile_path, custom_pint_definitions_path)
         model.configure_energy_system()
         model.populate_energy_system()
         with open(os.path.join(directory, 'shapes.p'), 'wb') as outfile:
@@ -53,11 +52,11 @@ if __name__ == "__main__":
     elif resolve_demand and not resolve_supply: 
         raise ValueError('Cant resolve demand and not resolve supply')
     elif resolve_supply and not resolve_demand:
-        model = energyPATHWAYS.PathwaysModel(db_path, cfgfile_path, custom_pint_definitions_path)
+        model = energyPATHWAYS.PathwaysModel(cfgfile_path, custom_pint_definitions_path)
         for scenario_id in model.scenario_dict.keys():
             with open(os.path.join(directory, str(scenario_id)+'_model.p'), 'rb') as infile:
                 model = pickle.load(infile)
-            model.model_config(db_path, cfgfile_path, custom_pint_definitions_path)
+            model.model_config(cfgfile_path, custom_pint_definitions_path)
             model.pass_results_to_supply()
             model.calculate_supply()
             model.supply.calculate_loop()
@@ -69,11 +68,11 @@ if __name__ == "__main__":
             model.calculate_combined_results()
             model.export_results(append_results)
     else:
-        model = energyPATHWAYS.PathwaysModel(db_path, cfgfile_path, custom_pint_definitions_path)
+        model = energyPATHWAYS.PathwaysModel(cfgfile_path, custom_pint_definitions_path)
         for scenario_id in model.scenario_dict.keys():
             with open(os.path.join(directory, str(scenario_id)+'_full_model_run.p'), 'rb') as infile:
                 model = pickle.load(infile)
-            model.model_config(db_path, cfgfile_path, custom_pint_definitions_path)
+            model.model_config(cfgfile_path, custom_pint_definitions_path)
             model.supply.calculate_supply_outputs()
             model.pass_results_to_demand()
             model.calculate_combined_results()
