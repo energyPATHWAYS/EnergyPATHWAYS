@@ -71,10 +71,10 @@ class DataMapFunctions:
                         print (self.id, row, i)
             column_names = self.df_index_names + util.put_in_list(data_column_names)
             self.raw_values = pd.DataFrame(data, columns=column_names).set_index(keys=self.df_index_names).sort_index()
-            self.data = True
+            self.empty = True
         else:
             self.raw_values = None
-            self.data = False
+            self.empty = False
 
     def clean_timeseries(self, attr='values', inplace=True, time_index_name='year', 
                          time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing'):
