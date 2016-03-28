@@ -16,15 +16,15 @@ from util import DfOper
 
 
 class DataMapFunctions:
-    def __init__(self, primary_key='id'):
+    def __init__(self, data_id_key='id'):
         # ToDo remove from being an ordered dict, this shouldn't be necessary
-        self.primary_key = primary_key
+        self.data_id_key = data_id_key
         self.index_levels = OrderedDict()
         self.column_names = OrderedDict()
         self.read_index_levels()
         # creates list of dataframe headers from relational table lookup with database headers
         #  i.e. gau = geography ; self.geography = 'state'.
-        self.df_index_names = [level if hasattr(self, level) else level for level in self.index_levels]
+#        self.df_index_names = [level if hasattr(self, level) else level for level in self.index_levels]
         self.df_index_names = [util.id_to_name(level, getattr(self, level)) if hasattr(self, level) else level for level
                                in self.index_levels]
 
@@ -33,13 +33,13 @@ class DataMapFunctions:
         creates a dictionary to store level headings (for database lookup) and
         level elements. Stored as attr 'index_level'
         """
-        data_table_columns = [x for x in util.sql_read_headers(self.sql_data_table) if x not in self.primary_key]
+        data_table_columns = [x for x in util.sql_read_headers(self.sql_data_table) if x not in self.data_id_key]
         for id, index_level, column_name in util.sql_read_table('IndexLevels'):
             if column_name not in data_table_columns:
                 continue
             elements = util.sql_read_table(self.sql_data_table, column_names=column_name,
                                            return_iterable=True, return_unique=True,
-                                           **dict([(self.primary_key, self.id)]))
+                                           **dict([(self.data_id_key, self.id)]))
             if len(elements):
                 self.index_levels[index_level] = elements
                 self.column_names[index_level] = column_name
@@ -56,11 +56,11 @@ class DataMapFunctions:
         # read each line of the data_table matching an id and assign the value to self.raw_values
         data = []
         if len(filters):
-            merged_dict = dict({self.primary_key: self.id}, **filters)
+            merged_dict = dict({self.data_id_key: self.id}, **filters)
             read_data = util.sql_read_table(self.sql_data_table, return_iterable=True, **merged_dict)
         else:
             read_data = util.sql_read_table(self.sql_data_table, return_iterable=True,
-                                            **dict([(self.primary_key, self.id)]))
+                                            **dict([(self.data_id_key, self.id)]))
         if read_data:
             for row in read_data:
                 try:
@@ -262,12 +262,19 @@ class DataMapFunctions:
 
 
 class Abstract(DataMapFunctions):
-    def __init__(self, id, primary_key='id', **filters):
+    def __init__(self, id, primary_key='id', data_id_key=None, **filters):
+        
+        # Ryan: I've introduced a new parameter called data_id_key, which is the key in the "Data" table
+        # because we are introducing primary keys into the Data tables, it is sometimes necessary to specify them separately
+        # before we only has primary_key, which was shared in the "parent" and "data" tables, and this is still the default as we make the change.
+        if data_id_key is None:
+            data_id_key = primary_key
+        
         try:
             for col, att in util.object_att_from_table(self.sql_id_table, id, primary_key):
                 # if att is not None:
                 setattr(self, col, att)
-            DataMapFunctions.__init__(self, primary_key)
+            DataMapFunctions.__init__(self, data_id_key)
             self.data = True
         except:
             self.data = False

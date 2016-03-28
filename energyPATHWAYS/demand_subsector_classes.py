@@ -18,11 +18,11 @@ class SubDemand(object, DataMapFunctions):
         self.technology_id = technology_id
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
-        self.primary_key = primary_key
+        self.data_id_key = primary_key
         for col, att in util.object_att_from_table(self.sql_id_table, self.id, 'subsector_id'):
             setattr(self, col, att)
         self.in_use_drivers()
-        DataMapFunctions.__init__(self, self.primary_key)
+        DataMapFunctions.__init__(self, self.data_id_key)
         self.read_timeseries_data()
         self.projected = False
 
@@ -47,10 +47,8 @@ class SubDemand(object, DataMapFunctions):
 
 
 class DemandStock(Stock):
-    def __init__(self, id, drivers, sql_id_table='DemandStock', sql_data_table='DemandStockData',
-                 primary_key='subsector_id', **kwargs):
-        Stock.__init__(self, id, drivers, sql_id_table='DemandStock', sql_data_table='DemandStockData',
-                     primary_key='subsector_id', **kwargs)
+    def __init__(self, id, drivers, sql_id_table='DemandStock', sql_data_table='DemandStockData', primary_key='subsector_id', **kwargs):
+        Stock.__init__(self, id, drivers, sql_id_table='DemandStock', sql_data_table='DemandStockData', primary_key='subsector_id', **kwargs)
         self.drivers = drivers
         self.in_use_drivers()
         self.projected = False

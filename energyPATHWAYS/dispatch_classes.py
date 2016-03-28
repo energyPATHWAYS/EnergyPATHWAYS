@@ -877,7 +877,7 @@ class DispatchFeederAllocation(Abstract):
         self.id = id
         self.sql_id_table = 'DispatchFeedersAllocation'
         self.sql_data_table = 'DispatchFeedersAllocationData'
-        Abstract.__init__(self,self.id)     
+        Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
         self.remap()
         self.values.sort_index(inplace=True)
 

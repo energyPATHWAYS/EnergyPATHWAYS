@@ -76,7 +76,7 @@ class Shapes(object):
             print '     shape: ' + shape.name
             shape.process_shape(self.active_dates_index, self.time_slice_elements)
         dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))
-        self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.geography_names[dispatch_outputs_timezone_id])
+        self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.timezone_names[dispatch_outputs_timezone_id])
         self.active_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H', tz=self.dispatch_outputs_timezone)
     
     
@@ -306,12 +306,12 @@ class Shape(dmf.DataMapFunctions):
         """ Step through time zones and put each profile maped to time zone in that time zone
         """
         dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))
-        self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.geography_names[dispatch_outputs_timezone_id])
+        self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.timezone_names[dispatch_outputs_timezone_id])
         new_df = []
         for tz_id, group in getattr(self, attr).groupby(level='time zones'):
             # get the time zone name and figure out the offset from UTC
             tz_id = tz_id if self.time_zone_id is None else self.time_zone_id
-            tz = pytz.timezone(cfg.geo.geography_names[tz_id])
+            tz = pytz.timezone(cfg.geo.timezone_names[tz_id])
             _dt = DT.datetime(2015, 1, 1)
             offset = (tz.utcoffset(_dt) + tz.dst(_dt)).total_seconds()/60.
             # localize and then convert to dispatch_outputs_timezone

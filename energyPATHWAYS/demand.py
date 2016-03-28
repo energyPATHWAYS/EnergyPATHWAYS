@@ -280,6 +280,7 @@ class Sector(object):
             shapes.activate_shape(self.shape_id)
         
         feeder_allocation_class = dispatch_classes.DispatchFeederAllocation(1)
+        # FIXME: This next line will fail if we don't have a feeder allocation for each demand_sector
         self.feeder_allocation = util.df_slice(feeder_allocation_class.values, id, 'demand_sector')
 
     def add_subsectors(self):
