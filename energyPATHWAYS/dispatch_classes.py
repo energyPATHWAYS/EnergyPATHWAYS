@@ -59,6 +59,10 @@ class Dispatch(object):
         self.dispatch_geographies = dispatch_geographies
         self.solver_name = solver_name
         self.stdout_detail = stdout_detail
+        if self.stdout_detail == 'False':
+            self.stdout_detail == False
+        else:
+            self.stdout_detail == True
         self.results_directory = results_directory
         self.solve_kwargs = {"keepfiles": False, "tee": False}
         self.upward_imbalance_penalty = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
