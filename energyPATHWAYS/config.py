@@ -95,8 +95,7 @@ class Config:
 
     def init_outputs_id_map(self):
         self.currency_name = util.sql_read_table('Currencies', 'name', id=int(self.cfgfile.get('case', 'currency_id')))
-        universal_output_levels = ['unit'] # we always want it to have an output unit
-        self.output_levels = list(set(universal_output_levels + self.cfgfile.get('case', 'output_levels').split(', ')))
+        self.output_levels = self.cfgfile.get('case', 'output_levels').split(', ')
         self.output_currency = self.cfgfile.get('case', 'currency_year_id') + ' ' + self.currency_name
         self.outputs_id_map = defaultdict(dict)
         if 'primary_geography' in self.output_levels:

@@ -52,8 +52,9 @@ class Demand(object):
             return util.remove_df_levels(df, levels_with_na_only).sort_index()
             
         output_list = ['energy', 'stock', 'investment_costs', 'levelized_costs', 'service_demand']
-        for output_name in output_list:
-            df = self.group_output(output_name)
+        unit_flag = [False, True, False, False, True]
+        for output_name, include_unit in zip(output_list,unit_flag):
+            df = self.group_output(output_name,include_unit=include_unit)
             df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
             setattr(self.outputs, output_name, df)
             
@@ -68,9 +69,10 @@ class Demand(object):
         setattr(self.outputs, 'demand_embodied_energy', self.group_linked_output(energy_link))
         
 
-    def group_output(self, output_type, levels_to_keep=None):
+    def group_output(self, output_type, levels_to_keep=None, include_unit=False):
         levels_to_keep = cfg.output_levels if levels_to_keep is None else levels_to_keep
-        dfs = [sector.group_output(output_type, levels_to_keep) for sector in self.sectors.values()]
+        levels_to_keep = list(set(levels_to_keep + ['unit'])) if include_unit else levels_to_keep
+        dfs = [sector.group_output(output_type, levels_to_keep, include_unit) for sector in self.sectors.values()]
         if all([df is None for df in dfs]) or not len(dfs):
             return None
         dfs, keys = zip(*[(df, key) for df, key in zip(dfs, self.sectors.keys()) if df is not None])
@@ -319,8 +321,9 @@ class Sector(object):
         levels_to_keep = [cfg.cfgfile.get('case', 'primary_geography'), 'final_energy', 'year']
         return util.DfOper.add([pd.DataFrame(subsector.energy_forecast.value.groupby(level=levels_to_keep).sum()).sort() for subsector in self.subsectors.values() if hasattr(subsector, 'energy_forecast')])
 
-    def group_output(self, output_type, levels_to_keep=None):
+    def group_output(self, output_type, levels_to_keep=None, include_unit=False):
         levels_to_keep = cfg.output_levels if levels_to_keep is None else levels_to_keep
+        levels_to_keep = list(set(levels_to_keep + ['unit'])) if include_unit else levels_to_keep
         dfs = [subsector.group_output(output_type, levels_to_keep) for subsector in self.subsectors.values()]
         if all([df is None for df in dfs]) or not len(dfs):
             return None
@@ -538,7 +541,7 @@ class Subsector(DataMapFunctions):
         if output_type=='energy':
             # a subsector type link would be something like building shell, which does not have an energy demand
             if self.sub_type != 'link':
-                return util.add_and_set_index(self.energy_forecast, 'unit', cfg.cfgfile.get('case', 'energy_unit').upper())
+                return self.energy_forecast
         elif output_type=='stock':
             return self.format_output_stock(levels_to_keep)
         elif output_type=='investment_costs':
@@ -585,7 +588,6 @@ class Subsector(DataMapFunctions):
             keys = measure_types
             names = ['measure_types']
             df = pd.concat(df_list,keys=keys,names=names)
-            df = util.add_and_set_index(df, 'unit', cfg.output_currency.upper())
             return df
         else:
             return None
@@ -623,7 +625,6 @@ class Subsector(DataMapFunctions):
                 util.replace_index_name(value, 'year')
                 values[index] = value
         df = util.df_list_concatenate(values, keys=keys, new_names=['cost category', 'new/replacement'], levels_to_keep=override_levels_to_keep)
-        df = util.add_and_set_index(df, 'unit', cfg.output_currency.upper())
         return df
 
     def calculate_measures(self):

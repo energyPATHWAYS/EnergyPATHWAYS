@@ -1927,7 +1927,7 @@ class Node(DataMapFunctions):
             p_min_shape = None       
         elif not hasattr(self, 'technologies') or np.all([tech.shape_id is None for tech in self.technologies.values()]):
             if 'dispatch_constraint' not in self.shape.values.index.names:
-                if 'resource_bins' in self.shape.value.index.names and 'resource_bins' not in self.stock.values.index.names:
+                if 'resource_bins' in self.shape.values.index.names and 'resource_bins' not in self.stock.values.index.names:
                     raise ValueError('Shape for %s has resource bins but the stock in this supply node does not have resource bins as a level' %self.name)
                 elif 'resource_bins' in self.stock.values.index.names and 'resource_bins' not in self.shape.values.index.names:
                     energy_shape = self.shape.values

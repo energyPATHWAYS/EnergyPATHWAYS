@@ -366,7 +366,7 @@ class Shape(dmf.DataMapFunctions):
 
 
 directory = os.getcwd()
-rerun_shapes = True
+rerun_shapes = False
 
 #######################
 #######################
