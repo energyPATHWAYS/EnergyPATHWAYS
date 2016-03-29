@@ -627,7 +627,6 @@ class Dispatch(object):
         if self.stdout_detail:
             print "Creating model instance..."
         instance = model.create_instance(data)
-        self.instance = instance
         if self.stdout_detail:
             print "Getting solver..."
         solver = SolverFactory(self.solver_name)
@@ -647,7 +646,7 @@ class Dispatch(object):
         #replace with multiprocessing if parallel
         #replace with multiprocessing if parallel
         for period in self.periods:
-            self.results = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)
+            results = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)
             self.export_storage_results(results, period) 
             self.export_flex_load_results(results, period)
                 
