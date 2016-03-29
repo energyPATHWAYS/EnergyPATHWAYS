@@ -22,8 +22,7 @@ import logging
 # Dispatch modules
 import dispatch_problem_PATHWAYS
 import year_to_period_allocation
-from parallel import run_dispatch_optimization
-import multiprocessing
+
 
 
 
@@ -646,15 +645,11 @@ class Dispatch(object):
         self.alloc_start_state_of_charge = alloc_start_state_of_charge
         self.alloc_end_state_of_charge = alloc_end_state_of_charge
         #replace with multiprocessing if parallel
-        results = []
+        #replace with multiprocessing if parallel
         for period in self.periods:
-            p = multiprocessing.Process(target=run_dispatch_optimization, args=(self,alloc_start_state_of_charge, alloc_end_state_of_charge,period))
-            results.append(p)
-        for period in self.periods:      
-            result = results[0]
-            self.export_storage_results(result, period) 
-            self.export_flex_load_results(result, period)
-
+            self.results = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)
+            self.export_storage_results(results, period) 
+            self.export_flex_load_results(results, period)
                 
     def run_year_to_month_allocation(self):
         model = year_to_period_allocation.year_to_period_allocation_formulation(self)
