@@ -49,7 +49,7 @@ class Supply(object):
         self.dispatch_feeder_allocation = DispatchFeederAllocation(id=1)
         self.dispatch_feeders = list(set(self.dispatch_feeder_allocation.values.index.get_level_values('dispatch_feeder')))
         self.dispatch = Dispatch(self.dispatch_feeders, self.dispatch_geography, self.dispatch_geographies,
-                                 cfg.cfgfile.get('opt','solver_name'),  cfg.cfgfile.get('opt','stdout_detail'), outputs_directory)
+                                 cfg.cfgfile.get('opt','stdout_detail'), outputs_directory)
      
 
      

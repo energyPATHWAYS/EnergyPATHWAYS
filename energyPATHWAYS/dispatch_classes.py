@@ -17,10 +17,13 @@ from collections import defaultdict
 import os
 from pyomo.opt import SolverFactory
 import csv
+import logging
 
 # Dispatch modules
 import dispatch_problem_PATHWAYS
 import year_to_period_allocation
+from parallel import run_dispatch_optimization
+import multiprocessing
 
 
 
@@ -39,7 +42,7 @@ class DispatchNodeConfig(DataMapFunctions):
 
 class Dispatch(object):
     def __init__(self, dispatch_feeders, dispatch_geography, dispatch_geographies, 
-                 solver_name, stdout_detail, results_directory,  **kwargs):
+                 stdout_detail, results_directory,  **kwargs):
         #TODO replace 1 with a config parameter
         for col, att in util.object_att_from_table('DispatchConfig',1):
             setattr(self, col, att)
@@ -57,7 +60,7 @@ class Dispatch(object):
         self.feeders = [0] + dispatch_feeders
         self.dispatch_geography = dispatch_geography
         self.dispatch_geographies = dispatch_geographies
-        self.solver_name = solver_name
+        self.solver_name = self.find_solver()
         self.stdout_detail = stdout_detail
         if self.stdout_detail == 'False':
             self.stdout_detail == False
@@ -67,6 +70,27 @@ class Dispatch(object):
         self.solve_kwargs = {"keepfiles": False, "tee": False}
         self.upward_imbalance_penalty = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
         self.downward_imbalance_penalty = util.unit_convert(100.0,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
+  
+  
+    def find_solver(self):
+        requested_solvers = cfg.cfgfile.get('opt', 'dispatch_solver').replace(' ', '').split(',')
+        solver_name = None
+        # inspired by the solver detection code at https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/scripting/driver_help.py#L336
+        # suppress logging of warnings for solvers that are not found
+        logger = logging.getLogger('pyomo.solvers')
+        _level = logger.getEffectiveLevel()
+        logger.setLevel(logging.ERROR)
+        for requested_solver in requested_solvers:
+#            print "Looking for %s solver" % requested_solver
+            if SolverFactory(requested_solver).available(False):
+                solver_name = requested_solver
+                print "Using %s solver" % requested_solver
+                break
+        # restore logging
+        logger.setLevel(_level)
+    
+        assert solver_name is not None, "Dispatch could not find any of the solvers requested in your configuration (%s) please see README.md, check your configuration, and make sure you have at least one requested solver installed." % ', '.join(requested_solvers)        
+        return solver_name
   
     def set_dispatch_order(self):
         order = [x.dispatch_order for x in self.node_config_dict.values()]
@@ -622,10 +646,14 @@ class Dispatch(object):
         self.alloc_start_state_of_charge = alloc_start_state_of_charge
         self.alloc_end_state_of_charge = alloc_end_state_of_charge
         #replace with multiprocessing if parallel
+        results = []
         for period in self.periods:
-            self.results = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)
-            self.export_storage_results(self.results, period) 
-            self.export_flex_load_results(self.results, period)
+            p = multiprocessing.Process(target=run_dispatch_optimization, args=(self,alloc_start_state_of_charge, alloc_end_state_of_charge,period))
+            results.append(p)
+        for period in self.periods:      
+            result = results[0]
+            self.export_storage_results(result, period) 
+            self.export_flex_load_results(result, period)
 
                 
     def run_year_to_month_allocation(self):
@@ -685,25 +713,7 @@ class Dispatch(object):
         state_of_charge = [start_soc, end_soc]
         return state_of_charge
 
-    def run_dispatch_optimization(self, start_state_of_charge, end_state_of_charge, period):
-        """
-        :param period:
-        :return:
-        """
-
-        if self.stdout_detail:
-            print "Optimizing dispatch for period " + str(period)
-
-        # Directory structure
-        # This won't be needed when inputs are loaded from memory
-
-        if self.stdout_detail:
-            print "Getting problem formulation..."
-        model = dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
-                                                              end_state_of_charge, period)
-        
-        results = self.run_pyomo(model,None)
-        return results
+    
 
 
 
