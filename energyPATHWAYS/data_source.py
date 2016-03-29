@@ -30,7 +30,12 @@ def fetch_as_dict(cls):
 def fetch_as_df(cls):
     # ignore the primary key column since it is not interesting for dataframe purposes
     cols = [column.key for column in cls.__mapper__.columns.values() if column.key != 'id']
-    # any column that doesn't contain the value for the row is an index
-    indexes = [col for col in cols if col != 'value']
 
-    return pd.read_sql_table(cls.__tablename__, engine, columns=cols, index_col=indexes).sort_index()
+    # Note: at this stage parent_id is the only index column, since that is what DataMapper will be
+    # using to select slices from the whole-table DataFrame for each individual parent object. It is tempting
+    # to set up all the non-"value" columns as indexes here since we know they will ultimately be used
+    # that way, but if we do that many of them will become float indexes rather than int indexes because
+    # they will contain some NULL/NaN values. (pandas int columns don't support NaN, so columns with NaN
+    # that would otherwise be int are coerced to float.) Instead, we delay setting indices until
+    # DataMapper pulls its individual slices.
+    return pd.read_sql_table(cls.__tablename__, engine, columns=cols, index_col='parent_id').sort_index()

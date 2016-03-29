@@ -36,14 +36,25 @@ class DataMapper(object):
         if data_cls not in cls.data_tables:
             cls.get_all_raw_values(data_cls)
 
-        # FIXME: this makes the assumption that the id column is always the first index;
-        # we should discuss whether we want to guarantee this in the database or if there's something we should do
-        # in refresh() to guarantee it
+        # get the slice of this class' data table that references the requested object id_
         df = cls.data_tables[data_cls].loc[id_]
 
-        # drop indexes that are entirely unused for this subset of the data
-        empty_indexes = [idx for idx, label in enumerate(df.index.labels) if all(elem == -1 for elem in label)]
-        df.reset_index(level=empty_indexes, drop=True, inplace=True)
+        # Drop any columns that are unused (all NaN) within the slice
+        # Note that we are now working with a copy to avoid inadvertently affecting the underlying
+        # data frame for the whole table (that is, data_tables[data_cls])
+        df = df.dropna(axis='columns', how='all')
+
+        assert df.notnull().values.all(), "%s contains a null (NaN) value in a column with at least one non-null" \
+                                          "value for parent_id %i; for a given parent_id, each column should either" \
+                                          "be all null or have no nulls" % (data_cls, id_)
+
+        # any column that doesn't contain the value for the row is an index
+        indexes = [col for col in df.columns.values if col != 'value']
+        # the index columns may be of type float if they ever contained any NaN values in the original data table,
+        # so we will coerce them to int now. Note that this would fail if there were any remaining NaN values in the
+        # column, but we screened for that in the assertion above so it should be safe.
+        df[indexes] = df[indexes].astype(int)
+        df.set_index(indexes, inplace=True)
 
         return df
 
