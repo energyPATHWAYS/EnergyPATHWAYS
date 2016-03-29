@@ -58,27 +58,32 @@ class DataMapper(object):
 
         return df
 
+    def pretty_index_name(self, index_name):
+        """
+        Takes a data frame index name and returns a more user-friendly version.
+        The main idea is that if we have a column called "gau_id" (the id of a geographical unit) and the geography
+        for this object is "census division" we want to label the column "census division" instead of "gau_id".
+        We do a similar substitution with columns referring to "other indexes".
+        We also trim "_id" off the end of any names ending in that string, so "ghg_id" becomes "ghg"
+        Otherwise we just return the original name provided.
+        """
+        if index_name == 'gau_id':
+            return self.geography.name
+        elif index_name == 'oth_1_id':
+            return self.other_index_1.name
+        elif index_name == 'oth_2_id':
+            return self.other_index_2.name
+        elif index_name.endswith('_id'):
+            return index_name[:-3]
+
+        return index_name
+
     @reconstructor
     def read_timeseries_data(self):
         """reads timeseries data to dataframe from database. Stored in self.raw_values"""
         self.raw_values = self.get_raw_values(self.id)
 
-        # FIXME: this is a band-aid until I can understand and straighten up the more generalized black magic that
-        # DataMapFunctions works with IndexLevels.
-        # the idea is that if we have an index level called "gau_id" (the id of a geographical unit) and the geography
-        # for this object is "census division" we want to label the column "census division" instead of "gau_id"
-        # We need to re-evaluate how to do this in general for columns other than gau_id, but this is enough of a
-        # patch to get DemandDrivers working as a DataMapper rather than a DataMapFunctions
-        new_names = []
-        for name in self.raw_values.index.names:
-            if name == 'gau_id':
-                new_names.append(self.geography.name)
-            elif name == 'oth_1_id':
-                new_names.append(self.other_index_1.name)
-            else:
-                new_names.append(name)
-
-        self.raw_values.index.names = new_names
+        self.raw_values.index.names = (self.pretty_index_name(name) for name in self.raw_values.index.names)
 
         if hasattr(self, 'unit_prefix'):
             self.raw_values = self.raw_values * self.unit_prefix
