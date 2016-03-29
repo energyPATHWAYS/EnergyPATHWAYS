@@ -71,10 +71,8 @@ class DataMapFunctions:
                         print (self.id, row, i)
             column_names = self.df_index_names + util.put_in_list(data_column_names)
             self.raw_values = pd.DataFrame(data, columns=column_names).set_index(keys=self.df_index_names).sort_index()
-            self.empty = True
         else:
             self.raw_values = None
-            self.empty = False
 
     def clean_timeseries(self, attr='values', inplace=True, time_index_name='year', 
                          time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing'):
@@ -269,7 +267,6 @@ class Abstract(DataMapFunctions):
         # before we only has primary_key, which was shared in the "parent" and "data" tables, and this is still the default as we make the change.
         if data_id_key is None:
             data_id_key = primary_key
-        
         try:
             for col, att in util.object_att_from_table(self.sql_id_table, id, primary_key):
                 # if att is not None:
@@ -283,7 +280,6 @@ class Abstract(DataMapFunctions):
                 self.read_timeseries_data(**filters)
             else:
                 self.read_timeseries_data()
-            self.empty = False
         except:
-            self.empty = True
+            self.raw_values = None
 

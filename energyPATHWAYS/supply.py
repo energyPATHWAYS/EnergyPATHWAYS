@@ -3440,8 +3440,8 @@ class SupplyStockNode(Node):
             for attr_class in attr_classes:
                 # It is possible that recursion has converted before we get to an
                 # attr_class in the list. If so, continue.
-                if getattr(getattr(self.technologies[technology], attr_class), 'converted'):
-                    continue
+#                if getattr(getattr(self.technologies[technology], attr_class), 'converted'):
+#                    continue
                 self.remap_tech_attr(technology, attr_class, attr)
 
 
@@ -3458,11 +3458,11 @@ class SupplyStockNode(Node):
                 ref_tech_class = getattr(self.technologies[ref_tech_id], class_name)
                 # converted is an indicator of whether an input is an absolute
                 # or has already been converted to an absolute
-                if not getattr(ref_tech_class, 'converted'):
+                if not getattr(ref_tech_class, 'absolute'):
                     # If a technnology hasn't been mapped, recursion is used
                     # to map it first (this can go multiple layers)
                     self.remap_tech_attr(getattr(tech_class, 'reference_tech_id'), class_name, attr)
-                if getattr(tech_class, 'data') is True:
+                if tech_class.raw_values is not None:
                     tech_data = getattr(tech_class, attr)
                     new_data = DfOper.mult([tech_data,
                                             getattr(ref_tech_class, attr)])
@@ -3478,7 +3478,7 @@ class SupplyStockNode(Node):
         else:
             pass
         # Now that it has been converted, set indicator to true
-        tech_class.converted = True    
+        tech_class.absolute = True    
     
     
     def add_technologies(self):
@@ -3491,9 +3491,9 @@ class SupplyStockNode(Node):
     def add_nodes(self):
         self.nodes = []
         for technology in self.technologies.values():
-            if hasattr(technology,'efficiency') and technology.efficiency.data is True:
-                 for value in technology.efficiency.raw_values.index.get_level_values('supply_node'):
-                     self.nodes.append(value)
+            if hasattr(technology,'efficiency') and technology.efficiency.raw_values is not None:
+                for value in technology.efficiency.raw_values.index.get_level_values('supply_node'):
+                    self.nodes.append(value)
         self.nodes = set(self.nodes)
         
 
@@ -4180,7 +4180,7 @@ class SupplyStockNode(Node):
         for tech_class in tech_class:
             tech_dfs += ([self.reformat_tech_df(stock_df, tech, tech_class, tech_att, tech.id, year) for tech in
                         self.technologies.values() if
-                            hasattr(getattr(tech, tech_class), tech_att) and getattr(tech, tech_class).empty is not True])       
+                            hasattr(getattr(tech, tech_class), tech_att) and getattr(tech, tech_class).raw_values is not None])       
         if len(tech_dfs):
             tech_df = pd.concat(tech_dfs)
             tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names]+ [x for x in tech_df.index.names if x not in stock_df.index.names])

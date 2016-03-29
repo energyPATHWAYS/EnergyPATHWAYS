@@ -33,10 +33,7 @@ class DispatchNodeConfig(DataMapFunctions):
 #        self.sql_data_table = 'DispatchNodeData'
         for col, att in util.object_att_from_table(self.sql_id_table, id, primary_key='supply_node_id'):
             setattr(self, col, att)
-#        DataMapFunctions.__init__(self,primary_key='supply_node_id')
-#        for value in ['p_max','p_min','energy_budget']:
-#            self.read_timeseries_data(data_column_names=value, hide_exceptions=True)
-#            setattr(self, value + '_raw_values',self.raw_values)
+
         
 
 class Dispatch(object):
@@ -62,9 +59,9 @@ class Dispatch(object):
         self.solver_name = self.find_solver()
         self.stdout_detail = stdout_detail
         if self.stdout_detail == 'False':
-            self.stdout_detail == False
+            self.stdout_detail = False
         else:
-            self.stdout_detail == True
+            self.stdout_detail = True
         self.results_directory = results_directory
         self.solve_kwargs = {"keepfiles": False, "tee": False}
         self.upward_imbalance_penalty = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
@@ -95,8 +92,6 @@ class Dispatch(object):
         order = [x.dispatch_order for x in self.node_config_dict.values()]
         order_index = np.argsort(order)
         self.dispatch_order = [self.node_config_dict.keys()[i] for i in order_index]
-      
-      
       
     def set_timeperiods(self, time_index):
           """sets optimization periods based on selection of optimization hours
@@ -649,6 +644,27 @@ class Dispatch(object):
             results = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)
             self.export_storage_results(results, period) 
             self.export_flex_load_results(results, period)
+            
+            
+    def run_dispatch_optimization(self, start_state_of_charge, end_state_of_charge, period):
+        """
+        :param period:
+        :return:
+        """
+
+        if self.stdout_detail:
+            print "Optimizing dispatch for period " + str(period)
+
+        # Directory structure
+        # This won't be needed when inputs are loaded from memory
+
+        if self.stdout_detail:
+            print "Getting problem formulation..."
+        model = dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
+                                                              end_state_of_charge, period)
+        
+        results = self.run_pyomo(model,None)
+        return results
                 
     def run_year_to_month_allocation(self):
         model = year_to_period_allocation.year_to_period_allocation_formulation(self)

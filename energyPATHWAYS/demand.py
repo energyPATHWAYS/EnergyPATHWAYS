@@ -1015,8 +1015,8 @@ class Subsector(DataMapFunctions):
             for attr_class in attr_classes:
                 # It is possible that recursion has converted before we get to an
                 # attr_class in the list. If so, continue.
-                if getattr(getattr(self.technologies[technology], attr_class), 'converted'):
-                    continue
+#                if getattr(getattr(self.technologies[technology], attr_class), 'absolute'):
+#                    continue
                 self.remap_tech_attr(technology, attr_class, attr)
 
     def remap_tech_attr(self, technology, class_name, attr):
@@ -1031,11 +1031,11 @@ class Subsector(DataMapFunctions):
                 ref_tech_class = getattr(self.technologies[ref_tech_id], class_name)
                 # converted is an indicator of whether an input is an absolute
                 # or has already been converted to an absolute
-                if not getattr(ref_tech_class, 'converted'):
+                if not getattr(ref_tech_class, 'absolute'):
                     # If a technnology hasn't been mapped, recursion is used
                     # to map it first (this can go multiple layers)
                     self.remap_tech_attr(getattr(tech_class, 'reference_tech_id'), class_name, attr)
-                if getattr(tech_class, 'data') is True:
+                if tech_class.raw_values is not None:
                     tech_data = getattr(tech_class, attr)
                     flipped = getattr(ref_tech_class, 'flipped') if hasattr(ref_tech_class, 'flipped') else False
                     if flipped is True:
@@ -1043,7 +1043,7 @@ class Subsector(DataMapFunctions):
                     new_data = DfOper.mult([tech_data,
                                             getattr(ref_tech_class, attr)])
                 else:
-                    new_data = copy.deepcopy(getattr(ref_tech_class, attr))
+                        new_data = copy.deepcopy(getattr(ref_tech_class, attr))
                 tech_attributes = vars(getattr(self.technologies[ref_tech_id], class_name))
                 for attribute_name in tech_attributes.keys():
                     if not hasattr(tech_class, attribute_name) or getattr(tech_class, attribute_name) is None:
@@ -1054,7 +1054,7 @@ class Subsector(DataMapFunctions):
         else:
             pass
         # Now that it has been converted, set indicator to true
-        tech_class.converted = True
+        tech_class.absolute = True
 
 
     def project_measure_stocks(self):
@@ -1373,7 +1373,7 @@ class Subsector(DataMapFunctions):
             # loop through technologies and add service demand modifiers by technology-specific input (i.e. technology has a
         # a service demand modifier class)
         for tech in self.tech_ids:
-            if getattr(getattr(self.technologies[tech], 'service_demand_modifier'), 'empty') is not True:
+            if self.technologies[tech].service_demand_modifier.raw_values is not None:
                 tech_modifier = getattr(getattr(self.technologies[tech], 'service_demand_modifier'), 'values')
                 tech_modifier = util.expand_multi(tech_modifier, sd_modifier.index.levels, sd_modifier.index.names,
                                                   drop_index='technology').fillna(method='bfill')
@@ -1755,7 +1755,7 @@ class Subsector(DataMapFunctions):
         measure_dfs = [self.reformat_measure_df(stock_df, measure, measure_class, measure_att, measure.id) for measure
                        in getattr(self, measures).values() if
                        hasattr(measure, measure_class) and getattr(getattr(measure, measure_class),
-                                                                   'empty') is not True]
+                                                                   'raw_values') is not None]
         if len(measure_dfs):
             measure_df = pd.concat(measure_dfs)
             c = DfOper.mult([measure_df, stock_df])
@@ -2344,7 +2344,7 @@ class Subsector(DataMapFunctions):
         for tech_class in tech_class:
             tech_dfs += ([self.reformat_tech_df(stock_df, tech, tech_class, tech_att, tech.id, efficiency) for tech in
                         self.technologies.values() if
-                            hasattr(getattr(tech, tech_class), tech_att) and getattr(tech, tech_class).empty is not True])       
+                            hasattr(getattr(tech, tech_class), tech_att) and getattr(tech, tech_class).raw_values is not None])       
         if len(tech_dfs):
             tech_df = pd.concat(tech_dfs)
             tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names]+[x for x in tech_df.index.names if x not in stock_df.index.names])

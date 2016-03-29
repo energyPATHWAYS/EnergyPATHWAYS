@@ -175,16 +175,16 @@ class DemandTechnology(StockItem):
         else:
             class_a_instance = getattr(self, class_a)
             class_b_instance = getattr(self, class_b)
-            if class_a_instance.data is True and class_b_instance.data is True:
+            if class_a_instance.data is True and class_a_instance.raw_values is not None and class_b_instance.data is True and class_b_instance.raw_values is not None:
                 pass
             elif class_a_instance.data is False and class_b_instance.data is False and \
                             hasattr(class_a_instance, 'reference_tech_id') is False and \
                             hasattr(class_b_instance, 'reference_tech_id') is False:
                 pass
             # print "demand technology %s has no input data for %s or %s" % (self.id, class_a, class_b)
-            elif class_a_instance.data is True and class_b_instance.data is False:
+            elif class_a_instance.data is True and class_a_instance.raw_values is not None and (class_b_instance.data is False or (class_b_instance.data is True and class_b_instance.raw_values is None)):
                 setattr(self, class_b, copy.deepcopy(class_a_instance))
-            elif class_a_instance.data is False and class_b_instance.data is True:
+            elif (class_a_instance.data is False or (class_a_instance.data is True and class_a_instance.raw_values is None))and class_b_instance.data is True and class_b_instance.raw_values is not None:
                 setattr(self, class_a, copy.deepcopy(class_b_instance))
 
 
@@ -210,17 +210,15 @@ class DemandTechCost(Abstract):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.empty is False:
+        if self.data and self.raw_values is not None:
             self.convert_cost()
             self.remap(map_from='values', map_to='values', time_index_name='vintage')
             self.levelize_costs()
-        elif self.data is False:
-            setattr(self, 'converted', False)
-        if self.empty is True:
+        if self.data is False:
+            self.absolute = False
+        if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered converted
-            self.converted = True
-        else:
-            self.empty = False
+            self.absolute = True
 
 
     def convert_cost(self):
@@ -237,9 +235,9 @@ class DemandTechCost(Abstract):
             self.values = copy.deepcopy(self.raw_values)
         if self.definition == 'absolute':
             self.values = util.currency_convert(self.values, self.currency_id, self.currency_year_id)
-            self.converted = True
+            self.absolute = True
         else:
-            self.converted = False
+            self.absolute = False
 
     def levelize_costs(self):
         if hasattr(self, 'is_levelized'):
@@ -273,17 +271,15 @@ class ParasiticEnergy(Abstract):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.empty is False:
+        if self.data and self.raw_values is not None:
             self.convert()
             self.remap(map_from='values', map_to='values', time_index_name='vintage')
             util.convert_age(self, reverse=True, vintages=self.vintages, years=self.years)
-        elif self.data is False:
-            setattr(self, 'converted', False)
-        if self.empty is True:
-            # if the class is empty, then there is no data for conversion, so the class is considered converted
-            self.converted = True
-        else:
-            self.empty = False
+        if self.data is False:
+            self.absolute = False
+        if self.raw_values is None:
+            # if the class is empty, then there is no data for conversion, so the class is considered absolute
+            self.absolute = True
 
     def convert(self):
         """
@@ -299,12 +295,12 @@ class ParasiticEnergy(Abstract):
             if self.demand_tech_unit_type == 'service demand':
                 self.values = util.unit_convert(self.values, unit_from_num=self.unit,
                                                 unit_to_num=self.service_demand_unit)
-            self.converted = True
+            self.absolute = True
 
 
         else:
             self.values = self.raw_values.copy()
-            self.converted = False
+            self.absolute = False
 
 
 class DemandTechEfficiency(Abstract):
@@ -320,17 +316,15 @@ class DemandTechEfficiency(Abstract):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.empty is False:
+        if self.data and self.raw_values is not None:
             self.convert()
             self.remap(map_from='values', map_to='values', time_index_name='vintage')
             util.convert_age(self, reverse=True, vintages=self.vintages, years=self.years)
-        elif self.data is False:
-            setattr(self, 'converted', False)
-        if self.empty is True:
+        if self.data is False:
+            self.absolute = False
+        if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered converted
-            self.converted = True
-        else:
-            self.empty = False
+            self.absolute = True
 
     def convert(self):
         """
@@ -352,10 +346,10 @@ class DemandTechEfficiency(Abstract):
                                             unit_from_den=denominator_unit,
                                             unit_to_num=cfg.cfgfile.get('case', 'energy_unit'),
                                             unit_to_den=self.service_demand_unit)
-            self.converted = True
+            self.absolute = True
         else:
             self.values = self.raw_values.copy()
-            self.converted = False
+            self.absolute = False
 
 
 class DemandTechServiceLink(Abstract):
@@ -375,16 +369,14 @@ class DemandTechServiceLink(Abstract):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data:
+        if self.data and self.raw_values is not None:
             self.remap(map_from='raw_values', map_to='values', time_index_name='vintage')
             util.convert_age(self, reverse=True, vintages=self.vintages, years=self.years)
-        elif self.data is False:
-            setattr(self, 'converted', False)
-        if self.empty is True:
+        if self.data is False:
+           self.absolute = False
+        if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered converted
-            self.converted = True
-        else:
-            self.empty = False
+            self.absolute = True
 
 
 class ServiceDemandModifier(Abstract):
@@ -401,17 +393,15 @@ class ServiceDemandModifier(Abstract):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.empty is False:
+        if self.data and self.raw_values is not None:
             self.remap(map_from='raw_values', map_to='values', time_index_name='vintage')
             util.convert_age(self, attr_from='values', attr_to='values', reverse=False, vintages=self.vintages,
                              years=self.years)
-        elif self.data is False:
-            setattr(self, 'converted', False)
-        if self.empty is True:
+        if self.data is False:
+            self.absolute = False
+        if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered converted
-            self.converted = True
-        else:
-            self.empty = False
+            self.absolute = True
 
 
 

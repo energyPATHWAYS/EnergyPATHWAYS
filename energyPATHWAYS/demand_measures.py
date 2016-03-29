@@ -184,17 +184,16 @@ class DemandMeasureCost(Abstract):
         self.vintages = vintages
         self.years = years
         self.unit_to = unit_to
-        if self.data:
+        if self.data and self.raw_values is not None:
             self.convert_cost()
             self.remap(map_from='values', map_to='values', time_index_name='vintage')
             self.levelize_costs()
-        elif self.data is False:
-            setattr(self, 'converted', False)
-        if self.empty is True:
-            # if the class is empty, then there is no data for conversion, so the class is considered converted
-            self.converted = True
-        else:
-            self.empty = False
+        if self.data is False:
+            self.absolute = False
+        if self.raw_values is None:
+            # if the class is empty, then there is no data for conversion, so the class is considered absolute
+            self.absolute = True
+
 
 
     def convert_cost(self):

@@ -128,16 +128,18 @@ class SupplyTechnology(StockItem):
         else:
             class_a_instance = getattr(self, class_a)
             class_b_instance = getattr(self, class_b)
-            if class_a_instance.data is True and class_b_instance.data is True:
+            if class_a_instance.data is True and class_a_instance.raw_values is not None and class_b_instance.data is True and class_b_instance.raw_values is not None:
                 pass
-#            elif class_a_instance.data is False and class_b_instance.data is False and hasattr(class_a_instance,
-#                                                                                               'reference_tech_id') is False and hasattr(
-#                    class_b_instance, 'reference_tech_id') is False:
-#                print "Conversion technology %s has incomplete input data for %s and %s" % (self.id, class_a, class_b)
-            elif class_a_instance.data is True and class_b_instance.data is False:
+            elif class_a_instance.data is False and class_b_instance.data is False and \
+                            hasattr(class_a_instance, 'reference_tech_id') is False and \
+                            hasattr(class_b_instance, 'reference_tech_id') is False:
+                pass
+            # print "demand technology %s has no input data for %s or %s" % (self.id, class_a, class_b)
+            elif class_a_instance.data is True and class_a_instance.raw_values is not None and (class_b_instance.data is False or (class_b_instance.data is True and class_b_instance.raw_values is None)):
                 setattr(self, class_b, copy.deepcopy(class_a_instance))
-            elif class_a_instance.data is False and class_b_instance.data is True:
+            elif (class_a_instance.data is False or (class_a_instance.data is True and class_a_instance.raw_values is None))and class_b_instance.data is True and class_b_instance.raw_values is not None:
                 setattr(self, class_a, copy.deepcopy(class_b_instance))
+
 
 class StorageTechnology(SupplyTechnology):
     def __init__(self, id, cost_of_capital, **kwargs):
@@ -188,19 +190,15 @@ class SupplyTechCost(Abstract):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.empty is False:
+        if self.data and self.raw_values is not None:
             self.convert()
             self.remap(map_from='values', map_to='values', time_index_name='vintage')
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values_level', reverse=False)
-        elif self.data is False:
-            setattr(self, 'converted', False)
-        else:
-            self.converted = False
-        if self.empty is True:
+        if self.data is False:
+            self.absolute = False
+        if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered converted
-            self.converted = True
-        else:
-            self.empty = False   
+            self.absolute = True
 
 
 class SupplyTechInvestmentCost(SupplyTechCost):
@@ -213,19 +211,15 @@ class SupplyTechInvestmentCost(SupplyTechCost):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.empty is False:
+        if self.data and self.raw_values is not None:
             self.convert()
             self.remap(map_from='values', map_to='values', time_index_name='vintage')
             self.levelize_costs()
-        elif self.data is False:
-            setattr(self, 'converted', False)
-        else:
-            self.converted = False
-        if self.empty is True:
+        if self.data is False:
+            self.absolute = False
+        if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered converted
-            self.converted = True
-        else:
-            self.empty = False   
+            self.absolute = True
 
     def levelize_costs(self):
         if hasattr(self, 'is_levelized'):
@@ -261,9 +255,9 @@ class SupplyTechInvestmentCost(SupplyTechCost):
                                             unit_to_num=model_time_step)
         if self.definition == 'absolute':
             self.values = util.currency_convert(self.values, self.currency_id, self.currency_year_id)
-            self.converted = True
+            self.absolute = True
         else:
-            self.converted = False
+            self.absolute = False
 
            
 class StorageTechEnergyCost(SupplyTechInvestmentCost):           
@@ -278,9 +272,9 @@ class StorageTechEnergyCost(SupplyTechInvestmentCost):
         self.values = util.unit_convert(self.raw_values, unit_from_num=self.energy_unit,unit_to_num=model_energy_unit)
         if self.definition == 'absolute':
             self.values = util.currency_convert(self.values, self.currency_id, self.currency_year_id)
-            self.converted = True
+            self.absolute = True
         else:
-            self.converted = False
+            self.absolute = False
 
 
 class SupplyTechFixedOMCost(SupplyTechCost):
@@ -307,9 +301,9 @@ class SupplyTechFixedOMCost(SupplyTechCost):
                                             unit_to_num=model_time_step)
         if self.definition == 'absolute':
             self.values = util.currency_convert(self.values, self.currency_id, self.currency_year_id)
-            self.converted = True
+            self.absolute = True
         else:
-            self.converted = False
+            self.absolute = False
 
 class SupplyTechVariableOMCost(SupplyTechCost):
     def __init__(self, id, sql_id_table, sql_data_table, book_life=None, **kwargs):
@@ -323,9 +317,9 @@ class SupplyTechVariableOMCost(SupplyTechCost):
         self.values = util.unit_convert(self.raw_values, unit_from_num=self.energy_unit,unit_to_num=model_energy_unit)
         if self.definition == 'absolute':
             self.values = util.currency_convert(self.values, self.currency_id, self.currency_year_id)
-            self.converted = True
+            self.absolute = True
         else:
-            self.converted = False
+            self.absolute = False
             
             
             
@@ -343,20 +337,16 @@ class SupplyTechEfficiency(Abstract):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.empty is False:
+        if self.data and self.raw_values is not None:
             self.convert()
             self.remap(map_from='values', map_to='values', time_index_name='vintage', lower=None)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
-        elif self.data is False:
-            setattr(self, 'converted', False)
-        else:
-            self.converted = False
-            # adds fixed output shapes for technologies which are not dispatchable
-        if self.empty is True:
+        if self.data is False:
+            self.absolute = False
+        if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered converted
-            self.converted = True
-        else:
-            self.empty = False   
+            self.absolute = True
+
           
 
     def convert(self):
@@ -366,11 +356,11 @@ class SupplyTechEfficiency(Abstract):
         if self.definition == 'absolute':
             self.values = util.unit_convert(self.raw_values,
                                             unit_from_num=self.input_unit, unit_to_num=self.output_unit)
-            self.converted = True
+            self.absolute = True
         else:
             self.values = self.raw_values.copy()
-            self.converted = False
-#        self.values.replace(0,1e-25,inplace=True)
+            self.absolute = False
+
 
 class SupplyTechCapacityFactor(Abstract):
     def __init__(self, id, **kwargs):
@@ -384,23 +374,13 @@ class SupplyTechCapacityFactor(Abstract):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.empty is False:
+        if self.data and self.raw_values is not None:
             self.remap(time_index_name='vintage')
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         elif self.data is False:
             index =  pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],self.vintages], names=[cfg.cfgfile.get('case', 'primary_geography'),'vintage'])
             self.values = util.empty_df(index,columns=years,fill_value=1.0)    
             self.data = True
-            self.empty = False
-            setattr(self, 'converted', False)
-        else:
-            self.converted = False
-            # adds fixed output shapes for technologies which are not dispatchable
-        if self.empty is True:
-            # if the class is empty, then there is no data for conversion, so the class is considered converted
-            self.converted = True
-        else:
-            self.empty = False   
  
 class SupplyTechCO2Capture(Abstract):
     def __init__(self, id, **kwargs):
@@ -414,23 +394,13 @@ class SupplyTechCO2Capture(Abstract):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.empty is False:
+        if self.data and self.raw_values is not None:
             self.remap(time_index_name='vintage')
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         elif self.data is False:
-            index =  pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],self.vintages], names=[cfg.cfgfile.get('case', 'primary_geography'),'vintage'])
+            index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],self.vintages], names=[cfg.cfgfile.get('case', 'primary_geography'),'vintage'])
             self.values = util.empty_df(index,columns=years,fill_value=0.0)    
             self.data = True
-            self.empty = False
-            setattr(self, 'converted', False)
-        else:
-            self.converted = False
-            # adds fixed output shapes for technologies which are not dispatchable
-        if self.empty is True:
-            # if the class is empty, then there is no data for conversion, so the class is considered converted
-            self.converted = True
-        else:
-            self.empty = False              
 
 
 

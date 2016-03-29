@@ -69,7 +69,7 @@ class ServiceEfficiency(Abstract):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.empty is False:
+        if self.data and self.raw_values is not None:
             self.convert()
             self.remap(map_from='values', map_to='values', time_index_name='year')
         else:
