@@ -1,29 +1,27 @@
 __author__ = 'Ben Haley & Ryan Jones'
 __author__ = 'Ben Haley & Ryan Jones'
 
-import config as cfg
-from shape import shapes
-
-import util
-from datamapfunctions import DataMapFunctions
-import numpy as np
-import pandas as pd
-from collections import defaultdict
 import copy
 from collections import defaultdict
+
+import numpy as np
+import pandas as pd
 from datetime import datetime
-from demand_subsector_classes import DemandStock, SubDemand, ServiceEfficiency, ServiceLink
-from shared_classes import AggregateStock
+
+import config as cfg
+import util
+from datamapfunctions import DataMapFunctions
 from demand_measures import ServiceDemandMeasure, EnergyEfficiencyMeasure, FuelSwitchingMeasure
+from demand_subsector_classes import DemandStock, SubDemand, ServiceEfficiency, ServiceLink
 from demand_technologies import DemandTechnology, SalesShare
-from rollover import Rollover
-from util import DfOper
 from outputs import Output
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, Table, Text, UniqueConstraint, text
-from sqlalchemy.orm import relationship, reconstructor
-from data_mapper import DataMapper
-import data_source
-from data_source import Base
+from rollover import Rollover
+from shared_classes import AggregateStock
+from util import DfOper
+
+from data_models.data_source import fetch_as_dict
+from data_models.demand import DemandDriver
+
 
 class Demand(object):
     def __init__(self, **kwargs):
@@ -35,7 +33,7 @@ class Demand(object):
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
 
         # Drivers must come first
-        self.drivers = data_source.fetch_as_dict(DemandDriver)
+        self.drivers = fetch_as_dict(DemandDriver)
 
         # Sectors requires drivers be read in
         self.add_sectors()
@@ -252,104 +250,6 @@ class Demand(object):
                     print '  '+subsector.name
                     # pass service demand and stock preursors to subsector
                     subsector.calculate(self.service_precursors[subsector.id], self.stock_precursors[subsector.id])
-
-class Driver(object, DataMapFunctions):
-    def __init__(self, id, **kwargs):
-        self.id = id
-        self.sql_id_table = 'DemandDrivers'
-        self.sql_data_table = 'DemandDriversData'
-        self.mapped = False
-        for col, att in util.object_att_from_table(self.sql_id_table, id):
-            setattr(self, col, att)
-        # creates the index_levels dictionary
-        DataMapFunctions.__init__(self)
-        self.read_timeseries_data()
-
-class InputType(Base):
-    __tablename__ = 'InputTypes'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('\"InputTypes_id_seq\"'::regclass)"))
-    name = Column(Text, unique=True)
-
-class Geography(Base):
-    __tablename__ = 'Geographies'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('\"Geographies_id_seq\"'::regclass)"))
-    name = Column(Text, unique=True)
-
-class GeographyMapKey(Base):
-    __tablename__ = 'GeographyMapKeys'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('\"GeographyMapKeys_id_seq\"'::regclass)"))
-    name = Column(Text, unique=True)
-
-class CleaningMethod(Base):
-    __tablename__ = 'CleaningMethods'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('\"CleaningMethods_id_seq\"'::regclass)"))
-    name = Column(Text, unique=True)
-
-class OtherIndex(Base):
-    __tablename__ = 'OtherIndexes'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('\"OtherIndexes_id_seq\"'::regclass)"))
-    name = Column(Text)
-
-# class GeographiesData(Base):
-#     __tablename__ = 'GeographiesData'
-#
-#     id = Column(Integer, primary_key=True, server_default=text("nextval('\"GeographiesData_id_seq\"'::regclass)"))
-#     name = Column(Text)
-#     geography_id = Column(Integer) # ForeignKey(u'Geographies.id')
-#
-#     # We can restore these relationships once we bring these other entities into the ORM world
-#     #geography = relationship(u'Geography')
-#     #intersections = relationship(u'GeographyIntersection', secondary='GeographyIntersectionData')
-
-class DemandDriver(DataMapper):
-    __tablename__ = 'DemandDrivers'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('\"DemandDrivers_id_seq\"'::regclass)"))
-    name = Column(Text)
-    base_driver_id = Column(ForeignKey(u'DemandDrivers.id'))
-    input_type_id = Column(ForeignKey(InputType.id))
-    unit_prefix = Column(Integer)
-    unit_base = Column(Text)
-    geography_id = Column(ForeignKey(Geography.id))
-    other_index_1_id = Column(ForeignKey(OtherIndex.id))
-    other_index_2_id = Column(ForeignKey(OtherIndex.id))
-    geography_map_key_id = Column(ForeignKey(GeographyMapKey.id))
-    interpolation_method_id = Column(ForeignKey(CleaningMethod.id))
-    extrapolation_method_id = Column(ForeignKey(CleaningMethod.id))
-    extrapolation_growth = Column(Float)
-
-    base_driver = relationship(u'DemandDriver', remote_side=[id])
-    _extrapolation_method = relationship(CleaningMethod, foreign_keys='DemandDriver.extrapolation_method_id', lazy='joined') # , primaryjoin='DemandDriver.extrapolation_method_id == CleaningMethods.id'
-    _geography = relationship(Geography, lazy='joined')
-    _geography_map_key = relationship(GeographyMapKey, lazy='joined')
-    _input_type = relationship(InputType, lazy='joined')
-    _interpolation_method = relationship(CleaningMethod, foreign_keys='DemandDriver.interpolation_method_id', lazy='joined') # primaryjoin='DemandDriver.interpolation_method_id == CleaningMethods.id',
-    _other_index_1 = relationship(OtherIndex, foreign_keys='DemandDriver.other_index_1_id', lazy='joined')
-    _other_index_2 = relationship(OtherIndex, foreign_keys='DemandDriver.other_index_2_id', lazy='joined')
-
-    @reconstructor
-    def reconstruct(self):
-        self.mapped = False
-        # since we have named this as the reconstructor thus "overriding" the parent class' reconstructor,
-        # we need to call it manually.
-        self.read_timeseries_data()
-
-class DemandDriverData(Base):
-    __tablename__ = 'DemandDriversData'
-
-    id = Column(Integer, primary_key=True)
-    parent_id = Column(Integer, ForeignKey(DemandDriver.id))
-    gau_id = Column(Integer)  # TODO: ForeignKey('Geography.id')
-    oth_1_id = Column(Integer)  # TODO: ForeignKey('???')
-    oth_2_id = Column(Integer)
-    year = Column(Integer)
-    value = Column(Float)
-    demand_driver = relationship(DemandDriver, order_by=id, backref='data')
 
 class Sector(object):
     def __init__(self, id, drivers, case_id, **kwargs):

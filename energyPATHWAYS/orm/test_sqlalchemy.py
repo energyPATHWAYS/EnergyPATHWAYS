@@ -5,8 +5,6 @@ import sqlalchemy as sa
 from sqlalchemy.orm import sessionmaker, backref, validates, reconstructor
 from sqlalchemy.orm import relationship
 
-
-from data_provider import engine, Session, Base, metadata
 import sys, time, os
 import datetime as dt
 #from generated import *
