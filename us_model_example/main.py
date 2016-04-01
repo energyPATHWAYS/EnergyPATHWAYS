@@ -11,6 +11,7 @@ from energyPATHWAYS import *
 from energyPATHWAYS.shape import shapes
 import ipdb
 
+# TODO (SDB): why not relative to this file? os.path.dirname(os.path.realpath(__file__))
 directory = os.getcwd()
 
 cfgfile_path = os.path.join(directory, 'configurations.INI')

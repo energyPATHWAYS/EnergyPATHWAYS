@@ -5,10 +5,10 @@ from sqlalchemy.orm import relationship, reconstructor
 from system import CleaningMethod, InputType, OtherIndex
 from geography import Geography, GeographyMapKey
 
-class DemandDriver(DataMapper):
+class DemandDriver(Base,DataMapper):
     __tablename__ = 'DemandDrivers'
 
-    id = Column(Integer, primary_key=True, server_default=text("nextval('\"DemandDrivers_id_seq\"'::regclass)"))
+    id = Column(Integer, primary_key=True) #, server_default=text("nextval('\"DemandDrivers_id_seq\"'::regclass)"))
     name = Column(Text)
     base_driver_id = Column(ForeignKey(u'DemandDrivers.id'))
     input_type_id = Column(ForeignKey(InputType.id))

@@ -113,4 +113,4 @@ class DataMapper(DataMapFunctions, object):
     def other_index_2(self):
         return self._other_index_2.name
 
-DataMapper = declarative_base(cls=DataMapper)
+#DataMapper = declarative_base(cls=DataMapper)
