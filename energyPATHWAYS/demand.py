@@ -315,8 +315,6 @@ class DemandDriver(DataMapper):
     input_type_id = Column(ForeignKey(InputType.id))
     unit_prefix = Column(Integer)
     unit_base = Column(Text)
-    # FIXME: it is evil that this is called "geography_id" when it links to GeographiesData not Geographies
-    # but I am leaving it as-is to avoid going down a rabbit hole at the moment
     geography_id = Column(ForeignKey(Geography.id))
     other_index_1_id = Column(ForeignKey(OtherIndex.id))
     other_index_2_id = Column(ForeignKey(OtherIndex.id))
@@ -326,13 +324,13 @@ class DemandDriver(DataMapper):
     extrapolation_growth = Column(Float)
 
     base_driver = relationship(u'DemandDriver', remote_side=[id])
-    extrapolation_method = relationship(CleaningMethod, foreign_keys='DemandDriver.extrapolation_method_id', lazy='joined') # , primaryjoin='DemandDriver.extrapolation_method_id == CleaningMethods.id'
-    geography = relationship(Geography, lazy='joined')
-    geography_map_key = relationship(GeographyMapKey, lazy='joined')
-    input_type = relationship(InputType, lazy='joined')
-    interpolation_method = relationship(CleaningMethod, foreign_keys='DemandDriver.interpolation_method_id', lazy='joined') # primaryjoin='DemandDriver.interpolation_method_id == CleaningMethods.id',
-    other_index_1 = relationship(OtherIndex, foreign_keys='DemandDriver.other_index_1_id', lazy='joined')
-    other_index_2 = relationship(OtherIndex, foreign_keys='DemandDriver.other_index_2_id', lazy='joined')
+    _extrapolation_method = relationship(CleaningMethod, foreign_keys='DemandDriver.extrapolation_method_id', lazy='joined') # , primaryjoin='DemandDriver.extrapolation_method_id == CleaningMethods.id'
+    _geography = relationship(Geography, lazy='joined')
+    _geography_map_key = relationship(GeographyMapKey, lazy='joined')
+    _input_type = relationship(InputType, lazy='joined')
+    _interpolation_method = relationship(CleaningMethod, foreign_keys='DemandDriver.interpolation_method_id', lazy='joined') # primaryjoin='DemandDriver.interpolation_method_id == CleaningMethods.id',
+    _other_index_1 = relationship(OtherIndex, foreign_keys='DemandDriver.other_index_1_id', lazy='joined')
+    _other_index_2 = relationship(OtherIndex, foreign_keys='DemandDriver.other_index_2_id', lazy='joined')
 
     @reconstructor
     def reconstruct(self):
