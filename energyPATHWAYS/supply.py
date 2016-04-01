@@ -1851,6 +1851,7 @@ class Node(DataMapFunctions):
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
         self.active_supply=None
         self.reconciled = False
+        
         if self.tradable_geography is None:
             self.enforce_tradable_geography = False
             self.tradable_geography = cfg.cfgfile.get('case', 'primary_geography')
@@ -2625,16 +2626,12 @@ class SupplyNode(Node,StockItem):
         self.rollover_group_levels = [cfg.geo.geographies[cfg.cfgfile.get('case', 'primary_geography')]] + self.rollover_group_levels
 
     def add_stock_measure(self, package_id):
-        measure_id = util.sql_read_table('SupplyStockMeasurePackagesData', 'measure_id', package_id=package_id,
-                                          return_iterable=False)
-                                          
-        
-        self.case_stock= Stock(id=measure_id,node_id=self.id, drivers=None, sql_id_table='SupplyStockMeasures',
-                                                                        sql_data_table='SupplyStockMeasuresData', primary_key='id')
+        measure_id = util.sql_read_table('SupplyStockMeasurePackagesData', 'measure_id', package_id=package_id, return_iterable=False)
+        self.case_stock = Stock(id=measure_id, drivers=None, sql_id_table='SupplyStockMeasures', sql_data_table='SupplyStockMeasuresData', primary_key='id', data_id_key='parent_id')
         
     def add_stock(self):
         """add stock instance to node"""
-        self.stock = Stock(id=self.id, drivers=None,sql_id_table='SupplyStock', sql_data_table='SupplyStockData', primary_key='supply_node_id')
+        self.stock = Stock(id=self.id, drivers=None, sql_id_table='SupplyStock', sql_data_table='SupplyStockData', primary_key='supply_node_id')
         self.stock.input_type = 'total'
            
     def calculate_input_stock(self):
@@ -3455,7 +3452,13 @@ class SupplyStockNode(Node):
         if hasattr(tech_class, 'reference_tech_id'):
             if getattr(tech_class, 'reference_tech_id'):
                 ref_tech_id = (getattr(tech_class, 'reference_tech_id'))
-                ref_tech_class = getattr(self.technologies[ref_tech_id], class_name)
+                try:
+                    ref_tech_class = getattr(self.technologies[ref_tech_id], class_name)
+                except:
+                    print vars(self)
+                    print ref_tech_id
+                    print self.technologies
+                    asdf
                 # converted is an indicator of whether an input is an absolute
                 # or has already been converted to an absolute
                 if not getattr(ref_tech_class, 'absolute'):

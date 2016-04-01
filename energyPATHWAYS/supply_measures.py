@@ -22,7 +22,7 @@ class BlendMeasure(Abstract):
         self.id = id
         self.sql_id_table = 'BlendNodeBlendMeasures'
         self.sql_data_table = 'BlendNodeBlendMeasuresData'       
-        Abstract.__init__(self, self.id)
+        Abstract.__init__(self, self.id, data_id_key='parent_id')
     
     def calculate(self, vintages, years):
         self.vintages = vintages

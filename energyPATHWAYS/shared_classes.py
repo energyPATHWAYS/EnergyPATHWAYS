@@ -112,13 +112,15 @@ class AggregateStock(object):
 
 
 
-class Stock (Abstract):
-    def __init__(self, id, drivers, sql_id_table, sql_data_table, primary_key, **kwargs):
+class Stock(Abstract):
+    def __init__(self, id, drivers, sql_id_table, sql_data_table, primary_key, data_id_key=None, **kwargs):
         self.id = id
         self.drivers = drivers
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
-        Abstract.__init__(self, self.id, primary_key=primary_key)
+        if data_id_key is None:
+            data_id_key = primary_key
+        Abstract.__init__(self, self.id, primary_key=primary_key, data_id_key=data_id_key, **kwargs)
 
     def in_use_drivers(self):
         """reduces the stock driver dictionary to in-use drivers"""

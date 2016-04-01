@@ -267,19 +267,21 @@ class Abstract(DataMapFunctions):
         # before we only has primary_key, which was shared in the "parent" and "data" tables, and this is still the default as we make the change.
         if data_id_key is None:
             data_id_key = primary_key
+        
         try:
-            for col, att in util.object_att_from_table(self.sql_id_table, id, primary_key):
+            col_att = util.object_att_from_table(self.sql_id_table, id, primary_key)
+        except:
+            print self.sql_id_table, id, primary_key
+            asdf
+        
+        if col_att is None:
+            self.data = False
+        else:
+            for col, att in col_att:
                 # if att is not None:
                 setattr(self, col, att)
-            DataMapFunctions.__init__(self, data_id_key)
             self.data = True
-        except:
-            self.data = False
-        try:
-            if len(filters):
-                self.read_timeseries_data(**filters)
-            else:
-                self.read_timeseries_data()
-        except:
-            self.raw_values = None
+        
+        DataMapFunctions.__init__(self, data_id_key)
+        self.read_timeseries_data(**filters)
 

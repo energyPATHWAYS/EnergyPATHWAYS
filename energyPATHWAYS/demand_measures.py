@@ -174,7 +174,7 @@ class DemandMeasureCost(Abstract):
         self.input_type = 'intensity'
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
-        Abstract.__init__(self, id)
+        Abstract.__init__(self, id, primary_key='parent_id', data_id_key='parent_id')
         if hasattr(self, 'cost_of_capital'):
             if self.cost_of_capital is None:
                 self.cost_of_capital = cost_of_capital

@@ -93,19 +93,13 @@ class SupplyTechnology(StockItem):
         equivalent costs.
         
         """
-
         self.capital_cost_new = SupplyTechInvestmentCost(self.id, 'SupplyTechsCapitalCost','SupplyTechsCapitalCostNewData', self.book_life, self.cost_of_capital)
-        self.capital_cost_replacement = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost',
-                                               'SupplyTechsCapitalCostReplacementData', self.book_life, self.cost_of_capital)
-        self.installation_cost_new = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost',
-                                                    'SupplyTechsInstallationCostNewData', self.book_life, self.cost_of_capital)
-        self.installation_cost_replacement = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost',
-                                                            'SupplyTechsInstallationCostReplacementData',
-                                                            self.book_life, self.cost_of_capital)
-        self.fixed_om = SupplyTechFixedOMCost(self.id, 'SupplyTechsFixedMaintenanceCost',
-                                       'SupplyTechsFixedMaintenanceCostData')
-        self.variable_om = SupplyTechVariableOMCost(self.id, 'SupplyTechsVariableMaintenanceCost',
-                                          'SupplyTechsVariableMaintenanceCostData')
+        self.capital_cost_replacement = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost', 'SupplyTechsCapitalCostReplacementData', self.book_life, self.cost_of_capital)
+        self.installation_cost_new = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost', 'SupplyTechsInstallationCostNewData', self.book_life, self.cost_of_capital)
+        self.installation_cost_replacement = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost', 'SupplyTechsInstallationCostReplacementData', self.book_life, self.cost_of_capital)
+        self.fixed_om = SupplyTechFixedOMCost(self.id, 'SupplyTechsFixedMaintenanceCost', 'SupplyTechsFixedMaintenanceCostData')
+        self.variable_om = SupplyTechVariableOMCost(self.id, 'SupplyTechsVariableMaintenanceCost', 'SupplyTechsVariableMaintenanceCostData')
+        
         self.replace_costs('capital_cost_new', 'capital_cost_replacement')
         self.replace_costs('installation_cost_new', 'installation_cost_replacement')
         self.replace_costs('fixed_om')
@@ -151,30 +145,21 @@ class StorageTechnology(SupplyTechnology):
         equivalent costs.
         
         """
-        self.capital_cost_new_capacity = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost',
-                                               'StorageTechsCapacityCapitalCostNewData', self.book_life, self.cost_of_capital)
-        self.capital_cost_replacement_capacity = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost',
-                                               'StorageTechsCapacityCapitalCostReplacementData', self.book_life, self.cost_of_capital)
-        self.capital_cost_new_energy = StorageTechEnergyCost(self.id, 'StorageTechsEnergyCapitalCost',
-                                               'StorageTechsEnergyCapitalCostNewData', self.book_life, self.cost_of_capital)
-        self.capital_cost_replacement_energy = StorageTechEnergyCost(self.id, 'StorageTechsEnergyCapitalCost',
-                                               'StorageTechsEnergyCapitalCostReplacementData', self.book_life, self.cost_of_capital)                                       
+        self.capital_cost_new_capacity = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost', 'StorageTechsCapacityCapitalCostNewData', self.book_life, self.cost_of_capital)
+        self.capital_cost_replacement_capacity = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost', 'StorageTechsCapacityCapitalCostReplacementData', self.book_life, self.cost_of_capital)
+        self.capital_cost_new_energy = StorageTechEnergyCost(self.id, 'StorageTechsEnergyCapitalCost', 'StorageTechsEnergyCapitalCostNewData', self.book_life, self.cost_of_capital)
+        self.capital_cost_replacement_energy = StorageTechEnergyCost(self.id, 'StorageTechsEnergyCapitalCost', 'StorageTechsEnergyCapitalCostReplacementData', self.book_life, self.cost_of_capital)                                       
         
-        self.installation_cost_new = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost',
-                                                    'SupplyTechsInstallationCostNewData', self.book_life, self.cost_of_capital)
-        self.installation_cost_replacement = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost',
-                                                            'SupplyTechsInstallationCostReplacementData',
-                                                            self.book_life, self.cost_of_capital)
-        self.fixed_om = SupplyTechFixedOMCost(self.id, 'SupplyTechsFixedMaintenanceCost',
-                                       'SupplyTechsFixedMaintenanceCostData')
-        self.variable_om = SupplyTechVariableOMCost(self.id, 'SupplyTechsVariableMaintenanceCost',
-                                          'ConversionTechsVariableMaintenanceCostData')
+        self.installation_cost_new = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost', 'SupplyTechsInstallationCostNewData', self.book_life, self.cost_of_capital)
+        self.installation_cost_replacement = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost', 'SupplyTechsInstallationCostReplacementData', self.book_life, self.cost_of_capital)
+        self.fixed_om = SupplyTechFixedOMCost(self.id, 'SupplyTechsFixedMaintenanceCost', 'SupplyTechsFixedMaintenanceCostData')
+        self.variable_om = SupplyTechVariableOMCost(self.id, 'SupplyTechsVariableMaintenanceCost', 'SupplyTechsVariableMaintenanceCostData')
+        
         self.replace_costs('capital_cost_new_capacity', 'capital_cost_replacement_capacity')
         self.replace_costs('capital_cost_new_energy', 'capital_cost_replacement_energy')
         self.replace_costs('installation_cost_new', 'installation_cost_replacement')
         self.replace_costs('fixed_om')
         self.replace_costs('variable_om')
-        
 
 class SupplyTechCost(Abstract):
     def __init__(self, id, sql_id_table, sql_data_table, book_life=None, **kwargs):
@@ -184,7 +169,7 @@ class SupplyTechCost(Abstract):
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
         self.book_life = book_life
-        Abstract.__init__(self, id, 'supply_tech_id')
+        Abstract.__init__(self, id, primary_key='supply_tech_id', data_id_key='supply_tech_id')
     
     
     def calculate(self, vintages, years):
