@@ -60,7 +60,7 @@ class DemandTest(ut.TestCase):
         # households depends on population and has an oth_index_1 but only has data for 2009
         households = demand.drivers[1]
         self.assertEqual(households.name, "households")
-        self.assertEqual(households.geography_map_key.name, 'households')
+        self.assertEqual(households.geography_map_key, 'households')
         self.assertEqual(households.base_driver_id, 2)
         self.assertEqual(households.other_index_1_id, 1)
         self.assertEqual(households.raw_values.index.names, [u'census division', u'housing types', u'year'])
@@ -73,7 +73,7 @@ class DemandTest(ut.TestCase):
         # population does not depend on anything and has no oth_indexes but has data for many years
         population = demand.drivers[2]
         self.assertEqual(population.name, "population")
-        self.assertEqual(population.geography_map_key.name, 'households')
+        self.assertEqual(population.geography_map_key, 'households')
         self.assertIsNone(population.base_driver_id)
         self.assertIsNone(population.other_index_1_id)
         self.assertEqual(population.raw_values.index.names, [u'census division', u'year'])
