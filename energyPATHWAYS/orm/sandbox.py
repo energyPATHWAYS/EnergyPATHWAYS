@@ -8,10 +8,10 @@ import pandas as pd
 import data_provider
 import sys
 
-from alchemy_util import engine, Session, Base, metadata
+from alchemy_util import Base, metadata
 from alchemy_util import RawDataHelp
 
-import ipdb
+#import ipdb
 
 class DemandDriverData(Base):
     __tablename__ = 'DemandDriversData'
@@ -29,7 +29,7 @@ class DemandDriverData(Base):
     oth_1_id  = Column( Integer ) # TODO: ForeignKey('???')
     oth_2_id  = Column( Integer )
     year      = Column( Integer )
-    value     = Column( Float )
+    value     = Column( Float ) 
 
 class DemandDriver(Base, RawDataHelp):
     __tablename__ = 'DemandDrivers'
@@ -114,6 +114,7 @@ def updated(mapper, connection, target):
 
 
 if __name__ == '__main__':
+    from alchemy_util import Session
     session = Session()
 
     with ipdb.launch_ipdb_on_exception():
@@ -122,4 +123,4 @@ if __name__ == '__main__':
 
     session.close()
 
-ipdb.set_trace()
+#ipdb.set_trace()

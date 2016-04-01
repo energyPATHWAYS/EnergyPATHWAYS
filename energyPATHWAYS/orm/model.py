@@ -1,9 +1,8 @@
 # coding: utf-8
 from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, Table, Text, UniqueConstraint, text
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
 
-from alchemy_util import engine, Session, Base, metadata, RawDataHelp
+from alchemy_util import Base, metadata, RawDataHelp
 
 class AgeGrowthOrDecayType(Base):
     __tablename__ = 'AgeGrowthOrDecayType'

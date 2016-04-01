@@ -1,50 +1,20 @@
 # -*- coding: utf-8 -*-
 __author__ = 'Sam'
 
+import sys, time, os
+import datetime as dt
+import pandas as pd
+import unittest as ut
+
 import sqlalchemy as sa
 from sqlalchemy.orm import sessionmaker, backref, validates, reconstructor
 from sqlalchemy.orm import relationship
 
+from alchemy_util import engine, Session, Base, metadata, RawDataHelp
 
-from data_provider import engine, Session, Base, metadata
-import sys, time, os
-import datetime as dt
-#from generated import *
-import pandas as pd
-import unittest as ut
+from energyPATHWAYS.tests.profile_tools import * # profile and timer decorators
 
-import cProfile
-import StringIO
-import pstats
-import contextlib
-
-import energyPATHWAYS as ep
-
-from alchemy_util import engine, Session, Base, metadata
-from alchemy_util import RawDataHelp
-
-@contextlib.contextmanager
-def profiled():
-    pr = cProfile.Profile()
-    pr.enable()
-    yield
-    pr.disable()
-    s = StringIO.StringIO()
-    ps = pstats.Stats(pr, stream=s).sort_stats('cumulative')
-    ps.print_stats()
-    # uncomment this to see who's calling what
-    # ps.print_callers()
-    print s.getvalue()
-
-@contextlib.contextmanager
-def timed(prefix='time'):
-    start = time.time()
-    yield
-    end = time.time()
-    print '%s: %0.4fs' % (prefix, end - start)
-
-
-class TestData(Base):
+class TestClassData(Base):
     __tablename__ = 'TestData'
 
     def __init__(self, name, value, floatVal, date):
@@ -55,14 +25,14 @@ class TestData(Base):
 
     id        = sa.Column( sa.Integer, primary_key=True )
     parent_id = sa.Column( sa.Integer,sa.ForeignKey('Test.id') )
-    parent    = relationship("Test", back_populates="data")
+    parent    = relationship("TestClass", back_populates="data")
     name      = sa.Column( sa.String )
     value     = sa.Column( sa.Integer )
     floatVal  = sa.Column( sa.Float )
     date      = sa.Column( sa.DateTime )
 
         
-class Test(Base, RawDataHelp):
+class TestClass(Base, RawDataHelp):
     __tablename__ = 'Test'
 
     #all_raw_data = None
@@ -73,7 +43,7 @@ class Test(Base, RawDataHelp):
 
     id = sa.Column( sa.Integer, primary_key=True )
     name = sa.Column( sa.String )
-    data = relationship( TestData,order_by=TestData.id, back_populates='parent')
+    data = relationship( TestClassData,order_by=TestClassData.id, back_populates='parent')
 
 
 
@@ -89,7 +59,7 @@ class SQLAlchemyTest(ut.TestCase):
         metadata.create_all(engine) 
 
         
-        with timed('Create test data'):
+        with timer('Create test data'):
             SQLAlchemyTest.createTestData()
 
         # connect to the database, open a transaction, and bind a 
@@ -107,8 +77,8 @@ class SQLAlchemyTest(ut.TestCase):
     def createTestData(cls):
         # use the session in tests.
         session = Session()
-        t  = Test('hallo!')
-        t2 = Test('hullo!')
+        t  = TestClass('hallo!')
+        t2 = TestClass('hullo!')
         session.add( t  )
         session.add( t2 )
         session.flush()  # force flush to the db to ensure that the Parent object has an id
@@ -117,7 +87,7 @@ class SQLAlchemyTest(ut.TestCase):
         # see http://docs.sqlalchemy.org/en/latest/faq/performance.html#i-m-inserting-400-000-rows-with-the-orm-and-it-s-really-slow
         n = 10000
         session.bulk_insert_mappings(
-            TestData,
+            TestClassData,
             [
                 dict(name="NAME " + str(i),
                     parent_id=t.id,
@@ -129,7 +99,7 @@ class SQLAlchemyTest(ut.TestCase):
         )
 
         session.bulk_insert_mappings(
-            TestData,
+            TestClassData,
             [
                 dict(name="NAME " + str(i),
                     parent_id=t2.id,
@@ -163,8 +133,8 @@ class SQLAlchemyTest(ut.TestCase):
 
     def test_ORM_object_select(self):
         session = Session()
-        with timed('ORM objects'):
-            foo = session.query(TestData).filter(TestData.parent_id==1).all()
+        with timer('ORM objects'):
+            foo = session.query(TestClassData).filter(TestClassData.parent_id==1).all()
             print '%d TestData objects instantiated' % len(foo)
             print 'Conversion of objects into data frame TBD!'
         session.close()
@@ -172,29 +142,28 @@ class SQLAlchemyTest(ut.TestCase):
     def test_core_data_select(self):
         from sqlalchemy.sql import select
         session = Session()
-        t = session.query(Test).first()
+        t = session.query(TestClass).first()
         session.close() # TODO: for some reason, without this close, the subsequent call takes > 1 second!
         session = Session()
-        with timed('Core sql into pd.DF'):
-            s = select([ globals()['TestData'] ]).where(TestData.__table__.c.parent_id == t.id)
+        with timer('Core sql into pd.DF'):
+            s = select([ globals()['TestClassData'] ]).where(TestClassData.__table__.c.parent_id == t.id)
             df = pd.read_sql_query(s,engine)
             #print(df)
 
-        print 'TestData returned as DataFrame %d x %d' % df.shape
+        print 'TestClassData returned as DataFrame %d x %d' % df.shape
         session.close()
 
     def test_load_class_data(self):
         session = Session()
-        t = session.query(Test).first()
+        t = session.query(TestClass).first()
 
-        self.assertIsNotNone( Test.get_all_raw_data() )
+        self.assertIsNotNone( TestClass.get_all_raw_data() )
         rd = t.get_raw_data() # throws attribute error if not found
 
-        self.assertIsNotNone( Test.all_raw_data )
+        self.assertIsNotNone( TestClass.all_raw_data )
         self.assertIsNotNone( t.raw_data )
         self.assertTrue( (rd.parent_id == t.id).all() )
         session.close()
-
 
 if __name__ == '__main__':
     ut.main()
