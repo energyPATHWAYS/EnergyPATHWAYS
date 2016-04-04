@@ -175,31 +175,31 @@ class SpecifiedStock(Abstract, DataMapFunctions):
         self.years = years
         self.remap()
         self.values[self.values.index.get_level_values('year')<int(cfg.cfgfile.get('case','current_year'))+1] = np.nan
-        
+
+
 class SalesShare(Abstract, DataMapFunctions):
-    def __init__(self, id, subsector_id, sql_id_table, sql_data_table, reference=False):
+    def __init__(self, id, subsector_id, sql_id_table, sql_data_table, primary_key, data_id_key, reference=False):
         self.id = id
         self.subsector_id = subsector_id
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
         self.mapped = False
         if reference:
-                for col, att in util.object_att_from_table(self.sql_id_table, self.subsector_id, 'subsector_id'):
+                for col, att in util.object_att_from_table(self.sql_id_table, self.subsector_id, primary_key):
                     if att is not None:
                         setattr(self, col, att)
-                DataMapFunctions.__init__(self, 'technology')
+                DataMapFunctions.__init__(self, data_id_key)
                 self.read_timeseries_data(subsector_id=self.subsector_id)
                 self.raw_values = util.remove_df_levels(self.raw_values, 'technology')
         else:
             self.replaced_demand_tech_id = None
             # measure specific sales share does not require technology filtering
-            Abstract.__init__(self, self.id)
+            Abstract.__init__(self, self.id, primary_key=primary_key, data_id_key=data_id_key)
 
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
         self.remap(time_index_name='vintage')
-        
         
     def reconcile_with_stock_levels(self, needed_sales_share_levels, needed_sales_share_names):
         if self.input_type == 'intensity':

@@ -31,7 +31,12 @@ import itertools
 import decimal
 import psycopg2
 
-from scipy.special import gamma
+def freeze_recursivedict(recursivedict):
+    recursivedict = dict(recursivedict)
+    for key, value in recursivedict.items():
+        if isinstance(value, defaultdict):
+            recursivedict[key] = freeze_recursivedict(value)
+    return recursivedict
 
 def upper_dict(query,append=None):
     id_dict = {} if query is None else dict([(id, name.upper()) for id, name in (query if is_iterable(query[0]) else [query])])    

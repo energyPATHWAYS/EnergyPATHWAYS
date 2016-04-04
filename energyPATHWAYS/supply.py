@@ -57,19 +57,21 @@ class Supply(object):
         """ initiates calculation of all technology attributes - costs, efficiency, etc.
         """
 
-        tech_classes = ['capital_cost_new', 'capital_cost_replacement', 'installation_cost_new',
-                                'installation_cost_replacement', 'fixed_om', 'variable_om', 'efficiency']
+        tech_classes = ['capital_cost_new', 'capital_cost_replacement', 'installation_cost_new', 'installation_cost_replacement', 'fixed_om', 'variable_om', 'efficiency']
         #storage techs have additional attributes specifying costs for energy (i.e. kWh of energy storage) and discharge capacity (i.e. kW)
         storage_tech_classes = ['installation_cost_new','installation_cost_replacement', 'fixed_om', 'variable_om', 'efficiency', 'capital_cost_new_capacity', 'capital_cost_replacement_capacity',
                                 'capital_cost_new_energy', 'capital_cost_replacement_energy']
         for node in self.nodes.values():
-            if hasattr(node, 'technologies'):
-                for technology in node.technologies.values():
-                    technology.calculate([node.vintages[0] - 1] + node.vintages, node.years)
-                if isinstance(technology, StorageTechnology):
-                    node.remap_tech_attrs(storage_tech_classes)
-                else:
-                    node.remap_tech_attrs(tech_classes)
+            if not hasattr(node, 'technologies'):
+                continue
+            
+            for technology in node.technologies.values():
+                technology.calculate([node.vintages[0] - 1] + node.vintages, node.years)
+                
+            if isinstance(technology, StorageTechnology):
+                node.remap_tech_attrs(storage_tech_classes)
+            else:
+                node.remap_tech_attrs(tech_classes)
                     
 
     def calculate_years(self):
@@ -163,8 +165,9 @@ class Supply(object):
                                                          'supply_node'])
         for year in self.years:
             for sector in self.demand_sectors:
-                self.io_dict[year][sector] = util.empty_df(index = index, columns = index,fill_value=0.0)
-
+                self.io_dict[year][sector] = util.empty_df(index = index, columns = index, fill_value=0.0)
+        
+        self.io_dict = util.freeze_recursivedict(self.io_dict)
 
     def add_node_list(self):
         """Adds list of nodes to supply-side"""
@@ -427,8 +430,10 @@ class Supply(object):
         for zone in self.dispatch_zones:
             self.electricity_load_nodes[zone]['flexible'] = [x for x in self.all_electricity_load_nodes[zone] if self.nodes[x].is_flexible == 1]
             self.electricity_load_nodes[zone]['non_flexible'] = [x for x in self.all_electricity_load_nodes[zone] if self.nodes[x].is_flexible != 1]
-                    
-    def set_electricity_gen_nodes(self,dispatch_zone, node):
+        self.electricity_gen_nodes = util.freeze_recursivedict(self.electricity_gen_nodes)
+        self.electricity_load_nodes = util.freeze_recursivedict(self.electricity_load_nodes)
+        
+    def set_electricity_gen_nodes(self, dispatch_zone, node):
         """Determines all nodes that inject electricity onto the grid in a recursive loop
         args:
             dispatch_zone: key for dictionary to indicate whether the generation is at the transmission or distribution level
@@ -437,7 +442,7 @@ class Supply(object):
             self.injection_nodes = dictionary with dispatch_zone as key and a list of injection nodes as the value
             self.electricity_nodes = dictionary with dispatch_zone as key and a list of all nodes that transfer electricity (i.e. blend nodes, etc.)
         """
-        if hasattr(node,'active_coefficients_untraded')  and node.active_coefficients_untraded  is not None:
+        if hasattr(node,'active_coefficients_untraded') and node.active_coefficients_untraded  is not None:
             for input_node_id in list(set(node.active_coefficients_untraded.index.get_level_values('supply_node'))):
                 input_node= self.nodes[input_node_id]
                 indexer = util.level_specific_indexer(node.active_coefficients_untraded, ['efficiency_type','supply_node'],[2,input_node.id])
@@ -674,7 +679,8 @@ class Supply(object):
                         self.flexible_load[node.id][geography][zone][0]['energy']= util.remove_df_levels(energy_demand.loc[indexer,:],[self.dispatch_geography,'demand_sector'])
                         indexer = util.level_specific_indexer(capacity,[self.dispatch_geography, 'supply_node'],[geography,zone])
                         self.flexible_load[node.id][geography][zone][0]['capacity']= util.remove_df_levels(capacity.loc[indexer,:],[self.dispatch_geography,'demand_sector'])
-                        
+        self.flexible_load = util.freeze_recursivedict(self.flexible_load)
+        
     def prepare_flexible_gen(self,year,loop):
         """Calculates the availability of flexible generation for the hourly dispatch. Used for nodes like hydroelectricity. 
         Args:
@@ -684,7 +690,7 @@ class Supply(object):
             flexible_gen (dict) = dictionary with keys of  supply_node_id, 'energy' or 'capacity', 'geography', zone (i.e. transmission grid
             or distribution grid), and dispatch_feeder and values of a np.array()
         """
-        self.flexible_gen= util.recursivedict()
+        self.flexible_gen = util.recursivedict()
         for zone in self.dispatch_zones:
             non_thermal_dispatch_nodes = [x for x in self.electricity_gen_nodes[zone]['flexible'] if x not in self.nodes[self.thermal_dispatch_node_id].values.index.get_level_values('supply_node')]
             for node_id in non_thermal_dispatch_nodes:
@@ -721,6 +727,8 @@ class Supply(object):
                         self.flexible_gen[node.id][geography][zone][0]['energy'] = util.remove_df_levels(energy.loc[indexer,:],['demand_sector',self.dispatch_geography,'supply_node'])
                         indexer = util.level_specific_indexer(capacity,self.dispatch_geography, geography)
                         self.flexible_gen[node.id][geography][zone][0]['capacity'] = util.remove_df_levels(capacity.loc[indexer,:],['demand_sector',self.dispatch_geography,'supply_node'])
+        self.flexible_gen = util.freeze_recursivedict(self.flexible_gen)
+
 
     def prepare_non_flexible_load(self, year,loop):
         """Calculates the demand from non-flexible load on the supply-side
@@ -732,7 +740,7 @@ class Supply(object):
             or distribution grid), feeder, and node_id,  with values of a dataframe
     
         """
-        self.non_flexible_load= util.recursivedict()
+        self.non_flexible_load = util.recursivedict()
         for zone in self.dispatch_zones:
             for node_id in self.electricity_load_nodes[zone]['non_flexible']:
                 node = self.nodes[node_id]
@@ -765,7 +773,7 @@ class Supply(object):
                         #feeder is set to 0 for flexible load not on the distribution system
                         indexer = util.level_specific_indexer(energy, self.dispatch_geography,geography)
                         self.non_flexible_load[geography][zone][node.id][0]= util.remove_df_levels(energy.loc[indexer,:],['demand_sector'])
-        
+        self.non_flexible_load = util.freeze_recursivedict(self.non_flexible_load)
                     
     def prepare_non_flexible_gen(self,year,loop):
         """Calculates the supply from non-flexible generation on the supply-side
@@ -802,7 +810,9 @@ class Supply(object):
                         #feeder is set to 0 for flexible load not on the distribution system
                         indexer = util.level_specific_indexer(energy_supply, self.dispatch_geography,geography)
                         self.non_flexible_gen[geography][zone][node.id][0] = util.remove_df_levels(energy_supply.loc[indexer,:],['demand_sector'])
-                        
+        
+        self.non_flexible_gen = util.freeze_recursivedict(self.non_flexible_gen)
+        
     def prepare_dispatch_inputs(self, year, loop):
         """Calculates supply node parameters needed to run electricity dispatch
         Args:
@@ -1159,10 +1169,10 @@ class Supply(object):
                 node = self.nodes[node_id]
                 gen = load_or_gen_dict[geography][self.transmission_node_id][node_id][0].groupby(level=self.geography).sum()
                 if 'dispatch_feeder' in node.active_shape.index.names:
-                    shape = util.remove_df_levels(node.active_shape,'dispatch_feeder')
+                    shape = util.remove_df_levels(node.active_shape, 'dispatch_feeder')
                 else:
                     shape = node.active_shape
-                shape = shape.groupby(level=[self.geography,'timeshift_type']).transform(lambda x: x/x.sum())
+                shape = shape.groupby(level=[self.geography, 'timeshift_type']).transform(lambda x: x/x.sum())
                 df_node.append(util.remove_df_levels(DfOper.mult([gen,shape]), self.geography))              
             df_geo.append(DfOper.add(df_node))
         return pd.concat(df_geo, keys=self.dispatch_geographies, names=[self.dispatch_geography])
@@ -2056,9 +2066,9 @@ class Node(DataMapFunctions):
             
     def filter_packages(self, case_data_table, node_key, case_id):
         """filters packages by case"""
-        packages = [x for x in util.sql_read_headers(case_data_table) if x not in ['id', node_key]]
+        packages = [x for x in util.sql_read_headers(case_data_table) if x not in ['parent_id', 'id', node_key]]
         for package in packages:
-            package_id = util.sql_read_table(case_data_table, package, supply_node_id=self.id, id = case_id)
+            package_id = util.sql_read_table(case_data_table, package, supply_node_id=self.id, parent_id=case_id)
             setattr(self, package, package_id)
     
     def add_export_measures(self):
@@ -2354,11 +2364,11 @@ class  Export(Abstract):
         if measure_ids is None:
             self.sql_id_table = 'SupplyExport'
             self.sql_data_table = 'SupplyExportData'
-            Abstract.__init__(self, self.id,primary_key='supply_node_id')
+            Abstract.__init__(self, self.id, primary_key='supply_node_id')
         else:
             self.sql_id_table = 'SupplyExportMeasures'
             self.sql_data_table = 'SupplyExportMeasuresData'
-            Abstract.__init__(self, self.id,primary_key='supply_node_id',measure_id=measure_ids)
+            Abstract.__init__(self, self.id, primary_key='supply_node_id', data_id_key='parent_id', measure_id=measure_ids)
             
     def calculate(self, years, demand_sectors):
         self.years = years
@@ -2717,7 +2727,8 @@ class SupplyNode(Node,StockItem):
         self.setup_financial_stock()
         for elements in self.rollover_groups.keys():
             elements = util.ensure_tuple(elements)
-            specified_stock = self.specified_stock.loc[elements].values 
+            specified_stock = self.specified_stock.loc[elements].values
+            
             self.rollover_dict[elements] = Rollover(vintaged_markov_matrix=self.stock.vintaged_markov_matrix,
                                      initial_markov_matrix=self.stock.initial_markov_matrix,
                                      num_years=len(years), num_vintages=len(years),
@@ -2771,12 +2782,12 @@ class SupplyNode(Node,StockItem):
         if min(self.years) == year:
             for elements in self.rollover_groups.keys():    
                 elements = util.ensure_tuple(elements)
-                self.rollover_dict[elements].initial_stock = self.stock.requirement.loc[elements, year]  
+                self.rollover_dict[elements].initial_stock = np.array(util.ensure_iterable_and_not_string(self.stock.requirement.loc[elements, year]))
         #run the stock rollover for the year and record values                
         for elements in self.rollover_groups.keys():    
             elements = util.ensure_tuple(elements)
             try:
-                self.rollover_dict[elements].run(1,stock_changes.loc[elements])
+                self.rollover_dict[elements].run(1, stock_changes.loc[elements])
             except:
                 print 'error encountered in rollover for node ' + str(self.id) + ' in elements '+ str(elements) + ' year ' + str(year)
                 raise
@@ -3143,8 +3154,7 @@ class SupplyCost(Abstract):
         self.id = id
         self.sql_id_table = 'SupplyCost'
         self.sql_data_table = 'SupplyCostData'
-        Abstract.__init__(self, self.id)
-        
+        Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
         
     def calculate(self, years, demand_sectors):
         self.years = years
@@ -3235,7 +3245,7 @@ class SupplyCoefficients(Abstract):
         self.input_type = 'intensity'
         self.sql_id_table = 'SupplyEfficiency'
         self.sql_data_table = 'SupplyEfficiencyData'
-        Abstract.__init__(self, self.id)
+        Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
         
     def calculate(self, years, demand_sectors):
         self.years = years
@@ -3452,13 +3462,10 @@ class SupplyStockNode(Node):
         if hasattr(tech_class, 'reference_tech_id'):
             if getattr(tech_class, 'reference_tech_id'):
                 ref_tech_id = (getattr(tech_class, 'reference_tech_id'))
-                try:
-                    ref_tech_class = getattr(self.technologies[ref_tech_id], class_name)
-                except:
-                    print vars(self)
-                    print ref_tech_id
-                    print self.technologies
-                    asdf
+                if not self.technologies.has_key(ref_tech_id):
+                    raise ValueError("supply node {} has no technology {} to serve as a reference for technology {}".format(self.id, ref_tech_id, technology))
+                
+                ref_tech_class = getattr(self.technologies[ref_tech_id], class_name)
                 # converted is an indicator of whether an input is an absolute
                 # or has already been converted to an absolute
                 if not getattr(ref_tech_class, 'absolute'):

@@ -30,10 +30,10 @@ class SupplyTechnology(StockItem):
         self.co2_capture = SupplyTechCO2Capture(id)
         self.reference_sales_shares = {}
         if self.id in util.sql_read_table('SupplySalesShareData', 'supply_technology', return_unique=True, return_iterable=True):
-            self.reference_sales_shares[1] = SupplySalesShare(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySalesShare', sql_data_table='SupplySalesShareData')           
+            self.reference_sales_shares[1] = SupplySalesShare(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySalesShare', sql_data_table='SupplySalesShareData', primary_key='supply_node_id', data_id_key='supply_technology')
         self.reference_sales = {}
         if self.id in util.sql_read_table('SupplySalesData','supply_technology', return_unique=True, return_iterable=True):
-            self.reference_sales[1] = SupplySales(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySales', sql_data_table='SupplySalesData') 
+            self.reference_sales[1] = SupplySales(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySales', sql_data_table='SupplySalesData', primary_key='supply_node_id', data_id_key='supply_technology')
         StockItem.__init__(self)
         
         if self.shape_id is not None:
@@ -58,8 +58,9 @@ class SupplyTechnology(StockItem):
                                                   return_iterable=True)
             for sales_share_id in sales_share_ids:
                 self.sales_shares[sales_share_id] = SupplySalesShare(id=sales_share_id, node_id=self.node_id,
-                                                               reference=False, sql_id_table='SupplySalesShareMeasures',
-                                                               sql_data_table='SupplySalesShareMeasuresData')
+                                                                     reference=False, sql_id_table='SupplySalesShareMeasures',
+                                                                     sql_data_table='SupplySalesShareMeasuresData',
+                                                                     primary_key='id', data_id_key='parent_id')
                                                                
     def add_sales_measures(self, package_id):
         self.sales = {}
@@ -70,8 +71,9 @@ class SupplyTechnology(StockItem):
                                                   return_iterable=True)
             for sales_id in sales_ids:
                 self.sales[sales_id] = SupplySales(id=sales_id, node_id=self.node_id,
-                                                               reference=False, sql_id_table='SupplySalesMeasures',
-                                                               sql_data_table='SupplySalesMeasuresData')
+                                                    reference=False, sql_id_table='SupplySalesMeasures',
+                                                    sql_data_table='SupplySalesMeasuresData',
+                                                    primary_key='id', data_id_key='parent_id')
 
     def add_specified_stock_measures(self, package_id):
         self.specified_stocks = {}

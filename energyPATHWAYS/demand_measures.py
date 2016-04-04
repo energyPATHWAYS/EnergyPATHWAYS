@@ -63,12 +63,11 @@ class ServiceDemandMeasure(Abstract, DemandMeasure):
         self.service_demand_unit = service_demand_unit
         self.sql_id_table = 'DemandServiceDemandMeasures'
         self.sql_data_table = 'DemandServiceDemandMeasuresData'
-        Abstract.__init__(self, self.id)
+        Abstract.__init__(self, self.id, primary_key='id', data_id_key = 'parent_id')
         DemandMeasure.__init__(self)
         self.cost_of_capital = cost_of_capital
         self.calculate_book_life()
-        self.cost = DemandMeasureCost(id, self.cost_of_capital, self.book_life, 'DemandServiceDemandMeasuresCost',
-                                      'DemandServiceDemandMeasuresCostData')
+        self.cost = DemandMeasureCost(id, self.cost_of_capital, self.book_life, 'DemandServiceDemandMeasuresCost', 'DemandServiceDemandMeasuresCostData')
 
 
 class EnergyEfficiencyMeasure(Abstract, DemandMeasure):
@@ -76,12 +75,11 @@ class EnergyEfficiencyMeasure(Abstract, DemandMeasure):
         self.id = id
         self.sql_id_table = 'DemandEnergyEfficiencyMeasures'
         self.sql_data_table = 'DemandEnergyEfficiencyMeasuresData'
-        Abstract.__init__(self, self.id)
+        Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
         DemandMeasure.__init__(self)
         self.calculate_book_life()
         self.cost_of_capital = cost_of_capital
-        self.cost = DemandMeasureCost(id, self.cost_of_capital, self.book_life, 'DemandEnergyEfficiencyMeasuresCost',
-                                      'DemandEnergyEfficiencyMeasuresCostData')
+        self.cost = DemandMeasureCost(id, self.cost_of_capital, self.book_life, 'DemandEnergyEfficiencyMeasuresCost', 'DemandEnergyEfficiencyMeasuresCostData')
 
 
 class FuelSwitchingMeasure(Abstract, StockItem):
@@ -96,8 +94,7 @@ class FuelSwitchingMeasure(Abstract, StockItem):
         self.cost_of_capital = cost_of_capital
         self.impact = FuelSwitchingImpact(self.id)
         self.energy_intensity = FuelSwitchingEnergyIntensity(self.id)
-        self.cost = DemandMeasureCost(id, self.cost_of_capital, self.book_life, 'DemandFuelSwitchingMeasuresCost',
-                                      'DemandFuelSwitchingMeasuresCostData')
+        self.cost = DemandMeasureCost(id, self.cost_of_capital, self.book_life, 'DemandFuelSwitchingMeasuresCost', 'DemandFuelSwitchingMeasuresCostData')
 
     def calculate(self, vintages, years, unit_to):
         self.vintages = vintages
@@ -130,7 +127,7 @@ class FuelSwitchingImpact(Abstract):
         self.id = id
         self.sql_id_table = 'DemandFuelSwitchingMeasuresImpact'
         self.sql_data_table = 'DemandFuelSwitchingMeasuresImpactData'
-        Abstract.__init__(self, self.id)
+        Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
 
     def calculate(self, vintages, years, unit_to):
         self.vintages = vintages
@@ -159,7 +156,7 @@ class FuelSwitchingEnergyIntensity(Abstract):
         self.sql_id_table = 'DemandFuelSwitchingMeasuresEnergyIntensity'
         self.sql_data_table = 'DemandFuelSwitchingMeasuresEnergyIntensityData'
         self.input_type = 'intensity'
-        Abstract.__init__(self, id)
+        Abstract.__init__(self, id, primary_key='id', data_id_key='parent_id')
 
 
     def calculate(self, years, vintages, unit_to):
@@ -179,7 +176,6 @@ class DemandMeasureCost(Abstract):
             if self.cost_of_capital is None:
                 self.cost_of_capital = cost_of_capital
 
-
     def calculate(self, vintages, years, unit_to):
         self.vintages = vintages
         self.years = years
@@ -193,8 +189,6 @@ class DemandMeasureCost(Abstract):
         if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered absolute
             self.absolute = True
-
-
 
     def convert_cost(self):
         """
@@ -220,4 +214,3 @@ class DemandMeasureCost(Abstract):
                 self.values = np.pv(rate, self.book_life, -1, 0, 'end') * self.values
         else:
             util.convert_age(self, reverse=False, vintages=self.vintages, years=self.years)
-            

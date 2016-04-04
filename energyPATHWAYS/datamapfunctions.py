@@ -272,7 +272,7 @@ class Abstract(DataMapFunctions):
             col_att = util.object_att_from_table(self.sql_id_table, id, primary_key)
         except:
             print self.sql_id_table, id, primary_key
-            asdf
+            raise
         
         if col_att is None:
             self.data = False
