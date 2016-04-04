@@ -1,9 +1,12 @@
 import sqlalchemy as sa
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.engine.url import URL
+from sqlalchemy import MetaData
 import pandas as pd
 
-Base = declarative_base()
+# TODO: (MAC) this explicit metadata is only needed during this transitional migration period;
+# once we're done migrating, everything SQLAlchemy needs will be in the default public schema again
+Base = declarative_base(metadata=MetaData(schema='migrated'))
 
 
 # For now we are expecting config to reach in and kick this since it has the config information

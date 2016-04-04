@@ -17,4 +17,4 @@ class OtherIndex(Base):
     __tablename__ = 'OtherIndexes'
 
     id = Column(Integer, primary_key=True) #, server_default=text("nextval('\"OtherIndexes_id_seq\"'::regclass)"))
-    name = Column(Text)
+    name = Column(Text, unique=True)
