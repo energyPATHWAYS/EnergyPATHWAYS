@@ -46,6 +46,7 @@ class DataMapper(DataMapFunctions, object):
         # column, but we screened for that in the assertion above so it should be safe.
         df[indexes] = df[indexes].astype(int)
         df.set_index(indexes, inplace=True)
+        df.sort_index(inplace=True)
 
         return df
 
