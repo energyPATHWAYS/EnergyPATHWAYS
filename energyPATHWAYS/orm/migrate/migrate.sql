@@ -18,14 +18,65 @@ SET search_path TO migrated;
 
 -- copy system table data
 
+INSERT INTO migrated."AgeGrowthOrDecayType" (id, name)
+SELECT id, name FROM public."AgeGrowthOrDecayType";
+
 INSERT INTO migrated."CleaningMethods" (id, name)
 SELECT id, name FROM public."CleaningMethods";
+
+INSERT INTO migrated."Currencies" (id, name)
+SELECT id, name FROM public."Currencies";
+
+INSERT INTO migrated."CurrenciesConversion" (currency_id, currency_year, value)
+SELECT currency_id, currency_year_id, value FROM public."CurrenciesConversion";
+
+INSERT INTO migrated."Definitions" (id, name)
+SELECT id, name FROM public."Definitions";
+
+INSERT INTO migrated."DemandSectors" (id, name)
+SELECT id, name FROM public."DemandSectors";
+
+INSERT INTO migrated."DemandStockUnitTypes" (id, name)
+SELECT id, name FROM public."DemandStockUnitTypes";
+
+INSERT INTO migrated."DemandTechUnitTypes" (id, name)
+SELECT id, name FROM public."DemandTechUnitTypes";
+
+INSERT INTO migrated."EfficiencyTypes" (id, name)
+SELECT id, name FROM public."EfficiencyTypes";
+
+INSERT INTO migrated."GreenhouseGasEmissionsType" (id, name)
+SELECT id, name FROM public."GreenhouseGasEmissionsType";
+
+INSERT INTO migrated."GreenhouseGases" (id, name)
+SELECT id, name FROM public."GreenhouseGases";
+
+INSERT INTO migrated."InflationConversion" (currency_id, currency_year, value)
+SELECT currency_id, currency_year_id, value FROM public."InflationConversion";
 
 INSERT INTO migrated."InputTypes" (id, name)
 SELECT id, name FROM public."InputTypes";
 
+INSERT INTO migrated."OptPeriods" (id, hours)
+SELECT id, hours FROM public."OptPeriods";
+
 INSERT INTO migrated."OtherIndexes" (id, name)
 SELECT id, name FROM public."OtherIndexes";
+
+INSERT INTO migrated."ShapesTypes" (id, name)
+SELECT id, name FROM public."ShapesTypes";
+
+INSERT INTO migrated."ShapesUnits" (id, name)
+SELECT id, name FROM public."ShapesUnits";
+
+INSERT INTO migrated."StockDecayFunctions" (id, name)
+SELECT id, name FROM public."StockDecayFunctions";
+
+INSERT INTO migrated."SupplyCostTypes" (id, name)
+SELECT id, name FROM public."SupplyCostTypes";
+
+INSERT INTO migrated."SupplyTypes" (id, name)
+SELECT id, name FROM public."SupplyTypes";
 
 -- copy geography table data
 
@@ -47,5 +98,7 @@ FROM public."DemandDrivers";
 
 INSERT INTO migrated."DemandDriversData" (parent_id, gau_id, oth_1_id, oth_2_id, year, value, id)
 SELECT parent_id, gau_id, oth_1_id, oth_2_id, year, value, id FROM public."DemandDriversData";
+
+-- TODO: rename so "migrated" is the new "public", and either delete old "public" or call it something like "legacy"
 
 COMMIT;

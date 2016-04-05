@@ -2,7 +2,8 @@ from data_source import Base
 from data_mapper import DataMapper
 from sqlalchemy import Column, Float, ForeignKey, Integer, Text, text
 from sqlalchemy.orm import relationship, reconstructor
-from system import CleaningMethod, InputType, OtherIndex
+from system import CleaningMethod, InputType
+from misc import OtherIndex
 from geography import Geography, GeographyMapKey
 
 class DemandDriver(Base,DataMapper):
