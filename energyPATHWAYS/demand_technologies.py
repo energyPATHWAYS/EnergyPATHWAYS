@@ -34,7 +34,8 @@ class DemandTechnology(StockItem):
         self.reference_sales_shares = {}
         if self.id in util.sql_read_table('DemandSalesData', 'technology', return_unique=True, return_iterable=True):
             self.reference_sales_shares[1] = SalesShare(id=self.id, subsector_id=self.subsector_id, reference=True,
-                                                        sql_id_table='DemandSales', sql_data_table='DemandSalesData')
+                                                        sql_id_table='DemandSales', sql_data_table='DemandSalesData',
+                                                        primary_key='subsector_id', data_id_key='technology')
         self.book_life()
         self.add_class()
         self.min_year()
@@ -55,7 +56,8 @@ class DemandTechnology(StockItem):
             for sales_share_id in sales_share_ids:
                 self.sales_shares[sales_share_id] = SalesShare(id=sales_share_id, subsector_id=self.subsector_id,
                                                                reference=False, sql_id_table='DemandSalesMeasures',
-                                                               sql_data_table='DemandSalesMeasuresData')
+                                                               sql_data_table='DemandSalesMeasuresData',
+                                                               primary_key='id', data_id_key='parent_id')
 
     def add_specified_stock_measures(self, package_id):
         self.specified_stocks = {}
@@ -363,7 +365,7 @@ class DemandTechServiceLink(Abstract):
         self.input_type = 'intensity'
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
-        Abstract.__init__(self, self.id)
+        Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
 
 
     def calculate(self, vintages, years):

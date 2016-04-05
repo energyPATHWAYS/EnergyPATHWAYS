@@ -57,9 +57,9 @@ class Config:
         self.cur = self.con.cursor()
 
         # common data inputs
-        self.dnmtr_col_names = util.sql_read_table('DemandUnitDenominators', 'datatable_column_name')
-        self.drivr_col_names = util.sql_read_table('DemandDriverColumns', 'datatable_column_name')
-    
+        self.dnmtr_col_names = ['driver_denominator_1_id', 'driver_denominator_2_id']
+        self.drivr_col_names = ['driver_1_id', 'driver_2_id']
+
     def init_pint(self, custom_pint_definitions_path=None):
         # Initiate pint for unit conversions
         self.ureg = pint.UnitRegistry()

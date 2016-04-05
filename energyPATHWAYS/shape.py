@@ -104,7 +104,7 @@ class Shape(dmf.DataMapFunctions):
             for col, att in util.object_att_from_table(self.sql_id_table, id):
                 setattr(self, col, att)
             # creates the index_levels dictionary
-            dmf.DataMapFunctions.__init__(self)
+            dmf.DataMapFunctions.__init__(self, data_id_key='parent_id')
 
     def create_empty_shape_data(self):
         self._active_time_keys = [ind for ind in self.raw_values.index.names if ind in cfg.time_slice_col]

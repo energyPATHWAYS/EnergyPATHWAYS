@@ -31,7 +31,12 @@ import itertools
 import decimal
 import psycopg2
 
-from scipy.special import gamma
+def freeze_recursivedict(recursivedict):
+    recursivedict = dict(recursivedict)
+    for key, value in recursivedict.items():
+        if isinstance(value, defaultdict):
+            recursivedict[key] = freeze_recursivedict(value)
+    return recursivedict
 
 def upper_dict(query,append=None):
     id_dict = {} if query is None else dict([(id, name.upper()) for id, name in (query if is_iterable(query[0]) else [query])])    
@@ -106,20 +111,20 @@ def is_iterable(some_object):
 
 def object_att_from_table(tablename, id, primary_key='id'):
     table_headers = [h for h in sql_read_headers(tablename) if h != primary_key]
-    attributes = sql_read_table(tablename, column_names=table_headers, **dict([(primary_key, id)]))
     if not len(table_headers):
-        list_of_tuples = []
-    elif len(table_headers) == 1:
-        list_of_tuples = [(table_headers[0], attributes)]
-    else:
-        list_of_tuples = zip(table_headers, attributes)
-    for t in list_of_tuples:
-        try:
-            add_tuple = id_to_name(t[0], t[1], 'tuple')
-            list_of_tuples.append(add_tuple)
-        except:
-            pass
-    return list_of_tuples
+        return []
+
+    attributes = sql_read_table(tablename, column_names=table_headers, **dict([(primary_key, id)]))
+    if attributes is None:
+        return None
+    native_tuples = [(table_headers, attributes)] if len(table_headers)==1 else zip(table_headers, attributes)
+    
+    named_tuples = []
+    for t in native_tuples:
+        col_name = id_to_name(id_col=t[0], id_num=t[1], return_type='tuple')
+        if col_name is not None:
+            named_tuples.append(col_name)
+    return native_tuples + named_tuples
 
 
 def tuple_subset(tup, header, head_to_remove):
@@ -130,45 +135,25 @@ def tuple_subset(tup, header, head_to_remove):
     return tuple([t for i, t in enumerate(tup) if i not in index_to_remove])
 
 
-def id_to_name(col, id_, return_type='item'):
-    try:
-        # Note: this method has an attribute called lookup_dict (declared just after the method, below) that's used for
-        # caching the contents of the lookup tables from the database. It would be cleaner to build a class around
-        # these database functions and make lookup_dict an attribute of that, but that's too big a refactoring for now.
-        name = id_to_name.lookup_dict[col][id_]
-    except KeyError:
-        if id_to_name.lookup_dict:
-            if not id_to_name.lookup_dict[col]:
-                # the lookup cache has been populated, but we can't find the requested table in it,
-                # so this really is a KeyError.
-                raise
-            else:
-                # otherwise it's the id_ key that wasn't found, which we consider non-fatal, so just pass back None
-                name = None
-        else:
-            # the lookup cache hasn't been populated yet, so take a time out to populate it
-            for id_col, table in sql_read_table('IDMap', 'identifier_id, ref_table'):
-                id_to_name.lookup_dict[id_col] = {}
-                # TODO: this try/except is a workaround until #23 is done.
-                # After that, only the contents of the try will be necessary
-                try:
-                    for id_num, id_name in sql_read_table(table, 'id, name', return_iterable=True):
-                        id_to_name.lookup_dict[id_col][id_num] = id_name
-                except psycopg2.ProgrammingError:
-                    config.cfg.cur.execute("COMMIT");
-                    for id_num in sql_read_table(table, 'id', return_iterable=True):
-                        id_to_name.lookup_dict[id_col][id_num] = id_num
-
-            # now that we've populated the cache, try again
-            return id_to_name(col, id_, return_type)
+def id_to_name(id_col, id_num, return_type='item'):
+    if not hasattr(id_to_name, 'lookup_dict'):
+        id_to_name.lookup_dict = {}
+        # the lookup cache hasn't been populated yet, so take a time out to populate it
+        for _id_col, _table in sql_read_table('IDMap', 'identifier_id, ref_table'):
+            id_to_name.lookup_dict[_id_col] = {}
+            for _id_num, _name in sql_read_table(_table, 'id, name', return_iterable=True):
+                id_to_name.lookup_dict[_id_col][_id_num] = _name
+    
+    if id_to_name.lookup_dict.has_key(id_col):
+        name = id_to_name.lookup_dict[id_col].get(id_num)
+        col = id_col[:-3]
+    else:
+        return None
 
     if return_type == 'item':
         return name
     elif return_type == 'tuple':
-        new_col = col[:-3]
-        return (new_col, name)
-
-id_to_name.lookup_dict = {}
+        return (col, name)
 
 def empty_df(index, columns, fill_value=0.0, data_type=None):
     df = pd.DataFrame(fill_value, index=index, columns=columns).sort_index()
@@ -189,8 +174,7 @@ def sql_read_table(table_name, column_names='*', return_unique=False, return_ite
     query = 'SELECT ' + distinct + column_names + ' FROM "%s"' % table_name
     if len(filters):
         datatypes = sql_get_datatype(table_name, filters.keys())
-        list_of_filters = ['"' + col + '"=' + fix_sql_query_type(fil, datatypes[col]) for col, fil in filters.items() if
-                           fil is not None]
+        list_of_filters = ['"' + col + '"=' + fix_sql_query_type(fil, datatypes[col]) for col, fil in filters.items() if fil is not None]
         if list_of_filters == []:
             data = [None]
         else:

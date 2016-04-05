@@ -30,10 +30,10 @@ class SupplyTechnology(StockItem):
         self.co2_capture = SupplyTechCO2Capture(id)
         self.reference_sales_shares = {}
         if self.id in util.sql_read_table('SupplySalesShareData', 'supply_technology', return_unique=True, return_iterable=True):
-            self.reference_sales_shares[1] = SupplySalesShare(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySalesShare', sql_data_table='SupplySalesShareData')           
+            self.reference_sales_shares[1] = SupplySalesShare(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySalesShare', sql_data_table='SupplySalesShareData', primary_key='supply_node_id', data_id_key='supply_technology')
         self.reference_sales = {}
         if self.id in util.sql_read_table('SupplySalesData','supply_technology', return_unique=True, return_iterable=True):
-            self.reference_sales[1] = SupplySales(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySales', sql_data_table='SupplySalesData') 
+            self.reference_sales[1] = SupplySales(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySales', sql_data_table='SupplySalesData', primary_key='supply_node_id', data_id_key='supply_technology')
         StockItem.__init__(self)
         
         if self.shape_id is not None:
@@ -58,8 +58,9 @@ class SupplyTechnology(StockItem):
                                                   return_iterable=True)
             for sales_share_id in sales_share_ids:
                 self.sales_shares[sales_share_id] = SupplySalesShare(id=sales_share_id, node_id=self.node_id,
-                                                               reference=False, sql_id_table='SupplySalesShareMeasures',
-                                                               sql_data_table='SupplySalesShareMeasuresData')
+                                                                     reference=False, sql_id_table='SupplySalesShareMeasures',
+                                                                     sql_data_table='SupplySalesShareMeasuresData',
+                                                                     primary_key='id', data_id_key='parent_id')
                                                                
     def add_sales_measures(self, package_id):
         self.sales = {}
@@ -70,8 +71,9 @@ class SupplyTechnology(StockItem):
                                                   return_iterable=True)
             for sales_id in sales_ids:
                 self.sales[sales_id] = SupplySales(id=sales_id, node_id=self.node_id,
-                                                               reference=False, sql_id_table='SupplySalesMeasures',
-                                                               sql_data_table='SupplySalesMeasuresData')
+                                                    reference=False, sql_id_table='SupplySalesMeasures',
+                                                    sql_data_table='SupplySalesMeasuresData',
+                                                    primary_key='id', data_id_key='parent_id')
 
     def add_specified_stock_measures(self, package_id):
         self.specified_stocks = {}
@@ -93,19 +95,13 @@ class SupplyTechnology(StockItem):
         equivalent costs.
         
         """
-
         self.capital_cost_new = SupplyTechInvestmentCost(self.id, 'SupplyTechsCapitalCost','SupplyTechsCapitalCostNewData', self.book_life, self.cost_of_capital)
-        self.capital_cost_replacement = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost',
-                                               'SupplyTechsCapitalCostReplacementData', self.book_life, self.cost_of_capital)
-        self.installation_cost_new = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost',
-                                                    'SupplyTechsInstallationCostNewData', self.book_life, self.cost_of_capital)
-        self.installation_cost_replacement = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost',
-                                                            'SupplyTechsInstallationCostReplacementData',
-                                                            self.book_life, self.cost_of_capital)
-        self.fixed_om = SupplyTechFixedOMCost(self.id, 'SupplyTechsFixedMaintenanceCost',
-                                       'SupplyTechsFixedMaintenanceCostData')
-        self.variable_om = SupplyTechVariableOMCost(self.id, 'SupplyTechsVariableMaintenanceCost',
-                                          'SupplyTechsVariableMaintenanceCostData')
+        self.capital_cost_replacement = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost', 'SupplyTechsCapitalCostReplacementData', self.book_life, self.cost_of_capital)
+        self.installation_cost_new = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost', 'SupplyTechsInstallationCostNewData', self.book_life, self.cost_of_capital)
+        self.installation_cost_replacement = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost', 'SupplyTechsInstallationCostReplacementData', self.book_life, self.cost_of_capital)
+        self.fixed_om = SupplyTechFixedOMCost(self.id, 'SupplyTechsFixedMaintenanceCost', 'SupplyTechsFixedMaintenanceCostData')
+        self.variable_om = SupplyTechVariableOMCost(self.id, 'SupplyTechsVariableMaintenanceCost', 'SupplyTechsVariableMaintenanceCostData')
+        
         self.replace_costs('capital_cost_new', 'capital_cost_replacement')
         self.replace_costs('installation_cost_new', 'installation_cost_replacement')
         self.replace_costs('fixed_om')
@@ -151,30 +147,21 @@ class StorageTechnology(SupplyTechnology):
         equivalent costs.
         
         """
-        self.capital_cost_new_capacity = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost',
-                                               'StorageTechsCapacityCapitalCostNewData', self.book_life, self.cost_of_capital)
-        self.capital_cost_replacement_capacity = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost',
-                                               'StorageTechsCapacityCapitalCostReplacementData', self.book_life, self.cost_of_capital)
-        self.capital_cost_new_energy = StorageTechEnergyCost(self.id, 'StorageTechsEnergyCapitalCost',
-                                               'StorageTechsEnergyCapitalCostNewData', self.book_life, self.cost_of_capital)
-        self.capital_cost_replacement_energy = StorageTechEnergyCost(self.id, 'StorageTechsEnergyCapitalCost',
-                                               'StorageTechsEnergyCapitalCostReplacementData', self.book_life, self.cost_of_capital)                                       
+        self.capital_cost_new_capacity = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost', 'StorageTechsCapacityCapitalCostNewData', self.book_life, self.cost_of_capital)
+        self.capital_cost_replacement_capacity = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost', 'StorageTechsCapacityCapitalCostReplacementData', self.book_life, self.cost_of_capital)
+        self.capital_cost_new_energy = StorageTechEnergyCost(self.id, 'StorageTechsEnergyCapitalCost', 'StorageTechsEnergyCapitalCostNewData', self.book_life, self.cost_of_capital)
+        self.capital_cost_replacement_energy = StorageTechEnergyCost(self.id, 'StorageTechsEnergyCapitalCost', 'StorageTechsEnergyCapitalCostReplacementData', self.book_life, self.cost_of_capital)                                       
         
-        self.installation_cost_new = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost',
-                                                    'SupplyTechsInstallationCostNewData', self.book_life, self.cost_of_capital)
-        self.installation_cost_replacement = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost',
-                                                            'SupplyTechsInstallationCostReplacementData',
-                                                            self.book_life, self.cost_of_capital)
-        self.fixed_om = SupplyTechFixedOMCost(self.id, 'SupplyTechsFixedMaintenanceCost',
-                                       'SupplyTechsFixedMaintenanceCostData')
-        self.variable_om = SupplyTechVariableOMCost(self.id, 'SupplyTechsVariableMaintenanceCost',
-                                          'ConversionTechsVariableMaintenanceCostData')
+        self.installation_cost_new = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost', 'SupplyTechsInstallationCostNewData', self.book_life, self.cost_of_capital)
+        self.installation_cost_replacement = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost', 'SupplyTechsInstallationCostReplacementData', self.book_life, self.cost_of_capital)
+        self.fixed_om = SupplyTechFixedOMCost(self.id, 'SupplyTechsFixedMaintenanceCost', 'SupplyTechsFixedMaintenanceCostData')
+        self.variable_om = SupplyTechVariableOMCost(self.id, 'SupplyTechsVariableMaintenanceCost', 'SupplyTechsVariableMaintenanceCostData')
+        
         self.replace_costs('capital_cost_new_capacity', 'capital_cost_replacement_capacity')
         self.replace_costs('capital_cost_new_energy', 'capital_cost_replacement_energy')
         self.replace_costs('installation_cost_new', 'installation_cost_replacement')
         self.replace_costs('fixed_om')
         self.replace_costs('variable_om')
-        
 
 class SupplyTechCost(Abstract):
     def __init__(self, id, sql_id_table, sql_data_table, book_life=None, **kwargs):
@@ -184,7 +171,7 @@ class SupplyTechCost(Abstract):
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
         self.book_life = book_life
-        Abstract.__init__(self, id, 'supply_tech_id')
+        Abstract.__init__(self, id, primary_key='supply_tech_id', data_id_key='supply_tech_id')
     
     
     def calculate(self, vintages, years):
@@ -249,10 +236,10 @@ class SupplyTechInvestmentCost(SupplyTechCost):
         else:
             # if a cost is a capacity unit, the model must convert the unit type to an energy unit for conversion ()
             self.values = util.unit_convert(self.raw_values, unit_from_den =cfg.ureg.Quantity(self.capacity_or_energy_unit)
-                                                                           * cfg.ureg.Quantity(model_time_step),
-                                            unit_from_num=model_time_step,
-                                            unit_to_den=model_energy_unit,
-                                            unit_to_num=model_time_step)
+                                                                       * cfg.ureg.Quantity(model_time_step),
+                                        unit_from_num=model_time_step,
+                                        unit_to_den=model_energy_unit,
+                                        unit_to_num=model_time_step)
         if self.definition == 'absolute':
             self.values = util.currency_convert(self.values, self.currency_id, self.currency_year_id)
             self.absolute = True

@@ -1,5 +1,4 @@
 __author__ = 'Ben Haley & Ryan Jones'
-__author__ = 'Ben Haley & Ryan Jones'
 
 from config import cfg
 from shape import shapes, Shape
@@ -41,8 +40,8 @@ class Demand(object):
     def create_electricity_reconsilliation(self):
         weather_years = np.unique(shapes.active_dates_index.year)
         
-        energy = group_output(self, output_type, levels_to_keep=['year', 'energy_type'])
-        electric_energy = util.df_slice(energy, cfg.electricity_energy_type_id, 'energy_type')
+        #energy = group_output(self, output_type, levels_to_keep=['year', 'energy_type'])
+        #electric_energy = util.df_slice(energy, cfg.electricity_energy_type_id, 'energy_type')
 
     def aggregate_results(self):
         def remove_na_levels(df):
@@ -265,7 +264,7 @@ class Driver(object, DataMapFunctions):
         for col, att in util.object_att_from_table(self.sql_id_table, id):
             setattr(self, col, att)
         # creates the index_levels dictionary
-        DataMapFunctions.__init__(self)
+        DataMapFunctions.__init__(self, data_id_key='parent_id')
         self.read_timeseries_data()
 
 
@@ -419,10 +418,7 @@ class Subsector(DataMapFunctions):
         subsector type 
         """
         if self.has_stock is True and self.has_service_demand is True:
-            self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands',
-                                            sql_data_table='DemandServiceDemandsData',
-                                            primary_key='demand_service_demand_id',
-                                            drivers=self.drivers)
+            self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', drivers=self.drivers)
             self.add_stock()
             if self.stock.demand_stock_unit_type == 'equipment':
                 self.add_technologies(self.service_demand.unit, self.stock.time_unit)
@@ -430,9 +426,7 @@ class Subsector(DataMapFunctions):
                 self.add_technologies(self.stock.unit, self.stock.time_unit)
             self.sub_type = 'stock and service'
         elif self.has_stock is True and self.has_energy_demand is True:
-            self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands',
-                                           sql_data_table='DemandEnergyDemandsData',
-                                           primary_key='demand_energy_demand_id', drivers=self.drivers)
+            self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData', drivers=self.drivers)
             self.add_stock()
             if self.stock.demand_stock_unit_type == 'equipment':
                 # service demand unit is equal to the energy demand unit for equipment stocks
@@ -447,28 +441,16 @@ class Subsector(DataMapFunctions):
                 self.add_technologies(self.stock.unit, self.stock.time_unit)
             self.sub_type = 'stock and energy'
         elif self.has_service_demand is True and self.has_service_efficiency is True:
-            self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands',
-                                            sql_data_table='DemandServiceDemandsData',
-                                            primary_key='demand_service_demand_id',
-                                            drivers=self.drivers)
+            self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', drivers=self.drivers)
             self.service_efficiency = ServiceEfficiency(self.id, self.service_demand.unit)
             self.sub_type = 'service and efficiency'
 
         elif self.has_service_demand is True and self.has_energy_demand is True:
-            self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands',
-                                            sql_data_table='DemandServiceDemandsData',
-                                            primary_key='demand_service_demand_id',
-                                            drivers=self.drivers)
-            self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands',
-                                           sql_data_table='DemandEnergyDemandsData',
-                                           primary_key='demand_energy_demand_id',
-                                           drivers=self.drivers)
+            self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', drivers=self.drivers)
+            self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData', drivers=self.drivers)
             self.sub_type = 'service and energy'
         elif self.has_energy_demand is True:
-            self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands',
-                                           sql_data_table='DemandEnergyDemandsData',
-                                           primary_key='demand_energy_demand_id',
-                                           drivers=self.drivers)
+            self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData', drivers=self.drivers)
             self.sub_type = 'energy'
             
         elif self.has_stock is True:
@@ -489,9 +471,9 @@ class Subsector(DataMapFunctions):
 
     def filter_packages(self,case_id):
         """filters packages by case"""
-        packages = [x for x in util.sql_read_headers('DemandCasesData') if x not in ['id', 'subsector_id']]
+        packages = [x for x in util.sql_read_headers('DemandCasesData') if x not in ['parent_id', 'id', 'subsector_id']]
         for package in packages:
-            package_id = util.sql_read_table('DemandCasesData', package, subsector_id=self.id, id=case_id)
+            package_id = util.sql_read_table('DemandCasesData', package, subsector_id=self.id, parent_id=case_id)
             setattr(self, package, package_id)
 
 
