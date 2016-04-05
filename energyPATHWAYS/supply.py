@@ -62,13 +62,16 @@ class Supply(object):
         storage_tech_classes = ['installation_cost_new','installation_cost_replacement', 'fixed_om', 'variable_om', 'efficiency', 'capital_cost_new_capacity', 'capital_cost_replacement_capacity',
                                 'capital_cost_new_energy', 'capital_cost_replacement_energy']
         for node in self.nodes.values():
-            if hasattr(node, 'technologies'):
-                for technology in node.technologies.values():
-                    technology.calculate([node.vintages[0] - 1] + node.vintages, node.years)
-                if isinstance(technology, StorageTechnology):
-                    node.remap_tech_attrs(storage_tech_classes)
-                else:
-                    node.remap_tech_attrs(tech_classes)
+            if not hasattr(node, 'technologies'):
+                continue
+
+            for technology in node.technologies.values():
+                technology.calculate([node.vintages[0] - 1] + node.vintages, node.years)
+
+            if isinstance(technology, StorageTechnology):
+                node.remap_tech_attrs(storage_tech_classes)
+            else:
+                node.remap_tech_attrs(tech_classes)
                     
 
     def calculate_years(self):
@@ -81,15 +84,13 @@ class Supply(object):
             attributes = vars(node)    
             for att in attributes:
                 obj = getattr(node, att)
-                if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'data') and obj.data is True:
-                    
+                if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'data') and obj.data is True:   
                     if 'year' in obj.raw_values.index.names:
                         min_year = min(obj.raw_values.index.get_level_values('year'))
                     elif 'vintage' in obj.raw_values.index.names:
                         min_year = min(obj.raw_values.index.get_level_values('vintage'))
                     else:
                         continue
-                        
                     if min_year < node.min_year:
                       node.min_year = min_year             
             if hasattr(node,'technologies'):
@@ -4143,7 +4144,7 @@ class SupplyStockNode(Node):
             self.active_coefficients_untraded = copy.deepcopy(self.active_coefficients)
             self.active_coefficients_untraded.sort(inplace=True,axis=0)
             try:
-                self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([cfg.cfgfile.get('case','primary_geography'),'demand_sector', 'supply_node']).sort().fillna(0)
+                self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([cfg.cfgfile.get('case','primary_geography'),'demand_sector', 'supply_node']).sort().fillna(0)      
             except:
                 print self.id
         else:            
