@@ -118,9 +118,9 @@ class SupplyTechnology(StockItem):
         # if no class_b is specified, there is no equivalent cost for class_a
         if class_b is None:
             class_a_instance = getattr(self, class_a)
-            if class_a_instance.data is False and hasattr(class_a_instance, 'reference_tech_id') is False:
-                print "Conversion technology %s has no %s cost data" % (self.id, class_a)
-                #                setattr(self, class_a, None)
+            if class_a_instance.data is False and hasattr(class_a_instance, 'reference_tech_id') is False and class_a is 'capital_cost_new':
+                 #raises a warning if no capital costs are input   
+                 print "Conversion technology %s has no capital cost data" % (self.id)
         else:
             class_a_instance = getattr(self, class_a)
             class_b_instance = getattr(self, class_b)
@@ -130,7 +130,6 @@ class SupplyTechnology(StockItem):
                             hasattr(class_a_instance, 'reference_tech_id') is False and \
                             hasattr(class_b_instance, 'reference_tech_id') is False:
                 pass
-            # print "demand technology %s has no input data for %s or %s" % (self.id, class_a, class_b)
             elif class_a_instance.data is True and class_a_instance.raw_values is not None and (class_b_instance.data is False or (class_b_instance.data is True and class_b_instance.raw_values is None)):
                 setattr(self, class_b, copy.deepcopy(class_a_instance))
             elif (class_a_instance.data is False or (class_a_instance.data is True and class_a_instance.raw_values is None))and class_b_instance.data is True and class_b_instance.raw_values is not None:

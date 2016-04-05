@@ -330,7 +330,7 @@ def dispatch_problem_formulation(dispatch, start_state_of_charge, end_state_of_c
         for t in model.TECHNOLOGIES:
             for feeder in model.FEEDERS:
                 if model.geography[t] == geography and model.feeder[t] == feeder and feeder!=0:
-                    distribution_power[feeder] += model.Provide_Power[t, feeder, timepoint]
+                    distribution_power[feeder] += model.Provide_Power[t, timepoint]
             else:
                 pass
 
@@ -630,7 +630,7 @@ def dispatch_problem_formulation(dispatch, start_state_of_charge, end_state_of_c
         for t in model.TECHNOLOGIES:
             for feeder in model.FEEDERS:
                 if model.geography[t] == geography and model.feeder[t] == feeder and feeder!=0:
-                    distribution_power[feeder] += model.Provide_Power[t, feeder, timepoint]
+                    distribution_power[feeder] += model.Provide_Power[t, timepoint]
             else:
                 pass
 

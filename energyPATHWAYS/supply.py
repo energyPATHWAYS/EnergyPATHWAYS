@@ -446,6 +446,8 @@ class Supply(object):
                     elif input_node.supply_type =='Conversion':
                         self.injection_nodes[dispatch_zone.id].append(input_node.id)
                         continue
+                    elif input_node.supply_type == 'Storage':
+                        continue
                     else:
                         self.electricity_nodes[dispatch_zone.id].append(input_node.id)
                         self.set_electricity_gen_nodes(dispatch_zone, input_node)
@@ -1076,15 +1078,14 @@ class Supply(object):
                     if 'demand_sector' not in capacity.index.names and zone == self.distribution_node_id: 
                         sector_capacity= []
                         for sector in self.demand_sectors:
-                            #if we have no active supply, we must allocate exports pro-rate across number of sectors
                             capacity = copy.deepcopy(capacity) * 1/len(self.demand_sectors)  
-                            sector_capacity['demand_sector'] = sector
+                            capacity['demand_sector'] = sector
                             sector_capacity.append(capacity)
                         capacity = pd.concat(sector_capacity)
                         capacity.set_index('demand_sector', append=True, inplace=True)
                         keys = self.demand_sectors
                         name = ['demand_sector']
-                        efficiency = pd.concat((efficiency)*len(keys),keys=keys,names=name)
+                        efficiency = pd.concat([efficiency]*len(keys),keys=keys,names=name)
                     geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
                     map_df = cfg.geo.map_df(self.dispatch_geography,self.geography, column=geography_map_key)
                     capacity = DfOper.mult([capacity, map_df],fill_value=0.0)                
@@ -3460,10 +3461,6 @@ class SupplyStockNode(Node):
         attr_classes = util.ensure_iterable_and_not_string(attr_classes)
         for technology in self.technologies.keys():
             for attr_class in attr_classes:
-                # It is possible that recursion has converted before we get to an
-                # attr_class in the list. If so, continue.
-#                if getattr(getattr(self.technologies[technology], attr_class), 'converted'):
-#                    continue
                 self.remap_tech_attr(technology, attr_class, attr)
 
 
@@ -3479,7 +3476,6 @@ class SupplyStockNode(Node):
                 ref_tech_id = (getattr(tech_class, 'reference_tech_id'))
                 if not self.technologies.has_key(ref_tech_id):
                     raise ValueError("supply node {} has no technology {} to serve as a reference for technology {}".format(self.id, ref_tech_id, technology))
-
                 ref_tech_class = getattr(self.technologies[ref_tech_id], class_name)
                 # converted is an indicator of whether an input is an absolute
                 # or has already been converted to an absolute
@@ -4149,7 +4145,10 @@ class SupplyStockNode(Node):
             self.active_coefficients = util.remove_df_levels(pd.concat([self.stock.coefficients.loc[:,year].to_frame()]*len(keys), keys=keys,names=name).fillna(0),['supply_technology', 'vintage','resource_bins'])              
             self.active_coefficients_untraded = copy.deepcopy(self.active_coefficients)
             self.active_coefficients_untraded.sort(inplace=True,axis=0)
-            self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([cfg.cfgfile.get('case','primary_geography'),'demand_sector', 'supply_node']).sort().fillna(0)      
+            try:
+                self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([cfg.cfgfile.get('case','primary_geography'),'demand_sector', 'supply_node']).sort().fillna(0)      
+            except:
+                print self.id
         else:            
             self.active_coefficients = util.remove_df_levels(self.stock.coefficients.loc[:,year].to_frame().fillna(0),['supply_technology', 'vintage','resource_bins'])              
             self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([cfg.cfgfile.get('case','primary_geography'),'demand_sector', 'supply_node']).sort().fillna(0)            
@@ -4310,7 +4309,7 @@ class StorageNode(SupplyStockNode):
         
         self.stock.values_normal_tech = self.stock.values.loc[:,year].to_frame().groupby(level=[self.geography,'supply_technology']).transform(lambda x: x/x.sum()) 
         self.stock.values_normal_tech.replace(np.inf,0,inplace=True)        
-        if hasattr(self, 'is_flexible') and self.is_flexible and loop == 3:
+        if loop == 3:
             if hasattr(self.stock,'disp_coefficients'):
                 self.stock.disp_coefficients.loc[:,year] = self.rollover_output(tech_class='efficiency',
                                                                              stock_att='values_normal_tech',year=year)                                   
