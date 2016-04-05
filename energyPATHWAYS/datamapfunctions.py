@@ -267,13 +267,13 @@ class Abstract(DataMapFunctions):
         # before we only has primary_key, which was shared in the "parent" and "data" tables, and this is still the default as we make the change.
         if data_id_key is None:
             data_id_key = primary_key
-        
+
         try:
             col_att = util.object_att_from_table(self.sql_id_table, id, primary_key)
         except:
             print self.sql_id_table, id, primary_key
-            raise
-        
+            asdf
+
         if col_att is None:
             self.data = False
         else:
@@ -281,7 +281,7 @@ class Abstract(DataMapFunctions):
                 # if att is not None:
                 setattr(self, col, att)
             self.data = True
-        
+
         DataMapFunctions.__init__(self, data_id_key)
         self.read_timeseries_data(**filters)
 

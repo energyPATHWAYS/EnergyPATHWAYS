@@ -62,16 +62,13 @@ class Supply(object):
         storage_tech_classes = ['installation_cost_new','installation_cost_replacement', 'fixed_om', 'variable_om', 'efficiency', 'capital_cost_new_capacity', 'capital_cost_replacement_capacity',
                                 'capital_cost_new_energy', 'capital_cost_replacement_energy']
         for node in self.nodes.values():
-            if not hasattr(node, 'technologies'):
-                continue
-
-            for technology in node.technologies.values():
-                technology.calculate([node.vintages[0] - 1] + node.vintages, node.years)
-
-            if isinstance(technology, StorageTechnology):
-                node.remap_tech_attrs(storage_tech_classes)
-            else:
-                node.remap_tech_attrs(tech_classes)
+            if hasattr(node, 'technologies'):
+                for technology in node.technologies.values():
+                    technology.calculate([node.vintages[0] - 1] + node.vintages, node.years)
+                if isinstance(technology, StorageTechnology):
+                    node.remap_tech_attrs(storage_tech_classes)
+                else:
+                    node.remap_tech_attrs(tech_classes)
                     
 
     def calculate_years(self):
@@ -4146,7 +4143,7 @@ class SupplyStockNode(Node):
             self.active_coefficients_untraded = copy.deepcopy(self.active_coefficients)
             self.active_coefficients_untraded.sort(inplace=True,axis=0)
             try:
-                self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([cfg.cfgfile.get('case','primary_geography'),'demand_sector', 'supply_node']).sort().fillna(0)      
+                self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([cfg.cfgfile.get('case','primary_geography'),'demand_sector', 'supply_node']).sort().fillna(0)
             except:
                 print self.id
         else:            
