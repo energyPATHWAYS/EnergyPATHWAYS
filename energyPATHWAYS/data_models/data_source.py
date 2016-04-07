@@ -3,10 +3,31 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.engine.url import URL
 from sqlalchemy import MetaData
 import pandas as pd
+from numbers import Number
+
+
+class Base(object):
+    def _quoted_attr_value(self, key):
+        """
+        Looks up self's attribute with the name contained in the key parameter.
+        If the attribute's value is a number or is None, return it unadorned,
+        otherwise return it wrapped in double quotes.
+        """
+        val = getattr(self, key)
+        return val if isinstance(val, Number) or val is None else '"%s"' % (val,)
+
+    def __repr__(self):
+        attr_strs = ["%s=%s" % (key, self._quoted_attr_value(key)) for key in self.__mapper__.columns.keys()]
+
+        # This version gets all attributes, not just the columns you'd set in the constructor. That feels too verbose
+        # to me for general use, but could be helpful for debugging.
+        # attr_strs = ['%s=%s' % (attr.key, attr.value) for attr in sa.inspect(self).attrs]
+
+        return type(self).__name__ + '(' + ', '.join(attr_strs) + ')'
 
 # TODO: (MAC) this explicit metadata is only needed during this transitional migration period;
 # once we're done migrating, everything SQLAlchemy needs will be in the default public schema again
-Base = declarative_base(metadata=MetaData(schema='migrated'))
+Base = declarative_base(cls=Base, metadata=MetaData(schema='migrated'))
 
 
 # For now we are expecting config to reach in and kick this since it has the config information
