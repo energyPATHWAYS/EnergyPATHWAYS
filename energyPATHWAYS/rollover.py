@@ -273,7 +273,7 @@ class Rollover(object):
             self.stock_change_by_tech = np.dot(self.sales_share[i], self.rolloff)  # natural sales
         else:
             self.stock_change_by_tech = np.mean(np.linalg.matrix_power(self.sales_share[i], 100), axis=1) * self.stock_changes[i]
-
+        
         #stock changes are greater than all defined sales, so all sales need to increase to agree with stock changes
         if self.stock_changes_as_min and (self.stock_changes[i] > self.sum_defined_sales):
             self.stock_change_by_tech *= (self.stock_changes[i] + self.rolloff_summed) / np.sum(self.stock_change_by_tech)

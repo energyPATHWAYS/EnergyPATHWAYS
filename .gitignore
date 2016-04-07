@@ -1,3 +1,4 @@
+/us_model_example/pathways_us.sql
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -70,7 +71,7 @@ target/
 /.idea/energyPATHWAYS.iml
 
 # Temp model copy
-/us_model_example/model.p
+/us_model_example/*.p
 
 # Results
 /us_model_example/outputs/

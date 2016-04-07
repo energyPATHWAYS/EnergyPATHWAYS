@@ -12,17 +12,18 @@ from datamapfunctions import DataMapFunctions, Abstract
 from shared_classes import Stock
 
 class SubDemand(object, DataMapFunctions):
-    def __init__(self, id, drivers, sql_id_table, sql_data_table, primary_key, technology_id=None, **kwargs):
+    def __init__(self, id, drivers, sql_id_table, sql_data_table, technology_id=None, **kwargs):
         self.id = id
         self.drivers = drivers
         self.technology_id = technology_id
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
-        self.primary_key = primary_key
+        self.primary_key = 'subsector_id'
+        self.data_id_key = 'subsector_id'
         for col, att in util.object_att_from_table(self.sql_id_table, self.id, 'subsector_id'):
             setattr(self, col, att)
         self.in_use_drivers()
-        DataMapFunctions.__init__(self, self.primary_key)
+        DataMapFunctions.__init__(self, self.data_id_key)
         self.read_timeseries_data()
         self.projected = False
 
@@ -41,15 +42,14 @@ class SubDemand(object, DataMapFunctions):
         if unit_type == 'service demand':
             self.remap(map_to='int_values',fill_timeseries=False)
             self.int_values = util.unit_convert(self.int_values, unit_from_num=self.unit, unit_to_num=stock_unit)
+            self.unit = stock_unit
         else:
             raise ValueError("should not have called this function for this demand stock unit type")
 
 
 class DemandStock(Stock):
-    def __init__(self, id, drivers, sql_id_table='DemandStock', sql_data_table='DemandStockData',
-                 primary_key='subsector_id', **kwargs):
-        Stock.__init__(self, id, drivers, sql_id_table='DemandStock', sql_data_table='DemandStockData',
-                     primary_key='subsector_id', **kwargs)
+    def __init__(self, id, drivers, sql_id_table='DemandStock', sql_data_table='DemandStockData', primary_key='subsector_id', **kwargs):
+        Stock.__init__(self, id, drivers, sql_id_table='DemandStock', sql_data_table='DemandStockData', primary_key='subsector_id', **kwargs)
         self.drivers = drivers
         self.in_use_drivers()
         self.projected = False
@@ -70,7 +70,7 @@ class ServiceEfficiency(Abstract):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.empty is False:
+        if self.data and self.raw_values is not None:
             self.convert()
             self.remap(map_from='values', map_to='values', time_index_name='year')
         else:

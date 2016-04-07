@@ -91,7 +91,7 @@ class Geography:
         # sortlevel sorts all of the indicies so that we can slice the dataframe
         self.values.sortlevel(0, inplace=True)
 
-    def map_df(self, subsection, supersection, column=None, reset_index=False):
+    def map_df(self, subsection, supersection, column=None, reset_index=False, eliminate_zeros=True):
         """ main function that maps geographies to one another
         Two options for two overlapping areas
             (A u B) / A     (A is supersection)
@@ -111,6 +111,9 @@ class Geography:
         
         if reset_index:
             table.reset_index(inplace=True)
-        
+        if not eliminate_zeros:
+            index=pd.MultiIndex.from_product([self.geographies[subsection[0]],self.geographies[supersection]],names=[subsection[0],supersection])
+            table = table.reorder_levels(index.names)
+            table = table.reindex(index, fill_value=0.0)
         return table
 

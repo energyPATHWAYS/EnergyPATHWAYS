@@ -24,7 +24,7 @@ class SupplyStock(Stock, StockItem):
         return group
 
 class SupplySales(Abstract, DataMapFunctions):
-    def __init__(self, id, supply_node_id, sql_id_table, sql_data_table, reference=False):
+    def __init__(self, id, supply_node_id, sql_id_table, sql_data_table, primary_key, data_id_key, reference=False):
         self.id = id
         self.input_type = 'total'
         self.supply_node_id = supply_node_id
@@ -32,14 +32,14 @@ class SupplySales(Abstract, DataMapFunctions):
         self.sql_data_table = sql_data_table
         self.mapped = False
         if reference:
-            for col, att in util.object_att_from_table(self.sql_id_table, self.supply_node_id, 'supply_node_id'):
+            for col, att in util.object_att_from_table(self.sql_id_table, self.supply_node_id, primary_key):
                 setattr(self, col, att)
-            DataMapFunctions.__init__(self, 'supply_technology')
+            DataMapFunctions.__init__(self, data_id_key)
             self.read_timeseries_data(supply_node_id=self.supply_node_id)
             self.raw_values = util.remove_df_levels(self.raw_values, 'supply_technology')
         else:
             # measure specific sales does not require technology filtering
-            Abstract.__init__(self, self.id)
+            Abstract.__init__(self, self.id, primary_key=primary_key, data_id_key=data_id_key)
 
     def calculate(self, vintages, years, interpolation_method=None, extrapolation_method=None):
         self.vintages = vintages
@@ -72,11 +72,8 @@ class SupplySales(Abstract, DataMapFunctions):
             self.values = util.expand_multi(self.values, needed_sales_share_levels,
                                             needed_sales_names).sort_index()
 
-
-
-
 class SupplySalesShare(Abstract, DataMapFunctions):
-    def __init__(self, id, supply_node_id, sql_id_table, sql_data_table, reference=False):
+    def __init__(self, id, supply_node_id, sql_id_table, sql_data_table, primary_key, data_id_key, reference=False):
         self.id = id
         self.supply_node_id = supply_node_id
         self.sql_id_table = sql_id_table
@@ -84,15 +81,15 @@ class SupplySalesShare(Abstract, DataMapFunctions):
         self.mapped = False
         self.input_type = 'intensity'
         if reference:
-                for col, att in util.object_att_from_table(self.sql_id_table, self.supply_node_id, 'supply_node_id'):
-                    if att is not None:
-                        setattr(self, col, att)
-                DataMapFunctions.__init__(self, 'supply_technology')
-                self.read_timeseries_data()
-                self.raw_values = util.remove_df_levels(self.raw_values, ['supply_node','supply_technology'])
+            for col, att in util.object_att_from_table(self.sql_id_table, self.supply_node_id, primary_key):
+                if att is not None:
+                    setattr(self, col, att)
+            DataMapFunctions.__init__(self, data_id_key)
+            self.read_timeseries_data(supply_node_id=self.supply_node_id)
+            self.raw_values = util.remove_df_levels(self.raw_values, ['supply_node', 'supply_technology'])
         else:
             # measure specific sales share does not require technology filtering
-            Abstract.__init__(self, self.id)
+            Abstract.__init__(self, self.id, primary_key=primary_key, data_id_key=data_id_key)
 
     def calculate(self, vintages, years):
         self.vintages = vintages

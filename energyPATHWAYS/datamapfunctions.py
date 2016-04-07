@@ -14,15 +14,15 @@ from util import DfOper
 
 
 class DataMapFunctions:
-    def __init__(self, primary_key='id'):
+    def __init__(self, data_id_key='id'):
         # ToDo remove from being an ordered dict, this shouldn't be necessary
-        self.primary_key = primary_key
+        self.data_id_key = data_id_key
         self.index_levels = OrderedDict()
         self.column_names = OrderedDict()
         self.read_index_levels()
         # creates list of dataframe headers from relational table lookup with database headers
         #  i.e. gau = geography ; self.geography = 'state'.
-        self.df_index_names = [level if hasattr(self, level) else level for level in self.index_levels]
+#        self.df_index_names = [level if hasattr(self, level) else level for level in self.index_levels]
         self.df_index_names = [util.id_to_name(level, getattr(self, level)) if hasattr(self, level) else level for level
                                in self.index_levels]
 
@@ -31,13 +31,13 @@ class DataMapFunctions:
         creates a dictionary to store level headings (for database lookup) and
         level elements. Stored as attr 'index_level'
         """
-        data_table_columns = [x for x in util.sql_read_headers(self.sql_data_table) if x not in self.primary_key]
+        data_table_columns = [x for x in util.sql_read_headers(self.sql_data_table) if x not in self.data_id_key]
         for id, index_level, column_name in util.sql_read_table('IndexLevels'):
             if column_name not in data_table_columns:
                 continue
             elements = util.sql_read_table(self.sql_data_table, column_names=column_name,
                                            return_iterable=True, return_unique=True,
-                                           **dict([(self.primary_key, self.id)]))
+                                           **dict([(self.data_id_key, self.id)]))
             if len(elements):
                 self.index_levels[index_level] = elements
                 self.column_names[index_level] = column_name
@@ -54,11 +54,11 @@ class DataMapFunctions:
         # read each line of the data_table matching an id and assign the value to self.raw_values
         data = []
         if len(filters):
-            merged_dict = dict({self.primary_key: self.id}, **filters)
+            merged_dict = dict({self.data_id_key: self.id}, **filters)
             read_data = util.sql_read_table(self.sql_data_table, return_iterable=True, **merged_dict)
         else:
             read_data = util.sql_read_table(self.sql_data_table, return_iterable=True,
-                                            **dict([(self.primary_key, self.id)]))
+                                            **dict([(self.data_id_key, self.id)]))
         if read_data:
             for row in read_data:
                 try:
@@ -69,10 +69,8 @@ class DataMapFunctions:
                         print (self.id, row, i)
             column_names = self.df_index_names + util.put_in_list(data_column_names)
             self.raw_values = pd.DataFrame(data, columns=column_names).set_index(keys=self.df_index_names).sort_index()
-            self.data = True
         else:
             self.raw_values = None
-            self.data = False
 
     def clean_timeseries(self, attr='values', inplace=True, time_index_name='year', 
                          time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing'):
@@ -92,7 +90,7 @@ class DataMapFunctions:
             return clean_data
 
 
-    def geo_map(self, converted_geography, attr='values', inplace=True, current_geography=None, current_data_type=None,fill_value=0.):
+    def geo_map(self, converted_geography, attr='values', inplace=True, current_geography=None, current_data_type=None, fill_value=0.):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table
         if input type is a total, then the subsection is the geography
         to convert to and the supersection is the initial geography.
@@ -180,8 +178,8 @@ class DataMapFunctions:
         mapf = getattr(self, map_from)
         if current_geography not in (mapf.index.names if mapf.index.nlevels > 1 else [mapf.index.name]):
             raise ValueError('current geography does not match the geography of the dataframe in remap')
-        else:
-            current_geography_index_levels = mapf.index.levels[util.position_in_index(mapf, current_geography)] if mapf.index.nlevels > 1 else mapf.index.tolist()
+#        else:
+#            current_geography_index_levels = mapf.index.levels[util.position_in_index(mapf, current_geography)] if mapf.index.nlevels > 1 else mapf.index.tolist()
 
         if (drivers is None) or (not len(drivers)):
             if fill_timeseries:     
@@ -192,7 +190,7 @@ class DataMapFunctions:
                 current_geography = converted_geography
         else:
             total_driver = DfOper.mult(util.put_in_list(drivers))
-            if len(current_geography_index_levels) > 1 and current_geography != converted_geography:
+            if current_geography != converted_geography:
                 # While not on primary geography, geography does have some information we would like to preserve
                 self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
                              current_data_type=current_data_type, fill_value=fill_value)
@@ -233,7 +231,7 @@ class DataMapFunctions:
             if current_data_type != 'intensity':
                 raise ValueError(str(self.__class__) + ' id ' + str(self.id) + ': type must be intensity if variable has denominator drivers')
 
-            if len(self.index_levels['geography_id']) > 1 and (current_geography != converted_geography):
+            if current_geography != converted_geography:
                 # While not on primary geography, geography does have some information we would like to preserve
                 self.geo_map(converted_geography, attr=map_to, inplace=True)
                 current_geography = converted_geography
@@ -260,21 +258,28 @@ class DataMapFunctions:
 
 
 class Abstract(DataMapFunctions):
-    def __init__(self, id, primary_key='id', **filters):
+    def __init__(self, id, primary_key='id', data_id_key=None, **filters):
+        
+        # Ryan: I've introduced a new parameter called data_id_key, which is the key in the "Data" table
+        # because we are introducing primary keys into the Data tables, it is sometimes necessary to specify them separately
+        # before we only has primary_key, which was shared in the "parent" and "data" tables, and this is still the default as we make the change.
+        if data_id_key is None:
+            data_id_key = primary_key
+
         try:
-            for col, att in util.object_att_from_table(self.sql_id_table, id, primary_key):
+            col_att = util.object_att_from_table(self.sql_id_table, id, primary_key)
+        except:
+            print self.sql_id_table, id, primary_key
+            raise
+
+        if col_att is None:
+            self.data = False
+        else:
+            for col, att in col_att:
                 # if att is not None:
                 setattr(self, col, att)
-            DataMapFunctions.__init__(self, primary_key)
             self.data = True
-        except:
-            self.data = False
-        try:
-            if len(filters):
-                self.read_timeseries_data(**filters)
-            else:
-                self.read_timeseries_data()
-            self.empty = False
-        except:
-            self.empty = True
+
+        DataMapFunctions.__init__(self, data_id_key)
+        self.read_timeseries_data(**filters)
 

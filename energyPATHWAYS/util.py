@@ -31,7 +31,12 @@ import itertools
 import decimal
 import psycopg2
 
-from scipy.special import gamma
+def freeze_recursivedict(recursivedict):
+    recursivedict = dict(recursivedict)
+    for key, value in recursivedict.items():
+        if isinstance(value, defaultdict):
+            recursivedict[key] = freeze_recursivedict(value)
+    return recursivedict
 
 def upper_dict(query,append=None):
     id_dict = {} if query is None else dict([(id, name.upper()) for id, name in (query if is_iterable(query[0]) else [query])])    
@@ -106,20 +111,20 @@ def is_iterable(some_object):
 
 def object_att_from_table(tablename, id, primary_key='id'):
     table_headers = [h for h in sql_read_headers(tablename) if h != primary_key]
-    attributes = sql_read_table(tablename, column_names=table_headers, **dict([(primary_key, id)]))
     if not len(table_headers):
-        list_of_tuples = []
-    elif len(table_headers) == 1:
-        list_of_tuples = [(table_headers[0], attributes)]
-    else:
-        list_of_tuples = zip(table_headers, attributes)
-    for t in list_of_tuples:
-        try:
-            add_tuple = id_to_name(t[0], t[1], 'tuple')
-            list_of_tuples.append(add_tuple)
-        except:
-            pass
-    return list_of_tuples
+        return []
+
+    attributes = sql_read_table(tablename, column_names=table_headers, **dict([(primary_key, id)]))
+    if attributes is None:
+        return None
+    native_tuples = [(table_headers, attributes)] if len(table_headers)==1 else zip(table_headers, attributes)
+    
+    named_tuples = []
+    for t in native_tuples:
+        col_name = id_to_name(id_col=t[0], id_num=t[1], return_type='tuple')
+        if col_name is not None:
+            named_tuples.append(col_name)
+    return native_tuples + named_tuples
 
 
 def tuple_subset(tup, header, head_to_remove):
@@ -129,46 +134,25 @@ def tuple_subset(tup, header, head_to_remove):
     index_to_remove = [header.index(e) for e in head_to_remove]
     return tuple([t for i, t in enumerate(tup) if i not in index_to_remove])
 
+def id_to_name(id_col, id_num, return_type='item'):
+    if not hasattr(id_to_name, 'lookup_dict'):
+        id_to_name.lookup_dict = {}
+        # the lookup cache hasn't been populated yet, so take a time out to populate it
+        for _id_col, _table in sql_read_table('IDMap', 'identifier_id, ref_table'):
+            id_to_name.lookup_dict[_id_col] = {}
+            for _id_num, _name in sql_read_table(_table, 'id, name', return_iterable=True):
+                id_to_name.lookup_dict[_id_col][_id_num] = _name
 
-def id_to_name(col, id_, return_type='item'):
-    try:
-        # Note: this method has an attribute called lookup_dict (declared just after the method, below) that's used for
-        # caching the contents of the lookup tables from the database. It would be cleaner to build a class around
-        # these database functions and make lookup_dict an attribute of that, but that's too big a refactoring for now.
-        name = id_to_name.lookup_dict[col][id_]
-    except KeyError:
-        if id_to_name.lookup_dict:
-            if not id_to_name.lookup_dict[col]:
-                # the lookup cache has been populated, but we can't find the requested table in it,
-                # so this really is a KeyError.
-                raise
-            else:
-                # otherwise it's the id_ key that wasn't found, which we consider non-fatal, so just pass back None
-                name = None
-        else:
-            # the lookup cache hasn't been populated yet, so take a time out to populate it
-            for id_col, table in sql_read_table('IDMap', 'identifier_id, ref_table'):
-                id_to_name.lookup_dict[id_col] = {}
-                # TODO: this try/except is a workaround until #23 is done.
-                # After that, only the contents of the try will be necessary
-                try:
-                    for id_num, id_name in sql_read_table(table, 'id, name', return_iterable=True):
-                        id_to_name.lookup_dict[id_col][id_num] = id_name
-                except psycopg2.ProgrammingError:
-                    cfg.cur.execute("COMMIT");
-                    for id_num in sql_read_table(table, 'id', return_iterable=True):
-                        id_to_name.lookup_dict[id_col][id_num] = id_num
-
-            # now that we've populated the cache, try again
-            return id_to_name(col, id_, return_type)
+    if id_to_name.lookup_dict.has_key(id_col):
+        name = id_to_name.lookup_dict[id_col].get(id_num)
+        col = id_col[:-3]
+    else:
+        return None
 
     if return_type == 'item':
         return name
     elif return_type == 'tuple':
-        new_col = col[:-3]
-        return (new_col, name)
-
-id_to_name.lookup_dict = {}
+        return (col, name)
 
 def empty_df(index, columns, fill_value=0.0, data_type=None):
     df = pd.DataFrame(fill_value, index=index, columns=columns).sort_index()
@@ -189,8 +173,7 @@ def sql_read_table(table_name, column_names='*', return_unique=False, return_ite
     query = 'SELECT ' + distinct + column_names + ' FROM "%s"' % table_name
     if len(filters):
         datatypes = sql_get_datatype(table_name, filters.keys())
-        list_of_filters = ['"' + col + '"=' + fix_sql_query_type(fil, datatypes[col]) for col, fil in filters.items() if
-                           fil is not None]
+        list_of_filters = ['"' + col + '"=' + fix_sql_query_type(fil, datatypes[col]) for col, fil in filters.items() if fil is not None]
         if list_of_filters == []:
             data = [None]
         else:
@@ -665,7 +648,7 @@ class ExportMethods:
             _os.makedirs(path)
 
     @staticmethod
-    def writeobj(name, obj, write_directory):
+    def writeobj(name, obj, write_directory, append_results=False):
         ExportMethods.checkexistormakedir(write_directory)
         if is_numeric(obj) or type(obj) == str:
             ExportMethods.csvwrite(os.path.join(write_directory, 'vars.csv'), [[name, obj]], writetype='ab')
@@ -674,7 +657,7 @@ class ExportMethods:
         elif type(obj) == list or type(obj) == tuple:
             ExportMethods.writelist(name, obj, write_directory)
         elif type(obj) == pd.core.frame.DataFrame:
-            ExportMethods.writedataframe(name, obj, write_directory)
+            ExportMethods.writedataframe(name, obj, write_directory, append_results)
         elif inspect.isclass(type(obj)) and hasattr(obj, '__dict__'):
             ExportMethods.writeclass(name, obj, write_directory)
 
@@ -695,23 +678,12 @@ class ExportMethods:
                 ExportMethods.writeobj(key, value, new_directory)
 
     @staticmethod
-    def writedataframe(name, obj, write_directory):
-        if len(obj.columns.values) > 1:
-            if len(cfg.cfgfile.get('case', 'years')) == len(obj.columns.values):
-                label = 'year'
-            else:
-                label = "unidentified_index"
-            write_df = pd.DataFrame(copy.deepcopy(obj.stack()))
-            write_df.rename(columns={0: 'value'}, inplace=True)
-
-            write_df.index.rename([x if x is not None else label for x in write_df.index.names], inplace=True)
+    def writedataframe(name, obj, write_directory, append_results):
+        if os.path.exists(os.path.join(write_directory, name + '.csv')) and append_results:
+            obj.to_csv(os.path.join(write_directory, name + '.csv'), header=False, mode='a')
         else:
-            write_df = copy.deepcopy(obj)
-        # TODO fix this
-        try:
-            write_df.to_csv(os.path.join(write_directory, name + '.csv'))
-        except:
-            pass
+           obj.to_csv(os.path.join(write_directory, name + '.csv'))
+
 
     @staticmethod
     def writeclass(name, obj, write_directory):
@@ -819,17 +791,20 @@ def convert_age(self, reverse, vintages, years, attr_from='values', attr_to='val
     """
     Broadcasts vintage values that decay over time to year columns
     """
+    
+    df = getattr(self,attr_from)
+    index_order = df.index.names
     if hasattr(self, 'age_growth_or_decay') and self.age_growth_or_decay is not None:
         decay = decay_growth_df(self.age_growth_or_decay_type, self.age_growth_or_decay, reverse, vintages, years)
         # decay = expand_multi(decay, getattr(self,attr_from).index.levels, getattr(self,attr_from).index.names)
         decay.data_type = 'total'
         setattr(self, attr_to,
-                DfOper.mult([decay, getattr(self, attr_from)]))
+                DfOper.mult([decay, df]).reorder_levels(index_order))
     else:
         decay = decay_growth_df(None, None, False, vintages, years)
         # decay = expand_multi(decay, getattr(self,attr_from).groupyby(level=ix_excl(getattr(self,attr_from), 'vintage')).sum().index.levels,  getattr(self,attr_from).groupyby(level=ix_excl(getattr(self,attr_from), 'vintage')).sum().index.names)
         decay.data_type = 'total'
-        setattr(self, attr_to, DfOper.mult([decay, getattr(self, attr_from)]))
+        setattr(self, attr_to, DfOper.mult([decay, df]).reorder_levels(index_order))
 
 
 def create_markov_matrix(markov_vector, num_techs, num_years, steps_per_year=1):
@@ -972,89 +947,44 @@ def get_elements_from_level(df, level_name):
 class DfOper:
     @staticmethod
     def add(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        if not len(df_iter):
-            return pd.DataFrame()
-        expandable = DfOper.fill_default_char(expandable, len(df_iter))
-        collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
-        c = df_iter[0]  # .copy()
-        for i, b in enumerate(df_iter[1:]):
-            c = DfOper._df_operation(c, b, '+', join, fill_value,
-                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
-                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
-                                     non_expandable_levels=non_expandable_levels)
-        return c
+        return DfOper._operation_helper(df_iter, '+', expandable, collapsible, join, fill_value, non_expandable_levels)
 
     @staticmethod
     def mult(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        if not len(df_iter):
-            return pd.DataFrame()
-        expandable = DfOper.fill_default_char(expandable, len(df_iter))
-        collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
-        c = df_iter[0]  # .copy()
-        for i, b in enumerate(df_iter[1:]):
-            c = DfOper._df_operation(c, b, '*', join, fill_value,
-                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
-                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
-                                     non_expandable_levels=non_expandable_levels)
-        return c
+        return DfOper._operation_helper(df_iter, '*', expandable, collapsible, join, fill_value, non_expandable_levels)
 
     @staticmethod
     def divi(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        if not len(df_iter):
-            return pd.DataFrame()
-        expandable = DfOper.fill_default_char(expandable, len(df_iter))
-        collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
-        c = df_iter[0]  # .copy()
-        for i, b in enumerate(df_iter[1:]):
-            c = DfOper._df_operation(c, b, '/', join, fill_value,
-                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
-                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
-                                     non_expandable_levels=non_expandable_levels)
-        return c
+        return DfOper._operation_helper(df_iter, '/', expandable, collapsible, join, fill_value, non_expandable_levels)
 
     @staticmethod
     def subt(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        if not len(df_iter):
-            return pd.DataFrame()
-        expandable = DfOper.fill_default_char(expandable, len(df_iter))
-        collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
-        c = df_iter[0]  # .copy()
-        for i, b in enumerate(df_iter[1:]):
-            c = DfOper._df_operation(c, b, '-', join, fill_value,
-                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
-                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
-                                     non_expandable_levels=non_expandable_levels)
-        return c
-    
-    
+        return DfOper._operation_helper(df_iter, '-', expandable, collapsible, join, fill_value, non_expandable_levels)
+
     @staticmethod
     def none(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        if not len(df_iter):
-            return pd.DataFrame()
-        expandable = DfOper.fill_default_char(expandable, len(df_iter))
-        collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
-        c = df_iter[0]  # .copy()
-        for i, b in enumerate(df_iter[1:]):
-            c = DfOper._df_operation(c, b, None, join, fill_value,
-                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
-                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
-                                     non_expandable_levels=non_expandable_levels)
-        return c
+        return DfOper._operation_helper(df_iter, None, expandable, collapsible, join, fill_value, non_expandable_levels)
 
     @staticmethod
     def repl(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
+        return DfOper._operation_helper(df_iter, 'replace', expandable, collapsible, join, fill_value, non_expandable_levels)
+
+    @staticmethod
+    def _operation_helper(df_iter, opr, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
         if not len(df_iter):
-            return pd.DataFrame()
+            return None
         expandable = DfOper.fill_default_char(expandable, len(df_iter))
         collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
-        c = df_iter[0]  # .copy()
-        for i, b in enumerate(df_iter[1:]):
-            c = DfOper._df_operation(c, b, 'replace', join, fill_value,
-                                     a_can_collapse=collapsible[i], a_can_expand=expandable[i],
-                                     b_can_collapse=collapsible[i + 1], b_can_expand=expandable[i + 1],
-                                     non_expandable_levels=non_expandable_levels)
-        return c
-
+        return_df = None
+        for i, df in enumerate(df_iter):
+            if df is None:
+                continue
+            return_df = df if return_df is None else \
+                        DfOper._df_operation(return_df, df, opr, join, fill_value,
+                                             a_can_collapse=collapsible[i-1], a_can_expand=expandable[i-1],
+                                             b_can_collapse=collapsible[i], b_can_expand=expandable[i],
+                                             non_expandable_levels=non_expandable_levels)
+        return return_df
 
     @staticmethod
     def fill_default_char(char, num):
@@ -1101,8 +1031,6 @@ class DfOper:
             return pd.DataFrame(a.values, index=a.index, columns=col)
         elif action == 'replace':
             return pd.DataFrame(b.values, index=a.index, columns=col)
-
-
 
     @staticmethod
     def _raise_errors(a, b, action, a_can_collapse, a_can_expand, b_can_collapse, b_can_expand):
@@ -1303,7 +1231,6 @@ def flatten_list(list_to_flatten):
     """Returns a list with sublists removed"""
     return [item for sublist in list_to_flatten for item in sublist]
 
-
 def reindex_df_level_with_new_elements(df, level_name, new_elements, fill_value=np.nan):
     if (df.index.nlevels > 1 and level_name not in df.index.names) or (df.index.nlevels == 1 and level_name != df.index.name):
         return df
@@ -1314,14 +1241,7 @@ def reindex_df_level_with_new_elements(df, level_name, new_elements, fill_value=
         const_labels = OrderedSet([tuple([z if i != index_i else -1 for i, z in enumerate(lab)]) for lab in zip(*df.index.labels)])
         new_labels = flatten_list([[tuple([z if i != index_i else n for i, z in enumerate(lab)]) for n in range(len(new_elements))] for lab in const_labels])
         full_elements = [new_elements if name == level_name else level for name, level in zip(df.index.names, df.index.levels)]
-#        try:
         return df.reindex(index=pd.MultiIndex(levels=full_elements, labels=zip(*new_labels), names=df.index.names), fill_value=fill_value)
-#        except:
-#            print df
-#            print full_elements
-#            print zip(*new_labels)
-#            print df.index.names
-
     else:
         return df.reindex(index=pd.Index(new_elements, name=df.index.name), fill_value=fill_value)
 
@@ -1334,10 +1254,11 @@ def find_weibul_beta(mean_lifetime, lifetime_variance):
         return cfg.weibul_coeff_of_var['beta'][nearest_index(cfg.weibul_coeff_of_var['mean/std'], mean_to_std)]
 
 
-def add_and_set_index(df, index, value):
+def add_and_set_index(df, index, value, index_location=None):
     df[index] = value
-    df = df.set_index(index, append=True)
-    replace_index_name(df, index)
+    df = df.set_index(index, append=True).sort_index()
+    if index_location:
+        df = df.swaplevel(-1, index_location).sort_index()
     return df
     
 

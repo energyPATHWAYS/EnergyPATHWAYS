@@ -8,9 +8,23 @@ EnergyPATHWAYS model is a professional, open-source energy and carbon planning t
 
 EnergyPATHWAYS requires Python 2.7 to ensure compatibility with certain libraries that have not yet been ported to Python 3.
 
+#### Packages
+
 EnergyPATHWAYS will attempt to install any necessary packages that are not in your environment when you run `setup.py` (see below). However, we have found that the script is not always successful installing all dependencies on all platforms (for example, users have encountered difficulty installing NumPy and SciPy on OS X this way). Therefore we recommend that you install the packages using a manager such as [Anaconda](https://www.continuum.io/downloads) or `pip` instead. EnergyPATHWAYS has been developed primarily within Anaconda and the default Anaconda environment provides many of the necessary packages. If you wish to install the dependencies in a different way, please see the `install_requires` list in `setup.py` for an up to date list.
 
 **_Warning_**: there is a [known bug](https://github.com/pydata/numexpr/issues/185) in numexpr 2.4.4 that will intermittently lead to incorrect calculations in energyPATHWAYS. numexpr is not required for running energyPATHWAYS, but is often installed alongside (and automatically used by) NumPy, e.g. in the Anaconda default environment. If you do have numexpr installed, please ensure that you have a version newer (or older) than 2.4.4 before using energyPATHWAYS.
+
+#### Solver
+
+The energyPATHWAYS electric system dispatch requires an optimization solver that is supported by the pyomo package. If you already have a commercial solver such as CPLEX or Gurobi installed you are welcome to use that, otherwise we recommend either [Cbc](https://projects.coin-or.org/Cbc) or [GLPK](https://www.gnu.org/software/glpk/), which are both open source and freely downloadable. Cbc appears to be slightly faster than GLPK at solving the energyPATHWAYS dispatch. 
+
+To install Cbc, see the official [download and install instructions](https://projects.coin-or.org/Cbc#DownloadandInstall). Note that as of this writing, there is no OS X homebrew formula for Cbc, so downloading the OS X binary from the AMPL page linked to from those instructions is the easiest way to get Cbc on a Mac; you will need to move the downloaded `cbc` binary to somewhere that is referenced in your environment path (e.g. your Anaconda environment directory, or `/usr/bin`, etc.).
+
+To install GLPK on Windows, see [these instructions](https://en.wikibooks.org/wiki/GLPK/Windows_executables). Note that "the archive from Sourceforge" referred to can be found at the [winglpk Sourceforge site](https://sourceforge.net/projects/winglpk/); use the green "download" button to get the latest version. OS X and Linux users will likely find it easiest to install GLPK using a package manager. On OS X you can use [macports](https://www.macports.org/) (run `port install glpk` after installing macports) or [homebrew](http://brew.sh/) (`brew install homebrew/science/glpk`). On Linux you can [use your usual package manager](https://en.wikibooks.org/wiki/GLPK/Linux_packages).
+
+Our experience with COIN or GLPK is that each must be added to the system path manually on a PC. For instructions on how to add the solvers to your system path, Google “adding a new application to system path windows” or similar and follow the instructions for your version of Windows.
+
+Once you have a solver in your system path, energyPATHWAYS should detect and use it automatically. If you would like to customize the list of solvers that energyPATHAWAYS searches for, see the `dispatch_solver` option in the example configurations.INI file discussed below.
 
 ### Installation
 

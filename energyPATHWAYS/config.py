@@ -11,6 +11,7 @@ import psycopg2
 
 import geography
 import util
+import shape
 import data_models.data_source as data_source
 
 #import ipdb
@@ -28,8 +29,8 @@ con = None
 cur = None
 
 # common data inputs
-dnmtr_col_names = None
-drivr_col_names = None
+dnmtr_col_names = ['driver_denominator_1_id', 'driver_denominator_2_id']
+drivr_col_names = ['driver_1_id', 'driver_2_id']
 
 # Initiate pint for unit conversions
 ureg = None
@@ -45,7 +46,11 @@ time_slice_col = None
 currency_name = None
 output_levels = None
 outputs_id_map = None
-output_levels = None
+output_currency = None
+
+# for dispatch
+electricity_energy_type_id = None
+electricity_energy_type_shape_id = None
 
 def initialize_config(cfgfile_path, custom_pint_definitions_path):
     # sys.path.insert(0, os.getcwd())
@@ -59,7 +64,9 @@ def initialize_config(cfgfile_path, custom_pint_definitions_path):
     init_db()
     init_pint(custom_pint_definitions_path)
     init_geo()
-    init_shapes()
+    init_date_lookup()
+    shape.shapes.create_empty_shapes()
+    shape.shapes.activate_shape(electricity_energy_type_shape_id)
     init_outputs_id_map()
 
 def load_config(cfgfile_path):
@@ -113,10 +120,6 @@ def init_db():
     con = psycopg2.connect(conn_str)
     cur = con.cursor()
 
-    # common data inputs
-    dnmtr_col_names = util.sql_read_table('DemandUnitDenominators', 'datatable_column_name')
-    drivr_col_names = util.sql_read_table('DemandDriverColumns', 'datatable_column_name')
-
 def init_pint(custom_pint_definitions_path=None):
     # Initiate pint for unit conversions
     global ureg
@@ -132,8 +135,8 @@ def init_geo():
     global geo
     geo = geography.Geography()
 
-def init_shapes():
-    global date_lookup, time_slice_col
+def init_date_lookup():
+    global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id
     class DateTimeLookup:
         def __init__(self):
             self.dates = {}
@@ -150,15 +153,15 @@ def init_shapes():
             ## Shapes
     
     date_lookup = DateTimeLookup()
-    
-    import shape
-    shape.shapes.create_empty_shapes()
+
     time_slice_col = ['year', 'month', 'hour', 'day_type_id']
+    electricity_energy_type_id, electricity_energy_type_shape_id = util.sql_read_table('FinalEnergy', column_names=['id', 'shape_id'], name='electricity')
 
 def init_outputs_id_map():
-    global currency_name, output_levels, outputs_id_map, output_levels
+    global currency_name, output_levels, outputs_id_map, output_currency
     currency_name = util.sql_read_table('Currencies', 'name', id=int(cfgfile.get('case', 'currency_id')))
-    output_levels = cfgfile.get('case', 'output_levels').split(', ')       
+    output_levels = cfgfile.get('case', 'output_levels').split(', ')
+    output_currency = cfgfile.get('case', 'currency_year_id') + ' ' + currency_name
     outputs_id_map = defaultdict(dict)
     if 'primary_geography' in output_levels:
         output_levels[output_levels.index('primary_geography')] = primary_geography
@@ -177,4 +180,3 @@ def init_outputs_id_map():
         if name in ('technology', 'final_energy'): 
             continue
         outputs_id_map[name] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name'], other_index_id=id, return_unique=True))
-

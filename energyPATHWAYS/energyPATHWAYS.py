@@ -9,6 +9,7 @@ import time
 import config as cfg
 from supply import Supply
 import pandas as pd
+import shape
 # from supply import Supply
 
 class PathwaysModel(object):
@@ -21,11 +22,15 @@ class PathwaysModel(object):
         cfg.initialize_config(cfgfile_path, custom_pint_definitions_path)
         
         self.name = cfg.cfgfile.get('case', 'scenario') if name is None else name
-        self.author = cfg.cfgfile.get('case', 'author') if author is None else author
-        self.demand = Demand()
-        self.supply = Supply()
+        self.author = cfg.cfgfile.get('case', 'author') if author is None else author      
+        self.scenario_dict = dict(zip(util.sql_read_table('Scenarios','id', return_iterable=True, is_active=True),
+                                  util.sql_read_table('Scenarios','name', return_iterable=True, is_active=True)))
         self.outputs = Output()
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
+
+        self.demand = Demand()
+        self.supply = Supply(os.path.join(os.getcwd(),'outputs'))
+
     # moved to config 
     # def model_config(self, cfgfile_path, custom_pint_definitions_path):
     #     cfg.init_cfgfile(cfgfile_path)
@@ -37,16 +42,26 @@ class PathwaysModel(object):
 
     # def configure_energy_system(self):
     #     print 'configuring energy system'
+    #     # contents moved to demand constructor
     #     #self.configure_demand()
+    #     # contents moved to supply constructor
     #     #self.configure_supply()
     #     #cfg.init_outputs_id_map()
 
     def populate_energy_system(self):
         #self.populate_demand_system() # demand does this already
         self.populate_supply_system()
+        print 'processing shapes'
+        if shape.shapes.rerun:
+            shape.shapes.initiate_active_shapes()
+            shape.shapes.process_active_shapes()
 
-    def populate_measures(self):
-        #self.populate_demand_measures()
+    def populate_measures(self, scenario_id):
+        self.scenario_id = scenario_id
+        self.scenario = self.scenario_dict[self.scenario_id]
+        self.demand_case_id = util.sql_read_table('Scenarios','demand_case',id=self.scenario_id)
+        self.populate_demand_measures()
+        self.supply_case_id = util.sql_read_table('Scenarios','supply_case',id=self.scenario_id)
         self.populate_supply_measures()
 
     def calculate(self):
@@ -75,14 +90,14 @@ class PathwaysModel(object):
         print 'populate supply'
         self.supply.add_nodes()
 
-    # def populate_demand_measures(self):
-    #     for sector in self.demand.sectors.values():
-    #         #            print 'reading %s measures' %sector.name
-    #         for subsector in sector.subsectors.values():
-    #             subsector.add_measures()
+    def populate_demand_measures(self):
+        for sector in self.demand.sectors.values():
+            #            print 'reading %s measures' %sector.name
+            for subsector in sector.subsectors.values():
+                subsector.add_measures(self.demand_case_id)
         
-    def populate_supply_measures(self):      
-        self.supply.add_measures()
+    def populate_supply_measures(self):
+        self.supply.add_measures(self.supply_case_id)
 
     def calculate_demand_only(self):
         print 'Demand calculations'
@@ -97,7 +112,7 @@ class PathwaysModel(object):
         for sector in self.demand.sectors.values():
              sector.aggregate_subsector_energy_for_supply_side()
         self.demand.aggregate_sector_energy_for_supply_side()
-        self.supply.demand_df = self.demand.energy_demand
+        self.supply.demand_object = self.demand
         
     def pass_results_to_demand(self):
         print "calculating link to supply"
@@ -108,12 +123,14 @@ class PathwaysModel(object):
         self.calculate_combined_emissions_results()
         print "calculating combined cost results"
         self.calculate_combined_cost_results()
+        print "calculating combined energy results"
+        self.calculate_combined_energy_results()
     
-    def export_results(self):
+    def export_results(self, append_results=False):
         for attribute in dir(self.outputs):
-            if isinstance(getattr(self.outputs,attribute),pd.DataFrame):
+            if isinstance(getattr(self.outputs,attribute), pd.DataFrame):
                 result_df = getattr(self.outputs, attribute)
-                ExportMethods.writeobj(attribute,result_df,os.path.join(os.getcwd(),'outputs'))
+                ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'outputs'), append_results=append_results)
     
     def calculate_combined_cost_results(self):
         #calculate and format export costs
@@ -154,7 +171,9 @@ class PathwaysModel(object):
         self.outputs.costs[self.outputs.costs<0]=0
         self.outputs.costs= self.outputs.costs[self.outputs.costs['VALUE']!=0]
 #        self.outputs.costs.sort(inplace=True)       
-        
+        keys = [self.scenario.upper()]
+        names = ['SCENARIO']
+        self.outputs.costs = pd.concat([self.outputs.costs],keys=keys,names=names)        
         
     
         
@@ -163,7 +182,7 @@ class PathwaysModel(object):
         if self.supply.export_emissions is not None:
             setattr(self.outputs,'export_emissions',self.supply.export_emissions)
             self.export_emissions_df = self.outputs.return_cleaned_output('export_emissions')
-            del self.outputs.export_emissions
+#            del self.outputs.export_emissions
             util.replace_index_name(self.export_emissions_df, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
             keys = ["EXPORT","SUPPLY"]
             names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
@@ -173,18 +192,22 @@ class PathwaysModel(object):
             self.export_emissions_df = None
        #calculate and format emobodied supply emissions
         self.embodied_emissions_df = self.demand.outputs.return_cleaned_output('demand_embodied_emissions')
-        del self.demand.outputs.demand_embodied_emissions
+#        del self.demand.outputs.demand_embodied_emissions
         keys = ["DOMESTIC","SUPPLY"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
            self.embodied_emissions_df = pd.concat([self.embodied_emissions_df],keys=[key],names=[name])       
         #calculte and format direct demand emissions        
         self.direct_emissions_df= self.demand.outputs.return_cleaned_output('demand_direct_emissions')  
-        del self.demand.outputs.demand_direct_emissions
+#        del self.demand.outputs.demand_direct_emissions
         keys = ["DOMESTIC","DEMAND"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
-            self.direct_emissions_df = pd.concat([self.direct_emissions_df],keys=[key],names=[name])      
+            self.direct_emissions_df = pd.concat([self.direct_emissions_df],keys=[key],names=[name])   
+        keys = self.direct_emissions_df.index.get_level_values(self.geography.upper()).values
+        names = self.geography.upper() +'_SUPPLY'
+        self.direct_emissions_df[names] = keys
+        self.direct_emissions_df.set_index(names,append=True,inplace=True)
 #        levels_to_keep = cfg.output_levels      
 #        levels_to_keep = [x.upper() for x in levels_to_keep]
 #        levels_to_keep += names + [self.geography.upper() +'_SUPPLY', 'SUPPLY_NODE']
@@ -195,6 +218,25 @@ class PathwaysModel(object):
         util.replace_index_name(self.outputs.emissions, self.geography.upper() +'_EMITTED', self.geography.upper() +'_SUPPLY')
         util.replace_index_name(self.outputs.emissions, self.geography.upper() +'_CONSUMED', self.geography.upper())
         self.outputs.emissions= self.outputs.emissions[self.outputs.emissions['VALUE']!=0]
-#        self.outputs.emissions.sort(inplace=True)        
+        keys = [self.scenario.upper()]
+        names = ['SCENARIO']
+        self.outputs.emissions = pd.concat([self.outputs.emissions],keys=keys,names=names)
         
-    
+#        self.outputs.emissions.sort(inplace=True)        
+            
+    def calculate_combined_energy_results(self):
+         self.embodied_energy = self.demand.outputs.return_cleaned_output('demand_embodied_energy')
+         self.embodied_energy = self.embodied_energy[self.embodied_energy ['VALUE']!=0]
+         self.final_energy = self.demand.outputs.return_cleaned_output('energy')
+         self.final_energy = self.final_energy[self.final_energy.index.get_level_values('YEAR')>=int(cfg.cfgfile.get('case','current_year'))]  
+         self.embodied_energy['ENERGY ACCOUNTING'] = 'EMBODIED'
+         self.final_energy['ENERGY ACCOUNTING'] = 'FINAL'
+         self.embodied_energy.set_index('ENERGY ACCOUNTING',append=True,inplace=True)
+         self.final_energy.set_index('ENERGY ACCOUNTING',append=True,inplace=True)
+    #         self.outputs.energy = pd.concat([self.embodied_energy, self.final_energy],keys=['DROP'],names=['DROP'])
+         for name in [x for x in self.embodied_energy.index.names if x not in self.final_energy.index.names]:
+             self.final_energy[name] = "N/A"
+             self.final_energy.set_index(name,append=True,inplace=True)
+         self.final_energy = self.final_energy.reorder_levels(self.embodied_energy.index.names)
+         self.outputs.energy = pd.concat([self.embodied_energy,self.final_energy])
+         self.outputs.energy= self.outputs.energy[self.outputs.energy['VALUE']!=0]
