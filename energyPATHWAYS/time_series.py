@@ -242,15 +242,12 @@ class TimeSeries:
             returndata (dataframe): reindexed and with values filled
         """
         if not len(data):
-            # TODO: print to log file here saying we tried to clean empty data
             raise IndexError('Empty data passed to TimeSeries.clean')
 
-        if isinstance(data, dict):
-            return TimeSeries._clean_dict(data, newindex, interpolation_method, extrapolation_method, time_index_name,
-                                          **kwargs)
+        if not isinstance(data, pd.core.frame.DataFrame):
+            raise ValueError('cleaning requires a pandas dataframe as an input')
 
         if data.index.nlevels > 1:
-            # 0.018 seconds / run (approximately)
             return TimeSeries._clean_multindex(data[:], time_index_name, interpolation_method, extrapolation_method,
                                                newindex, **kwargs)
         else:
@@ -261,31 +258,32 @@ class TimeSeries:
     def _clean_multindex(data, time_index_name, interpolation_method=None, extrapolation_method=None, newindex=None,
                          **kwargs):
         if time_index_name not in data.index.names:
-            raise ValueError(
-                'Time_index_name must match one of the index level names if cleaning a multi-index dataframe')
+            raise ValueError('Time_index_name must match one of the index level names if cleaning a multi-index dataframe')
 
         # remove duplicates
         data = data.groupby(level=data.index.names).first()
 
         if newindex is None:
-            time_index_level = data.index.names.index(time_index_name)
-            exist_index = np.array(data.index.levels[time_index_level], dtype=int)
+            exist_index = data.index.get_level_values(time_index_name)
             newindex = np.arange(min(exist_index), max(exist_index) + 1, dtype=int)
         elif not isinstance(newindex, np.ndarray):
             # We use newindex to calculate extrap_index using a method that takes an array
             newindex = np.array(newindex, dtype=int)
+        
+        # this is done so that we can take use data that falls outside of the newindex
+        wholeindex = np.array(sorted(list(set(newindex) | set(data.index.get_level_values(time_index_name)))), dtype=int)
 
-        index2drop = list(np.setdiff1d(data.index.levels[data.index.names.index(time_index_name)], newindex))
+        index2drop = list(np.setdiff1d(wholeindex, newindex))
 
         # Add new levels to data for missing time indices
         # full_levels = [list(newindex) if name==time_index_name else list(level) for name, level in zip(data.index.names, data.index.levels)]
         # data = data.join(pd.DataFrame(index=pd.MultiIndex.from_product(full_levels, names=data.index.names)), how='outer').sort_index()
-        data = util.reindex_df_level_with_new_elements(data, time_index_name, newindex)
+        data = util.reindex_df_level_with_new_elements(data, time_index_name, wholeindex)
 
         group_levels = tuple([n for n in data.index.names if n != time_index_name])
         data = data.groupby(level=group_levels).apply(TimeSeries._clean_multindex_helper,
                                                       time_index_name=time_index_name,
-                                                      newindex=newindex,
+                                                      newindex=wholeindex,
                                                       interpolation_method=interpolation_method,
                                                       extrapolation_method=extrapolation_method,
                                                       **kwargs)
@@ -297,8 +295,8 @@ class TimeSeries:
     @staticmethod
     def _clean_multindex_helper(data, time_index_name, newindex, interpolation_method=None, extrapolation_method=None,
                                 **kwargs):
-        time_index_level = data.index.names.index(time_index_name)
-        x = np.array(data.index.levels[time_index_level], dtype=int)
+        
+        x = np.array(data.index.get_level_values(time_index_name), dtype=int)
 
         for colname in data.columns:
             y = np.array(data[colname])
@@ -320,18 +318,21 @@ class TimeSeries:
         elif not isinstance(newindex, np.ndarray):
             # We use newindex to calculate extrap_index using a method that takes an array
             newindex = np.array(newindex, dtype=int)
+        
+        # this is done so that we can take use data that falls outside of the newindex
+        wholeindex = np.array(sorted(list(set(newindex) | set(data.index))), dtype=int)
+        
+        index2drop = list(np.setdiff1d(wholeindex, newindex))
 
-        # If we have no new index, we don't need to clean the data
-        if not len(np.setdiff1d(newindex, data.index)):
-            return data
-
-        data = data.reindex(newindex)
+        data = data.reindex(wholeindex)
         x = np.array(data.index)
 
         for colname in data.columns:
             y = np.array(data[colname])
-            data[colname] = TimeSeries.cleanxy(x, y, newindex, interpolation_method, extrapolation_method, **kwargs)
+            data[colname] = TimeSeries.cleanxy(x, y, wholeindex, interpolation_method, extrapolation_method, **kwargs)
 
+        data.drop(index2drop, inplace=True)
+        
         return data
 
     @staticmethod
@@ -367,24 +368,6 @@ class TimeSeries:
         
         return yhat
 
-    @staticmethod
-    def _clean_dict(dictionary, time_index_name=None, interpolation_method=None, extrapolation_method=None,
-                    newindex=None, **kwargs):
-        """Unpacks a dictionary to feed into TimeSeries.clean through recursion
-        
-        Returns another dictionary of cleaned data        
-        """
-        if not isinstance(dictionary, dict):
-            raise TypeError('clean_dict takes a dictionary as an argument')
-        emptydict = {}
-        for key, value in dictionary.items():
-            if isinstance(value, dict):
-                emptydict[key] = TimeSeries._clean_dict(value, time_index_name, interpolation_method,
-                                                        extrapolation_method, newindex, **kwargs)
-            else:
-                emptydict[key] = TimeSeries.clean(value, time_index_name, interpolation_method, extrapolation_method,
-                                                  newindex, **kwargs)
-        return emptydict
 
 
         # clean_data = TimeSeries.clean(data, 'year', newindex=range(1950, 2100))
