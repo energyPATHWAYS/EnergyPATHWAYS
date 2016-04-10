@@ -509,9 +509,11 @@ def level_specific_indexer(df, levels, elements, axis=0):
     indexer = [slice(None)] * len(names)
     for level, element in zip(levels, elements):
         if axis == 0:
-            indexer[df.index.names.index(level)] = ensure_iterable_and_not_string(element)
+#            indexer[df.index.names.index(level)] = ensure_iterable_and_not_string(element)
+            indexer[df.index.names.index(level)] = element
         if axis == 1:
-            indexer[df.columns.names.index(level)] = ensure_iterable_and_not_string(element) 
+#            indexer[df.columns.names.index(level)] = ensure_iterable_and_not_string(element) 
+            indexer[df.columns.names.index(level)] = element
     indexer = tuple(indexer)
     return indexer
 

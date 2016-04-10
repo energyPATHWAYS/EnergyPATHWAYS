@@ -662,7 +662,6 @@ class Dispatch(object):
             print "Getting problem formulation..."
         model = dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
                                                               end_state_of_charge, period)
-        
         results = self.run_pyomo(model,None)
         return results
                 

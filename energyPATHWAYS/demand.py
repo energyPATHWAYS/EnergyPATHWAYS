@@ -398,7 +398,12 @@ class Subsector(DataMapFunctions):
                 flex = Shape.produce_flexible_load(active_shape.values, percent_flexible=0, hr_delay=active_max_lag_hours, hr_advance=active_max_lead_hours)
                 return util.DfOper.mult((energy_slice, active_feeder_allocation, flex))
             else:
-                return util.DfOper.mult((energy_slice, active_feeder_allocation, active_shape.values))
+                try:
+                    return util.DfOper.mult((energy_slice, active_feeder_allocation, active_shape.values))
+                except:
+                    print energy_slice
+                    print active_feeder_allocation
+                    print active_shape.values
         
         # some technologies have their own shapes, so we need to aggregate from that level
         else:
@@ -1466,7 +1471,7 @@ class Subsector(DataMapFunctions):
         self.service_demand = copy.deepcopy(self.energy_demand)
 
         self.service_demand.raw_values = self.service_demand.values
-        self.service_demand.int_values = DfOper.divi([self.service_demand.raw_values * eff])
+        self.service_demand.int_values = DfOper.divi([self.service_demand.raw_values, eff])
         self.service_demand.int_values.replace([np.inf, -np.inf], 1, inplace=True)
 
     def output_efficiency_stock(self):
