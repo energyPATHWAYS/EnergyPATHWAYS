@@ -18,6 +18,7 @@ import os
 from pyomo.opt import SolverFactory
 import csv
 import logging
+from sklearn.cluster import KMeans
 
 # Dispatch modules
 import dispatch_problem_PATHWAYS
@@ -229,7 +230,6 @@ class Dispatch(object):
                 stop = (period+1) * self.opt_hours- 1
                 self.period_net_load[(geography, period)] = df.iloc[start:stop].mean()[0]
 
-
     def set_opt_result_dfs(self, year):
         index = pd.MultiIndex.from_product([self.dispatch_geographies, ['charge','discharge'],self.hours], names=[self.dispatch_geography,'charge_discharge','hour'])
         self.bulk_storage_df = util.empty_df(index=index,columns=[year],fill_value=0.0)
@@ -237,8 +237,6 @@ class Dispatch(object):
         self.dist_storage_df = util.empty_df(index=index,columns=[year],fill_value=0.0)  
         index = pd.MultiIndex.from_product([self.dispatch_geographies, self.dispatch_feeders, self.hours], names=[self.dispatch_geography,'dispatch_feeder','hour'])
         self.flex_load_df = util.empty_df(index=index,columns=[year],fill_value=0.0)    
-    
-        
     
     def set_technologies(self,storage_capacity_dict, storage_efficiency_dict, thermal_dispatch_dict, generators_per_region=2):
       """prepares storage technologies for dispatch optimization
@@ -416,6 +414,46 @@ class Dispatch(object):
     ##################################################################
     ## GENERATOR DISPATCH (LOOKUP HEURISTIC)
     ##################################################################
+    @staticmethod
+    def _cluster_generators(output_num, pmax, marginal_cost, FORs, MORs, must_run, pad_last_generator=True, zero_mc_4_must_run=True):
+        """ Cluster generators is a function that takes a generator stack and clusters them by heat rate.
+        
+        output_num controls the number of output generators (must be greater than two)
+        
+        
+        """
+        assert output_num>=1
+        
+        if output_num>1 and zero_mc_4_must_run:
+            add_zero_mc_row = True
+            output_num-=1
+        else:
+            add_zero_mc_row = False
+        
+        combined_rate = Dispatch._get_combined_outage_rate(FORs, MORs)
+        derated_pmax = pmax * (1-combined_rate)
+        
+        mri = np.where(must_run==1)
+        di = np.where(must_run==0)
+        
+        cluster = KMeans(n_clusters=output_num, precompute_distances='auto')
+        fit = cluster.fit_predict(marginal_cost[di][np.newaxis].T)
+        
+        group_cap = lambda c: sum(derated_pmax[di][fit==c])
+        group_mc = lambda c: np.dot(derated_pmax[di][fit==c], marginal_cost[di][fit==c])/group_cap(c)
+        
+        mc_approx = np.array([(group_cap(c), group_mc(c)) for c in range(output_num)])
+        
+        if add_zero_mc_row:
+            mc_approx = np.vstack((np.array([sum(derated_pmax[mri]), 0]), mc_approx))
+        
+        mc_approx = mc_approx[mc_approx[:,1].argsort()]
+        
+        if pad_last_generator:
+            mc_approx[-1, 0] += sum(mc_approx[:, 0])
+            
+        return mc_approx
+
     @staticmethod
     def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.15, load_ptile=99.8):
         group_cuts = list(np.where(np.diff(dispatch_periods)!=0)[0]+1) if dispatch_periods is not None else None
@@ -606,9 +644,7 @@ class Dispatch(object):
                                     [market_prices,    production_costs,   gen_energies,   gen_cf,   gen_dispatch_shape, stock_changes]))
         return dispatch_results
 
-
-
-    def run_pyomo(self,model, data, **kwargs):
+    def run_pyomo(self, model, data, **kwargs):
         """
         Pyomo optimization steps: create model instance from model formulation and data,
         get solver, solve instance, and load solution.
@@ -633,7 +669,7 @@ class Dispatch(object):
         instance.solutions.load_from(solution)
         return instance
    
-    def run_optimization(self,parallel=False):
+    def run_optimization(self, parallel=False):
         state_of_charge = self.run_year_to_month_allocation()
         alloc_start_state_of_charge, alloc_end_state_of_charge = state_of_charge[0], state_of_charge[1]
         self.alloc_start_state_of_charge = alloc_start_state_of_charge
@@ -662,7 +698,7 @@ class Dispatch(object):
             print "Getting problem formulation..."
         model = dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
                                                               end_state_of_charge, period)
-        results = self.run_pyomo(model,None)
+        results = self.run_pyomo(model, None)
         return results
                 
     def run_year_to_month_allocation(self):
@@ -721,11 +757,6 @@ class Dispatch(object):
 
         state_of_charge = [start_soc, end_soc]
         return state_of_charge
-
-    
-
-
-
 
     def export_storage_results(self,instance,period):
         hours = list(period * self.opt_hours + np.asarray(self.period_hours))        
