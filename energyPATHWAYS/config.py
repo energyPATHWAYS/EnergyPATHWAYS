@@ -11,7 +11,6 @@ import psycopg2
 
 import geography
 import util
-import shape
 import data_models.data_source as data_source
 
 #import ipdb
@@ -65,8 +64,6 @@ def initialize_config(cfgfile_path, custom_pint_definitions_path):
     init_pint(custom_pint_definitions_path)
     init_geo()
     init_date_lookup()
-    shape.shapes.create_empty_shapes()
-    shape.shapes.activate_shape(electricity_energy_type_shape_id)
     init_outputs_id_map()
 
 def load_config(cfgfile_path):

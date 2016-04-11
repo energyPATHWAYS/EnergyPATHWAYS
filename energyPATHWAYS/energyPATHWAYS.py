@@ -20,6 +20,8 @@ class PathwaysModel(object):
     def __init__(self, cfgfile_path, custom_pint_definitions_path=None, name=None, author=None):
 
         cfg.initialize_config(cfgfile_path, custom_pint_definitions_path)
+        shape.shapes.create_empty_shapes()
+        shape.shapes.activate_shape(cfg.electricity_energy_type_shape_id)
         
         self.name = cfg.cfgfile.get('case', 'scenario') if name is None else name
         self.author = cfg.cfgfile.get('case', 'author') if author is None else author      

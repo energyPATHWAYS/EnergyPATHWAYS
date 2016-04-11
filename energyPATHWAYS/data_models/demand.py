@@ -1,15 +1,28 @@
 from data_source import Base
 from data_mapper import DataMapper
-from sqlalchemy import Column, Float, ForeignKey, Integer, Text, text
+from sqlalchemy import Column, Float, ForeignKey, Integer, Text, UniqueConstraint
 from sqlalchemy.orm import relationship, reconstructor
 from system import CleaningMethod, InputType
-from misc import OtherIndex
-from geography import Geography, GeographyMapKey
+from misc import OtherIndex, OtherIndexesDatum, Shape
+from geography import Geography, GeographiesDatum, GeographyMapKey
 
-class DemandDriver(Base,DataMapper):
+
+class DemandSector(Base):
+    __tablename__ = 'DemandSectors'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(Text, unique=True)
+    shape_id = Column(ForeignKey(Shape.id))
+    max_lead_hours = Column(Integer)
+    max_lag_hours = Column(Integer)
+
+    shape = relationship(Shape)
+
+
+class DemandDriver(DataMapper, Base):
     __tablename__ = 'DemandDrivers'
 
-    id = Column(Integer, primary_key=True) #, server_default=text("nextval('\"DemandDrivers_id_seq\"'::regclass)"))
+    id = Column(Integer, primary_key=True)
     name = Column(Text)
     base_driver_id = Column(ForeignKey(u'DemandDrivers.id'))
     input_type_id = Column(ForeignKey(InputType.id))
@@ -39,14 +52,20 @@ class DemandDriver(Base,DataMapper):
         # we need to call it manually.
         self.read_timeseries_data()
 
-class DemandDriverData(Base):
+class DemandDriverDatum(Base):
     __tablename__ = 'DemandDriversData'
 
     id = Column(Integer, primary_key=True)
     parent_id = Column(Integer, ForeignKey(DemandDriver.id))
-    gau_id = Column(Integer)  # TODO: ForeignKey('Geography.id')
-    oth_1_id = Column(Integer)  # TODO: ForeignKey('???')
-    oth_2_id = Column(Integer)
+    gau_id = Column(ForeignKey(GeographiesDatum.id))
+    oth_1_id = Column(ForeignKey(OtherIndexesDatum.id))
+    oth_2_id = Column(ForeignKey(OtherIndexesDatum.id))
     year = Column(Integer)
     value = Column(Float)
+
+    UniqueConstraint(parent_id, gau_id, oth_1_id, oth_2_id, year)
+
+    gau = relationship(GeographiesDatum)
+    other_index_1 = relationship(OtherIndexesDatum, foreign_keys='DemandDriversData.oth_1_id')
+    other_index_2 = relationship(OtherIndexesDatum, foreign_keys='DemandDriversData.oth_2_id')
     demand_driver = relationship(DemandDriver, order_by=id, backref='data')

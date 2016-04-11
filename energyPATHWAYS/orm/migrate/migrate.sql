@@ -27,14 +27,14 @@ SELECT id, name FROM public."CleaningMethods";
 INSERT INTO migrated."Currencies" (id, name)
 SELECT id, name FROM public."Currencies";
 
-INSERT INTO migrated."CurrenciesConversion" (currency_id, currency_year, value)
-SELECT currency_id, currency_year_id, value FROM public."CurrenciesConversion";
+INSERT INTO migrated."CurrenciesConversion" (id, currency_id, currency_year, value)
+SELECT id, currency_id, currency_year_id, value FROM public."CurrenciesConversion";
+
+INSERT INTO migrated."DayTypes" (id, name)
+SELECT id, name FROM public."DayType";
 
 INSERT INTO migrated."Definitions" (id, name)
 SELECT id, name FROM public."Definitions";
-
-INSERT INTO migrated."DemandSectors" (id, name)
-SELECT id, name FROM public."DemandSectors";
 
 INSERT INTO migrated."DemandStockUnitTypes" (id, name)
 SELECT id, name FROM public."DemandStockUnitTypes";
@@ -42,8 +42,14 @@ SELECT id, name FROM public."DemandStockUnitTypes";
 INSERT INTO migrated."DemandTechUnitTypes" (id, name)
 SELECT id, name FROM public."DemandTechUnitTypes";
 
+INSERT INTO migrated."DispatchConstraintTypes" (id, name)
+SELECT id, name FROM public."DispatchConstraintTypes";
+
 INSERT INTO migrated."EfficiencyTypes" (id, name)
 SELECT id, name FROM public."EfficiencyTypes";
+
+INSERT INTO migrated."FlexibleLoadShiftTypes" (id, name)
+SELECT id, name FROM public."FlexibleLoadShiftTypes";
 
 INSERT INTO migrated."GreenhouseGasEmissionsType" (id, name)
 SELECT id, name FROM public."GreenhouseGasEmissionsType";
@@ -51,17 +57,14 @@ SELECT id, name FROM public."GreenhouseGasEmissionsType";
 INSERT INTO migrated."GreenhouseGases" (id, name)
 SELECT id, name FROM public."GreenhouseGases";
 
-INSERT INTO migrated."InflationConversion" (currency_id, currency_year, value)
-SELECT currency_id, currency_year_id, value FROM public."InflationConversion";
+INSERT INTO migrated."InflationConversion" (id, currency_id, currency_year, value)
+SELECT id, currency_id, currency_year_id, value FROM public."InflationConversion";
 
 INSERT INTO migrated."InputTypes" (id, name)
 SELECT id, name FROM public."InputTypes";
 
 INSERT INTO migrated."OptPeriods" (id, hours)
 SELECT id, hours FROM public."OptPeriods";
-
-INSERT INTO migrated."OtherIndexes" (id, name)
-SELECT id, name FROM public."OtherIndexes";
 
 INSERT INTO migrated."ShapesTypes" (id, name)
 SELECT id, name FROM public."ShapesTypes";
@@ -78,15 +81,53 @@ SELECT id, name FROM public."SupplyCostTypes";
 INSERT INTO migrated."SupplyTypes" (id, name)
 SELECT id, name FROM public."SupplyTypes";
 
+INSERT INTO migrated."TimeZones" (id, name, utc_shift)
+SELECT id, name, utc_shift FROM public."TimeZones";
+
 -- copy geography table data
 
 INSERT INTO migrated."Geographies" (id, name)
 SELECT id, name FROM public."Geographies";
 
+INSERT INTO migrated."GeographiesData" (id, name, geography_id)
+SELECT id, name, geography_id FROM public."GeographiesData";
+
 INSERT INTO migrated."GeographyMapKeys" (id, name)
 SELECT id, name FROM public."GeographyMapKeys";
 
+-- copy dispatch table data
+
+INSERT INTO migrated."DispatchFeeders" (id, name)
+SELECT id, name FROM public."DispatchFeeders";
+
+-- copy misc table data
+
+INSERT INTO migrated."OtherIndexes" (id, name)
+SELECT id, name FROM public."OtherIndexes";
+
+INSERT INTO migrated."OtherIndexesData" (id, other_index_id, name)
+SELECT id, other_index_id, name FROM public."OtherIndexesData";
+
+INSERT INTO migrated."Shapes" (
+  id, name, shape_type_id, shape_unit_type_id, time_zone_id, geography_id, other_index_1_id, other_index_2_id,
+  geography_map_key_id, interpolation_method_id, extrapolation_method_id
+)
+SELECT id, name, shape_type_id, shape_unit_type_id, time_zone_id, geography_id, other_index_1_id, other_index_2_id,
+  geography_map_key_id, interpolation_method_id, extrapolation_method_id
+FROM public."Shapes";
+
+INSERT INTO migrated."ShapesData" (
+  id, parent_id, gau_id, dispatch_feeder_id, timeshift_type_id, resource_bin, dispatch_constraint_type_id, year, month,
+  week, hour, day_type_id, weather_datetime, value
+)
+SELECT id, parent_id, gau_id, dispatch_feeder, timeshift_type, resource_bin, dispatch_constraint_id, year, month, week,
+  hour, day_type_id, weather_datetime::timestamp as weather_datetime, value
+FROM public."ShapesData";
+
 -- copy demand table data
+
+INSERT INTO migrated."DemandSectors" (id, name, shape_id, max_lead_hours, max_lag_hours)
+SELECT id, name, shape_id, max_lead_hours, max_lag_hours FROM public."DemandSectors";
 
 INSERT INTO migrated."DemandDrivers" (
   id, name, base_driver_id, input_type_id, unit_prefix, unit_base, geography_id, other_index_1_id, other_index_2_id,
