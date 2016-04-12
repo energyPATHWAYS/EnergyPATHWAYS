@@ -415,44 +415,64 @@ class Dispatch(object):
     ## GENERATOR DISPATCH (LOOKUP HEURISTIC)
     ##################################################################
     @staticmethod
-    def _cluster_generators(output_num, pmax, marginal_cost, FORs, MORs, must_run, pad_last_generator=True, zero_mc_4_must_run=True):
-        """ Cluster generators is a function that takes a generator stack and clusters them by heat rate.
+    def _cluster_generators(n_clusters, pmax, marginal_cost, FORs, MORs, must_run, pad_stack=False, zero_mc_4_must_run=False):
+        """ Cluster generators is a function that takes a generator stack and clusters them by marginal_cost and must run status.
         
-        output_num controls the number of output generators (must be greater than two)
+        clustering is done with sklearn KMeans
         
+        Args:
+            n_clusters (int): controls the number of output generators (must between 1 and the number of generators)
+            pmax (1d array): pmax of each generator
+            marginal_cost (1d array): the full marginal marginal cost for each generator
+            FORs (1d array): forced outage rates by generator
+            MORs (1d array): maintenance rates by generator
+            must_run (bool 1d array): boolean array indicating whether each generator is must run
+            pad_stack (bool): if true, the highest cost dispatchable generator has it's capacity increased
+            zero_mc_4_must_run (bool): if true, must run generators are returned with zero marginal cost
         
+        Returns:
+            clustered: a dictionary with generator clusters
         """
-        assert output_num>=1
+        assert n_clusters>=1
+        assert n_clusters<=len(pmax)
         
-        if output_num>1 and zero_mc_4_must_run:
-            add_zero_mc_row = True
-            output_num-=1
-        else:
-            add_zero_mc_row = False
+        new_mc = copy.deepcopy(marginal_cost) #copy mc before changing it
+        if zero_mc_4_must_run:
+            new_mc[np.nonzero(must_run)] = 0
         
+        # clustering is done here
+        cluster = KMeans(n_clusters=n_clusters, precompute_distances='auto')
+        factor = (max(marginal_cost) - min(marginal_cost))*10
+        fit = cluster.fit_predict(np.vstack((must_run*factor, new_mc)).T)
+        
+        # helper functions for results
+        group_sum = lambda c, a: sum(a[fit==c])
+        group_wgtav = lambda c, a, b: np.dot(a[fit==c], b[fit==c])/group_sum(c, a)
+
         combined_rate = Dispatch._get_combined_outage_rate(FORs, MORs)
         derated_pmax = pmax * (1-combined_rate)
+
+        clustered = {}
+        clustered['marginal_cost'] = np.array([group_wgtav(c, derated_pmax, new_mc) for c in range(n_clusters)])
+        order = np.argsort(clustered['marginal_cost']) #order the result by marginal cost
+        clustered['marginal_cost'] = clustered['marginal_cost'][order]
         
-        mri = np.where(must_run==1)
-        di = np.where(must_run==0)
+        clustered['derated_pmax'] = np.array([group_sum(c, derated_pmax) for c in range(n_clusters)])[order]
+        clustered['pmax'] = np.array([group_sum(c, pmax) for c in range(n_clusters)])[order]
+        clustered['FORs'] = np.array([group_wgtav(c, pmax, FORs) for c in range(n_clusters)])[order]
+        clustered['MORs'] = np.array([group_wgtav(c, pmax, MORs) for c in range(n_clusters)])[order]
+        clustered['must_run'] = np.array([round(group_wgtav(c, pmax, must_run)) for c in range(n_clusters)], dtype=int)[order]
         
-        cluster = KMeans(n_clusters=output_num, precompute_distances='auto')
-        fit = cluster.fit_predict(marginal_cost[di][np.newaxis].T)
+        # check the result
+        np.testing.assert_almost_equal(sum(clustered['pmax'][np.where(clustered['must_run']==0)]), sum(pmax[np.where(must_run==0)]))
         
-        group_cap = lambda c: sum(derated_pmax[di][fit==c])
-        group_mc = lambda c: np.dot(derated_pmax[di][fit==c], marginal_cost[di][fit==c])/group_cap(c)
-        
-        mc_approx = np.array([(group_cap(c), group_mc(c)) for c in range(output_num)])
-        
-        if add_zero_mc_row:
-            mc_approx = np.vstack((np.array([sum(derated_pmax[mri]), 0]), mc_approx))
-        
-        mc_approx = mc_approx[mc_approx[:,1].argsort()]
-        
-        if pad_last_generator:
-            mc_approx[-1, 0] += sum(mc_approx[:, 0])
+        # if we are padding the stack, increse the size of the last dispatchable generator
+        if pad_stack:
+            dispatchable_index = np.where(clustered['must_run']==0)[0]
+            clustered['derated_pmax'][dispatchable_index[-1]] += sum(clustered['derated_pmax'])
+            clustered['pmax'][dispatchable_index[-1]] += sum(clustered['pmax'])
             
-        return mc_approx
+        return clustered
 
     @staticmethod
     def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.15, load_ptile=99.8):
