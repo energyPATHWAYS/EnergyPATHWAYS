@@ -277,6 +277,7 @@ class TimeSeries:
         # full_levels = [list(newindex) if name==time_index_name else list(level) for name, level in zip(data.index.names, data.index.levels)]
         # data = data.join(pd.DataFrame(index=pd.MultiIndex.from_product(full_levels, names=data.index.names)), how='outer').sort_index()
         data = util.reindex_df_level_with_new_elements(data, time_index_name, wholeindex)
+        
 
         group_levels = tuple([n for n in data.index.names if n != time_index_name])
         data = data.groupby(level=group_levels).apply(TimeSeries._clean_multindex_helper,
@@ -301,6 +302,8 @@ class TimeSeries:
             if np.all(np.isnan(y)) or not np.any(np.isnan(y)):
                 continue
             data[colname] = TimeSeries.cleanxy(x, y, newindex, interpolation_method, extrapolation_method, **kwargs)
+        
+        
         return data
 
     @staticmethod
