@@ -3,28 +3,16 @@ __author__ = 'Ben Haley & Ryan Jones'
 import pandas as pd
 import numpy as np
 from scipy import optimize, interpolate, stats
-import config
 import util
 
 pd.options.mode.chained_assignment = None
 
-
 class TimeSeries:
-    def __init__(self, data=None, gau=None, additional_index=None, numerator_units=None, denominator_units=None,
-                 unit_multiplier=None, time_index=None):
-        self.gau = gau
-        self.additional_index = additional_index
-        self.numerator_units = numerator_units
-        self.denominator_units = denominator_units
-        self.unit_multiplier = unit_multiplier
-        self.time_index = time_index
-
     @staticmethod
     def linear_regression_fill(x, y, newindex):
         """Use known x, y values and assuming a linear relationship to map a new index"""
         slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
         return newindex * slope + intercept
-
 
     @staticmethod
     def generalized_logistic(x, A, K, M, B):
@@ -96,7 +84,6 @@ class TimeSeries:
             print e
             return None
 
-
     @staticmethod
     def spline_fill(x, y, newindex, k=3, s=0):
         """
@@ -152,7 +139,11 @@ class TimeSeries:
                 firsty, lasty = fill_dict[firstx], fill_dict[lastx]
                 rate = (lasty / firsty) ** (1. / (lastx - firstx))
                 fill[group] = lasty * (rate) ** (newindex[group] - lastx)
+        return fill
 
+    @staticmethod
+    def fill_with_average(x, y, newindex):
+        fill = np.ones_like(newindex) * np.mean(y)
         return fill
 
     @staticmethod
@@ -170,12 +161,16 @@ class TimeSeries:
         elif method == 'nearest':
             return TimeSeries.fill_with_nearest(x, y, newindex)
         elif method == 'exponential':
-            return TimeSeries.fill_with_exponential(x, y, newindex, kwargs.get('exp_growth_rate', None))
+            return TimeSeries.fill_with_exponential(x, y, newindex, kwargs.get('exp_growth_rate'))
+        elif method == 'average' or method == 'mean':
+            return TimeSeries.fill_with_average(x, y, newindex)
+        else:
+            raise ValueError("{} is not a known cleaning method type".format(method))
 
     @staticmethod
     def _clean_method_checks(x, interpolation_method, extrapolation_method, **kwargs):
         if len(x)==1:
-            if interpolation_method=='exponential' and kwargs.get('exp_growth_rate', None) is None:
+            if interpolation_method=='exponential' and kwargs.get('exp_growth_rate') is None:
                 interpolation_method = 'nearest'
             elif interpolation_method=='logistic':
                 interpolation_method = 'nearest'
@@ -193,7 +188,6 @@ class TimeSeries:
             elif extrapolation_method is not None:
                 extrapolation_method = 'nearest'
 
-        
         if interpolation_method == 'quadratic':
             if len(x) < 3:
                 # TODO: print to log file here
@@ -215,8 +209,7 @@ class TimeSeries:
         return interpolation_method, extrapolation_method, kwargs
 
     @staticmethod
-    def clean(data, newindex=None, interpolation_method=None, extrapolation_method=None, time_index_name=None,
-              **kwargs):
+    def clean(data, newindex=None, interpolation_method=None, extrapolation_method=None, time_index_name=None, **kwargs):
         """
         Return cleaned timeseries data reindexed to time_index, interpolated for missing data points,
         and extrapolated using selected method.
@@ -231,6 +224,7 @@ class TimeSeries:
             quadratic - quadratic spline fill (no smoothing)
             cubic - cubic spline fill (no smoothing)
             exponential - annual growth rate for extrapolating data
+            average - takes an average of all given values to fill in missing values
 
         Args:
             data (dataframe): dataframe with missing values
@@ -248,18 +242,16 @@ class TimeSeries:
             raise ValueError('cleaning requires a pandas dataframe as an input')
 
         if data.index.nlevels > 1:
-            return TimeSeries._clean_multindex(data[:], time_index_name, interpolation_method, extrapolation_method,
-                                               newindex, **kwargs)
+            return TimeSeries._clean_multindex(data[:], time_index_name, interpolation_method, extrapolation_method, newindex, **kwargs)
         else:
-            return TimeSeries._singleindex_clean(data[:], newindex, interpolation_method, extrapolation_method,
-                                                 **kwargs)
+            return TimeSeries._singleindex_clean(data[:], newindex, interpolation_method, extrapolation_method, **kwargs)
 
     @staticmethod
-    def _clean_multindex(data, time_index_name, interpolation_method=None, extrapolation_method=None, newindex=None,
-                         **kwargs):
+    def _clean_multindex(data, time_index_name, interpolation_method=None, extrapolation_method=None, newindex=None, **kwargs):
         if time_index_name not in data.index.names:
             raise ValueError('Time_index_name must match one of the index level names if cleaning a multi-index dataframe')
-
+        
+        # TODO: duplicate values should raise an error when doing data validation
         # remove duplicates
         data = data.groupby(level=data.index.names).first()
 
@@ -292,8 +284,7 @@ class TimeSeries:
         return data
 
     @staticmethod
-    def _clean_multindex_helper(data, time_index_name, newindex, interpolation_method=None, extrapolation_method=None,
-                                **kwargs):
+    def _clean_multindex_helper(data, time_index_name, newindex, interpolation_method=None, extrapolation_method=None, **kwargs):
         
         x = np.array(data.index.get_level_values(time_index_name), dtype=int)
 
@@ -303,12 +294,12 @@ class TimeSeries:
                 continue
             data[colname] = TimeSeries.cleanxy(x, y, newindex, interpolation_method, extrapolation_method, **kwargs)
         
-        
         return data
 
     @staticmethod
     def _singleindex_clean(data, newindex=None, interpolation_method=None, extrapolation_method=None, **kwargs):
-
+        
+        # TODO: duplicate values should raise an error when doing data validation
         # drop duplicates
         data.groupby(data.index).first()
 
@@ -335,7 +326,7 @@ class TimeSeries:
         return data
 
     @staticmethod
-    def cleanxy(x, y, newindex, interpolation_method=None, extrapolation_method=None, **kwargs):
+    def cleanxy(x, y, newindex, interpolation_method=None, extrapolation_method=None, replace_training_data=True, **kwargs):
         #if you have no interpolation method, start with the current y (with nans)
         if interpolation_method is None or interpolation_method == 'none':
             yhat = y.copy()
@@ -365,11 +356,13 @@ class TimeSeries:
         elif len(extrap_index) and extrapolation_method != interpolation_method:
             yhat[extrap_index] = TimeSeries._run_cleaning_method(x, y, newindex, extrapolation_method, **kwargs)[extrap_index]
         
+        # fill back in the "training" data, meaning good data kept and not replaced
+        if not replace_training_data:
+            yhat[goody] = y
+        
         return yhat
 
 
-
-        # clean_data = TimeSeries.clean(data, 'year', newindex=range(1950, 2100))
 
 # groups.apply(TimeSeries.clean, args=(time_index_name, interpolation_method, extrapolation_method, newindex, lbound, ubound))
 # @staticmethod
