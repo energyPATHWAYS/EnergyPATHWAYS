@@ -480,7 +480,8 @@ def remove_df_levels(data, levels, total_label=None, agg_function='sum'):
 
 def remove_df_elements(data, elements, level):
     if level in data.index.names:
-        return data.drop(put_in_list(elements), level=level)
+        elements_to_keep = list(set(data.index.get_level_values(level)) - set(put_in_list(elements)))
+        return reindex_df_level_with_new_elements(data, level, elements_to_keep)
     else:
         return data
 
