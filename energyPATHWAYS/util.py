@@ -1130,17 +1130,12 @@ class DfOper:
         merged_b_cols = [str(col) + "_b" if col in a_cols else col for col in b_cols]
 
         # Eliminate levels for one when the other is not expandable
-        new_a = a.groupby(level=common_names).sum() if (len(
-            names_a_not_in_b) > 0 and not b_can_expand) and a_can_collapse else a
-        new_b = b.groupby(level=common_names).sum() if (len(
-            names_b_not_in_a) > 0 and not a_can_expand) and b_can_collapse else b
+        new_a = a.groupby(level=common_names).sum() if (len(names_a_not_in_b) > 0 and not b_can_expand) and a_can_collapse else a
+        new_b = b.groupby(level=common_names).sum() if (len(names_b_not_in_a) > 0 and not a_can_expand) and b_can_collapse else b
 
         # Reindex so that elements within levels match
         if fill_value is not None:
-            new_a, new_b = DfOper._reindex_dfs_so_elements_match(new_a, new_b, level_names=common_names,
-                                                                 how='intersect')
-
-        # pd.concat([a]*2, keys=['mon', 'tue'], name='weekday')
+            new_a, new_b = DfOper._reindex_dfs_so_elements_match(new_a, new_b, level_names=common_names, how='intersect')
 
         # Default for join is left unless b has more columns, then we assume we want to join on it
         if join is None:
