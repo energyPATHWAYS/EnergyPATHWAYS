@@ -75,15 +75,22 @@ class TestTimeSeries(unittest.TestCase):
             plt.plot(x, y, '.')
 
 
-newindex = np.arange(2015, 2025)
+#newindex = np.arange(2015, 2025)
 
-x = np.array([2010, 2018, 2020])
+newindex = np.arange(2012, 2017)
+x = np.array([2015, 2018, 2020])
 y = np.array([.8, .7, .4])
 data = pd.DataFrame(y, index=x)
 newdata = TimeSeries.clean(data, newindex=newindex, interpolation_method='linear_interpolation', extrapolation_method='nearest')
 
 
-data = pd.concat([data]*3, keys=['a', 'b', 'c'], names=['dummy', 'year'])
-newdata2 = TimeSeries.clean(data, time_index_name='year', newindex=newindex, interpolation_method='linear_interpolation', extrapolation_method='nearest')
+newindex = np.arange(2015, 2017)
+multi_data = pd.concat([data]*3, keys=['a', 'b', 'c'], names=['dummy', 'year'])
+newdata2 = TimeSeries.clean(multi_data, time_index_name='year', newindex=newindex, interpolation_method='linear_interpolation', extrapolation_method='nearest')
+
+
+#newindex = np.arange(2015, 2017)
+#multi_data = pd.concat([data]*3, keys=['a', 'b', 'c'], names=['dummy', 'year'])
+#newdata2 = TimeSeries.clean(multi_data, time_index_name='year', newindex=newindex, interpolation_method='linear_interpolation', extrapolation_method='nearest')
 
 
