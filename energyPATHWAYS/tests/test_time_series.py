@@ -77,20 +77,33 @@ class TestTimeSeries(unittest.TestCase):
 
 #newindex = np.arange(2015, 2025)
 
-newindex = np.arange(2012, 2017)
-x = np.array([2015, 2018, 2020])
-y = np.array([.8, .7, .4])
-data = pd.DataFrame(y, index=x)
-newdata = TimeSeries.clean(data, newindex=newindex, interpolation_method='linear_interpolation', extrapolation_method='nearest')
-
-
-newindex = np.arange(2015, 2017)
-multi_data = pd.concat([data]*3, keys=['a', 'b', 'c'], names=['dummy', 'year'])
-newdata2 = TimeSeries.clean(multi_data, time_index_name='year', newindex=newindex, interpolation_method='linear_interpolation', extrapolation_method='nearest')
+#newindex = np.arange(2012, 2017)
+#x = np.array([2015, 2018, 2020])
+#y = np.array([.8, .7, .4])
+#data = pd.DataFrame(y, index=x)
+#newdata = TimeSeries.clean(data, newindex=newindex, interpolation_method='linear_interpolation', extrapolation_method='nearest')
+#
+#
+#newindex = np.arange(2020, 2025)
+#multi_data = pd.concat([data]*3, keys=['a', 'b', 'c'], names=['dummy', 'year'])
+#newdata2 = TimeSeries.clean(multi_data, time_index_name='year', newindex=newindex, interpolation_method='linear_interpolation', extrapolation_method='nearest')
 
 
 #newindex = np.arange(2015, 2017)
 #multi_data = pd.concat([data]*3, keys=['a', 'b', 'c'], names=['dummy', 'year'])
 #newdata2 = TimeSeries.clean(multi_data, time_index_name='year', newindex=newindex, interpolation_method='linear_interpolation', extrapolation_method='nearest')
+
+
+raw_values = pd.read_csv('raw_values_example_for_clean_timeseries.csv')
+raw_values.set_index(['us', 'efficiency_type', 'supply_node', 'year'], inplace=True)
+raw_values.sort_index(inplace=True)
+
+newindex = [2015]
+newdata3 = TimeSeries.clean(raw_values, time_index_name='year', newindex=newindex, interpolation_method='linear_interpolation', extrapolation_method='nearest')
+
+print newdata3
+
+
+
 
 
