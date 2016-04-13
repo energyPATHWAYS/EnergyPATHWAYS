@@ -111,7 +111,9 @@ class PathwaysModel(object):
         self.demand.aggregate_results()
     
     def calculate_supply(self):
-        self.supply.calculate()        
+        self.supply.initial_calculate()     
+        self.supply.calculate_loop()
+        self.supply.final_calculate()
              
     def pass_results_to_supply(self):
         for sector in self.demand.sectors.values():
@@ -135,8 +137,16 @@ class PathwaysModel(object):
         for attribute in dir(self.outputs):
             if isinstance(getattr(self.outputs,attribute), pd.DataFrame):
                 result_df = getattr(self.outputs, attribute)
-                ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'outputs'), append_results=append_results)
-    
+                ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'combined_outputs'), append_results=append_results)
+        for attribute in dir(self.demand.outputs):
+            if isinstance(getattr(self.demand.outputs,attribute), pd.DataFrame):
+                result_df = getattr(self.demand.outputs, attribute)
+                ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'demand_outputs'), append_results=append_results)
+        for attribute in dir(self.supply.outputs):
+            if isinstance(getattr(self.supply.outputs,attribute), pd.DataFrame):
+                result_df = getattr(self.supply.outputs, attribute)
+                ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'supply_outputs'), append_results=append_results)
+        
     def calculate_combined_cost_results(self):
         #calculate and format export costs
         if self.supply.export_costs is not None:

@@ -1,3 +1,5 @@
+
+
 __author__ = 'Ben Haley & Ryan Jones'
 
 import pandas as pd
@@ -42,7 +44,6 @@ if __name__ == "__main__":
                     pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)
             model.pass_results_to_supply()
             model.calculate_supply()
-            model.supply.calculate_loop()
             if save_models:
                 with open(os.path.join(directory, str(scenario_id)+'_full_model_run.p'), 'wb') as outfile:
                     pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)
@@ -60,7 +61,6 @@ if __name__ == "__main__":
             model.model_config(cfgfile_path, custom_pint_definitions_path)
             model.pass_results_to_supply()
             model.calculate_supply()
-            model.supply.calculate_loop()
             if save_models:
                 with open(os.path.join(directory, str(scenario_id)+'_full_model_run.p'), 'wb') as outfile:
                     pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)

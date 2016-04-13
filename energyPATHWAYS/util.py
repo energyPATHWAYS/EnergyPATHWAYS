@@ -299,7 +299,8 @@ def unit_conversion_factor(unit_from, unit_to):
 
 def exchange_rate(currency_from, currency_from_year, currency_to=None):
     """calculate exchange rate between two specified currencies"""
-    currency_to = config.cfg.cfgfile.get('case', 'currency_id') if currency_to is None else currency_to
+    currency_to_name = config.cfg.cfgfile.get('case', 'currency_name') if currency_to is None else currency_to
+    currency_to = sql_read_table('Currencies',column_names='id',name=currency_to_name)
     currency_from_values = sql_read_table('CurrenciesConversion', 'value', currency_id=currency_from,
                                           currency_year_id=currency_from_year)
     currency_from_value = np.asarray(currency_from_values).mean()
@@ -323,7 +324,8 @@ def inflation_rate(currency, currency_from_year, currency_to_year=None):
 
 def currency_convert(data, currency_from, currency_from_year):
     """converts cost data in original currency specifications (currency,year) to model currency and year"""
-    currency_to, currency_to_year = config.cfg.cfgfile.get('case', 'currency_id'), config.cfg.cfgfile.get('case', 'currency_year_id')
+    currency_to_name, currency_to_year = config.cfg.cfgfile.get('case', 'currency_name'), config.cfg.cfgfile.get('case', 'currency_year_id')
+    currency_to = sql_read_table('Currencies',column_names='id',name=currency_to_name)
     # inflate in original currency and then exchange in model currency year
     try:
         a = inflation_rate(currency_from, currency_from_year)
