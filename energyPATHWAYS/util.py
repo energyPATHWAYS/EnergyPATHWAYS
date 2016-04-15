@@ -568,33 +568,32 @@ def expand_multi(a, levels_list, levels_names, how='outer', incremental=False, d
     """
     
     drop_index = ensure_iterable_and_not_string(drop_index)
-    if set(levels_names) != set(a.index.names):
-        if incremental:
-            levels_list = [ensure_iterable_and_not_string(levels_list)]
-            for name, level in zip(a.index.names, a.index.levels):
-                if name == drop_index:
-                    pass
-                else:
-                    levels_names.append(name)
-                    levels_list.append(list(level))
-        else:
-            unfrozen_levels = []
-            unfrozen_names = []
-            for name, level in zip(levels_names, levels_list):
-                if name in drop_index:
-                    pass
-                else:
-                    unfrozen_levels.append([int(x) for x in level])
-                    unfrozen_names.append(name)
-            levels_list = unfrozen_levels
-            levels_names = unfrozen_names
-        expand = pd.DataFrame(index=pd.MultiIndex.from_product(levels_list, names=levels_names),dtype='int64')
-        common_headers = intersect(a.index.names, expand.index.names)
-        levels_names = expand.index.names
-        expand = expand.reset_index()
-        a = a.reset_index()
-        a = pd.merge(a, expand, on=common_headers, how=how)
-        a = a.set_index(levels_names).sort_index()
+    if incremental:
+        levels_list = [ensure_iterable_and_not_string(levels_list)]
+        for name, level in zip(a.index.names, a.index.levels):
+            if name == drop_index:
+                pass
+            else:
+                levels_names.append(name)
+                levels_list.append(list(level))
+    else:
+        unfrozen_levels = []
+        unfrozen_names = []
+        for name, level in zip(levels_names, levels_list):
+            if name in drop_index:
+                pass
+            else:
+                unfrozen_levels.append([int(x) for x in level])
+                unfrozen_names.append(name)
+        levels_list = unfrozen_levels
+        levels_names = unfrozen_names
+    expand = pd.DataFrame(index=pd.MultiIndex.from_product(levels_list, names=levels_names),dtype='int64')
+    common_headers = intersect(a.index.names, expand.index.names)
+    levels_names = expand.index.names
+    expand = expand.reset_index()
+    a = a.reset_index()
+    a = pd.merge(a, expand, on=common_headers, how=how)
+    a = a.set_index(levels_names).sort_index()
     return a
 
 

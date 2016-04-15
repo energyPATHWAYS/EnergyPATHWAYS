@@ -214,7 +214,7 @@ class Dispatch(object):
                     start = period * self.opt_hours
                     stop = (period+1) * self.opt_hours - 1
                     if feeder !=0:
-                        self.max_flex_load[period][(geography,feeder)] = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).iloc[start:stop].max()[0] 
+                        self.max_flex_load[period][(geography,feeder)] = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).iloc[start:stop].max().values[0] 
                     else:
                         self.max_flex_load[period][(geography,feeder)] = 0.0
    
@@ -223,11 +223,11 @@ class Dispatch(object):
         self.average_net_load = dict()
         for geography in self.dispatch_geographies:
             df = util.df_slice(total_net_load, [geography, 2], [self.dispatch_geography,'timeshift_type'])
-            self.average_net_load[geography] =  (df).mean()[0]
+            self.average_net_load[geography] =  (df).mean().values[0]
             for period in self.periods:
                 start = period * self.opt_hours
                 stop = (period+1) * self.opt_hours- 1
-                self.period_net_load[(geography, period)] = df.iloc[start:stop].mean()[0]
+                self.period_net_load[(geography, period)] = df.iloc[start:stop].mean().values[0]
 
 
     def set_opt_result_dfs(self, year):

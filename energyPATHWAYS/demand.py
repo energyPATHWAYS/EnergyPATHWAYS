@@ -405,6 +405,8 @@ class Subsector(DataMapFunctions):
                     print energy_slice
                     print active_feeder_allocation
                     print active_shape.values
+                    print active_shape.id
+                    asasas
         
         # some technologies have their own shapes, so we need to aggregate from that level
         else:
@@ -1182,10 +1184,13 @@ class Subsector(DataMapFunctions):
                     # determine the year range of energy demand inputs
                     self.min_year = self.min_cal_year(self.energy_demand)
                     self.max_year = self.max_cal_year(self.energy_demand)
+                    self.energy_demand.project(map_from='raw_values', fill_timeseries=False)
+                    self.energy_demand.map_from = 'values'
                     self.project_stock()
                     self.stock_subset_prep()
                     # remove stock efficiency from energy demand to return service demand
                     self.efficiency_removal()
+
             else:
                 raise ValueError("incorrect demand stock unit type specification")
             # some previous steps have required some manipulation of initial raw values and the starting point

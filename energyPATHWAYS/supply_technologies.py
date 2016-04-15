@@ -178,7 +178,10 @@ class SupplyTechCost(Abstract):
         self.years = years
         if self.data and self.raw_values is not None:
             self.convert()
-            self.remap(map_from='values', map_to='values', time_index_name='vintage')
+            try:
+                self.remap(map_from='values', map_to='values', time_index_name='vintage')
+            except:
+                print self.id
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values_level', reverse=False)
         if self.data is False:
             self.absolute = False
@@ -229,9 +232,12 @@ class SupplyTechInvestmentCost(SupplyTechCost):
         model_time_step = cfg.cfgfile.get('case', 'time_step')
         if self.time_unit is not None:
             # if a cost has a time_unit, then the unit is energy and must be converted to capacity
-            self.values = util.unit_convert(self.raw_values, unit_from_den=self.capacity_or_energy_unit,
+            try:
+                self.values = util.unit_convert(self.raw_values, unit_from_den=self.capacity_or_energy_unit,
                                             unit_from_num=self.time_unit, unit_to_den=model_energy_unit,
                                             unit_to_num=model_time_step)
+            except:
+                print self.id
         else:
             # if a cost is a capacity unit, the model must convert the unit type to an energy unit for conversion ()
             self.values = util.unit_convert(self.raw_values, unit_from_den =cfg.ureg.Quantity(self.capacity_or_energy_unit)* cfg.ureg.Quantity(model_time_step),
