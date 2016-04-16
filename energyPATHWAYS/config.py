@@ -94,12 +94,15 @@ class Config:
         self.electricity_energy_type_id, self.electricity_energy_type_shape_id = util.sql_read_table('FinalEnergy', column_names=['id', 'shape_id'], name='electricity')
 
     def init_outputs_id_map(self):
-        self.currency_name = util.sql_read_table('Currencies', 'name', id=int(self.cfgfile.get('case', 'currency_id')))
-        self.output_levels = self.cfgfile.get('case', 'output_levels').split(', ')
+        self.currency_name = self.cfgfile.get('case', 'currency_name')
+        self.output_demand_levels = self.cfgfile.get('case', 'output_demand_levels').split(', ')
+        self.output_supply_levels = self.cfgfile.get('case', 'output_supply_levels').split(', ')
         self.output_currency = self.cfgfile.get('case', 'currency_year_id') + ' ' + self.currency_name
         self.outputs_id_map = defaultdict(dict)
-        if 'primary_geography' in self.output_levels:
-            self.output_levels[self.output_levels.index('primary_geography')] = self.primary_geography
+        if 'primary_geography' in self.output_demand_levels:
+            self.output_demand_levels[self.output_demand_levels.index('primary_geography')] = self.primary_geography
+        if 'primary_geography' in self.output_supply_levels:
+            self.output_supply_levels[self.output_supply_levels.index('primary_geography')] = self.primary_geography     
         primary_geography_id = util.sql_read_table('Geographies', 'id', name=self.primary_geography)
         self.outputs_id_map[self.primary_geography] = util.upper_dict(util.sql_read_table('GeographiesData', ['id', 'name'], geography_id=primary_geography_id, return_unique=True, return_iterable=True))
         self.outputs_id_map[self.primary_geography+"_supply"] =  self.outputs_id_map[self.primary_geography]       

@@ -69,7 +69,7 @@ class Demand(object):
         
 
     def group_output(self, output_type, levels_to_keep=None, include_unit=False):
-        levels_to_keep = cfg.output_levels if levels_to_keep is None else levels_to_keep
+        levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep
         levels_to_keep = list(set(levels_to_keep + ['unit'])) if include_unit else levels_to_keep
         dfs = [sector.group_output(output_type, levels_to_keep, include_unit) for sector in self.sectors.values()]
         if all([df is None for df in dfs]) or not len(dfs):
@@ -79,9 +79,10 @@ class Demand(object):
         return util.df_list_concatenate(dfs, keys, new_names, levels_to_keep)
 
     def group_linked_output(self, supply_link, levels_to_keep=None):
-        levels_to_keep = cfg.output_levels if levels_to_keep is None else levels_to_keep
+        levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep
 #        levels_to_keep = ['census region', 'sector', 'subsector', 'final_energy', 'year', 'technology']
 #        year_df_list = []
+        levels_to_keep = [x for x in levels_to_keep if x in self.outputs.energy.index.names]
         demand_df = self.outputs.energy.groupby(level=levels_to_keep).sum()
 #        years =  list(set(supply_link.index.get_level_values('year')))
 #        for year in years:
@@ -321,7 +322,7 @@ class Sector(object):
         return util.DfOper.add([pd.DataFrame(subsector.energy_forecast.value.groupby(level=levels_to_keep).sum()).sort() for subsector in self.subsectors.values() if hasattr(subsector, 'energy_forecast')])
 
     def group_output(self, output_type, levels_to_keep=None, include_unit=False):
-        levels_to_keep = cfg.output_levels if levels_to_keep is None else levels_to_keep
+        levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep
         levels_to_keep = list(set(levels_to_keep + ['unit'])) if include_unit else levels_to_keep
         dfs = [subsector.group_output(output_type, levels_to_keep) for subsector in self.subsectors.values()]
         if all([df is None for df in dfs]) or not len(dfs):
@@ -404,6 +405,8 @@ class Subsector(DataMapFunctions):
                     print energy_slice
                     print active_feeder_allocation
                     print active_shape.values
+                    print active_shape.id
+                    asasas
         
         # some technologies have their own shapes, so we need to aggregate from that level
         else:
@@ -524,7 +527,7 @@ class Subsector(DataMapFunctions):
         self.extrapolation_method = 'linear_interpolation'
 
     def group_output(self, output_type, levels_to_keep=None):
-        levels_to_keep = cfg.output_levels if levels_to_keep is None else levels_to_keep
+        levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep
         if output_type=='energy':
             # a subsector type link would be something like building shell, which does not have an energy demand
             if self.sub_type != 'link':
@@ -541,7 +544,7 @@ class Subsector(DataMapFunctions):
     def format_output_service_demand(self, override_levels_to_keep):
         if not hasattr(self, 'service_demand'):
             return None
-        levels_to_keep = cfg.output_levels if override_levels_to_keep is None else override_levels_to_keep
+        levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
         levels_to_eleminate = [l for l in self.service_demand.values.index.names if l not in levels_to_keep]
         df = util.remove_df_levels(self.service_demand.values, levels_to_eleminate).sort()
         df = util.add_and_set_index(df, 'unit', self.service_demand.unit.upper(), index_location=-2)
@@ -550,7 +553,7 @@ class Subsector(DataMapFunctions):
     def format_output_stock(self, override_levels_to_keep=None):
         if not hasattr(self, 'stock'):
             return None
-        levels_to_keep = cfg.output_levels if override_levels_to_keep is None else override_levels_to_keep
+        levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
         levels_to_eleminate = [l for l in self.stock.values.index.names if l not in levels_to_keep]
         df = util.remove_df_levels(self.stock.values, levels_to_eleminate).sort()
         # stock starts with vintage as an index and year as a column, but we need to stack it for export
@@ -1181,10 +1184,13 @@ class Subsector(DataMapFunctions):
                     # determine the year range of energy demand inputs
                     self.min_year = self.min_cal_year(self.energy_demand)
                     self.max_year = self.max_cal_year(self.energy_demand)
+                    self.energy_demand.project(map_from='raw_values', fill_timeseries=False)
+                    self.energy_demand.map_from = 'values'
                     self.project_stock()
                     self.stock_subset_prep()
                     # remove stock efficiency from energy demand to return service demand
                     self.efficiency_removal()
+
             else:
                 raise ValueError("incorrect demand stock unit type specification")
             # some previous steps have required some manipulation of initial raw values and the starting point

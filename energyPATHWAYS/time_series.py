@@ -343,7 +343,7 @@ class TimeSeries:
         # basic process is to use interpolation method on ALL points and then replace points with
         # extrapolation method if it is specified. Objective is to cut down on if statements and make
         # interpolation and extrapolation consistant in the case of curve fitting
-        if interpolation_method is not None:
+        if interpolation_method is not None and interpolation_method != 'none':
             yhat = TimeSeries._run_cleaning_method(x, y, newindex, interpolation_method, **kwargs)
 
         ##################

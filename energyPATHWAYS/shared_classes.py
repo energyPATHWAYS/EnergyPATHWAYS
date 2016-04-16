@@ -250,6 +250,7 @@ class SalesShare(Abstract, DataMapFunctions):
 
         # normalize all to 1
         ss_array[vintage, :, retiring] = (ss_array[vintage, :, retiring].T / sums[vintage, retiring]).T
+        ss_array = np.nan_to_num(ss_array)
         return ss_array
 
     @staticmethod
