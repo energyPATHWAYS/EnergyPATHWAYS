@@ -33,15 +33,15 @@ Base = declarative_base(cls=Base, metadata=MetaData(schema='migrated'))
 # For now we are expecting config to reach in and kick this since it has the config information
 def init(db_conf):
     global engine
-    engine = sa.create_engine(URL(**db_conf)) #,echo=True)
+    engine = sa.create_engine(URL(**db_conf)) #,echo=True
     global Session
     Session = sa.orm.sessionmaker(bind=engine)
     global session
     session = Session()
 
 
-def fetch(cls):
-    result = session.query(cls).all()
+def fetch(cls, **kwargs):
+    result = session.query(cls).filter_by(**kwargs).all()
     # I was originally closing the session here, but that makes it impossible for the loaded objects to do
     # any additional lazy loading of their relationships
     return result
@@ -62,4 +62,5 @@ def fetch_as_df(cls):
     # they will contain some NULL/NaN values. (pandas int columns don't support NaN, so columns with NaN
     # that would otherwise be int are coerced to float.) Instead, we delay setting indices until
     # DataMapper pulls its individual slices.
-    return pd.read_sql_table(cls.__tablename__, engine, columns=cols, index_col='parent_id').sort_index()
+    # TODO: (MAC) remove schema= specification here once migration is complete
+    return pd.read_sql_table(cls.__tablename__, engine, schema='migrated', columns=cols, index_col='parent_id').sort_index()

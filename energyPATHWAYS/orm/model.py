@@ -1602,6 +1602,7 @@ class DispatchFeedersAllocationDatum(Base):
     id = Column(Integer, primary_key=True, server_default=text("nextval('\"DispatchFeedersAllocationData_id_seq\"'::regclass)"))
 
 
+# Ryan says do not bring over, obsolete
 class DispatchNodeDatum(Base):
     __tablename__ = 'DispatchNodeData'
 

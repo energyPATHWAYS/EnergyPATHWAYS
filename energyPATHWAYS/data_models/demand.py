@@ -66,6 +66,6 @@ class DemandDriverDatum(Base):
     UniqueConstraint(parent_id, gau_id, oth_1_id, oth_2_id, year)
 
     gau = relationship(GeographiesDatum)
-    other_index_1 = relationship(OtherIndexesDatum, foreign_keys='DemandDriversData.oth_1_id')
-    other_index_2 = relationship(OtherIndexesDatum, foreign_keys='DemandDriversData.oth_2_id')
+    other_index_1 = relationship(OtherIndexesDatum, foreign_keys=oth_1_id)
+    other_index_2 = relationship(OtherIndexesDatum, foreign_keys=oth_2_id)
     demand_driver = relationship(DemandDriver, order_by=id, backref='data')

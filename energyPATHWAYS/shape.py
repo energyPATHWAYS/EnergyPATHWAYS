@@ -191,10 +191,10 @@ class Shape(dmf.DataMapFunctions):
     def normalize(self):
         group_to_normalize = [n for n in self.values.index.names if n!='weather_datetime']
         # here is a special case where I have p_min and p_max in my dispatch constraints and these should not be normalized
-        if 'dispatch_constraint' in group_to_normalize:
+        if 'dispatch_constraint_type' in group_to_normalize:
             temp = self.values.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
             # TODO: 2, and 3 should not be hard coded here, they represent p_min and p_max
-            indexer = util.level_specific_indexer(temp, 'dispatch_constraint', [[2,3]])
+            indexer = util.level_specific_indexer(temp, 'dispatch_constraint_type', [[2,3]])
             temp.loc[indexer, :] = self.values.loc[indexer, :]
             self.values = temp
         else:
@@ -366,7 +366,7 @@ class Shape(dmf.DataMapFunctions):
 
 
 directory = os.getcwd()
-rerun_shapes = False
+rerun_shapes = True
 
 #######################
 #######################

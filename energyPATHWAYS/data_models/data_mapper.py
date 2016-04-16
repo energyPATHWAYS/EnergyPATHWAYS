@@ -5,6 +5,7 @@ from sqlalchemy.orm import reconstructor
 
 import data_source
 from energyPATHWAYS.datamapfunctions import DataMapFunctions
+import ipdb
 
 
 class DataMapper(DataMapFunctions, object):
@@ -41,10 +42,13 @@ class DataMapper(DataMapFunctions, object):
 
         # any column that doesn't contain the value for the row is an index
         indexes = [col for col in df.columns.values if col != 'value']
+
         # the index columns may be of type float if they ever contained any NaN values in the original data table,
-        # so we will coerce them to int now. Note that this would fail if there were any remaining NaN values in the
-        # column, but we screened for that in the assertion above so it should be safe.
-        df[indexes] = df[indexes].astype(int)
+        # so we will coerce any float columns (except 'value') to int now. Note that this would fail if there were any
+        # remaining NaN values in the column, but we screened for that in the assertion above so it should be safe.
+        float_indexes = [col for col in indexes if df.dtypes[col] == 'float64']
+        df[float_indexes] = df[float_indexes].astype(int)
+
         df.set_index(indexes, inplace=True)
         df.sort_index(inplace=True)
 

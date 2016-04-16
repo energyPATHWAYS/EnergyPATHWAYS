@@ -301,6 +301,7 @@ CREATE TABLE migrated."ShapesData" (
 	value FLOAT, 
 	PRIMARY KEY (id), 
 	UNIQUE (parent_id, gau_id, dispatch_feeder_id, timeshift_type_id, resource_bin), 
+	FOREIGN KEY(parent_id) REFERENCES migrated."Shapes" (id), 
 	FOREIGN KEY(gau_id) REFERENCES migrated."GeographiesData" (id), 
 	FOREIGN KEY(dispatch_feeder_id) REFERENCES migrated."DispatchFeeders" (id), 
 	FOREIGN KEY(timeshift_type_id) REFERENCES migrated."FlexibleLoadShiftTypes" (id), 
