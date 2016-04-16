@@ -15,6 +15,7 @@ from system import CleaningMethod, DayType, DispatchConstraintType, FlexibleLoad
     TimeZone
 from geography import Geography, GeographiesDatum, GeographyMapKey
 from dispatch import DispatchFeeder
+from data_source import fetch
 
 
 class OtherIndex(Base):
@@ -120,10 +121,7 @@ class Shape(DataMapper, Base):
             return cls._time_slice_elements
         except AttributeError:
             business_days = pd.bdate_range(cls.active_dates_index()[0].date(), cls.active_dates_index()[-1].date())
-            # TODO: (MAC) bring this out of util and into SQLAlchemy
-            biz_map = {v: k for k, v in util.sql_read_table('DayType', column_names='*', return_iterable=False)}
-
-            #new_biz_map =
+            biz_map = {day_type.name: day_type.id for day_type in fetch(DayType)}
 
             cls._time_slice_elements = {}
             for ti in cfg.time_slice_col:
