@@ -74,4 +74,7 @@ target/
 /us_model_example/*.p
 
 # Results
-/us_model_example/outputs/
+/us_model_example/dispatch_outputs/
+/us_model_example/combined_outputs/
+/us_model_example/demand_outputs/
+/us_model_example/supply_outputs/
