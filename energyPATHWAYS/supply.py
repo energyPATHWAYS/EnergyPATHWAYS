@@ -802,7 +802,6 @@ class Supply(object):
                     coefficients = node.coefficients.values
                 else:
                     coefficients = node.stock.coefficients
-
                 coefficients.sort(inplace=True)
                 indexer = util.level_specific_indexer(node.active_coefficients_untraded,'supply_node',[self.electricity_nodes[zone]+[zone]])
 #                node.stock.values_energy.sort(inplace=True)
