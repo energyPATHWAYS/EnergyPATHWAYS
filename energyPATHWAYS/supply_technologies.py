@@ -14,10 +14,10 @@ import config as cfg
 from shared_classes import StockItem, SpecifiedStock
 from supply_classes import SupplySalesShare, SupplySales
 import pandas as pd
-from shape import shapes, Shape
+from data_models.misc import ShapeUser
 
 
-class SupplyTechnology(StockItem):
+class SupplyTechnology(ShapeUser, StockItem):
     def __init__(self, id, cost_of_capital, **kwargs):
         self.id = id
         for col, att in util.object_att_from_table('SupplyTechs', id):
@@ -35,10 +35,6 @@ class SupplyTechnology(StockItem):
         if self.id in util.sql_read_table('SupplySalesData','supply_technology', return_unique=True, return_iterable=True):
             self.reference_sales[1] = SupplySales(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySales', sql_data_table='SupplySalesData', primary_key='supply_node_id', data_id_key='supply_technology')
         StockItem.__init__(self)
-        
-        if self.shape_id is not None:
-            self.shape = shapes.data[self.shape_id]
-            shapes.activate_shape(self.shape_id)
 
     def calculate(self, vintages, years):
         self.vintages = vintages

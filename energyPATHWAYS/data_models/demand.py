@@ -3,11 +3,11 @@ from data_mapper import DataMapper
 from sqlalchemy import Column, Float, ForeignKey, Integer, Text, UniqueConstraint
 from sqlalchemy.orm import relationship, reconstructor
 from system import CleaningMethod, InputType
-from misc import OtherIndex, OtherIndexesDatum, Shape
+from misc import OtherIndex, OtherIndexesDatum, Shape, ShapeUser
 from geography import Geography, GeographiesDatum, GeographyMapKey
 
 
-class DemandSector(Base):
+class DemandSector(ShapeUser, Base):
     __tablename__ = 'DemandSectors'
 
     id = Column(Integer, primary_key=True)
@@ -15,8 +15,6 @@ class DemandSector(Base):
     shape_id = Column(ForeignKey(Shape.id))
     max_lead_hours = Column(Integer)
     max_lag_hours = Column(Integer)
-
-    shape = relationship(Shape)
 
 
 class DemandDriver(DataMapper, Base):

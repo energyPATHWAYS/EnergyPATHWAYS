@@ -37,10 +37,6 @@ ureg = None
 ##Geography conversions
 geo = None
 
-# load shape support
-date_lookup = None
-time_slice_col = None
-
 # output config
 currency_name = None
 output_levels = None
@@ -63,7 +59,7 @@ def initialize_config(cfgfile_path, custom_pint_definitions_path):
     init_db()
     init_pint(custom_pint_definitions_path)
     init_geo()
-    init_date_lookup()
+    init_electricity_energy_type()
     init_outputs_id_map()
 
 def load_config(cfgfile_path):
@@ -132,26 +128,8 @@ def init_geo():
     global geo
     geo = geography.Geography()
 
-def init_date_lookup():
-    global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id
-    class DateTimeLookup:
-        def __init__(self):
-            self.dates = {}
-        
-        def lookup(self, series):
-            """
-            This is a faster approach to datetime parsing.
-            For large data, the same dates are often repeated. Rather than
-            re-parse these, we store all unique dates, parse them, and
-            use a lookup to convert all dates.
-            """
-            self.dates.update({date: pd.to_datetime(date) for date in series.unique() if not self.dates.has_key(date)})
-            return series.apply(lambda v: self.dates[v])
-            ## Shapes
-    
-    date_lookup = DateTimeLookup()
-
-    time_slice_col = ['year', 'month', 'week', 'hour', 'day_type_id']
+def init_electricity_energy_type():
+    global electricity_energy_type_id, electricity_energy_type_shape_id
     electricity_energy_type_id, electricity_energy_type_shape_id = util.sql_read_table('FinalEnergy', column_names=['id', 'shape_id'], name='electricity')
 
 def init_outputs_id_map():

@@ -25,6 +25,7 @@ class Base(object):
 
         return type(self).__name__ + '(' + ', '.join(attr_strs) + ')'
 
+
 # TODO: (MAC) this explicit metadata is only needed during this transitional migration period;
 # once we're done migrating, everything SQLAlchemy needs will be in the default public schema again
 Base = declarative_base(cls=Base, metadata=MetaData(schema='migrated'))
@@ -64,3 +65,11 @@ def fetch_as_df(cls):
     # DataMapper pulls its individual slices.
     # TODO: (MAC) remove schema= specification here once migration is complete
     return pd.read_sql_table(cls.__tablename__, engine, schema='migrated', columns=cols, index_col='parent_id').sort_index()
+
+
+def get(cls, id_):
+    """
+    Essentially provides a passthrough to SQLAlchemy's get() method to get a single object by primary key
+    while using SQLAlchemy's identity map to avoid redundant queries
+    """
+    return session.query(cls).get(id_)

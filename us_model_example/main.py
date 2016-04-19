@@ -6,7 +6,6 @@ import cPickle as pickle
 import os
 from energyPATHWAYS import *
 cfg = energyPATHWAYS.cfg
-from energyPATHWAYS.shape import shapes
 import time
 
 directory = os.getcwd()
@@ -30,8 +29,6 @@ if __name__ == "__main__":
     if resolve_demand and resolve_supply:
         model = energyPATHWAYS.PathwaysModel(cfgfile_path, custom_pint_definitions_path)
         model.populate_energy_system()
-        with open(os.path.join(directory, 'shapes.p'), 'wb') as outfile:
-            pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
         for scenario_id in model.scenario_dict.keys():
             model.populate_measures(scenario_id)
             model.calculate_demand_only()

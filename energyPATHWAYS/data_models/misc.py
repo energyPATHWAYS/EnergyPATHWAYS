@@ -5,8 +5,8 @@ import pytz
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import numpy as np
-#import cPickle as pickle
-#import os
+import cPickle as pickle
+import os
 from data_source import Base
 from data_mapper import DataMapper
 from sqlalchemy import Column, Integer, Text, Float, ForeignKey, DateTime, UniqueConstraint
@@ -15,7 +15,7 @@ from system import CleaningMethod, DayType, DispatchConstraintType, FlexibleLoad
     TimeZone
 from geography import Geography, GeographiesDatum, GeographyMapKey
 from dispatch import DispatchFeeder
-from data_source import fetch
+import data_source
 
 
 class OtherIndex(Base):
@@ -38,6 +38,11 @@ class OtherIndexesDatum(Base):
 
 
 class Shape(DataMapper, Base):
+    """
+    Note that in general other model classes that need to have a relationship to Shape should use the ShapeUser mixin
+    below. That way their shape property will leverage Shape's in-memory and disk caching capabilities.
+    (If you wish to disable disk caching, e.g. for testing, set Shape._use_disk_cache to False.)
+    """
     __tablename__ = 'Shapes'
 
     id = Column(Integer, primary_key=True)
@@ -66,6 +71,70 @@ class Shape(DataMapper, Base):
     _shape_unit_type = relationship(ShapesUnit, lazy='joined')
     time_zone = relationship(TimeZone, lazy='joined')
 
+    TIME_SLICE_COLS = ['year', 'month', 'week', 'hour', 'day_type']
+
+    # If this is True, Shape will attempt to load processed shapes from an on-disk cache before loading and
+    # processing them from the database. If you would like to use the disk cache feature but need to invalidate the
+    # cache due to data or code changes (or changing your primary_geography), simply delete the cache directory from
+    # your disk (CACHE_DIR, below)
+    _use_disk_cache = True
+    _cache = {}
+    CACHE_DIR = os.path.join(os.getcwd(), 'shape_cache')
+    FILENAME_PREFIX = 'shape_'
+    FILENAME_SUFFIX = '.p'
+
+    @classmethod
+    def shape_file(cls, id_):
+        """returns the file name where we will cache a shape with a particular id"""
+        return os.path.join(cls.CACHE_DIR, cls.FILENAME_PREFIX + str(id_) + cls.FILENAME_SUFFIX)
+
+    @classmethod
+    def get(cls, id_):
+        try:
+            shape = cls._cache[id_]
+            # This message is overkill for normal use because it fires every time a shape relationship is accessed,
+            # but it may be helpful for debugging.
+            # print "[Shape] returning shape %i ('%s') from in-memory cache" % (id_, shape.name)
+            return shape
+        except KeyError:
+            print "[Shape] did not find shape %i in memory cache" % (id_,)
+            if cls._use_disk_cache:
+                try:
+                    with open(cls.shape_file(id_), 'rb') as infile:
+                        cls._cache[id_] = pickle.load(infile)
+                    print "[Shape] returning shape %i ('%s') from disk cache" % (id_, cls._cache[id_].name)
+                    return cls._cache[id_]
+                except IOError:
+                    print "[Shape] did not find shape %i in disk cache" % (id_,)
+                # Note: this second list of exceptions to catch comes from the list of likely errors during
+                # unpickling from https://docs.python.org/2/library/pickle.html. Since we can always reload from
+                # the database none of these are fatal for us.
+                except (pickle.UnpicklingError, AttributeError, EOFError, ImportError, IndexError):
+                    print "[Shape] found shape %i in disk cache but failed to unpickle" % (id_,)
+
+        # We haven't found the shape at any level of caching (memory or disk) so load it from the database
+        # into the in-memory cache
+        cls._cache[id_] = data_source.get(cls, id_)
+
+        # If we are using the disk cache and got this far that means we weren't able to read the current shape
+        # from the disk cache, so we should write it to the cache for next time
+        if cls._use_disk_cache:
+            print "[Shape] writing processed shape %i ('%s') to disk cache" % (id_, cls._cache[id_].name)
+            # Create the cache directory if it does not yet exist; try to do it in a thread-safe way
+            # http://stackoverflow.com/questions/273192/how-to-check-if-a-directory-exists-and-create-it-if-necessary/14364249#14364249
+            # Note that the overall process of shape caching isn't necessarily thread-safe, though (e.g., two threads
+            # could try to write to the cache for the same shape at the same time).
+            try:
+                os.makedirs(cls.CACHE_DIR)
+            except OSError:
+                if not os.path.isdir(cls.CACHE_DIR):
+                    raise
+            # Save the shape to the disk cache
+            with open(cls.shape_file(id_), 'wb') as outfile:
+                pickle.dump(cls._cache[id_], outfile, pickle.HIGHEST_PROTOCOL)
+
+        return cls._cache[id_]
+
     @property
     def shape_type(self):
         return self._shape_type.name
@@ -76,9 +145,9 @@ class Shape(DataMapper, Base):
 
     @reconstructor
     def reconstruct(self):
-        print "Loading %s" % (self,)
+        print "[Shape] loading shape %i ('%s') from database" % (self.id, self.name)
         self.read_timeseries_data()
-        print "Processing %s" % (self,)
+        print "[Shape] processing shape %i ('%s')" % (self.id, self.name)
         self.process_shape()
 
     @classmethod
@@ -121,24 +190,24 @@ class Shape(DataMapper, Base):
             return cls._time_slice_elements
         except AttributeError:
             business_days = pd.bdate_range(cls.active_dates_index()[0].date(), cls.active_dates_index()[-1].date())
-            biz_map = {day_type.name: day_type.id for day_type in fetch(DayType)}
+            biz_map = {day_type.name: day_type.id for day_type in data_source.fetch(DayType)}
 
             cls._time_slice_elements = {}
-            for ti in cfg.time_slice_col:
-                if ti == 'day_type_id':
-                    cls._time_slice_elements['day_type_id'] = np.array([biz_map['workday']
-                                                                       if s.date() in business_days
-                                                                       else biz_map['non-workday']
-                                                                       for s in cls.active_dates_index()], dtype=int)
+            for ti in cls.TIME_SLICE_COLS:
+                if ti == 'day_type':
+                    cls._time_slice_elements['day_type'] = np.array([biz_map['workday']
+                                                                    if s.date() in business_days
+                                                                    else biz_map['non-workday']
+                                                                    for s in cls.active_dates_index()], dtype=int)
                 else:
                     cls._time_slice_elements[ti] = getattr(cls.active_dates_index(), ti)
             cls._time_slice_elements['hour24'] = cls._time_slice_elements['hour'] + 1
             return cls._time_slice_elements
 
     def create_empty_shape_data(self):
-        self._active_time_keys = [ind for ind in self.raw_values.index.names if ind in cfg.time_slice_col]
+        self._active_time_keys = [ind for ind in self.raw_values.index.names if ind in self.TIME_SLICE_COLS]
         self._active_time_dict = dict(
-            [(ind, loc) for loc, ind in enumerate(self.raw_values.index.names) if ind in cfg.time_slice_col])
+            [(ind, loc) for loc, ind in enumerate(self.raw_values.index.names) if ind in self.TIME_SLICE_COLS])
 
         self._non_time_keys = [ind for ind in self.raw_values.index.names if ind not in self._active_time_keys]
         self._non_time_dict = dict(
@@ -393,6 +462,19 @@ class Shape(DataMapper, Base):
                           native,
                           advance * percent_flexible + native * (1 - percent_flexible)], keys=[1, 2, 3],
                          names=['timeshift_type'])
+
+
+class ShapeUser(object):
+    """
+    This is a mixin that allows an object with a shape_id to access its shape via the caching mechanisms
+    built into Shape. A class that mixes in ShapeUser should not define its own shape property/relationship/method/etc.
+    """
+
+    @property
+    def shape(self):
+        if self.shape_id is None:
+            return None
+        return Shape.get(self.shape_id)
 
 
 class ShapesDatum(Base):

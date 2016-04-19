@@ -1,7 +1,7 @@
 __author__ = 'Ben Haley & Ryan Jones'
 
 import config as cfg
-from shape import shapes, Shape
+from data_models.misc import Shape, ShapeUser
 
 import numpy as np
 import pandas as pd
@@ -55,7 +55,7 @@ class Demand(object):
                 subsector.add_energy_system_data()
         self.precursor_dict()
 
-        self.default_electricity_shape = shapes.data[cfg.electricity_energy_type_shape_id]
+        self.default_electricity_shape = Shape.get(cfg.electricity_energy_type_shape_id)
 
     def aggregate_electricity_shapes(self, year):
         """ Final levels that will always return from this function
@@ -68,7 +68,7 @@ class Demand(object):
 
     # TODO: this is a stub. I don't know what it's for but Ryan requests that I not remove it.
     def create_electricity_reconsilliation(self):
-        weather_years = np.unique(shapes.active_dates_index.year)
+        weather_years = np.unique(Shape.localized_active_dates_index().year)
 
         #energy = group_output(self, output_type, levels_to_keep=['year', 'energy_type'])
         #electric_energy = util.df_slice(energy, cfg.electricity_energy_type_id, 'energy_type')
@@ -271,7 +271,7 @@ class Demand(object):
                     subsector.calculate(self.service_precursors[subsector.id], self.stock_precursors[subsector.id])
 
 
-class Sector(object):
+class Sector(ShapeUser):
     def __init__(self, id, drivers,**kwargs):
         self.drivers = drivers
         self.id = id
@@ -279,9 +279,6 @@ class Sector(object):
         for col, att in util.object_att_from_table('DemandSectors', id):
             setattr(self, col, att)
         self.outputs = Output()
-        if self.shape_id is not None:
-            self.shape = shapes.data[self.shape_id]
-            shapes.activate_shape(self.shape_id)
         
         feeder_allocation_class = dispatch_classes.DispatchFeederAllocation(1)
         # FIXME: This next line will fail if we don't have a feeder allocation for each demand_sector
@@ -340,7 +337,7 @@ class Sector(object):
         
         if default_shape is None and self.shape_id is None:
             raise ValueError('Electricity shape cannot be aggregated without an active shape in sector ' + self.name)
-        active_shape = self.shape if hasattr(self, 'shape') else default_shape
+        active_shape = default_shape if self.shape is None else self.shape
         
         feeder_allocation = util.df_slice(self.feeder_allocation, year, 'year')
         default_max_lead_hours = self.max_lead_hours
@@ -351,7 +348,7 @@ class Sector(object):
                                 expandable=False, collapsible=False)
 
 
-class Subsector(DataMapFunctions):
+class Subsector(ShapeUser, DataMapFunctions):
     def __init__(self, id, drivers, stock, service_demand, energy_demand,
                  service_efficiency, sector_id, **kwargs):
         self.id = id
@@ -367,9 +364,6 @@ class Subsector(DataMapFunctions):
         
         self.outputs = Output()
         self.calculated = False
-        if self.shape_id is not None:
-            self.shape = shapes.data[self.shape_id]
-            shapes.activate_shape(self.shape_id)
 
     def aggregate_electricity_shapes(self, year, default_shape=None, default_feeder_allocation=None, default_max_lead_hours=None, default_max_lag_hours=None):
         """ Final levels that will always return from this function
@@ -378,7 +372,7 @@ class Subsector(DataMapFunctions):
         
         if default_shape is None and self.shape_id is None:
             raise ValueError('Electricity shape cannot be aggregated without an active shape in subsector ' + self.name)
-        active_shape = self.shape if hasattr(self, 'shape') else default_shape
+        active_shape = default_shape if self.shape is None else self.shape
         active_feeder_allocation = default_feeder_allocation
         active_max_lead_hours = self.max_lead_hours if self.max_lead_hours is not None else default_max_lead_hours
         active_max_lag_hours = self.max_lag_hours if self.max_lag_hours is not None else default_max_lag_hours

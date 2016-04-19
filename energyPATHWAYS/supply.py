@@ -1,7 +1,6 @@
 __author__ = 'Ben Haley & Ryan Jones'
 
 import config as cfg
-from shape import shapes
 import util
 import pandas as pd
 import numpy as np
@@ -19,7 +18,7 @@ from solve_io import solve_IO, inv_IO
 from dispatch_classes import Dispatch, DispatchFeederAllocation
 import inspect
 import operator
-from shape import shapes, Shape
+from data_models.misc import Shape, ShapeUser
 from collections import defaultdict
 
 # noinspection PyAttributeOutsideInit
@@ -492,7 +491,7 @@ class Supply(object):
                         capacity = lookup[node_id][geography][zone][feeder]['capacity']
                         energy = lookup[node_id][geography][zone][feeder]['energy']
                         dispatch_window = self.dispatch.dispatch_window_dict[self.dispatch.node_config_dict[node_id].dispatch_window_id]
-                        dispatch_periods = getattr(shapes.active_dates_index, dispatch_window)
+                        dispatch_periods = getattr(Shape.localized_active_dates_index(), dispatch_window)
                         num_years = len(dispatch_periods)/8766.
                         if load:
                             energy = copy.deepcopy(energy) *-1
@@ -547,7 +546,7 @@ class Supply(object):
 
     def prepare_optimization_inputs(self,year):
         print "preparing optimization inputs"
-        self.dispatch.set_timeperiods(shapes.active_dates_index)
+        self.dispatch.set_timeperiods(Shape.localized_active_dates_index())
         self.dispatch.set_losses(self.distribution_losses)
         self.set_net_load_thresholds(year)
         self.dispatch.set_opt_loads(self.distribution_load,self.distribution_gen,self.bulk_load,self.bulk_gen)
@@ -1837,7 +1836,7 @@ class Supply(object):
             
 
         
-class Node(DataMapFunctions):
+class Node(ShapeUser, DataMapFunctions):
     def __init__(self, id, supply_type, **kwargs):
         self.id = id    
         self.supply_type = supply_type
@@ -1853,10 +1852,6 @@ class Node(DataMapFunctions):
             self.tradable_geography = self.geography
         else:
             self.enforce_tradable_geography = True
-        
-        if self.shape_id is not None:
-            self.shape = shapes.data[self.shape_id]
-            shapes.activate_shape(self.shape_id)
 
     def add_conversion(self):
         """
@@ -1887,8 +1882,8 @@ class Node(DataMapFunctions):
         else:
             stock_values_energy = self.stock.values_energy[year]
         if self.shape_id is None:
-            index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],[2],shapes.active_dates_index], names=[self.geography,'timeshift_type','weather_datetime'])
-            energy_shape = util.empty_df(fill_value=1/float(len(shapes.active_dates_index)),index=index, columns=['value'])
+            index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],[2],Shape.localized_active_dates_index()], names=[self.geography,'timeshift_type','weather_datetime'])
+            energy_shape = util.empty_df(fill_value=1/float(len(Shape.localized_active_dates_index())),index=index, columns=['value'])
         # we don't have technologies or none of the technologies have specific shapes
         elif not hasattr(self, 'technologies') or np.all([tech.shape_id is None for tech in self.technologies.values()]):
             if 'resource_bins' in self.shape.values.index.names and 'resource_bins' not in self.stock.stock.values.index.names:
