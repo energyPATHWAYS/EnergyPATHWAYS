@@ -4240,7 +4240,6 @@ class SupplyStockNode(Node):
             if loop == 1 or loop == 'initial':    
                 if year == int(cfg.cfgfile.get('case','current_year')) and loop == 1:
                     self.rollover_dict[elements].rewind(1)
-                    self.stock.capacity_factor.loc[:, year] = self.rollover_output(tech_class='capacity_factor',stock_att='ones',year=year)
                 self.stock.remaining.loc[element_indexer, year] = self.rollover_dict[elements].return_formatted_stock(year_offset=1)
             else:
                 self.rollover_dict[elements].rewind(1)
