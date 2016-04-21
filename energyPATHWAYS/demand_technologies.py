@@ -230,9 +230,9 @@ class DemandTechCost(Abstract):
         if self.demand_tech_unit_type == 'service demand':
             if self.tech_time_unit is None:
                 self.time_unit = 'year'
-            self.values = util.unit_convert(self.raw_values, unit_from_num=self.unit,
-                                            unit_from_den=self.tech_time_unit,
-                                            unit_to_num=self.service_demand_unit, unit_to_den=self.stock_time_unit)
+            self.values = util.unit_convert(self.raw_values, unit_from_num=self.tech_time_unit,
+                                            unit_from_den=self.unit,
+                                            unit_to_num=self.stock_time_unit, unit_to_den=self.service_demand_unit)
         else:
             self.values = copy.deepcopy(self.raw_values)
         if self.definition == 'absolute':

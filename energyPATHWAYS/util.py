@@ -1276,5 +1276,4 @@ def sum_chunk_vintage(x, chunk_size, axis=-1):
     residual_shape = shape[:axis] + (1,) + shape[axis+1:]
     shape = shape[:axis] + ((shape[axis]-1)/chunk_size, chunk_size) + shape[axis+1:]
     
-    return np.concatenate((x[residual_index].reshape(residual_shape), np.sum(x[slice_index].reshape(shape), axis=axis+1)), axis=axis)
-
+    return np.concatenate((x[residual_index].reshape(residual_shape), np.mean(x[slice_index].reshape(shape), axis=axis+1)), axis=axis)

@@ -400,6 +400,15 @@ class Supply(object):
         print "calculating supply energy link"
         self.energy_demand_link = self.map_embodied_to_demand(self.inverse_dict['energy'],self.embodied_energy_link_dict)
         self.remove_blend_and_import()
+        self.outputs.per_energy_costs = self.cost_demand_link
+        unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')+ "/" + cfg.cfgfile.get('case','energy_unit')      
+        self.outputs.per_energy_costs.columns  = [unit]
+        self.outputs.per_energy_emissions = self.emissions_demand_link
+        unit = cfg.cfgfile.get('case','mass_unit') + "/" + cfg.cfgfile.get('case','energy_unit')      
+        self.outputs.per_energy_emissions.columns  = [unit]
+        self.outputs.per_energy_embodied = self.energy_demand_link
+        unit = cfg.cfgfile.get('case','energy_unit') + "/" + cfg.cfgfile.get('case','energy_unit')      
+        self.outputs.per_energy_embodied.columns  = [unit]  
         print "calculate exported costs"
         self.calculate_export_result('export_costs', self.cost_dict)
         print "calculate exported emissions"
@@ -456,7 +465,11 @@ class Supply(object):
                 idx = pd.IndexSlice
                 df = df.loc[idx[:, :, self.years,:],:]
                 emissions_rate_indexer = util.level_specific_indexer(self.demand_emissions_rates,['final_energy'],[final_energy])
-                self.demand_emissions_rates.loc[emissions_rate_indexer,:] += df.values
+                try:
+                    self.demand_emissions_rates.loc[emissions_rate_indexer,:] += df.values
+                except:
+                    print node.id
+                    print df.values
                     
     def set_dispatchability(self):
         """Determines the dispatchability of electricity generation nodes and nodes that demand electricity
@@ -656,7 +669,7 @@ class Supply(object):
         indexer = util.level_specific_indexer(self.dispatch_feeder_allocation.values, 'year', year)
         a = util.DfOper.mult([coefficients, self.dispatch_feeder_allocation.values.loc[indexer,:], distribution_grid_node.active_supply])     
         b = util.DfOper.mult([self.dispatch_feeder_allocation.values.loc[indexer,:], distribution_grid_node.active_supply])
-        self.distribution_losses = util.DfOper.divi([util.remove_df_levels(a,'demand_sector'),util.remove_df_levels(b,'demand_sector')])
+        self.distribution_losses = util.DfOper.divi([util.remove_df_levels(a,'demand_sector'),util.remove_df_levels(b,'demand_sector')]).fillna(1)
         geography_map_key = distribution_grid_node.geography_map_key if hasattr(distribution_grid_node, 'geography_map_key') and distribution_grid_node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')       
         if self.dispatch_geography != self.geography:               
             map_df = cfg.geo.map_df(self.geography,self.dispatch_geography,geography_map_key,eliminate_zeros=False)             
@@ -723,7 +736,7 @@ class Supply(object):
                             indexer = util.level_specific_indexer(energy_demand, [self.dispatch_geography, 'supply_node', 'dispatch_feeder'],[geography,zone,dispatch_feeder])
                             self.flexible_load[node.id][geography][zone][dispatch_feeder]['energy']= util.remove_df_levels(energy_demand.loc[indexer,:],[self.dispatch_geography,'dispatch_feeder'])
                             indexer = util.level_specific_indexer(capacity, [self.dispatch_geography, 'supply_node', 'dispatch_feeder'],[geography,zone,dispatch_feeder])
-                            self.flexible_load[node.id][geography][zone][dispatch_feeder]['capacity']= util.remove_df_elements(capacity.loc[indexer,:],[self.dispatch_geography,'dispatch_feeder'])
+                            self.flexible_load[node.id][geography][zone][dispatch_feeder]['capacity']= util.remove_df_levels(capacity.loc[indexer,:],[self.dispatch_geography,'dispatch_feeder'])
                 else:
                     for geography in self.dispatch_geographies:
                         #feeder is set to 0 for flexible load not on the distribution system
@@ -2118,9 +2131,9 @@ class Node(DataMapFunctions):
         elif not hasattr(self, 'technologies') or np.all([tech.shape_id is None for tech in self.technologies.values()]):
             if 'resource_bins' in self.shape.values.index.names and 'resource_bins' not in self.stock.stock.values.index.names:
                 raise ValueError('Shape for %s has resource bins but the stock in this supply node does not have resource bins as a level' %self.name) 
-            elif 'resource_bins' in self.stock.values.index.names and 'resource_bins' not in self.shape.index.names:  
+            elif 'resource_bins' in self.stock.values.index.names and 'resource_bins' not in self.shape.values.index.names:  
                 energy_shape = self.shape.values
-            elif 'resource_bins' in self.stock.values.index.names and 'resource_bins' in self.shape.index.names:   
+            elif 'resource_bins' in self.stock.values.index.names and 'resource_bins' in self.shape.values.index.names:   
 
                 energy_slice = util.remove_df_levels(stock_values_energy, ['vintage', 'supply_technology']).to_frame()
                 energy_slice.columns = ['value']
@@ -3285,7 +3298,7 @@ class SupplyNode(Node,StockItem):
                         self.levelized_costs.loc[:,year]  += (util.df_slice(cost.values,year,'vintage') *(1-cost.throughput_correlation))['value']
                         self.levelized_costs.loc[:,year]  +=  (util.df_slice(cost.values,year,'vintage') * (cost.throughput_correlation))['value']
 #        total_stock = util.remove_df_levels(self.stock.values_energy.loc[:,year].to_frame(),'vintage')
-        self.embodied_cost.loc[:,year] = DfOper.divi([self.levelized_costs[year].to_frame(), self.active_supply],expandable=(False,False)).replace([np.inf,np.nan,-np.nan],[0,0,0])        
+        self.embodied_cost.loc[:,year] = util.DfOper.divi([self.levelized_costs[year].to_frame(), self.active_supply],expandable=(False,False)).replace([np.inf,np.nan,-np.nan],[0,0,0])        
         self.active_embodied_cost = util.expand_multi(self.embodied_cost[year].to_frame(), levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])
 
     def calculate_annual_costs(self,year):
@@ -3300,25 +3313,28 @@ class SupplyNode(Node,StockItem):
                         sales_values = self.stock.sales.loc[indexer,:]
                         indexer = util.level_specific_indexer(self.stock.sales,'vintage',start_year)
                         initial_sales_values = util.remove_df_levels(self.stock.sales.loc[indexer,:],'vintage')
-                        stock_values = self.stock.values.groupby(level= self.rollover_group_names+['vintage']).sum()
+                        stock_values = self.stock.values.groupby(level= self.rollover_group_names).sum()
+                        stock_values = self.stock.values.groupby(level= self.rollover_group_names).sum()
+                        initial_stock_values = stock_values[start_year].to_frame()
+                        initial_stock_values.columns = [year]
                     elif cost.capacity is False:
                         indexer = util.level_specific_indexer(self.stock.sales_energy,'vintage',year)    
                         sales_values = self.stock.sales_energy.loc[indexer,:]
                         indexer = util.level_specific_indexer(self.stock.sales,'vintage',start_year)
                         initial_sales_values = util.remove_df_levels(self.stock.sales_energy.loc[indexer,:],'vintage')
                         stock_values = self.stock.values_energy.groupby(level= self.rollover_group_names).sum()
-                    if cost.supply_cost_type == 'tariff' or cost.supply_cost_type == 'investment':     
                         initial_stock_values = stock_values[start_year].to_frame()
                         initial_stock_values.columns = [year]
+                    if cost.supply_cost_type == 'tariff' or cost.supply_cost_type == 'investment':     
                         indexer = util.level_specific_indexer(cost.values,'vintage',year)
                         cost_values = cost.values.loc[indexer,:]
-                        cost_values_level = cost.values_level.loc[:,year].to_frame()  
+                        cost_values_level = cost.values_level_no_vintage.loc[:,year].to_frame()  
                     elif cost.supply_cost_type == 'revenue requirement':
                         indexer = util.level_specific_indexer(cost.values,'vintage',start_year)
                         cost_values = cost.values.loc[indexer,:]
-                        cost_values_level = cost.values_level.loc[:,start_year].to_frame()
-                        cost_values_level = DfOper.divi([cost_values, initial_stock_values])
-                        cost_values = DfOper.divi([cost_values, initial_sales_values])
+                        cost_values_level = cost.values_level_no_vintage.loc[:,start_year].to_frame()
+                        cost_values_level = DfOper.divi([cost_values, initial_stock_values]).replace([np.nan,np.inf],[0,0])
+                        cost_values = DfOper.divi([cost_values, initial_sales_values]).replace([np.nan,np.inf],[0,0])
                     indexer = util.level_specific_indexer(self.annual_costs,'vintage',year) 
                     if cost.is_capital_cost:
                         self.annual_costs.loc[indexer,:] += (DfOper.mult([cost_values,initial_sales_values],non_expandable_levels=None)*(1-cost.throughput_correlation)).values
@@ -3326,7 +3342,7 @@ class SupplyNode(Node,StockItem):
                     else:
                         self.annual_costs.loc[indexer,:] +=  (DfOper.mult([cost_values_level,initial_stock_values],non_expandable_levels=None)*(1-cost.throughput_correlation)).values            
                         self.annual_costs.loc[indexer,:] += (DfOper.mult([cost_values_level,stock_values],non_expandable_levels=None)*(cost.throughput_correlation)).values
-    
+
     def calculate_capacity_utilization(self, energy_supply, supply_years):
         full_capacity_stock = self.stock.values[supply_years] * util.unit_conversion(unit_from_den=cfg.cfgfile.get('case','time_step'), unit_to_den='year')[0]
         self.capacity_utilization = util.DfOper.divi([energy_supply,full_capacity_stock],expandable=False).replace([np.inf,np.nan,-np.nan],[0,0,0])                       
@@ -3904,8 +3920,10 @@ class SupplyStockNode(Node):
                                                     space_for_reference=space_for_reference)                
         # return SalesShare.normalize_array(ss_reference+ss_measure, retiring_must_have_replacement=True)
         # todo make retiring_must_have_replacement true after all data has been put in db
-        return SalesShare.normalize_array(ss_reference + ss_measure, retiring_must_have_replacement=False)
-        
+        if np.sum(SalesShare.normalize_array(ss_reference + ss_measure, retiring_must_have_replacement=False))>0:                        
+            return SalesShare.normalize_array(ss_reference + ss_measure, retiring_must_have_replacement=False)
+        else:
+            return np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1))        
         
     def calculate_total_sales(self,elements,levels):
         s_measure = self.helper_calc_sales(elements, levels, reference=False)
@@ -3937,7 +3955,7 @@ class SupplyStockNode(Node):
                     if any([element not in sales.values.index.levels[
                         util.position_in_index(sales.values, level)] for element, level in
                             zip(elements, levels)]):
-                        continue          
+                        continue     
                     ss_array[:, repl_index] = util.df_slice(sales.values, elements, levels).values.T[0]
         else:
             for tech_id in self.tech_ids:
@@ -3963,19 +3981,21 @@ class SupplyStockNode(Node):
         if reference:
             for tech_id in self.tech_ids:
                 for sales_share in self.technologies[tech_id].reference_sales_shares.values():
+                    if set(sales_share.values.index.names).issubset(self.stock.sales_share_reconcile.index.names) and set(sales_share.values.index.names)!=set(self.stock.sales_share_reconcile.index.names):
+                        sales_share.values = DfOper.mult([sales_share.values,self.stock.sales_share_reconcile],non_expandable_levels=None)
                     repl_index = tech_lookup[tech_id]
                     reti_index = slice(None)
                     # technology sales share dataframe may not have all elements of stock dataframe
-                    sales_share.values.index.levels
-                    if any([element not in sales_share.values.index.levels[
-                        util.position_in_index(sales_share.values, level)] for element, level in
-                            zip(elements, levels)]):
-                        continue
-                    ss_array[:, repl_index, reti_index] += util.df_slice(sales_share.values, elements, levels)
+                    ss_array[:, repl_index, reti_index] += util.df_slice(sales_share.values, elements,
+                                                                             levels).values
+
             ss_array = SalesShare.scale_reference_array_to_gap(ss_array, space_for_reference)
         else:
             for tech_id in self.tech_ids:
                 for sales_share in self.technologies[tech_id].sales_shares.values():
+                    if set(sales_share.values.index.names).issubset(self.stock.sales.index.names) and set(sales_share.values.index.names)!=set(self.stock.sales.index.names):
+                        sales_share.values = DfOper.mult([sales_share.values,self.stock.sales_ones],non_expandable_levels=None)
+                    repl_index = tech_lookup[tech_id]
                     repl_index = tech_lookup[sales_share.demand_tech_id]
                     reti_index = tech_lookup[
                         sales_share.replaced_supply_technology_id] if sales_share.replaced_supply_technology_id is not None and tech_lookup.has_key(
@@ -4042,6 +4062,8 @@ class SupplyStockNode(Node):
             initial_total = util.df_slice(self.stock.total_initial, elements, self.stock.rollover_group_names).values[0]
             initial_stock = Stock.calc_initial_shares(initial_total=initial_total, transition_matrix=sales_share[0],
                                                   num_years=len(self.years))
+
+                
             if np.any(np.isnan(initial_stock)):
                 initial_stock=None
 
@@ -4077,11 +4099,15 @@ class SupplyStockNode(Node):
         if min(self.years) == int(cfg.cfgfile.get('case', 'current_year')):
             for elements in self.rollover_groups.keys():    
                 elements = util.ensure_tuple(elements)
-                sales_share = self.calculate_total_sales_share(elements,
-                                                           self.stock.rollover_group_names)  # group is not necessarily the same for this other dataframe
+                sales_share = self.calculate_total_sales_share(elements,self.stock.rollover_group_names)  # group is not necessarily the same for this other dataframe
                 if np.any(np.isnan(sales_share)):
                     raise ValueError('Sales share has NaN values in node ' + str(self.id))
-                initial_stock = Stock.calc_initial_shares(initial_total=self.stock.requirement.loc[elements, year].values, transition_matrix=sales_share[0],
+                if len(self.stock.requirement.index.names)>1:
+                    initial_total = self.stock.requirement.loc[elements, year]
+                else:
+                    initial_total = self.stock.requirement.loc[elements, year].values
+                     
+                initial_stock = Stock.calc_initial_shares(initial_total=initial_total, transition_matrix=sales_share[0],
                                                   num_years=len(self.years))
                 self.rollover_dict[elements].initial_stock = initial_stock                     
         for elements in self.rollover_groups.keys():    
@@ -4134,7 +4160,7 @@ class SupplyStockNode(Node):
         self.stock.ones = util.empty_df(index=index, columns=pd.Index(columns, dtype='object'), fill_value=1.0)
         self.stock.capacity_factor = util.empty_df(index=index, columns=pd.Index(columns, dtype='object'), fill_value=1.0)
         for year in self.years:
-            self.stock.capacity_factor.loc[:,year] = self.rollover_output(tech_class='capacity_factor',stock_att='ones',year=year)
+            self.stock.capacity_factor.loc[:,year] = self.rollover_output(tech_class='capacity_factor',stock_att='ones',year=year, non_expandable_levels=None,fill_value=1.0)
         self.stock.remaining = util.empty_df(index=index, columns=pd.Index(columns, dtype='object'))
         self.stock.dispatch_cap = util.empty_df(index=index, columns=pd.Index(columns, dtype='object'))
         self.stock.preview = util.empty_df(index=index, columns=pd.Index(columns, dtype='object'))
@@ -4145,6 +4171,7 @@ class SupplyStockNode(Node):
         self.stock.values_financial_new = copy.deepcopy(self.stock.values)
         self.stock.values_financial_replacement = copy.deepcopy(self.stock.values)
         full_levels = self.stock.rollover_group_levels + [self.technologies.keys()] + [self.vintages]
+        full_names = self.stock.rollover_group_names + ['supply_technology', 'vintage']        
         index = pd.MultiIndex.from_product(full_levels, names=full_names)
         self.stock.retirements = util.empty_df(index=index, columns=['value'])
         self.stock.retirements_early = copy.deepcopy(self.stock.retirements)
@@ -4152,8 +4179,12 @@ class SupplyStockNode(Node):
         self.stock.sales = util.empty_df(index=index, columns=['value'])
         self.stock.sales_new = copy.deepcopy(self.stock.sales)
         self.stock.sales_replacement = copy.deepcopy(self.stock.sales)      
+        full_levels = self.stock.rollover_group_levels + [self.vintages]
+        full_names = self.stock.rollover_group_names +  ['vintage']        
+        index = pd.MultiIndex.from_product(full_levels, names=full_names)      
+        self.stock.sales_share_reconcile =  util.empty_df(index=index, columns=['value'],fill_value=1.0)
 
-        
+   
     def update_stock(self, year, loop):
         """updates the stock in the IO loop"""
         if self.thermal_dispatch_node:
@@ -4404,7 +4435,14 @@ class SupplyStockNode(Node):
         indexer = util.level_specific_indexer(self.stock.capital_cost_new_annual,'vintage', year)
         self.stock.capital_cost_new_annual.loc[indexer,:] = self.rollover_output(tech_class='capital_cost_new', tech_att= 'values', stock_att='sales_new',year=year)
         self.stock.capital_cost_replacement_annual.loc[indexer,:] = self.rollover_output(tech_class='capital_cost_replacement', tech_att= 'values', stock_att='sales_replacement',year=year)
-        self.stock.installation_cost_new_annual.loc[indexer,:] = self.rollover_output(tech_class='installation_cost_new', tech_att= 'values', stock_att='sales_new',year=year)
+        try:
+            self.stock.installation_cost_new_annual.loc[indexer,:] = self.rollover_output(tech_class='installation_cost_new', tech_att= 'values', stock_att='sales_new',year=year)
+        except:
+            print self.id
+            print self.rollover_output(tech_class='installation_cost_new', tech_att= 'values', stock_att='sales_new',year=year)
+            print self.stock.installation_cost_new_annual.loc[indexer,:]
+            print self.indexer
+            asas
         self.stock.installation_cost_replacement_annual.loc[indexer,:] = self.rollover_output(tech_class='installation_cost_new', tech_att= 'values', stock_att='sales_new',year=year)
         #in the last year of the analysis, these need to be concatenated together for output        
         
@@ -4475,6 +4513,8 @@ class SupplyStockNode(Node):
             self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([cfg.cfgfile.get('case','primary_geography'),'demand_sector', 'supply_node']).sort().fillna(0)      
         else:            
             self.active_coefficients = util.remove_df_levels(self.stock.coefficients.loc[:,year].to_frame().fillna(0),['supply_technology', 'vintage','resource_bins'])              
+            self.active_coefficients_untraded = copy.deepcopy(self.active_coefficients)
+            self.active_coefficients_untraded.sort(inplace=True,axis=0)         
             self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([cfg.cfgfile.get('case','primary_geography'),'demand_sector', 'supply_node']).sort().fillna(0)            
         self.active_coefficients_total = DfOper.mult([self.active_coefficients_total_untraded,self.active_trade_adjustment_df]).fillna(0)
         nodes = list(set(self.active_trade_adjustment_df.index.get_level_values('supply_node')))
@@ -4519,7 +4559,7 @@ class SupplyStockNode(Node):
         self.capacity_utilization = util.DfOper.divi([energy_supply,full_capacity_stock],expandable=False).replace([np.inf,np.nan,-np.nan],[0,0,0]) 
 
         
-    def rollover_output(self, tech_class=None, tech_att='values', stock_att=None, year=None, non_expandable_levels=('year', 'vintage')):
+    def rollover_output(self, tech_class=None, tech_att='values', stock_att=None, year=None, non_expandable_levels=('year', 'vintage'),fill_value=0.0):
         """ Produces rollover outputs for a node stock based on the tech_att class, att of the class, and the attribute of the stock
         """
         stock_df = getattr(self.stock, stock_att)     
@@ -4540,24 +4580,28 @@ class SupplyStockNode(Node):
                 stock_vintage_indexer = util.level_specific_indexer(stock_df,'vintage', year)
                 tech_vintage_indexer = util.level_specific_indexer(tech_df, 'vintage', year)
                 result_df = DfOper.mult((stock_df.loc[stock_vintage_indexer,:], tech_df.loc[tech_vintage_indexer,:]), expandable=(True, True), collapsible=(True, False), non_expandable_levels=non_expandable_levels)
+                #TODO shouldn't be necessary
+                result_vintage_indexer = util.level_specific_indexer(result_df, 'vintage', year)
+                result_df = result_df.loc[result_vintage_indexer,:]
             return result_df
         else:  
             if year in stock_df.columns.values:
-                return stock_df.loc[:,year].to_frame() * 0  
+                stock_df.loc[:,year] = fill_value  
+                return stock_df.loc[:,year].to_frame()
             else:
                 vintage_indexer = util.level_specific_indexer(stock_df,'vintage', year)
-                return stock_df.loc[vintage_indexer,:] * 0 
+                stock_df.loc[vintage_indexer,:] = fill_value
+                return stock_df.loc[vintage_indexer,:]
   
 
     def reformat_tech_df(self, stock_df, tech, tech_class, tech_att, tech_id, year):
         """
-        reformat technoology dataframes for use in stock-level dataframe operations
+        reformat technology dataframes for use in stock-level dataframe operations
         """
         if tech_class is None:
             tech_df = getattr(tech, tech_att)
         else:
-            tech_df = getattr(getattr(tech, tech_class), tech_att) 
-        
+            tech_df = getattr(getattr(tech, tech_class), tech_att)         
         if 'supply_technology' not in tech_df.index.names:
             tech_df['supply_technology'] = tech_id
             tech_df.set_index('supply_technology', append=True, inplace=True)  

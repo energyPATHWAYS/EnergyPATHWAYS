@@ -50,6 +50,7 @@ for row in GeographiesSpatialJoin.iterrows():
     # iterate down the columns in each row
     for col in row[1].iteritems():
         if col[0] in gau_columns:
+            print GeographiesDataDict[col]
             GeographyIntersectionData.append([intersection_id, GeographiesDataDict[col]])
         elif col[0] in map_key_columns:
             GeographyMap.append([intersection_id, MapKeysDict[col[0]], col[1]])

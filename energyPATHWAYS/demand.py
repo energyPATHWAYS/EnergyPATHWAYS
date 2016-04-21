@@ -80,27 +80,28 @@ class Demand(object):
 
     def group_linked_output(self, supply_link, levels_to_keep=None):
         levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep
-#        levels_to_keep = ['census region', 'sector', 'subsector', 'final_energy', 'year', 'technology']
-#        year_df_list = []
+    #        levels_to_keep = ['census region', 'sector', 'subsector', 'final_energy', 'year', 'technology']
+    #        year_df_list = []
         levels_to_keep = [x for x in levels_to_keep if x in self.outputs.energy.index.names]
         demand_df = self.outputs.energy.groupby(level=levels_to_keep).sum()
-#        years =  list(set(supply_link.index.get_level_values('year')))
-#        for year in years:
-#            print year
+    #        years =  list(set(supply_link.index.get_level_values('year')))
+    #        for year in years:
+    #            print year
         geography_df_list = []
         for geography in self.geographies:
-            supply_indexer = util.level_specific_indexer(supply_link,[self.geography],[geography])
-            demand_indexer = util.level_specific_indexer(demand_df,[self.geography],[geography])
-#            levels = [x for x in ['supply_node', self.geography + "_supply",'final_energy'] if x in supply_link.index.names]
-            supply_df = supply_link.loc[supply_indexer,:]           
-#            if len(levels):            
-#                supply_df = supply_df.groupby(level=levels).filter(lambda x: x.sum()!=0)
-            geography_df =  DfOper.mult([demand_df.loc[demand_indexer,:],supply_df])
-#                names = geography_df.index.names
-#                geography_df = geography_df.reset_index().dropna().set_index(names)
-            geography_df_list.append(geography_df)
-#            year_df = pd.concat(geography_df_list)
-#            year_df_list.append(year_df)
+            if geography in supply_link.index.get_level_values(self.geography):
+                supply_indexer = util.level_specific_indexer(supply_link,[self.geography],[geography])
+                demand_indexer = util.level_specific_indexer(demand_df,[self.geography],[geography])
+    #            levels = [x for x in ['supply_node', self.geography + "_supply",'final_energy'] if x in supply_link.index.names]
+                supply_df = supply_link.loc[supply_indexer,:]           
+    #            if len(levels):            
+    #                supply_df = supply_df.groupby(level=levels).filter(lambda x: x.sum()!=0)
+                geography_df =  util.DfOper.mult([demand_df.loc[demand_indexer,:],supply_df])
+    #                names = geography_df.index.names
+    #                geography_df = geography_df.reset_index().dropna().set_index(names)
+                geography_df_list.append(geography_df)
+    #            year_df = pd.concat(geography_df_list)
+    #            year_df_list.append(year_df)
         df = pd.concat(geography_df_list)      
         return df
         
@@ -548,6 +549,7 @@ class Subsector(DataMapFunctions):
         levels_to_eleminate = [l for l in self.service_demand.values.index.names if l not in levels_to_keep]
         df = util.remove_df_levels(self.service_demand.values, levels_to_eleminate).sort()
         df = util.add_and_set_index(df, 'unit', self.service_demand.unit.upper(), index_location=-2)
+        df.columns = ['value']       
         return df
 
     def format_output_stock(self, override_levels_to_keep=None):
@@ -562,6 +564,7 @@ class Subsector(DataMapFunctions):
         util.replace_index_name(df, 'year')
         index_location = -3 if ('year' in levels_to_keep and 'vintage' in levels_to_keep) else -2
         df = util.add_and_set_index(df, 'unit', self.stock.unit.upper(), index_location)
+        df.columns = ['value']
         return df
         
     def format_output_measure_costs(self, att, override_levels_to_keep=None):
@@ -578,7 +581,8 @@ class Subsector(DataMapFunctions):
             keys = measure_types
             names = ['measure_types']
             df = pd.concat(df_list,keys=keys,names=names)
-            return df
+            unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
+            df.columns = [unit]
         else:
             return None
         
@@ -615,6 +619,10 @@ class Subsector(DataMapFunctions):
                 util.replace_index_name(value, 'year')
                 values[index] = value
         df = util.df_list_concatenate(values, keys=keys, new_names=['cost category', 'new/replacement'], levels_to_keep=override_levels_to_keep)
+        unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
+        df.columns = [unit]        
+        
+        
         return df
 
     def calculate_measures(self):
@@ -1565,8 +1573,8 @@ class Subsector(DataMapFunctions):
 
         if 'technology' in getattr(self.stock, map_from).index.names:
             self.stock.project(map_from=map_from, map_to='specified', current_geography=current_geography,
-                               additional_drivers=self.service_demand.values if service_dependent else None,
-                               fill_timeseries=True,interpolation_method=None,extrapolation_method=None, fill_value=np.nan)
+                               additional_drivers=self.service_demand.values if service_dependent else None, interpolation_method=None,extrapolation_method=None,
+                               fill_timeseries=True,fill_value=np.nan)
             # Here, we need fill timeseries backwards starting with the first specified stock using total stock as a driver
         else:
             full_names = self.stock.total.index.names + ['technology']
@@ -1603,7 +1611,7 @@ class Subsector(DataMapFunctions):
         for technology in self.technologies.values():
             if len(technology.specified_stocks):
                for specified_stock in technology.specified_stocks.values():
-                   specified_stock.remap(map_from='values', drivers=self.stock.total, fill_timeseries=False)
+                   specified_stock.remap(map_from='values', drivers=self.stock.total)
                    indexer = util.level_specific_indexer(self.stock.specified,'technology',technology.id)
                    df = util.remove_df_levels(self.stock.specified.loc[indexer,:],'technology')
                    df = df.combine_first(specified_stock.values)
@@ -1999,10 +2007,8 @@ class Subsector(DataMapFunctions):
         for elements in rollover_groups.keys():
             elements = util.ensure_tuple(elements)
             sales_share = self.calculate_total_sales_share(elements, levels)  # group is not necessarily the same for this other dataframe
-            self.sales_share = sales_share
             if np.any(np.isnan(sales_share)):
                 raise ValueError('Sales share has NaN values in subsector ' + str(self.id))
-
             initial_total = util.df_slice(self.stock.total, elements, levels).values[0]
             initial_stock = DemandStock.calc_initial_shares(initial_total=initial_total, transition_matrix=sales_share[0], num_years=len(self.years))
 

@@ -1,9 +1,9 @@
 id,name
-1,electricity interconnection
-2,state
-3,census division
-4,us
-5,census region
-6,gas producing regions
-7,time zones
-8,nerc region
+2,Electric Service Territory
+3,Gas Service Territory
+4,County
+5,State
+6,Building Climate Zone
+7,Forecast Climate Zone
+8,Timezones
+9,Total

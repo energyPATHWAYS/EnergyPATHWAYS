@@ -22,7 +22,7 @@ save_models = True
 #resolve the demand-side. A completed demand-side model must be saved.
 resolve_demand = False
 #resolve the supply-side. A completed supply-side model must be saved. 
-resolve_supply = False
+resolve_supply = True
 
 append_results = False
 ###########

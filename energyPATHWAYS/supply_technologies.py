@@ -368,10 +368,7 @@ class SupplyTechCapacityFactor(Abstract):
         if self.data and self.raw_values is not None:
             self.remap(time_index_name='vintage')
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
-        elif self.data is False:
-            index =  pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],self.vintages], names=[cfg.cfgfile.get('case', 'primary_geography'),'vintage'])
-            self.values = util.empty_df(index,columns=years,fill_value=1.0)    
-            self.data = True
+
  
 class SupplyTechCO2Capture(Abstract):
     def __init__(self, id, **kwargs):

@@ -19,19 +19,29 @@ from energyPATHWAYS import util
 import pandas as pd
 
 
-def solve_storage_and_flex_load_optimization(self,year):
-    self.prepare_optimization_inputs(year)
-    self.dispatch.run_optimization()
-    for geography in self.dispatch_geographies:
-        for feeder in self.dispatch_feeders:
-            load_indexer = util.level_specific_indexer(self.distribution_load, [self.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, 2])
-            self.distribution_load.loc[load_indexer,: ] += util.df_slice(self.dispatch.dist_storage_df,[geography, feeder, 'charge'], [self.dispatch_geography, 'dispatch_feeder', 'charge_discharge']).values
-            self.distribution_load.loc[load_indexer,: ] += util.df_slice(self.dispatch.flex_load_df,[geography, feeder], [self.dispatch_geography, 'dispatch_feeder']).values             
-            gen_indexer = util.level_specific_indexer(self.distribution_gen,[self.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, 2])
-            self.distribution_gen.loc[gen_indexer,: ] += util.df_slice(self.dispatch.dist_storage_df,[geography, feeder, 'discharge'], [self.dispatch_geography, 'dispatch_feeder', 'charge_discharge']).values
-    for geography in self.dispatch.geographies:       
-        load_indexer = util.level_specific_indexer(self.bulk_load, [self.dispatch_geography], [geography])
-        self.bulk_load.loc[load_indexer,: ] += util.df_slice(self.dispatch.bulk_storage_df,[geography,'charge'], [self.dispatch_geography, 'charge_discharge']).values
-        gen_indexer = util.level_specific_indexer(self.bulk_gen, [self.dispatch_geography], [geography])
-        self.bulk_gen.loc[gen_indexer,: ] += util.df_slice(self.dispatch.bulk_storage_df,[geography,'discharge'], [self.dispatch_geography, 'charge_discharge']).values    
-    self.update_net_load_signal()  
+def group_linked_output(self, supply_link, levels_to_keep=None):
+    levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep
+#        levels_to_keep = ['census region', 'sector', 'subsector', 'final_energy', 'year', 'technology']
+#        year_df_list = []
+    levels_to_keep = [x for x in levels_to_keep if x in self.outputs.energy.index.names]
+    demand_df = self.outputs.energy.groupby(level=levels_to_keep).sum()
+#        years =  list(set(supply_link.index.get_level_values('year')))
+#        for year in years:
+#            print year
+    geography_df_list = []
+    for geography in self.geographies:
+        if geography in supply_link.index.get_level_values(self.geography):
+            supply_indexer = util.level_specific_indexer(supply_link,[self.geography],[geography])
+            demand_indexer = util.level_specific_indexer(demand_df,[self.geography],[geography])
+#            levels = [x for x in ['supply_node', self.geography + "_supply",'final_energy'] if x in supply_link.index.names]
+            supply_df = supply_link.loc[supply_indexer,:]           
+#            if len(levels):            
+#                supply_df = supply_df.groupby(level=levels).filter(lambda x: x.sum()!=0)
+            geography_df =  util.DfOper.mult([demand_df.loc[demand_indexer,:],supply_df])
+#                names = geography_df.index.names
+#                geography_df = geography_df.reset_index().dropna().set_index(names)
+            geography_df_list.append(geography_df)
+#            year_df = pd.concat(geography_df_list)
+#            year_df_list.append(year_df)
+    df = pd.concat(geography_df_list)      
+    return df
