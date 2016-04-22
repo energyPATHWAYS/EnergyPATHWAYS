@@ -477,24 +477,10 @@ def remove_df_levels(data, levels, total_label=None, agg_function='sum'):
 
 def remove_df_elements(data, elements, level):
     if level in data.index.names:
-        return data.drop(put_in_list(elements), level=level)
+        elements_to_keep = list(set(data.index.get_level_values(level)) - set(put_in_list(elements)))
+        return reindex_df_level_with_new_elements(data, level, elements_to_keep)
     else:
         return data
-
-
-#def multindex_operation_list(df_list, operation, how='left', return_col_name='value', drop_indices=None):
-#    if not len(df_list):
-#        return None
-#
-#    if len(df_list) == 1:
-#        return df_list[0]
-#
-#    # multiply lists recursively
-#    a = df_list[0]
-#    for b in df_list[1:]:
-#        a = multindex_operation(a, b, operation, how=how, return_col_name=return_col_name, drop_indices=drop_indices)
-#    return a
-
 
 def level_specific_indexer(df, levels, elements, axis=0):
     elements, levels = ensure_iterable_and_not_string(elements), ensure_iterable_and_not_string(levels)
@@ -508,9 +494,11 @@ def level_specific_indexer(df, levels, elements, axis=0):
     indexer = [slice(None)] * len(names)
     for level, element in zip(levels, elements):
         if axis == 0:
-            indexer[df.index.names.index(level)] = ensure_iterable_and_not_string(element)
+#            indexer[df.index.names.index(level)] = ensure_iterable_and_not_string(element)
+            indexer[df.index.names.index(level)] = element
         if axis == 1:
-            indexer[df.columns.names.index(level)] = ensure_iterable_and_not_string(element) 
+#            indexer[df.columns.names.index(level)] = ensure_iterable_and_not_string(element) 
+            indexer[df.columns.names.index(level)] = element
     indexer = tuple(indexer)
     return indexer
 
@@ -1125,17 +1113,12 @@ class DfOper:
         merged_b_cols = [str(col) + "_b" if col in a_cols else col for col in b_cols]
 
         # Eliminate levels for one when the other is not expandable
-        new_a = a.groupby(level=common_names).sum() if (len(
-            names_a_not_in_b) > 0 and not b_can_expand) and a_can_collapse else a
-        new_b = b.groupby(level=common_names).sum() if (len(
-            names_b_not_in_a) > 0 and not a_can_expand) and b_can_collapse else b
+        new_a = a.groupby(level=common_names).sum() if (len(names_a_not_in_b) > 0 and not b_can_expand) and a_can_collapse else a
+        new_b = b.groupby(level=common_names).sum() if (len(names_b_not_in_a) > 0 and not a_can_expand) and b_can_collapse else b
 
         # Reindex so that elements within levels match
         if fill_value is not None:
-            new_a, new_b = DfOper._reindex_dfs_so_elements_match(new_a, new_b, level_names=common_names,
-                                                                 how='intersect')
-
-        # pd.concat([a]*2, keys=['mon', 'tue'], name='weekday')
+            new_a, new_b = DfOper._reindex_dfs_so_elements_match(new_a, new_b, level_names=common_names, how='intersect')
 
         # Default for join is left unless b has more columns, then we assume we want to join on it
         if join is None:
@@ -1236,8 +1219,6 @@ def reindex_df_level_with_new_elements(df, level_name, new_elements, fill_value=
         return df
     if df.index.nlevels > 1:
         index_i = df.index.names.index(level_name)
-        if set(new_elements) == set(df.index.levels[index_i]):
-            return df
         const_labels = OrderedSet([tuple([z if i != index_i else -1 for i, z in enumerate(lab)]) for lab in zip(*df.index.labels)])
         new_labels = flatten_list([[tuple([z if i != index_i else n for i, z in enumerate(lab)]) for n in range(len(new_elements))] for lab in const_labels])
         full_elements = [new_elements if name == level_name else level for name, level in zip(df.index.names, df.index.levels)]

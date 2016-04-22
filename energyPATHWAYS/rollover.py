@@ -63,7 +63,7 @@ class Rollover(object):
         """
         shape = (self.num_years*self.spy, self.num_techs, self.num_techs)
         if sales_share is None:
-            self.sales_share = np.ones(shape)/self.num_techs
+            self.sales_share = np.tile(np.eye(self.num_techs), (self.num_years*self.spy, 1, 1))
         else:
             self.sales_share = np.reshape(np.repeat(sales_share, self.spy, axis=0), shape)
 
@@ -153,7 +153,9 @@ class Rollover(object):
         if incremental_retirement == 0 or sum(self.prior_year_stock[retireable]) == 0:
             return
 
-        if incremental_retirement > sum(self.prior_year_stock[retireable]):
+        if round(incremental_retirement,6) > round(sum(self.prior_year_stock[retireable]),6):
+            print incremental_retirement
+            print sum(self.prior_year_stock[retireable])
             raise ValueError('specified incremental stock retirements are greater than retireable stock size')
 
         starting_rolloff = np.sum(self.calc_stock_rolloff(self.prinxy))
@@ -200,9 +202,9 @@ class Rollover(object):
 
     def account_for_specified_stock(self):
         i = self.i
-        if np.any((self.specified_sales[i]!=self.specified_stock[i])[np.array(list(set(self.stock_specified) & set(self.sales_specified)), dtype=int)]):
-            raise RuntimeError('Missmatch between specified sales and specified stock with no existing stock')
-        
+#        if np.any((self.specified_sales[i]!=self.specified_stock[i])[np.array(list(set(self.stock_specified) & set(self.sales_specified)), dtype=int)]):
+#            raise RuntimeError('Missmatch between specified sales and specified stock with no existing stock')
+#        
         # if you have specified stock, it implies sales that supersede natural sales
         self.defined_sales = self.specified_stock[i] - (self.prior_year_stock - self.rolloff) # may result in a negative
         self.defined_sales[self.sales_specified] = self.specified_sales[i, self.sales_specified]
@@ -220,8 +222,12 @@ class Rollover(object):
                     retireable = np.array([overlap_index], dtype=int)
                     needed_retirements = self.specified_sales[i, overlap_index] - (self.specified_stock[i, overlap_index] - (self.prior_year_stock[overlap_index] - self.rolloff[overlap_index]))
                     if needed_retirements < 0:
-                        raise RuntimeError('Missmatch between specified sales and specified stock implying a growth of vintaged stock')
-                    self.update_prinxy(needed_retirements, retireable)
+                        if len(util.ensure_iterable_and_not_string(overlap_index))>1:
+                            self.specified_sales[i, overlap_index] *= (sum(self.specified_sales[i, overlap_index]) - needed_retirements)/sum(self.specified_sales[i, overlap_index])
+                        else:
+                            self.specified_sales[i, overlap_index] *= (self.specified_sales[i, overlap_index] - needed_retirements)/self.specified_sales[i, overlap_index]
+                    else:
+                        self.update_prinxy(needed_retirements, retireable)
                 # Because of the retirements, we have a new natural rolloff number
                 self.update_rolloff()
 

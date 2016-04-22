@@ -205,6 +205,7 @@ class DataMapFunctions:
                 # print getattr(self,map_to)
                 # print time_index
                 self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method)
+            
             if current_data_type == 'total':
                 setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver),fill_value=fill_value))
             else:

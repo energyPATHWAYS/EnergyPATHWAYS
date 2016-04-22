@@ -99,6 +99,11 @@ def dispatch_problem_formulation(dispatch, start_state_of_charge, end_state_of_c
                                                      initialize=start_state_of_charge[period])
         dispatch_model.end_state_of_charge = Param(dispatch_model.VERY_LARGE_STORAGE_TECHNOLOGIES,
                                                initialize=end_state_of_charge[period])
+    else:
+        dispatch_model.start_state_of_charge = Param(dispatch_model.VERY_LARGE_STORAGE_TECHNOLOGIES,
+                                                     initialize=start_state_of_charge)
+        dispatch_model.end_state_of_charge = Param(dispatch_model.VERY_LARGE_STORAGE_TECHNOLOGIES,
+                                               initialize=end_state_of_charge)
                                                          
                                                          
                             
@@ -181,7 +186,7 @@ def dispatch_problem_formulation(dispatch, start_state_of_charge, end_state_of_c
 
 
     dispatch_model.bulk_load = Param(dispatch_model.GEOGRAPHIES, dispatch_model.TIMEPOINTS,
-                                           within=NonNegativeReals,
+                                           within=Reals,
                                            initialize=dispatch.bulk_load[period]) 
     
     dispatch_model.distribution_gen = Param(dispatch_model.GEOGRAPHIES, dispatch_model.TIMEPOINTS, dispatch_model.FEEDERS,
@@ -194,13 +199,13 @@ def dispatch_problem_formulation(dispatch, start_state_of_charge, end_state_of_c
                                            
     # Flex and EV loads
     dispatch_model.min_cumulative_flex_load = Param(dispatch_model.GEOGRAPHIES, dispatch_model.TIMEPOINTS,dispatch_model.FEEDERS,
-                                                    within=NonNegativeReals,
+                                                    within=Reals,
                                                     initialize= dispatch.min_cumulative_flex_load[period])
     dispatch_model.max_cumulative_flex_load = Param(dispatch_model.GEOGRAPHIES, dispatch_model.TIMEPOINTS,dispatch_model.FEEDERS,
-                                                    within=NonNegativeReals,
+                                                    within=Reals,
                                                     initialize=dispatch.max_cumulative_flex_load[period])
     dispatch_model.cumulative_distribution_load = Param(dispatch_model.GEOGRAPHIES, dispatch_model.TIMEPOINTS,dispatch_model.FEEDERS,
-                                                    within=NonNegativeReals,
+                                                    within=Reals,
                                                     initialize=dispatch.cumulative_distribution_load[period])
 
     # TODO: should this also vary by timepoint

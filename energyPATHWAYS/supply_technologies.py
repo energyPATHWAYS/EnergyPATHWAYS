@@ -230,8 +230,7 @@ class SupplyTechInvestmentCost(SupplyTechCost):
                                             unit_to_num=model_time_step)
         else:
             # if a cost is a capacity unit, the model must convert the unit type to an energy unit for conversion ()
-            self.values = util.unit_convert(self.raw_values, unit_from_den =cfg.ureg.Quantity(self.capacity_or_energy_unit)
-                                                                       * cfg.ureg.Quantity(model_time_step),
+            self.values = util.unit_convert(self.raw_values, unit_from_den =cfg.ureg.Quantity(self.capacity_or_energy_unit)* cfg.ureg.Quantity(model_time_step),
                                         unit_from_num=model_time_step,
                                         unit_to_den=model_energy_unit,
                                         unit_to_num=model_time_step)
@@ -296,7 +295,7 @@ class SupplyTechVariableOMCost(SupplyTechCost):
         convert raw_values to model currency and capacity (energy_unit/time_step)
         """
         model_energy_unit = cfg.cfgfile.get('case', 'energy_unit')
-        self.values = util.unit_convert(self.raw_values, unit_from_num=self.energy_unit,unit_to_num=model_energy_unit)
+        self.values = util.unit_convert(self.raw_values, unit_from_den=self.energy_unit,unit_to_den=model_energy_unit)
         if self.definition == 'absolute':
             self.values = util.currency_convert(self.values, self.currency_id, self.currency_year_id)
             self.absolute = True
