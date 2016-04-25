@@ -94,16 +94,20 @@ class TestTimeSeries(unittest.TestCase):
 #newdata2 = TimeSeries.clean(multi_data, time_index_name='year', newindex=newindex, interpolation_method='linear_interpolation', extrapolation_method='nearest')
 
 
-raw_values = pd.read_csv('raw_values_example_for_clean_timeseries.csv')
-raw_values.set_index(['us', 'efficiency_type', 'supply_node', 'year'], inplace=True)
-raw_values.sort_index(inplace=True)
+#raw_values = pd.read_csv('raw_values_example_for_clean_timeseries.csv')
+#raw_values.set_index(['us', 'efficiency_type', 'supply_node', 'year'], inplace=True)
+#raw_values.sort_index(inplace=True)
+#
+#newindex = [2015]
+#newdata3 = TimeSeries.clean(raw_values, time_index_name='year', newindex=newindex, interpolation_method='linear_interpolation', extrapolation_method='nearest')
+#
+#print newdata3
 
-newindex = [2015]
-newdata3 = TimeSeries.clean(raw_values, time_index_name='year', newindex=newindex, interpolation_method='linear_interpolation', extrapolation_method='nearest')
 
-print newdata3
-
-
-
+newindex = np.arange(2012, 2030)
+x = np.array([2015, 2016, 2018, 2020, 2021, 2025])
+y = np.array([.8, np.inf, .7, .4, np.inf, np.nan])
+data = pd.DataFrame(y, index=x)
+newdata = TimeSeries.clean(data, newindex=newindex, interpolation_method='linear_interpolation', extrapolation_method='exponential')
 
 
