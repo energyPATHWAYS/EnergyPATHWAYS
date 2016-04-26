@@ -136,7 +136,7 @@ class TimeSeries:
             firsty, lasty = fill_dict[firstx], fill_dict[lastx]
             growth_rate = (lasty / firsty) ** (1. / (lastx - firstx))
 
-        gapindex = np.nonzero(np.isnan(fill))[0]
+        gapindex = np.nonzero(~np.isfinite(fill))[0]
         gapgroups = np.array_split(gapindex, np.where(np.diff(gapindex) != 1)[0] + 1)
         for group in gapgroups:
             if group[0] == 0:
@@ -299,7 +299,7 @@ class TimeSeries:
 
         for colname in data.columns:
             y = np.array(data[colname])
-            if np.all(np.isnan(y)) or not np.any(np.isnan(y)):
+            if np.all(np.isfinite(y)) or not np.any(np.isfinite(y)):
                 continue
             data[colname] = TimeSeries.cleanxy(x, y, newindex, interpolation_method, extrapolation_method, **kwargs)
         
@@ -340,7 +340,7 @@ class TimeSeries:
         if interpolation_method is None or interpolation_method == 'none':
             yhat = y.copy()
             
-        goody = np.nonzero(~np.isnan(y))[0]  # Used to isolate only good data (not NaN)
+        goody = np.nonzero(np.isfinite(y))[0]  # Used to isolate only good data (not NaN)
         x = np.array(x)[goody]
         y = np.array(y)[goody]
 
