@@ -155,26 +155,28 @@ class Stock(Abstract):
         """
         return np.mean(np.linalg.matrix_power(transition_matrix, num_years), axis=1) * initial_total
 
-    def format_specified_stock(self, elements, levels, stock_name='specified'):
+    def return_stock_slice(self, elements, levels, stock_name='technology'):
         group = util.df_slice(getattr(self,stock_name), elements, levels)
 
         return group
 
 
 class SpecifiedStock(Abstract, DataMapFunctions):
-    def __init__(self, id, subsector_id, sql_id_table, sql_data_table):
+    def __init__(self, id, sql_id_table, sql_data_table):
         self.id = id
-        self.subsector_id = subsector_id
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
         self.mapped = False
-        Abstract.__init__(self, self.id)
+        Abstract.__init__(self, self.id, data_id_key='parent_id')
+        self.input_type='total'
 
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        self.remap()
-        self.values[self.values.index.get_level_values('year')<int(cfg.cfgfile.get('case','current_year'))+1] = np.nan
+        if self.raw_values is not None:
+            self.remap()
+        else:
+            self.values = None
 
 
 class SalesShare(Abstract, DataMapFunctions):

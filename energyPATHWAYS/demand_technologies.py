@@ -69,7 +69,6 @@ class DemandTechnology(StockItem):
                                                    return_iterable=True)
             for specified_stock in specified_stocks:
                 self.specified_stocks[specified_stock] = SpecifiedStock(id=specified_stock,
-                                                                        subsector_id=self.subsector_id,
                                                                         sql_id_table='DemandStockMeasures',
                                                                         sql_data_table='DemandStockMeasuresData')
 

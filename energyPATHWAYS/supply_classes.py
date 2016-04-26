@@ -5,7 +5,7 @@ Created on Tue Nov 17 09:36:07 2015
 @author: Ben
 """
 
-from shared_classes import Stock, StockItem
+from shared_classes import Stock, StockItem, SpecifiedStock
 from datamapfunctions import DataMapFunctions, Abstract
 import util
 import numpy as np    
@@ -18,7 +18,7 @@ class SupplyStock(Stock, StockItem):
                      primary_key='node_id', **kwargs)
         StockItem.__init__(self)
         
-    def format_specified_stock(self, elements):
+    def return_stock_slice(self, elements):
         group = self.specified.loc[elements].transpose()
 
         return group
@@ -156,3 +156,25 @@ class SupplySalesShare(Abstract, DataMapFunctions):
         ss_array[vintage, :, retiring] = (ss_array[vintage, :, retiring].T / sums[vintage, retiring]).T
         return ss_array
 
+class SupplySpecifiedStock(SpecifiedStock):
+    def __init__(self, id, sql_id_table, sql_data_table):
+        SpecifiedStock.__init__(self, id, sql_id_table, sql_data_table)
+        
+    def convert(self):
+        """
+        convert values to model currency and capacity (energy_unit/time_step)
+        """
+        if self.values is not None:
+            model_energy_unit = cfg.cfgfile.get('case', 'energy_unit')
+            model_time_step = cfg.cfgfile.get('case', 'time_step')
+            if self.time_unit is not None:
+                self.values = util.unit_convert(self.values, unit_from_num=self.capacity_or_energy_unit,
+                                            unit_from_den=self.time_unit, unit_to_num=model_energy_unit,
+                                            unit_to_den=model_time_step)
+            else:
+               self.values = util.unit_convert(self.values, unit_from_num=cfg.ureg.Quantity(self.capacity_or_energy_unit)
+                                                                           * cfg.ureg.Quantity(model_time_step),
+                                            unit_from_den = model_time_step,
+                                            unit_to_num=model_energy_unit,
+                                            unit_to_den=model_time_step)
+                                            
