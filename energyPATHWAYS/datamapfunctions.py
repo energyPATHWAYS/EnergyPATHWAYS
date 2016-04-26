@@ -200,7 +200,7 @@ class DataMapFunctions:
 
             if current_data_type == 'total':
                 # Divide by drivers to turn a total to intensity. multindex_operation will aggregate to common levels.
-                df_intensity = DfOper.divi((getattr(self, map_to), total_driver), expandable=(False, True), collapsible=(False, True),fill_value=fill_value)
+                df_intensity = DfOper.divi((getattr(self, map_to), total_driver), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf,np.nan,-np.nan],0)         
                 setattr(self, map_to, df_intensity)
             # Clean the timeseries as an intensity
             if fill_timeseries:

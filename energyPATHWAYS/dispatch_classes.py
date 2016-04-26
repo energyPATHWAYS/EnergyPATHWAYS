@@ -638,10 +638,8 @@ class Dispatch(object):
         alloc_start_state_of_charge, alloc_end_state_of_charge = state_of_charge[0], state_of_charge[1]
         #replace with multiprocessing if parallel
         #replace with multiprocessing if parallel
-        self.dispatch_results={}
         for period in self.periods:
             results = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)
-            self.dispatch_results[period] = results
             self.export_storage_results(results, period) 
             self.export_flex_load_results(results, period)
             
