@@ -192,13 +192,21 @@ class Shape(dmf.DataMapFunctions):
         group_to_normalize = [n for n in self.values.index.names if n!='weather_datetime']
         # here is a special case where I have p_min and p_max in my dispatch constraints and these should not be normalized
         if 'dispatch_constraint' in group_to_normalize:
+            # this first normailization does what we need for hydro pmin and pmax, which is a special case of normalization
+            combined_map_df = util.DfOper.mult((self.map_df_tz, self.map_df_primary))
+            normalization_factors = combined_map_df.groupby(level=cfg.cfgfile.get('case', 'primary_geography')).sum()
+            self.values = util.DfOper.divi((self.values, normalization_factors))
+            
             temp = self.values.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
             # TODO: 2, and 3 should not be hard coded here, they represent p_min and p_max
             indexer = util.level_specific_indexer(temp, 'dispatch_constraint', [[2,3]])
             temp.loc[indexer, :] = self.values.loc[indexer, :]
+            
             self.values = temp
         else:
             self.values = self.values.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
+        
+
 
     def geomap_to_time_zone(self, attr='values', inplace=True):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table
@@ -214,7 +222,7 @@ class Shape(dmf.DataMapFunctions):
         subsection, supersection = 'time zones', self.geography
         # create dataframe with map from one geography to another
         map_df = cfg.geo.map_df(subsection, supersection, column=geography_map_key)
-        self.map_df = map_df
+        self.map_df_tz = map_df
 
         mapped_data = util.DfOper.mult([getattr(self, attr), map_df])
         mapped_data = mapped_data.swaplevel('weather_datetime', -1)
@@ -241,6 +249,8 @@ class Shape(dmf.DataMapFunctions):
         supersection = converted_geography
         
         map_df = cfg.geo.map_df(subsection, supersection, column=geography_map_key)
+        self.map_df_primary = map_df
+        
         mapped_data = util.DfOper.mult((getattr(self, attr), map_df), fill_value=None)
         levels = [ind for ind in mapped_data.index.names if (ind!=self.geography and self.geography!='time zones')]
         mapped_data = mapped_data.groupby(level=levels).sum()
