@@ -207,6 +207,9 @@ class Demand(object):
                     continue
                 # calculate subsector
                 self.calculate(subsector)
+            #clear the calculations for the next scenario loop
+            for subsector in sector.subsectors.values():
+                subsector.calculated = False
         
         cfg.outputs_id_map['sector'] = util.upper_dict([(k, v.name) for k, v in self.sectors.items()])
         cfg.outputs_id_map['subsector'] = util.upper_dict(util.flatten_list([[(k, v.name) for k, v in sector.subsectors.items()] for sector in self.sectors.values()]))
@@ -1638,6 +1641,13 @@ class Subsector(DataMapFunctions):
                    df = util.remove_df_levels(self.stock.technology.loc[indexer,:],'technology')
                    specified_stock.values = specified_stock.values.fillna(df)
                    self.stock.technology.loc[indexer,:] = specified_stock.values.values
+        self.max_total()
+    
+    def max_total(self):
+        tech_sum = util.remove_df_levels(self.stock.technology,'technology')
+#        self.stock.total = self.stock.total.fillna(tech_sum)
+        self.stock.total.sort(inplace=True)
+        self.stock.total[self.stock.total<tech_sum] = tech_sum    
 
                   
 
@@ -2215,7 +2225,7 @@ class Subsector(DataMapFunctions):
         self.stock.investment['installation']['new'] = self.rollover_output(tech_class='installation_cost_new', tech_att='values', stock_att='sales_new')
         self.stock.investment['installation']['replacement'] = self.rollover_output(tech_class='installation_cost_replacement', tech_att='values', stock_att='sales_replacement')
         if self.sub_type != 'link':
-            self.stock.investment['fuel_switching']['all'] = self.rollover_output(tech_class='fuel_switch_cost', tech_att='values', stock_att='sales_fuel_switch')
+            self.stock.investment['fuel_switching']['all'] = self.rollover_output(tech_class='fuel_switch_cost', tech_att='values', stock_att='sales_fuel_switch',)
 
     def remove_extra_subsector_attributes(self):
         if hasattr(self, 'stock'):
@@ -2291,7 +2301,7 @@ class Subsector(DataMapFunctions):
         fuel_switch_sales_share = DfOper.divi([new_energy_sales_by_technology, fuel_switch_sales]).replace(np.nan,0)
 #        .groupby(level=util.ix_excl(fuel_switch_sales, 'technology')).sum()
         fuel_switch_sales_share = util.remove_df_levels(fuel_switch_sales_share, 'final_energy')
-        self.stock.sales_fuel_switch = DfOper.mult([self.stock.sales, fuel_switch_sales_share])
+        self.stock.sales_fuel_switch = DfOper.mult([self.stock.sales, fuel_switch_sales_share])       
         self.stock.values_fuel_switch = DfOper.mult([self.stock.values_financial, fuel_switch_sales_share])
 
     def calculate_parasitic(self):
