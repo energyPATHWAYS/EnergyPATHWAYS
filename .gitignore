@@ -69,9 +69,11 @@ target/
 /.idea/workspace.xml
 /.idea/encodings.xml
 /.idea/energyPATHWAYS.iml
+/.gitignore
 
 # Temp model copy
 /us_model_example/*.p
+/california_model_example/*.p
 
 # Results
 /us_model_example/dispatch_outputs
@@ -79,3 +81,8 @@ target/
 /us_model_example/demand_outputs/
 /us_model_example/supply_outputs/
 /us_model_example/outputs/
+/california_model_example/combined_outputs/
+/california_model_example/demand_outputs/
+/california_model_example/supply_outputs/
+/model building tools/create geography tables/inputs/*.csv
+/model building tools/create geography tables/outputs/*.csv

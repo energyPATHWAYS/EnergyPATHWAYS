@@ -104,6 +104,10 @@ newdata2 = TimeSeries.clean(multi_data, time_index_name='year', newindex=newinde
 #print newdata3
 
 
-
+newindex = np.arange(2012, 2030)
+x = np.array([2015, 2016, 2018, 2020, 2021, 2025])
+y = np.array([.8, np.inf, .7, .4, np.inf, np.nan])
+data = pd.DataFrame(y, index=x)
+newdata = TimeSeries.clean(data, newindex=newindex, interpolation_method='linear_interpolation', extrapolation_method='exponential')
 
 

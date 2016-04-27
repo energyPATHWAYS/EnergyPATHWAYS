@@ -212,7 +212,7 @@ class Dispatch(object):
             for feeder in self.feeders:
                 for period in self.periods:
                     start = period * self.opt_hours
-                    stop = (period+1) * self.opt_hours - 1
+                    stop = (period+1) * self.opt_hours
                     if feeder !=0:
                         self.max_flex_load[period][(geography,feeder)] = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).iloc[start:stop].max().values[0] 
                     else:
@@ -281,7 +281,7 @@ class Dispatch(object):
                         self.alloc_technologies.append(tech_dispatch_id)
                         self.large_storage[tech_dispatch_id] = 1
                         self.alloc_geography[tech_dispatch_id] = dispatch_geography
-                        self.alloc_capacity[tech_dispatch_id] = self.capacity[tech_dispatch_id]
+                        self.alloc_capacity[tech_dispatch_id] = self.capacity[tech_dispatch_id] * len(self.period_hours)
                         self.alloc_energy[tech_dispatch_id] = self.energy[tech_dispatch_id]
                      else:
                         self.large_storage[tech_dispatch_id] = 0
@@ -309,10 +309,10 @@ class Dispatch(object):
                 self.geography[generator] = geography
                 self.feeder[generator] = 0
                 if number == 1:
-                    self.capacity[generator] = util.unit_convert(100000,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
+                    self.capacity[generator] = util.unit_convert(100000,unit_from_num='megawatt_hour',unit_to_num=cfg.cfgfile.get('case','energy_unit'))
                     self.variable_costs[generator] = util.unit_convert(50,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
                 else:
-                    self.capacity[generator] = util.unit_convert(1000000,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
+                    self.capacity[generator] = util.unit_convert(10000000000,unit_from_num='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
                     self.variable_costs[generator] = util.unit_convert(150,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
     
     def convert_to_period(self, dictionary):
@@ -636,12 +636,12 @@ class Dispatch(object):
     def run_optimization(self,parallel=False):
         state_of_charge = self.run_year_to_month_allocation()
         alloc_start_state_of_charge, alloc_end_state_of_charge = state_of_charge[0], state_of_charge[1]
-        self.alloc_start_state_of_charge = alloc_start_state_of_charge
-        self.alloc_end_state_of_charge = alloc_end_state_of_charge
         #replace with multiprocessing if parallel
         #replace with multiprocessing if parallel
+        self.dispatch_results={}
         for period in self.periods:
             results = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)
+            self.dispatch_results[period] = results
             self.export_storage_results(results, period) 
             self.export_flex_load_results(results, period)
             
@@ -745,7 +745,9 @@ class Dispatch(object):
                     discharge.append(instance.Provide_Power[tech, timepoint].value)
                 charge = np.column_stack(np.asarray(charge)).T
                 discharge = np.column_stack(np.asarray(discharge)).T
-                self.charge = charge
+#                if np.any(np.isnan(charge)) or np.any(np.isnan(discharge)):
+#                    self.instance = instance
+#                    break
                 self.bulk_storage_df.loc[charge_indexer,:] += charge
                 self.bulk_storage_df.loc[discharge_indexer,:] += discharge
             else:

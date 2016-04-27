@@ -11,8 +11,8 @@ import util
 import copy
 import numpy as np
 from config import cfg
-from shared_classes import StockItem, SpecifiedStock
-from supply_classes import SupplySalesShare, SupplySales
+from shared_classes import StockItem
+from supply_classes import SupplySalesShare, SupplySales, SupplySpecifiedStock
 import pandas as pd
 from shape import shapes, Shape
 
@@ -80,12 +80,9 @@ class SupplyTechnology(StockItem):
         measure_ids = util.sql_read_table('SupplyStockMeasurePackagesData', 'measure_id', package_id=package_id,
                                           return_iterable=True)
         for measure_id in measure_ids:
-            specified_stocks = util.sql_read_table('SupplyStockMeasures', 'id', demand_tech_id=self.id,
-                                                   node_id=self.node_id, package_id=package_id,
-                                                   return_iterable=True)
+            specified_stocks = util.sql_read_table('SupplyStockMeasures', 'id', supply_technology_id=self.id,return_iterable=True)
             for specified_stock in specified_stocks:
                 self.specified_stocks[specified_stock] = SupplySpecifiedStock(id=specified_stock,
-                                                                        node_id=self.node_id,
                                                                         sql_id_table='SupplyStockMeasures',
                                                                         sql_data_table='SupplyStockMeasuresData')
 
@@ -368,10 +365,7 @@ class SupplyTechCapacityFactor(Abstract):
         if self.data and self.raw_values is not None:
             self.remap(time_index_name='vintage')
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
-        elif self.data is False:
-            index =  pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],self.vintages], names=[cfg.cfgfile.get('case', 'primary_geography'),'vintage'])
-            self.values = util.empty_df(index,columns=years,fill_value=1.0)    
-            self.data = True
+
  
 class SupplyTechCO2Capture(Abstract):
     def __init__(self, id, **kwargs):
@@ -396,27 +390,5 @@ class SupplyTechCO2Capture(Abstract):
 
 
 
-class SupplySpecifiedStock(SpecifiedStock):
-    def __init__(self, id, node_id, sql_id_table, sql_data_table):
-        SpecifiedStock.__init__(self, id, node_id, sql_id_table, sql_data_table)
-        
-    def convert(self):
-        """
-        convert raw_values to model currency and capacity (energy_unit/time_step)
-        """
-        model_energy_unit = cfg.cfgfile.get('case', 'energy_unit')
-        model_time_step = cfg.cfgfile.get('case', 'time_step')
-        if self.time_unit is not None:
-            # if a cost has a time_unit, then the unit is energy and must be converted to capacity
-            self.values = util.unit_convert(self.raw_values, unit_from_num=self.capacity_or_energy_unit,
-                                            unit_from_den=self.time_unit, unit_to_num=model_energy_unit,
-                                            unit_to_den=model_time_step)
-        else:
-            # if a cost is a capacity unit, the model must convert the unit type to an energy unit for conversion ()
-            self.values = util.unit_convert(self.raw_values, unit_from_den=cfg.ureg.Quantity(self.capacity_or_energy_unit)
-                                                                           * cfg.ureg.Quantity(model_time_step),
-                                            unit_from_num=model_time_step,
-                                            unit_to_den=model_energy_unit,
-                                            unit_to_num=model_time_step)
-                                            
+
     

@@ -140,11 +140,11 @@ class PathwaysModel(object):
                 ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'combined_outputs'), append_results=append_results)
         for attribute in dir(self.demand.outputs):
             if isinstance(getattr(self.demand.outputs,attribute), pd.DataFrame):
-                result_df = getattr(self.demand.outputs, attribute)
+                result_df = self.demand.outputs.return_cleaned_output(attribute)
                 ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'demand_outputs'), append_results=append_results)
         for attribute in dir(self.supply.outputs):
             if isinstance(getattr(self.supply.outputs,attribute), pd.DataFrame):
-                result_df = getattr(self.supply.outputs, attribute)
+                result_df = self.supply.outputs.return_cleaned_output(attribute)
                 ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'supply_outputs'), append_results=append_results)
         
     def calculate_combined_cost_results(self):

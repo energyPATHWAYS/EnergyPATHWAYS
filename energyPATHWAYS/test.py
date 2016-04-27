@@ -19,19 +19,14 @@ from energyPATHWAYS import util
 import pandas as pd
 
 
-def solve_storage_and_flex_load_optimization(self,year):
-    self.prepare_optimization_inputs(year)
-    self.dispatch.run_optimization()
-    for geography in self.dispatch_geographies:
-        for feeder in self.dispatch_feeders:
-            load_indexer = util.level_specific_indexer(self.distribution_load, [self.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, 2])
-            self.distribution_load.loc[load_indexer,: ] += util.df_slice(self.dispatch.dist_storage_df,[geography, feeder, 'charge'], [self.dispatch_geography, 'dispatch_feeder', 'charge_discharge']).values
-            self.distribution_load.loc[load_indexer,: ] += util.df_slice(self.dispatch.flex_load_df,[geography, feeder], [self.dispatch_geography, 'dispatch_feeder']).values             
-            gen_indexer = util.level_specific_indexer(self.distribution_gen,[self.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, 2])
-            self.distribution_gen.loc[gen_indexer,: ] += util.df_slice(self.dispatch.dist_storage_df,[geography, feeder, 'discharge'], [self.dispatch_geography, 'dispatch_feeder', 'charge_discharge']).values
-    for geography in self.dispatch.geographies:       
-        load_indexer = util.level_specific_indexer(self.bulk_load, [self.dispatch_geography], [geography])
-        self.bulk_load.loc[load_indexer,: ] += util.df_slice(self.dispatch.bulk_storage_df,[geography,'charge'], [self.dispatch_geography, 'charge_discharge']).values
-        gen_indexer = util.level_specific_indexer(self.bulk_gen, [self.dispatch_geography], [geography])
-        self.bulk_gen.loc[gen_indexer,: ] += util.df_slice(self.dispatch.bulk_storage_df,[geography,'discharge'], [self.dispatch_geography, 'charge_discharge']).values    
-    self.update_net_load_signal()  
+    def set_max_flex_loads(self, distribution_load):
+        self.max_flex_load = defaultdict(dict)
+        for geography in self.dispatch_geographies:
+            for feeder in self.feeders:
+                for period in self.periods:
+                    start = period * self.opt_hours
+                    stop = (period+1) * self.opt_hours - 1
+                    if feeder !=0:
+                        self.max_flex_load[period][(geography,feeder)] = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).iloc[start:stop].max().values[0] 
+                    else:
+                        self.max_flex_load[period][(geography,feeder)] = 0.0
