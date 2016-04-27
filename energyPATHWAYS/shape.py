@@ -168,7 +168,7 @@ class Shape(dmf.DataMapFunctions):
                 elif self.shape_unit_type=='power':
                     self.values.loc[indexer] = value[0]
             
-            if self.values.isnull().vaues.any():
+            if self.values.isnull().values.any():
                 raise ValueError('Shape time slice data did not give full coverage of the active dates')
             # reindex to remove the helper columns
             self.values.index = self.values.index.droplevel(self._active_time_keys)

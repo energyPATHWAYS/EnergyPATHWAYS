@@ -326,6 +326,26 @@ class Supply(object):
                             self.update_io_df(year)
                             self.calculate_io(year, loop)
                         self.calculate_stocks(year, loop)
+                        for node in self.nodes.values():
+                            node.reconciled = False
+                        self.reconciled = False
+                        self.reconcile_trades(year,loop)
+                        if self.reconciled is True:
+                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
+    #                        self.calculate_stocks(year, loop)
+                            self.calculate_coefficients(year,loop)
+                            self.update_io_df(year)
+                            self.calculate_io(year, loop)
+                        self.reconciled = False
+                        self.reconcile_constraints_and_oversupply(year,loop)
+                        if self.reconciled is True:
+                            self.update_demand(year,loop)
+                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
+#                            self.calculate_stocks(year, loop)
+                            self.calculate_coefficients(year,loop)
+                            self.update_io_df(year)
+                            self.calculate_io(year, loop)
+                        self.calculate_stocks(year, loop)
                         self.calculate_embodied_costs(year)
                     if loop == 3:
                         self.prepare_dispatch_inputs(year, loop)
@@ -348,6 +368,22 @@ class Supply(object):
                         #determined in the reconcile function
                         self.reconciled = False
                         self.reconcile_trades(year,loop)
+                        if self.reconciled is True:
+                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
+    #                        self.calculate_stocks(year, loop)
+                            self.calculate_coefficients(year,loop)
+                            self.update_io_df(year)
+                            self.calculate_io(year, loop)
+                        self.reconciled = False
+                        self.reconcile_constraints_and_oversupply(year,loop)
+                        if self.reconciled is True:
+                            self.update_demand(year,loop)
+                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
+    #                        self.calculate_stocks(year, loop)
+                            self.calculate_coefficients(year,loop)
+                            self.update_io_df(year)
+                            self.calculate_io(year, loop)
+                            
                         if self.reconciled is True:
                             #if reconciliation has occured, we have to recalculate coefficients and resolve the io
     #                        self.calculate_stocks(year, loop)
@@ -610,9 +646,6 @@ class Supply(object):
                                 dispatch =  np.transpose([Dispatch.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
                                 self.distribution_gen.loc[indexer,:] += dispatch
                                 self.dispatched_dist_gen.loc[indexer,:] += dispatch
-                        pd.DataFrame(dispatch).plot(title = node.name)
-                        print dispatch.sum()
-                        print geography
                     self.update_net_load_signal()
            
 
@@ -638,17 +671,21 @@ class Supply(object):
         dist_cap_factor = util.remove_df_levels(DfOper.mult([dist_cap_factor, util.df_slice(self.dispatch_feeder_allocation.values,year, 'year')]),'dispatch_feeder')
         distribution_grid_node.capacity_factor.values.loc[:,year] = dist_cap_factor.values
         distribution_grid_node.capacity_factor.values.loc[:,min(year+1,max_year)] = dist_cap_factor.values
+        if hasattr(distribution_grid_node, 'stock'):
+                distribution_grid_node.update_stock(year,3) 
         bulk_flow = DfOper.add([self.dist_net_load_no_feeders,self.bulk_load])
         bulk_cap_factor = DfOper.divi([bulk_flow.groupby(level=self.dispatch_geography).mean(),bulk_flow.groupby(level=self.dispatch_geography).max()]) 
-        transmission_grid_node = self.nodes[self.transmission_node_id]        
-      
+        transmission_grid_node = self.nodes[self.transmission_node_id]              
         geography_map_key = transmission_grid_node.geography_map_key if hasattr(transmission_grid_node, 'geography_map_key') and transmission_grid_node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')       
         if self.dispatch_geography != self.geography:            
             map_df = cfg.geo.map_df(self.dispatch_geography, self.geography, geography_map_key, eliminate_zeros=False)
             bulk_cap_factor = util.remove_df_levels(DfOper.mult([bulk_cap_factor,map_df]),self.dispatch_geography)       
         transmission_grid_node.capacity_factor.values.loc[:,year] = bulk_cap_factor.values
         transmission_grid_node.capacity_factor.values.loc[:,min(year+1,max_year)] = bulk_cap_factor.values
+        if hasattr(transmission_grid_node, 'stock'):
+            transmission_grid_node.update_stock(year,3) 
         
+
     def solve_storage_and_flex_load_optimization(self,year):
         """prepares, solves, and updates the net load with results from the storage and flexible load optimization""" 
         self.prepare_optimization_inputs(year)
@@ -656,9 +693,6 @@ class Supply(object):
         self.dispatch.run_optimization()
         for geography in self.dispatch_geographies:
             for feeder in self.dispatch_feeders:
-                print self.distribution_load.sum()
-                print geography
-                print feeder
                 load_indexer = util.level_specific_indexer(self.distribution_load, [self.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, 2])
                 self.distribution_load.loc[load_indexer,:] += util.df_slice(self.dispatch.dist_storage_df,[geography, feeder, 'charge'], [self.dispatch_geography, 'dispatch_feeder', 'charge_discharge']).values
                 self.distribution_load.loc[load_indexer,:] += util.df_slice(self.dispatch.flex_load_df,[geography, feeder], [self.dispatch_geography, 'dispatch_feeder']).values             
@@ -1076,21 +1110,76 @@ class Supply(object):
     def update_coefficients_from_dispatch(self):
         self.calculate_thermal_totals()
         self.update_thermal_coefficients()
-        self.update_bulk_coefficients()
+#        self.update_bulk_coefficients()
 
     def update_thermal_coefficients(self):
-        df = self.thermal_totals.apply(lambda x: x/x.sum())
-        df = pd.concat([df]*len(self.demand_sectors),keys=self.demand_sectors,names=['demand_sector'])
-        df = pd.concat([df]*len(self.demand_sectors),keys=self.demand_sectors,names=['demand_sector'],axis=1)
-        df = df.reorder_levels([self.geography,'demand_sector','supply_node'])
-        df.sort(inplace=True)
-        for row_sector in self.demand_sectors:
-            for col_sector in self.demand_sectors:
-                if row_sector != col_sector:
-                    row_indexer = util.level_specific_indexer(df,'demand_sector',row_sector,axis=0)
-                    col_indexer = util.level_specific_indexer(df,'demand_sector',col_sector,axis=1)
-                    df.loc[row_indexer,col_indexer] = 0
-        df = self.geo_map_thermal_coefficients(df,self.dispatch_geography,self.geography,cfg.cfgfile.get('case','default_geography_map_key'))
+        if self.geography != self.dispatch_geography:
+            map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,eliminate_zeros=False)
+            thermal_demand  = util.DfOper.mult([self.nodes[self.thermal_dispatch_node_id].active_supply,map_df])
+            thermal_demand = thermal_demand.unstack(self.dispatch_geography)        
+            thermal_demand.columns = thermal_demand.columns.droplevel()
+            demand_supply_ratio = util.DfOper.divi([thermal_demand.groupby(level=self.geography).sum(),self.thermal_totals.groupby(level=self.geography).sum()])
+            demand_supply_ratio[demand_supply_ratio>1]=1
+            demand_supply_ratio.replace(np.nan,0,inplace=True) 
+            df =  self.nodes[self.thermal_dispatch_node_id].active_coefficients_total * 0
+            native_thermal = util.DfOper.mult([self.thermal_totals,demand_supply_ratio])
+            native_thermal_coefficients = util.DfOper.divi([native_thermal.sum(axis=1).to_frame(),self.nodes[self.thermal_dispatch_node_id].active_supply.groupby(level=self.geography).sum()])
+            residual_demand = util.DfOper.subt([thermal_demand.groupby(level=self.geography).sum(),native_thermal.groupby(level=self.geography).sum()])
+            residual_demand[residual_demand<0] = 0
+            remaining_supply = util.DfOper.subt([self.thermal_totals,native_thermal])
+            residual_share = util.DfOper.divi([residual_demand.sum().to_frame(),remaining_supply.sum().to_frame()])
+            residual_share[residual_share>1]=1
+            residual_share.replace(np.inf,0,inplace=True)
+            residual_supply = copy.deepcopy(remaining_supply)
+            excess_supply = copy.deepcopy(remaining_supply)
+            excess_supply.loc[:,:] = remaining_supply.values * np.column_stack((1-residual_share).values)
+            excess_thermal = excess_supply
+            excess_thermal_coefficients = util.DfOper.divi([excess_thermal.sum(axis=1).to_frame(),self.nodes[self.thermal_dispatch_node_id].active_supply.groupby(level=self.geography).sum()])
+            residual_supply.loc[:,:] = remaining_supply.values * np.column_stack(residual_share.values)
+            residual_supply_share = residual_supply/residual_supply.sum()        
+            util.replace_index_name(residual_supply_share,self.geography + "from",self.geography)
+            residual_supply_share = residual_supply_share.stack().to_frame()
+            util.replace_index_name(residual_supply_share,self.dispatch_geography)
+            residual_demand_stack = residual_demand.stack().to_frame()
+            util.replace_index_name(residual_demand_stack,self.dispatch_geography)
+            residual_thermal = util.remove_df_levels(util.DfOper.mult([residual_supply_share,residual_demand_stack]),self.dispatch_geography)
+            residual_thermal = residual_thermal.unstack(self.geography)
+            residual_thermal.columns = residual_thermal.columns.droplevel()
+            residual_thermal.loc[:,:] = residual_thermal.values/np.column_stack(self.nodes[self.thermal_dispatch_node_id].active_supply.groupby(level=self.geography).sum().T.values).T
+            residual_thermal_coefficients = residual_thermal
+            util.replace_index_name(residual_thermal,self.geography,self.geography + "from")
+            for row_sector in self.demand_sectors:
+                for col_sector in self.demand_sectors:
+                    for row_geo in self.geographies:
+                        for col_geo in self.geographies:
+                            if row_sector == col_sector and row_geo == col_geo:
+                                native_coeff_row_indexer = util.level_specific_indexer(native_thermal_coefficients,[self.geography],[row_geo])
+                                excess_coeff_row_indexer = util.level_specific_indexer(excess_thermal_coefficients,[self.geography],[row_geo])
+                                df_row_indexer = util.level_specific_indexer(df,[self.geography,'demand_sector'],[row_geo,row_sector])
+                                df_col_indexer = util.level_specific_indexer(df,[self.geography,'demand_sector'],[col_geo,col_sector],axis=1)
+                                df.loc[df_row_indexer,df_col_indexer] = np.column_stack(df.loc[df_row_indexer,df_col_indexer].values).T + np.column_stack(native_thermal_coefficients.loc[native_coeff_row_indexer,:].values).T
+                                df.loc[df_row_indexer,df_col_indexer] = np.column_stack(df.loc[df_row_indexer,df_col_indexer].values).T + np.column_stack(excess_thermal_coefficients.loc[excess_coeff_row_indexer,:].values).T
+                            elif row_sector == col_sector:
+                                df_row_indexer = util.level_specific_indexer(df,[self.geography,'demand_sector'],[row_geo,row_sector])
+                                df_col_indexer = util.level_specific_indexer(df,[self.geography,'demand_sector'],[col_geo,col_sector],axis=1)
+                                residual_coeff_row_indexer = util.level_specific_indexer(residual_thermal_coefficients,[self.geography],[row_geo])
+                                residual_coeff_col_indexer = util.level_specific_indexer(residual_thermal_coefficients,[self.geography],[col_geo],axis=1)
+                                df.loc[df_row_indexer,df_col_indexer] = np.column_stack(df.loc[df_row_indexer,df_col_indexer].values).T + np.column_stack(residual_thermal_coefficients.loc[residual_coeff_row_indexer,residual_coeff_col_indexer].values).T
+
+            
+        else:     
+            df = self.thermal_totals.apply(lambda x: x/x.sum())
+            df = pd.concat([df]*len(self.demand_sectors),keys=self.demand_sectors,names=['demand_sector'])
+            df = pd.concat([df]*len(self.demand_sectors),keys=self.demand_sectors,names=['demand_sector'],axis=1)
+            df = df.reorder_levels([self.geography,'demand_sector','supply_node'])
+            df.sort(inplace=True)
+            for row_sector in self.demand_sectors:
+                for col_sector in self.demand_sectors:
+                    if row_sector != col_sector:
+                        row_indexer = util.level_specific_indexer(df,'demand_sector',row_sector,axis=0)
+                        col_indexer = util.level_specific_indexer(df,'demand_sector',col_sector,axis=1)
+                        df.loc[row_indexer,col_indexer] = 0
+            df = self.geo_map_thermal_coefficients(df,self.dispatch_geography,self.geography,)
         self.nodes[self.thermal_dispatch_node_id].active_coefficients_total = df
         
     def calculate_thermal_totals(self):   
@@ -1107,31 +1196,31 @@ class Supply(object):
         self.thermal_totals = df
         
 
-    def update_bulk_coefficients(self):
-        bulk_load = util.DfOper.add([self.bulk_load.groupby(level=self.dispatch_geography).sum(), util.DfOper.mult([util.DfOper.subt([self.distribution_load,self.distribution_gen]),self.distribution_losses]).groupby(level=self.dispatch_geography).sum()])
-        thermal_totals = self.thermal_totals.sum().to_frame()
-        
-        bulk_coefficients = DfOper.divi([thermal_totals, bulk_load])
-        if self.dispatch_geography != self.geography:
-            map_key = cfg.cfgfile.get('case','default_geography_map_key')
-            map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,map_key, eliminate_zeros=False)
-            bulk_coefficients = DfOper.mult([bulk_coefficients,map_df]).groupby(level=self.geography).sum()
-        bulk_coefficients = pd.concat([bulk_coefficients]*len(self.demand_sectors),keys=self.demand_sectors,names=['demand_sector'])
-        bulk_coefficients = bulk_coefficients.reorder_levels([self.geography,'demand_sector'])
-        bulk_coefficients = self.add_column_index(bulk_coefficients)
-        bulk_coefficients.sort(inplace=True,axis=1)
-        bulk_coefficients.sort(inplace=True,axis=0)
-        for row_geography in self.geographies:
-            for col_geography in self.geographies:
-                for row_sector in self.demand_sectors:
-                    for col_sector in self.demand_sectors:
-                        if row_geography != col_geography or row_sector != col_sector:
-                            row_indexer = util.level_specific_indexer(bulk_coefficients, [self.geography,'demand_sector'],[row_geography,row_sector])
-                            col_indexer = util.level_specific_indexer(bulk_coefficients, [self.geography,'demand_sector'],[col_geography,col_sector])
-                            bulk_coefficients.loc[row_indexer,col_indexer] = 0
-        indexer = util.level_specific_indexer(self.nodes[self.bulk_id].active_coefficients_total,'supply_node', self.thermal_dispatch_node_id)
-        self.nodes[self.bulk_id].active_coefficients_total.loc[indexer,:] = bulk_coefficients.values
-    
+#    def update_bulk_coefficients(self):
+#        bulk_load = util.DfOper.add([self.bulk_load.groupby(level=self.dispatch_geography).sum(), util.DfOper.mult([util.DfOper.subt([self.distribution_load,self.distribution_gen]),self.distribution_losses]).groupby(level=self.dispatch_geography).sum()])
+#        thermal_totals = self.thermal_totals.sum().to_frame()
+#        
+#        bulk_coefficients = DfOper.divi([thermal_totals, bulk_load])
+#        if self.dispatch_geography != self.geography:
+#            map_key = cfg.cfgfile.get('case','default_geography_map_key')
+#            map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,map_key, eliminate_zeros=False)
+#            bulk_coefficients = DfOper.mult([bulk_coefficients,map_df]).groupby(level=self.geography).sum()
+#        bulk_coefficients = pd.concat([bulk_coefficients]*len(self.demand_sectors),keys=self.demand_sectors,names=['demand_sector'])
+#        bulk_coefficients = bulk_coefficients.reorder_levels([self.geography,'demand_sector'])
+#        bulk_coefficients = self.add_column_index(bulk_coefficients)
+#        bulk_coefficients.sort(inplace=True,axis=1)
+#        bulk_coefficients.sort(inplace=True,axis=0)
+#        for row_geography in self.geographies:
+#            for col_geography in self.geographies:
+#                for row_sector in self.demand_sectors:
+#                    for col_sector in self.demand_sectors:
+#                        if row_geography != col_geography or row_sector != col_sector:
+#                            row_indexer = util.level_specific_indexer(bulk_coefficients, [self.geography,'demand_sector'],[row_geography,row_sector])
+#                            col_indexer = util.level_specific_indexer(bulk_coefficients, [self.geography,'demand_sector'],[col_geography,col_sector])
+#                            bulk_coefficients.loc[row_indexer,col_indexer] = 0
+#        indexer = util.level_specific_indexer(self.nodes[self.bulk_id].active_coefficients_total,'supply_node', self.thermal_dispatch_node_id)
+#        self.nodes[self.bulk_id].active_coefficients_total.loc[indexer,:] = bulk_coefficients.values
+#    
 
         
     def add_column_index(self, data):
@@ -1143,42 +1232,42 @@ class Supply(object):
          data.columns = data.columns.droplevel(-1)
          return data 
     
-    def geo_map_thermal_coefficients(self,df,old_geography, new_geography, geography_map_key):
-            if old_geography != new_geography:
-                keys=cfg.geo.geographies[new_geography]
-                name = [new_geography]
-                df = pd.concat([df] * len(keys),keys=keys,names=name,axis=1)
-                df.sort(inplace=True,axis=1)
-                df.sort(inplace=True,axis=0)
-                map_df = cfg.geo.map_df(old_geography,new_geography,geography_map_key,eliminate_zeros=False).transpose()
-                names = [x for x in df.index.names if x not in map_df.index.names]
-                names.reverse()
-                for name in names:
-                    keys=list(set(df.index.get_level_values(name)))
-                    map_df = pd.concat([map_df]*len(keys),keys=keys,names=[name])
-                map_df.index = map_df.index.droplevel(None)
-                names = [x for x in df.columns.names if x not in map_df.columns.names]
-                names.reverse()
-                keys = []
-                for name in names:
-                    keys = list(set(df.columns.get_level_values(name)))
-                    map_df = pd.concat([map_df]*len(keys),keys=keys,names=[name],axis=1)
-                map_df=map_df.reorder_levels(df.index.names,axis=0)
-                map_df = map_df.reorder_levels(df.columns.names,axis=1)
-                map_df.sort(inplace=True,axis=0)
-                map_df.sort(inplace=True,axis=1)
-                old_geographies = list(set(df.columns.get_level_values(old_geography)))
-                new_geographies =list(set(map_df.columns.get_level_values(new_geography)))
-                for old in old_geographies:
-                    for new in new_geographies:
-                        row_indexer = util.level_specific_indexer(df,[new_geography],[new],axis=0)
-                        col_indexer = util.level_specific_indexer(df,[old_geography,new_geography],[old,new],axis=1)
-                        shape = (df.loc[row_indexer,col_indexer].values.shape)
-                        diag = np.ndarray(shape)
-                        np.fill_diagonal(diag,1)
-                df *= map_df.values
-                df = df.groupby(level=util.ix_excl(df,old_geography,axis=1),axis=1).sum()
-            return df
+#    def geo_map_thermal_coefficients(self,df,old_geography, new_geography, geography_map_key):
+#            if old_geography != new_geography:
+#                keys=cfg.geo.geographies[new_geography]
+#                name = [new_geography]
+#                df = pd.concat([df] * len(keys),keys=keys,names=name,axis=1)
+#                df.sort(inplace=True,axis=1)
+#                df.sort(inplace=True,axis=0)
+#                map_df = cfg.geo.map_df(old_geography,new_geography,geography_map_key,eliminate_zeros=False).transpose()
+#                names = [x for x in df.index.names if x not in map_df.index.names]
+#                names.reverse()
+#                for name in names:
+#                    keys=list(set(df.index.get_level_values(name)))
+#                    map_df = pd.concat([map_df]*len(keys),keys=keys,names=[name])
+#                map_df.index = map_df.index.droplevel(None)
+#                names = [x for x in df.columns.names if x not in map_df.columns.names]
+#                names.reverse()
+#                keys = []
+#                for name in names:
+#                    keys = list(set(df.columns.get_level_values(name)))
+#                    map_df = pd.concat([map_df]*len(keys),keys=keys,names=[name],axis=1)
+#                map_df=map_df.reorder_levels(df.index.names,axis=0)
+#                map_df = map_df.reorder_levels(df.columns.names,axis=1)
+#                map_df.sort(inplace=True,axis=0)
+#                map_df.sort(inplace=True,axis=1)
+#                old_geographies = list(set(df.columns.get_level_values(old_geography)))
+#                new_geographies =list(set(map_df.columns.get_level_values(new_geography)))
+#                for old in old_geographies:
+#                    for new in new_geographies:
+#                        row_indexer = util.level_specific_indexer(df,[new_geography],[new],axis=0)
+#                        col_indexer = util.level_specific_indexer(df,[old_geography,new_geography],[old,new],axis=1)
+#                        shape = (df.loc[row_indexer,col_indexer].values.shape)
+#                        diag = np.ndarray(shape)
+#                        np.fill_diagonal(diag,1)
+#                df *= map_df.values
+#                df = df.groupby(level=util.ix_excl(df,old_geography,axis=1),axis=1).sum()
+#            return df
       
     def prepare_electricity_storage_nodes(self,year,loop):
         """Calculates the efficiency and capacity (energy and power) of all electric
@@ -1308,8 +1397,6 @@ class Supply(object):
                 else:
                     shape = node.active_shape
                 shape = shape.groupby(level=[self.geography, 'timeshift_type']).transform(lambda x: x/x.sum())
-                test = util.remove_df_levels(DfOper.mult([gen,shape]), self.geography)
-                test.plot()
                 df_node.append(util.remove_df_levels(DfOper.mult([gen,shape]), self.geography))              
             df_geo.append(DfOper.add(df_node))
         return pd.concat(df_geo, keys=self.dispatch_geographies, names=[self.dispatch_geography])
@@ -1373,9 +1460,7 @@ class Supply(object):
             inverse = inverse.reorder_levels([self.geography,'supply_node','ghg'])
             inverse.sort(axis=0,inplace=True)
             indexer = util.level_specific_indexer(self.io_embodied_emissions_df, 'demand_sector', sector)
-            self.test_inverse = inverse
             emissions = np.column_stack(self.io_embodied_emissions_df.loc[indexer,year].values).T
-            self.test_emissions = emissions
             self.emissions_dict[year][sector] = pd.DataFrame(emissions * inverse.values,index=row_index,columns=col_index)
 
 
@@ -2426,7 +2511,7 @@ class Node(DataMapFunctions):
             #tradable supply is mapping of active supply to a tradable geography    
             self.geo_step1 = cfg.geo.map_df(self.tradable_geography,cfg.cfgfile.get('case', 'primary_geography'),eliminate_zeros=False)
             if self.potential.data is True:
-                 self.geo_step2 = DfOper.mult([util.remove_df_levels(self.potential.active_supply_curve,'resource_bins'),cfg.geo.map_df(cfg.cfgfile.get('case', 'primary_geography'),self.tradable_geography)])
+                 self.geo_step2 = DfOper.mult([util.remove_df_levels(self.potential.active_supply_curve,[x for x in self.potential.active_supply_curve.index.names if x not in [cfg.cfgfile.get('case', 'primary_geography'),'demand_sector']]),cfg.geo.map_df(cfg.cfgfile.get('case', 'primary_geography'),self.tradable_geography)])
                  util.replace_index_name(self.geo_step2,cfg.cfgfile.get('case', 'primary_geography') + "from", cfg.cfgfile.get('case', 'primary_geography'))         
                  #if a node has potential, this becomes the basis for remapping
             elif hasattr(self.stock, 'total_clean'):
@@ -3807,7 +3892,7 @@ class SupplyStockNode(Node):
    
     def max_total(self):
         tech_sum = util.remove_df_levels(self.stock.technology,'supply_technology')
-        self.stock.total = self.stock.total.fillna(tech_sum)
+#        self.stock.total = self.stock.total.fillna(tech_sum)
         self.stock.total[self.stock.total<tech_sum] = tech_sum             
 
 
@@ -4214,7 +4299,7 @@ class SupplyStockNode(Node):
     def calculate_initial_stock(self,elements, initial_total, sales_share, initial_sales_share):      
         technology = self.stock.technology_rollover.sum(axis=1).to_frame()
         technology_years = technology[technology>0].index.get_level_values('year')
-        if len(technology_years):
+        if len(technology_years) and not np.all(np.isnan(self.stock.technology_rollover.values)) :
              min_technology_year = min(technology_years)
         else:
              min_technology_year = None
@@ -4225,7 +4310,8 @@ class SupplyStockNode(Node):
         elif min_technology_year:
             initial_stock = self.stock.technology_rollover.loc[elements+(min_technology_year,),:].fillna(0).values/np.nansum(self.stock.technology_rollover.loc[elements+(min_technology_year,),:].values) * initial_total 
         else:
-            raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the technology composition of the initial stock')            
+            raise ValueError("""user has not input stock data with technologies or sales share data so the model 
+                                cannot determine the technology composition of the initial stock in node %s""" % self.name)            
         return initial_stock
 
     
