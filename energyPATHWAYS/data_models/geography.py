@@ -1,5 +1,5 @@
 from data_source import Base
-from sqlalchemy import Column, Integer, Text, UniqueConstraint, ForeignKey
+from sqlalchemy import Column, Integer, Text, Float, UniqueConstraint, ForeignKey
 from sqlalchemy.orm import relationship
 
 class Geography(Base):
@@ -21,7 +21,7 @@ class GeographiesDatum(Base):
     # with the same name.
     UniqueConstraint(geography_id, name)
 
-    geography = relationship(Geography, backref='geographies_data')
+    geography = relationship(Geography, backref='geographies_data', order_by=id)
 
 
 class GeographyMapKey(Base):
@@ -29,3 +29,36 @@ class GeographyMapKey(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(Text, unique=True)
+
+
+class GeographyIntersection(Base):
+    __tablename__ = 'GeographyIntersection'
+
+    id = Column(Integer, primary_key=True)
+
+
+class GeographyIntersectionDatum(Base):
+    __tablename__ = 'GeographyIntersectionData'
+
+    id = Column(Integer, primary_key=True)
+    intersection_id = Column(ForeignKey(GeographyIntersection.id))
+    gau_id = Column(ForeignKey(GeographiesDatum.id))
+
+    UniqueConstraint(intersection_id, gau_id)
+
+    gau = relationship(GeographiesDatum)
+    intersection = relationship(GeographyIntersection)
+
+
+class GeographyMap(Base):
+    __tablename__ = 'GeographyMap'
+
+    id = Column(Integer, primary_key=True)
+    intersection_id = Column(ForeignKey(GeographyIntersection.id))
+    geography_map_key_id = Column(ForeignKey(GeographyMapKey.id))
+    value = Column(Float(53))
+
+    UniqueConstraint(intersection_id, geography_map_key_id)
+
+    geography_map_key = relationship(GeographyMapKey)
+    intersection = relationship(GeographyIntersection)

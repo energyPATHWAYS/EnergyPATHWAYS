@@ -82,6 +82,11 @@ CREATE TABLE migrated."Geographies" (
 	UNIQUE (name)
 );
 
+CREATE TABLE migrated."GeographyIntersection" (
+	id SERIAL NOT NULL, 
+	PRIMARY KEY (id)
+);
+
 CREATE TABLE migrated."GeographyMapKeys" (
 	id SERIAL NOT NULL, 
 	name TEXT, 
@@ -213,6 +218,17 @@ CREATE TABLE migrated."GeographiesData" (
 	FOREIGN KEY(geography_id) REFERENCES migrated."Geographies" (id)
 );
 
+CREATE TABLE migrated."GeographyMap" (
+	id SERIAL NOT NULL, 
+	intersection_id INTEGER, 
+	geography_map_key_id INTEGER, 
+	value FLOAT(53), 
+	PRIMARY KEY (id), 
+	UNIQUE (intersection_id, geography_map_key_id), 
+	FOREIGN KEY(intersection_id) REFERENCES migrated."GeographyIntersection" (id), 
+	FOREIGN KEY(geography_map_key_id) REFERENCES migrated."GeographyMapKeys" (id)
+);
+
 CREATE TABLE migrated."InflationConversion" (
 	id SERIAL NOT NULL, 
 	currency_id INTEGER, 
@@ -291,6 +307,16 @@ CREATE TABLE migrated."FinalEnergy" (
 	PRIMARY KEY (id), 
 	UNIQUE (name), 
 	FOREIGN KEY(shape_id) REFERENCES migrated."Shapes" (id)
+);
+
+CREATE TABLE migrated."GeographyIntersectionData" (
+	id SERIAL NOT NULL, 
+	intersection_id INTEGER, 
+	gau_id INTEGER, 
+	PRIMARY KEY (id), 
+	UNIQUE (intersection_id, gau_id), 
+	FOREIGN KEY(intersection_id) REFERENCES migrated."GeographyIntersection" (id), 
+	FOREIGN KEY(gau_id) REFERENCES migrated."GeographiesData" (id)
 );
 
 CREATE TABLE migrated."ShapesData" (

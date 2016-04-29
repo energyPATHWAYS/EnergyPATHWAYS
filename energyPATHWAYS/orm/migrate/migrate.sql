@@ -95,6 +95,15 @@ SELECT id, name, geography_id FROM public."GeographiesData";
 INSERT INTO migrated."GeographyMapKeys" (id, name)
 SELECT id, name FROM public."GeographyMapKeys";
 
+INSERT INTO migrated."GeographyIntersection" (id)
+SELECT id FROM public."GeographyIntersection";
+
+INSERT INTO migrated."GeographyIntersectionData" (id, intersection_id, gau_id)
+SELECT id, intersection_id, gau_id FROM public."GeographyIntersectionData";
+
+INSERT INTO migrated."GeographyMap" (id, intersection_id, geography_map_key_id, value)
+SELECT id, intersection_id, geography_map_key_id, value FROM public."GeographyMap";
+
 -- copy dispatch table data
 
 INSERT INTO migrated."DispatchFeeders" (id, name)

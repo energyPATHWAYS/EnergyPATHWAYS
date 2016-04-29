@@ -9,7 +9,7 @@ import pandas as pd
 import pint
 import psycopg2
 
-import geography
+import geomapper
 import util
 import data_models.data_source as data_source
 #import ipdb
@@ -124,7 +124,7 @@ def init_pint(custom_pint_definitions_path=None):
 def init_geo():
     #Geography conversions
     global geo
-    geo = geography.Geography()
+    geo = geomapper.GeoMapper()
 
 def init_electricity_energy_type():
     global electricity_energy_type_id, electricity_energy_type_shape_id
