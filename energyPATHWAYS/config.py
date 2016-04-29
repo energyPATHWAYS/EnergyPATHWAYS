@@ -12,7 +12,6 @@ import psycopg2
 import geography
 import util
 import data_models.data_source as data_source
-
 #import ipdb
 
 # Don't print warnings
@@ -40,7 +39,6 @@ geo = None
 # output config
 currency_name = None
 output_levels = None
-outputs_id_map = None
 output_currency = None
 
 # for dispatch
@@ -60,7 +58,7 @@ def initialize_config(cfgfile_path, custom_pint_definitions_path):
     init_pint(custom_pint_definitions_path)
     init_geo()
     init_electricity_energy_type()
-    init_outputs_id_map()
+    init_output_parameters()
 
 def load_config(cfgfile_path):
     global cfgfile
@@ -132,26 +130,9 @@ def init_electricity_energy_type():
     global electricity_energy_type_id, electricity_energy_type_shape_id
     electricity_energy_type_id, electricity_energy_type_shape_id = util.sql_read_table('FinalEnergy', column_names=['id', 'shape_id'], name='electricity')
 
-def init_outputs_id_map():
-    global currency_name, output_levels, outputs_id_map, output_currency
+def init_output_parameters():
+    global currency_name, output_levels, output_currency
     currency_name = util.sql_read_table('Currencies', 'name', id=int(cfgfile.get('case', 'currency_id')))
     output_levels = cfgfile.get('case', 'output_levels').split(', ')
     output_currency = cfgfile.get('case', 'currency_year_id') + ' ' + currency_name
-    outputs_id_map = defaultdict(dict)
-    if 'primary_geography' in output_levels:
-        output_levels[output_levels.index('primary_geography')] = primary_geography
-    primary_geography_id = util.sql_read_table('Geographies', 'id', name=primary_geography)
-    print primary_geography_id
-    outputs_id_map[primary_geography] = util.upper_dict(util.sql_read_table('GeographiesData', ['id', 'name'], geography_id=primary_geography_id, return_unique=True, return_iterable=True))
-    outputs_id_map[primary_geography+"_supply"] =  outputs_id_map[primary_geography]       
-    outputs_id_map['technology'] = util.upper_dict(util.sql_read_table('DemandTechs', ['id', 'name']))
-    outputs_id_map['final_energy'] = util.upper_dict(util.sql_read_table('FinalEnergy', ['id', 'name']))
-    outputs_id_map['supply_node'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name']))       
-    outputs_id_map['supply_node_export'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name'])," EXPORT")
-    outputs_id_map['subsector'] = util.upper_dict(util.sql_read_table('DemandSubsectors', ['id', 'name']))           
-    outputs_id_map['sector'] = util.upper_dict(util.sql_read_table('DemandSectors', ['id', 'name']))
-    outputs_id_map['ghg'] = util.upper_dict(util.sql_read_table('GreenhouseGases', ['id', 'name']))
-    for id, name in util.sql_read_table('OtherIndexes', ('id', 'name'), return_iterable=True):
-        if name in ('technology', 'final_energy'): 
-            continue
-        outputs_id_map[name] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name'], other_index_id=id, return_unique=True))
+

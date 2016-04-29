@@ -48,8 +48,24 @@ def fetch(cls, **kwargs):
     return result
 
 
-def fetch_as_dict(cls):
-    return {obj.id: obj for obj in fetch(cls)}
+def fetch_one(cls, **kwargs):
+    return session.query(cls).filter_by(**kwargs).one()
+
+
+def fetch_as_dict(cls, **kwargs):
+    return {obj.id: obj for obj in fetch(cls, **kwargs)}
+
+
+def models_to_lookup(models):
+    """
+    Takes a ilst of SQLAlchemy models (from a query or relationship) and returns a dictionary with the id and name of
+    each model object
+    """
+    return {obj.id: obj.name for obj in models}
+
+
+def fetch_as_lookup(cls, **kwargs):
+    return models_to_lookup(fetch(cls, **kwargs))
 
 
 def fetch_as_df(cls):

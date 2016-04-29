@@ -221,9 +221,6 @@ class Demand(object):
                     continue
                 # calculate subsector
                 self.calculate(subsector)
-        
-        cfg.outputs_id_map['sector'] = util.upper_dict([(k, v.name) for k, v in self.sectors.items()])
-        cfg.outputs_id_map['subsector'] = util.upper_dict(util.flatten_list([[(k, v.name) for k, v in sector.subsectors.items()] for sector in self.sectors.values()]))
 
     def calculate(self, subsector):
         """ 

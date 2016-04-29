@@ -21,7 +21,7 @@ class GeographiesDatum(Base):
     # with the same name.
     UniqueConstraint(geography_id, name)
 
-    geography = relationship(Geography)
+    geography = relationship(Geography, backref='geographies_data')
 
 
 class GeographyMapKey(Base):

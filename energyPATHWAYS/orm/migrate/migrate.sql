@@ -124,6 +124,9 @@ SELECT id, parent_id, gau_id, dispatch_feeder, timeshift_type, resource_bin, dis
   hour, day_type_id, weather_datetime::timestamp as weather_datetime, value
 FROM public."ShapesData";
 
+INSERT INTO migrated."FinalEnergy" (id, name, shape_id)
+SELECT id, name, shape_id FROM public."FinalEnergy";
+
 -- copy demand table data
 
 INSERT INTO migrated."DemandSectors" (id, name, shape_id, max_lead_hours, max_lag_hours)

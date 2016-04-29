@@ -34,7 +34,7 @@ class OtherIndexesDatum(Base):
 
     UniqueConstraint(other_index_id, name)
 
-    other_index = relationship(OtherIndex)
+    other_index = relationship(OtherIndex, backref='other_indexes_data')
 
 
 class Shape(DataMapper, Base):
@@ -503,3 +503,13 @@ class ShapesDatum(Base):
     timeshift_type = relationship(FlexibleLoadShiftType)
     dispatch_constraint_type = relationship(DispatchConstraintType)
     shape = relationship(Shape, order_by=id, backref='data')
+
+
+class FinalEnergy(Base):
+    __tablename__ = 'FinalEnergy'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(Text, unique=True)
+    shape_id = Column(ForeignKey(Shape.id))
+
+    shape = relationship(Shape)

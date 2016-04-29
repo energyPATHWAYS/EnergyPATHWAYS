@@ -44,6 +44,11 @@ def upper_dict(query,append=None):
         if append is not None:
             id_dict[key] = value + append
     return id_dict
+
+# TODO: (MAC) delete upper_dict and replace it with new_upper_dict once all legacy code that relies on upper_dict
+# has been converted to SQLAlchemy
+def new_upper_dict(dic, append=''):
+    return {id_: name.upper() + append for id_, name in dic.iteritems()}
                 
 def df_list_concatenate(df_list, keys, new_names, levels_to_keep=None):
     new_names = put_in_list(new_names)

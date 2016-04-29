@@ -284,6 +284,15 @@ CREATE TABLE migrated."DemandSectors" (
 	FOREIGN KEY(shape_id) REFERENCES migrated."Shapes" (id)
 );
 
+CREATE TABLE migrated."FinalEnergy" (
+	id SERIAL NOT NULL, 
+	name TEXT, 
+	shape_id INTEGER, 
+	PRIMARY KEY (id), 
+	UNIQUE (name), 
+	FOREIGN KEY(shape_id) REFERENCES migrated."Shapes" (id)
+);
+
 CREATE TABLE migrated."ShapesData" (
 	id SERIAL NOT NULL, 
 	parent_id INTEGER, 
