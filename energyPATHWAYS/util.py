@@ -30,6 +30,8 @@ import functools
 import itertools
 import decimal
 import psycopg2
+import data_models.data_source as data_source
+from data_models.system import CurrencyConversion, InflationConversion
 
 def freeze_recursivedict(recursivedict):
     recursivedict = dict(recursivedict)
@@ -301,28 +303,28 @@ def unit_conversion_factor(unit_from, unit_to):
                 raise ValueError(error_text)
 
 
-def exchange_rate(currency_from, currency_from_year, currency_to=None):
+def exchange_rate(from_currency_id, year, to_currency_id=None):
     """calculate exchange rate between two specified currencies"""
-    currency_to = cfg.cfgfile.get('case', 'currency_id') if currency_to is None else currency_to
-    currency_from_values = sql_read_table('CurrenciesConversion', 'value', currency_id=currency_from,
-                                          currency_year_id=currency_from_year)
-    currency_from_value = np.asarray(currency_from_values).mean()
-    currency_to_values = sql_read_table('CurrenciesConversion', 'value', currency_id=currency_to,
-                                        currency_year_id=currency_from_year)
-    currency_to_value = np.asarray(currency_to_values).mean()
-    return currency_to_value / currency_from_value
+    to_currency_id = cfg.cfgfile.get('case', 'currency_id') if to_currency_id is None else to_currency_id
+
+    # the ratio could more efficiently be calculated in the database (meaning we'd only need one query rather than two)
+    # or (probably more effectively) we could memoize the whole function if performance is an issue
+    from_conversion = data_source.fetch_one(CurrencyConversion, currency_id=from_currency_id, currency_year=year)
+    to_conversion = data_source.fetch_one(CurrencyConversion, currency_id=to_currency_id, currency_year=year)
+
+    return to_conversion.value / from_conversion.value
 
 
-def inflation_rate(currency, currency_from_year, currency_to_year=None):
+def inflation_rate(currency_id, from_year, to_year=None):
     """calculate inflation rate between two years in a specified currency"""
-    currency_to_year = cfg.cfgfile.get('case', 'currency_year_id') if currency_to_year is None else currency_to_year
-    currency_from_values = sql_read_table('InflationConversion', 'value', currency_id=currency,
-                                          currency_year_id=currency_from_year)
-    currency_from_value = np.asarray(currency_from_values).mean()
-    currency_to_values = sql_read_table('InflationConversion', 'value', currency_id=currency,
-                                        currency_year_id=currency_to_year)
-    currency_to_value = np.asarray(currency_to_values).mean()
-    return currency_to_value / currency_from_value
+    to_year = cfg.cfgfile.get('case', 'currency_year_id') if to_year is None else to_year
+
+    # the ratio could more efficiently be calculated in the database (meaning we'd only need one query rather than two)
+    # or (probably more effectively) we could memoize the whole function if performance is an issue
+    from_conversion = data_source.fetch_one(InflationConversion, currency_id=currency_id, currency_year=from_year)
+    to_conversion = data_source.fetch_one(InflationConversion, currency_id=currency_id, currency_year=to_year)
+
+    return to_conversion.value / from_conversion.value
 
 
 def currency_convert(data, currency_from, currency_from_year):
@@ -344,10 +346,9 @@ def currency_convert(data, currency_from, currency_from_year):
             try:
                 # use a known inflation data point of the USD. Exchange from original currency to USD
                 # in original currency year. Inflate to model currency year. Exchange to model currency in model currency year.
-                a = exchange_rate(currency_from, currency_from_year, currency_to=41)
-                b = inflation_rate(currency=41, currency_from_year=currency_from_year)
-                c = exchange_rate(currency_from=41, currency_from_year=currency_to_year
-                                  , currency_to=currency_to)
+                a = exchange_rate(currency_from, currency_from_year, to_currency_id=41)
+                b = inflation_rate(currency=41, from_year=currency_from_year)
+                c = exchange_rate(from_currency_id=41, year=currency_to_year, to_currency_id=currency_to)
                 return data * a * b * c
             except:
                 raise ValueError(

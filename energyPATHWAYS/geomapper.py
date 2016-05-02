@@ -23,7 +23,7 @@ class GeoMapper:
 
 
     def read_geography_indicies(self):
-        session = data_source.Session()
+        session = data_source.session()
 
         geo_data = session.query(Geography.name, GeographiesDatum.id).join(GeographiesDatum).\
             order_by(Geography.id, GeographiesDatum.id).all()
@@ -40,12 +40,8 @@ class GeoMapper:
         self.map_keys = [name for (name,) in map_key_data]
 
     def read_geography_data(self):
-        session = data_source.Session()
+        session = data_source.session()
         expected_rows = session.query(GeographyIntersection).count()
-
-        # TODO: (MAC) remove this once migration is complete; it is needed for the following query to work while
-        # we are migrating
-        session.execute("SET search_path TO migrated")
 
         # This query pulls together the geography map from its constituent tables. Its rows look like:
         # intersection_id, [list of geographical units that define intersection],

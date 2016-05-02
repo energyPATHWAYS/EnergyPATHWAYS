@@ -174,16 +174,6 @@ CREATE TABLE migrated."TimeZones" (
 	UNIQUE (name)
 );
 
-CREATE TABLE migrated."CurrenciesConversion" (
-	id SERIAL NOT NULL, 
-	currency_id INTEGER, 
-	currency_year INTEGER, 
-	value FLOAT(53), 
-	PRIMARY KEY (id), 
-	UNIQUE (currency_id, currency_year), 
-	FOREIGN KEY(currency_id) REFERENCES migrated."Currencies" (id)
-);
-
 CREATE TABLE migrated."DemandDrivers" (
 	id SERIAL NOT NULL, 
 	name TEXT, 
@@ -235,8 +225,8 @@ CREATE TABLE migrated."InflationConversion" (
 	currency_year INTEGER, 
 	value FLOAT(53), 
 	PRIMARY KEY (id), 
-	UNIQUE (currency_id, currency_year), 
-	FOREIGN KEY(currency_id) REFERENCES migrated."Currencies" (id)
+	FOREIGN KEY(currency_id) REFERENCES migrated."Currencies" (id), 
+	UNIQUE (currency_year)
 );
 
 CREATE TABLE migrated."OtherIndexesData" (
@@ -271,6 +261,17 @@ CREATE TABLE migrated."Shapes" (
 	FOREIGN KEY(geography_map_key_id) REFERENCES migrated."GeographyMapKeys" (id), 
 	FOREIGN KEY(interpolation_method_id) REFERENCES migrated."CleaningMethods" (id), 
 	FOREIGN KEY(extrapolation_method_id) REFERENCES migrated."CleaningMethods" (id)
+);
+
+CREATE TABLE migrated."CurrenciesConversion" (
+	id SERIAL NOT NULL, 
+	currency_id INTEGER, 
+	currency_year INTEGER, 
+	value FLOAT(53), 
+	PRIMARY KEY (id), 
+	UNIQUE (currency_id, currency_year), 
+	FOREIGN KEY(currency_id) REFERENCES migrated."Currencies" (id), 
+	FOREIGN KEY(currency_year) REFERENCES migrated."InflationConversion" (currency_year)
 );
 
 CREATE TABLE migrated."DemandDriversData" (

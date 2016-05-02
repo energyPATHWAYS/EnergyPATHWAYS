@@ -35,21 +35,21 @@ Base = declarative_base(cls=Base, metadata=MetaData(schema='migrated'))
 def init(db_conf):
     global engine
     engine = sa.create_engine(URL(**db_conf)) #,echo=True
-    global Session
-    Session = sa.orm.sessionmaker(bind=engine)
-    global session
-    session = Session()
+    global MakeSession
+    MakeSession = sa.orm.sessionmaker(bind=engine)
+    global load_session
+    load_session = MakeSession()
 
 
 def fetch(cls, **kwargs):
-    result = session.query(cls).filter_by(**kwargs).all()
+    result = load_session.query(cls).filter_by(**kwargs).all()
     # I was originally closing the session here, but that makes it impossible for the loaded objects to do
     # any additional lazy loading of their relationships
     return result
 
 
 def fetch_one(cls, **kwargs):
-    return session.query(cls).filter_by(**kwargs).one()
+    return load_session.query(cls).filter_by(**kwargs).one()
 
 
 def fetch_as_dict(cls, **kwargs):
@@ -88,4 +88,11 @@ def get(cls, id_):
     Essentially provides a passthrough to SQLAlchemy's get() method to get a single object by primary key
     while using SQLAlchemy's identity map to avoid redundant queries
     """
-    return session.query(cls).get(id_)
+    return load_session.query(cls).get(id_)
+
+
+def session():
+    new_session = MakeSession()
+    # TODO: (MAC) remove this once migration is complete; it's needed for some low-level queries while we are migrating
+    new_session.execute("SET search_path TO migrated")
+    return new_session

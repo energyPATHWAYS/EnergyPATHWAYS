@@ -1,5 +1,5 @@
 from data_source import Base
-from sqlalchemy import Column, Integer, Text, Float, ForeignKey, UniqueConstraint, text
+from sqlalchemy import Column, Integer, Text, Float, ForeignKey, UniqueConstraint, ForeignKeyConstraint
 
 
 class AgeGrowthOrDecayType(Base):
@@ -21,17 +21,6 @@ class Currency(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(Text, unique=True)
-
-
-class CurrencyConversion(Base):
-    __tablename__ = 'CurrenciesConversion'
-
-    id = Column(Integer, primary_key=True)
-    currency_id = Column(ForeignKey(Currency.id))
-    currency_year = Column(Integer)
-    value = Column(Float(53))
-
-    UniqueConstraint(currency_id, currency_year)
 
 
 class DayType(Base):
@@ -103,11 +92,19 @@ class InflationConversion(Base):
 
     id = Column(Integer, primary_key=True)
     currency_id = Column(ForeignKey(Currency.id))
-    currency_year = Column(Integer)
+    currency_year = Column(Integer, unique=True)
+    value = Column(Float(53))
+
+
+class CurrencyConversion(Base):
+    __tablename__ = 'CurrenciesConversion'
+
+    id = Column(Integer, primary_key=True)
+    currency_id = Column(ForeignKey(Currency.id))
+    currency_year = Column(ForeignKey(InflationConversion.currency_year))
     value = Column(Float(53))
 
     UniqueConstraint(currency_id, currency_year)
-
 
 class InputType(Base):
     __tablename__ = 'InputTypes'

@@ -27,9 +27,6 @@ SELECT id, name FROM public."CleaningMethods";
 INSERT INTO migrated."Currencies" (id, name)
 SELECT id, name FROM public."Currencies";
 
-INSERT INTO migrated."CurrenciesConversion" (id, currency_id, currency_year, value)
-SELECT id, currency_id, currency_year_id, value FROM public."CurrenciesConversion";
-
 INSERT INTO migrated."DayTypes" (id, name)
 SELECT id, name FROM public."DayType";
 
@@ -59,6 +56,15 @@ SELECT id, name FROM public."GreenhouseGases";
 
 INSERT INTO migrated."InflationConversion" (id, currency_id, currency_year, value)
 SELECT id, currency_id, currency_year_id, value FROM public."InflationConversion";
+SELECT setval(pg_get_serial_sequence('migrated."InflationConversion"', 'id'), coalesce(max(id),0) + 1, false) FROM migrated."InflationConversion";
+
+-- TODO: this is a shim to fill in for a missing InflationConversion value
+-- just copying the 2014 value into 2015 for now, per Ben
+INSERT INTO migrated."InflationConversion" (currency_id, currency_year, value)
+SELECT currency_id, 2015, value FROM public."InflationConversion" WHERE currency_year_id = 2014;
+
+INSERT INTO migrated."CurrenciesConversion" (id, currency_id, currency_year, value)
+SELECT id, currency_id, currency_year_id, value FROM public."CurrenciesConversion";
 
 INSERT INTO migrated."InputTypes" (id, name)
 SELECT id, name FROM public."InputTypes";
@@ -151,6 +157,12 @@ FROM public."DemandDrivers";
 
 INSERT INTO migrated."DemandDriversData" (parent_id, gau_id, oth_1_id, oth_2_id, year, value, id)
 SELECT parent_id, gau_id, oth_1_id, oth_2_id, year, value, id FROM public."DemandDriversData";
+
+-- Reset all sequences in migrated, which have now become out of sync due to inserts with fixed primary key values
+-- Very important! If you skip this part, the migration will appear to work but you won't be able to insert
+-- any rows after.
+\i reset_sequences.sql
+
 
 -- TODO: rename so "migrated" is the new "public", and either delete old "public" or call it something like "legacy"
 
