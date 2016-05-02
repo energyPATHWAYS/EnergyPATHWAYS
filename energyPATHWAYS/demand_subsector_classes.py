@@ -56,7 +56,7 @@ class DemandStock(Stock):
         self.efficiency_calculated = False
         self.efficiency = defaultdict(dict)
         self.levelized_costs = defaultdict(dict)
-        self.investment = defaultdict(dict)
+        self.annual_costs= defaultdict(dict)
 
 class ServiceEfficiency(Abstract):
     def __init__(self, id, service_demand_unit, **kwargs):

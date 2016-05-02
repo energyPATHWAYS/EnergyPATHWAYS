@@ -30,6 +30,7 @@ class Shapes(object):
         """ This should be called first as it creates a record of all of the shapes that are in the database."""
         for id in util.sql_read_table(self.sql_id_table, column_names='id', return_unique=True, return_iterable=True):
             self.data[id] = Shape(id)
+            self.active_shape_ids.append(id)
 
     def activate_shape(self, id):
         if id not in self.active_shape_ids:
@@ -212,13 +213,14 @@ class Shape(dmf.DataMapFunctions):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table
         """
         if self.geography=='time zones':
+            self.map_df_tz = None
             if inplace:
                 return
             else:
                 return getattr(self, attr)
-        
+
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
-        
+
         subsection, supersection = 'time zones', self.geography
         # create dataframe with map from one geography to another
         map_df = cfg.geo.map_df(subsection, supersection, column=geography_map_key)
@@ -239,6 +241,7 @@ class Shape(dmf.DataMapFunctions):
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
 
         if self.geography==converted_geography:
+            self.map_df_primary = None
             if inplace:
                 return
             else:
@@ -376,7 +379,7 @@ class Shape(dmf.DataMapFunctions):
 
 
 directory = os.getcwd()
-rerun_shapes = False
+rerun_shapes = True
 #######################
 #######################
 if rerun_shapes:

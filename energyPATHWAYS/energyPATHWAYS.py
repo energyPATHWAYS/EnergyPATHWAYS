@@ -50,6 +50,8 @@ class PathwaysModel(object):
         self.populate_demand_system()
         self.populate_supply_system()
         print 'processing shapes'
+        
+    def populate_shapes(self) :
         if shape.shapes.rerun:
             shape.shapes.initiate_active_shapes()
             shape.shapes.process_active_shapes()
@@ -155,6 +157,7 @@ class PathwaysModel(object):
         
     def calculate_combined_cost_results(self):
         #calculate and format export costs
+        cost_unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
         if self.supply.export_costs is not None:
             setattr(self.outputs,'export_costs',self.supply.export_costs)
             self.export_costs_df = self.outputs.return_cleaned_output('export_costs')
@@ -164,10 +167,12 @@ class PathwaysModel(object):
             names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
             for key,name in zip(keys,names):
                 self.export_costs_df = pd.concat([self.export_costs_df],keys=[key],names=[name])
+            self.export_costs_df.columns = [cost_unit.upper()]  
         else:
             self.export_costs_df = None
         #calculate and format emobodied supply costs
         self.embodied_energy_costs_df = self.demand.outputs.return_cleaned_output('demand_embodied_energy_costs')
+        self.embodied_energy_costs_df.columns = [cost_unit.upper()]  
         del self.demand.outputs.demand_embodied_energy_costs
         keys = ["DOMESTIC","SUPPLY"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
@@ -190,7 +195,7 @@ class PathwaysModel(object):
 #        util.replace_index_name(self.outputs.costs, self.geography.upper() +'_EARNED', self.geography.upper() +'_SUPPLY')
 #        util.replace_index_name(self.outputs.costs, self.geography.upper() +'_CONSUMED', self.geography.upper())
         self.outputs.costs[self.outputs.costs<0]=0
-        self.outputs.costs= self.outputs.costs[self.outputs.costs['VALUE']!=0]
+        self.outputs.costs= self.outputs.costs[self.outputs.costs[cost_unit.upper()]!=0]
 #        self.outputs.costs.sort(inplace=True)       
         keys = [self.scenario.upper()]
         names = ['SCENARIO']
@@ -242,6 +247,8 @@ class PathwaysModel(object):
         keys = [self.scenario.upper()]
         names = ['SCENARIO']
         self.outputs.emissions = pd.concat([self.outputs.emissions],keys=keys,names=names)
+        emissions_unit = cfg.cfgfile.get('case','mass_unit')
+        self.outputs.emissions.columns = [emissions_unit.upper()]
         
 #        self.outputs.emissions.sort(inplace=True)        
             
@@ -261,5 +268,6 @@ class PathwaysModel(object):
          self.final_energy = self.final_energy.reorder_levels(self.embodied_energy.index.names)
          self.outputs.energy = pd.concat([self.embodied_energy,self.final_energy])
          self.outputs.energy= self.outputs.energy[self.outputs.energy['VALUE']!=0]
-         
+         energy_unit = cfg.cfgfile.get('case','energy_unit')
+         self.outputs.energy.columns = [energy_unit.upper()]
          

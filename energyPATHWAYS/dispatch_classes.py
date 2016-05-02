@@ -475,7 +475,7 @@ class Dispatch(object):
         return clustered
 
     @staticmethod
-    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.15, load_ptile=99.8):
+    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.5, load_ptile=99.8):
         group_cuts = list(np.where(np.diff(dispatch_periods)!=0)[0]+1) if dispatch_periods is not None else None
         # we have to have dispatch periods or we can't allocate, if we don't have them, we just return the base maintenance rates
         if dispatch_periods is None or not group_cuts:

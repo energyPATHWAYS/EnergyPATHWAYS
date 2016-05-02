@@ -137,7 +137,8 @@ class DataMapFunctions:
 
         mapped_data = DfOper.mult([getattr(self, attr), map_df],fill_value=fill_value)
         mapped_data = util.remove_df_levels(mapped_data, current_geography)
-        mapped_data = mapped_data.swaplevel(converted_geography,0)
+        if hasattr(mapped_data.index,'swaplevel'):
+            mapped_data = mapped_data.swaplevel(converted_geography,0)
         mapped_data.sort(inplace=True)
         if inplace:
             setattr(self, attr, mapped_data)

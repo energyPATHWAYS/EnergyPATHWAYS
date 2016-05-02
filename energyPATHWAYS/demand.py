@@ -50,7 +50,7 @@ class Demand(object):
             levels_with_na_only = [name for level, name in zip(df.index.levels, df.index.names) if list(level)==[u'N/A']]
             return util.remove_df_levels(df, levels_with_na_only).sort_index()
             
-        output_list = ['energy', 'stock', 'sales','investment_costs', 'levelized_costs', 'service_demand']
+        output_list = ['energy', 'stock', 'sales','annual_costs', 'levelized_costs', 'service_demand']
         unit_flag = [False, True, False, False, True]
         for output_name, include_unit in zip(output_list,unit_flag):
             df = self.group_output(output_name,include_unit=include_unit)
@@ -403,14 +403,7 @@ class Subsector(DataMapFunctions):
                 flex = Shape.produce_flexible_load(active_shape.values, percent_flexible=0, hr_delay=active_max_lag_hours, hr_advance=active_max_lead_hours)
                 return util.DfOper.mult((energy_slice, active_feeder_allocation, flex))
             else:
-                try:
-                    return util.DfOper.mult((energy_slice, active_feeder_allocation, active_shape.values))
-                except:
-                    print energy_slice
-                    print active_feeder_allocation
-                    print active_shape.values
-                    print active_shape.id
-                    asasas
+                return util.DfOper.mult((energy_slice, active_feeder_allocation, active_shape.values))
         
         # some technologies have their own shapes, so we need to aggregate from that level
         else:
@@ -540,8 +533,8 @@ class Subsector(DataMapFunctions):
             return self.format_output_stock(levels_to_keep)
         elif output_type=='sales':
             return self.format_output_sales(levels_to_keep)
-        elif output_type=='investment_costs':
-            return self.format_output_costs('investment', levels_to_keep) 
+        elif output_type=='annual_costs':
+            return self.format_output_costs('annual_costs', levels_to_keep) 
         elif output_type=='levelized_costs':
             return self.format_output_costs('levelized_costs', levels_to_keep)
         elif output_type=='service_demand':
@@ -634,6 +627,8 @@ class Subsector(DataMapFunctions):
                 value.columns = ['value']
                 util.replace_index_name(value, 'year')
                 values[index] = value
+            else:
+                util.replace_index_name(value, 'year','vintage')
         df = util.df_list_concatenate(values, keys=keys, new_names=['cost category', 'new/replacement'], levels_to_keep=override_levels_to_keep)
         unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
         df.columns = [unit]        
@@ -1745,8 +1740,8 @@ class Subsector(DataMapFunctions):
                 measures='energy_efficiency_measures', measure_class='cost', measure_att='values_level',
                 stock_class='ee_stock',
                 stock_att='values')
-            self.ee_stock.investment = defaultdict(dict)
-            self.ee_stock.investment['unspecified']= self.rollover_measure_output(
+            self.ee_stock.annual_costs = defaultdict(dict)
+            self.ee_stock.annual_costs['unspecified']= self.rollover_measure_output(
                 measures='energy_efficiency_measures', measure_class='cost', measure_att='values',
                 stock_class='ee_stock',
                 stock_att='sales')
@@ -1757,8 +1752,8 @@ class Subsector(DataMapFunctions):
                 stock_class='fs_stock',
                 stock_att='values')
 
-            self.fs_stock.investment = defaultdict(dict)
-            self.fs_stock.investment['unspecified'] = self.rollover_measure_output(
+            self.fs_stock.annual_costs = defaultdict(dict)
+            self.fs_stock.annual_costs['unspecified'] = self.rollover_measure_output(
                 measures='fuel_switching_measures', measure_class='cost', measure_att='values', stock_class='fs_stock',
                 stock_att='sales')
 
@@ -1769,8 +1764,8 @@ class Subsector(DataMapFunctions):
                 stock_class='sd_stock',
                 stock_att='values')
 
-            self.sd_stock.investment = defaultdict(dict)
-            self.sd_stock.investment['unspecified']= self.rollover_measure_output(
+            self.sd_stock.annual_costs = defaultdict(dict)
+            self.sd_stock.annual_costs['unspecified']= self.rollover_measure_output(
                 measures='service_demand_measures', measure_class='cost', measure_att='values', stock_class='sd_stock',
                 stock_att='sales')
 
@@ -2220,12 +2215,12 @@ class Subsector(DataMapFunctions):
         self.stock.levelized_costs['installation']['replacement'] = self.rollover_output(tech_class='installation_cost_replacement', tech_att='values_level', stock_att='values_financial_replacement')
         if self.sub_type != 'link':
             self.stock.levelized_costs['fuel_switching']['new'] = self.rollover_output(tech_class='fuel_switch_cost', tech_att='values_level', stock_att='values_fuel_switch')
-        self.stock.investment['capital']['new'] = self.rollover_output(tech_class='capital_cost_new', tech_att='values', stock_att='sales_new')
-        self.stock.investment['capital']['replacement'] = self.rollover_output(tech_class='capital_cost_replacement', tech_att='values', stock_att='sales_replacement')
-        self.stock.investment['installation']['new'] = self.rollover_output(tech_class='installation_cost_new', tech_att='values', stock_att='sales_new')
-        self.stock.investment['installation']['replacement'] = self.rollover_output(tech_class='installation_cost_replacement', tech_att='values', stock_att='sales_replacement')
+        self.stock.annual_costs['capital']['new'] = self.rollover_output(tech_class='capital_cost_new', tech_att='values', stock_att='sales_new')
+        self.stock.annual_costs['capital']['replacement'] = self.rollover_output(tech_class='capital_cost_replacement', tech_att='values', stock_att='sales_replacement')
+        self.stock.annual_costs['installation']['new'] = self.rollover_output(tech_class='installation_cost_new', tech_att='values', stock_att='sales_new')
+        self.stock.annual_costs['installation']['replacement'] = self.rollover_output(tech_class='installation_cost_replacement', tech_att='values', stock_att='sales_replacement')
         if self.sub_type != 'link':
-            self.stock.investment['fuel_switching']['all'] = self.rollover_output(tech_class='fuel_switch_cost', tech_att='values', stock_att='sales_fuel_switch',)
+            self.stock.annual_costs['fuel_switching']['all'] = self.rollover_output(tech_class='fuel_switch_cost', tech_att='values', stock_att='sales_fuel_switch',)
 
     def remove_extra_subsector_attributes(self):
         if hasattr(self, 'stock'):
