@@ -283,7 +283,10 @@ class Dispatch(object):
                         self.alloc_energy[tech_dispatch_id] = self.energy[tech_dispatch_id]
                      else:
                         self.large_storage[tech_dispatch_id] = 0
-                     self.charging_efficiency[tech_dispatch_id] = 1/np.sqrt(storage_efficiency_dict[dispatch_geography][zone][feeder][tech])
+                     x = 1/np.sqrt(storage_efficiency_dict[dispatch_geography][zone][feeder][tech])
+                     if not np.isfinite(x):
+                         x = 1
+                     self.charging_efficiency[tech_dispatch_id] = x
                      self.discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.charging_efficiency)[tech_dispatch_id] 
                      self.feeder[tech_dispatch_id] = feeder
       self.set_gen_technologies(thermal_dispatch_dict, generators_per_region)

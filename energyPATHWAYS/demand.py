@@ -84,6 +84,7 @@ class Demand(object):
     #        year_df_list = []
         levels_to_keep = [x for x in levels_to_keep if x in self.outputs.energy.index.names]
         demand_df = self.outputs.energy.groupby(level=levels_to_keep).sum()
+        demand_df = demand_df[demand_df.index.get_level_values('year')>=int(cfg.cfgfile.get('case','current_year'))]
     #        years =  list(set(supply_link.index.get_level_values('year')))
     #        for year in years:
     #            print year

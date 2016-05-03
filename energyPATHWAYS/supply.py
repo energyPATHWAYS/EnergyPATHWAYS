@@ -211,6 +211,7 @@ class Supply(object):
         self.nodes = {}
         self.all_nodes = []
         self.blend_nodes = []
+        self.non_storage_nodes = []
         cfg.cur.execute('select id from "SupplyNodes" order by id')
         ids = [id for id in cfg.cur.fetchall()]
         for (id,) in ids:
@@ -226,6 +227,7 @@ class Supply(object):
             (is_active,) = cfg.cur.fetchone()
             if is_active == 1:
                 self.add_node(id, supply_type)
+        
 
 
     def add_node(self, id, supply_type, **kwargs):
@@ -237,6 +239,7 @@ class Supply(object):
         if supply_type == "Blend":
             self.nodes[id] = BlendNode(id, supply_type, **kwargs)
             self.blend_nodes.append(id)
+            self.non_storage_nodes.append(id)
         elif supply_type == "Storage":
             if len(util.sql_read_table('SupplyTechs', 'supply_node_id', supply_node_id=id, return_iterable=True)):          
                 self.nodes[id] = StorageNode(id, supply_type, **kwargs)
@@ -244,13 +247,17 @@ class Supply(object):
                 print ValueError('insufficient data in storage node %s' %id)
         elif supply_type == "Import":
             self.nodes[id] = ImportNode(id, supply_type, **kwargs)
+            self.non_storage_nodes.append(id)
         elif supply_type == "Primary":
             self.nodes[id] = PrimaryNode(id, supply_type, **kwargs)
+            self.non_storage_nodes.append(id)
         else:
             if len(util.sql_read_table('SupplyEfficiency', 'id', id=id, return_iterable=True)):          
                 self.nodes[id] = SupplyNode(id, supply_type, **kwargs)
+                self.non_storage_nodes.append(id)
             elif len(util.sql_read_table('SupplyTechs', 'supply_node_id', supply_node_id=id, return_iterable=True)):          
                 self.nodes[id] = SupplyStockNode(id, supply_type,  **kwargs)
+                self.non_storage_nodes.append(id)
             else:
                 print ValueError('insufficient data in supply node %s' %id)
    
@@ -445,13 +452,13 @@ class Supply(object):
         print "calculating supply energy link"
         self.energy_demand_link = self.map_embodied_to_demand(self.inverse_dict['energy'],self.embodied_energy_link_dict)
         self.remove_blend_and_import()
-        self.outputs.per_energy_costs = self.cost_demand_link
+        self.outputs.per_energy_costs = copy.deepcopy(self.cost_demand_link)
         unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')+ "/" + cfg.cfgfile.get('case','energy_unit')      
         self.outputs.per_energy_costs.columns  = [unit]
-        self.outputs.per_energy_emissions = self.emissions_demand_link
+        self.outputs.per_energy_emissions = copy.deepcopy(self.emissions_demand_link)
         unit = cfg.cfgfile.get('case','mass_unit') + "/" + cfg.cfgfile.get('case','energy_unit')      
         self.outputs.per_energy_emissions.columns  = [unit]
-        self.outputs.per_energy_embodied = self.energy_demand_link
+        self.outputs.per_energy_embodied = copy.deepcopy(self.energy_demand_link)
         unit = cfg.cfgfile.get('case','energy_unit') + "/" + cfg.cfgfile.get('case','energy_unit')      
         self.outputs.per_energy_embodied.columns  = [unit]  
         print "calculate exported costs"
@@ -1335,7 +1342,7 @@ class Supply(object):
                         indexer = util.level_specific_indexer(self.dispatch_feeder_allocation.values, 'year', year)
                         capacity = util.DfOper.mult([capacity, self.dispatch_feeder_allocation.values.loc[indexer, ]])
                         duration = DfOper.divi([util.remove_df_levels(DfOper.mult([duration, capacity]),'demand_sector'),util.remove_df_levels(capacity,'demand_sector')]).fillna(0)
-                        efficiency = DfOper.divi([util.remove_df_levels(DfOper.mult([efficiency, capacity]),'demand_sector'),util.remove_df_levels(capacity,'demand_sector')]).fillna(0)
+                        efficiency = DfOper.divi([util.remove_df_levels(DfOper.mult([efficiency, capacity]),'demand_sector'),util.remove_df_levels(capacity,'demand_sector')]).fillna(1)
                         capacity = util.remove_df_levels(capacity,'demand_sector')
                         for geography in self.dispatch_geographies:
                             for dispatch_feeder in self.dispatch_feeders:
@@ -1978,8 +1985,13 @@ class Supply(object):
             active_cost_io = self.adjust_for_not_incremental(self.active_io)
             self.active_demand = self.io_total_active_demand_df.loc[indexer,:]
             self.io_supply_df.loc[indexer,year] = solve_IO(self.active_io.values, self.active_demand.values)  
-            self.inverse_dict['energy'][year][sector] = pd.DataFrame(solve_IO(self.active_io.values).round(6), index=index, columns=index)
-            self.inverse_dict['cost'][year][sector] = pd.DataFrame(solve_IO(active_cost_io.values).round(6), index=index, columns=index)
+            self.inverse_dict['energy'][year][sector] = pd.DataFrame(solve_IO(self.active_io.values), index=index, columns=index)
+            self.inverse_dict['cost'][year][sector] = pd.DataFrame(solve_IO(active_cost_io.values), index=index, columns=index)
+            idx = pd.IndexSlice
+            self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:].round(3) 
+            self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:].round(3)
+        
+        
         for node in self.nodes.values():
             indexer = util.level_specific_indexer(self.io_supply_df,levels=['supply_node'], elements = [node.id])
             node.active_supply = self.io_supply_df.loc[indexer,year].groupby(level=[self.geography, 'demand_sector']).sum().to_frame()
