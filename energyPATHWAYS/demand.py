@@ -21,6 +21,7 @@ from shared_classes import AggregateStock
 from util import DfOper
 
 from data_models.data_source import fetch_as_dict
+from data_models.misc import FinalEnergy
 from data_models.demand import DemandDriver
 
 from outputs import Output
@@ -55,7 +56,7 @@ class Demand(object):
                 subsector.add_energy_system_data()
         self.precursor_dict()
 
-        self.default_electricity_shape = Shape.get(cfg.electricity_energy_type_shape_id)
+        self.default_electricity_shape = Shape.get(FinalEnergy.electricity().shape_id)
 
     def aggregate_electricity_shapes(self, year):
         """ Final levels that will always return from this function
@@ -71,7 +72,7 @@ class Demand(object):
         weather_years = np.unique(Shape.localized_active_dates_index().year)
 
         #energy = group_output(self, output_type, levels_to_keep=['year', 'energy_type'])
-        #electric_energy = util.df_slice(energy, cfg.electricity_energy_type_id, 'energy_type')
+        #electric_energy = util.df_slice(energy, FinalEnergy.electricity().id, 'energy_type')
 
     def aggregate_results(self):
         def remove_na_levels(df):
@@ -375,11 +376,11 @@ class Subsector(ShapeUser, DataMapFunctions):
         active_max_lag_hours = self.max_lag_hours if self.max_lag_hours is not None else default_max_lag_hours
         
         # subsector consumes no electricity, so we need to just skip it
-        if cfg.electricity_energy_type_id not in util.get_elements_from_level(self.energy_forecast, 'final_energy'):
+        if FinalEnergy.electricity().id not in util.get_elements_from_level(self.energy_forecast, 'final_energy'):
             return None
         
         # pull out just electricity from the year being run
-        energy_slice = util.df_slice(self.energy_forecast, [cfg.electricity_energy_type_id, year], ['final_energy', 'year'])
+        energy_slice = util.df_slice(self.energy_forecast, [FinalEnergy.electricity().id, year], ['final_energy', 'year'])
         
         # if none of the technologies have shapes, great! we can avoid having to aggregate each one separately
         if not hasattr(self, 'technologies') or np.all([tech.shape_id is None for tech in self.technologies.values()]):

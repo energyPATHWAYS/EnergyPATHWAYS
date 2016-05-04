@@ -513,3 +513,12 @@ class FinalEnergy(Base):
     shape_id = Column(ForeignKey(Shape.id))
 
     shape = relationship(Shape)
+
+    # we cache the "electricity" shape entry since it is accessed a lot
+    @classmethod
+    def electricity(cls):
+        try:
+            return cls._electricity
+        except AttributeError:
+            cls._electricity = data_source.fetch_one(cls, name='electricity')
+            return cls._electricity

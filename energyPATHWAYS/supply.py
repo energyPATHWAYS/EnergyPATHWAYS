@@ -18,6 +18,9 @@ from solve_io import solve_IO, inv_IO
 from dispatch_classes import Dispatch, DispatchFeederAllocation
 import inspect
 import operator
+import data_models.data_source as data_source
+from data_models.system import GreenhouseGas
+from data_models.demand import DemandSector
 from data_models.misc import Shape, ShapeUser
 from collections import defaultdict
 
@@ -31,7 +34,7 @@ class Supply(object):
     
     def __init__(self, outputs_directory, **kwargs):
         """Initializes supply instance"""
-        self.demand_sectors = util.sql_read_table('DemandSectors','id')
+        self.demand_sectors = data_source.fetch_column(DemandSector.id)
         self.geographies = cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
         self.dispatch_geography = cfg.cfgfile.get('case','dispatch_geography')
@@ -43,7 +46,7 @@ class Supply(object):
         self.dispatch_zones = [self.distribution_node_id, self.transmission_node_id]
         self.electricity_nodes = defaultdict(list)
         self.injection_nodes = defaultdict(list)
-        self.ghgs = util.sql_read_table('GreenhouseGases','id')
+        self.ghgs = data_source.fetch_column(GreenhouseGas.id)
         
         self.dispatch_feeder_allocation = DispatchFeederAllocation(id=1)
         self.dispatch_feeders = list(set(self.dispatch_feeder_allocation.values.index.get_level_values('dispatch_feeder')))
@@ -4636,7 +4639,7 @@ class SupplyEmissions(Abstract):
                                             unit_from_den=self.denominator_unit,
                                             unit_to_num=cfg.cfgfile.get('case', "mass_unit"),
                                             unit_to_den=cfg.cfgfile.get('case', "energy_unit"))
-        self.ghgs = util.sql_read_table('GreenhouseGases','id')
+        self.ghgs = data_source.fetch_column(GreenhouseGas.id)
         self.values = util.reindex_df_level_with_new_elements(self.values,'ghg',self.ghgs,fill_value=0.).sort()
                                             
       

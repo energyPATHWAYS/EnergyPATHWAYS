@@ -32,6 +32,7 @@ import decimal
 import psycopg2
 import data_models.data_source as data_source
 from data_models.system import CurrencyConversion, InflationConversion
+import ipdb
 
 def freeze_recursivedict(recursivedict):
     recursivedict = dict(recursivedict)
@@ -303,9 +304,8 @@ def unit_conversion_factor(unit_from, unit_to):
                 raise ValueError(error_text)
 
 
-def exchange_rate(from_currency_id, year, to_currency_id=None):
+def exchange_rate(from_currency_id, to_currency_id, year):
     """calculate exchange rate between two specified currencies"""
-    to_currency_id = cfg.cfgfile.get('case', 'currency_id') if to_currency_id is None else to_currency_id
 
     # the ratio could more efficiently be calculated in the database (meaning we'd only need one query rather than two)
     # or (probably more effectively) we could memoize the whole function if performance is an issue
@@ -315,9 +315,15 @@ def exchange_rate(from_currency_id, year, to_currency_id=None):
     return to_conversion.value / from_conversion.value
 
 
-def inflation_rate(currency_id, from_year, to_year=None):
-    """calculate inflation rate between two years in a specified currency"""
-    to_year = cfg.cfgfile.get('case', 'currency_year_id') if to_year is None else to_year
+def inflation_rate(currency_id, from_year, to_year):
+    """
+    Calculate inflation rate between two years in a specified currency.
+    Note that the only currency for which this will work presently is the single currency with entries in the
+    InflationConversion table (which as of this writing is USD, with id 41)
+    I considered rewriting it to leave out the currency_id parameter since only one is valid, but I've decided it's
+    better for the user of this method to be explicit so they have to think about what currency they're trying to
+    inflate, and will get a database error if they specify one that's unsupported.
+    """
 
     # the ratio could more efficiently be calculated in the database (meaning we'd only need one query rather than two)
     # or (probably more effectively) we could memoize the whole function if performance is an issue
@@ -327,32 +333,41 @@ def inflation_rate(currency_id, from_year, to_year=None):
     return to_conversion.value / from_conversion.value
 
 
-def currency_convert(data, currency_from, currency_from_year):
-    """converts cost data in original currency specifications (currency,year) to model currency and year"""
-    currency_to, currency_to_year = cfg.cfgfile.get('case', 'currency_id'), cfg.cfgfile.get('case', 'currency_year_id')
-    # inflate in original currency and then exchange in model currency year
-    try:
-        a = inflation_rate(currency_from, currency_from_year)
-        b = exchange_rate(currency_from, currency_to_year)
-        data *= a * b
-        return data
-    except:
-        try:
-            # convert to model currency in original currency year and then inflate to model currency year
-            a = exchange_rate(currency_from, currency_from_year)
-            b = inflation_rate(currency_to, currency_from_year)
-            return data * a * b
-        except:
-            try:
-                # use a known inflation data point of the USD. Exchange from original currency to USD
-                # in original currency year. Inflate to model currency year. Exchange to model currency in model currency year.
-                a = exchange_rate(currency_from, currency_from_year, to_currency_id=41)
-                b = inflation_rate(currency=41, from_year=currency_from_year)
-                c = exchange_rate(from_currency_id=41, year=currency_to_year, to_currency_id=currency_to)
-                return data * a * b * c
-            except:
-                raise ValueError(
-                    "currency conversion failed. Make sure that the data in InflationConvert and CurrencyConvert can support this conversion")
+def currency_convert(data, from_currency_id, from_year, to_currency_id=None, to_year=None):
+    """
+    Converts cost data in original currency specifications (currency, year) to target currency and year.
+    Target currency and year default to the overall model currency and year.
+    """
+    if to_currency_id is None:
+        to_currency_id = cfg.cfgfile.get('case', 'currency_id')
+    if to_year is None:
+        to_year = cfg.cfgfile.get('case', 'currency_year_id')
+
+    # find the currency for which we have inflation conversions available, and find the inflation rate between
+    # the from_year and to_year
+    inf_currency_id = InflationConversion.inflation_currency_id()
+    inf_rate = inflation_rate(inf_currency_id, from_year, to_year)
+
+    # find the exchange rate to convert the currency we're converting from into the currency we have inflation
+    # factors for
+    if from_currency_id == inf_currency_id:
+        # if we're converting *from* the currency we have inflation factors for, then there's no need to lookup
+        # an exchange rate to apply before applying the inflation factor
+        exch_rate_1 = 1.0
+    else:
+        exch_rate_1 = exchange_rate(from_currency_id, inf_currency_id, from_year)
+
+    # find the exchange rate to convert the currency we have inflation factors for to the target currency
+    if to_currency_id == inf_currency_id:
+        # if we're converting *to* the currency we have inflation factors for, then there's no need to lookup
+        # an exchange rate to apply after applying the inflation factor
+        exch_rate_2 = 1.0
+    else:
+        exch_rate_2 = exchange_rate(inf_currency_id, to_currency_id, to_year)
+
+    # Perhaps these parentheses are unnecessary, but my hunch is that otherwise python will multiply the data
+    # frame by each scalar individually, left-to-right, which is slower than first multiplying all the scalars together.
+    return data * (exch_rate_1 * inf_rate * exch_rate_2)
 
 
 def unit_conversion(unit_from_num=None, unit_from_den=None, unit_to_num=None, unit_to_den=None):

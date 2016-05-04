@@ -83,6 +83,13 @@ def fetch_as_df(cls):
     return pd.read_sql_table(cls.__tablename__, engine, schema='migrated', columns=cols, index_col='parent_id').sort_index()
 
 
+def fetch_column(col, **kwargs):
+    """
+    Returns the values from a single column as a list. col is expected to be something like DemandDrivers.id
+    """
+    return [row[0] for row in fetch(col, **kwargs)]
+
+
 def get(cls, id_):
     """
     Essentially provides a passthrough to SQLAlchemy's get() method to get a single object by primary key

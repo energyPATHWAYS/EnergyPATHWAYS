@@ -12,6 +12,7 @@ import psycopg2
 import geomapper
 import util
 import data_models.data_source as data_source
+from data_models.system import Currency
 #import ipdb
 
 # Don't print warnings
@@ -41,9 +42,6 @@ currency_name = None
 output_levels = None
 output_currency = None
 
-# for dispatch
-electricity_energy_type_id = None
-electricity_energy_type_shape_id = None
 
 def initialize_config(cfgfile_path, custom_pint_definitions_path):
     # sys.path.insert(0, os.getcwd())
@@ -57,7 +55,6 @@ def initialize_config(cfgfile_path, custom_pint_definitions_path):
     init_db()
     init_pint(custom_pint_definitions_path)
     init_geo()
-    init_electricity_energy_type()
     init_output_parameters()
 
 def load_config(cfgfile_path):
@@ -126,13 +123,11 @@ def init_geo():
     global geo
     geo = geomapper.GeoMapper()
 
-def init_electricity_energy_type():
-    global electricity_energy_type_id, electricity_energy_type_shape_id
-    electricity_energy_type_id, electricity_energy_type_shape_id = util.sql_read_table('FinalEnergy', column_names=['id', 'shape_id'], name='electricity')
 
 def init_output_parameters():
     global currency_name, output_levels, output_currency
-    currency_name = util.sql_read_table('Currencies', 'name', id=int(cfgfile.get('case', 'currency_id')))
+    #currency_name = util.sql_read_table('Currencies', 'name', id=int(cfgfile.get('case', 'currency_id')))
+    currency_name = data_source.get(Currency, int(cfgfile.get('case', 'currency_id'))).name
     output_levels = cfgfile.get('case', 'output_levels').split(', ')
     output_currency = cfgfile.get('case', 'currency_year_id') + ' ' + currency_name
 

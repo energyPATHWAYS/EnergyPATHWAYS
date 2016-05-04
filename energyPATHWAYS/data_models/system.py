@@ -1,3 +1,4 @@
+import data_source
 from data_source import Base
 from sqlalchemy import Column, Integer, Text, Float, ForeignKey, UniqueConstraint, ForeignKeyConstraint
 
@@ -94,6 +95,15 @@ class InflationConversion(Base):
     currency_id = Column(ForeignKey(Currency.id))
     currency_year = Column(Integer, unique=True)
     value = Column(Float(53))
+
+    @classmethod
+    def inflation_currency_id(cls):
+        """Caches and returns the single currency_id that we have inflation conversion factors for in the database"""
+        try:
+            return cls._inflation_currency_id
+        except AttributeError:
+            cls._inflation_currency_id = data_source.session().query(cls.currency_id).distinct().one()[0]
+            return cls._inflation_currency_id
 
 
 class CurrencyConversion(Base):
