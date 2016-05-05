@@ -2526,6 +2526,7 @@ class Node(DataMapFunctions):
             self.potential_exceedance = util.DfOper.divi([active_geomapped_potential,active_geomapped_supply], expandable = (False,False), collapsible = (True, True))
             #reformat dataframes for a remap
             self.potential_exceedance[self.potential_exceedance<0] = 0
+            self.potential_exceedance = self.potential_exceedance.replace([np.nan,np.inf],[1,1])
             remap_active = pd.DataFrame(self.potential.active_potential.stack(), columns=['value'])
             util.replace_index_name(remap_active, 'year')
             self.potential_exceedance= pd.DataFrame(self.potential_exceedance.stack(), columns=['value'])
@@ -3891,7 +3892,7 @@ class SupplyStockNode(Node):
                 if len(mismatched_levels):
                     self.case_stock.technology= util.remove_df_levels(self.case_stock.technology,mismatched_levels)
                 #if there are still level mismatches, it means the reference stock has more levels, which returns an error
-                if util.difference_in_df_names(self.case_stock.technology, self.stock.technology,return_bool=True):
+                if np.any(util.difference_in_df_names(self.case_stock.technology, self.stock.technology,return_bool=True)):
                     raise ValueError("technology stock indices in node %s do not match input energy system stock data" %self.id)
                 else:
                     #if the previous test is passed, we use the reference stock to fill in the Nans of the case stock
