@@ -144,7 +144,7 @@ class Supply(object):
                     if min_year < node.min_year:
                         node.min_year = min_year
             node.years = range(node.min_year,
-                                       int(cfg.cfgfile.get('case', 'end_year')) + 1,
+                                       int(cfg.cfgfile.get('case', 'end_year')) +  int(cfg.cfgfile.get('case', 'year_step')),
                                        int(cfg.cfgfile.get('case', 'year_step')))
             node.vintages = copy.deepcopy(node.years)
         self.years = cfg.cfgfile.get('case','supply_years') 
@@ -324,7 +324,7 @@ class Supply(object):
                             self.update_io_df(year)
                             self.calculate_io(year, loop)
                         self.reconciled = False
-                        self.reconcile_constraints_and_oversupply(year,loop)
+                        self.reconcile_oversupply(year,loop)
                         if self.reconciled is True:
                             self.update_demand(year,loop)
                             #if reconciliation has occured, we have to recalculate coefficients and resolve the io
@@ -344,7 +344,7 @@ class Supply(object):
                             self.update_io_df(year)
                             self.calculate_io(year, loop)
                         self.reconciled = False
-                        self.reconcile_constraints_and_oversupply(year,loop)
+                        self.reconcile_oversupply(year,loop)
                         if self.reconciled is True:
                             self.update_demand(year,loop)
                             #if reconciliation has occured, we have to recalculate coefficients and resolve the io
@@ -352,6 +352,15 @@ class Supply(object):
                             self.calculate_coefficients(year,loop)
                             self.update_io_df(year)
                             self.calculate_io(year, loop)
+                        self.reconciled = False
+                        self.reconcile_constraints(year,loop)
+                        if self.reconciled is True:
+                            self.update_demand(year,loop)
+                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
+#                            self.calculate_stocks(year, loop)
+                            self.calculate_coefficients(year,loop)
+                            self.update_io_df(year)
+                            self.calculate_io(year, loop)    
                         self.calculate_stocks(year, loop)
                         self.calculate_embodied_costs(year)
                     if loop == 3:
@@ -382,7 +391,7 @@ class Supply(object):
                             self.update_io_df(year)
                             self.calculate_io(year, loop)
                         self.reconciled = False
-                        self.reconcile_constraints_and_oversupply(year,loop)
+                        self.reconcile_oversupply(year,loop)
                         if self.reconciled is True:
                             self.update_demand(year,loop)
                             #if reconciliation has occured, we have to recalculate coefficients and resolve the io
@@ -402,7 +411,7 @@ class Supply(object):
                             self.update_io_df(year)
                             self.calculate_io(year, loop)
                         self.reconciled = False
-                        self.reconcile_constraints_and_oversupply(year,loop)
+                        self.reconcile_oversupply(year,loop)
                         if self.reconciled is True:
                             self.update_demand(year,loop)
                             #if reconciliation has occured, we have to recalculate coefficients and resolve the io
@@ -410,6 +419,15 @@ class Supply(object):
                             self.calculate_coefficients(year,loop)
                             self.update_io_df(year)
                             self.calculate_io(year, loop)
+                        self.reconciled = False
+                        self.reconcile_constraints(year,loop)
+                        if self.reconciled is True:
+                            self.update_demand(year,loop)
+                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
+#                            self.calculate_stocks(year, loop)
+                            self.calculate_coefficients(year,loop)
+                            self.update_io_df(year)
+                            self.calculate_io(year, loop)   
                         self.calculate_stocks(year, loop)
                         self.calculate_embodied_costs(year)
                     if loop == 3:
@@ -1686,11 +1704,10 @@ class Supply(object):
                     #enters a loop to feed that constraint forward in the supply node until it can be reconciled at a blend node or exported
                     self.feed_internal_trades(year, trade_sub, node.active_internal_trade_df)     
                     
-        
-        
-    def reconcile_constraints_and_oversupply(self,year,loop):    
-        """Reconciles instances where IO demands exceed a node's potential or demands less than a node's expected level of supply based
-        on its existing stock.  To achieve this result, we calculate the expected location of supply and then pass 
+      
+      
+    def reconcile_constraints(self,year,loop):    
+        """Reconciles instances where IO demands exceed a node's potentia.  To achieve this result, we calculate the expected location of supply and then pass 
         that information to blend or import node trade adjustment dataframes so that the IO demands supply with that geographic distribution
         
         Args:
@@ -1708,6 +1725,20 @@ class Supply(object):
                 if node.constraint_violation:
                     #enters a loop to feed that constraint forward in the supply node
                     self.feed_constraints(year, node.id, node.active_constraint_df)
+                      
+      
+      
+        
+    def reconcile_oversupply(self,year,loop):    
+        """Reconciles instances where IO demands less than a node's expected level of supply based
+        on its existing stock.  To achieve this result, we calculate the expected location of supply and then pass 
+        that information to blend or import node trade adjustment dataframes so that the IO demands supply with that geographic distribution
+        
+        Args:
+            year (int) = year of analysis 
+            loop (int or str) = loop identifier 
+        """           
+                    
         for node in self.nodes.values():
             #loops through all nodes checking for excess supply from nodes that are not curtailable, flexible, or exportable
            oversupply_factor = node.calculate_oversupply(year,loop) if hasattr(node,'calculate_oversupply') else None 
@@ -1785,7 +1816,7 @@ class Supply(object):
                   else:
                      #if the output node has the constrained sub as an input, and it is not a blend node, it becomes the constrained sub
                       #in the loop in order to feed the adjustment factor forward to dependent nodes until it terminates at a blend node
-                     self.feed_constraints(year, constrained_node=output_node, constraint_adjustment=constraint_adjustment)
+                     self.feed_constraints(year, constrained_node=output_node.id, constraint_adjustment=constraint_adjustment)
                      #TODO add logic if it reaches the end of the supply node and has never been reconicled at a blend node
     
     def feed_internal_trades(self, year, internal_trade_node, internal_trade_adjustment):
@@ -2149,7 +2180,7 @@ class Node(DataMapFunctions):
         measure_ids = util.sql_read_table('SupplyStockMeasurePackagesData', 'measure_id', package_id=package_id,
                                           return_iterable=True)
         for measure_id in measure_ids:
-            total_stocks = util.sql_read_table('SupplyStockMeasures', 'id', is_total_stock=True, 
+            total_stocks = util.sql_read_table('SupplyStockMeasures', 'id', supply_technology_id=None, 
                                                    supply_node_id=self.id, return_iterable=True)
             for total_stock in total_stocks:
                 self.total_stocks[total_stock] = SupplySpecifiedStock(id=total_stock,
@@ -2492,20 +2523,47 @@ class Node(DataMapFunctions):
         if hasattr(self,'potential') and self.potential.data is True:
             #geomap potential to the tradable geography. Potential is not exceeded unless it is exceeded in a tradable geography region. 
             active_geomapped_potential, active_geomapped_supply = self.potential.format_potential_and_supply_for_constraint_check(self.active_supply, self.tradable_geography, year)           
-            self.potential_exceedance = DfOper.subt([active_geomapped_supply,active_geomapped_potential], expandable = (False,False), collapsible = (True, True))
+            self.potential_exceedance = util.DfOper.divi([active_geomapped_potential,active_geomapped_supply], expandable = (False,False), collapsible = (True, True))
             #reformat dataframes for a remap
             self.potential_exceedance[self.potential_exceedance<0] = 0
             remap_active = pd.DataFrame(self.potential.active_potential.stack(), columns=['value'])
             util.replace_index_name(remap_active, 'year')
             self.potential_exceedance= pd.DataFrame(self.potential_exceedance.stack(), columns=['value'])
             util.replace_index_name(self.potential_exceedance, 'year')
+            remove_levels = [x for x in self.potential_exceedance.index.names if x not in [self.tradable_geography,'demand_sector']]
+            if len(remove_levels):
+                self.potential_exceedance = util.remove_df_levels(self.potential_exceedance, remove_levels)
+            geography_map_key = self.geography_map_key if hasattr(self, 'geography_map_key') else cfg.cfgfile.get('case','default_geography_map_key')       
+            if self.tradable_geography != self.geography:    
+                map_df = cfg.geo.map_df(self.tradable_geography, self.geography, geography_map_key, eliminate_zeros=False)
+                self.potential_exceedance = util.remove_df_levels(util.DfOper.mult([self.potential_exceedance,map_df]),self.tradable_geography)                
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
             #remap excess supply to the active potential to allocate excess
-            self.remap(current_geography=self.tradable_geography, fill_timeseries=False, map_from='potential_exceedance',map_to='potential_exceedance', drivers=remap_active, current_data_type='total')
-            #divide the potential exceedance by the active supply
-            self.potential_exceedance = DfOper.divi([self.potential_exceedance, self.active_supply], expandable = (False,False), collapsible = (True, True)).fillna(1)   
-            #if less than or equal to 0, then there is no exceedance
-            self.potential_exceedance[self.potential_exceedance>1] = 1
-            self.potential_exceedance = 1 - self.potential_exceedance
+            
+            
+            
+            
+            
+#            self.remap(current_geography=self.tradable_geography, current_dat_fill_timeseries=False, map_from='potential_exceedance',map_to='potential_exceedance', drivers=remap_active, current_data_type='total')
+#            #divide the potential exceedance by the active supply
+#            remove_levels = [x for x in self.potential_exceedance.index.names if x not in [self.geography,'demand_sector','year']]
+#            if len(remove_levels):
+#                self.potential_exceedance = util.remove_df_levels(self.potential_exceedance, remove_levels)
+#            self.potential_exceedance = DfOper.divi([self.potential_exceedance, self.active_supply], expandable = (False,False), collapsible = (True, True)).fillna(1)   
+#            #if less than or equal to 0, then there is no exceedance
+#            self.potential_exceedance[self.potential_exceedance>1] = 1
+#            self.potential_exceedance = 1 - self.potential_exceedance
             keys = [self.demand_sectors, cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]]
             names = ['demand_sector', cfg.cfgfile.get('case','primary_geography')]
             potential_exceedance = copy.deepcopy(self.potential_exceedance)
@@ -2519,15 +2577,14 @@ class Node(DataMapFunctions):
                 name = ['demand_sector']
                 active_constraint_df = pd.concat([self.active_constraint_df]*len(keys), keys=keys, names=name)
                 active_constraint_df= active_constraint_df.swaplevel('demand_sector',-1)
-                self.active_constraint_df = active_constraint_df
+                self.active_constraint_df = active_constraint_df.sort(inplace=False)
             if np.any(self.active_constraint_df.values<1):
                 self.constraint_violation = True
             else:
                 self.constraint_violation = False
         else:
             self.constraint_violation = False
-            
-
+    
     def calculate_internal_trades(self, year, loop):
         """calculates internal trading adjustment factors based on the ratio of active supply to supply potential or stock
         used for nodes where the location of throughput is unrelated to the location of demand (ex. primary biomass supply)
@@ -4743,8 +4800,8 @@ class SupplyStockNode(Node):
     
     def stock_normalize(self,year):
         """returns normalized stocks for use in other node calculations"""
-        self.stock.values_normal.loc[:,year] = self.stock.values.loc[:,year].to_frame().groupby(level=self.stock.rollover_group_names).transform(lambda x: x / x.sum()).fillna(0)
-        self.stock.values_normal_energy.loc[:,year] = DfOper.mult([self.stock.values.loc[:,year].to_frame(), self.stock.capacity_factor.loc[:,year].to_frame()]).groupby(level=self.stock.rollover_group_names).transform(lambda x: x / x.sum()).fillna(0)
+        self.stock.values_normal.loc[:,year] = self.stock.values.loc[:,year].to_frame().groupby(level=[x for x in self.stock.rollover_group_names if x!='resource_bins']).transform(lambda x: x / x.sum()).fillna(0)
+        self.stock.values_normal_energy.loc[:,year] = DfOper.mult([self.stock.values.loc[:,year].to_frame(), self.stock.capacity_factor.loc[:,year].to_frame()]).groupby(level=[x for x in self.stock.rollover_group_names if x!='resource_bins']).transform(lambda x: x / x.sum()).fillna(0)
         self.stock.values_normal.loc[:,year].replace(np.inf,0,inplace=True)
         self.stock.values_normal_energy.loc[:,year].replace(np.inf,0,inplace=True)
         
@@ -5260,7 +5317,7 @@ class SupplyEnergyConversion(Abstract):
         if self.data is True:
             self.resource_unit = resource_unit
             self.remap()
-            self.values = util.unit_convert(self.values, unit_from_num=self.energy_unit_numerator,
+            self.values = util.unit_convert(self.raw_values, unit_from_num=self.energy_unit_numerator,
                                         unit_from_den=self.resource_unit_denominator,
                                         unit_to_num=cfg.cfgfile.get('case', 'energy_unit'),
                                         unit_to_den=self.resource_unit)

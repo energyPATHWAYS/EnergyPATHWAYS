@@ -43,6 +43,8 @@ class SubDemand(object, DataMapFunctions):
             self.remap(map_to='int_values',fill_timeseries=False)
             self.int_values = util.unit_convert(self.int_values, unit_from_num=self.unit, unit_to_num=stock_unit)
             self.unit = stock_unit
+            self.current_data_type = self.input_type
+            self.projected = False
         else:
             raise ValueError("should not have called this function for this demand stock unit type")
 

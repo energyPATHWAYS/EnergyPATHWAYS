@@ -31,10 +31,10 @@ class Geography:
 
         for row in config.cfg.cur.fetchall():
             self.geographies[row[0]] = row[1]
-
+        for value in self.geographies.values():
+            value.sort()
         for id, name in util.sql_read_table('TimeZones', column_names=['id', 'name']):
             self.timezone_names[id] = name
-
         config.cfg.cur.execute('SELECT name FROM "GeographyMapKeys" ORDER BY id')
         self.map_keys = [name for (name,) in config.cfg.cur.fetchall()]
 

@@ -222,8 +222,7 @@ class DataMapFunctions:
         
         converted_geography = cfg.cfgfile.get('case', 'primary_geography') if converted_geography is None else converted_geography
         current_data_type = self.input_type if current_data_type is None else current_data_type
-        if projected:
-            current_data_type = 'total'
+        if map_from != 'raw_values' and current_data_type == 'total':
             denominator_driver_ids = []
         else:
             denominator_driver_ids = [getattr(self, col) for col in cfg.dnmtr_col_names if getattr(self, col) is not None]

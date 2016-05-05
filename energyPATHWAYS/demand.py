@@ -82,7 +82,7 @@ class Demand(object):
         levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep
     #        levels_to_keep = ['census region', 'sector', 'subsector', 'final_energy', 'year', 'technology']
     #        year_df_list = []
-        levels_to_keep = [x for x in levels_to_keep if x in self.outputs.energy.index.names]
+        levels_to_keep = [x for x in levels_to_keep if x in self.outputs.energy.index.names and x not in ['vintage','technology']]
         demand_df = self.outputs.energy.groupby(level=levels_to_keep).sum()
         demand_df = demand_df[demand_df.index.get_level_values('year')>=int(cfg.cfgfile.get('case','current_year'))]
     #        years =  list(set(supply_link.index.get_level_values('year')))
@@ -744,10 +744,12 @@ class Subsector(DataMapFunctions):
             self.min_year = min(int(cfg.cfgfile.get('case', 'current_year')), driver_min_year, tech_min_year,
                                     stock_min_year, sales_share_min_year)
         self.min_year = max(self.min_year, int(cfg.cfgfile.get('case', 'start_year')))
+        self.min_year = int(int(cfg.cfgfile.get('case', 'year_step'))*round(float(self.min_year)/int(cfg.cfgfile.get('case', 'year_step'))))        
         self.years = range(self.min_year, int(cfg.cfgfile.get('case', 'end_year')) + 1,
                            int(cfg.cfgfile.get('case', 'year_step')))
         
         self.vintages = self.years
+
 
     def calculate_tech_min_year(self):
         """
@@ -790,6 +792,8 @@ class Subsector(DataMapFunctions):
                             'efficiency_aux']
             tests = defaultdict(list)
             for tech in self.technologies.keys():
+                if tech in util.sql_read_table('DemandTechs', 'linked_id'):
+                    tests[self.technologies[tech].id].append(False)
                 if self.technologies[tech].reference_sales_shares.has_key(1):
                     tests[self.technologies[tech].id].append(self.technologies[tech].reference_sales_shares[1].raw_values.sum().sum() == 0)
                 tests[self.technologies[tech].id].append(len(self.technologies[tech].sales_shares) == 0)
@@ -1573,8 +1577,8 @@ class Subsector(DataMapFunctions):
             projected  = True
         elif map_from == 'int_values':
             current_geography = cfg.cfgfile.get('case', 'primary_geography')
-            current_data_type = 'total'
-            projected = True
+            current_data_type = self.stock.current_data_type if hasattr(self.stock, 'current_data_type')  else 'total'
+            projected = False
         else:
             current_geography = self.stock.geography
             current_data_type = self.stock.input_type
@@ -1903,10 +1907,16 @@ class Subsector(DataMapFunctions):
             current_geography = self.service_demand.geography
             current_data_type = self.service_demand.input_type
             projected = False
+        elif map_from == 'int_values':
+            current_geography = cfg.cfgfile.get('case', 'primary_geography')
+            current_data_type = self.service_demand.current_data_type if hasattr(self.service_demand, 'current_data_type')  else 'total'
+            projected =  False
         else:
             current_geography = cfg.cfgfile.get('case', 'primary_geography')
-            current_data_type = 'total'
-            projected = True
+            current_data_type =  'total'
+            projected =  True
+        
+
         self.service_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
                                     additional_drivers=self.additional_service_demand_drivers(stock_dependent),current_data_type=current_data_type,projected=projected)
 
@@ -1917,10 +1927,15 @@ class Subsector(DataMapFunctions):
             current_geography = self.energy_demand.geography
             current_data_type = self.energy_demand.input_type
             projected = False
+        elif map_from == 'int_values':
+            current_geography = cfg.cfgfile.get('case', 'primary_geography')
+            current_data_type = self.energy_demand.current_data_type if hasattr(self.energy_demand, 'current_data_type')  else 'total'
+            projected =  False
         else:
             current_geography = cfg.cfgfile.get('case', 'primary_geography')
-            current_data_type = 'total'
-            projected = True
+            current_data_type =  'total'
+            projected =  True
+            
         self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
                                    additional_drivers=self.additional_service_demand_drivers(stock_dependent,
                                                                                              service_dependent),current_data_type=current_data_type, projected=projected)
@@ -1988,6 +2003,10 @@ class Subsector(DataMapFunctions):
             for tech_id in self.tech_ids:
                 for sales_share in self.technologies[tech_id].sales_shares.values():
                     repl_index = tech_lookup[sales_share.demand_tech_id]
+                    if not tech_lookup.has_key(
+                        sales_share.replaced_demand_tech_id):
+                            #if you're replacing a demand tech that doesn't have a sales share or stock in the model, this is zero and so we continue the loop
+                            continue
                     reti_index = tech_lookup[
                         sales_share.replaced_demand_tech_id] if sales_share.replaced_demand_tech_id is not None and tech_lookup.has_key(
                         sales_share.replaced_demand_tech_id) else slice(
@@ -2071,8 +2090,12 @@ class Subsector(DataMapFunctions):
                                      sales_share=sales_share, stock_changes=annual_stock_change.values,
                                      specified_stock=technology_stock.values, specified_retirements=None,
                                      steps_per_year=self.stock.spy)
-                                     
-            self.rollover.run()
+            try:                        
+                self.rollover.run()
+            except:
+                print self.rollover.i
+                print elements
+                assas
             stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
             self.stock.values.loc[elements], self.stock.values_new.loc[elements], self.stock.values_replacement.loc[
                 elements] = stock, stock_new, stock_replacement

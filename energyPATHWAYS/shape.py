@@ -212,7 +212,7 @@ class Shape(dmf.DataMapFunctions):
     def geomap_to_time_zone(self, attr='values', inplace=True):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table
         """
-        if self.geography=='time zones':
+        if self.geography=='time zone':
             self.map_df_tz = None
             if inplace:
                 return
@@ -221,7 +221,7 @@ class Shape(dmf.DataMapFunctions):
 
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
 
-        subsection, supersection = 'time zones', self.geography
+        subsection, supersection = 'time zone', self.geography
         # create dataframe with map from one geography to another
         map_df = cfg.geo.map_df(subsection, supersection, column=geography_map_key)
         self.map_df_tz = map_df
@@ -248,14 +248,14 @@ class Shape(dmf.DataMapFunctions):
                 return getattr(self, attr)
 
         # we should add dispatch region as another subsection to ensure proper geomap to dispatch region after
-        subsection = 'time zones' if self.geography=='time zones' else ['time zones', self.geography]
+        subsection = 'time zone' if self.geography=='time zone' else ['time zone', self.geography]
         supersection = converted_geography
         
         map_df = cfg.geo.map_df(subsection, supersection, column=geography_map_key)
         self.map_df_primary = map_df
         
         mapped_data = util.DfOper.mult((getattr(self, attr), map_df), fill_value=None)
-        levels = [ind for ind in mapped_data.index.names if (ind!=self.geography and self.geography!='time zones')]
+        levels = [ind for ind in mapped_data.index.names if (ind!=self.geography and self.geography!='time zone')]
         mapped_data = mapped_data.groupby(level=levels).sum()
         mapped_data = mapped_data.swaplevel('weather_datetime', -1)
         mapped_data.sort(inplace=True)
@@ -289,13 +289,13 @@ class Shape(dmf.DataMapFunctions):
     def sum_over_time_zone(self, attr='values', inplace=True):
         converted_geography = cfg.cfgfile.get('case', 'primary_geography')
         
-        if converted_geography=='time zones':
+        if converted_geography=='time zone':
             if inplace:
                 return
             else:
                 return getattr(self, attr)
                 
-        levels = [ind for ind in getattr(self, attr).index.names if ind!='time zones']
+        levels = [ind for ind in getattr(self, attr).index.names if ind!='time zone']
         df = getattr(self, attr).groupby(level=levels).sum()
         df.sort(inplace=True)
 
@@ -316,12 +316,12 @@ class Shape(dmf.DataMapFunctions):
             return df
 
     def localize_shapes(self, attr='values', inplace=True):
-        """ Step through time zones and put each profile maped to time zone in that time zone
+        """ Step through time zone and put each profile maped to time zone in that time zone
         """
         dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))
         self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.timezone_names[dispatch_outputs_timezone_id])
         new_df = []
-        for tz_id, group in getattr(self, attr).groupby(level='time zones'):
+        for tz_id, group in getattr(self, attr).groupby(level='time zone'):
             # get the time zone name and figure out the offset from UTC
             tz_id = tz_id if self.time_zone_id is None else self.time_zone_id
             tz = pytz.timezone(cfg.geo.timezone_names[tz_id])
@@ -379,7 +379,7 @@ class Shape(dmf.DataMapFunctions):
 
 
 directory = os.getcwd()
-rerun_shapes = True
+rerun_shapes = False
 #######################
 #######################
 if rerun_shapes:

@@ -174,7 +174,7 @@ def sql_read_table(table_name, column_names='*', return_unique=False, return_ite
     query = 'SELECT ' + distinct + column_names + ' FROM "%s"' % table_name
     if len(filters):
         datatypes = sql_get_datatype(table_name, filters.keys())
-        list_of_filters = ['"' + col + '"=' + fix_sql_query_type(fil, datatypes[col]) for col, fil in filters.items() if fil is not None]
+        list_of_filters = ['"' + col + '"=' + fix_sql_query_type(fil, datatypes[col]) if fil is not None else '"' + col + '"is' + 'NULL' for col, fil in filters.items()]
         if list_of_filters == []:
             data = [None]
         else:
