@@ -5317,7 +5317,7 @@ class SupplyEnergyConversion(Abstract):
         if self.data is True:
             self.resource_unit = resource_unit
             self.remap()
-            self.values = util.unit_convert(self.raw_values, unit_from_num=self.energy_unit_numerator,
+            self.values = util.unit_convert(self.values, unit_from_num=self.energy_unit_numerator,
                                         unit_from_den=self.resource_unit_denominator,
                                         unit_to_num=cfg.cfgfile.get('case', 'energy_unit'),
                                         unit_to_den=self.resource_unit)
