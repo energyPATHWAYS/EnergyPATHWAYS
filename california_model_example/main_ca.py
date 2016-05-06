@@ -85,8 +85,8 @@ if __name__ == "__main__":
             with open(os.path.join(directory, str(scenario_id)+'_full_model_run.p'), 'rb') as infile:
                 model = pickle.load(infile)
             model.model_config(cfgfile_path, custom_pint_definitions_path)
-            model.supply.calculate_supply_outputs()
-            model.pass_results_to_demand()
-            model.calculate_combined_results()
-            model.export_results(append_results)
-#
+#            model.supply.calculate_supply_outputs()
+#            model.pass_results_to_demand()
+#            model.calculate_combined_results()
+#            model.export_results(append_results)
+##

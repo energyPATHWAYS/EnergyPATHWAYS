@@ -31,7 +31,8 @@ class BlendMeasure(Abstract):
         self.remap()
         self.values['supply_node'] = self.supply_node_id
         self.values.set_index('supply_node',append=True,inplace=True)
-        
+        primary_geography = cfg.cfgfile.get('case', 'primary_geography')
+        self.values = util.reindex_df_level_with_new_elements(self.values, primary_geography, cfg.geo.geographies[primary_geography],fill_value=0.0)
         
 class ExportMeasure(Abstract):
     def __init__(self,id):

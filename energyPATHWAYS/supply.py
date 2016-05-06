@@ -721,7 +721,7 @@ class Supply(object):
         if hasattr(transmission_grid_node, 'stock'):
             transmission_grid_node.update_stock(year,3) 
         
-
+    @timecall(immediate=True)   
     def solve_storage_and_flex_load_optimization(self,year):
         """prepares, solves, and updates the net load with results from the storage and flexible load optimization""" 
         self.prepare_optimization_inputs(year)
@@ -1105,7 +1105,7 @@ class Supply(object):
             node.active_weighted_sales = node.active_weighted_sales.fillna(1/float(len(node.tech_ids)))
             
                          
-  
+    @timecall(immediate=True)   
     def solve_thermal_dispatch(self,year):
         """solves the thermal dispatch, updating the capacity factor for each thermal dispatch technology
         and adding capacity to each node based on determination of need"""
@@ -2937,6 +2937,7 @@ class BlendNode(Node):
          # calculates sum of all supply_nodes
          # residual equals 1-sum of all other specified nodes
          self.values.sort(inplace=True)
+         
          if self.residual_supply_node_id in self.values.index.get_level_values('supply_node'):
              indexer = util.level_specific_indexer(self.values, 'supply_node', self.residual_supply_node_id)
              self.values.loc[indexer,:] = 0
