@@ -10,6 +10,7 @@ from config import cfg
 from supply import Supply
 import pandas as pd
 import shape
+from datetime import datetime
 # from supply import Supply
 
 class PathwaysModel(object):
@@ -135,25 +136,32 @@ class PathwaysModel(object):
         print "calculating combined energy results"
         self.calculate_combined_energy_results()
     
-    def export_results(self, append_results=False):
+    def export_results(self):
+
         for attribute in dir(self.outputs):
             if isinstance(getattr(self.outputs,attribute), pd.DataFrame):
                 result_df = getattr(self.outputs, attribute)
-                ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'combined_outputs'), append_results=append_results)
+                keys = [self.scenario.upper(),str(datetime.now().replace(second=0,microsecond=0))]
+                names = ['SCENARIO','TIMESTAMP']
+                for key, name in zip(keys,names):
+                    result_df = pd.concat([result_df],keys=[key],names=[name])
+                ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'combined_outputs'), append_results=True)
         for attribute in dir(self.demand.outputs):
             if isinstance(getattr(self.demand.outputs,attribute), pd.DataFrame):
                 result_df = self.demand.outputs.return_cleaned_output(attribute)
-                keys = [self.scenario.upper()]
-                names = ['SCENARIO']
-                result_df = pd.concat([result_df],keys=keys,names=names)
-                ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'demand_outputs'), append_results=append_results)
+                keys = [self.scenario.upper(),str(datetime.now().replace(second=0,microsecond=0))]
+                names = ['SCENARIO','TIMESTAMP']
+                for key, name in zip(keys,names):
+                    result_df = pd.concat([result_df],keys=[key],names=[name])
+                ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'demand_outputs'), append_results=True)
         for attribute in dir(self.supply.outputs):
             if isinstance(getattr(self.supply.outputs,attribute), pd.DataFrame):
                 result_df = self.supply.outputs.return_cleaned_output(attribute)
-                keys = [self.scenario.upper()]
-                names = ['SCENARIO']
-                result_df = pd.concat([result_df],keys=keys,names=names)
-                ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'supply_outputs'), append_results=append_results)
+                keys = [self.scenario.upper(),str(datetime.now().replace(second=0,microsecond=0))]
+                names = ['SCENARIO','TIMESTAMP']
+                for key, name in zip(keys,names):
+                    result_df = pd.concat([result_df],keys=[key],names=[name])
+                ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'supply_outputs'), append_results=True)
         
     def calculate_combined_cost_results(self):
         #calculate and format export costs
@@ -197,10 +205,7 @@ class PathwaysModel(object):
         self.outputs.costs[self.outputs.costs<0]=0
         self.outputs.costs= self.outputs.costs[self.outputs.costs[cost_unit.upper()]!=0]
 #        self.outputs.costs.sort(inplace=True)       
-        keys = [self.scenario.upper()]
-        names = ['SCENARIO']
-        self.outputs.costs = pd.concat([self.outputs.costs],keys=keys,names=names)        
-        
+
     
         
     def calculate_combined_emissions_results(self):
@@ -244,9 +249,6 @@ class PathwaysModel(object):
         util.replace_index_name(self.outputs.emissions, self.geography.upper() +'_EMITTED', self.geography.upper() +'_SUPPLY')
         util.replace_index_name(self.outputs.emissions, self.geography.upper() +'_CONSUMED', self.geography.upper())
         self.outputs.emissions= self.outputs.emissions[self.outputs.emissions['VALUE']!=0]
-        keys = [self.scenario.upper()]
-        names = ['SCENARIO']
-        self.outputs.emissions = pd.concat([self.outputs.emissions],keys=keys,names=names)
         emissions_unit = cfg.cfgfile.get('case','mass_unit')
         self.outputs.emissions.columns = [emissions_unit.upper()]
         
@@ -271,4 +273,3 @@ class PathwaysModel(object):
          self.outputs.energy= self.outputs.energy[self.outputs.energy['VALUE']!=0]
          energy_unit = cfg.cfgfile.get('case','energy_unit')
          self.outputs.energy.columns = [energy_unit.upper()]
-         

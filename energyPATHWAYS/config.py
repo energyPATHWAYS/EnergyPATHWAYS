@@ -31,7 +31,7 @@ class Config:
         
 #        cfgfile.add_section('directory')
 #        cfgfile.set('directory', 'path', self.directory)
-        cfgfile.set('case', 'years', range(int(cfgfile.get('case', 'start_year')),
+        cfgfile.set('case', 'years', range(int(cfgfile.get('case', 'demand_start_year')),
                                            int(cfgfile.get('case', 'end_year')) + 1,
                                            int(cfgfile.get('case', 'year_step'))))
         cfgfile.set('case', 'supply_years', range(int(cfgfile.get('case', 'current_year')),
@@ -95,14 +95,24 @@ class Config:
 
     def init_outputs_id_map(self):
         self.currency_name = self.cfgfile.get('case', 'currency_name')
-        self.output_demand_levels = self.cfgfile.get('case', 'output_demand_levels').split(', ')
-        self.output_supply_levels = self.cfgfile.get('case', 'output_supply_levels').split(', ')
+        self.output_demand_levels = ['year','vintage','technology',self.cfgfile.get('case','primary_geography'),'sector','subsector','final_energy']
+        self.output_supply_levels = ['year','vintage','supply_technology',self.cfgfile.get('case','primary_geography'), self.cfgfile.get('case','primary_geography') + "_supply", 'demand_sector','final_energy','supply_node','ghg']
+        self.output_combined_levels = list(set(self.output_supply_levels+self.output_demand_levels))
+        vintage = self.cfgfile.get('output_detail','vintage')
+        if vintage != 'True':
+            self.output_combined_levels.remove('vintage')
+        technology = self.cfgfile.get('output_detail','technology')
+        if technology != 'True':
+            self.output_combined_levels.remove('technology')
+        supply_geography = self.cfgfile.get('output_detail','supply_geography') 
+        if supply_geography != 'True':
+            self.output_combined_levels.remove(self.cfgfile.get('case','primary_geography') + "_supply")            
         self.output_currency = self.cfgfile.get('case', 'currency_year_id') + ' ' + self.currency_name
         self.outputs_id_map = defaultdict(dict)
-        if 'primary_geography' in self.output_demand_levels:
-            self.output_demand_levels[self.output_demand_levels.index('primary_geography')] = self.primary_geography
-        if 'primary_geography' in self.output_supply_levels:
-            self.output_supply_levels[self.output_supply_levels.index('primary_geography')] = self.primary_geography     
+#        if 'primary_geography' in self.output_demand_levels:
+#            self.output_demand_levels[self.output_demand_levels.index('primary_geography')] = self.primary_geography
+#        if 'primary_geography' in self.output_supply_levels:
+#            self.output_supply_levels[self.output_supply_levels.index('primary_geography')] = self.primary_geography     
         primary_geography_id = util.sql_read_table('Geographies', 'id', name=self.primary_geography)
         self.outputs_id_map[self.primary_geography] = util.upper_dict(util.sql_read_table('GeographiesData', ['id', 'name'], geography_id=primary_geography_id, return_unique=True, return_iterable=True))
         self.outputs_id_map[self.primary_geography+"_supply"] =  self.outputs_id_map[self.primary_geography]       

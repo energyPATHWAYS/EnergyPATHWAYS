@@ -79,10 +79,10 @@ class Demand(object):
         return util.df_list_concatenate(dfs, keys, new_names, levels_to_keep)
 
     def group_linked_output(self, supply_link, levels_to_keep=None):
-        levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep
+        levels_to_keep = cfg.output_combined_levels if levels_to_keep is None else levels_to_keep
     #        levels_to_keep = ['census region', 'sector', 'subsector', 'final_energy', 'year', 'technology']
     #        year_df_list = []
-        levels_to_keep = [x for x in levels_to_keep if x in self.outputs.energy.index.names and x not in ['vintage','technology']]
+        levels_to_keep = [x for x in levels_to_keep if x in self.outputs.energy.index.names]
         demand_df = self.outputs.energy.groupby(level=levels_to_keep).sum()
         demand_df = demand_df[demand_df.index.get_level_values('year')>=int(cfg.cfgfile.get('case','current_year'))]
     #        years =  list(set(supply_link.index.get_level_values('year')))
@@ -743,7 +743,7 @@ class Subsector(DataMapFunctions):
                 sales_share_min_year = 9999
             self.min_year = min(int(cfg.cfgfile.get('case', 'current_year')), driver_min_year, tech_min_year,
                                     stock_min_year, sales_share_min_year)
-        self.min_year = max(self.min_year, int(cfg.cfgfile.get('case', 'start_year')))
+        self.min_year = max(self.min_year, int(cfg.cfgfile.get('case', 'demand_start_year')))
         self.min_year = int(int(cfg.cfgfile.get('case', 'year_step'))*round(float(self.min_year)/int(cfg.cfgfile.get('case', 'year_step'))))        
         self.years = range(self.min_year, int(cfg.cfgfile.get('case', 'end_year')) + 1,
                            int(cfg.cfgfile.get('case', 'year_step')))
@@ -2089,13 +2089,8 @@ class Subsector(DataMapFunctions):
                                      num_techs=len(self.tech_ids), initial_stock=initial_stock,
                                      sales_share=sales_share, stock_changes=annual_stock_change.values,
                                      specified_stock=technology_stock.values, specified_retirements=None,
-                                     steps_per_year=self.stock.spy)
-            try:                        
-                self.rollover.run()
-            except:
-                print self.rollover.i
-                print elements
-                assas
+                                     steps_per_year=self.stock.spy)                     
+            self.rollover.run()
             stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
             self.stock.values.loc[elements], self.stock.values_new.loc[elements], self.stock.values_replacement.loc[
                 elements] = stock, stock_new, stock_replacement
