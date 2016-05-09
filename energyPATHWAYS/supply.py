@@ -199,6 +199,9 @@ class Supply(object):
             nodes = pool.map(node_calculate,self.nodes.values())
             self.nodes = dict(zip(self.nodes.keys(),nodes))
             pool.close()
+            pool.join()
+#            pool.terminate()
+            
         else:
             for node in self.nodes.values():
                 node.calculate()

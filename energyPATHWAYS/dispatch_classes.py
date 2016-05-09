@@ -704,7 +704,6 @@ class Dispatch(object):
         instance.solutions.load_from(solution)
         return instance
 
-    @timecall
     def parallelize_opt(self):
         available_cpus = multiprocessing.cpu_count()
         pool = Pool(processes=available_cpus)
@@ -712,6 +711,8 @@ class Dispatch(object):
         if cfg.cfgfile.get('case','parallel_process') == 'True':
             results = pool.map(self.run_optimization,self.periods)
             pool.close()
+            pool.join()
+#            pool.terminate()
         else:
             results = []
             for period in self.periods:

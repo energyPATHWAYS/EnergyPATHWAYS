@@ -1450,7 +1450,7 @@ class Subsector(DataMapFunctions):
         
         for technology in self.technologies.values():
             if technology.survival_vintaged[1] < rollover_threshold:
-                print '       '+'increasing stock rollover time steps per year to ' + str(steps_per_year*2) + ' to account for short lifetimes of equipment'
+#                print '       '+'increasing stock rollover time steps per year to ' + str(steps_per_year*2) + ' to account for short lifetimes of equipment'
                 self.calc_tech_survival_functions(steps_per_year=steps_per_year*2)
 
     def calc_measure_survival_functions(self, measures):
@@ -2134,6 +2134,8 @@ class Subsector(DataMapFunctions):
             pool = Pool(processes=available_cpus)
             results = pool.map(rollover_subset_run,rollover_dict_list)
             pool.close()
+            pool.join()
+#            pool.terminate()
         else:
             results = []
             for key_value_pair in rollover_dict_list:

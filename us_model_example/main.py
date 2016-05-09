@@ -39,7 +39,10 @@ def remove_results(append_results):
         for result_file in result_dir:
             os.remove(os.path.join(folder,result_file))
 
+
+
 if __name__ == "__main__":
+    print time.time()
     if resolve_demand and resolve_supply:
         model = energyPATHWAYS.PathwaysModel(cfgfile_path, custom_pint_definitions_path)
         model.configure_energy_system()
@@ -106,12 +109,13 @@ if __name__ == "__main__":
             with open(os.path.join(directory, str(scenario_id)+'_full_model_run.p'), 'rb') as infile:
                 model = pickle.load(infile)
             model.model_config(cfgfile_path, custom_pint_definitions_path)
-#            model.supply.calculate_supply_outputs()
-#            model.pass_results_to_demand()
-#            model.calculate_combined_results()
-#            remove_results(append_results)
-#            #after the first secnario loop, we want to append results so we change the boolean to True
-#            append_results = True
-#            model.export_results()
+            model.supply.calculate_supply_outputs()
+            model.pass_results_to_demand()
+            model.calculate_combined_results()
+            remove_results(append_results)
+            #after the first secnario loop, we want to append results so we change the boolean to True
+            append_results = True
+            model.export_results()
+    print time.time()
         
-##
+#
