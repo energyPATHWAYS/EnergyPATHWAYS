@@ -12,6 +12,13 @@ import pandas as pd
 import shape
 from datetime import datetime
 # from supply import Supply
+import smtplib
+from profilehooks import timecall
+
+
+
+ 
+
 
 class PathwaysModel(object):
     """
@@ -19,6 +26,8 @@ class PathwaysModel(object):
     Includes the primary geography of the energy system (i.e. country name) as well as the author.
     """
     def __init__(self, cfgfile_path, custom_pint_definitions_path=None, name=None, author=None):
+        self.cfgfile_path = cfgfile_path
+        self.custom_pint_definitions_path = custom_pint_definitions_path
         self.model_config(cfgfile_path, custom_pint_definitions_path)
         self.name = cfg.cfgfile.get('case', 'scenario') if name is None else name
         self.author = cfg.cfgfile.get('case', 'author') if author is None else author      
@@ -31,6 +40,7 @@ class PathwaysModel(object):
     def model_config(self, cfgfile_path, custom_pint_definitions_path):
         cfg.init_cfgfile(cfgfile_path)
         cfg.init_db()
+        cfg.path = custom_pint_definitions_path
         cfg.init_pint(custom_pint_definitions_path)
         cfg.init_geo()
         cfg.init_date_lookup()
@@ -39,13 +49,15 @@ class PathwaysModel(object):
             shape.shapes.activate_shape(cfg.electricity_energy_type_shape_id)
         cfg.init_outputs_id_map()
 
+
+
     def configure_energy_system(self):
         print 'configuring energy system'
-        self.demand = Demand()
-        self.supply = Supply(os.path.join(os.getcwd(),'outputs'))
+        self.demand = Demand(self.cfgfile_path, self.custom_pint_definitions_path)
+        self.supply = Supply(os.path.join(os.getcwd(),'outputs'),self.cfgfile_path, self.custom_pint_definitions_path)
         self.configure_demand()
         self.configure_supply()
-        cfg.init_outputs_id_map()
+
 
     def populate_energy_system(self):
         self.populate_demand_system()
@@ -90,11 +102,11 @@ class PathwaysModel(object):
         print 'populating energy system data'
         for sector in self.demand.sectors.values():
             print '  '+sector.name+' sector'
-            # print 'reading energy system data for the %s sector' %sector.name
+#            print 'reading energy system data for the %s sector' %sector.name
             for subsector in sector.subsectors.values():
                 print '    '+subsector.name
                 subsector.add_energy_system_data()
-        self.demand.precursor_dict()
+            sector.precursor_dict()
 
     def populate_supply_system(self):
         self.supply.add_nodes()
@@ -109,7 +121,7 @@ class PathwaysModel(object):
         self.supply.add_measures(self.supply_case_id)
 
     def calculate_demand_only(self):
-        self.demand.manage_calculations()
+        self.demand.calculate_demand()
         print "aggregating demand results"
         self.demand.aggregate_results()
     

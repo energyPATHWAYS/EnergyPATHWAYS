@@ -13,6 +13,9 @@ import psycopg2
 # Don't print warnings
 warnings.simplefilter("ignore")
 
+
+    
+
 class Config:
     def __init__(self):
         # sys.path.insert(0, os.getcwd())
@@ -20,7 +23,9 @@ class Config:
         
         # weibul_coefficient_of_variation is used to find weibul parameters given lifetime statistics
         self.weibul_coeff_of_var = util.create_weibul_coefficient_of_variation()
-
+        self.dnmtr_col_names = ['driver_denominator_1_id', 'driver_denominator_2_id']
+        self.drivr_col_names = ['driver_1_id', 'driver_2_id']
+        
     def init_cfgfile(self, cfgfile_path):
         if not os.path.isfile(cfgfile_path):
             raise OSError('config file not found: ' + str(cfgfile_path))
@@ -41,8 +46,9 @@ class Config:
         self.primary_geography = cfgfile.get('case', 'primary_geography')
         self.cfgfile = cfgfile
         
+        
     def init_db(self):
-        pg_host = self.cfgfile.get('database', 'pg_host')
+        pg_host = cfg.cfgfile.get('database', 'pg_host')
         if not pg_host:
             pg_host = 'localhost'
         pg_user = self.cfgfile.get('database', 'pg_user')
@@ -51,14 +57,17 @@ class Config:
         conn_str = "host='%s' dbname='%s' user='%s'" % (pg_host, pg_database, pg_user)
         if pg_password:
             conn_str += " password='%s'" % pg_password
-
+    
         # Open pathways database
         self.con = psycopg2.connect(conn_str)
         self.cur = self.con.cursor()
+        
+    def drop_df(self,cfgfile):
+        self.cur.close()
+        del self.cur
+        del self.con
+        
 
-        # common data inputs
-        self.dnmtr_col_names = ['driver_denominator_1_id', 'driver_denominator_2_id']
-        self.drivr_col_names = ['driver_1_id', 'driver_2_id']
 
     def init_pint(self, custom_pint_definitions_path=None):
         # Initiate pint for unit conversions
@@ -72,6 +81,7 @@ class Config:
     def init_geo(self):
         ##Geography conversions
         self.geo = geography.Geography()
+
 
     def init_date_lookup(self):
         class DateTimeLookup:

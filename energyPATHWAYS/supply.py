@@ -23,8 +23,14 @@ import operator
 from shape import shapes, Shape
 from collections import defaultdict
 from outputs import Output
+import multiprocessing
 
 # noinspection PyAttributeOutsideInit
+           
+def node_calculate(node):
+    node.calculate()
+    return node                      
+       
            
 class Supply(object):
 
@@ -32,8 +38,10 @@ class Supply(object):
     emissions, and cost flows through the energy economy
     """    
     
-    def __init__(self, outputs_directory, **kwargs):
+    def __init__(self, outputs_directory, cfgfile_path, custom_pint_definitions_path, **kwargs):
         """Initializes supply instance"""
+        self.cfgfile_path = cfgfile_path
+        self.custom_pint_definitions_path = custom_pint_definitions_path
         self.demand_sectors = util.sql_read_table('DemandSectors','id')
         self.geographies = cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
@@ -162,39 +170,39 @@ class Supply(object):
         self.create_embodied_cost_and_energy_demand_link()
         self.create_embodied_emissions_demand_link()
         self.calculate_technologies()
-        self.calculate_blend_nodes()
-        self.calculate_primary_nodes()
-        self.calculate_import_nodes()
-        self.calculate_other_nodes()
+        self.calculate_nodes()
         self.calculate_initial_demand()    
     
     def final_calculate(self):
         self.concatenate_annual_costs()
         self.calculate_capacity_utilization()
-        
-    def calculate_blend_nodes(self):
-        """Performs an initial calculation for all blend nodes"""
-        for node in self.nodes.values():
-            if isinstance(node, BlendNode):
-                node.calculate(node.years, self.demand_sectors, self.ghgs)
-                
-    def calculate_primary_nodes(self):
-        """Performs an initial calculation for all primary nodes"""
-        for node in self.nodes.values():
-            if isinstance(node, PrimaryNode):
-                node.calculate(node.years, self.demand_sectors, self.ghgs)
-    
-    def calculate_import_nodes(self):
-        """Performs an initial calculation for all import nodes"""
-        for node in self.nodes.values():
-            if isinstance(node, ImportNode):
-                node.calculate(node.years, self.demand_sectors, self.ghgs)    
-                
-    def calculate_other_nodes(self):
+            
+    def calculate_nodes(self):
         """Performs an initial calculation for all import, conversion, delivery, and storage nodes"""
+        available_cpus = multiprocessing.cpu_count()   
+        pool = multiprocessing.Pool(processes=available_cpus)
+        multiprocessing.freeze_support()
         for node in self.nodes.values():
-            if isinstance(node, SupplyNode) or isinstance(node, SupplyStockNode) or isinstance(node, StorageNode):
-                node.calculate(node.years, self.demand_sectors, self.ghgs, self.distribution_grid_node_id)
+#            node.years = copy.deepcopy(self.years)
+            node.demand_sectors = self.demand_sectors
+            node.ghgs = self.ghgs
+            node.distribution_grid_node_id = self.distribution_grid_node_id
+            node.cfgfile_path = self.cfgfile_path
+            node.custom_pint_definitions_path = self.custom_pint_definitions_path
+            node.geography = self.geography
+            if node.tradable_geography is None:
+                node.enforce_tradable_geography = False
+                node.tradable_geography = self.geography
+            else:
+                node.enforce_tradable_geography = True
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            nodes = pool.map(node_calculate,self.nodes.values())
+            self.nodes = dict(zip(self.nodes.keys(),nodes))
+            pool.close()
+        else:
+            for node in self.nodes.values():
+                node.calculate()
+                
     
     def create_IO(self):
         """Creates a dictionary with year and demand sector keys to store IO table structure"""
@@ -213,21 +221,18 @@ class Supply(object):
         self.all_nodes = []
         self.blend_nodes = []
         self.non_storage_nodes = []
-        cfg.cur.execute('select id from "SupplyNodes" order by id')
-        ids = [id for id in cfg.cur.fetchall()]
-        for (id,) in ids:
+        ids = util.sql_read_table('SupplyNodes',column_names='id',return_iterable=True)
+        ids.sort()
+        for id in ids:
             self.all_nodes.append(id)
 
     def add_nodes(self):  
         """Adds node instances for all active supply nodes"""
-        for id in self.all_nodes:
-            cfg.cur.execute('select supply_type_id from "SupplyNodes" where id=%s', (id,))
-            (supply_type_id,) = cfg.cur.fetchone()
-            supply_type = util.id_to_name("supply_type_id", supply_type_id)
-            cfg.cur.execute('select is_active from "SupplyNodes" where id=%s', (id,))
-            (is_active,) = cfg.cur.fetchone()
-            if is_active == 1:
-                self.add_node(id, supply_type)
+        for node_id in self.all_nodes:
+            supply_type_id, is_active = util.sql_read_table('SupplyNodes',column_names=['supply_type_id','is_active'],id=node_id,is_active=True)
+            supply_type_name = util.sql_read_table('SupplyTypes',column_names='name',id=supply_type_id)     
+            if is_active:
+                self.add_node(node_id, supply_type_name)
         
 
 
@@ -729,7 +734,7 @@ class Supply(object):
         """prepares, solves, and updates the net load with results from the storage and flexible load optimization""" 
         self.prepare_optimization_inputs(year)
         print "solving storage and dispatchable load optimization"
-        self.dispatch.run_optimization()
+        self.dispatch.parallelize_opt()
         for geography in self.dispatch_geographies:
             for feeder in self.dispatch_feeders:
                 load_indexer = util.level_specific_indexer(self.distribution_load, [self.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, 2])
@@ -1108,7 +1113,7 @@ class Supply(object):
             node.active_weighted_sales = node.active_weighted_sales.fillna(1/float(len(node.tech_ids)))
             
                          
-    @timecall(immediate=True)   
+
     def solve_thermal_dispatch(self,year):
         """solves the thermal dispatch, updating the capacity factor for each thermal dispatch technology
         and adding capacity to each node based on determination of need"""
@@ -2137,12 +2142,8 @@ class Node(DataMapFunctions):
         self.supply_type = supply_type
         for col, att in util.object_att_from_table('SupplyNodes', id):
             setattr(self, col, att)
-        self.geography = cfg.cfgfile.get('case', 'primary_geography')
         self.active_supply= None
         self.reconciled = False
-        #all nodes can have potential conversions. Set to None if no data. 
-        self.conversion, self.resource_unit = self.add_conversion()  
-        self.tradable_geography, self.enforce_tradable_geography = self.determine_tradable_geography()
         #all nodes have emissions subclass
         self.emissions = SupplyEmissions(self.id)      
         self.shape = self.determine_shape()
@@ -2490,10 +2491,8 @@ class Node(DataMapFunctions):
             add all export measures in a selected package to a dictionary
             """
             self.export_measures = {}
-            cfg.cur.execute('select measure_id from "SupplyExportMeasurePackagesData" where package_id=%s',
-                                           (self.export_package_id,))
-            ids = [id for id in cfg.cur.fetchall()]
-            for (id,) in ids:
+            ids = util.sql_read_table("SupplyExportMeasurePackagesData",column_names='measure_id',package_id=self.export_package_id,return_iterable=True)
+            for id in ids:
                 self.add_export_measure(id)     
         
     def add_export_measure(self, id, **kwargs):
@@ -2886,7 +2885,7 @@ class BlendNode(Node):
         self.supply_type = supply_type
         for col, att in util.object_att_from_table('SupplyNodes', id, ):
             setattr(self, col, att)
-        self.nodes = util.sql_read_table('BlendNodeInputsData', 'supply_node_id', blend_node_id=id)
+        self.nodes = util.sql_read_table('BlendNodeInputsData', 'supply_node_id', blend_node_id=id, return_iterable=True)
         #used as a flag in the annual loop for whether we need to recalculate the coefficients
    
             
@@ -2915,10 +2914,8 @@ class BlendNode(Node):
             add all blend measures in a selected package to a dictionary
             """
             self.blend_measures = {}
-            cfg.cur.execute('select measure_id from "BlendNodeBlendMeasurePackagesData" where package_id=%s',
-                                           (self.blend_package_id,))
-            ids = [id for id in cfg.cur.fetchall()]
-            for (id,) in ids:
+            ids = util.sql_read_table("BlendNodeBlendMeasurePackagesData",column_names='measure_id',package_id=self.blend_package_id,return_iterable=True)
+            for id in ids:
                 self.add_blend_measure(id)     
             
     def add_blend_measure(self, id, **kwargs):
@@ -2929,16 +2926,22 @@ class BlendNode(Node):
 
 
             
-    def calculate(self, years, demand_sectors, ghgs):
-        self.years = years
-        self.demand_sectors = demand_sectors
-        self.ghgs = ghgs
+    def calculate(self):
+        cfg.init_cfgfile(self.cfgfile_path)
+        cfg.init_db()
+        cfg.path = self.custom_pint_definitions_path
+        cfg.init_pint(self.custom_pint_definitions_path)
+        cfg.init_geo()
+        cfg.init_date_lookup()
+        cfg.init_outputs_id_map()
+        #all nodes can have potential conversions. Set to None if no data. 
+        self.conversion, self.resource_unit = self.add_conversion()  
         measures = []
         for measure in self.blend_measures.values():
             measure.calculate(self.vintages, self.years)
             measures.append(measure.values)
         if len(measures):
-            self.values = pd.concat(measures)
+            self.raw_values = pd.concat(measures)
             self.calculate_residual()
         else:
             self.set_residual()
@@ -2955,8 +2958,7 @@ class BlendNode(Node):
          """
          # calculates sum of all supply_nodes
          # residual equals 1-sum of all other specified nodes
-         self.values.sort(inplace=True)
-         
+         self.values = self.raw_values.sort()
          if self.residual_supply_node_id in self.values.index.get_level_values('supply_node'):
              indexer = util.level_specific_indexer(self.values, 'supply_node', self.residual_supply_node_id)
              self.values.loc[indexer,:] = 0
@@ -3015,12 +3017,13 @@ class BlendNode(Node):
     def set_residual(self):
         """creats an empty df with the value for the residual node of 1. For nodes with no blend measures specified"""
         df_index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors, self.nodes, self.years, [2]], names=[cfg.cfgfile.get('case','primary_geography'), 'demand_sector','supply_node','year','efficiency_type' ])
-        self.values = util.empty_df(index=df_index,columns=['value'],fill_value=1e-7)
-        indexer = util.level_specific_indexer(self.values, 'supply_node', self.residual_supply_node_id)
-        self.values.loc[indexer, 'value'] = 1
-        self.values = self.values.unstack(level='year')    
-        self.values.columns = self.values.columns.droplevel()
-        self.values = self.values.sort()
+        self.raw_values = util.empty_df(index=df_index,columns=['value'],fill_value=1e-7)
+        indexer = util.level_specific_indexer(self.raw_values, 'supply_node', self.residual_supply_node_id)
+        self.raw_values.loc[indexer, 'value'] = 1
+        self.raw_values = self.raw_values.unstack(level='year')    
+        self.raw_values.columns = self.raw_values.columns.droplevel()
+        self.raw_values = self.raw_values.sort()
+        self.values = copy.deepcopy(self.raw_values)
         
     
 class SupplyNode(Node,StockItem):
@@ -3035,11 +3038,15 @@ class SupplyNode(Node,StockItem):
         self.create_costs()
         self.add_stock()
 
-    def calculate(self,years, demand_sectors, ghgs, distribution_grid_node_id):
-        self.years = years
-        self.demand_sectors = demand_sectors
-        self.ghgs = ghgs
-        self.distribution_grid_node_id = distribution_grid_node_id
+    def calculate(self):
+        cfg.init_cfgfile(self.cfgfile_path)
+        cfg.init_db()
+        cfg.path = self.custom_pint_definitions_path
+        cfg.init_pint(self.custom_pint_definitions_path)
+        cfg.init_geo()
+        cfg.init_date_lookup()
+        cfg.init_outputs_id_map()
+        self.conversion, self.resource_unit = self.add_conversion()  
         self.set_rollover_groups()
         self.calculate_subclasses()        
         for cost in self.costs.values():
@@ -3441,9 +3448,8 @@ class SupplyNode(Node,StockItem):
         self.stock.values_energy.loc[:,year] = util.DfOper.mult([self.stock.values_energy.loc[:,year].to_frame(),1/oversupply_factor])
         
     def create_costs(self):
-        cfg.cur.execute('select id from "SupplyCost" where supply_node_id=%s', (self.id,))
-        ids = [id for id in cfg.cur.fetchall()]
-        for (id,) in ids:
+        ids = util.sql_read_table('SupplyCost',column_names='id',supply_node_id=self.id,return_iterable=True)
+        for id in ids:
             self.add_costs(id)
 
     def add_costs(self, id, **kwargs):
@@ -3773,11 +3779,6 @@ class SupplyStockNode(Node):
         Node.__init__(self, id, supply_type)
         for col, att in util.object_att_from_table('SupplyNodes', id):
             setattr(self, col, att)
-        if self.tradable_geography is None:
-            self.enforce_tradable_geography = False
-            self.tradable_geography = cfg.cfgfile.get('case', 'primary_geography')
-        else:
-            self.enforce_tradable_geography = True
         self.potential = SupplyPotential(self.id)
         self.technologies = {}
         self.tech_ids = []
@@ -3856,11 +3857,16 @@ class SupplyStockNode(Node):
         self.stock.input_type = 'total'
 
 
-    def calculate(self, years, demand_sectors, ghgs, distribution_grid_node_id): 
-        self.years = years
-        self.demand_sectors = demand_sectors
-        self.ghgs = ghgs
-        self.distribution_grid_node_id = distribution_grid_node_id
+    def calculate(self): 
+        #all nodes can have potential conversions. Set to None if no data. 
+        cfg.init_cfgfile(self.cfgfile_path)
+        cfg.init_db()
+        cfg.path = self.custom_pint_definitions_path
+        cfg.init_pint(self.custom_pint_definitions_path)
+        cfg.init_geo()
+        cfg.init_date_lookup()
+        cfg.init_outputs_id_map()
+        self.conversion, self.resource_unit = self.add_conversion()  
         self.set_rollover_groups()
         self.calculate_subclasses()
         self.calculate_stock_measures()
@@ -4058,9 +4064,8 @@ class SupplyStockNode(Node):
     
     
     def add_technologies(self):
-        cfg.cur.execute('select id from "SupplyTechs" where supply_node_id=%s', (self.id,))
-        ids = [id for id in cfg.cur.fetchall()]
-        for (id,) in ids:
+        ids = util.sql_read_table('SupplyTechs',column_names='id',supply_node_id=self.id,return_iterable=True)
+        for id in ids:
             self.add_technology(id)
             
             
@@ -5046,12 +5051,16 @@ class ImportNode(Node):
         self.cost = ImportCost(self.id)
         self.coefficients = SupplyCoefficients(self.id)
 
-      
-   
-    def calculate(self,years, demand_sectors, ghgs):
-        self.years = years
-        self.demand_sectors = demand_sectors
-        self.ghgs = ghgs
+    def calculate(self):
+        cfg.init_cfgfile(self.cfgfile_path)
+        cfg.init_db()
+        cfg.path = self.custom_pint_definitions_path
+        cfg.init_pint(self.custom_pint_definitions_path)
+        cfg.init_geo()
+        cfg.init_date_lookup()
+        cfg.init_outputs_id_map()
+        #all nodes can have potential conversions. Set to None if no data. 
+        self.conversion, self.resource_unit = self.add_conversion()  
 #        self.set_rollover_groups()
         self.calculate_subclasses()
         if self.coefficients.raw_values is not None:
@@ -5120,26 +5129,30 @@ class PrimaryNode(Node):
         self.potential = SupplyPotential(self.id)
         self.cost = PrimaryCost(self.id)
         self.coefficients = SupplyCoefficients(self.id)
-        self.geography = cfg.cfgfile.get('case', 'primary_geography')
       
 
-    def calculate(self, years, demand_sectors, ghgs):
-            self.years = years
-            self.demand_sectors = demand_sectors
-            self.ghgs = ghgs
-            if self.conversion is not None:
-                self.conversion.calculate(self.resource_unit)    
-
-            self.potential.calculate(self.conversion, self.resource_unit)
-            self.cost.calculate(self.conversion, self.resource_unit)
-            self.emissions.calculate(self.conversion, self.resource_unit)
-            self.coefficients.calculate(self.years, self.demand_sectors)
-            if self.coefficients.data is True:
-                self.nodes = list(set(self.coefficients.values.index.get_level_values('supply_node')))
-            self.set_adjustments()
-            self.set_pass_through_df_dict()
-            self.set_cost_dataframes()
-            self.export.calculate(self.years, self.demand_sectors)
+    def calculate(self):
+        cfg.init_cfgfile(self.cfgfile_path)
+        cfg.init_db()
+        cfg.path = self.custom_pint_definitions_path
+        cfg.init_pint(self.custom_pint_definitions_path)
+        cfg.init_geo()
+        cfg.init_date_lookup()
+        cfg.init_outputs_id_map()
+        #all nodes can have potential conversions. Set to None if no data. 
+        self.conversion, self.resource_unit = self.add_conversion()  
+        if self.conversion is not None:
+            self.conversion.calculate(self.resource_unit)    
+        self.potential.calculate(self.conversion, self.resource_unit)
+        self.cost.calculate(self.conversion, self.resource_unit)
+        self.emissions.calculate(self.conversion, self.resource_unit)
+        self.coefficients.calculate(self.years, self.demand_sectors)
+        if self.coefficients.data is True:
+            self.nodes = list(set(self.coefficients.values.index.get_level_values('supply_node')))
+        self.set_adjustments()
+        self.set_pass_through_df_dict()
+        self.set_cost_dataframes()
+        self.export.calculate(self.years, self.demand_sectors)
 
 
     def calculate_levelized_costs(self,year):
@@ -5170,7 +5183,6 @@ class PrimaryNode(Node):
 class PrimaryCost(Abstract):
     def __init__(self, id, node_geography=None, **kwargs):
         self.id = id
-        self.node_geography = cfg.cfgfile.get('case', 'primary_geography') if node_geography is None else node_geography
         self.input_type = 'intensity'
         self.sql_id_table = 'PrimaryCost'
         self.sql_data_table = 'PrimaryCostData'

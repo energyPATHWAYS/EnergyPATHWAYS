@@ -38,7 +38,7 @@ class Shapes(object):
                 raise ValueError("Shape with id "+str(id)+" not found")
             self.active_shape_ids.append(id)
 
-    def initiate_active_shapes(self):
+    def initiate_active_shapes(self, id):
         print ' reading data for:'
         for id in self.active_shape_ids:
             shape = self.data[id]

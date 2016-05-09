@@ -19,13 +19,25 @@ from pyomo.opt import SolverFactory
 import csv
 import logging
 from sklearn.cluster import KMeans
-
+from pathos.multiprocessing import Pool
+import multiprocessing
+from profilehooks import profile, timecall
 # Dispatch modules
 import dispatch_problem_PATHWAYS
 import year_to_period_allocation
+#import copy_reg
+#import types
 
-
-
+#def _reduce_method(m):
+#    if m.im_self is None:
+#        return getattr, (m.im_class, m.im_func.func_name)
+#    else:
+#        return getattr, (m.im_self, m.im_func.func_name)
+#
+#copy_reg.pickle(types.MethodType, _reduce_method)
+#
+##def opt(dispatch):
+##    dispatch.parallelize_opt(dispatch)
 
 class DispatchNodeConfig(DataMapFunctions):
     def __init__(self, id, **kwargs):
@@ -691,16 +703,34 @@ class Dispatch(object):
             print "Loading solution..."
         instance.solutions.load_from(solution)
         return instance
-   
-    def run_optimization(self, parallel=False):
-        state_of_charge = self.run_year_to_month_allocation()
-        alloc_start_state_of_charge, alloc_end_state_of_charge = state_of_charge[0], state_of_charge[1]
+
+    @timecall
+    def parallelize_opt(self):
+        available_cpus = multiprocessing.cpu_count()
+        pool = Pool(processes=available_cpus)
+        self.state_of_charge = self.run_year_to_month_allocation()
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            results = pool.map(self.run_optimization,self.periods)
+            pool.close()
+        else:
+            results = []
+            for period in self.periods:
+                results.append(self.run_optimization(period))
+        bulk_storage_dfs = [x[0] for x in results]
+        dist_storage_dfs = [x[1] for x in results]
+        flex_load_dfs = [x[2] for x in results]
+        self.bulk_storage_df = util.DfOper.add(bulk_storage_dfs)
+        self.dist_storage_df = util.DfOper.add(dist_storage_dfs)
+        self.flex_load_df = util.DfOper.add(flex_load_dfs)
+    
+    def run_optimization(self,period):
+        alloc_start_state_of_charge, alloc_end_state_of_charge = self.state_of_charge[0], self.state_of_charge[1]
         #replace with multiprocessing if parallel
         #replace with multiprocessing if parallel
-        for period in self.periods:
-            results = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)
-            self.export_storage_results(results, period) 
-            self.export_flex_load_results(results, period)
+        results = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)     
+        self.export_storage_results(results, period) 
+        self.export_flex_load_results(results, period)
+        return [self.bulk_storage_df,self.dist_storage_df,self.flex_load_df]
             
             
     def run_dispatch_optimization(self, start_state_of_charge, end_state_of_charge, period):
@@ -828,124 +858,6 @@ class Dispatch(object):
                         flex_load.append(instance.Flexible_Load[geography, timepoint, feeder].value)
                     flex_load = np.asarray(flex_load)
                     self.flex_load_df.loc[indexer,:] = flex_load 
-
-
-
-#def run_opt_multi(_dispatch, period):
-#    """
-#    This function is in a sense redundant, as it simply calls the run_optimization function.
-#    However, it is needed outside of class to avoid pickling error while multiprocessing on Windows
-#    (see https://docs.python.org/2/library/multiprocessing.html#windows).
-#    :param _dispatch:
-#    :param period:
-#    :return:
-#    """
-#    _dispatch.run_dispatch_optimization(period)
-#
-#
-#def process_handler(_periods, n_processes):
-#    """
-#    Process periods in parallel.
-#    NOTE: On Windows, this function must be run using if__name__ == ' __main__' to avoid a RuntimeError
-#    (see https://docs.python.org/2/library/multiprocessing.html#windows).
-#    :param _periods:
-#    :param n_processes:
-#    :return:
-#    """
-#    pool = multiprocessing.Pool(processes=n_processes)
-#
-#    # TODO: maybe change to pool.map() if at some point we need to run map_async(...).get() (two are equivalent)
-#    # Other option is to use imap,
-#    # which will return the results as soon as they are ready rather than wait for all workers to finish,
-#    # but that probably doesn't help us, as wee need to pass on everything at once
-#    # http://stackoverflow.com/questions/26520781/multiprocessing-pool-whats-the-difference-between-map-async-and-imap
-#    # TODO: experiment with chunksize option
-#    pool.map_async(run_opt_multi, _periods)
-#    pool.close()
-#    pool.join()
-#
-#
-#def multiprocessing_debug_info():
-#    """
-#    Run this to see what multiprocessing is doing.
-#    :return:
-#    """
-#    multiprocessing.log_to_stderr().setLevel(logging.DEBUG)
-#
-#
-#if __name__ == "__main__":
-#    _start_time = datetime.datetime.now()
-#    print "Running dispatch..."
-#    multiprocessing.freeze_support()  # can be omitted if we won't be producing a Windows executable
-#
-#    # ############# SETTINGS ############# #
-#    # Currently using all available CPUs in multiprocessing function below
-#    available_cpus = multiprocessing.cpu_count()
-#
-#    # Solver info
-#    solver_name = cfgfile.get('case','solver')
-#    solver_settings = None
-#
-#    # Pyomo solve keyword arguments
-#    # Set 'keepfiles' to True if you want the problem and solution files
-#    # Set 'tee' to True if you want to stream the solver output
-#    solve_kwargs = {"keepfiles": False, "tee": False}
-#
-#    # How much to print to standard output; set to 1 for more detailed output, 0 for limited detail
-#    stdout_detail = 1
-#
-#    # The directory structure will have to change, but I'm not sure how yet
-#    current_directory = os.getcwd()
-#    results_directory = current_directory + "/results"
-#    inputs_directory = current_directory + "/test_inputs"
-#
-#    # Make results directory if it doesn't exist
-#    if not os.path.exists(results_directory):
-#            os.mkdir(results_directory)
-#
-#    # ################### OPTIMIZATIONS ##################### #
-#
-#    # ### Create allocation instance and run optimization ### #
-#
-#    # This currently exports results to the dispatch optimization inputs directory (that part won't be needed)
-#    # It also returns the needed params for the main dispatch optimization
-#    allocation = PathwaysOptAllocation(_alloc_inputs=get_inputs.alloc_inputs_init(inputs_directory),
-#                                    _solver_name=solver_name, _stdout_detail=stdout_detail, _solve_kwargs=solve_kwargs,
-#                                    _results_directory=inputs_directory)
-#
-#    print "...running large storage allocation..."
-#    state_of_charge = allocation.run_year_to_month_allocation()
-#    alloc_start_state_of_charge, alloc_end_state_of_charge = state_of_charge[0], state_of_charge[1]
-#
-#    # # ### Instantiate hourly dispatch class and run optimization ### #
-#    pathways_dispatch = PathwaysOpt(_dispatch_inputs=get_inputs.dispatch_inputs_init(inputs_directory),
-#                                         _start_state_of_charge=alloc_start_state_of_charge,
-#                                         _end_state_of_charge=alloc_end_state_of_charge,
-#                                         _solver_name=solver_name, _stdout_detail=stdout_detail,
-#                                         _solve_kwargs=solve_kwargs,
-#                                         _results_directory=results_directory)
-#    periods = pathways_dispatch.dispatch_inputs.periods
-#
-#    print "...running main dispatch optimization..."
-#    # Run periods in parallel
-#    pool = multiprocessing.Pool(processes=available_cpus)
-#    partial_opt = partial(run_opt_multi, pathways_dispatch)
-#
-#    # TODO: maybe change to pool.map() if at some point we need to run map_async(...).get() (two are equivalent)
-#    # Other option is to use imap,
-#    # which will return the results as soon as they are ready rather than wait for all workers to finish,
-#    # but that probably doesn't help us, as wee need to pass on everything at once
-#    # http://stackoverflow.com/questions/26520781/multiprocessing-pool-whats-the-difference-between-map-async-and-imap
-#    # TODO: experiment with chunksize option
-#    pool.map_async(partial_opt, periods)
-#    pool.close()
-#    pool.join()
-#
-#    # # Run periods in sequence
-#    # for p in periods:
-#    #     run_dispatch_multi(pathways_dispatch, p)
-#
-#    print "Done. Total time for dispatch: " + str(datetime.datetime.now()-_start_time)
 
 
 class DispatchFeederAllocation(Abstract):

@@ -27,6 +27,8 @@ class SubDemand(object, DataMapFunctions):
         self.read_timeseries_data()
         self.projected = False
 
+    def __deepcopy__(self, memo):
+        return self
 
     def in_use_drivers(self):
         """reduces the driver dictionary to in-use drivers"""

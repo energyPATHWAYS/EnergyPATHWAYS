@@ -31,6 +31,7 @@ import itertools
 import decimal
 import psycopg2
 
+
 def freeze_recursivedict(recursivedict):
     recursivedict = dict(recursivedict)
     for key, value in recursivedict.items():
