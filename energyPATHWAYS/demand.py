@@ -1,6 +1,6 @@
 __author__ = 'Ben Haley & Ryan Jones'
 
-
+from config import cfg
 from shape import shapes, Shape
 
 import util
@@ -26,7 +26,7 @@ import multiprocessing
 
 from profilehooks import timecall
 from config import cfg
-import subprocess, os, signal, sys
+
 
 
 
@@ -36,12 +36,12 @@ def manage_calculations(sector):
     return sector
 
 
-def rollover_subset_run(key_value_pair):   
+def rollover_subset_run(key_value_pair):
         elements = key_value_pair.keys()[0]
         rollover = key_value_pair.values()[0]
         rollover.run()
         stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = rollover.return_formatted_outputs()
-        return stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement, elements       
+        return stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement, elements
 
 class Demand(object):
     def __init__(self, cfgfile_path, custom_pint_definitions_path, **kwargs):
@@ -53,22 +53,41 @@ class Demand(object):
         self.default_electricity_shape = shapes.data[cfg.electricity_energy_type_shape_id]
         self.cfgfile_path = cfgfile_path
         self.custom_pint_definitions_path = custom_pint_definitions_path
-        
-        
+
+
     def aggregate_electricity_shapes(self, year):
         """ Final levels that will always return from this function
         ['dispatch_feeder', 'timeshift_type', 'gau', 'weather_datetime']
         """ 
         agg_load = util.DfOper.add([sec.aggregate_electricity_shapes(year, self.default_electricity_shape) for sec in self.sectors.values()], expandable=False, collapsible=False)
-        # TODO multiply by reconsilliation term
-        
-        return Shape.geomap_to_dispatch_geography(agg_load)
+        return Shape.geomap_to_dispatch_geography(agg_load) if geomap_to_dispatch_geography else agg_load
 
-    def create_electricity_reconsilliation(self):
-        weather_years = np.unique(shapes.active_dates_index.year)
+    def create_electricity_reconciliation(self):
+        # TODO: this should be set to the shapes active dates index year
+        # however, right now, there is not guarantee that the model and run for that year
+        # We need to change this in subsector so that the start_year takes into account shapes
+        weather_year = 2015
+        # weather_year = int(np.round(np.mean(shapes.active_dates_index.year)))
+
+        levels_to_keep = [cfg.cfgfile.get('case','primary_geography'), 'year', 'final_energy']
+        temp_energy = self.group_output('energy', levels_to_keep=levels_to_keep, specific_years=weather_year)
+        top_down_energy = util.remove_df_levels(util.df_slice(temp_energy, cfg.electricity_energy_type_id, 'final_energy'), levels='year')
+        top_down_shape = top_down_energy * util.df_slice(self.default_electricity_shape.values, 2, 'timeshift_type')
         
-        #energy = group_output(self, output_type, levels_to_keep=['year', 'energy_type'])
-        #electric_energy = util.df_slice(energy, cfg.electricity_energy_type_id, 'energy_type')
+        bottom_up_shape = self.aggregate_electricity_shapes(weather_year, geomap_to_dispatch_geography=False)
+        bottom_up_shape = util.df_slice(bottom_up_shape, 2, 'timeshift_type')
+        bottom_up_shape = util.remove_df_levels(bottom_up_shape, 'dispatch_feeder')
+
+        self.electricity_reconciliation = util.DfOper.divi((top_down_shape, bottom_up_shape))
+        self.pass_electricity_reconciliation()
+
+    def pass_electricity_reconciliation(self):
+        """ This function threads the reconciliation factors into sectors and subsectors
+            it is necessary to do it like this because we need the reconciliation at the lowest level to apply reconciliation before
+            load shifting.
+        """
+        for sector in self.sectors:
+            self.sectors[sector].pass_electricity_reconciliation(self.electricity_reconciliation)
 
     def aggregate_results(self):
         def remove_na_levels(df):
@@ -80,7 +99,7 @@ class Demand(object):
         output_list = ['energy', 'stock', 'sales','annual_costs', 'levelized_costs', 'service_demand']
         unit_flag = [False, True, False, False, True]
         for output_name, include_unit in zip(output_list,unit_flag):
-            df = self.group_output(output_name,include_unit=include_unit)
+            df = self.group_output(output_name, include_unit=include_unit)
             df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
             setattr(self.outputs, output_name, df)
             
@@ -95,10 +114,10 @@ class Demand(object):
         setattr(self.outputs, 'demand_embodied_energy', self.group_linked_output(energy_link))
         
 
-    def group_output(self, output_type, levels_to_keep=None, include_unit=False):
+    def group_output(self, output_type, levels_to_keep=None, include_unit=False, specific_years=None):
         levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep
         levels_to_keep = list(set(levels_to_keep + ['unit'])) if include_unit else levels_to_keep
-        dfs = [sector.group_output(output_type, levels_to_keep, include_unit) for sector in self.sectors.values()]
+        dfs = [sector.group_output(output_type, levels_to_keep, include_unit, specific_years) for sector in self.sectors.values()]
         if all([df is None for df in dfs]) or not len(dfs):
             return None
         dfs, keys = zip(*[(df, key) for df, key in zip(dfs, self.sectors.keys()) if df is not None])
@@ -115,7 +134,7 @@ class Demand(object):
             if geography in supply_link.index.get_level_values(self.geography):
                 supply_indexer = util.level_specific_indexer(supply_link,[self.geography],[geography])
                 demand_indexer = util.level_specific_indexer(demand_df,[self.geography],[geography])
-                supply_df = supply_link.loc[supply_indexer,:]           
+                supply_df = supply_link.loc[supply_indexer,:]
                 geography_df =  util.DfOper.mult([demand_df.loc[demand_indexer,:],supply_df])
                 geography_df_list.append(geography_df)
         df = pd.concat(geography_df_list)      
@@ -167,7 +186,7 @@ class Demand(object):
         driver.mapped = True
         driver.values.data_type = 'total'
 
-    def add_sectors(self,):
+    def add_sectors(self):
         """Loop through sector ids and call add sector function"""
         ids = util.sql_read_table('DemandSectors',column_names='id',return_iterable=True)
         for id in ids:
@@ -183,18 +202,19 @@ class Demand(object):
 
     def calculate_demand(self):
         if cfg.cfgfile.get('case','parallel_process') == 'True':
-            available_cpus = max(multiprocessing.cpu_count(),4)     
+            available_cpus = max(multiprocessing.cpu_count(),4)
             pool = Pool(processes=available_cpus)
             sectors = copy.deepcopy(self.sectors.values())
             freeze_support()
             sectors = pool.map(manage_calculations,sectors)
-            self.sectors = dict(zip(self.sectors.keys(),sectors))            
+            self.sectors = dict(zip(self.sectors.keys(),sectors))
             pool.close()
             pool.join()
             pool.terminate()
         else:
             for sector in self.sectors.values():
                 manage_calculations(sector)
+        self.create_electricity_reconciliation()
 
 
 class Driver(object, DataMapFunctions):
@@ -213,7 +233,7 @@ class Driver(object, DataMapFunctions):
 class Sector(object):
     def __init__(self, id, drivers,cfgfile_path,custom_pint_definitions_path,**kwargs):
         self.cfgfile_path = cfgfile_path
-        self.custom_pint_definitions_path = custom_pint_definitions_path   
+        self.custom_pint_definitions_path = custom_pint_definitions_path
         self.drivers = drivers
         self.id = id
         self.subsectors = {}
@@ -223,7 +243,7 @@ class Sector(object):
         if self.shape_id is not None:
             self.shape = shapes.data[self.shape_id]
             shapes.activate_shape(self.shape_id)
-        
+
         feeder_allocation_class = dispatch_classes.DispatchFeederAllocation(1)
         # FIXME: This next line will fail if we don't have a feeder allocation for each demand_sector
         self.feeder_allocation = util.df_slice(feeder_allocation_class.values, id, 'demand_sector')
@@ -316,8 +336,8 @@ class Sector(object):
         if cfg.cfgfile.get('case','parallel_process') == 'True':
             cfg.cur.close()
             del cfg.cur
-            
-    
+
+
     def calculate(self, subsector):
         """ 
         calculates subsector if all precursors have been calculated
@@ -355,16 +375,16 @@ class Sector(object):
 #        print '  '+subsector.name
         # pass service demand and stock preursors to subsector
         subsector.calculate(self.service_precursors[subsector.id], self.stock_precursors[subsector.id])
-        
+
     def aggregate_subsector_energy_for_supply_side(self):
         """Aggregates for the supply side, works with function in demand"""
         levels_to_keep = [cfg.cfgfile.get('case', 'primary_geography'), 'final_energy', 'year']
         return util.DfOper.add([pd.DataFrame(subsector.energy_forecast.value.groupby(level=levels_to_keep).sum()).sort() for subsector in self.subsectors.values() if hasattr(subsector, 'energy_forecast')])
 
-    def group_output(self, output_type, levels_to_keep=None, include_unit=False):
+    def group_output(self, output_type, levels_to_keep=None, include_unit=False, specific_years=None):
         levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep
         levels_to_keep = list(set(levels_to_keep + ['unit'])) if include_unit else levels_to_keep
-        dfs = [subsector.group_output(output_type, levels_to_keep) for subsector in self.subsectors.values()]
+        dfs = [subsector.group_output(output_type, levels_to_keep, specific_years) for subsector in self.subsectors.values()]
         if all([df is None for df in dfs]) or not len(dfs):
             return None
         dfs, keys = zip(*[(df, key) for df, key in zip(dfs, self.subsectors.keys()) if df is not None])
@@ -388,6 +408,14 @@ class Sector(object):
                                 for sub in self.subsectors.values()],
                                 expandable=False, collapsible=False)
 
+    def pass_electricity_reconciliation(self, electricity_reconciliation):
+        """ This function threads the reconciliation factors into sectors and subsectors
+            it is necessary to do it like this because we need the reconciliation at the lowest level to apply reconciliation before
+            load shifting.
+        """
+        for subsector in self.subsectors:
+            self.subsectors[subsector].set_electricity_reconciliation(electricity_reconciliation)
+
 
 class Subsector(DataMapFunctions):
     def __init__(self, id, drivers, stock, service_demand, energy_demand,
@@ -407,7 +435,13 @@ class Subsector(DataMapFunctions):
         self.calculated = False
         if self.shape_id is not None:
             self.shape = shapes.data[self.shape_id]
-        
+            shapes.activate_shape(self.shape_id)
+
+    def set_electricity_reconciliation(self, electricity_reconciliation):
+        """ Electricity reconciliation is solved top down and passed back to subsector, where it is applied
+        """
+        self.electricity_reconciliation = electricity_reconciliation
+
     def aggregate_electricity_shapes(self, year, default_shape=None, default_feeder_allocation=None, default_max_lead_hours=None, default_max_lag_hours=None):
         """ Final levels that will always return from this function
         ['dispatch_feeder', 'timeshift_type', 'gau', 'weather_datetime']
@@ -416,6 +450,7 @@ class Subsector(DataMapFunctions):
         if default_shape is None and self.shape_id is None:
             raise ValueError('Electricity shape cannot be aggregated without an active shape in subsector ' + self.name)
         active_shape = self.shape if hasattr(self, 'shape') else default_shape
+        reconciliation = self.electricity_reconciliation if hasattr(self, 'electricity_reconciliation') else None
         active_feeder_allocation = default_feeder_allocation
         active_max_lead_hours = self.max_lead_hours if self.max_lead_hours is not None else default_max_lead_hours
         active_max_lag_hours = self.max_lag_hours if self.max_lag_hours is not None else default_max_lag_hours
@@ -435,11 +470,12 @@ class Subsector(DataMapFunctions):
             has_flex_load_measure = False
             if has_flex_load_measure:
                 # first step is to make the three shifted profiles
-                flex = Shape.produce_flexible_load(active_shape.values, percent_flexible=0, hr_delay=active_max_lag_hours, hr_advance=active_max_lead_hours)
+                flex = Shape.produce_flexible_load(util.DfOper.mult((active_shape.values, reconciliation)),
+                                                   percent_flexible=0, hr_delay=active_max_lag_hours, hr_advance=active_max_lead_hours)
                 return util.DfOper.mult((energy_slice, active_feeder_allocation, flex))
             else:
-                return util.DfOper.mult((energy_slice, active_feeder_allocation, active_shape.values))
-        
+                return util.DfOper.mult((energy_slice, active_feeder_allocation, active_shape.values, reconciliation))
+
         # some technologies have their own shapes, so we need to aggregate from that level
         else:
             raise ValueError("Technology shapes are not fully implemented")
@@ -558,22 +594,24 @@ class Subsector(DataMapFunctions):
         self.interpolation_method = 'linear_interpolation'
         self.extrapolation_method = 'linear_interpolation'
 
-    def group_output(self, output_type, levels_to_keep=None):
+    def group_output(self, output_type, levels_to_keep=None, specific_years=None):
         levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep
         if output_type=='energy':
             # a subsector type link would be something like building shell, which does not have an energy demand
             if self.sub_type != 'link':
-                return self.energy_forecast
+                return_array = self.energy_forecast
         elif output_type=='stock':
-            return self.format_output_stock(levels_to_keep)
+            return_array = self.format_output_stock(levels_to_keep)
         elif output_type=='sales':
-            return self.format_output_sales(levels_to_keep)
+            return_array = self.format_output_sales(levels_to_keep)
         elif output_type=='annual_costs':
-            return self.format_output_costs('annual_costs', levels_to_keep) 
+            return_array =  self.format_output_costs('annual_costs', levels_to_keep)
         elif output_type=='levelized_costs':
-            return self.format_output_costs('levelized_costs', levels_to_keep)
+            return_array = self.format_output_costs('levelized_costs', levels_to_keep)
         elif output_type=='service_demand':
-            return self.format_output_service_demand(levels_to_keep)
+            return_array = self.format_output_service_demand(levels_to_keep)
+
+        return util.df_slice(return_array, specific_years, 'year', drop_level=False) if specific_years else return_array
 
     def format_output_service_demand(self, override_levels_to_keep):
         if not hasattr(self, 'service_demand'):
@@ -778,7 +816,7 @@ class Subsector(DataMapFunctions):
             self.min_year = min(int(cfg.cfgfile.get('case', 'current_year')), driver_min_year, tech_min_year,
                                     stock_min_year, sales_share_min_year)
         self.min_year = max(self.min_year, int(cfg.cfgfile.get('case', 'demand_start_year')))
-        self.min_year = int(int(cfg.cfgfile.get('case', 'year_step'))*round(float(self.min_year)/int(cfg.cfgfile.get('case', 'year_step'))))        
+        self.min_year = int(int(cfg.cfgfile.get('case', 'year_step'))*round(float(self.min_year)/int(cfg.cfgfile.get('case', 'year_step'))))
         self.years = range(self.min_year, int(cfg.cfgfile.get('case', 'end_year')) + 1,
                            int(cfg.cfgfile.get('case', 'year_step')))
         
@@ -1941,7 +1979,7 @@ class Subsector(DataMapFunctions):
             current_geography = cfg.cfgfile.get('case', 'primary_geography')
             current_data_type =  'total'
             projected =  True
-        
+
 
         self.service_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
                                     additional_drivers=self.additional_service_demand_drivers(stock_dependent),current_data_type=current_data_type,projected=projected)
@@ -1961,7 +1999,7 @@ class Subsector(DataMapFunctions):
             current_geography = cfg.cfgfile.get('case', 'primary_geography')
             current_data_type =  'total'
             projected =  True
-            
+
         self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
                                    additional_drivers=self.additional_service_demand_drivers(stock_dependent,
                                                                                              service_dependent),current_data_type=current_data_type, projected=projected)
@@ -2071,7 +2109,7 @@ class Subsector(DataMapFunctions):
         df = util.remove_df_elements(df, 9999, 'final_energy')
         return df
 
-    
+
     def stock_rollover(self):
         """ Stock rollover function."""
         self.format_technology_stock()
@@ -2391,7 +2429,7 @@ class Subsector(DataMapFunctions):
         
         This vector can then be multiplied by clothes washing service demand to create an additional driver for water heating         
         
-        """     
+        """
         for id in self.service_links:
             link = self.service_links[id]
             link.values = self.rollover_output_dict(tech_dict='service_links',tech_dict_key=id, tech_att='values', stock_att='values_normal')
@@ -2471,7 +2509,7 @@ class Subsector(DataMapFunctions):
         tech_dfs = []
         tech_dfs += ([self.reformat_tech_df_dict(stock_df = stock_df, tech=tech, tech_dict=tech_dict,
                                                  tech_dict_key=tech_dict_key, tech_att=tech_att, id=tech.id, efficiency=efficiency) for tech in self.technologies.values()
-                            if getattr(tech,tech_dict).has_key(tech_dict_key)]) 
+                            if getattr(tech,tech_dict).has_key(tech_dict_key)])
         if len(tech_dfs):
             tech_df = util.DfOper.add(tech_dfs)
             tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names]+[x for x in tech_df.index.names if x not in stock_df.index.names])
@@ -2523,7 +2561,7 @@ class Subsector(DataMapFunctions):
                 tech_df['final_energy'] = final_energy_id
                 tech_df.set_index('final_energy', append=True, inplace=True)
             return tech_df
-                
+
 
 
 
