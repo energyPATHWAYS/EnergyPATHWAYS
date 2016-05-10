@@ -10,7 +10,6 @@ from datamapfunctions import Abstract,DataMapFunctions
 import copy
 import pandas as pd
 from scipy import optimize, interpolate, stats
-import numpy as np
 import math
 from config import cfg
 from collections import defaultdict
@@ -25,19 +24,83 @@ from profilehooks import profile, timecall
 # Dispatch modules
 import dispatch_problem_PATHWAYS
 import year_to_period_allocation
-#import copy_reg
-#import types
 
-#def _reduce_method(m):
-#    if m.im_self is None:
-#        return getattr, (m.im_class, m.im_func.func_name)
-#    else:
-#        return getattr, (m.im_self, m.im_func.func_name)
-#
-#copy_reg.pickle(types.MethodType, _reduce_method)
-#
-##def opt(dispatch):
-##    dispatch.parallelize_opt(dispatch)
+
+  
+def run_optimization(zipped_inputs):
+    import numpy as np
+    period = zipped_inputs[0]
+    model = zipped_inputs[1]
+    bulk_storage_df = zipped_inputs[2]
+    dist_storage_df = zipped_inputs[3]
+    flex_load_df = zipped_inputs[4]
+    opt_hours = zipped_inputs[5]
+    period_hours = zipped_inputs[6]
+    hours = list(period * opt_hours + np.asarray(period_hours))  
+    solver_name = zipped_inputs[7]      
+    stdout_detail = zipped_inputs[8]
+    dispatch_geography = zipped_inputs[9]
+    if stdout_detail:
+        print "Optimizing dispatch for period " + str(period)
+    if stdout_detail:
+        print "Getting problem formulation..."
+    if stdout_detail:
+        print "Creating model instance..."
+    instance = model.create_instance(None)
+    if stdout_detail:
+        print "Getting solver..."
+    solver = SolverFactory(solver_name)
+    if stdout_detail:
+        print "Solving..."
+    solution = solver.solve(instance)
+    if stdout_detail:
+        print "Loading solution..."
+    instance.solutions.load_from(solution)        
+    timepoints_set = getattr(instance, "TIMEPOINTS")
+    storage_tech_set = getattr(instance, "STORAGE_TECHNOLOGIES")
+    #TODO Ryan List Comprehension
+    for tech in storage_tech_set:
+        feeder = instance.feeder[tech] 
+        geography = instance.geography[tech]
+        charge = []
+        discharge = []
+        if feeder == 0:
+            charge_indexer = util.level_specific_indexer(bulk_storage_df, [dispatch_geography, 'charge_discharge', 'hour'], [geography, 'charge',(hours)])
+            discharge_indexer = util.level_specific_indexer(bulk_storage_df, [dispatch_geography, 'charge_discharge', 'hour'], [geography, 'discharge',(hours)]) 
+            for timepoint in timepoints_set:                
+                charge.append(instance.Charge[tech, timepoint].value)
+                discharge.append(instance.Provide_Power[tech, timepoint].value)
+            charge = np.column_stack(np.asarray(charge)).T
+            discharge = np.column_stack(np.asarray(discharge)).T
+            bulk_storage_df.loc[charge_indexer,:] += charge
+            bulk_storage_df.loc[discharge_indexer,:] += discharge
+        else:
+            charge_indexer = util.level_specific_indexer(dist_storage_df, [dispatch_geography,'dispatch_feeder','charge_discharge','hour'], [geography, feeder, 'charge', (hours)])
+            discharge_indexer = util.level_specific_indexer(dist_storage_df, [dispatch_geography,'dispatch_feeder','charge_discharge','hour'], [geography, feeder, 'discharge', (hours)]) 
+            for timepoint in timepoints_set:                
+                charge.append(instance.Charge[tech, timepoint].value)
+                discharge.append(instance.Provide_Power[tech, timepoint].value)
+            charge = np.column_stack(np.asarray(charge)).T
+            discharge = np.column_stack(np.asarray(discharge)).T
+            dist_storage_df.loc[charge_indexer,:] += charge
+            dist_storage_df.loc[discharge_indexer,:] += discharge
+    timepoints_set = getattr(instance, "TIMEPOINTS")
+    geographies_set = getattr(instance, "GEOGRAPHIES")
+    feeder_set = getattr(instance,"FEEDERS")
+    #TODO Ryan List Comprehension
+    for geography in geographies_set:
+        for feeder in feeder_set:
+            if feeder != 0:
+                flex_load = []
+                indexer = util.level_specific_indexer(flex_load_df, [dispatch_geography,'dispatch_feeder','hour'], [geography, feeder,(hours)])
+                for timepoint in timepoints_set:                
+                    flex_load.append(instance.Flexible_Load[geography, timepoint, feeder].value)
+                flex_load = np.asarray(flex_load)
+                flex_load_df.loc[indexer,:] = flex_load 
+    return [bulk_storage_df,dist_storage_df,flex_load_df]
+
+
+
 
 class DispatchNodeConfig(DataMapFunctions):
     def __init__(self, id, **kwargs):
@@ -242,13 +305,6 @@ class Dispatch(object):
                 stop = (period+1) * self.opt_hours- 1
                 self.period_net_load[(geography, period)] = df.iloc[start:stop].mean().values[0]
 
-    def set_opt_result_dfs(self, year):
-        index = pd.MultiIndex.from_product([self.dispatch_geographies, ['charge','discharge'],self.hours], names=[self.dispatch_geography,'charge_discharge','hour'])
-        self.bulk_storage_df = util.empty_df(index=index,columns=[year],fill_value=0.0)
-        index = pd.MultiIndex.from_product([self.dispatch_geographies, self.dispatch_feeders,['charge','discharge'], self.hours], names=[self.dispatch_geography,'dispatch_feeder','charge_discharge','hour'])
-        self.dist_storage_df = util.empty_df(index=index,columns=[year],fill_value=0.0)  
-        index = pd.MultiIndex.from_product([self.dispatch_geographies, self.dispatch_feeders, self.hours], names=[self.dispatch_geography,'dispatch_feeder','hour'])
-        self.flex_load_df = util.empty_df(index=index,columns=[year],fill_value=0.0)    
     
     def set_technologies(self,storage_capacity_dict, storage_efficiency_dict, thermal_dispatch_dict, generators_per_region=2):
       """prepares storage technologies for dispatch optimization
@@ -704,34 +760,48 @@ class Dispatch(object):
         instance.solutions.load_from(solution)
         return instance
 
-    def parallelize_opt(self):
-        available_cpus = multiprocessing.cpu_count()
-        pool = Pool(processes=available_cpus)
-        self.state_of_charge = self.run_year_to_month_allocation()
+    def parallelize_opt(self,year):
+        state_of_charge = self.run_year_to_month_allocation()
+        start_state_of_charge, end_state_of_charge = state_of_charge[0], state_of_charge[1]
+        model_list = []
+        periods = copy.deepcopy(self.periods)
+        opt_hours = [self.opt_hours]* len(periods)
+        period_hours = [copy.deepcopy(self.period_hours)] * len(periods)
+        bulk_storage_index = pd.MultiIndex.from_product([self.dispatch_geographies, ['charge','discharge'],self.hours], names=[self.dispatch_geography,'charge_discharge','hour'])
+        dist_storage_index = pd.MultiIndex.from_product([self.dispatch_geographies, self.dispatch_feeders,['charge','discharge'], self.hours], names=[self.dispatch_geography,'dispatch_feeder','charge_discharge','hour'])
+        bulk_storage_df = [util.empty_df(index=bulk_storage_index,columns=[year],fill_value=0.0)]*len(periods)  
+        dist_storage_df = [util.empty_df(index=dist_storage_index,columns=[year],fill_value=0.0)]*len(periods)     
+        flex_load_index =  pd.MultiIndex.from_product([self.dispatch_geographies, self.dispatch_feeders, self.hours], names=[self.dispatch_geography,'dispatch_feeder','hour'])
+        flex_load_df = [util.empty_df(index=flex_load_index,columns=[year],fill_value=0.0)]*len(periods)   
+        solver_name = [self.solver_name] * len(periods)
+        stdout_detail = [self.stdout_detail] * len(periods)
+        dispatch_geography = [self.dispatch_geography] * len(periods)
+        
         if cfg.cfgfile.get('case','parallel_process') == 'True':
-            results = pool.map(self.run_optimization,self.periods)
+            for period in self.periods:
+                model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
+                                                              end_state_of_charge, period))  
+            zipped_inputs = list(zip(periods, model_list,bulk_storage_df, dist_storage_df, flex_load_df,opt_hours, period_hours, solver_name,stdout_detail, dispatch_geography))
+            available_cpus = multiprocessing.cpu_count()
+            pool = Pool(processes=available_cpus)
+            results = pool.map(run_optimization,zipped_inputs)
             pool.close()
             pool.join()
-#            pool.terminate()
+            pool.terminate()
         else:
             results = []
             for period in self.periods:
-                results.append(self.run_optimization(period))
+                model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
+                                                              end_state_of_charge, period)) 
+                results.append(run_optimization(zipped_inputs))
         bulk_storage_dfs = [x[0] for x in results]
         dist_storage_dfs = [x[1] for x in results]
         flex_load_dfs = [x[2] for x in results]
         self.bulk_storage_df = util.DfOper.add(bulk_storage_dfs)
         self.dist_storage_df = util.DfOper.add(dist_storage_dfs)
         self.flex_load_df = util.DfOper.add(flex_load_dfs)
-    
-    def run_optimization(self,period):
-        alloc_start_state_of_charge, alloc_end_state_of_charge = self.state_of_charge[0], self.state_of_charge[1]
-        #replace with multiprocessing if parallel
-        #replace with multiprocessing if parallel
-        results = self.run_dispatch_optimization(alloc_start_state_of_charge, alloc_end_state_of_charge, period)     
-        self.export_storage_results(results, period) 
-        self.export_flex_load_results(results, period)
-        return [self.bulk_storage_df,self.dist_storage_df,self.flex_load_df]
+  
+
             
             
     def run_dispatch_optimization(self, start_state_of_charge, end_state_of_charge, period):
@@ -740,18 +810,7 @@ class Dispatch(object):
         :return:
         """
 
-        if self.stdout_detail:
-            print "Optimizing dispatch for period " + str(period)
 
-        # Directory structure
-        # This won't be needed when inputs are loaded from memory
-
-        if self.stdout_detail:
-            print "Getting problem formulation..."
-        model = dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
-                                                              end_state_of_charge, period)
-        results = self.run_pyomo(model, None)
-        return results
                 
     def run_year_to_month_allocation(self):
         model = year_to_period_allocation.year_to_period_allocation_formulation(self)
@@ -809,56 +868,6 @@ class Dispatch(object):
 
         state_of_charge = [start_soc, end_soc]
         return state_of_charge
-
-    def export_storage_results(self,instance,period):
-        hours = list(period * self.opt_hours + np.asarray(self.period_hours))        
-        timepoints_set = getattr(instance, "TIMEPOINTS")
-        storage_tech_set = getattr(instance, "STORAGE_TECHNOLOGIES")
-        #TODO Ryan List Comprehension
-        for tech in storage_tech_set:
-            feeder = instance.feeder[tech] 
-            geography = instance.geography[tech]
-            charge = []
-            discharge = []
-            if feeder == 0:
-                charge_indexer = util.level_specific_indexer(self.bulk_storage_df, [self.dispatch_geography, 'charge_discharge', 'hour'], [geography, 'charge',(hours)])
-                discharge_indexer = util.level_specific_indexer(self.bulk_storage_df, [self.dispatch_geography, 'charge_discharge', 'hour'], [geography, 'discharge',(hours)]) 
-                for timepoint in timepoints_set:                
-                    charge.append(instance.Charge[tech, timepoint].value)
-                    discharge.append(instance.Provide_Power[tech, timepoint].value)
-                charge = np.column_stack(np.asarray(charge)).T
-                discharge = np.column_stack(np.asarray(discharge)).T
-#                if np.any(np.isnan(charge)) or np.any(np.isnan(discharge)):
-#                    self.instance = instance
-#                    break
-                self.bulk_storage_df.loc[charge_indexer,:] += charge
-                self.bulk_storage_df.loc[discharge_indexer,:] += discharge
-            else:
-                charge_indexer = util.level_specific_indexer(self.dist_storage_df, [self.dispatch_geography,'dispatch_feeder','charge_discharge','hour'], [geography, feeder, 'charge', (hours)])
-                discharge_indexer = util.level_specific_indexer(self.dist_storage_df, [self.dispatch_geography,'dispatch_feeder','charge_discharge','hour'], [geography, feeder, 'discharge', (hours)]) 
-                for timepoint in timepoints_set:                
-                    charge.append(instance.Charge[tech, timepoint].value)
-                    discharge.append(instance.Provide_Power[tech, timepoint].value)
-                charge = np.column_stack(np.asarray(charge)).T
-                discharge = np.column_stack(np.asarray(discharge)).T
-                self.dist_storage_df.loc[charge_indexer,:] += charge
-                self.dist_storage_df.loc[discharge_indexer,:] += discharge
-       
-    def export_flex_load_results(self,instance, period):   
-        hours = list(period * self.opt_hours + np.asarray(self.period_hours)) 
-        timepoints_set = getattr(instance, "TIMEPOINTS")
-        geographies_set = getattr(instance, "GEOGRAPHIES")
-        feeder_set = getattr(instance,"FEEDERS")
-        #TODO Ryan List Comprehension
-        for geography in geographies_set:
-            for feeder in feeder_set:
-                if feeder != 0:
-                    flex_load = []
-                    indexer = util.level_specific_indexer(self.flex_load_df, [self.dispatch_geography,'dispatch_feeder','hour'], [geography, feeder,(hours)])
-                    for timepoint in timepoints_set:                
-                        flex_load.append(instance.Flexible_Load[geography, timepoint, feeder].value)
-                    flex_load = np.asarray(flex_load)
-                    self.flex_load_df.loc[indexer,:] = flex_load 
 
 
 class DispatchFeederAllocation(Abstract):

@@ -26,7 +26,8 @@ import multiprocessing
 
 from profilehooks import timecall
 from config import cfg
-    
+import subprocess, os, signal, sys
+
 
 
 def manage_calculations(sector):
@@ -181,13 +182,16 @@ class Demand(object):
 
 
     def calculate_demand(self):
-        available_cpus = max(multiprocessing.cpu_count(),4)     
-        pool = Pool(processes=available_cpus)
-        sectors = copy.deepcopy(self.sectors.values())
-        freeze_support()
         if cfg.cfgfile.get('case','parallel_process') == 'True':
+            available_cpus = max(multiprocessing.cpu_count(),4)     
+            pool = Pool(processes=available_cpus)
+            sectors = copy.deepcopy(self.sectors.values())
+            freeze_support()
             sectors = pool.map(manage_calculations,sectors)
-            self.sectors = dict(zip(self.sectors.keys(),sectors))
+            self.sectors = dict(zip(self.sectors.keys(),sectors))            
+            pool.close()
+            pool.join()
+            pool.terminate()
         else:
             for sector in self.sectors.values():
                 manage_calculations(sector)
@@ -292,13 +296,15 @@ class Sector(object):
         loops through subsectors making sure to calculate subsector precursors
         before calculating subsectors themselves
         """
+
         cfg.init_cfgfile(self.cfgfile_path)
-        cfg.init_db()
-        cfg.path = self.custom_pint_definitions_path
-        cfg.init_pint(self.custom_pint_definitions_path)
-        cfg.init_geo()
-        cfg.init_date_lookup()
-        cfg.init_outputs_id_map()
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            cfg.init_db()
+            cfg.path = self.custom_pint_definitions_path
+            cfg.init_pint(self.custom_pint_definitions_path)
+            cfg.init_geo()
+            cfg.init_date_lookup()
+            cfg.init_outputs_id_map()
         for subsector in self.subsectors.values():
             if subsector.calculated:
                 continue
@@ -307,7 +313,9 @@ class Sector(object):
         #clear the calculations for the next scenario loop
         for subsector in self.subsectors.values():
             subsector.calculated = False
-            
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            cfg.cur.close()
+            del cfg.cur
             
     
     def calculate(self, subsector):
@@ -2086,85 +2094,41 @@ class Subsector(DataMapFunctions):
         self.stock.sales = util.empty_df(index=index, columns=['value'])
         self.stock.sales_new = copy.deepcopy(self.stock.sales)
         self.stock.sales_replacement = copy.deepcopy(self.stock.sales)
-        self.run_rollover(rollover_groups)
+        for elements in rollover_groups.keys():
+            elements = util.ensure_tuple(elements)
+            #returns sales share and a flag as to whether the sales share can be used to parameterize initial stock. 
+            sales_share, initial_sales_share = self.calculate_total_sales_share(elements, self.stock.rollover_group_names)  # group is not necessarily the same for this other dataframe
+            if np.any(np.isnan(sales_share)):
+                raise ValueError('Sales share has NaN values in subsector ' + str(self.id))
+            
+            
+            
+            initial_stock = self.calculate_initial_stock(elements,sales_share,initial_sales_share)
+
+            technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names)
+
+            annual_stock_change = util.df_slice(self.stock.annual_stock_changes, elements, self.stock.rollover_group_names)
+
+            self.rollover = Rollover(vintaged_markov_matrix=self.stock.vintaged_markov_matrix,
+                                     initial_markov_matrix=self.stock.initial_markov_matrix,
+                                     num_years=len(self.years), num_vintages=len(self.vintages),
+                                     num_techs=len(self.tech_ids), initial_stock=initial_stock,
+                                     sales_share=sales_share, stock_changes=annual_stock_change.values,
+                                     specified_stock=technology_stock.values, specified_retirements=None,
+                                     steps_per_year=self.stock.spy)
+                                     
+            self.rollover.run()
+            stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
+            self.stock.values.loc[elements], self.stock.values_new.loc[elements], self.stock.values_replacement.loc[
+                elements] = stock, stock_new, stock_replacement
+            self.stock.retirements.loc[elements, 'value'], self.stock.retirements_natural.loc[elements, 'value'], \
+            self.stock.retirements_early.loc[elements, 'value'] = retirements, retirements_natural, retirements_early
+            self.stock.sales.loc[elements, 'value'], self.stock.sales_new.loc[elements, 'value'], \
+            self.stock.sales_replacement.loc[elements, 'value'] = sales_record, sales_new, sales_replacement
         self.stock_normalize(self.stock.rollover_group_names)
         self.financial_stock()
         if self.sub_type != 'link':
             self.fuel_switch_stock_calc()
-            
-    def rollover_subset_prep(self,rollover_group_keys):     
-            rollover_dict_list = []
-            for elements in rollover_group_keys:
-                rollover_dict = {}
-                elements = util.ensure_tuple(elements)
-                #returns sales share and a flag as to whether the sales share can be used to parameterize initial stock. 
-                sales_share, initial_sales_share = self.calculate_total_sales_share(elements, self.stock.rollover_group_names)  # group is not necessarily the same for this other dataframe
-                if np.any(np.isnan(sales_share)):
-                    raise ValueError('Sales share has NaN values in subsector ' + str(self.id))
-                initial_stock = self.calculate_initial_stock(elements,sales_share,initial_sales_share)
-        
-                technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names)
-        
-                annual_stock_change = util.df_slice(self.stock.annual_stock_changes, elements, self.stock.rollover_group_names)
-                vintaged_markov_matrix = copy.deepcopy(self.stock.vintaged_markov_matrix)
-                initial_markov_matrix = copy.deepcopy(self.stock.initial_markov_matrix)
-                num_years = len(self.years)
-                num_vintages = len(self.vintages)
-                num_techs=len(self.tech_ids)
-                steps_per_year = copy.deepcopy(self.stock.spy)
-                rollover = Rollover(vintaged_markov_matrix=vintaged_markov_matrix,
-                                         initial_markov_matrix=initial_markov_matrix,
-                                         num_years=num_years, num_vintages=num_vintages,
-                                         num_techs=num_techs, initial_stock=initial_stock,
-                                         sales_share=sales_share, stock_changes=annual_stock_change.values,
-                                         specified_stock=technology_stock.values, specified_retirements=None,
-                                         steps_per_year=steps_per_year)        
-                rollover_dict[elements] = rollover
-            rollover_dict_list.append(rollover_dict)
-            return rollover_dict_list
-
-   
-        
-
-    def run_rollover(self,rollover_groups):
-        rollover_dict_list = self.rollover_subset_prep(rollover_groups.keys())
-        if cfg.cfgfile.get('case','parallel_process') == 'True' and len(rollover_groups.keys())>1000:
-            print 'parallel'
-            available_cpus = multiprocessing.cpu_count()
-            pool = Pool(processes=available_cpus)
-            results = pool.map(rollover_subset_run,rollover_dict_list)
-            pool.close()
-            pool.join()
-#            pool.terminate()
-        else:
-            results = []
-            for key_value_pair in rollover_dict_list:
-               results.append(rollover_subset_run(key_value_pair))
-        stock = [x[0] for x in results]
-        stock_new = [x[1] for x in results]
-        stock_replacement = [x[2] for x in results]
-        retirements = [x[3] for x in results]
-        retirements_natural = [x[4] for x in results]
-        retirements_early = [x[5] for x in results]
-        sales_record = [x[6] for x in results]
-        sales_new = [x[7] for x in results]
-        sales_replacement = [x[8] for x in results]
-        elements_list = [x[9] for x in results]
-        for elements in elements_list:
-            e = elements_list.index(elements)
-            self.stock.values.loc[elements], self.stock.values_new.loc[elements], self.stock.values_replacement.loc[
-                elements] = stock[e], stock_new[e], stock_replacement[e]
-            self.stock.retirements.loc[elements, 'value'], self.stock.retirements_natural.loc[elements, 'value'], \
-            self.stock.retirements_early.loc[elements, 'value'] = retirements[e], retirements_natural[e], retirements_early[e]
-            self.stock.sales.loc[elements, 'value'], self.stock.sales_new.loc[elements, 'value'], \
-            self.stock.sales_replacement.loc[elements, 'value'] = sales_record[e], sales_new[e], sales_replacement[e]
-
-
-        
-        
-    
-
-
 
 
     def calculate_initial_stock(self,elements, sales_share, initial_sales_share):    
@@ -2427,30 +2391,10 @@ class Subsector(DataMapFunctions):
         
         This vector can then be multiplied by clothes washing service demand to create an additional driver for water heating         
         
-        """
-#        stock_df = copy.deepcopy(getattr(self.stock, 'values_normal'))
-#        groupby_level = util.ix_excl(stock_df, ['vintage'])
-#        stock_rollover_groups = stock_df.groupby(level=groupby_level).groups
-        # determines index position for technology and final energy element          
+        """     
         for id in self.service_links:
-#            c = copy.deepcopy(stock_df)
             link = self.service_links[id]
             link.values = self.rollover_output_dict(tech_dict='service_links',tech_dict_key=id, tech_att='values', stock_att='values_normal')
-#            for tech in self.technologies:
-#                tech_links = self.technologies[tech].service_links
-#                tech_link = tech_links[id] if tech_links.has_key(id) and tech_links[id].empty is not True else False
-#                if tech_link is not False:
-#                    tech_link.values = util.expand_multi(tech_link.values, stock_df.index.levels,
-#                                                         stock_df.index.names, drop_index=['technology']).fillna(
-#                        method='bfill')
-#                    for elements in stock_rollover_groups.keys():
-#                        elements = util.ensure_tuple(elements)
-#                        # removes the tech element for technology dataframe indexer
-#                        tech_elements = util.tuple_subset(elements, groupby_level, ['technology'])
-#                        # if the technology service efficiency data is not empty, we multiply the normalized stock by
-#                        # the technology service efficiency. Otherwise we do nothing, which is equivalent to saying
-#                        # the technology service efficiency is 1.
-#                        c.loc[elements] = tech_link.values.loc[tech_elements].values * stock_df.loc[elements].values
 #            # sum over technology and vintage to get a total stock service efficiency
             link.values = util.remove_df_levels(link.values,['technology', 'vintage'])
             # normalize stock service efficiency to calibration year
@@ -2491,10 +2435,10 @@ class Subsector(DataMapFunctions):
                         self.technologies.values() if
                             hasattr(getattr(tech, tech_class), tech_att) and getattr(tech, tech_class).raw_values is not None])       
         if len(tech_dfs):
-            tech_df = DfOper.add(tech_dfs)
+            tech_df = util.DfOper.add(tech_dfs)
             tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names]+[x for x in tech_df.index.names if x not in stock_df.index.names])
             tech_df = tech_df.sort()
-            c = DfOper.mult((tech_df, stock_df), expandable=(True, stock_expandable), collapsible=(False, True))
+            c = util.DfOper.mult((tech_df, stock_df), expandable=(True, stock_expandable), collapsible=(False, True))
         else:
             util.empty_df(stock_df.index, stock_df.columns.values, 0.)
 
@@ -2526,7 +2470,8 @@ class Subsector(DataMapFunctions):
         # puts technologies on the appropriate basis
         tech_dfs = []
         tech_dfs += ([self.reformat_tech_df_dict(stock_df = stock_df, tech=tech, tech_dict=tech_dict,
-                                                 tech_dict_key=tech_dict_key, tech_att=tech_att, id=tech.id, efficiency=efficiency) for tech in self.technologies.values()]) 
+                                                 tech_dict_key=tech_dict_key, tech_att=tech_att, id=tech.id, efficiency=efficiency) for tech in self.technologies.values()
+                            if getattr(tech,tech_dict).has_key(tech_dict_key)]) 
         if len(tech_dfs):
             tech_df = util.DfOper.add(tech_dfs)
             tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names]+[x for x in tech_df.index.names if x not in stock_df.index.names])
@@ -2578,6 +2523,7 @@ class Subsector(DataMapFunctions):
                 tech_df['final_energy'] = final_energy_id
                 tech_df.set_index('final_energy', append=True, inplace=True)
             return tech_df
+                
 
 
 
@@ -2590,9 +2536,8 @@ class Subsector(DataMapFunctions):
         self.calculate_parasitic()
         self.service_demand.values = self.service_demand.values.unstack('year')
         self.service_demand.values.columns = self.service_demand.values.columns.droplevel()
-        all_energy = DfOper.mult([self.stock.efficiency['all']['all'], self.service_demand.modifier, self.service_demand.values])
-#        all_energy = all_energy.groupby(level=util.ix_excl(all_energy, ['vintage'])).sum()
-        self.energy_forecast = DfOper.add([all_energy, self.parasitic_energy])
+        all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'], self.service_demand.modifier, self.service_demand.values])
+        self.energy_forecast = util.DfOper.add([all_energy, self.parasitic_energy])
         self.energy_forecast = pd.DataFrame(self.energy_forecast.stack())
         util.replace_index_name(self.energy_forecast, 'year')
         util.replace_column(self.energy_forecast, 'value')

@@ -23,9 +23,10 @@ import operator
 from shape import shapes, Shape
 from collections import defaultdict
 from outputs import Output
+from pathos.multiprocessing import Pool as Pool
 import multiprocessing
-
-# noinspection PyAttributeOutsideInit
+from collections import defaultdict           
+           
            
 def node_calculate(node):
     node.calculate()
@@ -61,6 +62,7 @@ class Supply(object):
         self.dispatch = Dispatch(self.dispatch_feeders, self.dispatch_geography, self.dispatch_geographies,
                                  cfg.cfgfile.get('opt','stdout_detail'), outputs_directory)
         self.outputs = Output()
+        self.thermal_dispatch_results = defaultdict(dict)
      
 
      
@@ -180,7 +182,7 @@ class Supply(object):
     def calculate_nodes(self):
         """Performs an initial calculation for all import, conversion, delivery, and storage nodes"""
         available_cpus = multiprocessing.cpu_count()   
-        pool = multiprocessing.Pool(processes=available_cpus)
+        pool = Pool(processes=available_cpus)
         multiprocessing.freeze_support()
         for node in self.nodes.values():
 #            node.years = copy.deepcopy(self.years)
@@ -199,9 +201,7 @@ class Supply(object):
             nodes = pool.map(node_calculate,self.nodes.values())
             self.nodes = dict(zip(self.nodes.keys(),nodes))
             pool.close()
-            pool.join()
-#            pool.terminate()
-            
+            pool.join()  
         else:
             for node in self.nodes.values():
                 node.calculate()
@@ -377,7 +377,7 @@ class Supply(object):
                         self.prepare_dispatch_inputs(year, loop)
                         self.solve_electricity_dispatch(year)
                         self.calculate_coefficients(year,loop)
-                        self.update_coefficients_from_dispatch()
+                        self.update_coefficients_from_dispatch(year)
                         self.update_io_df(year)
                         self.calculate_io(year, loop)
                         self.calculate_stocks(year,loop)
@@ -445,7 +445,7 @@ class Supply(object):
                         self.prepare_dispatch_inputs(year, loop)
                         self.solve_electricity_dispatch(year)
                         self.calculate_coefficients(year,loop)
-                        self.update_coefficients_from_dispatch()
+                        self.update_coefficients_from_dispatch(year)
                         self.update_io_df(year)
                         self.calculate_io(year,loop)
                         self.calculate_stocks(year,loop)
@@ -701,7 +701,6 @@ class Supply(object):
         self.dispatch.set_opt_loads(self.distribution_load,self.distribution_gen,self.bulk_load,self.bulk_gen)
         self.dispatch.set_technologies(self.storage_capacity_dict, self.storage_efficiency_dict, self.thermal_dispatch_dict, 2)
         self.dispatch.set_average_net_loads(self.bulk_net_load)
-        self.dispatch.set_opt_result_dfs(year)
      
      
     def set_grid_capacity_factors(self, year):
@@ -732,12 +731,12 @@ class Supply(object):
         if hasattr(transmission_grid_node, 'stock'):
             transmission_grid_node.update_stock(year,3) 
         
-    @timecall(immediate=True)   
+#    @timecall(immediate=True)   
     def solve_storage_and_flex_load_optimization(self,year):
         """prepares, solves, and updates the net load with results from the storage and flexible load optimization""" 
         self.prepare_optimization_inputs(year)
         print "solving storage and dispatchable load optimization"
-        self.dispatch.parallelize_opt()
+        self.dispatch.parallelize_opt(year)
         for geography in self.dispatch_geographies:
             for feeder in self.dispatch_feeders:
                 load_indexer = util.level_specific_indexer(self.distribution_load, [self.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, 2])
@@ -1123,25 +1122,50 @@ class Supply(object):
         print 'solving thermal dispatch'
         self.calculate_weighted_sales(year)
         self.capacity_weights(year)
-        for geography in self.dispatch_geographies:
-            load = util.df_slice(self.bulk_net_load,geography, self.dispatch_geography)
+        parallel_params = list(zip(self.thermal_dispatch_dict.keys(),[self.thermal_dispatch_dict[x] for x in self.thermal_dispatch_dict.keys()],[self.dispatch_geography]*len(self.dispatch_geographies),[self.bulk_net_load]*len(self.dispatch_geographies)))
+        
+        
+        def run_thermal_dispatch(parallel_params):
+            geography = parallel_params[0]
+            thermal_dispatch_dict = parallel_params[1]
+            dispatch_geography = parallel_params[2]
+            load = util.df_slice(parallel_params[3],geography, dispatch_geography )
             months = load.index.get_level_values('weather_datetime').month
             load = load.values.flatten()
-            pmaxs = np.array(self.thermal_dispatch_dict[geography]['capacity'].values())
-            marginal_costs = np.array(self.thermal_dispatch_dict[geography]['cost'].values())
-            MOR = np.array(self.thermal_dispatch_dict[geography]['maintenance_outage_rate'].values())
-            FOR = np.array(self.thermal_dispatch_dict[geography]['forced_outage_rate'].values())
-            must_runs = np.array(self.thermal_dispatch_dict[geography]['must_run'].values())
-            capacity_weights = np.array([self.thermal_dispatch_dict[geography]['capacity_weights'][x] for x in self.thermal_dispatch_dict[geography]['capacity'].keys()])
-            maintenance_rates = self.dispatch.schedule_generator_maintenance(load=load,pmaxs=pmaxs,annual_maintenance_rates=MOR,
+            pmaxs = np.array(thermal_dispatch_dict['capacity'].values())
+            marginal_costs = np.array(thermal_dispatch_dict['cost'].values())
+            MOR = np.array(thermal_dispatch_dict['maintenance_outage_rate'].values())
+            FOR = np.array(thermal_dispatch_dict['forced_outage_rate'].values())
+            must_runs = np.array(thermal_dispatch_dict['must_run'].values())
+            capacity_weights = np.array([thermal_dispatch_dict['capacity_weights'][x] for x in thermal_dispatch_dict['capacity'].keys()])
+            maintenance_rates = Dispatch.schedule_generator_maintenance(load=load,pmaxs=pmaxs,annual_maintenance_rates=MOR,
                                                                              dispatch_periods=months)
-            dispatch_results = self.dispatch.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
+            dispatch_results = Dispatch.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
                                                                       FOR=FOR, must_runs=must_runs, dispatch_periods=months, capacity_weights=capacity_weights)
-            self.thermal_dispatch_dict[geography]['capacity_factor'] = dict(zip(self.thermal_dispatch_dict[geography]['capacity'].keys(),dispatch_results['gen_cf']))
-            self.thermal_dispatch_dict[geography]['generation'] = dict(zip(self.thermal_dispatch_dict[geography]['capacity'].keys(),dispatch_results['gen_energies']))
-            self.thermal_dispatch_dict[geography]['stock_changes'] = dict(zip(self.thermal_dispatch_dict[geography]['capacity'].keys(),dispatch_results['stock_changes'])) 
+            thermal_dispatch_dict['capacity_factor'] = dict(zip(thermal_dispatch_dict['capacity'].keys(),dispatch_results['gen_cf']))
+            thermal_dispatch_dict['generation'] = dict(zip(thermal_dispatch_dict['capacity'].keys(),dispatch_results['gen_energies']))
+            thermal_dispatch_dict['stock_changes'] = dict(zip(thermal_dispatch_dict['capacity'].keys(),dispatch_results['stock_changes'])) 
+            return thermal_dispatch_dict
+        
+        
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            available_cpus = max(multiprocessing.cpu_count(),len(self.dispatch_geographies))     
+            pool = Pool(processes=available_cpus)
+            dispatch_results = pool.map(run_thermal_dispatch,parallel_params)
+            self.thermal_dispatch_results[year] = dict(zip(self.thermal_dispatch_dict.keys(),dispatch_results))            
+            pool.close()
+            pool.join()
+            pool.terminate()
+        else:
+            for params in parallel_params:
+                results = run_thermal_dispatch(params)
+                key = params[0]
+                self.thermal_dispatch_results[year][key] = results                
+                
+        
+        for geography in self.dispatch_geographies:
             for node_id in self.thermal_dispatch_nodes:
-                resources = [x for x in self.thermal_dispatch_dict[geography]['capacity_factor'].keys() if x[0] == node_id]
+                resources = [x for x in self.thermal_dispatch_results[year][geography]['capacity_factor'].keys() if x[0] == node_id]
                 node = self.nodes[node_id]
                 node.stock.capacity_factor.loc[:,year] = 0
                 for resource in resources:
@@ -1152,13 +1176,13 @@ class Supply(object):
                     else:
                         ratio = self.thermal_dispatch_dict[geography]['capacity'][resource]/node.stock.values.loc[stock_indexer,year]    
                     ratio = np.nan_to_num(ratio)    
-                    capacity_factor = np.nan_to_num(self.thermal_dispatch_dict[geography]['capacity_factor'][resource]*ratio)
+                    capacity_factor = np.nan_to_num(self.thermal_dispatch_results[year][geography]['capacity_factor'][resource]*ratio)
                     node.stock.capacity_factor.loc[stock_indexer,year] += capacity_factor
-                    node.stock.dispatch_cap.loc[stock_indexer,year]+= self.thermal_dispatch_dict[geography]['stock_changes'][resource]
+                node.stock.dispatch_cap.loc[stock_indexer,year]+= self.thermal_dispatch_results[year][geography]['stock_changes'][resource]
     
 
-    def update_coefficients_from_dispatch(self):
-        self.calculate_thermal_totals()
+    def update_coefficients_from_dispatch(self,year):
+        self.calculate_thermal_totals(year)
         self.update_thermal_coefficients()
 #        self.update_bulk_coefficients()
 
@@ -1232,17 +1256,17 @@ class Supply(object):
         df.replace(np.inf,0,inplace=True)
         self.nodes[self.thermal_dispatch_node_id].active_coefficients_total = df
         
-    def calculate_thermal_totals(self):   
+    def calculate_thermal_totals(self,year):   
         row_index = pd.MultiIndex.from_product([self.geographies, self.thermal_dispatch_nodes], names=[self.geography, 'supply_node'])
         col_index = pd.MultiIndex.from_product([self.dispatch_geographies],names=[self.dispatch_geography])
         df = util.empty_df(index=row_index,columns=col_index)
         for geography in self.dispatch_geographies:
             for node_id in self.thermal_dispatch_nodes:
-                resources = [x for x in self.thermal_dispatch_dict[geography]['generation'].keys() if x[0] == node_id]
+                resources = [x for x in self.thermal_dispatch_results[year][geography]['generation'].keys() if x[0] == node_id]
                 for resource in resources:
                     location = resource[1]
                     node = resource[0]
-                    df.loc[(location,node),(geography)] += self.thermal_dispatch_dict[geography]['generation'][resource]
+                    df.loc[(location,node),(geography)] += self.thermal_dispatch_results[year][geography]['generation'][resource]
         self.thermal_totals = df
         
 
@@ -2931,12 +2955,13 @@ class BlendNode(Node):
             
     def calculate(self):
         cfg.init_cfgfile(self.cfgfile_path)
-        cfg.init_db()
-        cfg.path = self.custom_pint_definitions_path
-        cfg.init_pint(self.custom_pint_definitions_path)
-        cfg.init_geo()
-        cfg.init_date_lookup()
-        cfg.init_outputs_id_map()
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            cfg.init_db()
+            cfg.path = self.custom_pint_definitions_path
+            cfg.init_pint(self.custom_pint_definitions_path)
+            cfg.init_geo()
+            cfg.init_date_lookup()
+            cfg.init_outputs_id_map()
         #all nodes can have potential conversions. Set to None if no data. 
         self.conversion, self.resource_unit = self.add_conversion()  
         measures = []
@@ -2951,7 +2976,9 @@ class BlendNode(Node):
         self.set_adjustments()
         self.set_pass_through_df_dict()
         self.calculate_subclasses()
-        
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            cfg.cur.close()
+            del cfg.cur
         
                 
     def calculate_residual(self):
@@ -3062,7 +3089,9 @@ class SupplyNode(Node,StockItem):
             self.nodes = set(self.coefficients.values.index.get_level_values('supply_node'))
         self.set_adjustments()
         self.set_pass_through_df_dict()
-
+        cfg.cur.close()
+        del cfg.cur
+        
     def set_rollover_groups(self):
         """sets the internal index for use in stock and cost calculations"""
         # determines whether stock rollover needs to occur on demand sector or resource bin index
@@ -3396,7 +3425,7 @@ class SupplyNode(Node,StockItem):
     def update_total(self, year):
         """sets the minimum necessary total stock - based on throughput (stock requirement) and total of the specified and remaining stock"""
         self.stock.act_total_energy = DfOper.mult([self.stock.total.loc[:,year].to_frame(), self.stock.act_energy_capacity_ratio],fill_value=np.nan)
-           
+        self.stock.act_total_energy.fillna(util.remove_df_levels(self.stock.act_rem_energy,'vintage'))   
     
     def update_requirement(self,year):    
         """updates annual stock requirements with the maximum of required stock and specified and remaining natural rolloff. Also
@@ -3878,7 +3907,8 @@ class SupplyStockNode(Node):
         self.set_adjustments()
         self.set_pass_through_df_dict()
         self.setup_stock_rollover(self.years)
-
+        cfg.cur.close()
+        del cfg.cur
 
     def calculate_input_stock(self):
         """calculates the technology stocks in a node based on the combination of measure-stocks and reference stocks"""
@@ -5071,7 +5101,8 @@ class ImportNode(Node):
         self.set_trade_adjustment_dict()
         self.set_pass_through_df_dict()
         self.set_cost_dataframes()
-
+        cfg.cur.close()
+        del cfg.cur
 
     def calculate_levelized_costs(self,year):
         "calculates the embodied costs of nodes with emissions"

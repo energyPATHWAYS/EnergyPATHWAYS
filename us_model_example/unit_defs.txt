@@ -1,7 +1,7 @@
 US_gge = 120,500 * BTU 
 US_gde = 138,490 * BTU
 US_gee = 80337.35 * BTU
-lng_gallon = 82,644 BTU
+lng_gallon = 82,644 * BTU
 mmBtu = 1,000,000 * BTU
 mmbtu = 1,000,000 * BTU
 lumen = candela * steradian
