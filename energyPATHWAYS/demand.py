@@ -55,7 +55,7 @@ class Demand(object):
         self.custom_pint_definitions_path = custom_pint_definitions_path
 
 
-    def aggregate_electricity_shapes(self, year):
+    def aggregate_electricity_shapes(self, year, geomap_to_dispatch_geography=True):
         """ Final levels that will always return from this function
         ['dispatch_feeder', 'timeshift_type', 'gau', 'weather_datetime']
         """ 
@@ -66,9 +66,8 @@ class Demand(object):
         # TODO: this should be set to the shapes active dates index year
         # however, right now, there is not guarantee that the model and run for that year
         # We need to change this in subsector so that the start_year takes into account shapes
-        weather_year = 2015
-        # weather_year = int(np.round(np.mean(shapes.active_dates_index.year)))
-
+#        weather_year = 2015
+        weather_year = int(np.round(np.mean(shapes.active_dates_index.year)))
         levels_to_keep = [cfg.cfgfile.get('case','primary_geography'), 'year', 'final_energy']
         temp_energy = self.group_output('energy', levels_to_keep=levels_to_keep, specific_years=weather_year)
         top_down_energy = util.remove_df_levels(util.df_slice(temp_energy, cfg.electricity_energy_type_id, 'final_energy'), levels='year')
@@ -600,6 +599,8 @@ class Subsector(DataMapFunctions):
             # a subsector type link would be something like building shell, which does not have an energy demand
             if self.sub_type != 'link':
                 return_array = self.energy_forecast
+            else:
+                return None
         elif output_type=='stock':
             return_array = self.format_output_stock(levels_to_keep)
         elif output_type=='sales':
@@ -759,6 +760,7 @@ class Subsector(DataMapFunctions):
         """
 #        self.calculate_driver_min_year()
         driver_min_year = 9999
+        weather_min_year = int(np.round(np.mean(shapes.active_dates_index.year)))
         if self.sub_type == 'stock and energy':
             tech_min_year = self.calculate_tech_min_year()
             stock_min_year = min(
@@ -816,6 +818,7 @@ class Subsector(DataMapFunctions):
             self.min_year = min(int(cfg.cfgfile.get('case', 'current_year')), driver_min_year, tech_min_year,
                                     stock_min_year, sales_share_min_year)
         self.min_year = max(self.min_year, int(cfg.cfgfile.get('case', 'demand_start_year')))
+        self.min_year = min(weather_min_year,self.min_year)
         self.min_year = int(int(cfg.cfgfile.get('case', 'year_step'))*round(float(self.min_year)/int(cfg.cfgfile.get('case', 'year_step'))))
         self.years = range(self.min_year, int(cfg.cfgfile.get('case', 'end_year')) + 1,
                            int(cfg.cfgfile.get('case', 'year_step')))
@@ -1392,7 +1395,7 @@ class Subsector(DataMapFunctions):
         service demand = .5 * .5 + 1.5 * .5 = 100%
         """
         self.stock_subset_prep()
-        df_for_indexing = util.empty_df(index=self.stock.values.index, columns=self.stock.values.columns.values, fill_value=1)
+        df_for_indexing = util.empty_df(index=self.stock.values_efficiency.index, columns=self.stock.values.columns.values, fill_value=1)
         sd_subset = getattr(self.service_demand, self.service_demand.map_from)
         if self.service_subset is None:
             # if there is no service subset, initial service demand modifiers equal 1"
@@ -1435,33 +1438,33 @@ class Subsector(DataMapFunctions):
             sd_modifier.fillna(1, inplace=True)
             # replace any 0's with 1 since zeros indicates no stock in that subset, not a service demand modifier of 0
             sd_modifier[sd_modifier == 0] = 1
-
-        if 'final_energy' in (sd_modifier.index.names):
-            # if final energy is in the original sd_modifier definition, we need to convert it to
-            # a dataframe that instead has service demand modifiers by technology
-            blank_modifier_main = util.empty_df(index=self.stock.tech_subset_normal.index,
-                                                columns=self.stock.tech_subset_normal.columns.values, fill_value=1)
-            blank_modifier_aux = util.empty_df(index=self.stock.tech_subset_normal.index,
-                                               columns=self.stock.tech_subset_normal.columns.values, fill_value=0.)
-            # lookup service demand modifiers for each technology in a dataframe of service demand modifiers by energy type
-            for tech in self.tech_ids:
-                main_energy_id = self.technologies[tech].efficiency_main.final_energy_id
-                aux_energy_id = getattr(self.technologies[tech].efficiency_aux, 'final_energy_id') if hasattr(
-                    self.technologies[tech].efficiency_aux, 'final_energy_id') else None
-                main_utility_factor = self.technologies[tech].efficiency_main.utility_factor
-                aux_utility_factor = 1 - main_utility_factor
-                main_energy_indexer = util.level_specific_indexer(sd_modifier, 'final_energy', main_energy_id)
-                aux_energy_indexer = util.level_specific_indexer(sd_modifier, 'final_energy', aux_energy_id)
-                tech_indexer = util.level_specific_indexer(blank_modifier_main, 'technology', tech)
-                blank_modifier_main.loc[tech_indexer, :] = sd_modifier.loc[main_energy_indexer, :] * main_utility_factor
-                if aux_energy_id is not None:
-                    blank_modifier_aux.loc[tech_indexer, :] = sd_modifier.loc[aux_energy_indexer,
-                                                              :] * aux_utility_factor
-                blank_modifier = DfOper.add([blank_modifier_main, blank_modifier_aux])
-            sd_modifier = blank_modifier
-            sd_modifier = self.vintage_year_array_expand(sd_modifier, df_for_indexing, sd_subset)
-            sd_modifier.fillna(1, inplace=True)
-            sd_modifier.sort_index()
+#
+#        if 'final_energy' in (sd_modifier.index.names):
+#            # if final energy is in the original sd_modifier definition, we need to convert it to
+#            # a dataframe that instead has service demand modifiers by technology
+#            blank_modifier_main = util.empty_df(index=self.stock.tech_subset_normal.index,
+#                                                columns=self.stock.tech_subset_normal.columns.values, fill_value=1)
+#            blank_modifier_aux = util.empty_df(index=self.stock.tech_subset_normal.index,
+#                                               columns=self.stock.tech_subset_normal.columns.values, fill_value=0.)
+#            # lookup service demand modifiers for each technology in a dataframe of service demand modifiers by energy type
+#            for tech in self.tech_ids:
+#                main_energy_id = self.technologies[tech].efficiency_main.final_energy_id
+#                aux_energy_id = getattr(self.technologies[tech].efficiency_aux, 'final_energy_id') if hasattr(
+#                    self.technologies[tech].efficiency_aux, 'final_energy_id') else None
+#                main_utility_factor = self.technologies[tech].efficiency_main.utility_factor
+#                aux_utility_factor = 1 - main_utility_factor
+#                main_energy_indexer = util.level_specific_indexer(sd_modifier, 'final_energy', main_energy_id)
+#                aux_energy_indexer = util.level_specific_indexer(sd_modifier, 'final_energy', aux_energy_id)
+#                tech_indexer = util.level_specific_indexer(blank_modifier_main, 'technology', tech)
+#                blank_modifier_main.loc[tech_indexer, :] = sd_modifier.loc[main_energy_indexer, :] * main_utility_factor
+#                if aux_energy_id is not None:
+#                    blank_modifier_aux.loc[tech_indexer, :] = sd_modifier.loc[aux_energy_indexer,
+#                                                              :] * aux_utility_factor
+#                blank_modifier = DfOper.add([blank_modifier_main, blank_modifier_aux])
+#            sd_modifier = blank_modifier
+#            sd_modifier = self.vintage_year_array_expand(sd_modifier, df_for_indexing, sd_subset)
+#            sd_modifier.fillna(1, inplace=True)
+#            sd_modifier.sort_index()
             # loop through technologies and add service demand modifiers by technology-specific input (i.e. technology has a
         # a service demand modifier class)
         for tech in self.tech_ids:
@@ -1472,16 +1475,17 @@ class Subsector(DataMapFunctions):
                 indexer = util.level_specific_indexer(sd_modifier, 'technology', tech)
                 sd_modifier.loc[indexer, :] = tech_modifier.values
         # multiply stock by service demand modifiers
-        adj_stock_values = DfOper.mult([sd_modifier, self.stock.values])
-        # group stock and adjusted stock values
-        adj_stock_values = adj_stock_values.groupby(
-            level=util.ix_excl(adj_stock_values, exclude=['vintage', 'technology'])).sum()
-        stock_values = self.stock.values.groupby(
-            level=util.ix_excl(self.stock.values, exclude=['vintage', 'technology'])).sum()
-        # if this adds up to more or less than 1, we have to adjust the service demand modifers
+        stock_values = DfOper.mult([sd_modifier, self.stock.values_efficiency]).groupby(level=self.stock.rollover_group_names).sum()
+#        # group stock and adjusted stock values
+        adj_stock_values = self.stock.values_efficiency.groupby(level=self.stock.rollover_group_names).sum()
+#        stock_values = self.stock.values.groupby(
+#            level=util.ix_excl(self.stock.values, exclude=['vintage', 'technology'])).sum()
+#        # if this adds up to more or less than 1, we have to adjust the service demand modifers
         sd_mod_adjustment = DfOper.divi([stock_values, adj_stock_values])
-        sd_mod_adjustment.replace([np.inf, -np.inf], 1, inplace=True)
-        self.service_demand.modifier = DfOper.mult([sd_modifier, sd_mod_adjustment])
+        sd_mod_adjustment.replace([np.inf, -np.inf, np.nan], 1, inplace=True)
+        self.sd_modifier = sd_modifier
+        self.sd_mod_adjustment = sd_mod_adjustment
+        self.service_demand.modifier = DfOper.divi([sd_modifier, sd_mod_adjustment])
 
     def calc_tech_survival_functions(self, steps_per_year=1, rollover_threshold=.99):
         self.stock.spy = steps_per_year
@@ -1603,11 +1607,10 @@ class Subsector(DataMapFunctions):
         max_column = max(level_values)
         df = df.unstack(level='year')
         df.columns = df.columns.droplevel()
-        df = df.loc[:, max_column]
-        df = pd.DataFrame(df, columns=[max_column])
-        df = df.reindex(df_for_indexing.index, method='ffill')
+        df = df.loc[:, max_column].to_frame()
         for year in self.years:
             df[year] = df[max_column]
+        df = util.DfOper.mult([df,df_for_indexing])
         df = df.sort(axis=1)
         if hasattr(df.columns, 'levels'):
             df.columns = df.columns.droplevel()
