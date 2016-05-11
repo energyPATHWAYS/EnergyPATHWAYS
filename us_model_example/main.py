@@ -27,7 +27,7 @@ resolve_demand = True
 #resolve the supply-side. A completed supply-side model must be saved. 
 resolve_supply = True
 
-append_results = False
+append_results = True
 ###########
 #
 #
@@ -106,12 +106,12 @@ if __name__ == "__main__":
         for scenario_id in model.scenario_dict.keys():
             with open(os.path.join(directory, str(scenario_id)+'_full_model_run.p'), 'rb') as infile:
                 model = pickle.load(infile)
-#            model.model_config(cfgfile_path, custom_pint_definitions_path)
-#            model.supply.calculate_supply_outputs()
-#            model.pass_results_to_demand()
-#            model.calculate_combined_results()
-#            remove_results(append_results)
-#            #after the first secnario loop, we want to append results so we change the boolean to True
-#            append_results = True
-#            model.export_results()
+            model.model_config(cfgfile_path, custom_pint_definitions_path)
+            model.supply.calculate_supply_outputs()
+            model.pass_results_to_demand()
+            model.calculate_combined_results()
+            remove_results(append_results)
+            #after the first secnario loop, we want to append results so we change the boolean to True
+            append_results = True
+            model.export_results()
 #        

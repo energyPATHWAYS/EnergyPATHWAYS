@@ -56,7 +56,6 @@ class Supply(object):
         self.electricity_nodes = defaultdict(list)
         self.injection_nodes = defaultdict(list)
         self.ghgs = util.sql_read_table('GreenhouseGases','id')
-        
         self.dispatch_feeder_allocation = DispatchFeederAllocation(id=1)
         self.dispatch_feeders = list(set(self.dispatch_feeder_allocation.values.index.get_level_values('dispatch_feeder')))
         self.dispatch = Dispatch(self.dispatch_feeders, self.dispatch_geography, self.dispatch_geographies,
@@ -163,6 +162,14 @@ class Supply(object):
     def initial_calculate(self):
         """Calculates all nodes in years before IO loop"""
         print "calculating supply-side prior to current year"
+        cfg.init_cfgfile(self.cfgfile_path)
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            cfg.init_db()
+            cfg.path = self.custom_pint_definitions_path
+            cfg.init_pint(self.custom_pint_definitions_path)
+            cfg.init_geo()
+            cfg.init_date_lookup()
+            cfg.init_outputs_id_map()
         self.calculate_years()
         self.add_empty_output_df() 
         self.create_IO()
@@ -1198,7 +1205,8 @@ class Supply(object):
             excess_thermal = excess_supply
             excess_thermal_coefficients = util.DfOper.divi([excess_thermal.sum(axis=1).to_frame(),self.nodes[self.thermal_dispatch_node_id].active_supply.groupby(level=self.geography).sum()]).fillna(0)
             residual_supply.loc[:,:] = remaining_supply.values * np.column_stack(residual_share.values)
-            residual_supply_share = residual_supply/residual_supply.sum()        
+            residual_supply_share = residual_supply/residual_supply.sum() 
+            residual_supply_share = residual_supply_share.fillna(0)
             util.replace_index_name(residual_supply_share,self.geography + "from",self.geography)
             residual_supply_share = residual_supply_share.stack().to_frame()
             util.replace_index_name(residual_supply_share,self.dispatch_geography)
@@ -2613,7 +2621,7 @@ class Node(DataMapFunctions):
                     self.stock_energy_geo = util.DfOper.mult([total_stock,cfg.geo.map_df(self.tradable_geography,primary_geography, eliminate_zeros=False)])
                     util.replace_index_name(self.stock_energy_geo,primary_geography+ "from", primary_geography)  
                 elif  hasattr(self,'stock') and hasattr(self.stock,'act_total'):
-                    total_stock = util.remove_df_levels(self.stock.act_total_energy, [x for x in self.stock.act_total.index.names if x not in [primary_geography,'demand_sector']])
+                    total_stock = util.remove_df_levels(self.stock.act_total, [x for x in self.stock.act_total.index.names if x not in [primary_geography,'demand_sector']])
                     self.stock_capacity_geo = util.DfOper.mult([total_stock,cfg.geo.map_df(self.tradable_geography,primary_geography, eliminate_zeros=False)])
                     util.replace_index_name(self.stock_capacity_geo ,primary_geography + "from", primary_geography) 
                 
