@@ -775,7 +775,7 @@ class Dispatch(object):
         
         gen_cf = gen_energies/np.max((pmaxs+stock_changes), axis=0)/float(len(load))
         gen_cf[np.nonzero(np.max((pmaxs+stock_changes), axis=0)==0)] = 0
-        dispatch_results = dict(zip(['market_price', 'production_cost', 'gen_energies', 'gen_cf', 'gen_dispatch_shape', 'stock_changes'],
+        dispatch_results = dict(zip(['market_price', 'production_cost', 'generation', 'gen_cf', 'gen_dispatch_shape', 'stock_changes'],
                                     [market_prices,    production_costs,   gen_energies,   gen_cf,   gen_dispatch_shape, stock_changes]))
         
         for key, value in dispatch_results.items():
@@ -825,12 +825,11 @@ class Dispatch(object):
         solver_name = [self.solver_name] * len(periods)
         stdout_detail = [self.stdout_detail] * len(periods)
         dispatch_geography = [self.dispatch_geography] * len(periods)
-        
-        if cfg.cfgfile.get('case','parallel_process') == 'True':
-            for period in self.periods:
-                model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
+        for period in self.periods:
+             model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
                                                               end_state_of_charge, period))  
-            zipped_inputs = list(zip(periods, model_list,bulk_storage_df, dist_storage_df, flex_load_df,opt_hours, period_hours, solver_name,stdout_detail, dispatch_geography))
+             zipped_inputs = list(zip(periods, model_list,bulk_storage_df, dist_storage_df, flex_load_df,opt_hours, period_hours, solver_name,stdout_detail, dispatch_geography))
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
             available_cpus = multiprocessing.cpu_count()
             pool = Pool(processes=available_cpus)
             results = pool.map(run_optimization,zipped_inputs)
@@ -839,10 +838,8 @@ class Dispatch(object):
             pool.terminate()
         else:
             results = []
-            for period in self.periods:
-                model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
-                                                              end_state_of_charge, period)) 
-                results.append(run_optimization(zipped_inputs))
+            for zipped_input in zipped_inputs:
+                results.append(run_optimization(zipped_input))
         bulk_storage_dfs = [x[0] for x in results]
         dist_storage_dfs = [x[1] for x in results]
         flex_load_dfs = [x[2] for x in results]

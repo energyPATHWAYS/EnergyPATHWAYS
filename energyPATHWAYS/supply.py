@@ -26,7 +26,7 @@ from outputs import Output
 from pathos.multiprocessing import Pool as Pool
 import multiprocessing
 from collections import defaultdict           
-           
+
            
 def node_calculate(node):
     node.calculate()
@@ -1139,7 +1139,7 @@ class Supply(object):
         print 'solving thermal dispatch'
         self.calculate_weighted_sales(year)
         self.capacity_weights(year)
-        parallel_params = list(zip(self.dispatch_geographies,[util.df_slice(self.active_thermal_dispatch_df,x,self.dispatch_geography) for x in self.dispatch_geographies],
+        parallel_params = list(zip(self.dispatch_geographies,[util.df_slice(self.active_thermal_dispatch_df,x,self.dispatch_geography,drop_level=False) for x in self.dispatch_geographies],
                                    [self.dispatch_geography]*len(self.dispatch_geographies),[self.bulk_net_load]*len(self.dispatch_geographies)))
         def run_thermal_dispatch(params):
             dispatch_geography = params[0]
@@ -1154,68 +1154,67 @@ class Supply(object):
             FOR = np.array(util.df_slice(thermal_dispatch_df,'forced_outage_rate','IO').values).T[0]
             must_runs = np.array(util.df_slice(thermal_dispatch_df,'must_run','IO').values).T[0]
             capacity_weights = np.array(util.df_slice(thermal_dispatch_df,'capacity_weights','IO').values).T[0]
-            print load.max()
-            print pmaxs.max()
-            print marginal_costs.max()
-            print capacity_weights.max()
-            print "solving maintenance"
             maintenance_rates = self.dispatch.schedule_generator_maintenance(load=load,pmaxs=pmaxs,annual_maintenance_rates=MOR,
                                                                              dispatch_periods=months)
-            print "solving dispatch"            
             dispatch_results = self.dispatch.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
                                                                       FOR=FOR, must_runs=must_runs, dispatch_periods=months, capacity_weights=capacity_weights)
-            print "outputting_results"
             for output in ['gen_cf', 'generation','stock_changes']:
-                indexer = util.level_specific_indexer(thermal_dispatch_df,output,'IO')                                                              
+                indexer = util.level_specific_indexer(thermal_dispatch_df,'IO',output)                                                              
                 thermal_dispatch_df.loc[indexer,:] = dispatch_results[output]
             return thermal_dispatch_df
-#
-#        if cfg.cfgfile.get('case','parallel_process') == 'True':
-#            available_cpus = max(multiprocessing.cpu_count(),len(self.dispatch_geographies))     
-#            pool = Pool(processes=available_cpus)
-#            dispatch_results = pool.map(run_thermal_dispatch,parallel_params)
-#            dispatch_results = pd.concat(dispatch_results)
-#            self.active_thermal_dispatch_df.loc[:,:] = dispatch_results.values            
-#            pool.close()
-#            pool.join()
-#            pool.terminate()
-#        else:
-        for params in parallel_params:
-            dispatch_results = run_thermal_dispatch(params)
+
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            available_cpus = max(multiprocessing.cpu_count(),len(self.dispatch_geographies))     
+            pool = Pool(processes=available_cpus)
+            dispatch_results = pool.map(run_thermal_dispatch,parallel_params)
             dispatch_results = pd.concat(dispatch_results)
+            self.active_thermal_dispatch_df.sort(inplace=True)
+            dispatch_results.sort(inplace=True)
+            for output in ['gen_cf', 'generation','stock_changes']:
+                indexer = util.level_specific_indexer(self.active_thermal_dispatch_df,'IO',output) 
+                dispatch_indexer = util.level_specific_indexer(dispatch_results,'IO',output) 
+                self.active_thermal_dispatch_df.loc[indexer,:] = dispatch_results.loc[dispatch_indexer,:].values            
+            pool.close()
+            pool.join()
+            pool.terminate()
+        else:
+            dispatch_result_list = []
+            for params in parallel_params:
+                dispatch_results = run_thermal_dispatch(params)
+                dispatch_result_list.append(dispatch_results)
+            dispatch_results = pd.concat(dispatch_result_list)
+            self.active_thermal_dispatch_df.sort(inplace=True)
+            dispatch_results.sort(inplace=True)
             self.active_thermal_dispatch_df.loc[:,:] = dispatch_results.values         
-        print "done"
         for node_id in self.thermal_dispatch_nodes:
             node = self.nodes[node_id]
             node.stock.capacity_factor.loc[:,year] = 0
+#                gen_indexer = util.level
+#                cap_factor_df = util.DfOper.mult([util.df_slice(self.active_thermal_dispatch_df            
             for dispatch_geography in self.dispatch_geographies:
-                dispatch_df = util.df_slice(self.active_thermal_dispatch_df.loc[:,:],dispatch_geography, self.dispatch_geography)
-                resources = [eval(x) for x in self.active_thermal_dispatch_df.index.get_level_values('thermal_generators')]
+                dispatch_df = util.df_slice(self.active_thermal_dispatch_df.loc[:,:],[dispatch_geography,node_id], [self.dispatch_geography,'supply_node'])
+                resources = [eval(x) for x in dispatch_df.index.get_level_values('thermal_generators')]
                 for resource in resources:
-                    capacity_indexer = util.level_specific_indexer(dispatch_df,['supply_node','thermal_generators','IO'],
-                                                          [node.id,str(resource),'capacity'])
-                    stock_indexer = resource[1::1]
-                    if node.stock.values.loc[stock_indexer,year] ==0:
+                    capacity_indexer = util.level_specific_indexer(dispatch_df,['thermal_generators','IO'],
+                                                          [str(resource),'capacity'])
+                    if node.stock.values.loc[resource,year] ==0:
                         ratio = 0
                     else:
-                        ratio = dispatch_df.loc[capacity_indexer,:]/node.stock.values.loc[stock_indexer,year]    
+                        ratio = dispatch_df.loc[capacity_indexer,:]/node.stock.values.loc[resource,year]    
                     ratio = np.nan_to_num(ratio)    
-                    capacity_factor_indexer = util.level_specific_indexer(dispatch_df,['supply_node','thermal_generators','IO'],
-                                                          [node.id,str(resource),'gen_cf'])
+                    capacity_factor_indexer = util.level_specific_indexer(dispatch_df,['thermal_generators','IO'],
+                                                          [str(resource),'gen_cf'])
                     capacity_factor = np.nan_to_num(dispatch_df.loc[capacity_factor_indexer,:]*ratio)
-                    node.stock.capacity_factor.loc[stock_indexer,year] += capacity_factor
-                    dispatch_capacity_indexer = util.level_specific_indexer(dispatch_df,['supply_node','thermal_generators','IO'],
-                                                          [node.id,str(resource),'stock_changes'])
-                    node.stock.dispatch_cap.loc[stock_indexer,year]+= self.active_thermal_dispatch_df.loc[dispatch_capacity_indexer,:]
-        self.active_thermal_dispatch_df = self.active_thermal_dispatch_df.stack()
-        util.replace_index_name(self.active_thermal_dispatch_df,'year')
-        self.active_thermal_dispatch_df_list.append(self.active_thermal_dispatch_df)
-        if year == max(self.years):
-           self.thermal_dispatch_df = pd.concat(self.active_thermal_dispatch_df_list)
+                    node.stock.capacity_factor.loc[resource,year] += capacity_factor
+                    dispatch_capacity_indexer = util.level_specific_indexer(dispatch_df,['thermal_generators','IO'],
+                                                          [str(resource),'stock_changes'])
+                    node.stock.dispatch_cap.loc[resource,year]+= dispatch_df.loc[dispatch_capacity_indexer,:].values
+
 
     def update_coefficients_from_dispatch(self,year):
         self.calculate_thermal_totals(year)
         self.update_thermal_coefficients()
+        self.store_active_thermal_df(year)
 #        self.update_bulk_coefficients()
 
     def update_thermal_coefficients(self):
@@ -1292,17 +1291,26 @@ class Supply(object):
         
         self.nodes[self.thermal_dispatch_node_id].active_coefficients_total = df
         
+
+    def store_active_thermal_df(self,year):
+        self.active_thermal_dispatch_df = self.active_thermal_dispatch_df.stack().to_frame()
+        util.replace_index_name(self.active_thermal_dispatch_df,'year')
+        self.active_thermal_dispatch_df_list.append(self.active_thermal_dispatch_df)
+        if year == max(self.years):
+           self.thermal_dispatch_df = pd.concat(self.active_thermal_dispatch_df_list)
+           
     def calculate_thermal_totals(self,year):   
         row_index = pd.MultiIndex.from_product([self.geographies, self.thermal_dispatch_nodes], names=[self.geography, 'supply_node'])
         col_index = pd.MultiIndex.from_product([self.dispatch_geographies],names=[self.dispatch_geography])
         df = util.empty_df(index=row_index,columns=col_index)
-        for geography in self.dispatch_geographies:
+        for dispatch_geography in self.dispatch_geographies:
             for node_id in self.thermal_dispatch_nodes:
-                resources = [x for x in self.thermal_dispatch_results[year][geography]['generation'].keys() if x[0] == node_id]
+                thermal_dispatch_df = util.df_slice(self.active_thermal_dispatch_df,[dispatch_geography,'generation',node_id],[self.dispatch_geography,'IO','supply_node'])
+                resources = list(set(thermal_dispatch_df.index.get_level_values('thermal_generators')))
                 for resource in resources:
-                    location = resource[1]
-                    node = resource[0]
-                    df.loc[(location,node),(geography)] += np.nan_to_num(self.thermal_dispatch_results[year][geography]['generation'][resource])
+                    resource = eval(resource)
+                    primary_geography = resource[0]
+                    df.loc[(primary_geography,node_id),(dispatch_geography)] += np.nan_to_num(thermal_dispatch_df.loc[str(resource),:].values)
         self.thermal_totals = df
         
 
@@ -3119,12 +3127,13 @@ class SupplyNode(Node,StockItem):
 
     def calculate(self):
         cfg.init_cfgfile(self.cfgfile_path)
-        cfg.init_db()
-        cfg.path = self.custom_pint_definitions_path
-        cfg.init_pint(self.custom_pint_definitions_path)
-        cfg.init_geo()
-        cfg.init_date_lookup()
-        cfg.init_outputs_id_map()
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            cfg.init_db()
+            cfg.path = self.custom_pint_definitions_path
+            cfg.init_pint(self.custom_pint_definitions_path)
+            cfg.init_geo()
+            cfg.init_date_lookup()
+            cfg.init_outputs_id_map()
         self.conversion, self.resource_unit = self.add_conversion()  
         self.set_rollover_groups()
         self.calculate_subclasses()        
@@ -3138,8 +3147,9 @@ class SupplyNode(Node,StockItem):
             self.nodes = set(self.coefficients.values.index.get_level_values('supply_node'))
         self.set_adjustments()
         self.set_pass_through_df_dict()
-        cfg.cur.close()
-        del cfg.cur
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            cfg.cur.close()
+            del cfg.cur
         
     def set_rollover_groups(self):
         """sets the internal index for use in stock and cost calculations"""
@@ -3949,12 +3959,13 @@ class SupplyStockNode(Node):
     def calculate(self): 
         #all nodes can have potential conversions. Set to None if no data. 
         cfg.init_cfgfile(self.cfgfile_path)
-        cfg.init_db()
-        cfg.path = self.custom_pint_definitions_path
-        cfg.init_pint(self.custom_pint_definitions_path)
-        cfg.init_geo()
-        cfg.init_date_lookup()
-        cfg.init_outputs_id_map()
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            cfg.init_db()
+            cfg.path = self.custom_pint_definitions_path
+            cfg.init_pint(self.custom_pint_definitions_path)
+            cfg.init_geo()
+            cfg.init_date_lookup()
+            cfg.init_outputs_id_map()
         self.conversion, self.resource_unit = self.add_conversion()  
         self.set_rollover_groups()
         self.calculate_subclasses()
@@ -3964,8 +3975,9 @@ class SupplyStockNode(Node):
         self.set_adjustments()
         self.set_pass_through_df_dict()
         self.setup_stock_rollover(self.years)
-        cfg.cur.close()
-        del cfg.cur
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            cfg.cur.close()
+            del cfg.cur
 
     def calculate_input_stock(self):
         """calculates the technology stocks in a node based on the combination of measure-stocks and reference stocks"""
@@ -5143,12 +5155,13 @@ class ImportNode(Node):
 
     def calculate(self):
         cfg.init_cfgfile(self.cfgfile_path)
-        cfg.init_db()
-        cfg.path = self.custom_pint_definitions_path
-        cfg.init_pint(self.custom_pint_definitions_path)
-        cfg.init_geo()
-        cfg.init_date_lookup()
-        cfg.init_outputs_id_map()
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            cfg.init_db()
+            cfg.path = self.custom_pint_definitions_path
+            cfg.init_pint(self.custom_pint_definitions_path)
+            cfg.init_geo()
+            cfg.init_date_lookup()
+            cfg.init_outputs_id_map()
         #all nodes can have potential conversions. Set to None if no data. 
         self.conversion, self.resource_unit = self.add_conversion()  
 #        self.set_rollover_groups()
@@ -5158,8 +5171,9 @@ class ImportNode(Node):
         self.set_trade_adjustment_dict()
         self.set_pass_through_df_dict()
         self.set_cost_dataframes()
-        cfg.cur.close()
-        del cfg.cur
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            cfg.cur.close()
+            del cfg.cur
 
     def calculate_levelized_costs(self,year, loop):
         "calculates the embodied costs of nodes with emissions"

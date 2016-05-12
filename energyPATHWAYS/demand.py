@@ -29,7 +29,7 @@ from config import cfg
 
 
 def calculate(subsector):
-    print "calculating" + " " + subsector.name
+    print "calculating" + " " +  subsector.name 
     if subsector.calculated:
         pass
     else:
@@ -77,7 +77,6 @@ class Demand(object):
         bottom_up_shape = self.aggregate_electricity_shapes(weather_year, geomap_to_dispatch_geography=False)
         bottom_up_shape = util.df_slice(bottom_up_shape, 2, 'timeshift_type')
         bottom_up_shape = util.remove_df_levels(bottom_up_shape, 'dispatch_feeder')
-
         self.electricity_reconciliation = util.DfOper.divi((top_down_shape, bottom_up_shape))
         self.pass_electricity_reconciliation()
 
@@ -306,7 +305,6 @@ class Sector(object):
         before calculating subsectors themselves
         """
         for id in set(util.flatten_list(self.subsector_precursors.values())):
-            # calculate subsector
             subsector = self.subsectors[id]
             self.calculate_precursors(subsector)
         for subsector in self.subsectors.values():
@@ -321,18 +319,19 @@ class Sector(object):
             pool.close()
             pool.join()  
         else:
-            for node in self.subsectors.values():
-                subsector.calculate()    
-#        for subsector in self.subsectors.values():
-            subsector.calculate()
-        #clear the calculations for the next scenario loop
+            for subsector in self.subsectors.values():
+                if subsector.calculated:
+                    pass
+                else:
+                    print "calculating " + subsector.name
+                    subsector.calculate() 
+
+##        #clear the calculations for the next scenario loop
         for subsector in self.subsectors.values():
             subsector.calculated = False
 
 
-#
-#    def cleanup_precursors(self,subsector):
-#        if 
+
     def calculate_precursors(self, subsector):
         """ 
         calculates subsector if all precursors have been calculated
@@ -1715,9 +1714,15 @@ class Subsector(DataMapFunctions):
         for technology in self.technologies.values():
             if len(technology.specified_stocks):
                for specified_stock in technology.specified_stocks.values():
-                   specified_stock.remap(map_from='values', drivers=self.stock.total)
+                   specified_stock.remap(map_from='values', current_geography = cfg.cfgfile.get('case','primary_geography'), drivers=self.stock.total)
+                   self.stock.technology.sort(inplace=True)
                    indexer = util.level_specific_indexer(self.stock.technology,'technology',technology.id)
                    df = util.remove_df_levels(self.stock.technology.loc[indexer,:],'technology')
+                   df = df.reorder_levels([x for x in self.stock.technology.index.names if x not in ['technology']])
+                   df.sort(inplace=True)
+                   specified_stock.values = specified_stock.values.reorder_levels([x for x in self.stock.technology.index.names if x not in ['technology']])
+                   df.sort(inplace=True)
+                   specified_stock.values.sort(inplace=True)
                    specified_stock.values = specified_stock.values.fillna(df)
                    self.stock.technology.loc[indexer,:] = specified_stock.values.values
         self.max_total()
