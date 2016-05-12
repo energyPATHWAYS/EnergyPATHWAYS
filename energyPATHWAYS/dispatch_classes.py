@@ -549,14 +549,19 @@ class Dispatch(object):
         return clustered
 
     @staticmethod
-    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.15, load_ptile=99.8):
+    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.2, load_ptile=99.5):
         # gives the index for the change between dispatch_periods
         group_cuts = list(np.where(np.diff(dispatch_periods)!=0)[0]+1) if dispatch_periods is not None else None
         group_lengths = np.array([group_cuts[0]] + list(np.diff(group_cuts)) + [len(load)-group_cuts[-1]])
         num_groups = len(group_cuts)+1
         
         # we have to have dispatch periods or we can't allocate, if we don't have them, we just return the base maintenance rates
-        if dispatch_periods is None or not group_cuts:
+        if dispatch_periods is None:
+            return None
+        
+        pmaxs = np.clip(pmaxs, 0, None)
+        annual_maintenance_rates = np.clip(annual_maintenance_rates, 0, None)
+        if not group_cuts:
             return annual_maintenance_rates
         
         pmax = np.max(pmaxs, axis=0) if pmaxs.ndim > 1 else pmaxs
@@ -597,6 +602,9 @@ class Dispatch(object):
                     break
             gen_maintenance[:,i] = plant_energy_allocation/group_lengths/pmaxs[:,i]
         
+        gen_maintenance[np.nonzero(pmaxs==0)] = 1
+        if np.any(np.isnan(gen_maintenance)):
+            raise ValueError("Calculation has returned maintenance rates of nan")
         return gen_maintenance
 
     @staticmethod
@@ -680,12 +688,14 @@ class Dispatch(object):
 
     @staticmethod
     def _format_gen_dispatch_inputs(num_groups, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None):
+        zero_clip = lambda x: np.clip(x, 0, None)
+        pmaxs, marginal_costs, FOR, MOR = zero_clip(pmaxs), zero_clip(marginal_costs), zero_clip(FOR), zero_clip(MOR)
         marginal_costs = np.tile(marginal_costs, (num_groups,1)) if len(marginal_costs.shape)==1 else marginal_costs
         pmaxs = np.tile(pmaxs, (num_groups,1)) if len(pmaxs.shape)==1 else pmaxs
         FOR = np.zeros_like(pmaxs) if FOR is None else (np.tile(FOR, (num_groups,1)) if len(FOR.shape)==1 else FOR)
         MOR = np.zeros_like(pmaxs) if MOR is None else (np.tile(MOR, (num_groups,1)) if len(MOR.shape)==1 else MOR)
         must_runs = np.ones_like(pmaxs, dtype=bool) if must_runs is None else np.array(np.tile(must_runs, (num_groups,1)) if len(must_runs.shape)==1 else must_runs, dtype=bool)
-        capacity_weights = np.full(pmaxs.shape, 1/float(len(pmaxs)), dtype=float) if capacity_weights is None else np.array(capacity_weights, dtype=float)
+        capacity_weights = np.full(pmaxs.shape[1], 1/float(len(pmaxs.T)), dtype=float) if capacity_weights is None else np.array(capacity_weights, dtype=float)
         
         return marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights
 
@@ -696,6 +706,7 @@ class Dispatch(object):
         for i, load_group in enumerate(load_groups):
             max_lookup = Dispatch._get_load_level_lookup(np.array([max(load_group)]), 0, reserves+.01, decimals)[0]
             combined_rate = Dispatch._get_combined_outage_rate(FOR[i], MOR[i])
+            
             derated_capacity = Dispatch._get_derated_capacity(pmaxs[i]+stock_changes, combined_rate, decimals)
             total_capacity_weight = sum(capacity_weights)
             
@@ -709,7 +720,7 @@ class Dispatch(object):
         return stock_changes
     
     @staticmethod
-    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, operating_reserves=0.03):
+    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, operating_reserves=0.05):
         """ Dispatch generators to a net load signal
         
         Args:
@@ -727,7 +738,8 @@ class Dispatch(object):
              --production_cost: hourly production cost over the dispatch (ndarray[h])
              --gen_cf: generator capacity factors over the dispatch period (ndarray[n])
         """
-        if len(pmaxs) != len(marginal_costs):
+        count = lambda x: len(x.T) if x.ndim>1 else len(x)
+        if count(pmaxs) != count(marginal_costs):
             raise ValueError('Number of generator pmaxs must equal number of marginal_costs')
         
         if capacity_weights is not None and capacity_weights.ndim>1:
@@ -757,12 +769,19 @@ class Dispatch(object):
         pmax_est = np.max((pmaxs+stock_changes)*(1-combined_rate), axis=0)
         pmax_rounded = np.round(pmax_est, decimals)
         rounding_error = pmax_est/pmax_rounded
+        rounding_error[~np.isfinite(rounding_error)] = 0
         gen_energies[pmax_rounded!=0] *= rounding_error[pmax_rounded!=0]
 #        gen_energies *= sum(load)/sum(gen_energies) #this can cause problems if you have too much must run
         
         gen_cf = gen_energies/np.max((pmaxs+stock_changes), axis=0)/float(len(load))
+        gen_cf[np.nonzero(np.max((pmaxs+stock_changes), axis=0)==0)] = 0
         dispatch_results = dict(zip(['market_price', 'production_cost', 'gen_energies', 'gen_cf', 'gen_dispatch_shape', 'stock_changes'],
                                     [market_prices,    production_costs,   gen_energies,   gen_cf,   gen_dispatch_shape, stock_changes]))
+        
+        for key, value in dispatch_results.items():
+            if np.any(~np.isfinite(value)):
+                raise ValueError("non finite numbers found in the {} results".format(key))
+        
         return dispatch_results
 
     def run_pyomo(self, model, data, **kwargs):
