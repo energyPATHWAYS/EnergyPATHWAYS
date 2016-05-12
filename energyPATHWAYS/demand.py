@@ -1620,8 +1620,8 @@ class Subsector(DataMapFunctions):
         df = df.unstack(level='year')
         df.columns = df.columns.droplevel()
         df = df.loc[:, max_column].to_frame()
-        for year in self.years:
-            df[year] = df[max_column]
+        for column in self.years:
+            df[column] = df[max_column]
         df = util.DfOper.mult([df,df_for_indexing])
         df = df.sort(axis=1)
         if hasattr(df.columns, 'levels'):

@@ -306,7 +306,7 @@ class Dispatch(object):
                 self.period_net_load[(geography, period)] = df.iloc[start:stop].mean().values[0]
 
     
-    def set_technologies(self,storage_capacity_dict, storage_efficiency_dict, thermal_dispatch_dict):
+    def set_technologies(self,storage_capacity_dict, storage_efficiency_dict, thermal_dispatch_df):
       """prepares storage technologies for dispatch optimization
         args:
             storage_capacity_dict = dictionary of storage discharge capacity and storage discharge duration
@@ -359,7 +359,7 @@ class Dispatch(object):
                      self.charging_efficiency[tech_dispatch_id] = x
                      self.discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.charging_efficiency)[tech_dispatch_id] 
                      self.feeder[tech_dispatch_id] = feeder
-          self.set_gen_technologies(dispatch_geography,thermal_dispatch_dict)
+          self.set_gen_technologies(dispatch_geography,thermal_dispatch_df)
       self.capacity = self.convert_to_period(self.capacity)
       self.duration = self.convert_to_period(self.duration)
       self.energy = self.convert_to_period(self.energy)
@@ -368,13 +368,13 @@ class Dispatch(object):
             
             
     
-    def set_gen_technologies(self, geography, thermal_dispatch_dict):
-        pmaxs = np.array(thermal_dispatch_dict[geography]['capacity'].values())
-        marginal_costs = np.array(thermal_dispatch_dict[geography]['cost'].values())
-        MOR = np.array(thermal_dispatch_dict[geography]['maintenance_outage_rate'].values())
-        FOR = np.array(thermal_dispatch_dict[geography]['forced_outage_rate'].values())
-        must_runs = np.array(thermal_dispatch_dict[geography]['must_run'].values())
-        clustered_dict = Dispatch._cluster_generators(n_clusters = int(cfg.cfgfile.get('opt','generator_steps')), pmax=pmaxs, marginal_cost=marginal_costs, FORs=FOR, 
+    def set_gen_technologies(self, geography, thermal_dispatch_df):
+        pmaxs = np.array(util.df_slice(thermal_dispatch_df,['capacity',geography],['IO',self.dispatch_geography]).values).T[0]
+        marginal_costs = np.array(util.df_slice(thermal_dispatch_df,['cost',geography],['IO',self.dispatch_geography]).values).T[0]
+        MOR = np.array(util.df_slice(thermal_dispatch_df,['maintenance_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
+        FOR = np.array(util.df_slice(thermal_dispatch_df,['forced_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
+        must_runs = np.array(util.df_slice(thermal_dispatch_df,['must_run',geography],['IO',self.dispatch_geography]).values).T[0]
+        clustered_dict = self._cluster_generators(n_clusters = int(cfg.cfgfile.get('opt','generator_steps')), pmax=pmaxs, marginal_cost=marginal_costs, FORs=FOR, 
                                      MORs=MOR, must_run=must_runs, pad_stack=True, zero_mc_4_must_run=True)
         generator_numbers = range(len(clustered_dict['derated_pmax']))
         for number in generator_numbers:
