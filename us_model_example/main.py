@@ -45,11 +45,10 @@ if __name__ == "__main__":
     if resolve_demand and resolve_supply:
         model = energyPATHWAYS.PathwaysModel(cfgfile_path, custom_pint_definitions_path)
         model.configure_energy_system()
-        model.populate_shapes()
+        model.populate_energy_system()
         with open(os.path.join(directory, 'shapes.p'), 'wb') as outfile:
-            pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
+                pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
         for scenario_id in model.scenario_dict.keys():
-            model.populate_energy_system()
             model.populate_measures(scenario_id)
             model.calculate_demand_only()
             if save_models:
@@ -70,11 +69,10 @@ if __name__ == "__main__":
     elif resolve_demand and not resolve_supply: 
         model = energyPATHWAYS.PathwaysModel(cfgfile_path, custom_pint_definitions_path)
         model.configure_energy_system()
-        model.populate_shapes()
+        model.populate_energy_system()
         with open(os.path.join(directory, 'shapes.p'), 'wb') as outfile:
-            pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
+                pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
         for scenario_id in model.scenario_dict.keys():
-            model.populate_energy_system()
             model.populate_measures(scenario_id)
             model.calculate_demand_only()
             if save_models:

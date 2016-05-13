@@ -1074,6 +1074,7 @@ class Supply(object):
                         int_map_df = cfg.geo.map_df(self.geography, self.dispatch_geography, column=geography_map_key, eliminate_zeros=False)
                         tot_map_df = cfg.geo.map_df(self.dispatch_geography,self.geography, column=geography_map_key, eliminate_zeros=False)
                         active_dispatch_costs = util.remove_df_levels(util.DfOper.mult([int_map_df,active_dispatch_costs],fill_value=0.0),self.geography).swaplevel(0,self.dispatch_geography)
+                        active_dispatch_costs = active_dispatch_costs.replace([np.nan,np.inf],0)
                         stock_values = util.DfOper.mult([stock_values, tot_map_df],fill_value=0.0).swaplevel(0,self.dispatch_geography)
                         capacity_factor = util.remove_df_levels(util.DfOper.mult([int_map_df, capacity_factor,],fill_value=0.0),self.geography).swaplevel(0,self.dispatch_geography)
                     groups = [x[0]for x in stock_values.groupby(level=stock_values.index.names).groups.values()]
@@ -2919,6 +2920,7 @@ class  Export(Abstract):
         if self.data is True:
             self.remap()
             self.convert()
+            self.values = util.reindex_df_level_with_new_elements(self.values, cfg.cfgfile.get('case', 'primary_geography'), cfg.geo.geographies[cfg.cfgfile.get('case', 'primary_geography')],fill_value=0.0)
         else:
             self.set_export_df()
             self.geography = cfg.cfgfile.get('case', 'primary_geography')
@@ -3330,6 +3332,7 @@ class SupplyNode(Node,StockItem):
         self.active_dispatch_costs = DfOper.mult([self.active_dispatch_costs, self.active_dispatch_coefficients])
         self.active_dispatch_costs = util.remove_df_levels(self.active_dispatch_costs, 'supply_node')
         self.active_dispatch_costs = self.active_dispatch_costs.reorder_levels(self.stock.values.index.names)
+        self.active_dispatch_costs[self.active_dispatch_costs<0] = 0
             
         
     def stock_rollover(self, year, loop, stock_changes):    
@@ -4613,6 +4616,10 @@ class SupplyStockNode(Node):
         self.throughput[self.throughput<=0] = 0
         if self.potential.raw_values is not None:
             self.potential.remap_to_potential_and_normalize(self.throughput, year, self.tradable_geography)
+        if self.id == 92:
+            print self.throughput
+            if year == 2016 and loop == 3:
+                print adsf
 
     def calculate_actual_stock(self,year,loop):
         """used to calculate the actual throughput of built stock. This is used to adjust the stock values if it does not
@@ -4887,7 +4894,7 @@ class SupplyStockNode(Node):
                 self.active_dispatch_costs = util.remove_df_levels(self.active_dispatch_costs, 'supply_node')
                 self.active_dispatch_costs = self.active_dispatch_costs.reorder_levels(self.stock.values.index.names)               
                 self.active_dispatch_costs = DfOper.add([self.active_dispatch_costs,self.rollover_output(tech_class='variable_om', tech_att= 'values_level', stock_att='ones',year=year)])
-    
+                self.active_dispatch_costs[self.active_dispatch_costs<0] = 0
     
     def stock_normalize(self,year):
         """returns normalized stocks for use in other node calculations"""
