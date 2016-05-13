@@ -383,7 +383,7 @@ class Supply(object):
                     if loop == 3:
                         self.prepare_dispatch_inputs(year, loop)
                         self.solve_electricity_dispatch(year)
-                        self.calculate_coefficients(year,loop)
+#                        self.calculate_coefficients(year,loop)
                         self.update_coefficients_from_dispatch(year)
                         self.update_io_df(year)
                         self.calculate_io(year, loop)
@@ -442,7 +442,7 @@ class Supply(object):
                         if self.reconciled is True:
                             self.update_demand(year,loop)
                             #if reconciliation has occured, we have to recalculate coefficients and resolve the io
-#                            self.calculate_stocks(year, loop)
+#                           self.calculate_stocks(year, loop)
                             self.calculate_coefficients(year,loop)
                             self.update_io_df(year)
                             self.calculate_io(year, loop)    
@@ -451,7 +451,7 @@ class Supply(object):
                     if loop == 3:
                         self.prepare_dispatch_inputs(year, loop)
                         self.solve_electricity_dispatch(year)
-                        self.calculate_coefficients(year,loop)
+#                        self.calculate_coefficients(year,loop)
                         self.update_coefficients_from_dispatch(year)
                         self.update_io_df(year)
                         self.calculate_io(year,loop)
@@ -1165,23 +1165,23 @@ class Supply(object):
                 thermal_dispatch_df.loc[indexer,:] = dispatch_results[output]
             return thermal_dispatch_df
 
-        if cfg.cfgfile.get('case','parallel_process') == 'True':
-            available_cpus = max(multiprocessing.cpu_count(),len(self.dispatch_geographies))     
-            pool = Pool(processes=available_cpus)
-            dispatch_results = pool.map(run_thermal_dispatch,parallel_params)
-            dispatch_results = pd.concat(dispatch_results)
-            self.active_thermal_dispatch_df= dispatch_results    
-            pool.close()
-            pool.join()
-            pool.terminate()
-        else:
-            dispatch_result_list = []
-            for params in parallel_params:
-                dispatch_results = run_thermal_dispatch(params)
-                dispatch_result_list.append(dispatch_results)
-            dispatch_results = pd.concat(dispatch_result_list)
-            dispatch_results.sort(inplace=True)
-            self.active_thermal_dispatch_df= dispatch_results        
+#        if cfg.cfgfile.get('case','parallel_process') == 'True':
+#            available_cpus = max(multiprocessing.cpu_count(),len(self.dispatch_geographies))     
+#            pool = Pool(processes=available_cpus)
+#            dispatch_results = pool.map(run_thermal_dispatch,parallel_params)
+#            dispatch_results = pd.concat(dispatch_results)
+#            self.active_thermal_dispatch_df= dispatch_results    
+#            pool.close()
+#            pool.join()
+#            pool.terminate()
+#        else:
+        dispatch_result_list = []
+        for params in parallel_params:
+            dispatch_results = run_thermal_dispatch(params)
+            dispatch_result_list.append(dispatch_results)
+        dispatch_results = pd.concat(dispatch_result_list)
+        dispatch_results.sort(inplace=True)
+        self.active_thermal_dispatch_df= dispatch_results        
         for node_id in self.thermal_dispatch_nodes:
             node = self.nodes[node_id]
             node.stock.capacity_factor.loc[:,year] = 0
@@ -1189,7 +1189,7 @@ class Supply(object):
 #                cap_factor_df = util.DfOper.mult([util.df_slice(self.active_thermal_dispatch_df            
             for dispatch_geography in self.dispatch_geographies:
                 dispatch_df = util.df_slice(self.active_thermal_dispatch_df.loc[:,:],[dispatch_geography,node_id], [self.dispatch_geography,'supply_node'],drop_level=False)
-                resources = [eval(x) for x in dispatch_df.index.get_level_values('thermal_generators')]
+                resources = list(set([eval(x) for x in dispatch_df.index.get_level_values('thermal_generators')]))
                 for resource in resources:
                     capacity_indexer = util.level_specific_indexer(dispatch_df,['thermal_generators','IO'],
                                                           [str(resource),'capacity'])
@@ -3634,10 +3634,12 @@ class SupplyNode(Node,StockItem):
                         initial_stock_values = stock_values[start_year].to_frame()
                         initial_stock_values.columns = [year]
                     if cost.supply_cost_type == 'tariff' or cost.supply_cost_type == 'investment':     
+                        cost.values.sort(inplace=True)
                         indexer = util.level_specific_indexer(cost.values,'vintage',year)
                         cost_values = cost.values.loc[indexer,:]
                         cost_values_level = cost.values_level_no_vintage.loc[:,year].to_frame()  
                     elif cost.supply_cost_type == 'revenue requirement':
+                        cost.values.sort(inplace=True)
                         indexer = util.level_specific_indexer(cost.values,'vintage',start_year)
                         cost_values = cost.values.loc[indexer,:]
                         cost_values_level = cost.values_level_no_vintage.loc[:,start_year].to_frame()
@@ -4522,10 +4524,10 @@ class SupplyStockNode(Node):
         self.calculate_actual_stock(year,loop)    
         if loop!= 'initial':
             if not self.thermal_dispatch_node:
-                adjustment_factor = self.calculate_adjustment_factor(year)
+#                adjustment_factor = self.calculate_adjustment_factor(year)
                 for elements in self.rollover_groups.keys():
                     elements = util.ensure_tuple(elements)
-                    self.rollover_dict[elements].factor_adjust_current_year(adjustment_factor.loc[elements].values)
+#                    self.rollover_dict[elements].factor_adjust_current_year(adjustment_factor.loc[elements].values)
                     stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover_dict[(elements)].return_formatted_outputs(year_offset=0)
                     self.stock.values.loc[elements, year], self.stock.values_new.loc[elements, year], self.stock.values_replacement.loc[
                         elements,year] = stock, stock_new, stock_replacement 
@@ -4616,10 +4618,7 @@ class SupplyStockNode(Node):
         self.throughput[self.throughput<=0] = 0
         if self.potential.raw_values is not None:
             self.potential.remap_to_potential_and_normalize(self.throughput, year, self.tradable_geography)
-        if self.id == 92:
-            print self.throughput
-            if year == 2016 and loop == 3:
-                print adsf
+
 
     def calculate_actual_stock(self,year,loop):
         """used to calculate the actual throughput of built stock. This is used to adjust the stock values if it does not

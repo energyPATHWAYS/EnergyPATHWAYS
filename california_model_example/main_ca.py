@@ -27,6 +27,13 @@ append_results = False
 ###########`
 #
 #
+def remove_results(append_results):
+   if append_results == False:
+       for folder in [os.path.join(os.getcwd(),'combined_outputs'),os.path.join(os.getcwd(),'demand_outputs'), os.path.join(os.getcwd(),'supply_outputs')]:
+           if os.path.exists(folder):
+               result_dir = [os.listdir(folder)][0]
+               for result_file in result_dir:
+                   os.remove(os.path.join(folder,result_file))
 
 
 if __name__ == "__main__":
