@@ -64,20 +64,24 @@ class Demand(object):
         return Shape.geomap_to_dispatch_geography(agg_load) if geomap_to_dispatch_geography else agg_load
 
     def create_electricity_reconciliation(self):
-        # TODO: this should be set to the shapes active dates index year
-        # however, right now, there is not guarantee that the model and run for that year
-        # We need to change this in subsector so that the start_year takes into account shapes
-#        weather_year = 2015
+        # weather_year is the year for which we have top down load data
         weather_year = int(np.round(np.mean(shapes.active_dates_index.year)))
+        
+        # the next four lines create the top down load shape in the weather_year
         levels_to_keep = [cfg.cfgfile.get('case','primary_geography'), 'year', 'final_energy']
         temp_energy = self.group_output('energy', levels_to_keep=levels_to_keep, specific_years=weather_year)
         top_down_energy = util.remove_df_levels(util.df_slice(temp_energy, cfg.electricity_energy_type_id, 'final_energy'), levels='year')
         top_down_shape = top_down_energy * util.df_slice(self.default_electricity_shape.values, 2, 'timeshift_type')
         
+        # this calls the functions that create the bottom up load shape for the weather_year
         bottom_up_shape = self.aggregate_electricity_shapes(weather_year, geomap_to_dispatch_geography=False)
         bottom_up_shape = util.df_slice(bottom_up_shape, 2, 'timeshift_type')
         bottom_up_shape = util.remove_df_levels(bottom_up_shape, 'dispatch_feeder')
+        
+        # at this point we have a top down and bottom up estimates for the load shape across all demand
+        # to get the reconciliation we divide one by the other
         self.electricity_reconciliation = util.DfOper.divi((top_down_shape, bottom_up_shape))
+        # the final step is to pass the reconciliation result down to subsectors. It becomes a pre-multiplier on all of the subsector shapes
         self.pass_electricity_reconciliation()
 
     def pass_electricity_reconciliation(self):
@@ -230,7 +234,6 @@ class Sector(object):
         self.outputs = Output()
         if self.shape_id is not None:
             self.shape = shapes.data[self.shape_id]
-            shapes.activate_shape(self.shape_id)
 
         feeder_allocation_class = dispatch_classes.DispatchFeederAllocation(1)
         # FIXME: This next line will fail if we don't have a feeder allocation for each demand_sector
@@ -434,7 +437,6 @@ class Subsector(DataMapFunctions):
         self.calculated = False
         if self.shape_id is not None:
             self.shape = shapes.data[self.shape_id]
-            shapes.activate_shape(self.shape_id)
 
     def set_electricity_reconciliation(self, electricity_reconciliation):
         """ Electricity reconciliation is solved top down and passed back to subsector, where it is applied

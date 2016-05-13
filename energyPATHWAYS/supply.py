@@ -2223,7 +2223,6 @@ class Node(DataMapFunctions):
     def determine_shape(self):
         if self.shape_id is not None:
             shape = shapes.data[self.shape_id]
-            shapes.activate_shape(self.shape_id)
             return shape
     
     def determine_tradable_geography(self):
