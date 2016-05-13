@@ -39,6 +39,8 @@ generator_stack_dispatch = energyPATHWAYS.dispatch_classes.Dispatch.generator_st
 
 load = pd.DataFrame.from_csv(os.path.join(test_data_dir, 'load.csv'))
 load = load.values.flatten()
+load-=30000
+load = np.vstack((load, load))
 
 dispatch_periods = pd.DataFrame.from_csv(os.path.join(test_data_dir, 'dispatch_periods.csv'))
 dispatch_periods = dispatch_periods.values.flatten()
@@ -54,10 +56,10 @@ must_runs = pd.DataFrame.from_csv(os.path.join(test_data_dir, 'must_runs.csv')).
 #pylab.plot(load+dispatch)
 
 MOR = np.copy(outage_rates[0])
-MOR[marginal_costs<33] = 1.5
+#MOR[marginal_costs<33] = 1.5
 
 pmaxs = pmaxs[0]
-pmaxs[0] = -.1
+#pmaxs[0] = -.1
 
 #t = time.time()
 maintenance_rates = schedule_generator_maintenance(load, pmaxs, MOR, dispatch_periods=dispatch_periods, min_maint=0., max_maint=.15, load_ptile=99.8)
@@ -70,6 +72,7 @@ dispatch_results = generator_stack_dispatch(load, pmaxs, marginal_costs, dispatc
 #pylab.plot(marginal_costs, dispatch_results['gen_cf'], '*')
 #pylab.plot(dispatch_results['market_price'])
 #pylab.plot(dispatch_results['production_cost'])
+#pylab.plot(dispatch_results['gen_dispatch_shape'])
 
 #print np.mean(dispatch_results['market_price'])
 #print np.sum(dispatch_results['production_cost'])

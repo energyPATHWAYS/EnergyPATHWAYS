@@ -46,10 +46,7 @@ class PathwaysModel(object):
         cfg.init_date_lookup()
         if shape.shapes.rerun:
             shape.shapes.create_empty_shapes()
-            shape.shapes.activate_shape(cfg.electricity_energy_type_shape_id)
         cfg.init_outputs_id_map()
-
-
 
     def configure_energy_system(self):
         print 'configuring energy system'
@@ -58,10 +55,11 @@ class PathwaysModel(object):
         self.configure_demand()
         self.configure_supply()
 
-
     def populate_energy_system(self):
         self.populate_demand_system()
         self.populate_supply_system()
+    
+    def populate_shapes(self):
         print 'processing shapes'
         if shape.shapes.rerun:
             shape.shapes.initiate_active_shapes()

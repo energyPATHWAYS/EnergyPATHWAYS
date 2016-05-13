@@ -13,6 +13,7 @@ EnergyPATHWAYS requires Python 2.7 to ensure compatibility with certain librarie
 EnergyPATHWAYS will attempt to install any necessary packages that are not in your environment when you run `setup.py` (see below). However, we have found that the script is not always successful installing all dependencies on all platforms (for example, users have encountered difficulty installing NumPy and SciPy on OS X this way). Therefore we recommend that you install the packages using a manager such as [Anaconda](https://www.continuum.io/downloads) or `pip` instead. EnergyPATHWAYS has been developed primarily within Anaconda and the default Anaconda environment provides many of the necessary packages. If you wish to install the dependencies in a different way, please see the `install_requires` list in `setup.py` for an up to date list.
 
 **_Warning_**: there is a [known bug](https://github.com/pydata/numexpr/issues/185) in numexpr 2.4.4 that will intermittently lead to incorrect calculations in energyPATHWAYS. numexpr is not required for running energyPATHWAYS, but is often installed alongside (and automatically used by) NumPy, e.g. in the Anaconda default environment. If you do have numexpr installed, please ensure that you have a version newer (or older) than 2.4.4 before using energyPATHWAYS.
+**_Warning_**: issues have been experienced with pandas version 0.18.0 and 0.18.1. it is recommended that users run the model with version 0.17.1
 
 #### Solver
 
