@@ -15,6 +15,11 @@ setup(name='energyPATHWAYS',
                         'pytz',
                         'profilehooks',
                         'psycopg2',
+                        'matplotlib', # util.py
+                        'sklearn', # dispatch_classes.py
 #                        'pathos'
-                        ]
-      )
+                        ],
+      extras_require = {
+        'documentation': ["Sphinx"]
+      }
+)

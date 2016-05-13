@@ -5,14 +5,14 @@ __author__ = 'Ben Haley & Ryan Jones'
 import pandas as pd
 import numpy as np
 import cPickle as pickle
-import os
-from energyPATHWAYS import *
+import os, sys
+
+sys.path.insert(0, os.path.abspath('..\energyPATHWAYS'))
+
+import energyPATHWAYS
+
 cfg = energyPATHWAYS.cfg
-from energyPATHWAYS.shape import shapes
-
-
-
-
+shapes = energyPATHWAYS.shape
 
 directory = os.getcwd()
 

@@ -18,7 +18,7 @@ import os
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath('../../energyPATHWAYS'))
 
 # -- General configuration ------------------------------------------------
 
@@ -36,7 +36,7 @@ extensions = [
     #'sphinx.ext.todo',       # http://www.sphinx-doc.org/en/stable/ext/todo.html
     #'sphinx.ext.viewcode',   # http://www.sphinx-doc.org/en/stable/ext/viewcode.html
     #'sphinx.ext.graphviz',   # http://www.sphinx-doc.org/en/stable/ext/graphviz.html
-    #'sphinx.ext.coverage',   # http://www.sphinx-doc.org/en/stable/ext/coverage.html
+    'sphinx.ext.coverage',   # http://www.sphinx-doc.org/en/stable/ext/coverage.html
     #'sphinx.ext.inheritance_diagram', # http://www.sphinx-doc.org/en/stable/ext/inheritance.html
 ]
 
