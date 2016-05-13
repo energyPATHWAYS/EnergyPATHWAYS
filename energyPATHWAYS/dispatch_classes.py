@@ -306,7 +306,7 @@ class Dispatch(object):
                 self.period_net_load[(geography, period)] = df.iloc[start:stop].mean().values[0]
 
     
-    def set_technologies(self,storage_capacity_dict, storage_efficiency_dict, thermal_dispatch_dict):
+    def set_technologies(self,storage_capacity_dict, storage_efficiency_dict, thermal_dispatch_df):
       """prepares storage technologies for dispatch optimization
         args:
             storage_capacity_dict = dictionary of storage discharge capacity and storage discharge duration
@@ -359,7 +359,7 @@ class Dispatch(object):
                      self.charging_efficiency[tech_dispatch_id] = x
                      self.discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.charging_efficiency)[tech_dispatch_id] 
                      self.feeder[tech_dispatch_id] = feeder
-          self.set_gen_technologies(dispatch_geography,thermal_dispatch_dict)
+          self.set_gen_technologies(dispatch_geography,thermal_dispatch_df)
       self.capacity = self.convert_to_period(self.capacity)
       self.duration = self.convert_to_period(self.duration)
       self.energy = self.convert_to_period(self.energy)
@@ -368,13 +368,13 @@ class Dispatch(object):
             
             
     
-    def set_gen_technologies(self, geography, thermal_dispatch_dict):
-        pmaxs = np.array(thermal_dispatch_dict[geography]['capacity'].values())
-        marginal_costs = np.array(thermal_dispatch_dict[geography]['cost'].values())
-        MOR = np.array(thermal_dispatch_dict[geography]['maintenance_outage_rate'].values())
-        FOR = np.array(thermal_dispatch_dict[geography]['forced_outage_rate'].values())
-        must_runs = np.array(thermal_dispatch_dict[geography]['must_run'].values())
-        clustered_dict = Dispatch._cluster_generators(n_clusters = int(cfg.cfgfile.get('opt','generator_steps')), pmax=pmaxs, marginal_cost=marginal_costs, FORs=FOR, 
+    def set_gen_technologies(self, geography, thermal_dispatch_df):
+        pmaxs = np.array(util.df_slice(thermal_dispatch_df,['capacity',geography],['IO',self.dispatch_geography]).values).T[0]
+        marginal_costs = np.array(util.df_slice(thermal_dispatch_df,['cost',geography],['IO',self.dispatch_geography]).values).T[0]
+        MOR = np.array(util.df_slice(thermal_dispatch_df,['maintenance_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
+        FOR = np.array(util.df_slice(thermal_dispatch_df,['forced_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
+        must_runs = np.array(util.df_slice(thermal_dispatch_df,['must_run',geography],['IO',self.dispatch_geography]).values).T[0]
+        clustered_dict = self._cluster_generators(n_clusters = int(cfg.cfgfile.get('opt','generator_steps')), pmax=pmaxs, marginal_cost=marginal_costs, FORs=FOR, 
                                      MORs=MOR, must_run=must_runs, pad_stack=True, zero_mc_4_must_run=True)
         generator_numbers = range(len(clustered_dict['derated_pmax']))
         for number in generator_numbers:
@@ -775,7 +775,7 @@ class Dispatch(object):
         
         gen_cf = gen_energies/np.max((pmaxs+stock_changes), axis=0)/float(len(load))
         gen_cf[np.nonzero(np.max((pmaxs+stock_changes), axis=0)==0)] = 0
-        dispatch_results = dict(zip(['market_price', 'production_cost', 'gen_energies', 'gen_cf', 'gen_dispatch_shape', 'stock_changes'],
+        dispatch_results = dict(zip(['market_price', 'production_cost', 'generation', 'gen_cf', 'gen_dispatch_shape', 'stock_changes'],
                                     [market_prices,    production_costs,   gen_energies,   gen_cf,   gen_dispatch_shape, stock_changes]))
         
         for key, value in dispatch_results.items():
@@ -825,12 +825,11 @@ class Dispatch(object):
         solver_name = [self.solver_name] * len(periods)
         stdout_detail = [self.stdout_detail] * len(periods)
         dispatch_geography = [self.dispatch_geography] * len(periods)
-        
-        if cfg.cfgfile.get('case','parallel_process') == 'True':
-            for period in self.periods:
-                model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
+        for period in self.periods:
+             model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
                                                               end_state_of_charge, period))  
-            zipped_inputs = list(zip(periods, model_list,bulk_storage_df, dist_storage_df, flex_load_df,opt_hours, period_hours, solver_name,stdout_detail, dispatch_geography))
+             zipped_inputs = list(zip(periods, model_list,bulk_storage_df, dist_storage_df, flex_load_df,opt_hours, period_hours, solver_name,stdout_detail, dispatch_geography))
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
             available_cpus = multiprocessing.cpu_count()
             pool = Pool(processes=available_cpus)
             results = pool.map(run_optimization,zipped_inputs)
@@ -839,10 +838,8 @@ class Dispatch(object):
             pool.terminate()
         else:
             results = []
-            for period in self.periods:
-                model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
-                                                              end_state_of_charge, period)) 
-                results.append(run_optimization(zipped_inputs))
+            for zipped_input in zipped_inputs:
+                results.append(run_optimization(zipped_input))
         bulk_storage_dfs = [x[0] for x in results]
         dist_storage_dfs = [x[1] for x in results]
         flex_load_dfs = [x[2] for x in results]
