@@ -26,7 +26,7 @@ from outputs import Output
 from pathos.multiprocessing import Pool as Pool
 import multiprocessing
 from collections import defaultdict           
-
+import pdb
            
 def node_calculate(node):
     node.calculate()
@@ -977,7 +977,7 @@ class Supply(object):
                 if zone == self.distribution_node_id:
                     #specific for distribution node because of feeder allocation requirement
                     indexer = util.level_specific_indexer(self.dispatch_feeder_allocation.values, 'year', year)
-                    energy_supply = util.remove_df_levels(util.DfOper.mult([energy_supply, self.dispatch_feeder_allocation.values.loc[indexer, ]]), 'demand_sector')
+                    energy_supply = util.remove_df_levels(util.DfOper.mult([energy_supply, self.dispatch_feeder_allocation.values.loc[indexer, :]]), 'demand_sector')
                     for geography in self.dispatch_geographies:
                         for dispatch_feeder in self.dispatch_feeders:
                             indexer = util.level_specific_indexer(energy_supply, [self.dispatch_geography, 'dispatch_feeder'],[geography,dispatch_feeder])
@@ -1057,8 +1057,9 @@ class Supply(object):
             inputs_and_outputs = ['capacity','cost','maintenance_outage_rate','forced_outage_rate','capacity_weights','must_run','gen_cf','generation','stock_changes']
             node_list = [node_id]
             index = pd.MultiIndex.from_product([self.dispatch_geographies, node_list, resources,inputs_and_outputs],names = [self.dispatch_geography, 'supply_node','thermal_generators','IO'])
-            dispatch_resource_list.append(util.empty_df(index=index,columns=self.years,fill_value=0.0))
+            dispatch_resource_list.append(util.empty_df(index=index,columns=[year],fill_value=0.0))
         self.active_thermal_dispatch_df = pd.concat(dispatch_resource_list)
+        self.active_thermal_dispatch_df.sort(inplace=True)
         for node_id in self.thermal_dispatch_nodes:
             node = self.nodes[node_id]
             if hasattr(node, 'calculate_dispatch_costs'):
@@ -1154,9 +1155,9 @@ class Supply(object):
             FOR = np.array(util.df_slice(thermal_dispatch_df,'forced_outage_rate','IO').values).T[0]
             must_runs = np.array(util.df_slice(thermal_dispatch_df,'must_run','IO').values).T[0]
             capacity_weights = np.array(util.df_slice(thermal_dispatch_df,'capacity_weights','IO').values).T[0]
-            maintenance_rates = self.dispatch.schedule_generator_maintenance(load=load,pmaxs=pmaxs,annual_maintenance_rates=MOR,
+            maintenance_rates = Dispatch.schedule_generator_maintenance(load=load,pmaxs=pmaxs,annual_maintenance_rates=MOR,
                                                                              dispatch_periods=months)
-            dispatch_results = self.dispatch.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
+            dispatch_results = Dispatch.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
                                                                       FOR=FOR, must_runs=must_runs, dispatch_periods=months, capacity_weights=capacity_weights)
             for output in ['gen_cf', 'generation','stock_changes']:
                 indexer = util.level_specific_indexer(thermal_dispatch_df,'IO',output)                                                              
@@ -1168,12 +1169,7 @@ class Supply(object):
             pool = Pool(processes=available_cpus)
             dispatch_results = pool.map(run_thermal_dispatch,parallel_params)
             dispatch_results = pd.concat(dispatch_results)
-            self.active_thermal_dispatch_df.sort(inplace=True)
-            dispatch_results.sort(inplace=True)
-            for output in ['gen_cf', 'generation','stock_changes']:
-                indexer = util.level_specific_indexer(self.active_thermal_dispatch_df,'IO',output) 
-                dispatch_indexer = util.level_specific_indexer(dispatch_results,'IO',output) 
-                self.active_thermal_dispatch_df.loc[indexer,:] = dispatch_results.loc[dispatch_indexer,:].values            
+            self.active_thermal_dispatch_df= dispatch_results    
             pool.close()
             pool.join()
             pool.terminate()
@@ -1183,16 +1179,15 @@ class Supply(object):
                 dispatch_results = run_thermal_dispatch(params)
                 dispatch_result_list.append(dispatch_results)
             dispatch_results = pd.concat(dispatch_result_list)
-            self.active_thermal_dispatch_df.sort(inplace=True)
             dispatch_results.sort(inplace=True)
-            self.active_thermal_dispatch_df.loc[:,:] = dispatch_results.values         
+            self.active_thermal_dispatch_df= dispatch_results        
         for node_id in self.thermal_dispatch_nodes:
             node = self.nodes[node_id]
             node.stock.capacity_factor.loc[:,year] = 0
 #                gen_indexer = util.level
 #                cap_factor_df = util.DfOper.mult([util.df_slice(self.active_thermal_dispatch_df            
             for dispatch_geography in self.dispatch_geographies:
-                dispatch_df = util.df_slice(self.active_thermal_dispatch_df.loc[:,:],[dispatch_geography,node_id], [self.dispatch_geography,'supply_node'])
+                dispatch_df = util.df_slice(self.active_thermal_dispatch_df.loc[:,:],[dispatch_geography,node_id], [self.dispatch_geography,'supply_node'],drop_level=False)
                 resources = [eval(x) for x in dispatch_df.index.get_level_values('thermal_generators')]
                 for resource in resources:
                     capacity_indexer = util.level_specific_indexer(dispatch_df,['thermal_generators','IO'],
@@ -1200,15 +1195,15 @@ class Supply(object):
                     if node.stock.values.loc[resource,year] ==0:
                         ratio = 0
                     else:
-                        ratio = dispatch_df.loc[capacity_indexer,:]/node.stock.values.loc[resource,year]    
+                        ratio = dispatch_df.loc[capacity_indexer,year]/node.stock.values.loc[resource,year]    
                     ratio = np.nan_to_num(ratio)    
                     capacity_factor_indexer = util.level_specific_indexer(dispatch_df,['thermal_generators','IO'],
                                                           [str(resource),'gen_cf'])
-                    capacity_factor = np.nan_to_num(dispatch_df.loc[capacity_factor_indexer,:]*ratio)
+                    capacity_factor = np.nan_to_num(dispatch_df.loc[capacity_factor_indexer,year]*ratio)
                     node.stock.capacity_factor.loc[resource,year] += capacity_factor
                     dispatch_capacity_indexer = util.level_specific_indexer(dispatch_df,['thermal_generators','IO'],
                                                           [str(resource),'stock_changes'])
-                    node.stock.dispatch_cap.loc[resource,year]+= dispatch_df.loc[dispatch_capacity_indexer,:].values
+                    node.stock.dispatch_cap.loc[resource,year]+= dispatch_df.loc[dispatch_capacity_indexer,year].values
 
 
     def update_coefficients_from_dispatch(self,year):
@@ -1293,9 +1288,9 @@ class Supply(object):
         
 
     def store_active_thermal_df(self,year):
-        self.active_thermal_dispatch_df = self.active_thermal_dispatch_df.stack().to_frame()
-        util.replace_index_name(self.active_thermal_dispatch_df,'year')
-        self.active_thermal_dispatch_df_list.append(self.active_thermal_dispatch_df)
+        active_thermal_dispatch_df = self.active_thermal_dispatch_df.stack().to_frame()
+        util.replace_index_name(active_thermal_dispatch_df,'year')
+        self.active_thermal_dispatch_df_list.append(active_thermal_dispatch_df)
         if year == max(self.years):
            self.thermal_dispatch_df = pd.concat(self.active_thermal_dispatch_df_list)
            
@@ -2661,7 +2656,7 @@ class Node(DataMapFunctions):
         """
         primary_geography = cfg.cfgfile.get('case', 'primary_geography')
         if self.tradable_geography!= primary_geography:
-            if hasattr(self,'potential') and self.potential.data is True or hasattr(self,'stock'):
+            if hasattr(self,'potential') and self.potential.data is True or (hasattr(self,'stock') and self.stock.data is True):
                 #tradable supply is mapping of active supply to a tradable geography    
                 self.geo_step1 = cfg.geo.map_df(self.tradable_geography,primary_geography,eliminate_zeros=False)
                 if hasattr(self,'potential') and self.potential.data is True:
@@ -3194,6 +3189,7 @@ class SupplyNode(Node,StockItem):
        for stock in self.total_stocks:
            total_stocks.append(stock)
        if len(total_stocks):
+            self.case_stock.data = True
             self.case_stock.total = DfOper.add(total_stocks, expandable=False)
             self.case_stock.total[self.case_stock.total.index.get_level_values('year')<int(cfg.cfgfile.get('case','current_year'))+1] = np.nan
     
@@ -3221,7 +3217,9 @@ class SupplyNode(Node,StockItem):
             self.stock.total = util.empty_df(index=index,columns=['value'],fill_value=np.nan)
         self.stock.total_rollover = copy.deepcopy(self.stock.total)
         self.stock.total = self.stock.total.unstack('year')
-        self.stock.total.columns = self.stock.total.columns.droplevel()          
+        self.stock.total.columns = self.stock.total.columns.droplevel()
+        if self.stock.data or hasattr(self.case_stock,'data') and self.case_stock.data == True:
+            self.stock.data = True
 
         
     def calc_node_survival_function(self):
@@ -3598,8 +3596,8 @@ class SupplyNode(Node,StockItem):
                         self.levelized_costs.loc[:,year]   += util.remove_df_levels(DfOper.mult([DfOper.divi([cost.values_level[year].to_frame(), stock_values[start_year].to_frame()],non_expandable_levels=None),stock_values[start_year].to_frame()],non_expandable_levels=None)*(1-cost.throughput_correlation),'vintage')[year]
                         self.levelized_costs.loc[:,year]   += util.remove_df_levels(DfOper.mult([DfOper.divi([initial_cost_values_level, initial_financial_stock_values],non_expandable_levels=None),financial_stock_values[year].to_frame()],non_expandable_levels=None)*(cost.throughput_correlation),'vintage')[year]
                     else:
-                        self.levelized_costs.loc[:,year]  += (util.df_slice(cost.values,year,'vintage') *(1-cost.throughput_correlation))['value']
-                        self.levelized_costs.loc[:,year]  +=  (util.df_slice(cost.values,year,'vintage') * (cost.throughput_correlation))['value']
+                        self.levelized_costs.loc[:,year]  += (util.df_slice(cost.values_level.loc[:,year].to_frame(),year,'vintage') *(1-cost.throughput_correlation))[year]
+                        self.levelized_costs.loc[:,year]  +=  (util.df_slice(cost.values_level.loc[:,year].to_frame(), year,'vintage').loc[:,year].to_frame() * (cost.throughput_correlation))[year]
 #        total_stock = util.remove_df_levels(self.stock.values_energy.loc[:,year].to_frame(),'vintage')
         if loop == 3:
             flow = self.throughput
@@ -4074,7 +4072,9 @@ class SupplyStockNode(Node):
                     self.stock.total.columns = self.stock.total.columns.droplevel() 
         else:
              index = pd.MultiIndex.from_product(self.stock.rollover_group_levels,names=self.stock.rollover_group_names)
-             self.stock.total = util.empty_df(index=index,columns=self.years,fill_value=np.NaN)               
+             self.stock.total = util.empty_df(index=index,columns=self.years,fill_value=np.NaN)       
+        if self.stock.data or hasattr(self.case_stock,'data') and self.case_stock.data == True:
+            self.stock.data = True
         self.max_total()
         self.format_rollover_stocks()
    
@@ -4106,11 +4106,13 @@ class SupplyStockNode(Node):
                    stock.values.set_index('supply_technology', append=True, inplace=True) 
                    tech_stocks.append(stock.values)
        if len(tech_stocks):
+            self.case_stock.date = True
             self.case_stock.technology = DfOper.add(tech_stocks, expandable=False)
             self.case_stock.technology[self.case_stock.technology.index.get_level_values('year')<int(cfg.cfgfile.get('case','current_year'))] = np.nan
        total_stocks = []
        for stock in self.total_stocks.values():
             if stock.values is not None:
+                self.case_stock.date = True
                 total_stocks.append(stock.values)
        if len(total_stocks):    
            self.case_stock.total = DfOper.add(total_stocks, expandable=False)

@@ -58,9 +58,9 @@ class DemandMeasure(StockItem):
 
 
 class ServiceDemandMeasure(Abstract, DemandMeasure):
-    def __init__(self, id, cost_of_capital, service_demand_unit, **kwargs):
+    def __init__(self, id, cost_of_capital, **kwargs):
         self.id = id
-        self.service_demand_unit = service_demand_unit
+#        self.service_demand_unit = service_demand_unit
         self.sql_id_table = 'DemandServiceDemandMeasures'
         self.sql_data_table = 'DemandServiceDemandMeasuresData'
         Abstract.__init__(self, self.id, primary_key='id', data_id_key = 'parent_id')

@@ -666,7 +666,7 @@ class Subsector(DataMapFunctions):
         if len(measure_types):
             df_list = []
             for measure_type in measure_types:
-                df = getattr(getattr(self,measure_type),att).values()
+                df = getattr(getattr(self,measure_type),att)['unspecified']
                 if df.columns != ['value']:
                     df = df.stack().to_frame()
                     df.columns = ['value']
@@ -726,7 +726,15 @@ class Subsector(DataMapFunctions):
         for measure in self.energy_efficiency_measures.values():
             measure.calculate(self.vintages, self.years, cfg.cfgfile.get('case', 'energy_unit'))
         for measure in self.service_demand_measures.values():
-            measure.calculate(self.vintages, self.years, self.service_demand.unit)
+            if hasattr(self,'stock') and self.stock.demand_stock_unit_type == 'service demand' and hasattr(self,'service_demand'):
+                #service demand will be converted to stock unit, so measure must be converted to stock unit
+                measure.calculate(self.vintages, self.years, self.stock.unit)
+            elif hasattr(self,'service_demand'):
+                measure.calculate(self.vintages, self.years, self.service_demand.unit)
+            elif hasattr(self,'energy_demand'):
+                measure.calculate(self.vintages, self.years, self.energy_demand.unit)
+            else:
+                raise ValueError("service demand measure has been created for a subsector which doesn't have an energy demand or service demand")
         for measure in self.fuel_switching_measures.values():
             measure.calculate(self.vintages, self.years, cfg.cfgfile.get('case', 'energy_unit'))
 
@@ -735,9 +743,6 @@ class Subsector(DataMapFunctions):
 #        print '      '+'subsector type = '+self.sub_type
         if self.sub_type == 'service and efficiency' or self.sub_type == 'service and energy':
             # sets the service demand forecast equal to initial values
-            self.service_demand_forecast = self.service_demand.values
-            # calculates the service demand change from service demand measures
-            self.service_demand_savings_calc()
             # calculates the energy demand change from fuel swiching measures
             self.fuel_switching_impact_calc()
             # calculates the energy demand change from energy efficiency measures
@@ -924,7 +929,7 @@ class Subsector(DataMapFunctions):
             if measure.input_type == 'intensity':
                 measure.savings = DfOper.mult([measure.values, self.energy_forecast])
             else:
-                measure.remap(map_from='savings', map_to='savings', drivers=self.energy_forecast)
+                measure.remap(map_from='values', map_to='savings', drivers=self.energy_forecast)
 
     def energy_efficiency_savings_calc(self):
         """
@@ -966,7 +971,7 @@ class Subsector(DataMapFunctions):
         """Adds measure instances to subsector"""
         if id in self.service_demand_measures:
             return
-        self.service_demand_measures[id] = ServiceDemandMeasure(id, cost_of_capital, self.service_demand.unit)
+        self.service_demand_measures[id] = ServiceDemandMeasure(id, cost_of_capital)
 
     def service_demand_measure_savings(self):
         """
@@ -976,9 +981,9 @@ class Subsector(DataMapFunctions):
         for id in self.service_demand_measures:
             measure = self.service_demand_measures[id]
             if measure.input_type == 'intensity':
-                measure.savings = DfOper.mult([measure.savings, self.service_demand_forecast])
+                measure.savings = DfOper.mult([measure.values,self.service_demand.values])
             else:
-                measure.remap(map_from='savings', map_to='savings', drivers=self.service_demand_forecast)
+                measure.remap(map_from='values', map_to='savings', drivers=self.service_demand.values)
 
     def service_demand_savings_calc(self):
         """
@@ -986,15 +991,15 @@ class Subsector(DataMapFunctions):
         """
         # create an empty df
         self.service_demand_measure_savings()
-        self.initial_service_demand_savings = util.empty_df(self.service_demand_forecast.index,
-                                                            self.service_demand_forecast.columns.values)
+        self.initial_service_demand_savings = util.empty_df(self.service_demand.values.index,
+                                                            self.service_demand.values.columns.values)
         # add up each measure's savings to return total savings
         for id in self.service_demand_measures:
             measure = self.service_demand_measures[id]
             self.initial_service_demand_savings = DfOper.add([self.initial_service_demand_savings,
                                                               measure.savings])
         # check for savings in excess of demand
-        excess_savings = DfOper.subt([self.service_demand_forecast, self.initial_service_demand_savings]) * -1
+        excess_savings = DfOper.subt([self.service_demand.values, self.initial_service_demand_savings]) * -1
         excess_savings[excess_savings < 0] = 0
         # if any savings in excess of demand, adjust all measure savings down
         if excess_savings.sum()['value'] == 0:
@@ -1005,7 +1010,7 @@ class Subsector(DataMapFunctions):
             for id in self.service_demand_measures:
                 measure = self.service_demand_measures[id]
                 measure.savings = DfOper.mult([measure.savings, impact_adjustment])
-        self.service_demand_forecast = DfOper.subt([self.service_demand_forecast,
+        self.service_demand.values = DfOper.subt([self.service_demand.values,
                                                     self.service_demand_savings])
 
     def add_fuel_switching_measures(self):
@@ -1286,7 +1291,10 @@ class Subsector(DataMapFunctions):
             elif self.stock.demand_stock_unit_type == 'service demand':
                 if self.sub_type == 'stock and service':
                     # convert service demand units to stock units
-                    self.service_demand.convert_and_remap(self.stock.demand_stock_unit_type, self.stock.unit)
+                    self.service_demand.int_values = util.unit_convert(self.service_demand.raw_values, unit_from_num=self.service_demand.unit, unit_to_num=self.stock.unit)
+                    self.service_demand.unit = self.stock.unit
+                    self.service_demand.current_data_type = self.service_demand.input_type
+                    self.service_demand.projected = False
                     self.service_demand.map_from = 'int_values'                    
                     self.min_year = self.min_cal_year(self.service_demand)
                     self.max_year = self.max_cal_year(self.service_demand)
@@ -1294,14 +1302,14 @@ class Subsector(DataMapFunctions):
                     self.stock_subset_prep()
                 if self.sub_type == 'stock and energy':
                     # used when we don't have service demand, just energy demand
-                    # determine the year range of energy demand inputs
+                    # determine the year range of energy demand inputs   
                     self.min_year = self.min_cal_year(self.energy_demand)
                     self.max_year = self.max_cal_year(self.energy_demand)
                     self.energy_demand.project(map_from='raw_values', fill_timeseries=False)
                     self.energy_demand.map_from = 'values'
                     self.project_stock()
                     self.stock_subset_prep()
-                    # remove stock efficiency from energy demand to return service demand
+                    # remove stock efficiency from energy demand to- return service demand
                     self.efficiency_removal()
 
             else:
@@ -1816,7 +1824,10 @@ class Subsector(DataMapFunctions):
                                      num_techs=len(measures.keys()), initial_stock=None,
                                      sales_share=None, stock_changes=annual_stock_change.values,
                                      specified_stock=specified_stock.values, specified_retirements=None)
-            self.rollover.run()
+            try:
+                self.rollover.run()
+            except:
+                print elements
             stock_total, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
             stock.values.loc[elements], stock.retirements.loc[elements, 'value'] = stock_total, retirements
             stock.sales.loc[elements, 'value'] = sales_record
@@ -1999,10 +2010,11 @@ class Subsector(DataMapFunctions):
             current_geography = cfg.cfgfile.get('case', 'primary_geography')
             current_data_type =  'total'
             projected =  True
-
-
         self.service_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
                                     additional_drivers=self.additional_service_demand_drivers(stock_dependent),current_data_type=current_data_type,projected=projected)
+        self.service_demand_forecast = self.service_demand.values
+        # calculates the service demand change from service demand measures
+        self.service_demand_savings_calc()
 
     def project_energy_demand(self, map_from='raw_values', stock_dependent=False, service_dependent=False):
         self.energy_demand.vintages = self.vintages

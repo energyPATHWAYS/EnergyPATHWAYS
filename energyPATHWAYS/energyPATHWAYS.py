@@ -149,7 +149,6 @@ class PathwaysModel(object):
         self.calculate_combined_energy_results()
     
     def export_results(self):
-
         for attribute in dir(self.outputs):
             if isinstance(getattr(self.outputs,attribute), pd.DataFrame):
                 result_df = getattr(self.outputs, attribute)
@@ -247,10 +246,11 @@ class PathwaysModel(object):
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
             self.direct_emissions_df = pd.concat([self.direct_emissions_df],keys=[key],names=[name])   
-        keys = self.direct_emissions_df.index.get_level_values(self.geography.upper()).values
-        names = self.geography.upper() +'_SUPPLY'
-        self.direct_emissions_df[names] = keys
-        self.direct_emissions_df.set_index(names,append=True,inplace=True)
+        if 'supply_geography' in cfg.output_combined_levels:
+            keys = self.direct_emissions_df.index.get_level_values(self.geography.upper()).values
+            names = self.geography.upper() +'_SUPPLY'
+            self.direct_emissions_df[names] = keys
+            self.direct_emissions_df.set_index(names,append=True,inplace=True)
 #        levels_to_keep = cfg.output_levels      
 #        levels_to_keep = [x.upper() for x in levels_to_keep]
 #        levels_to_keep += names + [self.geography.upper() +'_SUPPLY', 'SUPPLY_NODE']

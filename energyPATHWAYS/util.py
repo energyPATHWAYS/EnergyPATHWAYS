@@ -400,7 +400,7 @@ def unit_convert(data, unit_from_num=None, unit_from_den=None, unit_to_num=None,
         # units in the denominator of the first and numerator of the second
         factor, flipped = unit_conversion(unit_to_num, unit_from_den)
     else:
-        print "error"
+        raise ValueError('unit unable to be converted')
         flipped = False
         factor = 1
     if flipped:

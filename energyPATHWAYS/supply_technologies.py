@@ -224,7 +224,7 @@ class SupplyTechInvestmentCost(SupplyTechCost):
         """
         model_energy_unit = cfg.cfgfile.get('case', 'energy_unit')
         model_time_step = cfg.cfgfile.get('case', 'time_step')
-        if self.time_unit is not None:
+        if hasattr(self,'time_unit') and self.time_unit is not None:
             # if a cost has a time_unit, then the unit is energy and must be converted to capacity
             self.values = util.unit_convert(self.raw_values, unit_from_den=self.capacity_or_energy_unit,
                                             unit_from_num=self.time_unit, unit_to_den=model_energy_unit,

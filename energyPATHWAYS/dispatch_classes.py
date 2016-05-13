@@ -27,19 +27,19 @@ import year_to_period_allocation
 
 
   
-def run_optimization(zipped_inputs):
+def run_optimization(zipped_input):
     import numpy as np
-    period = zipped_inputs[0]
-    model = zipped_inputs[1]
-    bulk_storage_df = zipped_inputs[2]
-    dist_storage_df = zipped_inputs[3]
-    flex_load_df = zipped_inputs[4]
-    opt_hours = zipped_inputs[5]
-    period_hours = zipped_inputs[6]
+    period = zipped_input[0]
+    model = zipped_input[1]
+    bulk_storage_df = zipped_input[2]
+    dist_storage_df = zipped_input[3]
+    flex_load_df = zipped_input[4]
+    opt_hours = zipped_input[5]
+    period_hours = zipped_input[6]
     hours = list(period * opt_hours + np.asarray(period_hours))  
-    solver_name = zipped_inputs[7]      
-    stdout_detail = zipped_inputs[8]
-    dispatch_geography = zipped_inputs[9]
+    solver_name = zipped_input[7]      
+    stdout_detail = zipped_input[8]
+    dispatch_geography = zipped_input[9]
     if stdout_detail:
         print "Optimizing dispatch for period " + str(period)
     if stdout_detail:
@@ -97,7 +97,8 @@ def run_optimization(zipped_inputs):
                     flex_load.append(instance.Flexible_Load[geography, timepoint, feeder].value)
                 flex_load = np.asarray(flex_load)
                 flex_load_df.loc[indexer,:] = flex_load 
-    return [bulk_storage_df,dist_storage_df,flex_load_df]
+    return [bulk_storage_df, dist_storage_df, flex_load_df]
+
 
 
 
@@ -378,7 +379,7 @@ class Dispatch(object):
                                      MORs=MOR, must_run=must_runs, pad_stack=True, zero_mc_4_must_run=True)
         generator_numbers = range(len(clustered_dict['derated_pmax']))
         for number in generator_numbers:
-            generator = str(self.dispatch_geographies.index(geography) * (number + 1))
+            generator = str(self.dispatch_geographies.index(geography)+1 * (number + 1))
             if generator not in self.generation_technologies:
                 self.generation_technologies.append(generator)
             self.geography[generator] = geography
@@ -702,7 +703,6 @@ class Dispatch(object):
     @staticmethod
     def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals=0, reserves=0.03):
         stock_changes = np.zeros(len(capacity_weights))
-        
         for i, load_group in enumerate(load_groups):
             max_lookup = Dispatch._get_load_level_lookup(np.array([max(load_group)]), 0, reserves+.01, decimals)[0]
             combined_rate = Dispatch._get_combined_outage_rate(FOR[i], MOR[i])
@@ -716,7 +716,8 @@ class Dispatch(object):
             if residual_for_load_balance > 0:
                     residual_capacity_growth= residual_for_load_balance/float(total_capacity_weight)
                     stock_changes += capacity_weights * residual_capacity_growth / (1 - combined_rate)
-        
+                    stock_changes[stock_changes == np.inf] = 0
+                    stock_changes = np.nan_to_num(stock_changes)
         return stock_changes
     
     @staticmethod
@@ -745,6 +746,7 @@ class Dispatch(object):
         if capacity_weights is not None and capacity_weights.ndim>1:
             raise ValueError('capacity weights should not vary across dispatch periods')
         
+        load[load<0] = 0
         decimals = 6 - int(math.log10(max(load)))
         
         load_groups = (load,) if dispatch_periods is None else np.array_split(load, np.where(np.diff(dispatch_periods)!=0)[0]+1)
@@ -818,17 +820,18 @@ class Dispatch(object):
         period_hours = [copy.deepcopy(self.period_hours)] * len(periods)
         bulk_storage_index = pd.MultiIndex.from_product([self.dispatch_geographies, ['charge','discharge'],self.hours], names=[self.dispatch_geography,'charge_discharge','hour'])
         dist_storage_index = pd.MultiIndex.from_product([self.dispatch_geographies, self.dispatch_feeders,['charge','discharge'], self.hours], names=[self.dispatch_geography,'dispatch_feeder','charge_discharge','hour'])
-        bulk_storage_df = [util.empty_df(index=bulk_storage_index,columns=[year],fill_value=0.0)]*len(periods)  
-        dist_storage_df = [util.empty_df(index=dist_storage_index,columns=[year],fill_value=0.0)]*len(periods)     
+        input_bulk_dfs = [copy.deepcopy(util.empty_df(index=bulk_storage_index,columns=[year],fill_value=0.0))]*len(periods)  
+        input_dist_dfs = [copy.deepcopy(util.empty_df(index=dist_storage_index,columns=[year],fill_value=0.0))]*len(periods)     
         flex_load_index =  pd.MultiIndex.from_product([self.dispatch_geographies, self.dispatch_feeders, self.hours], names=[self.dispatch_geography,'dispatch_feeder','hour'])
-        flex_load_df = [util.empty_df(index=flex_load_index,columns=[year],fill_value=0.0)]*len(periods)   
+        input_flex_dfs = [copy.deepcopy(util.empty_df(index=flex_load_index,columns=[year],fill_value=0.0))]*len(periods)   
         solver_name = [self.solver_name] * len(periods)
         stdout_detail = [self.stdout_detail] * len(periods)
         dispatch_geography = [self.dispatch_geography] * len(periods)
         for period in self.periods:
              model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
                                                               end_state_of_charge, period))  
-             zipped_inputs = list(zip(periods, model_list,bulk_storage_df, dist_storage_df, flex_load_df,opt_hours, period_hours, solver_name,stdout_detail, dispatch_geography))
+        zipped_inputs = list(zip(periods, model_list,input_bulk_dfs, input_dist_dfs, 
+                                 input_flex_dfs,opt_hours, period_hours, solver_name,stdout_detail, dispatch_geography))
         if cfg.cfgfile.get('case','parallel_process') == 'True':
             available_cpus = multiprocessing.cpu_count()
             pool = Pool(processes=available_cpus)
@@ -840,12 +843,12 @@ class Dispatch(object):
             results = []
             for zipped_input in zipped_inputs:
                 results.append(run_optimization(zipped_input))
-        bulk_storage_dfs = [x[0] for x in results]
-        dist_storage_dfs = [x[1] for x in results]
-        flex_load_dfs = [x[2] for x in results]
-        self.bulk_storage_df = util.DfOper.add(bulk_storage_dfs)
-        self.dist_storage_df = util.DfOper.add(dist_storage_dfs)
-        self.flex_load_df = util.DfOper.add(flex_load_dfs)
+        output_bulk_dfs = [x[0] for x in results]
+        output_dist_dfs = [x[1] for x in results]
+        output_flex_dfs = [x[2] for x in results]
+        self.bulk_storage_df = util.DfOper.add(output_bulk_dfs)
+        self.dist_storage_df = util.DfOper.add(output_dist_dfs)
+        self.flex_load_df = util.DfOper.add(output_flex_dfs)
   
 
             
