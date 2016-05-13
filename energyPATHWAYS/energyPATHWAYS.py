@@ -63,8 +63,6 @@ class PathwaysModel(object):
         self.populate_demand_system()
         self.populate_supply_system()
         print 'processing shapes'
-        
-    def populate_shapes(self) :
         if shape.shapes.rerun:
             shape.shapes.initiate_active_shapes()
             shape.shapes.process_active_shapes()

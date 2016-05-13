@@ -28,22 +28,15 @@ append_results = False
 #
 #
 
-def remove_results(append_results):
-   if append_results == False:
-       for folder in [os.path.join(os.getcwd(),'combined_outputs'),os.path.join(os.getcwd(),'demand_outputs'), os.path.join(os.getcwd(),'supply_outputs')]:
-        result_dir = [os.listdir(folder)][0]
-        for result_file in result_dir:
-            os.remove(os.path.join(folder,result_file))
 
 if __name__ == "__main__":
     if resolve_demand and resolve_supply:
         model = energyPATHWAYS.PathwaysModel(cfgfile_path, custom_pint_definitions_path)
         model.configure_energy_system()
-        model.populate_shapes()
+        model.populate_energy_system()
         with open(os.path.join(directory, 'shapes.p'), 'wb') as outfile:
-            pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
+                pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
         for scenario_id in model.scenario_dict.keys():
-            model.populate_energy_system()
             model.populate_measures(scenario_id)
             model.calculate_demand_only()
             if save_models:
@@ -64,11 +57,10 @@ if __name__ == "__main__":
     elif resolve_demand and not resolve_supply: 
         model = energyPATHWAYS.PathwaysModel(cfgfile_path, custom_pint_definitions_path)
         model.configure_energy_system()
-        model.populate_shapes()
+        model.populate_energy_system()
         with open(os.path.join(directory, 'shapes.p'), 'wb') as outfile:
-            pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
+                pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
         for scenario_id in model.scenario_dict.keys():
-            model.populate_energy_system()
             model.populate_measures(scenario_id)
             model.calculate_demand_only()
             if save_models:
@@ -109,5 +101,3 @@ if __name__ == "__main__":
             #after the first secnario loop, we want to append results so we change the boolean to True
             append_results = True
             model.export_results()
-
-
