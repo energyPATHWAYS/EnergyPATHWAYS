@@ -685,7 +685,7 @@ class Dispatch(object):
         
         energy = Dispatch._get_energy_by_generator(lookup, derated_capacity, marginal_cost, must_run, pmax, combined_rate, decimals)
 
-        return market_price, production_cost, energy, np.array(lookup / 10**decimals, dtype=float)
+        return market_price, production_cost, energy, np.array(lookup, dtype=float) / 10**decimals
 
     @staticmethod
     def _format_gen_dispatch_inputs(num_groups, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None):
@@ -697,31 +697,43 @@ class Dispatch(object):
         MOR = np.zeros_like(pmaxs) if MOR is None else (np.tile(MOR, (num_groups,1)) if len(MOR.shape)==1 else MOR)
         must_runs = np.ones_like(pmaxs, dtype=bool) if must_runs is None else np.array(np.tile(must_runs, (num_groups,1)) if len(must_runs.shape)==1 else must_runs, dtype=bool)
         capacity_weights = np.full(pmaxs.shape[1], 1/float(len(pmaxs.T)), dtype=float) if capacity_weights is None else np.array(capacity_weights, dtype=float)
-        
         return marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights
 
     @staticmethod
-    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals=0, reserves=0.03):
+    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals=0, reserves=0.1, max_outage_rate_for_capacity_eligibility=.25):
         stock_changes = np.zeros(len(capacity_weights))
-        for i, load_group in enumerate(load_groups):
-            max_lookup = Dispatch._get_load_level_lookup(np.array([max(load_group)]), 0, reserves+.01, decimals)[0]
+        
+        max_by_load_group = np.array([Dispatch._get_load_level_lookup(np.array([max(group)]), 0, reserves, decimals)[0] for group in load_groups])
+        cap_by_load_group = np.array([sum(Dispatch._get_derated_capacity(pmaxs[i], Dispatch._get_combined_outage_rate(FOR[i], MOR[i]), decimals)) for i in range(len(max_by_load_group))])
+        
+        shortage_by_group = max_by_load_group - cap_by_load_group
+        order = [i for i in np.argsort(shortage_by_group)[-1::-1] if shortage_by_group[i]>0]
+        
+        for i in order:
+            load_group = load_groups[i]
+            max_lookup = Dispatch._get_load_level_lookup(np.array([max(load_group)]), 0, reserves, decimals)[0]
+            
             combined_rate = Dispatch._get_combined_outage_rate(FOR[i], MOR[i])
             
             derated_capacity = Dispatch._get_derated_capacity(pmaxs[i]+stock_changes, combined_rate, decimals)
-            total_capacity_weight = sum(capacity_weights)
             
-            residual_for_load_balance = float(max_lookup - sum(derated_capacity))/10**decimals + (1./10**decimals)
+            normed_capacity_weights = copy.deepcopy(capacity_weights)
+            normed_capacity_weights[combined_rate>max_outage_rate_for_capacity_eligibility] = 0
+            if not sum(normed_capacity_weights):
+                raise ValueError('No generator can be added to increase capacity given outage rates')
+            normed_capacity_weights /= sum(normed_capacity_weights)
+            ncwi = np.nonzero(normed_capacity_weights)[0]
+            
+            residual_for_load_balance = float(max_lookup - sum(derated_capacity))/10**decimals
             
             # we need more capacity
             if residual_for_load_balance > 0:
-                    residual_capacity_growth= residual_for_load_balance/float(total_capacity_weight)
-                    stock_changes += capacity_weights * residual_capacity_growth / (1 - combined_rate)
-                    stock_changes[stock_changes == np.inf] = 0
-                    stock_changes = np.nan_to_num(stock_changes)
+                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - combined_rate[ncwi])
+                
         return stock_changes
     
     @staticmethod
-    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, operating_reserves=0.05):
+    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, operating_reserves=0.05, capacity_reserves=0.1):
         """ Dispatch generators to a net load signal
         
         Args:
@@ -757,7 +769,7 @@ class Dispatch(object):
         market_prices, production_costs, gen_dispatch_shape = [], [], []
         gen_energies = np.zeros(pmaxs.shape[1])
         
-        stock_changes = Dispatch._get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals, reserves=operating_reserves)
+        stock_changes = Dispatch._get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals, reserves=capacity_reserves)
         
         for i, load_group in enumerate(load_groups):
             market_price, production_cost, gen_energy, shape = Dispatch.solve_gen_dispatch(load_group, pmaxs[i]+stock_changes, marginal_costs[i], FOR[i], MOR[i], must_runs[i], decimals, operating_reserves)
