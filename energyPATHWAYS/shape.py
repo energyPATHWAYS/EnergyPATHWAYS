@@ -37,7 +37,6 @@ class Shapes(object):
         for id in self.active_shape_ids:
             shape = self.data[id]
             print '     shape: ' + shape.name
-            
             if hasattr(shape, 'raw_values'):
                 return
             
@@ -51,7 +50,6 @@ class Shapes(object):
                 
                 self.start_date = shape.start_date if self.start_date is None else max(shape.start_date, self.start_date)
                 self.end_date = shape.end_date if self.end_date is None else min(shape.end_date, self.end_date)
-        
         self.set_active_dates()
 
     def set_active_dates(self):

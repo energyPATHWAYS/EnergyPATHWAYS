@@ -46,6 +46,7 @@ class PathwaysModel(object):
         cfg.init_date_lookup()
         if shape.shapes.rerun:
             shape.shapes.create_empty_shapes()
+#            shape.shapes.activate_shape(cfg.electricity_energy_type_shape_id)
         cfg.init_outputs_id_map()
 
     def configure_energy_system(self):
@@ -188,14 +189,14 @@ class PathwaysModel(object):
         #calculate and format emobodied supply costs
         self.embodied_energy_costs_df = self.demand.outputs.return_cleaned_output('demand_embodied_energy_costs')
         self.embodied_energy_costs_df.columns = [cost_unit.upper()]  
-        del self.demand.outputs.demand_embodied_energy_costs
+#        del self.demand.outputs.demand_embodied_energy_costs
         keys = ["DOMESTIC","SUPPLY"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
            self.embodied_energy_costs_df = pd.concat([self.embodied_energy_costs_df],keys=[key],names=[name])       
         #calculte and format direct demand emissions        
         self.demand_costs_df= self.demand.outputs.return_cleaned_output('levelized_costs')  
-        del self.demand.outputs.levelized_costs
+#        del self.demand.outputs.levelized_costs
         keys = ["DOMESTIC","DEMAND"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
@@ -206,7 +207,6 @@ class PathwaysModel(object):
         keys = ['EXPORTED', 'SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['COST TYPE']
         self.outputs.costs = util.df_list_concatenate([self.export_costs_df, self.embodied_energy_costs_df, self.demand_costs_df],keys=keys,new_names=names)
-        util.replace_index_name(self.outputs.costs, "ENERGY","FINAL_ENERGY")
 #        util.replace_index_name(self.outputs.costs, self.geography.upper() +'_EARNED', self.geography.upper() +'_SUPPLY')
 #        util.replace_index_name(self.outputs.costs, self.geography.upper() +'_CONSUMED', self.geography.upper())
         self.outputs.costs[self.outputs.costs<0]=0
@@ -219,6 +219,8 @@ class PathwaysModel(object):
         #calculate and format export emissions
         if self.supply.export_emissions is not None:
             setattr(self.outputs,'export_emissions',self.supply.export_emissions)
+            if 'supply_geography' not in cfg.output_combined_levels:
+                util.remove_df_levels(self.outputs.export_emissions,self.geography +'_supply')
             self.export_emissions_df = self.outputs.return_cleaned_output('export_emissions')
 #            del self.outputs.export_emissions
             util.replace_index_name(self.export_emissions_df, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')

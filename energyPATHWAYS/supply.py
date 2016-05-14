@@ -335,7 +335,7 @@ class Supply(object):
                         self.reconcile_trades(year,loop)
                         if self.reconciled is True:
                             #if reconciliation has occured, we have to recalculate coefficients and resolve the io
-    #                        self.calculate_stocks(year, loop)
+#                            self.calculate_stocks(year, loop)
                             self.calculate_coefficients(year,loop)
                             self.update_io_df(year)
                             self.calculate_io(year, loop)
@@ -355,7 +355,7 @@ class Supply(object):
 #                        self.reconcile_trades(year,loop)
 #                        if self.reconciled is True:
 #                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
-#    #                        self.calculate_stocks(year, loop)
+#                            self.calculate_stocks(year, loop)
 #                            self.calculate_coefficients(year,loop)
 #                            self.update_io_df(year)
 #                            self.calculate_io(year, loop)
@@ -383,7 +383,7 @@ class Supply(object):
                     if loop == 3:
                         self.prepare_dispatch_inputs(year, loop)
                         self.solve_electricity_dispatch(year)
-#                        self.calculate_coefficients(year,loop)
+                        self.calculate_coefficients(year,loop)
                         self.update_coefficients_from_dispatch(year)
                         self.update_io_df(year)
                         self.calculate_io(year, loop)
@@ -403,7 +403,7 @@ class Supply(object):
                         self.reconcile_trades(year,loop)
                         if self.reconciled is True:
                             #if reconciliation has occured, we have to recalculate coefficients and resolve the io
-    #                        self.calculate_stocks(year, loop)
+#                            self.calculate_stocks(year, loop)
                             self.calculate_coefficients(year,loop)
                             self.update_io_df(year)
                             self.calculate_io(year, loop)
@@ -442,7 +442,7 @@ class Supply(object):
                         if self.reconciled is True:
                             self.update_demand(year,loop)
                             #if reconciliation has occured, we have to recalculate coefficients and resolve the io
-#                           self.calculate_stocks(year, loop)
+#                            self.calculate_stocks(year, loop)
                             self.calculate_coefficients(year,loop)
                             self.update_io_df(year)
                             self.calculate_io(year, loop)    
@@ -451,7 +451,7 @@ class Supply(object):
                     if loop == 3:
                         self.prepare_dispatch_inputs(year, loop)
                         self.solve_electricity_dispatch(year)
-#                        self.calculate_coefficients(year,loop)
+                        self.calculate_coefficients(year,loop)
                         self.update_coefficients_from_dispatch(year)
                         self.update_io_df(year)
                         self.calculate_io(year,loop)
@@ -1972,11 +1972,23 @@ class Supply(object):
         Args:
             year (int) = year of analysis 
         """
+        for geography in self.geographies:
+            #fix for zero energy demand
+            if util.df_slice(self.io_total_active_demand_df,geography,self.geography).sum().sum()==0:     
+                for col_node in self.nodes.values():
+                    if col_node.supply_type == 'Blend':
+                        if col_node.active_coefficients_total is None:
+                            continue
+                        else:
+                            col_indexer = util.level_specific_indexer(col_node.active_coefficients_total,self.geography,geography,axis=1)
+                            normalized = col_node.active_coefficients_total.loc[:,col_indexer].groupby(level=['demand_sector']).transform(lambda x: x/x.sum())
+                            normalized = normalized.replace([np.nan,np.inf],1E-7)
+                            col_node.active_coefficients_total.loc[:,col_indexer] = normalized
         for col_node in self.nodes.values():
             if col_node.active_coefficients_total is None:
-                continue
+               continue
             else:
-                for sector in self.demand_sectors:
+               for sector in self.demand_sectors:
                     levels = ['supply_node' ]
                     col_indexer = util.level_specific_indexer(self.io_dict[year][sector], levels=levels, elements=[col_node.id])
                     row_nodes = list(map(int,col_node.active_coefficients_total.index.levels[util.position_in_index(col_node.active_coefficients_total,'supply_node')]))
@@ -1985,8 +1997,9 @@ class Supply(object):
                     active_row_indexer =  util.level_specific_indexer(col_node.active_coefficients_total, levels=levels, elements=[sector,row_nodes]) 
                     active_col_indexer = util.level_specific_indexer(col_node.active_coefficients_total, levels=['demand_sector'], elements=[sector], axis=1)
                     self.io_dict[year][sector].loc[row_indexer, col_indexer] = col_node.active_coefficients_total.loc[active_row_indexer,active_col_indexer].values
-
-                        
+ 
+                
+                
     def feed_physical_emissions(self, year, emissions_node, active_physical_emissions_rate):
         """Propagates physical emissions rates of energy products to downstream nodes in order to calculate emissions in each node
         Args:
@@ -2078,15 +2091,22 @@ class Supply(object):
         self.map_demand_to_io()
         self.io_active_supply_df = copy.deepcopy(self.empty_output_df)        
         self.map_export_to_io(year, loop)
+#        indexer = util.level_specific_indexer(self.io_demand_df.loc[:,year].to_frame(),'supply_node',self.distribution)
+#        self.io_a
         self.io_total_active_demand_df = DfOper.add([self.io_demand_df.loc[:,year].to_frame(),self.io_export_df.loc[:,year].to_frame()])   
-  
+
+        
     def calculate_demand(self,year,loop):
         self.map_export_to_io(year, loop)
         self.io_total_active_demand_df = DfOper.add([self.io_demand_df.loc[:,year].to_frame(),self.io_export_df.loc[:,year].to_frame()])
-    
+
+        
+        
     def update_demand(self, year, loop):
         self.map_export_to_io(year, loop)
         self.io_total_active_demand_df = DfOper.add([self.io_demand_df.loc[:,year].to_frame(),self.io_export_df.loc[:,year].to_frame()])
+
+        
         
     def calculate_io(self, year, loop):
         index = pd.MultiIndex.from_product([self.geographies, self.all_nodes
@@ -2199,7 +2219,7 @@ class Supply(object):
 
                 
     def map_export_to_io(self,year, loop):
-        """maps specified export ubsector nodes for IO table total demand calculation"""    
+        """maps specified export nodes for IO table total demand calculation"""    
         for node in self.nodes.values():
             supply_indexer = util.level_specific_indexer(self.io_export_df, 'supply_node', node.id)     
             node.export.allocate(node.active_supply, self.demand_sectors, self.years, year, loop)

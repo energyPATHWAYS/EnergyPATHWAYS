@@ -307,12 +307,9 @@ class Sector(object):
         loops through subsectors making sure to calculate subsector precursors
         before calculating subsectors themselves
         """
-        for id in set(util.flatten_list(self.subsector_precursors.values())):
-            subsector = self.subsectors[id]
-            self.calculate_precursors(subsector)
-        for subsector in self.subsectors.values():
-            subsector.linked_service_demand_drivers = self.service_precursors[subsector.id]
-            subsector.linked_stock = self.stock_precursors[subsector.id]
+        precursors = set(util.flatten_list(self.subsector_precursors.values()))
+        self.calculate_precursors(precursors)
+        self.calculate_links(self.subsectors.keys(), precursors)
         if cfg.cfgfile.get('case','parallel_process') == 'True':
             available_cpus = multiprocessing.cpu_count()   
             pool = Pool(processes=available_cpus)
@@ -335,46 +332,69 @@ class Sector(object):
 
 
 
-    def calculate_precursors(self, subsector):
+    def calculate_precursors(self, precursors):
         """ 
         calculates subsector if all precursors have been calculated
         """
         # checks whether the subsector has precursors in the subsector_precursors dictionary
-        if self.subsector_precursors.has_key(subsector.id):
-            # loops through subsector precursors
-            for precursor_id in self.subsector_precursors[subsector.id]:
-                # finds subsector in the demand sectors and subsectors
-                    if precursor_id in self.subsectors.keys():
-                        # precursor is the class instance of the precursor subsector id
-                        precursor = self.subsectors[precursor_id]
-                        if precursor.calculated:
-                            # checks whether the precursor has been calculated. If it has, update the service_precursors dictionary
-                            # with the output_service_drivers if applicable. This allows a subsector to output service drivers to multiple
-                            # subsectors
-                            if precursor.output_service_drivers.has_key(subsector.id):
-                                self.service_precursors[subsector.id].update(
-                                    {precursor.id: precursor.output_service_drivers[subsector.id]})
-                            continue
-                        else:
-                            self.calculate_precursors(precursor)
-                            if precursor.output_service_drivers.has_key(subsector.id):
-                                # update the service_precursors dictionary
-                                # with the output_service_drivers if applicable
-                                self.service_precursors[subsector.id].update(
-                                    {precursor.id: precursor.output_service_drivers[subsector.id]})
-                            # loops through linked technology stocks from the precursor
-                            for technology in precursor.output_technology_stocks.keys():
-                                if technology in subsector.technologies.keys():
-                                    # updates stock_precursor values dictionary with linked technology stocks
-                                    self.stock_precursors[subsector.id].update(
-                                        {technology: precursor.output_technology_stocks[technology]})                  
+        for id in precursors:
+            subsector = self.subsectors[id]
+            if self.subsector_precursors.has_key(subsector.id):
+                # loops through subsector precursors
+                for precursor_id in self.subsector_precursors[subsector.id]:
+                    # finds subsector in the demand sectors and subsectors
+                        if precursor_id in self.subsectors.keys():
+                            # precursor is the class instance of the precursor subsector id
+                            precursor = self.subsectors[precursor_id]
+                            if precursor.calculated:
+                                # checks whether the precursor has been calculated. If it has, update the service_precursors dictionary
+                                # with the output_service_drivers if applicable. This allows a subsector to output service drivers to multiple
+                                # subsectors
+                                if precursor.output_service_drivers.has_key(subsector.id):
+                                    self.service_precursors[subsector.id].update(
+                                        {precursor.id: precursor.output_service_drivers[subsector.id]})
+                                for technology in precursor.output_technology_stocks.keys():
+                                    if technology in subsector.technologies.keys():
+                                        # updates stock_precursor values dictionary with linked technology stocks
+                                        self.stock_precursors[subsector.id].update(
+                                            {technology: precursor.output_technology_stocks[technology]})           
+                            else:
+                                self.calculate_precursors(precursor)
+#                                if precursor.output_service_drivers.has_key(subsector.id):
+#                                    # update the service_precursors dictionary
+#                                    # with the output_service_drivers if applicable
+#                                    self.service_precursors[subsector.id].update(
+#                                        {precursor.id: precursor.output_service_drivers[subsector.id]})
+#                                # loops through linked technology stocks from the precursor
+#                                for technology in precursor.output_technology_stocks.keys():
+#                                    if technology in subsector.technologies.keys():
+#                                        # updates stock_precursor values dictionary with linked technology stocks
+#                                        self.stock_precursors[subsector.id].update(
+#                                            {technology: precursor.output_technology_stocks[technology]})                  
+#    
+            # calculate after precursor loop is complete
+            ##        print '  '+subsector.name
+            #        # pass service demand and stock preursors to subsector
+            subsector.linked_service_demand_drivers = self.service_precursors[subsector.id]
+            subsector.linked_stock = self.stock_precursors[subsector.id]
+            self.subsectors[subsector.id]= calculate(subsector)
 
-        # calculate after precursor loop is complete
-        ##        print '  '+subsector.name
-        #        # pass service demand and stock preursors to subsector
-        subsector.linked_service_demand_drivers = self.service_precursors[subsector.id]
-        subsector.linked_stock = self.stock_precursors[subsector.id]
-        self.subsectors[subsector.id]= calculate(subsector)
+    def calculate_links(self,all_subsectors, precursors):
+        for subsector_id in all_subsectors:
+            subsector = self.subsectors[subsector_id]
+            for precursor_id in precursors:
+                precursor = self.subsectors[precursor_id]
+                if precursor.output_service_drivers.has_key(subsector.id):
+                    self.service_precursors[subsector.id].update(
+                            {precursor.id: precursor.output_service_drivers[subsector.id]})
+                for technology in precursor.output_technology_stocks.keys():
+                    if hasattr(subsector,'technologies') and technology in subsector.technologies.keys():
+                        # updates stock_precursor values dictionary with linked technology stocks
+                        self.stock_precursors[subsector.id].update(
+                            {technology: precursor.output_technology_stocks[technology]})   
+            subsector.linked_service_demand_drivers = self.service_precursors[subsector.id]
+            subsector.linked_stock = self.stock_precursors[subsector.id]
+
 
     def aggregate_subsector_energy_for_supply_side(self):
         """Aggregates for the supply side, works with function in demand"""
@@ -1701,13 +1721,17 @@ class Subsector(DataMapFunctions):
         self.remap_linked_stock()
         if self.stock.has_linked_technology:
             # if a stock a technology stock that is linked from other subsectors, we goup by the levels found in the stotal stock of the subsector
-            full_names = self.stock.total.index.names + ['technology']           
+            full_names = [x for x in self.stock.total.index.names]
+            full_names.insert(-1,'technology')         
             linked_technology = self.stock.linked_technology.groupby(
                 level=[x for x in self.stock.linked_technology.index.names if x in full_names]).sum()
-            self.stock.technology = self.stock.technology.sort_index()
+            linked_technology = linked_technology.reorder_levels(full_names)
+            linked_technology.sort(inplace=True)
+            self.stock.technology = self.stock.technology.reorder_levels(full_names)
+            self.stock.technology.sort(inplace=True)
             # expand the levels of the subsector's endogenous technology stock so that it includes all years. That's because the linked stock specification will be for all years
             linked_technology = linked_technology[linked_technology.index.get_level_values('year')>=min(self.years)]
-            linked_technology = linked_technology.reindex(index=self.stock.technology.index).sort_index()
+            linked_technology = util.DfOper.none([linked_technology,self.stock.technology],fill_value=np.nan)
             # if a technology isn't technology by a lnk to another subsector, replace it with subsector stock specification
             linked_technology = linked_technology.mask(np.isnan(linked_technology), self.stock.technology)
             # check whether this combination exceeds the total stock
@@ -1969,7 +1993,7 @@ class Subsector(DataMapFunctions):
             total = util.remove_df_levels(self.stock.total, 'technology')
             self.stock.remap(map_from='linked_technology', map_to='linked_technology', drivers=total,
                              current_geography=cfg.cfgfile.get('case', 'primary_geography'), current_data_type='total',
-                             time_index=self.years)
+                             time_index=self.years)           
             self.stock.has_linked_technology = True
         else:
             self.stock.has_linked_technology = False
@@ -2101,8 +2125,7 @@ class Subsector(DataMapFunctions):
             for tech_id in self.tech_ids:
                 for sales_share in self.technologies[tech_id].sales_shares.values():
                     repl_index = tech_lookup[sales_share.demand_tech_id]
-                    if not tech_lookup.has_key(
-                        sales_share.replaced_demand_tech_id):
+                    if sales_share.replaced_demand_tech_id is not None and not tech_lookup.has_key(sales_share.replaced_demand_tech_id):
                             #if you're replacing a demand tech that doesn't have a sales share or stock in the model, this is zero and so we continue the loop
                             continue
                     reti_index = tech_lookup[
