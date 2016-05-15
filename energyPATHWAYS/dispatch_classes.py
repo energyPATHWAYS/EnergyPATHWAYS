@@ -566,8 +566,6 @@ class Dispatch(object):
         # we have to have dispatch periods or we can't allocate, if we don't have them, we just return the base maintenance rates
         if dispatch_periods is None:
             return None
-        
-        pmaxs = np.clip(pmaxs, min(pmaxs[np.nonzero(pmaxs)]), None)
         annual_maintenance_rates = np.clip(annual_maintenance_rates, 0, None)
         if not group_cuts:
             return annual_maintenance_rates

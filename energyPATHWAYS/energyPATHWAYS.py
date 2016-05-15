@@ -222,7 +222,7 @@ class PathwaysModel(object):
             if 'supply_geography' not in cfg.output_combined_levels:
                 util.remove_df_levels(self.outputs.export_emissions,self.geography +'_supply')
             self.export_emissions_df = self.outputs.return_cleaned_output('export_emissions')
-#            del self.outputs.export_emissions
+            del self.outputs.export_emissions
             util.replace_index_name(self.export_emissions_df, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
             keys = ["EXPORT","SUPPLY"]
             names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
@@ -255,7 +255,7 @@ class PathwaysModel(object):
         keys = ['EXPORTED', 'SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['EMISSIONS TYPE']
         self.outputs.emissions = util.df_list_concatenate([self.export_emissions_df, self.embodied_emissions_df, self.direct_emissions_df],keys=keys,new_names = names)
-        util.replace_index_name(self.outputs.emissions, "ENERGY","FINAL_ENERGY")
+#        util.replace_index_name(self.outputs.emissions, "ENERGY","FINAL_ENERGY")
         util.replace_index_name(self.outputs.emissions, self.geography.upper() +'_EMITTED', self.geography.upper() +'_SUPPLY')
         util.replace_index_name(self.outputs.emissions, self.geography.upper() +'_CONSUMED', self.geography.upper())
         self.outputs.emissions= self.outputs.emissions[self.outputs.emissions['VALUE']!=0]
