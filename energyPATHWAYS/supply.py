@@ -1165,23 +1165,23 @@ class Supply(object):
                 thermal_dispatch_df.loc[indexer,:] = dispatch_results[output]
             return thermal_dispatch_df
 
-#        if cfg.cfgfile.get('case','parallel_process') == 'True':
-#            available_cpus = max(multiprocessing.cpu_count(),len(self.dispatch_geographies))     
-#            pool = Pool(processes=available_cpus)
-#            dispatch_results = pool.map(run_thermal_dispatch,parallel_params)
-#            dispatch_results = pd.concat(dispatch_results)
-#            self.active_thermal_dispatch_df= dispatch_results    
-#            pool.close()
-#            pool.join()
-#            pool.terminate()
-#        else:
-        dispatch_result_list = []
-        for params in parallel_params:
-            dispatch_results = run_thermal_dispatch(params)
-            dispatch_result_list.append(dispatch_results)
-        dispatch_results = pd.concat(dispatch_result_list)
-        dispatch_results.sort(inplace=True)
-        self.active_thermal_dispatch_df= dispatch_results        
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            available_cpus = max(multiprocessing.cpu_count(),len(self.dispatch_geographies))     
+            pool = Pool(processes=available_cpus)
+            dispatch_results = pool.map(run_thermal_dispatch,parallel_params)
+            dispatch_results = pd.concat(dispatch_results)
+            self.active_thermal_dispatch_df= dispatch_results    
+            pool.close()
+            pool.join()
+            pool.terminate()
+        else:
+            dispatch_result_list = []
+            for params in parallel_params:
+                dispatch_results = run_thermal_dispatch(params)
+                dispatch_result_list.append(dispatch_results)
+            dispatch_results = pd.concat(dispatch_result_list)
+            dispatch_results.sort(inplace=True)
+            self.active_thermal_dispatch_df= dispatch_results        
         for node_id in self.thermal_dispatch_nodes:
             node = self.nodes[node_id]
             node.stock.capacity_factor.loc[:,year] = 0

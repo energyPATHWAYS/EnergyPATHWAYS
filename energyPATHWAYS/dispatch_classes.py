@@ -334,6 +334,8 @@ class Dispatch(object):
       self.alloc_geography = dict()
       self.alloc_capacity = dict()
       self.alloc_energy = dict()
+      self.alloc_charging_efficiency = dict()
+      self.alloc_discharging_efficiency = dict()
       self.generation_technologies = []
       self.variable_costs = {}
       for dispatch_geography in storage_capacity_dict['power'].keys():
@@ -352,6 +354,11 @@ class Dispatch(object):
                         self.alloc_geography[tech_dispatch_id] = dispatch_geography
                         self.alloc_capacity[tech_dispatch_id] = self.capacity[tech_dispatch_id] * len(self.period_hours)
                         self.alloc_energy[tech_dispatch_id] = self.energy[tech_dispatch_id]
+                        x = 1/np.sqrt(storage_efficiency_dict[dispatch_geography][zone][feeder][tech])
+                        if not np.isfinite(x):
+                            x = 1
+                        self.alloc_charging_efficiency[tech_dispatch_id] = x
+                        self.alloc_discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.alloc_charging_efficiency)[tech_dispatch_id] 
                      else:
                         self.large_storage[tech_dispatch_id] = 0
                      x = 1/np.sqrt(storage_efficiency_dict[dispatch_geography][zone][feeder][tech])
@@ -379,7 +386,7 @@ class Dispatch(object):
                                      MORs=MOR, must_run=must_runs, pad_stack=True, zero_mc_4_must_run=True)
         generator_numbers = range(len(clustered_dict['derated_pmax']))
         for number in generator_numbers:
-            generator = str(self.dispatch_geographies.index(geography)+1 * (number + 1))
+            generator = str(((max(generator_numbers)+1)* (self.dispatch_geographies.index(geography))) + (number)+1)
             if generator not in self.generation_technologies:
                 self.generation_technologies.append(generator)
             self.geography[generator] = geography
@@ -560,7 +567,7 @@ class Dispatch(object):
         if dispatch_periods is None:
             return None
         
-        pmaxs = np.clip(pmaxs, 0, None)
+        pmaxs = np.clip(pmaxs, min(pmaxs[np.nonzero(pmaxs)]), None)
         annual_maintenance_rates = np.clip(annual_maintenance_rates, 0, None)
         if not group_cuts:
             return annual_maintenance_rates
@@ -700,7 +707,7 @@ class Dispatch(object):
         return marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights
 
     @staticmethod
-    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals=0, reserves=0.1, max_outage_rate_for_capacity_eligibility=.25):
+    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals=0, reserves=0.1, max_outage_rate_for_capacity_eligibility=.75):
         stock_changes = np.zeros(len(capacity_weights))
         
         max_by_load_group = np.array([Dispatch._get_load_level_lookup(np.array([max(group)]), 0, reserves, decimals)[0] for group in load_groups])
@@ -712,22 +719,17 @@ class Dispatch(object):
         for i in order:
             load_group = load_groups[i]
             max_lookup = Dispatch._get_load_level_lookup(np.array([max(load_group)]), 0, reserves, decimals)[0]
-            
             combined_rate = Dispatch._get_combined_outage_rate(FOR[i], MOR[i])
-            
             derated_capacity = Dispatch._get_derated_capacity(pmaxs[i]+stock_changes, combined_rate, decimals)
-            
             normed_capacity_weights = copy.deepcopy(capacity_weights)
             normed_capacity_weights[combined_rate>max_outage_rate_for_capacity_eligibility] = 0
-            if not sum(normed_capacity_weights):
-                raise ValueError('No generator can be added to increase capacity given outage rates')
-            normed_capacity_weights /= sum(normed_capacity_weights)
-            ncwi = np.nonzero(normed_capacity_weights)[0]
-            
-            residual_for_load_balance = float(max_lookup - sum(derated_capacity))/10**decimals
-            
-            # we need more capacity
+            residual_for_load_balance = float(max_lookup - sum(derated_capacity))/10**decimals   
             if residual_for_load_balance > 0:
+                if not sum(normed_capacity_weights):
+                    raise ValueError('No generator can be added to increase capacity given outage rates')
+                normed_capacity_weights /= sum(normed_capacity_weights)
+                ncwi = np.nonzero(normed_capacity_weights)[0]
+            # we need more capacity
                 stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - combined_rate[ncwi])
                 
         return stock_changes
@@ -858,20 +860,10 @@ class Dispatch(object):
         output_bulk_dfs = [x[0] for x in results]
         output_dist_dfs = [x[1] for x in results]
         output_flex_dfs = [x[2] for x in results]
+#        self.optimization_instance = [x[3] for x in results]
         self.bulk_storage_df = util.DfOper.add(output_bulk_dfs)
         self.dist_storage_df = util.DfOper.add(output_dist_dfs)
         self.flex_load_df = util.DfOper.add(output_flex_dfs)
-  
-
-            
-            
-    def run_dispatch_optimization(self, start_state_of_charge, end_state_of_charge, period):
-        """
-        :param period:
-        :return:
-        """
-
-
                 
     def run_year_to_month_allocation(self):
         model = year_to_period_allocation.year_to_period_allocation_formulation(self)
@@ -924,9 +916,9 @@ class Dispatch(object):
                                              )]
                                            )
 
-                Dispatch.nested_dict(start_soc, [p, t], instance.Energy_in_Storage[t, p].value)
-                Dispatch.nested_dict(end_soc, [p, t], instance.Energy_in_Storage[t, p].value - (instance.Discharge[t, p].value-instance.Charge[t, p].value))
-
+                Dispatch.nested_dict(start_soc, [p, t], instance.Energy_in_Storage[t, p].value*.999)
+                Dispatch.nested_dict(end_soc, [p, t], (instance.Energy_in_Storage[t, p].value - (instance.Discharge[t, p].value-instance.Charge[t, p].value))*.999)
+                
         state_of_charge = [start_soc, end_soc]
         return state_of_charge
 

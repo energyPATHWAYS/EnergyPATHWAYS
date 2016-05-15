@@ -67,6 +67,10 @@ def year_to_period_allocation_formulation(dispatch):
                                             initialize=dispatch.alloc_capacity)
     allocation_model.energy_capacity = Param(allocation_model.VERY_LARGE_STORAGE_TECHNOLOGIES,
                                              initialize=dispatch.alloc_energy)
+    allocation_model.charging_efficiency = Param(allocation_model.VERY_LARGE_STORAGE_TECHNOLOGIES,
+                                             initialize=dispatch.alloc_charging_efficiency)
+    allocation_model.discharging_efficiency = Param(allocation_model.VERY_LARGE_STORAGE_TECHNOLOGIES,
+                                             initialize=dispatch.alloc_discharging_efficiency)
 
     allocation_model.average_net_load = Param(allocation_model.GEOGRAPHIES, initialize=dispatch.average_net_load)
     allocation_model.period_net_load = Param(allocation_model.GEOGRAPHIES, allocation_model.PERIODS,
@@ -131,14 +135,14 @@ def year_to_period_allocation_formulation(dispatch):
                                                                      rule=storage_energy_tracking_rule)
 
     def storage_discharge_rule(model, technology, period):
-        return model.Discharge[technology, period] <= model.power_capacity[technology]
+        return model.Discharge[technology, period] <= model.power_capacity[technology]/model.discharging_efficiency[technology]
 
     allocation_model.Storage_Discharge_Constraint = Constraint(allocation_model.VERY_LARGE_STORAGE_TECHNOLOGIES,
                                                                allocation_model.PERIODS,
                                                                rule=storage_discharge_rule)
 
     def storage_charge_rule(model, technology, period):
-        return model.Charge[technology, period] <= model.power_capacity[technology]
+        return model.Charge[technology, period] <= model.power_capacity[technology] * model.charging_efficiency[technology]
 
     allocation_model.Storage_Charge_Constraint = Constraint(allocation_model.VERY_LARGE_STORAGE_TECHNOLOGIES,
                                                             allocation_model.PERIODS,
