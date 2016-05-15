@@ -557,17 +557,12 @@ class Dispatch(object):
         return clustered
 
     @staticmethod
-    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.2, load_ptile=99.5):
+    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.3, load_ptile=99.5, individual_plant_maintenance=False):
         # gives the index for the change between dispatch_periods
         group_cuts = list(np.where(np.diff(dispatch_periods)!=0)[0]+1) if dispatch_periods is not None else None
         group_lengths = np.array([group_cuts[0]] + list(np.diff(group_cuts)) + [len(load)-group_cuts[-1]])
         num_groups = len(group_cuts)+1
         
-        # we have to have dispatch periods or we can't allocate, if we don't have them, we just return the base maintenance rates
-        if dispatch_periods is None:
-            return None
-        
-        pmaxs = np.clip(pmaxs, min(pmaxs[np.nonzero(pmaxs)]), None)
         annual_maintenance_rates = np.clip(annual_maintenance_rates, 0, None)
         if not group_cuts:
             return annual_maintenance_rates
@@ -587,30 +582,37 @@ class Dispatch(object):
         load_for_maint = np.copy(load)
         set_load_index = np.intersect1d(np.nonzero(not_okay_for_maint)[0], np.nonzero(load<load_cut)[0])
         load_for_maint[set_load_index] = load_cut
+        load_for_maint = np.max(np.reshape(load_for_maint, (len(load_for_maint)/24, 24)), axis=1)
+        load_for_maint *= (sum(load)/sum(load_for_maint))
             
-        energy_allocation = Dispatch.dispatch_to_energy_budget(load_for_maint, -maintenance_energy, pmins=sum_capacity*min_maint, pmaxs=sum_capacity*max_maint)
-        energy_allocation_by_group = np.array([np.sum(ge) for ge in np.array_split(energy_allocation, group_cuts)])
+        energy_allocation = Dispatch.dispatch_to_energy_budget(load_for_maint, -maintenance_energy, pmins=sum_capacity*min_maint, pmaxs=sum_capacity*max_maint*24)
+        energy_allocation_by_group = np.array([np.sum(ge) for ge in np.array_split(energy_allocation, np.array(group_cuts)/24)])
+        energy_allocation_normed = energy_allocation_by_group/sum(energy_allocation_by_group)
         
-        # go in order from largest generator to smallest generator and asign out the maintenance
-        gen_maintenance = np.empty((num_groups, len(pmax)))
-        for i in np.argsort(pmax)[-1::-1]:
-            arg_sort_group = np.argsort(energy_allocation_by_group)[-1::-1]
-            max_gen_maint = np.array([c*group_len for c, group_len in zip(pmaxs[:,i], group_lengths)])
-            plant_energy_allocation = np.zeros(num_groups)
-            remaining_energy_to_allocate = maintenance_energy_by_plant[i]
-            cycle = 0
-            while remaining_energy_to_allocate > 0:
-                energy_to_allocate = min(remaining_energy_to_allocate, max_gen_maint[arg_sort_group[cycle]])
-                plant_energy_allocation[arg_sort_group[cycle]] += energy_to_allocate
-                energy_allocation_by_group[arg_sort_group[cycle]] -= energy_to_allocate
-                max_gen_maint[arg_sort_group[cycle]] -= energy_to_allocate
-                remaining_energy_to_allocate -= energy_to_allocate
-                cycle+=1
-                if cycle>=num_groups:
-                    break
-            gen_maintenance[:,i] = plant_energy_allocation/group_lengths/pmaxs[:,i]
+        if not individual_plant_maintenance:
+            gen_maintenance = np.outer(energy_allocation_normed, annual_maintenance_rates)
+        else:
+            # go in order from largest generator to smallest generator and asign out the maintenance
+            gen_maintenance = np.empty((num_groups, len(pmax)))
+            for i in np.argsort(pmax)[-1::-1]:
+                arg_sort_group = np.argsort(energy_allocation_by_group)[-1::-1]
+                max_gen_maint = np.array([c*group_len for c, group_len in zip(pmaxs[:,i], group_lengths)])
+                plant_energy_allocation = np.zeros(num_groups)
+                remaining_energy_to_allocate = maintenance_energy_by_plant[i]
+                cycle = 0
+                while remaining_energy_to_allocate > 0:
+                    energy_to_allocate = min(remaining_energy_to_allocate, max_gen_maint[arg_sort_group[cycle]])
+                    plant_energy_allocation[arg_sort_group[cycle]] += energy_to_allocate
+                    energy_allocation_by_group[arg_sort_group[cycle]] -= energy_to_allocate
+                    max_gen_maint[arg_sort_group[cycle]] -= energy_to_allocate
+                    remaining_energy_to_allocate -= energy_to_allocate
+                    cycle+=1
+                    if cycle>=num_groups:
+                        break
+                gen_maintenance[:,i] = plant_energy_allocation/group_lengths/pmaxs[:,i]
+            
+            gen_maintenance[np.nonzero(pmaxs==0)] = np.outer(energy_allocation_normed, annual_maintenance_rates[np.nonzero(pmaxs==0)])                   
         
-        gen_maintenance[np.nonzero(pmaxs==0)] = 1
         if np.any(np.isnan(gen_maintenance)):
             raise ValueError("Calculation has returned maintenance rates of nan")
         return gen_maintenance
