@@ -2101,6 +2101,14 @@ class Subsector(DataMapFunctions):
         return SalesShare.normalize_array(ss_reference + ss_measure, retiring_must_have_replacement=False),reference_sales_shares
 
 
+    def calculate_total_sales_share_after_initial(self, elements, levels):
+        ss_measure = self.helper_calc_sales_share(elements, levels, reference=False)
+        space_for_reference = 1 - np.sum(ss_measure, axis=1)
+        ss_reference = SalesShare.scale_reference_array_to_gap( np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1)), space_for_reference)        
+           #sales shares are always 1 with only one technology so the default can be used as a reference                      
+        return SalesShare.normalize_array(ss_reference + ss_measure, retiring_must_have_replacement=False)
+
+
     def helper_calc_sales_share(self, elements, levels, reference, space_for_reference=None):
         num_techs = len(self.tech_ids)
         tech_lookup = dict(zip(self.tech_ids, range(num_techs)))
@@ -2195,10 +2203,11 @@ class Subsector(DataMapFunctions):
             sales_share, initial_sales_share = self.calculate_total_sales_share(elements, self.stock.rollover_group_names)  # group is not necessarily the same for this other dataframe
             if np.any(np.isnan(sales_share)):
                 raise ValueError('Sales share has NaN values in subsector ' + str(self.id))
+
+            initial_stock, rerun_sales_shares = self.calculate_initial_stock(elements,sales_share,initial_sales_share)
             
-            
-            
-            initial_stock = self.calculate_initial_stock(elements,sales_share,initial_sales_share)
+            if rerun_sales_shares:
+               sales_share =  self.calculate_total_sales_share_after_initial(elements, self.stock.rollover_group_names)
 
             technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names)
 
@@ -2233,15 +2242,23 @@ class Subsector(DataMapFunctions):
              min_technology_year = min(technology_years)
         else:
              min_technology_year = None
+        #Best way is if we have all technology stocks specified
         if np.nansum(self.stock.technology.loc[elements,:].values[0])==self.stock.total.loc[elements,:].values[0]:
-            initial_stock = self.stock.technology.loc[elements,:].values[0] 
+            initial_stock = self.stock.technology.loc[elements,:].values[0]
+            rerun_sales_shares = False
+        #Second best way is if we have an initiaal sales share
         elif initial_sales_share:                
             initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, transition_matrix=sales_share[0], num_years=len(self.years))
+            rerun_sales_shares = True
+        #Third best way is if we have specified some technologies in the initial year, even if not all
         elif min_technology_year:
             initial_stock = self.stock.technology.loc[elements+(min_technology_year,),:].values/np.nansum(self.stock.technology.loc[elements+(min_technology_year,),:].values) * initial_total 
+            rerun_sales_shares = False
         else:
             raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the technology composition of the initial stock')
-        return initial_stock
+        return initial_stock, rerun_sales_shares
+        
+
 
     def determine_need_for_aux_efficiency(self):
         """ determines whether auxiliary efficiency calculations are necessary. Used to avoid unneccessary calculations elsewhere """

@@ -47,6 +47,7 @@ class SupplyTechnology(StockItem):
         for att in attributes:
             obj = getattr(self, att)
             if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'calculate'):
+                    print self.id
                     obj.calculate(self.vintages, self.years)
 
     def add_sales_share_measures(self, package_id):
@@ -54,10 +55,10 @@ class SupplyTechnology(StockItem):
         measure_ids = util.sql_read_table('SupplySalesShareMeasurePackagesData', 'measure_id', package_id=package_id,
                                           return_iterable=True)
         for measure_id in measure_ids:
-            sales_share_ids = util.sql_read_table('SupplySalesShareMeasures', 'id', demand_tech_id=self.id, id=measure_id,
+            sales_share_ids = util.sql_read_table('SupplySalesShareMeasures', 'id', supply_technology_id=self.id, id=measure_id,
                                                   return_iterable=True)
             for sales_share_id in sales_share_ids:
-                self.sales_shares[sales_share_id] = SupplySalesShare(id=sales_share_id, node_id=self.node_id,
+                self.sales_shares[sales_share_id] = SupplySalesShare(id=sales_share_id, supply_node_id=self.supply_node_id,
                                                                      reference=False, sql_id_table='SupplySalesShareMeasures',
                                                                      sql_data_table='SupplySalesShareMeasuresData',
                                                                      primary_key='id', data_id_key='parent_id')
@@ -67,10 +68,10 @@ class SupplyTechnology(StockItem):
         measure_ids = util.sql_read_table('SupplySalesMeasurePackagesData', 'measure_id', package_id=package_id,
                                           return_iterable=True)
         for measure_id in measure_ids:
-            sales_ids = util.sql_read_table('SupplySalesMeasures', 'id', demand_tech_id=self.id, id=measure_id,
+            sales_ids = util.sql_read_table('SupplySalesMeasures', 'id', supply_technology_id=self.id, id=measure_id,
                                                   return_iterable=True)
             for sales_id in sales_ids:
-                self.sales[sales_id] = SupplySales(id=sales_id, node_id=self.node_id,
+                self.sales[sales_id] = SupplySales(id=sales_id, supply_node_id=self.supply_node_id,
                                                     reference=False, sql_id_table='SupplySalesMeasures',
                                                     sql_data_table='SupplySalesMeasuresData',
                                                     primary_key='id', data_id_key='parent_id')
@@ -224,7 +225,7 @@ class SupplyTechInvestmentCost(SupplyTechCost):
         """
         model_energy_unit = cfg.cfgfile.get('case', 'energy_unit')
         model_time_step = cfg.cfgfile.get('case', 'time_step')
-        if self.time_unit is not None:
+        if hasattr(self,'time_unit') and self.time_unit is not None:
             # if a cost has a time_unit, then the unit is energy and must be converted to capacity
             self.values = util.unit_convert(self.raw_values, unit_from_den=self.capacity_or_energy_unit,
                                             unit_from_num=self.time_unit, unit_to_den=model_energy_unit,
