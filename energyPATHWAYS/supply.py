@@ -1710,11 +1710,15 @@ class Supply(object):
             if node.reconciled is True:
                 node.update_residual(year)
         for node in self.nodes.values():
-            if year == int(cfg.cfgfile.get('case','current_year')):
+            if  node.id!=self.thermal_dispatch_node_id:
                 node.calculate_active_coefficients(year, loop)
-            elif node.id != self.thermal_dispatch_node_id:
-                #thermal dispatch node is updated through the dispatch
+            elif year == int(cfg.cfgfile.get('case','current_year')) and node.id == self.thermal_dispatch_node_id:
+                #thermal dispatch node is updated through the dispatch. In the first year we assume equal shares
+                #TODO make capacity weighted for better approximation
                 node.calculate_active_coefficients(year, loop)
+                node.active_coefficients_total[node.active_coefficients_total>0] = 1E-7
+                node.active_coefficients_total = node.active_coefficients_total.groupby(level=['demand_sector',self.geography]).transform(lambda x: x/x.sum())
+                node.active_coefficients_total.replace(to_replace=np.nan,value=0,inplace=True)
                 
                     
     def set_pass_through_dicts(self, year):
@@ -1886,6 +1890,7 @@ class Supply(object):
             if constrained_node in set(output_node.active_coefficients_total.index.get_level_values('supply_node')):
                   #if this output node is a blend node, the reconciliation happens here. 
                   if output_node.id in self.blend_nodes:
+                     print "constrained node %s being reconciled in blend node %s" %(self.nodes[constrained_node].name, output_node.name)
                      indexer = util.level_specific_indexer(output_node.values,'supply_node', constrained_node)
                      output_node.values.loc[indexer,year] =  DfOper.mult([output_node.values.loc[indexer, year].to_frame(),constraint_adjustment]).values
                      #flag for the blend node that it has been reconciled and needs to recalculate residual
@@ -2068,8 +2073,8 @@ class Supply(object):
 #            if hasattr(node, 'active_constraint_adjustment_df'):
 #                node.constraint_adjustment_dict[previous_year] = node.active_constraint_adjustment_df
 #                node.active_constraint_adjustment_df = node.constraint_adjustment_dict[year]
-            if not isinstance(node,SupplyStockNode) and not isinstance(node,StorageNode):
-                node.calculate_active_coefficients(year, loop)
+#            if not isinstance(node,SupplyStockNode) and not isinstance(node,StorageNode):
+#                node.calculate_active_coefficients(year, loop)
 
                 
     
@@ -2625,8 +2630,8 @@ class Node(DataMapFunctions):
             #reformat dataframes for a remap
             self.potential_exceedance[self.potential_exceedance<0] = 0
             self.potential_exceedance = self.potential_exceedance.replace([np.nan,np.inf],[1,1])
-            remap_active = pd.DataFrame(self.potential.active_potential.stack(), columns=['value'])
-            util.replace_index_name(remap_active, 'year')
+#            remap_active = pd.DataFrame(self.potential.active_potential.stack(), columns=['value'])
+#            util.replace_index_name(remap_active, 'year')
             self.potential_exceedance= pd.DataFrame(self.potential_exceedance.stack(), columns=['value'])
             util.replace_index_name(self.potential_exceedance, 'year')
             remove_levels = [x for x in self.potential_exceedance.index.names if x not in [self.tradable_geography,'demand_sector']]
@@ -2652,7 +2657,7 @@ class Node(DataMapFunctions):
 #            for key,name in zip(keys,names):
 #                potential_exceedance  = pd.concat([potential_exceedance]*len(key), axis=1, keys=key, names=[name])
 #            self.potential_exceedance = potential_exceedance 
-#            self.potential_exceedance.columns = self.potential_exceedance.columns.droplevel(-1)      
+#            self.potential_exceedance.columns = self.potential_exceedance.columns.droplevel(-1)     
             self.active_constraint_df = self.potential_exceedance
             if 'demand_sector' not in self.active_constraint_df.index.names:
                 keys = self.demand_sectors
@@ -4511,7 +4516,10 @@ class SupplyStockNode(Node):
             rerun_sales_shares = False
         elif initial_sales_share:                
             initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, transition_matrix=sales_share[0], num_years=len(self.years))
-            rerun_sales_shares = True      
+            if initial_stock.sum() ==0:
+                rerun_sales_shares = False
+            else:
+                rerun_sales_shares = True      
         elif min_technology_year:
             initial_stock = self.stock.technology_rollover.loc[elements+(min_technology_year,),:].fillna(0).values/np.nansum(self.stock.technology_rollover.loc[elements+(min_technology_year,),:].values) * initial_total 
             rerun_sales_shares = False          

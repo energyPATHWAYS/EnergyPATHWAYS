@@ -47,7 +47,6 @@ class SupplyTechnology(StockItem):
         for att in attributes:
             obj = getattr(self, att)
             if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'calculate'):
-                    print self.id
                     obj.calculate(self.vintages, self.years)
 
     def add_sales_share_measures(self, package_id):

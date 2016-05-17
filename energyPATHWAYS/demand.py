@@ -310,21 +310,21 @@ class Sector(object):
         precursors = set(util.flatten_list(self.subsector_precursors.values()))
         self.calculate_precursors(precursors)
         self.calculate_links(self.subsectors.keys(), precursors)
-        if cfg.cfgfile.get('case','parallel_process') == 'True':
-            available_cpus = multiprocessing.cpu_count()   
-            pool = Pool(processes=available_cpus)
-            multiprocessing.freeze_support()
-            subsectors = pool.map(calculate,self.subsectors.values())
-            self.subsectors = dict(zip(self.subsectors.keys(),subsectors))
-            pool.close()
-            pool.join()  
-        else:
-            for subsector in self.subsectors.values():
-                if subsector.calculated:
-                    pass
-                else:
-                    print "calculating " + subsector.name
-                    subsector.calculate() 
+#        if cfg.cfgfile.get('case','parallel_process') == 'True':
+#            available_cpus = multiprocessing.cpu_count()   
+#            pool = Pool(processes=available_cpus)
+#            multiprocessing.freeze_support()
+#            subsectors = pool.map(calculate,self.subsectors.values())
+#            self.subsectors = dict(zip(self.subsectors.keys(),subsectors))
+#            pool.close()
+#            pool.join()  
+#        else:
+        for subsector in self.subsectors.values():
+            if subsector.calculated:
+                pass
+            else:
+                print "calculating " + subsector.name
+                subsector.calculate() 
 
 ##        #clear the calculations for the next scenario loop
         for subsector in self.subsectors.values():
@@ -1736,7 +1736,7 @@ class Subsector(DataMapFunctions):
             linked_technology = linked_technology.mask(np.isnan(linked_technology), self.stock.technology)
             # check whether this combination exceeds the total stock
             linked_technology_total_check = util.remove_df_levels(linked_technology, 'technology')
-            total_check = DfOper.subt((linked_technology_total_check, self.stock.total))
+            total_check = util.DfOper.subt((linked_technology_total_check, self.stock.total))
             total_check[total_check < 0] = 0
             # if the total check fails, normalize all subsector inputs. We normalize the linked stocks as well.
             if total_check.sum().any() > 0:
@@ -1850,10 +1850,11 @@ class Subsector(DataMapFunctions):
                                      num_techs=len(measures.keys()), initial_stock=None,
                                      sales_share=None, stock_changes=annual_stock_change.values,
                                      specified_stock=specified_stock.values, specified_retirements=None)
-            try:
-                self.rollover.run()
-            except:
-                print elements
+            self.rollover_run()
+#            try:
+#                self.rollover.run()
+#            except:
+#                print elements
             stock_total, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
             stock.values.loc[elements], stock.retirements.loc[elements, 'value'] = stock_total, retirements
             stock.sales.loc[elements, 'value'] = sales_record
@@ -1993,7 +1994,7 @@ class Subsector(DataMapFunctions):
             total = util.remove_df_levels(self.stock.total, 'technology')
             self.stock.remap(map_from='linked_technology', map_to='linked_technology', drivers=total,
                              current_geography=cfg.cfgfile.get('case', 'primary_geography'), current_data_type='total',
-                             time_index=self.years)           
+                             time_index=self.years)    
             self.stock.has_linked_technology = True
         else:
             self.stock.has_linked_technology = False
@@ -2220,8 +2221,11 @@ class Subsector(DataMapFunctions):
                                      sales_share=sales_share, stock_changes=annual_stock_change.values,
                                      specified_stock=technology_stock.values, specified_retirements=None,
                                      steps_per_year=self.stock.spy)
-                                     
-            self.rollover.run()
+            try:                            
+                self.rollover.run()
+            except:
+                print self.name
+                print elements
             stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
             self.stock.values.loc[elements], self.stock.values_new.loc[elements], self.stock.values_replacement.loc[
                 elements] = stock, stock_new, stock_replacement
