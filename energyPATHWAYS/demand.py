@@ -1859,7 +1859,7 @@ class Subsector(DataMapFunctions):
                                      num_techs=len(measures.keys()), initial_stock=None,
                                      sales_share=None, stock_changes=annual_stock_change.values,
                                      specified_stock=specified_stock.values, specified_retirements=None)
-#            self.rollover_run()
+#            self.rollover._run()
             try:
                 self.rollover.run()
             except:
