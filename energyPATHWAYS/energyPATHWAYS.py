@@ -46,10 +46,8 @@ class PathwaysModel(object):
         cfg.init_date_lookup()
         if shape.shapes.rerun:
             shape.shapes.create_empty_shapes()
-            shape.shapes.activate_shape(cfg.electricity_energy_type_shape_id)
+#            shape.shapes.activate_shape(cfg.electricity_energy_type_shape_id)
         cfg.init_outputs_id_map()
-
-
 
     def configure_energy_system(self):
         print 'configuring energy system'
@@ -58,13 +56,12 @@ class PathwaysModel(object):
         self.configure_demand()
         self.configure_supply()
 
-
     def populate_energy_system(self):
         self.populate_demand_system()
         self.populate_supply_system()
+    
+    def populate_shapes(self):
         print 'processing shapes'
-        
-    def populate_shapes(self) :
         if shape.shapes.rerun:
             shape.shapes.initiate_active_shapes()
             shape.shapes.process_active_shapes()
@@ -149,7 +146,6 @@ class PathwaysModel(object):
         self.calculate_combined_energy_results()
     
     def export_results(self):
-
         for attribute in dir(self.outputs):
             if isinstance(getattr(self.outputs,attribute), pd.DataFrame):
                 result_df = getattr(self.outputs, attribute)
@@ -193,14 +189,14 @@ class PathwaysModel(object):
         #calculate and format emobodied supply costs
         self.embodied_energy_costs_df = self.demand.outputs.return_cleaned_output('demand_embodied_energy_costs')
         self.embodied_energy_costs_df.columns = [cost_unit.upper()]  
-        del self.demand.outputs.demand_embodied_energy_costs
+#        del self.demand.outputs.demand_embodied_energy_costs
         keys = ["DOMESTIC","SUPPLY"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
            self.embodied_energy_costs_df = pd.concat([self.embodied_energy_costs_df],keys=[key],names=[name])       
         #calculte and format direct demand emissions        
         self.demand_costs_df= self.demand.outputs.return_cleaned_output('levelized_costs')  
-        del self.demand.outputs.levelized_costs
+#        del self.demand.outputs.levelized_costs
         keys = ["DOMESTIC","DEMAND"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
@@ -211,7 +207,6 @@ class PathwaysModel(object):
         keys = ['EXPORTED', 'SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['COST TYPE']
         self.outputs.costs = util.df_list_concatenate([self.export_costs_df, self.embodied_energy_costs_df, self.demand_costs_df],keys=keys,new_names=names)
-        util.replace_index_name(self.outputs.costs, "ENERGY","FINAL_ENERGY")
 #        util.replace_index_name(self.outputs.costs, self.geography.upper() +'_EARNED', self.geography.upper() +'_SUPPLY')
 #        util.replace_index_name(self.outputs.costs, self.geography.upper() +'_CONSUMED', self.geography.upper())
         self.outputs.costs[self.outputs.costs<0]=0
@@ -224,8 +219,10 @@ class PathwaysModel(object):
         #calculate and format export emissions
         if self.supply.export_emissions is not None:
             setattr(self.outputs,'export_emissions',self.supply.export_emissions)
+            if 'supply_geography' not in cfg.output_combined_levels:
+                util.remove_df_levels(self.outputs.export_emissions,self.geography +'_supply')
             self.export_emissions_df = self.outputs.return_cleaned_output('export_emissions')
-#            del self.outputs.export_emissions
+            del self.outputs.export_emissions
             util.replace_index_name(self.export_emissions_df, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
             keys = ["EXPORT","SUPPLY"]
             names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
@@ -247,17 +244,18 @@ class PathwaysModel(object):
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
             self.direct_emissions_df = pd.concat([self.direct_emissions_df],keys=[key],names=[name])   
-        keys = self.direct_emissions_df.index.get_level_values(self.geography.upper()).values
-        names = self.geography.upper() +'_SUPPLY'
-        self.direct_emissions_df[names] = keys
-        self.direct_emissions_df.set_index(names,append=True,inplace=True)
+        if 'supply_geography' in cfg.output_combined_levels:
+            keys = self.direct_emissions_df.index.get_level_values(self.geography.upper()).values
+            names = self.geography.upper() +'_SUPPLY'
+            self.direct_emissions_df[names] = keys
+            self.direct_emissions_df.set_index(names,append=True,inplace=True)
 #        levels_to_keep = cfg.output_levels      
 #        levels_to_keep = [x.upper() for x in levels_to_keep]
 #        levels_to_keep += names + [self.geography.upper() +'_SUPPLY', 'SUPPLY_NODE']
         keys = ['EXPORTED', 'SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['EMISSIONS TYPE']
         self.outputs.emissions = util.df_list_concatenate([self.export_emissions_df, self.embodied_emissions_df, self.direct_emissions_df],keys=keys,new_names = names)
-        util.replace_index_name(self.outputs.emissions, "ENERGY","FINAL_ENERGY")
+#        util.replace_index_name(self.outputs.emissions, "ENERGY","FINAL_ENERGY")
         util.replace_index_name(self.outputs.emissions, self.geography.upper() +'_EMITTED', self.geography.upper() +'_SUPPLY')
         util.replace_index_name(self.outputs.emissions, self.geography.upper() +'_CONSUMED', self.geography.upper())
         self.outputs.emissions= self.outputs.emissions[self.outputs.emissions['VALUE']!=0]

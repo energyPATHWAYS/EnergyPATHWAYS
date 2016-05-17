@@ -213,7 +213,10 @@ class Rollover(object):
         self.sum_defined_sales = np.sum(self.defined_sales[self.specified])
 
         if len(self.specified) and np.sum(self.prior_year_stock):
-            if not self.stock_changes_as_min and round(sum(self.specified_stock[i][self.stock_specified]), 5) > round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5):
+            if not self.stock_changes_as_min and (round(sum(self.specified_stock[i][self.stock_specified]), 5) / round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5))>1.01:
+                print round(sum(self.specified_stock[i][self.stock_specified]), 5)
+                print round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5)
+                print  (round(sum(self.specified_stock[i][self.stock_specified]), 5) / round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5))
                 raise RuntimeError('Specified stock in a given year is greater than the total stock')
 
             # if we have both a specified stock and specified sales for a tech, we need to true up the vintaged stock to make both match, if possible

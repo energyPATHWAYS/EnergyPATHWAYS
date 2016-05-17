@@ -27,19 +27,19 @@ import year_to_period_allocation
 
 
   
-def run_optimization(zipped_inputs):
+def run_optimization(zipped_input):
     import numpy as np
-    period = zipped_inputs[0]
-    model = zipped_inputs[1]
-    bulk_storage_df = zipped_inputs[2]
-    dist_storage_df = zipped_inputs[3]
-    flex_load_df = zipped_inputs[4]
-    opt_hours = zipped_inputs[5]
-    period_hours = zipped_inputs[6]
+    period = zipped_input[0]
+    model = zipped_input[1]
+    bulk_storage_df = zipped_input[2]
+    dist_storage_df = zipped_input[3]
+    flex_load_df = zipped_input[4]
+    opt_hours = zipped_input[5]
+    period_hours = zipped_input[6]
     hours = list(period * opt_hours + np.asarray(period_hours))  
-    solver_name = zipped_inputs[7]      
-    stdout_detail = zipped_inputs[8]
-    dispatch_geography = zipped_inputs[9]
+    solver_name = zipped_input[7]      
+    stdout_detail = zipped_input[8]
+    dispatch_geography = zipped_input[9]
     if stdout_detail:
         print "Optimizing dispatch for period " + str(period)
     if stdout_detail:
@@ -97,7 +97,8 @@ def run_optimization(zipped_inputs):
                     flex_load.append(instance.Flexible_Load[geography, timepoint, feeder].value)
                 flex_load = np.asarray(flex_load)
                 flex_load_df.loc[indexer,:] = flex_load 
-    return [bulk_storage_df,dist_storage_df,flex_load_df]
+    return [bulk_storage_df, dist_storage_df, flex_load_df]
+
 
 
 
@@ -288,7 +289,7 @@ class Dispatch(object):
             for feeder in self.feeders:
                 for period in self.periods:
                     start = period * self.opt_hours
-                    stop = (period+1) * self.opt_hours
+                    stop = (period+1) * self.opt_hours - 1
                     if feeder !=0:
                         self.max_flex_load[period][(geography,feeder)] = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).iloc[start:stop].max().values[0] 
                     else:
@@ -333,6 +334,8 @@ class Dispatch(object):
       self.alloc_geography = dict()
       self.alloc_capacity = dict()
       self.alloc_energy = dict()
+      self.alloc_charging_efficiency = dict()
+      self.alloc_discharging_efficiency = dict()
       self.generation_technologies = []
       self.variable_costs = {}
       for dispatch_geography in storage_capacity_dict['power'].keys():
@@ -351,6 +354,11 @@ class Dispatch(object):
                         self.alloc_geography[tech_dispatch_id] = dispatch_geography
                         self.alloc_capacity[tech_dispatch_id] = self.capacity[tech_dispatch_id] * len(self.period_hours)
                         self.alloc_energy[tech_dispatch_id] = self.energy[tech_dispatch_id]
+                        x = 1/np.sqrt(storage_efficiency_dict[dispatch_geography][zone][feeder][tech])
+                        if not np.isfinite(x):
+                            x = 1
+                        self.alloc_charging_efficiency[tech_dispatch_id] = x
+                        self.alloc_discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.alloc_charging_efficiency)[tech_dispatch_id] 
                      else:
                         self.large_storage[tech_dispatch_id] = 0
                      x = 1/np.sqrt(storage_efficiency_dict[dispatch_geography][zone][feeder][tech])
@@ -378,7 +386,7 @@ class Dispatch(object):
                                      MORs=MOR, must_run=must_runs, pad_stack=True, zero_mc_4_must_run=True)
         generator_numbers = range(len(clustered_dict['derated_pmax']))
         for number in generator_numbers:
-            generator = str(self.dispatch_geographies.index(geography) * (number + 1))
+            generator = str(((max(generator_numbers)+1)* (self.dispatch_geographies.index(geography))) + (number)+1)
             if generator not in self.generation_technologies:
                 self.generation_technologies.append(generator)
             self.geography[generator] = geography
@@ -549,17 +557,12 @@ class Dispatch(object):
         return clustered
 
     @staticmethod
-    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.2, load_ptile=99.5):
+    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.2, load_ptile=99.5, individual_plant_maintenance=False):
         # gives the index for the change between dispatch_periods
         group_cuts = list(np.where(np.diff(dispatch_periods)!=0)[0]+1) if dispatch_periods is not None else None
         group_lengths = np.array([group_cuts[0]] + list(np.diff(group_cuts)) + [len(load)-group_cuts[-1]])
         num_groups = len(group_cuts)+1
-        
-        # we have to have dispatch periods or we can't allocate, if we don't have them, we just return the base maintenance rates
-        if dispatch_periods is None:
-            return None
-        
-        pmaxs = np.clip(pmaxs, 0, None)
+
         annual_maintenance_rates = np.clip(annual_maintenance_rates, 0, None)
         if not group_cuts:
             return annual_maintenance_rates
@@ -579,30 +582,37 @@ class Dispatch(object):
         load_for_maint = np.copy(load)
         set_load_index = np.intersect1d(np.nonzero(not_okay_for_maint)[0], np.nonzero(load<load_cut)[0])
         load_for_maint[set_load_index] = load_cut
-            
-        energy_allocation = Dispatch.dispatch_to_energy_budget(load_for_maint, -maintenance_energy, pmins=sum_capacity*min_maint, pmaxs=sum_capacity*max_maint)
-        energy_allocation_by_group = np.array([np.sum(ge) for ge in np.array_split(energy_allocation, group_cuts)])
+        load_for_maint = np.max(np.reshape(load_for_maint, (len(load_for_maint)/24, 24)), axis=1)
+        load_for_maint *= (sum(load)/sum(load_for_maint))
+
+        energy_allocation = Dispatch.dispatch_to_energy_budget(load_for_maint, -maintenance_energy, pmins=sum_capacity*min_maint, pmaxs=sum_capacity*max_maint*24)
+        energy_allocation_by_group = np.array([np.sum(ge) for ge in np.array_split(energy_allocation, np.array(group_cuts)/24)])
+        energy_allocation_normed = energy_allocation_by_group/sum(energy_allocation_by_group)
         
-        # go in order from largest generator to smallest generator and asign out the maintenance
-        gen_maintenance = np.empty((num_groups, len(pmax)))
-        for i in np.argsort(pmax)[-1::-1]:
-            arg_sort_group = np.argsort(energy_allocation_by_group)[-1::-1]
-            max_gen_maint = np.array([c*group_len for c, group_len in zip(pmaxs[:,i], group_lengths)])
-            plant_energy_allocation = np.zeros(num_groups)
-            remaining_energy_to_allocate = maintenance_energy_by_plant[i]
-            cycle = 0
-            while remaining_energy_to_allocate > 0:
-                energy_to_allocate = min(remaining_energy_to_allocate, max_gen_maint[arg_sort_group[cycle]])
-                plant_energy_allocation[arg_sort_group[cycle]] += energy_to_allocate
-                energy_allocation_by_group[arg_sort_group[cycle]] -= energy_to_allocate
-                max_gen_maint[arg_sort_group[cycle]] -= energy_to_allocate
-                remaining_energy_to_allocate -= energy_to_allocate
-                cycle+=1
-                if cycle>=num_groups:
-                    break
-            gen_maintenance[:,i] = plant_energy_allocation/group_lengths/pmaxs[:,i]
-        
-        gen_maintenance[np.nonzero(pmaxs==0)] = 1
+        if not individual_plant_maintenance:
+            gen_maintenance = np.outer(energy_allocation_normed, annual_maintenance_rates)
+        else:
+            # go in order from largest generator to smallest generator and asign out the maintenance
+            gen_maintenance = np.empty((num_groups, len(pmax)))
+            for i in np.argsort(pmax)[-1::-1]:
+                arg_sort_group = np.argsort(energy_allocation_by_group)[-1::-1]
+                max_gen_maint = np.array([c*group_len for c, group_len in zip(pmaxs[:,i], group_lengths)])
+                plant_energy_allocation = np.zeros(num_groups)
+                remaining_energy_to_allocate = maintenance_energy_by_plant[i]
+                cycle = 0
+                while remaining_energy_to_allocate > 0:
+                    energy_to_allocate = min(remaining_energy_to_allocate, max_gen_maint[arg_sort_group[cycle]])
+                    plant_energy_allocation[arg_sort_group[cycle]] += energy_to_allocate
+                    energy_allocation_by_group[arg_sort_group[cycle]] -= energy_to_allocate
+                    max_gen_maint[arg_sort_group[cycle]] -= energy_to_allocate
+                    remaining_energy_to_allocate -= energy_to_allocate
+                    cycle+=1
+                    if cycle>=num_groups:
+                        break
+                gen_maintenance[:,i] = plant_energy_allocation/group_lengths/pmaxs[:,i]
+
+            gen_maintenance[np.nonzero(pmaxs==0)] = np.outer(energy_allocation_normed, annual_maintenance_rates[np.nonzero(pmaxs==0)])
+
         if np.any(np.isnan(gen_maintenance)):
             raise ValueError("Calculation has returned maintenance rates of nan")
         return gen_maintenance
@@ -684,7 +694,7 @@ class Dispatch(object):
         
         energy = Dispatch._get_energy_by_generator(lookup, derated_capacity, marginal_cost, must_run, pmax, combined_rate, decimals)
 
-        return market_price, production_cost, energy, np.array(lookup / 10**decimals, dtype=float)
+        return market_price, production_cost, energy, np.array(lookup, dtype=float) / 10**decimals
 
     @staticmethod
     def _format_gen_dispatch_inputs(num_groups, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None):
@@ -696,31 +706,38 @@ class Dispatch(object):
         MOR = np.zeros_like(pmaxs) if MOR is None else (np.tile(MOR, (num_groups,1)) if len(MOR.shape)==1 else MOR)
         must_runs = np.ones_like(pmaxs, dtype=bool) if must_runs is None else np.array(np.tile(must_runs, (num_groups,1)) if len(must_runs.shape)==1 else must_runs, dtype=bool)
         capacity_weights = np.full(pmaxs.shape[1], 1/float(len(pmaxs.T)), dtype=float) if capacity_weights is None else np.array(capacity_weights, dtype=float)
-        
         return marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights
 
     @staticmethod
-    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals=0, reserves=0.03):
+    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals=0, reserves=0.1, max_outage_rate_for_capacity_eligibility=.75):
         stock_changes = np.zeros(len(capacity_weights))
         
-        for i, load_group in enumerate(load_groups):
-            max_lookup = Dispatch._get_load_level_lookup(np.array([max(load_group)]), 0, reserves+.01, decimals)[0]
-            combined_rate = Dispatch._get_combined_outage_rate(FOR[i], MOR[i])
-            
-            derated_capacity = Dispatch._get_derated_capacity(pmaxs[i]+stock_changes, combined_rate, decimals)
-            total_capacity_weight = sum(capacity_weights)
-            
-            residual_for_load_balance = float(max_lookup - sum(derated_capacity))/10**decimals + (1./10**decimals)
-            
-            # we need more capacity
-            if residual_for_load_balance > 0:
-                    residual_capacity_growth= residual_for_load_balance/float(total_capacity_weight)
-                    stock_changes += capacity_weights * residual_capacity_growth / (1 - combined_rate)
+        max_by_load_group = np.array([Dispatch._get_load_level_lookup(np.array([max(group)]), 0, reserves, decimals)[0] for group in load_groups])
+        cap_by_load_group = np.array([sum(Dispatch._get_derated_capacity(pmaxs[i], Dispatch._get_combined_outage_rate(FOR[i], MOR[i]), decimals)) for i in range(len(max_by_load_group))])
         
+        shortage_by_group = max_by_load_group - cap_by_load_group
+        order = [i for i in np.argsort(shortage_by_group)[-1::-1] if shortage_by_group[i]>0]
+        
+        for i in order:
+            load_group = load_groups[i]
+            max_lookup = Dispatch._get_load_level_lookup(np.array([max(load_group)]), 0, reserves, decimals)[0]
+            combined_rate = Dispatch._get_combined_outage_rate(FOR[i], MOR[i])
+            derated_capacity = Dispatch._get_derated_capacity(pmaxs[i]+stock_changes, combined_rate, decimals)
+            normed_capacity_weights = copy.deepcopy(capacity_weights)
+            normed_capacity_weights[combined_rate>max_outage_rate_for_capacity_eligibility] = 0
+            residual_for_load_balance = float(max_lookup - sum(derated_capacity))/10**decimals   
+            if residual_for_load_balance > 0:
+                if not sum(normed_capacity_weights):
+                    raise ValueError('No generator can be added to increase capacity given outage rates')
+                normed_capacity_weights /= sum(normed_capacity_weights)
+                ncwi = np.nonzero(normed_capacity_weights)[0]
+            # we need more capacity
+                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - combined_rate[ncwi])
+                
         return stock_changes
     
     @staticmethod
-    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, operating_reserves=0.05):
+    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, operating_reserves=0.05, capacity_reserves=0.1):
         """ Dispatch generators to a net load signal
         
         Args:
@@ -745,6 +762,7 @@ class Dispatch(object):
         if capacity_weights is not None and capacity_weights.ndim>1:
             raise ValueError('capacity weights should not vary across dispatch periods')
         
+        load[load<0] = 0
         decimals = 6 - int(math.log10(max(load)))
         
         load_groups = (load,) if dispatch_periods is None else np.array_split(load, np.where(np.diff(dispatch_periods)!=0)[0]+1)
@@ -755,7 +773,7 @@ class Dispatch(object):
         market_prices, production_costs, gen_dispatch_shape = [], [], []
         gen_energies = np.zeros(pmaxs.shape[1])
         
-        stock_changes = Dispatch._get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals, reserves=operating_reserves)
+        stock_changes = Dispatch._get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals, reserves=capacity_reserves)
         
         for i, load_group in enumerate(load_groups):
             market_price, production_cost, gen_energy, shape = Dispatch.solve_gen_dispatch(load_group, pmaxs[i]+stock_changes, marginal_costs[i], FOR[i], MOR[i], must_runs[i], decimals, operating_reserves)
@@ -818,17 +836,18 @@ class Dispatch(object):
         period_hours = [copy.deepcopy(self.period_hours)] * len(periods)
         bulk_storage_index = pd.MultiIndex.from_product([self.dispatch_geographies, ['charge','discharge'],self.hours], names=[self.dispatch_geography,'charge_discharge','hour'])
         dist_storage_index = pd.MultiIndex.from_product([self.dispatch_geographies, self.dispatch_feeders,['charge','discharge'], self.hours], names=[self.dispatch_geography,'dispatch_feeder','charge_discharge','hour'])
-        bulk_storage_df = [util.empty_df(index=bulk_storage_index,columns=[year],fill_value=0.0)]*len(periods)  
-        dist_storage_df = [util.empty_df(index=dist_storage_index,columns=[year],fill_value=0.0)]*len(periods)     
+        input_bulk_dfs = [copy.deepcopy(util.empty_df(index=bulk_storage_index,columns=[year],fill_value=0.0))]*len(periods)  
+        input_dist_dfs = [copy.deepcopy(util.empty_df(index=dist_storage_index,columns=[year],fill_value=0.0))]*len(periods)     
         flex_load_index =  pd.MultiIndex.from_product([self.dispatch_geographies, self.dispatch_feeders, self.hours], names=[self.dispatch_geography,'dispatch_feeder','hour'])
-        flex_load_df = [util.empty_df(index=flex_load_index,columns=[year],fill_value=0.0)]*len(periods)   
+        input_flex_dfs = [copy.deepcopy(util.empty_df(index=flex_load_index,columns=[year],fill_value=0.0))]*len(periods)   
         solver_name = [self.solver_name] * len(periods)
         stdout_detail = [self.stdout_detail] * len(periods)
         dispatch_geography = [self.dispatch_geography] * len(periods)
         for period in self.periods:
              model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
                                                               end_state_of_charge, period))  
-             zipped_inputs = list(zip(periods, model_list,bulk_storage_df, dist_storage_df, flex_load_df,opt_hours, period_hours, solver_name,stdout_detail, dispatch_geography))
+        zipped_inputs = list(zip(periods, model_list,input_bulk_dfs, input_dist_dfs, 
+                                 input_flex_dfs,opt_hours, period_hours, solver_name,stdout_detail, dispatch_geography))
         if cfg.cfgfile.get('case','parallel_process') == 'True':
             available_cpus = multiprocessing.cpu_count()
             pool = Pool(processes=available_cpus)
@@ -840,23 +859,13 @@ class Dispatch(object):
             results = []
             for zipped_input in zipped_inputs:
                 results.append(run_optimization(zipped_input))
-        bulk_storage_dfs = [x[0] for x in results]
-        dist_storage_dfs = [x[1] for x in results]
-        flex_load_dfs = [x[2] for x in results]
-        self.bulk_storage_df = util.DfOper.add(bulk_storage_dfs)
-        self.dist_storage_df = util.DfOper.add(dist_storage_dfs)
-        self.flex_load_df = util.DfOper.add(flex_load_dfs)
-  
-
-            
-            
-    def run_dispatch_optimization(self, start_state_of_charge, end_state_of_charge, period):
-        """
-        :param period:
-        :return:
-        """
-
-
+        output_bulk_dfs = [x[0] for x in results]
+        output_dist_dfs = [x[1] for x in results]
+        output_flex_dfs = [x[2] for x in results]
+#        self.optimization_instance = [x[3] for x in results]
+        self.bulk_storage_df = util.DfOper.add(output_bulk_dfs)
+        self.dist_storage_df = util.DfOper.add(output_dist_dfs)
+        self.flex_load_df = util.DfOper.add(output_flex_dfs)
                 
     def run_year_to_month_allocation(self):
         model = year_to_period_allocation.year_to_period_allocation_formulation(self)
@@ -909,9 +918,9 @@ class Dispatch(object):
                                              )]
                                            )
 
-                Dispatch.nested_dict(start_soc, [p, t], instance.Energy_in_Storage[t, p].value)
-                Dispatch.nested_dict(end_soc, [p, t], instance.Energy_in_Storage[t, p].value - (instance.Discharge[t, p].value-instance.Charge[t, p].value))
-
+                Dispatch.nested_dict(start_soc, [p, t], instance.Energy_in_Storage[t, p].value*.999)
+                Dispatch.nested_dict(end_soc, [p, t], (instance.Energy_in_Storage[t, p].value - (instance.Discharge[t, p].value-instance.Charge[t, p].value))*.999)
+                
         state_of_charge = [start_soc, end_soc]
         return state_of_charge
 

@@ -32,18 +32,11 @@ class Shapes(object):
             self.data[id] = Shape(id)
             self.active_shape_ids.append(id)
 
-    def activate_shape(self, id):
-        if id not in self.active_shape_ids:
-            if id not in self.data:
-                raise ValueError("Shape with id "+str(id)+" not found")
-            self.active_shape_ids.append(id)
-
     def initiate_active_shapes(self):
         print ' reading data for:'
         for id in self.active_shape_ids:
             shape = self.data[id]
             print '     shape: ' + shape.name
-            
             if hasattr(shape, 'raw_values'):
                 return
             
@@ -57,7 +50,6 @@ class Shapes(object):
                 
                 self.start_date = shape.start_date if self.start_date is None else max(shape.start_date, self.start_date)
                 self.end_date = shape.end_date if self.end_date is None else min(shape.end_date, self.end_date)
-        
         self.set_active_dates()
 
     def set_active_dates(self):
@@ -328,13 +320,13 @@ class Shape(dmf.DataMapFunctions):
             _dt = DT.datetime(2015, 1, 1)
             offset = (tz.utcoffset(_dt) + tz.dst(_dt)).total_seconds()/60.
             # localize and then convert to dispatch_outputs_timezone
-            df = group.tz_localize(pytz.FixedOffset(offset), level='weather_datetime').tz_convert(self.dispatch_outputs_timezone, level='weather_datetime')
+            df = group.tz_localize(pytz.FixedOffset(offset), level='weather_datetime')
             new_df.append(df)
         
         if inplace:
-            setattr(self, attr, pd.concat(new_df).sort_index())
+            setattr(self, attr, pd.concat(new_df).tz_convert(self.dispatch_outputs_timezone, level='weather_datetime').sort_index())
         else:
-            return pd.concat(new_df).sort_index()
+            return pd.concat(new_df).tz_convert(self.dispatch_outputs_timezone, level='weather_datetime').sort_index()
 
     def convert_index_to_datetime(self, dataframe_name, index_name='weather_datetime'):
         df = getattr(self, dataframe_name)

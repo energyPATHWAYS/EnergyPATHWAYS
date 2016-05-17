@@ -64,20 +64,24 @@ class Demand(object):
         return Shape.geomap_to_dispatch_geography(agg_load) if geomap_to_dispatch_geography else agg_load
 
     def create_electricity_reconciliation(self):
-        # TODO: this should be set to the shapes active dates index year
-        # however, right now, there is not guarantee that the model and run for that year
-        # We need to change this in subsector so that the start_year takes into account shapes
-#        weather_year = 2015
+        # weather_year is the year for which we have top down load data
         weather_year = int(np.round(np.mean(shapes.active_dates_index.year)))
+        
+        # the next four lines create the top down load shape in the weather_year
         levels_to_keep = [cfg.cfgfile.get('case','primary_geography'), 'year', 'final_energy']
         temp_energy = self.group_output('energy', levels_to_keep=levels_to_keep, specific_years=weather_year)
         top_down_energy = util.remove_df_levels(util.df_slice(temp_energy, cfg.electricity_energy_type_id, 'final_energy'), levels='year')
         top_down_shape = top_down_energy * util.df_slice(self.default_electricity_shape.values, 2, 'timeshift_type')
         
+        # this calls the functions that create the bottom up load shape for the weather_year
         bottom_up_shape = self.aggregate_electricity_shapes(weather_year, geomap_to_dispatch_geography=False)
         bottom_up_shape = util.df_slice(bottom_up_shape, 2, 'timeshift_type')
         bottom_up_shape = util.remove_df_levels(bottom_up_shape, 'dispatch_feeder')
+        
+        # at this point we have a top down and bottom up estimates for the load shape across all demand
+        # to get the reconciliation we divide one by the other
         self.electricity_reconciliation = util.DfOper.divi((top_down_shape, bottom_up_shape))
+        # the final step is to pass the reconciliation result down to subsectors. It becomes a pre-multiplier on all of the subsector shapes
         self.pass_electricity_reconciliation()
 
     def pass_electricity_reconciliation(self):
@@ -230,7 +234,6 @@ class Sector(object):
         self.outputs = Output()
         if self.shape_id is not None:
             self.shape = shapes.data[self.shape_id]
-            shapes.activate_shape(self.shape_id)
 
         feeder_allocation_class = dispatch_classes.DispatchFeederAllocation(1)
         # FIXME: This next line will fail if we don't have a feeder allocation for each demand_sector
@@ -304,12 +307,9 @@ class Sector(object):
         loops through subsectors making sure to calculate subsector precursors
         before calculating subsectors themselves
         """
-        for id in set(util.flatten_list(self.subsector_precursors.values())):
-            subsector = self.subsectors[id]
-            self.calculate_precursors(subsector)
-        for subsector in self.subsectors.values():
-            subsector.linked_service_demand_drivers = self.service_precursors[subsector.id]
-            subsector.linked_stock = self.stock_precursors[subsector.id]
+        precursors = set(util.flatten_list(self.subsector_precursors.values()))
+        self.calculate_precursors(precursors)
+        self.calculate_links(self.subsectors.keys(), precursors)
         if cfg.cfgfile.get('case','parallel_process') == 'True':
             available_cpus = multiprocessing.cpu_count()   
             pool = Pool(processes=available_cpus)
@@ -332,46 +332,69 @@ class Sector(object):
 
 
 
-    def calculate_precursors(self, subsector):
+    def calculate_precursors(self, precursors):
         """ 
         calculates subsector if all precursors have been calculated
         """
         # checks whether the subsector has precursors in the subsector_precursors dictionary
-        if self.subsector_precursors.has_key(subsector.id):
-            # loops through subsector precursors
-            for precursor_id in self.subsector_precursors[subsector.id]:
-                # finds subsector in the demand sectors and subsectors
-                    if precursor_id in self.subsectors.keys():
-                        # precursor is the class instance of the precursor subsector id
-                        precursor = self.subsectors[precursor_id]
-                        if precursor.calculated:
-                            # checks whether the precursor has been calculated. If it has, update the service_precursors dictionary
-                            # with the output_service_drivers if applicable. This allows a subsector to output service drivers to multiple
-                            # subsectors
-                            if precursor.output_service_drivers.has_key(subsector.id):
-                                self.service_precursors[subsector.id].update(
-                                    {precursor.id: precursor.output_service_drivers[subsector.id]})
-                            continue
-                        else:
-                            self.calculate_precursors(precursor)
-                            if precursor.output_service_drivers.has_key(subsector.id):
-                                # update the service_precursors dictionary
-                                # with the output_service_drivers if applicable
-                                self.service_precursors[subsector.id].update(
-                                    {precursor.id: precursor.output_service_drivers[subsector.id]})
-                            # loops through linked technology stocks from the precursor
-                            for technology in precursor.output_technology_stocks.keys():
-                                if technology in subsector.technologies.keys():
-                                    # updates stock_precursor values dictionary with linked technology stocks
-                                    self.stock_precursors[subsector.id].update(
-                                        {technology: precursor.output_technology_stocks[technology]})                  
+        for id in precursors:
+            subsector = self.subsectors[id]
+            if self.subsector_precursors.has_key(subsector.id):
+                # loops through subsector precursors
+                for precursor_id in self.subsector_precursors[subsector.id]:
+                    # finds subsector in the demand sectors and subsectors
+                        if precursor_id in self.subsectors.keys():
+                            # precursor is the class instance of the precursor subsector id
+                            precursor = self.subsectors[precursor_id]
+                            if precursor.calculated:
+                                # checks whether the precursor has been calculated. If it has, update the service_precursors dictionary
+                                # with the output_service_drivers if applicable. This allows a subsector to output service drivers to multiple
+                                # subsectors
+                                if precursor.output_service_drivers.has_key(subsector.id):
+                                    self.service_precursors[subsector.id].update(
+                                        {precursor.id: precursor.output_service_drivers[subsector.id]})
+                                for technology in precursor.output_technology_stocks.keys():
+                                    if technology in subsector.technologies.keys():
+                                        # updates stock_precursor values dictionary with linked technology stocks
+                                        self.stock_precursors[subsector.id].update(
+                                            {technology: precursor.output_technology_stocks[technology]})           
+                            else:
+                                self.calculate_precursors(precursor)
+#                                if precursor.output_service_drivers.has_key(subsector.id):
+#                                    # update the service_precursors dictionary
+#                                    # with the output_service_drivers if applicable
+#                                    self.service_precursors[subsector.id].update(
+#                                        {precursor.id: precursor.output_service_drivers[subsector.id]})
+#                                # loops through linked technology stocks from the precursor
+#                                for technology in precursor.output_technology_stocks.keys():
+#                                    if technology in subsector.technologies.keys():
+#                                        # updates stock_precursor values dictionary with linked technology stocks
+#                                        self.stock_precursors[subsector.id].update(
+#                                            {technology: precursor.output_technology_stocks[technology]})                  
+#    
+            # calculate after precursor loop is complete
+            ##        print '  '+subsector.name
+            #        # pass service demand and stock preursors to subsector
+            subsector.linked_service_demand_drivers = self.service_precursors[subsector.id]
+            subsector.linked_stock = self.stock_precursors[subsector.id]
+            self.subsectors[subsector.id]= calculate(subsector)
 
-        # calculate after precursor loop is complete
-        ##        print '  '+subsector.name
-        #        # pass service demand and stock preursors to subsector
-        subsector.linked_service_demand_drivers = self.service_precursors[subsector.id]
-        subsector.linked_stock = self.stock_precursors[subsector.id]
-        self.subsectors[subsector.id]= calculate(subsector)
+    def calculate_links(self,all_subsectors, precursors):
+        for subsector_id in all_subsectors:
+            subsector = self.subsectors[subsector_id]
+            for precursor_id in precursors:
+                precursor = self.subsectors[precursor_id]
+                if precursor.output_service_drivers.has_key(subsector.id):
+                    self.service_precursors[subsector.id].update(
+                            {precursor.id: precursor.output_service_drivers[subsector.id]})
+                for technology in precursor.output_technology_stocks.keys():
+                    if hasattr(subsector,'technologies') and technology in subsector.technologies.keys():
+                        # updates stock_precursor values dictionary with linked technology stocks
+                        self.stock_precursors[subsector.id].update(
+                            {technology: precursor.output_technology_stocks[technology]})   
+            subsector.linked_service_demand_drivers = self.service_precursors[subsector.id]
+            subsector.linked_stock = self.stock_precursors[subsector.id]
+
 
     def aggregate_subsector_energy_for_supply_side(self):
         """Aggregates for the supply side, works with function in demand"""
@@ -434,7 +457,6 @@ class Subsector(DataMapFunctions):
         self.calculated = False
         if self.shape_id is not None:
             self.shape = shapes.data[self.shape_id]
-            shapes.activate_shape(self.shape_id)
 
     def set_electricity_reconciliation(self, electricity_reconciliation):
         """ Electricity reconciliation is solved top down and passed back to subsector, where it is applied
@@ -666,7 +688,7 @@ class Subsector(DataMapFunctions):
         if len(measure_types):
             df_list = []
             for measure_type in measure_types:
-                df = getattr(getattr(self,measure_type),att).values()
+                df = getattr(getattr(self,measure_type),att)['unspecified']
                 if df.columns != ['value']:
                     df = df.stack().to_frame()
                     df.columns = ['value']
@@ -726,7 +748,15 @@ class Subsector(DataMapFunctions):
         for measure in self.energy_efficiency_measures.values():
             measure.calculate(self.vintages, self.years, cfg.cfgfile.get('case', 'energy_unit'))
         for measure in self.service_demand_measures.values():
-            measure.calculate(self.vintages, self.years, self.service_demand.unit)
+            if hasattr(self,'stock') and self.stock.demand_stock_unit_type == 'service demand' and hasattr(self,'service_demand'):
+                #service demand will be converted to stock unit, so measure must be converted to stock unit
+                measure.calculate(self.vintages, self.years, self.stock.unit)
+            elif hasattr(self,'service_demand'):
+                measure.calculate(self.vintages, self.years, self.service_demand.unit)
+            elif hasattr(self,'energy_demand'):
+                measure.calculate(self.vintages, self.years, self.energy_demand.unit)
+            else:
+                raise ValueError("service demand measure has been created for a subsector which doesn't have an energy demand or service demand")
         for measure in self.fuel_switching_measures.values():
             measure.calculate(self.vintages, self.years, cfg.cfgfile.get('case', 'energy_unit'))
 
@@ -735,9 +765,6 @@ class Subsector(DataMapFunctions):
 #        print '      '+'subsector type = '+self.sub_type
         if self.sub_type == 'service and efficiency' or self.sub_type == 'service and energy':
             # sets the service demand forecast equal to initial values
-            self.service_demand_forecast = self.service_demand.values
-            # calculates the service demand change from service demand measures
-            self.service_demand_savings_calc()
             # calculates the energy demand change from fuel swiching measures
             self.fuel_switching_impact_calc()
             # calculates the energy demand change from energy efficiency measures
@@ -924,7 +951,7 @@ class Subsector(DataMapFunctions):
             if measure.input_type == 'intensity':
                 measure.savings = DfOper.mult([measure.values, self.energy_forecast])
             else:
-                measure.remap(map_from='savings', map_to='savings', drivers=self.energy_forecast)
+                measure.remap(map_from='values', map_to='savings', drivers=self.energy_forecast)
 
     def energy_efficiency_savings_calc(self):
         """
@@ -966,7 +993,7 @@ class Subsector(DataMapFunctions):
         """Adds measure instances to subsector"""
         if id in self.service_demand_measures:
             return
-        self.service_demand_measures[id] = ServiceDemandMeasure(id, cost_of_capital, self.service_demand.unit)
+        self.service_demand_measures[id] = ServiceDemandMeasure(id, cost_of_capital)
 
     def service_demand_measure_savings(self):
         """
@@ -976,9 +1003,9 @@ class Subsector(DataMapFunctions):
         for id in self.service_demand_measures:
             measure = self.service_demand_measures[id]
             if measure.input_type == 'intensity':
-                measure.savings = DfOper.mult([measure.savings, self.service_demand_forecast])
+                measure.savings = DfOper.mult([measure.values,self.service_demand.values])
             else:
-                measure.remap(map_from='savings', map_to='savings', drivers=self.service_demand_forecast)
+                measure.remap(map_from='values', map_to='savings', drivers=self.service_demand.values)
 
     def service_demand_savings_calc(self):
         """
@@ -986,15 +1013,15 @@ class Subsector(DataMapFunctions):
         """
         # create an empty df
         self.service_demand_measure_savings()
-        self.initial_service_demand_savings = util.empty_df(self.service_demand_forecast.index,
-                                                            self.service_demand_forecast.columns.values)
+        self.initial_service_demand_savings = util.empty_df(self.service_demand.values.index,
+                                                            self.service_demand.values.columns.values)
         # add up each measure's savings to return total savings
         for id in self.service_demand_measures:
             measure = self.service_demand_measures[id]
             self.initial_service_demand_savings = DfOper.add([self.initial_service_demand_savings,
                                                               measure.savings])
         # check for savings in excess of demand
-        excess_savings = DfOper.subt([self.service_demand_forecast, self.initial_service_demand_savings]) * -1
+        excess_savings = DfOper.subt([self.service_demand.values, self.initial_service_demand_savings]) * -1
         excess_savings[excess_savings < 0] = 0
         # if any savings in excess of demand, adjust all measure savings down
         if excess_savings.sum()['value'] == 0:
@@ -1005,7 +1032,7 @@ class Subsector(DataMapFunctions):
             for id in self.service_demand_measures:
                 measure = self.service_demand_measures[id]
                 measure.savings = DfOper.mult([measure.savings, impact_adjustment])
-        self.service_demand_forecast = DfOper.subt([self.service_demand_forecast,
+        self.service_demand.values = DfOper.subt([self.service_demand.values,
                                                     self.service_demand_savings])
 
     def add_fuel_switching_measures(self):
@@ -1286,7 +1313,10 @@ class Subsector(DataMapFunctions):
             elif self.stock.demand_stock_unit_type == 'service demand':
                 if self.sub_type == 'stock and service':
                     # convert service demand units to stock units
-                    self.service_demand.convert_and_remap(self.stock.demand_stock_unit_type, self.stock.unit)
+                    self.service_demand.int_values = util.unit_convert(self.service_demand.raw_values, unit_from_num=self.service_demand.unit, unit_to_num=self.stock.unit)
+                    self.service_demand.unit = self.stock.unit
+                    self.service_demand.current_data_type = self.service_demand.input_type
+                    self.service_demand.projected = False
                     self.service_demand.map_from = 'int_values'                    
                     self.min_year = self.min_cal_year(self.service_demand)
                     self.max_year = self.max_cal_year(self.service_demand)
@@ -1294,14 +1324,14 @@ class Subsector(DataMapFunctions):
                     self.stock_subset_prep()
                 if self.sub_type == 'stock and energy':
                     # used when we don't have service demand, just energy demand
-                    # determine the year range of energy demand inputs
+                    # determine the year range of energy demand inputs   
                     self.min_year = self.min_cal_year(self.energy_demand)
                     self.max_year = self.max_cal_year(self.energy_demand)
                     self.energy_demand.project(map_from='raw_values', fill_timeseries=False)
                     self.energy_demand.map_from = 'values'
                     self.project_stock()
                     self.stock_subset_prep()
-                    # remove stock efficiency from energy demand to return service demand
+                    # remove stock efficiency from energy demand to- return service demand
                     self.efficiency_removal()
 
             else:
@@ -1691,13 +1721,17 @@ class Subsector(DataMapFunctions):
         self.remap_linked_stock()
         if self.stock.has_linked_technology:
             # if a stock a technology stock that is linked from other subsectors, we goup by the levels found in the stotal stock of the subsector
-            full_names = self.stock.total.index.names + ['technology']           
+            full_names = [x for x in self.stock.total.index.names]
+            full_names.insert(-1,'technology')         
             linked_technology = self.stock.linked_technology.groupby(
                 level=[x for x in self.stock.linked_technology.index.names if x in full_names]).sum()
-            self.stock.technology = self.stock.technology.sort_index()
+            linked_technology = linked_technology.reorder_levels(full_names)
+            linked_technology.sort(inplace=True)
+            self.stock.technology = self.stock.technology.reorder_levels(full_names)
+            self.stock.technology.sort(inplace=True)
             # expand the levels of the subsector's endogenous technology stock so that it includes all years. That's because the linked stock specification will be for all years
             linked_technology = linked_technology[linked_technology.index.get_level_values('year')>=min(self.years)]
-            linked_technology = linked_technology.reindex(index=self.stock.technology.index).sort_index()
+            linked_technology = util.DfOper.none([linked_technology,self.stock.technology],fill_value=np.nan)
             # if a technology isn't technology by a lnk to another subsector, replace it with subsector stock specification
             linked_technology = linked_technology.mask(np.isnan(linked_technology), self.stock.technology)
             # check whether this combination exceeds the total stock
@@ -1816,7 +1850,10 @@ class Subsector(DataMapFunctions):
                                      num_techs=len(measures.keys()), initial_stock=None,
                                      sales_share=None, stock_changes=annual_stock_change.values,
                                      specified_stock=specified_stock.values, specified_retirements=None)
-            self.rollover.run()
+            try:
+                self.rollover.run()
+            except:
+                print elements
             stock_total, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
             stock.values.loc[elements], stock.retirements.loc[elements, 'value'] = stock_total, retirements
             stock.sales.loc[elements, 'value'] = sales_record
@@ -1956,7 +1993,7 @@ class Subsector(DataMapFunctions):
             total = util.remove_df_levels(self.stock.total, 'technology')
             self.stock.remap(map_from='linked_technology', map_to='linked_technology', drivers=total,
                              current_geography=cfg.cfgfile.get('case', 'primary_geography'), current_data_type='total',
-                             time_index=self.years)
+                             time_index=self.years)           
             self.stock.has_linked_technology = True
         else:
             self.stock.has_linked_technology = False
@@ -1999,10 +2036,11 @@ class Subsector(DataMapFunctions):
             current_geography = cfg.cfgfile.get('case', 'primary_geography')
             current_data_type =  'total'
             projected =  True
-
-
         self.service_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
                                     additional_drivers=self.additional_service_demand_drivers(stock_dependent),current_data_type=current_data_type,projected=projected)
+        self.service_demand_forecast = self.service_demand.values
+        # calculates the service demand change from service demand measures
+        self.service_demand_savings_calc()
 
     def project_energy_demand(self, map_from='raw_values', stock_dependent=False, service_dependent=False):
         self.energy_demand.vintages = self.vintages
@@ -2063,6 +2101,14 @@ class Subsector(DataMapFunctions):
         return SalesShare.normalize_array(ss_reference + ss_measure, retiring_must_have_replacement=False),reference_sales_shares
 
 
+    def calculate_total_sales_share_after_initial(self, elements, levels):
+        ss_measure = self.helper_calc_sales_share(elements, levels, reference=False)
+        space_for_reference = 1 - np.sum(ss_measure, axis=1)
+        ss_reference = SalesShare.scale_reference_array_to_gap( np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1)), space_for_reference)        
+           #sales shares are always 1 with only one technology so the default can be used as a reference                      
+        return SalesShare.normalize_array(ss_reference + ss_measure, retiring_must_have_replacement=False)
+
+
     def helper_calc_sales_share(self, elements, levels, reference, space_for_reference=None):
         num_techs = len(self.tech_ids)
         tech_lookup = dict(zip(self.tech_ids, range(num_techs)))
@@ -2087,8 +2133,7 @@ class Subsector(DataMapFunctions):
             for tech_id in self.tech_ids:
                 for sales_share in self.technologies[tech_id].sales_shares.values():
                     repl_index = tech_lookup[sales_share.demand_tech_id]
-                    if not tech_lookup.has_key(
-                        sales_share.replaced_demand_tech_id):
+                    if sales_share.replaced_demand_tech_id is not None and not tech_lookup.has_key(sales_share.replaced_demand_tech_id):
                             #if you're replacing a demand tech that doesn't have a sales share or stock in the model, this is zero and so we continue the loop
                             continue
                     reti_index = tech_lookup[
@@ -2158,10 +2203,11 @@ class Subsector(DataMapFunctions):
             sales_share, initial_sales_share = self.calculate_total_sales_share(elements, self.stock.rollover_group_names)  # group is not necessarily the same for this other dataframe
             if np.any(np.isnan(sales_share)):
                 raise ValueError('Sales share has NaN values in subsector ' + str(self.id))
+
+            initial_stock, rerun_sales_shares = self.calculate_initial_stock(elements,sales_share,initial_sales_share)
             
-            
-            
-            initial_stock = self.calculate_initial_stock(elements,sales_share,initial_sales_share)
+            if rerun_sales_shares:
+               sales_share =  self.calculate_total_sales_share_after_initial(elements, self.stock.rollover_group_names)
 
             technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names)
 
@@ -2196,15 +2242,23 @@ class Subsector(DataMapFunctions):
              min_technology_year = min(technology_years)
         else:
              min_technology_year = None
+        #Best way is if we have all technology stocks specified
         if np.nansum(self.stock.technology.loc[elements,:].values[0])==self.stock.total.loc[elements,:].values[0]:
-            initial_stock = self.stock.technology.loc[elements,:].values[0] 
+            initial_stock = self.stock.technology.loc[elements,:].values[0]
+            rerun_sales_shares = False
+        #Second best way is if we have an initiaal sales share
         elif initial_sales_share:                
             initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, transition_matrix=sales_share[0], num_years=len(self.years))
+            rerun_sales_shares = True
+        #Third best way is if we have specified some technologies in the initial year, even if not all
         elif min_technology_year:
             initial_stock = self.stock.technology.loc[elements+(min_technology_year,),:].values/np.nansum(self.stock.technology.loc[elements+(min_technology_year,),:].values) * initial_total 
+            rerun_sales_shares = False
         else:
             raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the technology composition of the initial stock')
-        return initial_stock
+        return initial_stock, rerun_sales_shares
+        
+
 
     def determine_need_for_aux_efficiency(self):
         """ determines whether auxiliary efficiency calculations are necessary. Used to avoid unneccessary calculations elsewhere """

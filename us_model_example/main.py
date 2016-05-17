@@ -1,5 +1,3 @@
-
-
 __author__ = 'Ben Haley & Ryan Jones'
 
 import pandas as pd
@@ -34,9 +32,10 @@ append_results = False
 def remove_results(append_results):
    if append_results == False:
        for folder in [os.path.join(os.getcwd(),'combined_outputs'),os.path.join(os.getcwd(),'demand_outputs'), os.path.join(os.getcwd(),'supply_outputs')]:
-        result_dir = [os.listdir(folder)][0]
-        for result_file in result_dir:
-            os.remove(os.path.join(folder,result_file))
+           if os.path.exists(folder):
+               result_dir = [os.listdir(folder)][0]
+               for result_file in result_dir:
+                   os.remove(os.path.join(folder,result_file))
 
 
 
@@ -47,8 +46,8 @@ if __name__ == "__main__":
         model.populate_shapes()
         with open(os.path.join(directory, 'shapes.p'), 'wb') as outfile:
             pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
+        model.populate_energy_system()
         for scenario_id in model.scenario_dict.keys():
-            model.populate_energy_system()
             model.populate_measures(scenario_id)
             model.calculate_demand_only()
             if save_models:
@@ -71,9 +70,9 @@ if __name__ == "__main__":
         model.configure_energy_system()
         model.populate_shapes()
         with open(os.path.join(directory, 'shapes.p'), 'wb') as outfile:
-            pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
+                pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
+        model.populate_energy_system()
         for scenario_id in model.scenario_dict.keys():
-            model.populate_energy_system()
             model.populate_measures(scenario_id)
             model.calculate_demand_only()
             if save_models:

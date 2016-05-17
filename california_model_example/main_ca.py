@@ -20,20 +20,22 @@ custom_pint_definitions_path = os.path.join(directory, 'unit_defs.txt')
 #Save models after the demand-side calculation or after the supply-loop calculation
 save_models = True
 #resolve the demand-side. A completed demand-side model must be saved.
-resolve_demand = True
+resolve_demand = False
 #resolve the supply-side. A completed supply-side model must be saved. 
-resolve_supply = True
+resolve_supply = False
 append_results = False
 ###########`
 #
 #
-
 def remove_results(append_results):
    if append_results == False:
        for folder in [os.path.join(os.getcwd(),'combined_outputs'),os.path.join(os.getcwd(),'demand_outputs'), os.path.join(os.getcwd(),'supply_outputs')]:
-        result_dir = [os.listdir(folder)][0]
-        for result_file in result_dir:
-            os.remove(os.path.join(folder,result_file))
+           if os.path.exists(folder):
+               result_dir = [os.listdir(folder)][0]
+               for result_file in result_dir:
+                   os.remove(os.path.join(folder,result_file))
+
+
 
 if __name__ == "__main__":
     if resolve_demand and resolve_supply:
@@ -42,8 +44,8 @@ if __name__ == "__main__":
         model.populate_shapes()
         with open(os.path.join(directory, 'shapes.p'), 'wb') as outfile:
             pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
+        model.populate_energy_system()
         for scenario_id in model.scenario_dict.keys():
-            model.populate_energy_system()
             model.populate_measures(scenario_id)
             model.calculate_demand_only()
             if save_models:
@@ -66,9 +68,9 @@ if __name__ == "__main__":
         model.configure_energy_system()
         model.populate_shapes()
         with open(os.path.join(directory, 'shapes.p'), 'wb') as outfile:
-            pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
+                pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
+        model.populate_energy_system()
         for scenario_id in model.scenario_dict.keys():
-            model.populate_energy_system()
             model.populate_measures(scenario_id)
             model.calculate_demand_only()
             if save_models:
@@ -105,9 +107,8 @@ if __name__ == "__main__":
             model.supply.calculate_supply_outputs()
             model.pass_results_to_demand()
             model.calculate_combined_results()
-            remove_results(append_results)
-            #after the first secnario loop, we want to append results so we change the boolean to True
-            append_results = True
-            model.export_results()
-
-
+#            remove_results(append_results)
+#            #after the first secnario loop, we want to append results so we change the boolean to True
+#            append_results = True
+#            model.export_results()
+        
