@@ -2590,20 +2590,24 @@ class Node(DataMapFunctions):
             """
             add all export measures in a selected package to a dictionary
             """
-            self.export_measures = {}
+            self.export_measures = []
             ids = util.sql_read_table("SupplyExportMeasurePackagesData",column_names='measure_id',package_id=self.export_package_id,return_iterable=True)
+            if len(ids)>1:
+                raise ValueError('model does not currently support multiple active export measures from a single supply node. Turn off an export measure in supply node %s' %self.name)
             for id in ids:
+                self.export_measures.append(id)
                 self.add_export_measure(id)     
         
     def add_export_measure(self, id, **kwargs):
         """Adds measure instances to node"""
-        if id in self.export_measures:
-            return
-        self.export_measures[id] = ExportMeasure(id)      
+        self.export_measure = id
+#        if id in self.export_measures:
+#            return        
+        #self.export_measures.append(id)
         
     def add_exports(self):
-        if len(self.export_measures.keys()):
-            self.export = Export(self.id,measure_id=self.export_measures.keys())
+        if len(self.export_measures):
+            self.export = Export(self.id,measure_id=self.export_measure)
         else:
             self.export = Export(self.id)
                 
@@ -2924,17 +2928,17 @@ class Node(DataMapFunctions):
 
         
 class  Export(Abstract):
-    def __init__(self,node_id, measure_ids=None, **kwargs):
+    def __init__(self,node_id, measure_id=None, **kwargs):
         self.id = node_id
         self.input_type = 'total'
-        if measure_ids is None:
+        if measure_id is None:
             self.sql_id_table = 'SupplyExport'
             self.sql_data_table = 'SupplyExportData'
             Abstract.__init__(self, self.id, primary_key='supply_node_id')
         else:
             self.sql_id_table = 'SupplyExportMeasures'
             self.sql_data_table = 'SupplyExportMeasuresData'
-            Abstract.__init__(self, self.id, primary_key='supply_node_id', data_id_key='parent_id', measure_id=measure_ids)
+            Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
             
     def calculate(self, years, demand_sectors):
         self.years = years
@@ -4179,8 +4183,13 @@ class SupplyStockNode(Node):
                     tech_data = getattr(tech_class, attr)
                     new_data = DfOper.mult([tech_data,
                                             getattr(ref_tech_class, attr)])
+                    if hasattr(ref_tech_class,'values_level'):
+                        new_data_level = DfOper.mult([tech_data,
+                                            getattr(ref_tech_class, 'values_level')])
                 else:
                     new_data = copy.deepcopy(getattr(ref_tech_class, attr))
+                    if hasattr(ref_tech_class,'values_level'):
+                        new_data_level = copy.deepcopy(getattr(ref_tech_class, 'values_level'))
                 tech_attributes = vars(getattr(self.technologies[ref_tech_id], class_name))
                 for attribute_name in tech_attributes.keys():
                     if not hasattr(tech_class, attribute_name) or getattr(tech_class, attribute_name) is None:
@@ -4188,8 +4197,8 @@ class SupplyStockNode(Node):
                                 copy.deepcopy(getattr(ref_tech_class, attribute_name)) if hasattr(ref_tech_class,
                                                                                                   attribute_name) else None)
                 setattr(tech_class, attr, new_data)
-        else:
-            pass
+                if hasattr(ref_tech_class,'values_level'):
+                    setattr(tech_class,'values_level',new_data_level)
         # Now that it has been converted, set indicator to true
         tech_class.absolute = True    
     
@@ -4545,7 +4554,8 @@ class SupplyStockNode(Node):
                 initial_stock, rerun_sales_shares = self.calculate_initial_stock(elements, initial_total, sales_share,initial_sales_share)  
                 if rerun_sales_shares:
                     sales_share = self.calculate_total_sales_share_after_initial(elements,self.stock.rollover_group_names)
-                self.rollover_dict[elements].initial_stock
+                self.rollover_dict[elements].initial_stock = initial_stock
+                self.rollover_dict[elements].sales_share = sales_share
         for elements in self.rollover_groups.keys():    
             elements = util.ensure_tuple(elements)
             try:
@@ -4796,6 +4806,7 @@ class SupplyStockNode(Node):
         self.stock.act_stock_changes = if_positive_stock_changes
 #        self.stock.act_stock_changes[self.stock.act_stock_changes<self.stock.act_stock_capacity_changes] = self.stock.act_stock_capacity_changes
         self.stock.act_stock_changes = self.stock.act_stock_changes[year]
+
         
                 
         

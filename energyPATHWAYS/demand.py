@@ -1145,10 +1145,10 @@ class Subsector(DataMapFunctions):
             for attr_class in attr_classes:
                 # It is possible that recursion has converted before we get to an
                 # attr_class in the list. If so, continue.
-#                if getattr(getattr(self.technologies[technology], attr_class), 'absolute'):
-#                    continue
+#                  if getattr(getattr(self.technologies[technology], attr_class), 'absolute'):
+#                      continue
                 self.remap_tech_attr(technology, attr_class, attr)
-
+                
     def remap_tech_attr(self, technology, class_name, attr):
         """
         map reference technology values to their associated technology classes
@@ -1172,8 +1172,14 @@ class Subsector(DataMapFunctions):
                         tech_data = 1 / tech_data
                     new_data = DfOper.mult([tech_data,
                                             getattr(ref_tech_class, attr)])
+                    if hasattr(ref_tech_class,'values_level'):
+                        new_data_level = DfOper.mult([tech_data,
+                                            getattr(ref_tech_class, 'values_level')])
+
                 else:
-                        new_data = copy.deepcopy(getattr(ref_tech_class, attr))
+                    new_data = copy.deepcopy(getattr(ref_tech_class, attr))
+                    if hasattr(ref_tech_class,'values_level'):
+                        new_data_level = copy.deepcopy(getattr(ref_tech_class, 'values_level'))
                 tech_attributes = vars(getattr(self.technologies[ref_tech_id], class_name))
                 for attribute_name in tech_attributes.keys():
                     if not hasattr(tech_class, attribute_name) or getattr(tech_class, attribute_name) is None:
@@ -1181,6 +1187,8 @@ class Subsector(DataMapFunctions):
                                 copy.deepcopy(getattr(ref_tech_class, attribute_name)) if hasattr(ref_tech_class,
                                                                                                   attribute_name) else None)
                 setattr(tech_class, attr, new_data)
+                if hasattr(ref_tech_class,'values_level'):
+                    setattr(tech_class,'values_level',new_data_level)
         else:
             pass
         # Now that it has been converted, set indicator to true
@@ -1314,6 +1322,7 @@ class Subsector(DataMapFunctions):
                 if self.sub_type == 'stock and service':
                     # convert service demand units to stock units
                     self.service_demand.int_values = util.unit_convert(self.service_demand.raw_values, unit_from_num=self.service_demand.unit, unit_to_num=self.stock.unit)
+                    self.service_demand.remap(map_from='int_values',map_to='int_values')
                     self.service_demand.unit = self.stock.unit
                     self.service_demand.current_data_type = self.service_demand.input_type
                     self.service_demand.projected = False
@@ -1850,11 +1859,11 @@ class Subsector(DataMapFunctions):
                                      num_techs=len(measures.keys()), initial_stock=None,
                                      sales_share=None, stock_changes=annual_stock_change.values,
                                      specified_stock=specified_stock.values, specified_retirements=None)
-            self.rollover_run()
-#            try:
-#                self.rollover.run()
-#            except:
-#                print elements
+#            self.rollover_run()
+            try:
+                self.rollover.run()
+            except:
+                print "specified stock exceeded in rollover group %s" %elements
             stock_total, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
             stock.values.loc[elements], stock.retirements.loc[elements, 'value'] = stock_total, retirements
             stock.sales.loc[elements, 'value'] = sales_record
