@@ -310,21 +310,21 @@ class Sector(object):
         precursors = set(util.flatten_list(self.subsector_precursors.values()))
         self.calculate_precursors(precursors)
         self.calculate_links(self.subsectors.keys(), precursors)
-#        if cfg.cfgfile.get('case','parallel_process') == 'True':
-#            available_cpus = multiprocessing.cpu_count()   
-#            pool = Pool(processes=available_cpus)
-#            multiprocessing.freeze_support()
-#            subsectors = pool.map(calculate,self.subsectors.values())
-#            self.subsectors = dict(zip(self.subsectors.keys(),subsectors))
-#            pool.close()
-#            pool.join()  
-#        else:
-        for subsector in self.subsectors.values():
-            if subsector.calculated:
-                pass
-            else:
-                print "calculating " + subsector.name
-                subsector.calculate() 
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            available_cpus = multiprocessing.cpu_count()   
+            pool = Pool(processes=available_cpus)
+            multiprocessing.freeze_support()
+            subsectors = pool.map(calculate,self.subsectors.values())
+            self.subsectors = dict(zip(self.subsectors.keys(),subsectors))
+            pool.close()
+            pool.join()  
+        else:
+            for subsector in self.subsectors.values():
+                if subsector.calculated:
+                    pass
+                else:
+                    print "calculating " + subsector.name
+                    subsector.calculate() 
 
 ##        #clear the calculations for the next scenario loop
         for subsector in self.subsectors.values():
@@ -1322,7 +1322,7 @@ class Subsector(DataMapFunctions):
                 if self.sub_type == 'stock and service':
                     # convert service demand units to stock units
                     self.service_demand.int_values = util.unit_convert(self.service_demand.raw_values, unit_from_num=self.service_demand.unit, unit_to_num=self.stock.unit)
-                    self.service_demand.remap(map_from='int_values',map_to='int_values')
+                    self.service_demand.remap(map_from='int_values',map_to='int_values',fill_timeseries=False)
                     self.service_demand.unit = self.stock.unit
                     self.service_demand.current_data_type = self.service_demand.input_type
                     self.service_demand.projected = False
@@ -1657,7 +1657,11 @@ class Subsector(DataMapFunctions):
         max_column = max(level_values)
         df = df.unstack(level='year')
         df.columns = df.columns.droplevel()
-        df = df.loc[:, max_column].to_frame()
+        try:
+            df = df.loc[:, max_column].to_frame()
+        except:
+            print self.id
+            print df
         for column in self.years:
             df[column] = df[max_column]
         df = util.DfOper.mult([df,df_for_indexing])

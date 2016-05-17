@@ -830,20 +830,14 @@ class Supply(object):
         for zone in self.dispatch_zones:
             for node_id in self.electricity_load_nodes[zone]['flexible']:
                 node = self.nodes[node_id]
-                if hasattr(node,'coefficients'):
-                    coefficients = node.coefficients.values
-                else:
-                    coefficients = node.stock.coefficients
-
+                coefficients = node.active_coefficients_untraded
                 indexer = util.level_specific_indexer(node.stock.coefficients.loc[:,year].to_frame(),'supply_node',[self.electricity_nodes[zone]+[zone]])
-                energy_demand = DfOper.mult([node.stock.values_energy.loc[:,year].to_frame(), coefficients.loc[indexer,year].to_frame()])
-                capacity = DfOper.mult([node.stock.values.loc[:,year].to_frame(), coefficients.loc[indexer,year].to_frame()])
+                energy_demand = DfOper.mult([util.remove_df_levels(node.stock.values_energy.loc[:,year].to_frame(),['vintage','supply_technology']),coefficients])
+                capacity = DfOper.mult([util.remove_df_levels(node.stock.values.loc[:,year].to_frame(),['vintage','supply_technology']), coefficients.loc[indexer,year].to_frame()])
                 if zone == self.distribution_node_id and 'demand_sector' not in node.stock.values.index.names:
                     #requires energy on the distribution system to be allocated to feeder for dispatch
                     energy_demand = DfOper.mult([energy_demand, node.active_supply.groupby(level=[self.geography,'demand_sector']).transform(lambda x: x/x.sum())])   
                     capacity = DfOper.mult([capacity, node.active_supply.groupby(level=[self.geography,'demand_sector']).transform(lambda x: x/x.sum())])
-                energy_demand = util.remove_df_levels(energy_demand.loc[indexer,:],['vintage', 'supply_technology'])
-                capacity = util.remove_df_levels(capacity,['vintage', 'supply_technology'])
                 #geomap to dispatch geography
                 if self.dispatch_geography != self.geography:    
                     geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
