@@ -19,6 +19,7 @@ custom_pint_definitions_path = os.path.join(directory, 'unit_defs.txt')
 save_models = True
 #resolve the demand-side. A completed demand-side model must be saved.
 resolve_demand = False
+
 #resolve the supply-side. A completed supply-side model must be saved. 
 resolve_supply = True
 
