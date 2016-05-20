@@ -1,20 +1,22 @@
 __author__ = 'Ben Haley & Ryan Jones'
 
-import os
 import ConfigParser
-import pint
-import geography
+import os
 import warnings
-import pandas as pd
 from collections import defaultdict
-import util
+
+import pandas as pd
+import pint
 import psycopg2
+
+import geomapper
+import util
+import data_models.data_source as data_source
+#import ipdb
 
 # Don't print warnings
 warnings.simplefilter("ignore")
 
-
-    
 
 class Config:
     def __init__(self):
@@ -61,6 +63,17 @@ class Config:
         # Open pathways database
         self.con = psycopg2.connect(conn_str)
         self.cur = self.con.cursor()
+
+        # initialize the SQLAlchemy database connection
+        dbCfg = {
+            'drivername': 'postgres',
+            'host': pg_host,
+            'port': '5432',
+            'username': pg_user,
+            'password': pg_password,
+            'database': pg_database
+        }
+        data_source.init(dbCfg)
         
     def drop_df(self,cfgfile):
         self.cur.close()
@@ -80,7 +93,7 @@ class Config:
 
     def init_geo(self):
         ##Geography conversions
-        self.geo = geography.Geography()
+        self.geo = geomapper.GeoMapper()
 
 
     def init_date_lookup(self):

@@ -26,6 +26,9 @@ import multiprocessing
 
 from profilehooks import timecall
 from config import cfg
+import data_models.data_source as data_source
+from data_models.misc import FinalEnergy
+from data_models.demand import DemandDriver
 
 
 def calculate(subsector):
@@ -51,10 +54,9 @@ class Demand(object):
         self.outputs = Output()
         self.geographies = cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
-        self.default_electricity_shape = shapes.data[cfg.electricity_energy_type_shape_id]
+        self.default_electricity_shape = shapes.data[FinalEnergy.electricity().shape_id]
         self.cfgfile_path = cfgfile_path
         self.custom_pint_definitions_path = custom_pint_definitions_path
-
 
     def aggregate_electricity_shapes(self, year, geomap_to_dispatch_geography=True):
         """ Final levels that will always return from this function
@@ -148,19 +150,10 @@ class Demand(object):
         names = ['sector', cfg.cfgfile.get('case', 'primary_geography'), 'final_energy', 'year']
         sectors_aggregates = [sector.aggregate_subsector_energy_for_supply_side() for sector in self.sectors.values()]
         self.energy_demand = pd.concat([s for s in sectors_aggregates if len(s)], keys=self.sectors.keys(), names=names)
-        
-    def add_drivers(self):
-        """Loops through driver ids and call create driver function"""
-        ids = util.sql_read_table('DemandDrivers',column_names='id',return_iterable=True)
-        for id in ids:
-            self.add_driver(id)
 
-    def add_driver(self, id):
-        """add driver object to demand"""
-        if id in self.drivers:
-            # ToDo note that a driver by the same name was added twice
-            return
-        self.drivers[id] = Driver(id)
+    def add_drivers(self):
+        self.drivers = data_source.fetch_as_dict(DemandDriver)
+
 
     def remap_drivers(self):
         """
@@ -202,24 +195,10 @@ class Demand(object):
             return
         self.sectors[id] = Sector(id, self.drivers,self.cfgfile_path, self.custom_pint_definitions_path)
 
-
     def calculate_demand(self):
         for sector in self.sectors.values():
             sector.manage_calculations()
         self.create_electricity_reconciliation()
-
-
-class Driver(object, DataMapFunctions):
-    def __init__(self, id, **kwargs):
-        self.id = id
-        self.sql_id_table = 'DemandDrivers'
-        self.sql_data_table = 'DemandDriversData'
-        self.mapped = False
-        for col, att in util.object_att_from_table(self.sql_id_table, id):
-            setattr(self, col, att)
-        # creates the index_levels dictionary
-        DataMapFunctions.__init__(self, data_id_key='parent_id')
-        self.read_timeseries_data()
 
 
 class Sector(object):
@@ -418,7 +397,7 @@ class Sector(object):
         
         if default_shape is None and self.shape_id is None:
             raise ValueError('Electricity shape cannot be aggregated without an active shape in sector ' + self.name)
-        active_shape = self.shape if hasattr(self, 'shape') else default_shape
+        active_shape = default_shape if self.shape is None else self.shape
         
         feeder_allocation = util.df_slice(self.feeder_allocation, year, 'year')
         default_max_lead_hours = self.max_lead_hours
@@ -477,11 +456,11 @@ class Subsector(DataMapFunctions):
         active_max_lag_hours = self.max_lag_hours if self.max_lag_hours is not None else default_max_lag_hours
         
         # subsector consumes no electricity, so we need to just skip it
-        if not hasattr(self,'energy_forecast') or cfg.electricity_energy_type_id not in util.get_elements_from_level(self.energy_forecast, 'final_energy'):
+        if not hasattr(self,'energy_forecast') or FinalEnergy.electricity().id not in util.get_elements_from_level(self.energy_forecast, 'final_energy'):
             return None
         
         # pull out just electricity from the year being run
-        energy_slice = util.df_slice(self.energy_forecast, [cfg.electricity_energy_type_id, year], ['final_energy', 'year'])
+        energy_slice = util.df_slice(self.energy_forecast, [FinalEnergy.electricity().id, year], ['final_energy', 'year'])
         
         # if none of the technologies have shapes, great! we can avoid having to aggregate each one separately
         if not hasattr(self, 'technologies') or np.all([tech.shape_id is None for tech in self.technologies.values()]):

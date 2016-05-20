@@ -15,6 +15,15 @@ import time
 import numpy as np
 import cPickle as pickle
 import os
+import data_models.data_source as data_source
+from data_models.data_mapper import DataMapper
+from sqlalchemy import Column, DateTime, Float, Integer, Text, ForeignKey, UniqueConstraint
+from sqlalchemy.orm import relationship
+from data_models.system import CleaningMethod, DayType, DispatchConstraintType, FlexibleLoadShiftType, ShapesType,\
+    ShapesUnit, TimeZone
+from data_models.geography import Geography, GeographiesDatum, GeographyMapKey
+from data_models.misc import OtherIndex
+from data_models.dispatch import DispatchFeeder
 
 #http://stackoverflow.com/questions/27491988/canonical-offset-from-utc-using-pytz
 
@@ -28,22 +37,13 @@ class Shapes(object):
 
     def create_empty_shapes(self):
         """ This should be called first as it creates a record of all of the shapes that are in the database."""
-        for id in util.sql_read_table(self.sql_id_table, column_names='id', return_unique=True, return_iterable=True):
-            self.data[id] = Shape(id)
-            self.active_shape_ids.append(id)
+        self.data = data_source.fetch_as_dict(Shape)
+        self.active_shape_ids = self.data.keys()
 
     def initiate_active_shapes(self):
-        print ' reading data for:'
         for id in self.active_shape_ids:
             shape = self.data[id]
-            print '     shape: ' + shape.name
-            if hasattr(shape, 'raw_values'):
-                return
-            
-            shape.read_timeseries_data()
-            
             if shape.shape_type=='weather date':
-                shape.convert_index_to_datetime('raw_values', 'weather_datetime')
                 date_position = util.position_in_index(shape.raw_values, 'weather_datetime')
                 
                 shape.start_date, shape.end_date = min(shape.raw_values.index.levels[date_position]), max(shape.raw_values.index.levels[date_position])
@@ -77,7 +77,7 @@ class Shapes(object):
     @staticmethod
     def create_time_slice_elements(active_dates_index):
         business_days = pd.bdate_range(active_dates_index[0].date(), active_dates_index[-1].date())
-        biz_map = {v: k for k, v in util.sql_read_table('DayType', column_names='*', return_iterable=False)}
+        biz_map = {day_type.name: day_type.id for day_type in data_source.fetch(DayType)}
         
         time_slice_elements = {}
         for ti in cfg.time_slice_col:
@@ -88,16 +88,42 @@ class Shapes(object):
         time_slice_elements['hour24'] = time_slice_elements['hour'] + 1
         return time_slice_elements
 
-class Shape(dmf.DataMapFunctions):
-    def __init__(self, id=None):
-        if id is not None:
-            self.id = id
-            self.sql_id_table = 'Shapes'
-            self.sql_data_table = 'ShapesData'
-            for col, att in util.object_att_from_table(self.sql_id_table, id):
-                setattr(self, col, att)
-            # creates the index_levels dictionary
-            dmf.DataMapFunctions.__init__(self, data_id_key='parent_id')
+class Shape(DataMapper, data_source.Base):
+    __tablename__ = 'Shapes'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(Text, unique=True)
+    shape_type_id = Column(ForeignKey(ShapesType.id))
+    shape_unit_type_id = Column(ForeignKey(ShapesUnit.id))
+    time_zone_id = Column(ForeignKey(TimeZone.id))
+    geography_id = Column(ForeignKey(Geography.id))
+    other_index_1_id = Column(ForeignKey(OtherIndex.id))
+    other_index_2_id = Column(ForeignKey(OtherIndex.id))
+    geography_map_key_id = Column(ForeignKey(GeographyMapKey.id))
+    interpolation_method_id = Column(ForeignKey(CleaningMethod.id))
+    extrapolation_method_id = Column(ForeignKey(CleaningMethod.id))
+
+    _extrapolation_method = relationship(CleaningMethod,
+                                         primaryjoin='Shape.extrapolation_method_id == CleaningMethod.id',
+                                         lazy='joined')
+    _geography = relationship(Geography, lazy='joined')
+    _geography_map_key = relationship(GeographyMapKey, lazy='joined')
+    _interpolation_method = relationship(CleaningMethod,
+                                         primaryjoin='Shape.interpolation_method_id == CleaningMethod.id',
+                                         lazy='joined')
+    _other_index_1 = relationship(OtherIndex, primaryjoin='Shape.other_index_1_id == OtherIndex.id', lazy='joined')
+    _other_index_2 = relationship(OtherIndex, primaryjoin='Shape.other_index_2_id == OtherIndex.id', lazy='joined')
+    _shape_type = relationship(ShapesType, lazy='joined')
+    _shape_unit_type = relationship(ShapesUnit, lazy='joined')
+    time_zone = relationship(TimeZone, lazy='joined')
+
+    @property
+    def shape_type(self):
+        return self._shape_type.name
+
+    @property
+    def shape_unit_type(self):
+        return self._shape_unit_type.name
 
     def create_empty_shape_data(self):
         self._active_time_keys = [ind for ind in self.raw_values.index.names if ind in cfg.time_slice_col]
@@ -184,7 +210,7 @@ class Shape(dmf.DataMapFunctions):
     def normalize(self):
         group_to_normalize = [n for n in self.values.index.names if n!='weather_datetime']
         # here is a special case where I have p_min and p_max in my dispatch constraints and these should not be normalized
-        if 'dispatch_constraint' in group_to_normalize:
+        if 'dispatch_constraint_type' in group_to_normalize:
             # this first normailization does what we need for hydro pmin and pmax, which is a special case of normalization
             combined_map_df = util.DfOper.mult((self.map_df_tz, self.map_df_primary))
             normalization_factors = combined_map_df.groupby(level=cfg.cfgfile.get('case', 'primary_geography')).sum()
@@ -192,7 +218,7 @@ class Shape(dmf.DataMapFunctions):
             
             temp = self.values.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
             # TODO: 2, and 3 should not be hard coded here, they represent p_min and p_max
-            indexer = util.level_specific_indexer(temp, 'dispatch_constraint', [[2,3]])
+            indexer = util.level_specific_indexer(temp, 'dispatch_constraint_type', [[2,3]])
             temp.loc[indexer, :] = self.values.loc[indexer, :]
             
             self.values = temp
@@ -368,6 +394,34 @@ class Shape(dmf.DataMapFunctions):
         return pd.concat([delay*percent_flexible + native*(1-percent_flexible),
                           native,
                           advance*percent_flexible + native*(1-percent_flexible)], keys=[1,2,3], names=['timeshift_type'])
+
+
+class ShapesDatum(data_source.Base):
+    __tablename__ = 'ShapesData'
+
+    id = Column(Integer, primary_key=True)
+    parent_id = Column(ForeignKey(Shape.id))
+    gau_id = Column(ForeignKey(GeographiesDatum.id))
+    dispatch_feeder_id = Column(ForeignKey(DispatchFeeder.id))
+    timeshift_type_id = Column(ForeignKey(FlexibleLoadShiftType.id))
+    resource_bin = Column(Integer)
+    dispatch_constraint_type_id = Column(ForeignKey(DispatchConstraintType.id))
+    year = Column(Integer)
+    month = Column(Integer)
+    week = Column(Integer)
+    hour = Column(Integer)
+    day_type_id = Column(ForeignKey(DayType.id))
+    weather_datetime = Column(DateTime)
+    value = Column(Float)
+
+    UniqueConstraint(parent_id, gau_id, dispatch_feeder_id, timeshift_type_id, resource_bin)
+
+    day_type = relationship(DayType)
+    dispatch_feeder = relationship(DispatchFeeder)
+    gau = relationship(GeographiesDatum)
+    timeshift_type = relationship(FlexibleLoadShiftType)
+    dispatch_constraint_type = relationship(DispatchConstraintType)
+    shape = relationship(Shape, order_by=id, backref='data')
 
 
 directory = os.getcwd()

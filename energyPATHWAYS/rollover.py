@@ -37,10 +37,10 @@ class Rollover(object):
         
         self.stock_changes_as_min = stock_changes_as_min
         self.all_techs = np.arange(self.num_techs, dtype=int)
-        self.stock = np.zeros((self.num_techs, self.num_vintages*self.spy + 1, self.num_years*self.spy))
-        self.rolloff_record = np.zeros((self.num_years*self.spy, self.num_techs))
-        self.natural_rolloff = np.zeros((self.num_years*self.spy, self.num_techs))
-        self.sales_record = np.zeros((self.num_years*self.spy, self.num_techs))
+        self.stock = np.zeros( (self.num_techs, self.num_vintages*self.spy + 1, self.num_years*self.spy))
+        self.rolloff_record = np.zeros( (self.num_years*self.spy, self.num_techs))
+        self.natural_rolloff = np.zeros( (self.num_years*self.spy, self.num_techs))
+        self.sales_record = np.zeros( (self.num_years*self.spy, self.num_techs))
         self.prinxy = np.zeros(self.num_techs)
         self.i = 0
         

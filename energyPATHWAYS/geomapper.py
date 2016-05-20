@@ -2,13 +2,15 @@ __author__ = 'ryan'
 
 import config
 import pandas as pd
-import os
-import copy
 import util
 from collections import OrderedDict
 import textwrap
+import data_models.data_source as data_source
+from data_models.geography import Geography, GeographiesDatum, GeographyIntersection, GeographyMapKey
+from data_models.system import TimeZone
 
-class Geography:
+
+class GeoMapper:
     def __init__(self):
         self.geographies = OrderedDict()
         self.geography_names = {}
@@ -21,26 +23,25 @@ class Geography:
 
 
     def read_geography_indicies(self):
-        config.cfg.cur.execute(textwrap.dedent("""\
-            SELECT "Geographies".name, ARRAY_AGG("GeographiesData".id) AS geography_data_ids
-            FROM "Geographies"
-            JOIN "GeographiesData" ON "Geographies".id = "GeographiesData".geography_id
-            GROUP BY "Geographies".id
-            ORDER BY "Geographies".id;
-        """))
+        session = data_source.session()
 
-        for row in config.cfg.cur.fetchall():
-            self.geographies[row[0]] = row[1]
-        for value in self.geographies.values():
-            value.sort()
-        for id, name in util.sql_read_table('TimeZones', column_names=['id', 'name']):
-            self.timezone_names[id] = name
-        config.cfg.cur.execute('SELECT name FROM "GeographyMapKeys" ORDER BY id')
-        self.map_keys = [name for (name,) in config.cfg.cur.fetchall()]
+        geo_data = session.query(Geography.name, GeographiesDatum.id).join(GeographiesDatum).\
+            order_by(Geography.id, GeographiesDatum.id).all()
+
+        for row in geo_data:
+            try:
+                self.geographies[row[0]].append(row[1])
+            except KeyError:
+                self.geographies[row[0]] = [row[1]]
+
+        self.timezone_names = data_source.fetch_as_lookup(TimeZone)
+
+        map_key_data = session.query(GeographyMapKey.name).order_by(GeographyMapKey.id).all()
+        self.map_keys = [name for (name,) in map_key_data]
 
     def read_geography_data(self):
-        config.cfg.cur.execute('SELECT COUNT(*) FROM "GeographyIntersection"')
-        expected_rows = config.cfg.cur.fetchone()[0]
+        session = data_source.session()
+        expected_rows = session.query(GeographyIntersection).count()
 
         # This query pulls together the geography map from its constituent tables. Its rows look like:
         # intersection_id, [list of geographical units that define intersection],
@@ -48,7 +49,11 @@ class Geography:
         # Note that those internal lists are specifically being drawn out in the order of their Geographies and
         # GeographyMapKeys, respectively, so that they are in the same order as the expected dataframe indexes
         # and column headers
-        config.cfg.cur.execute(textwrap.dedent("""\
+        #
+        # I am leaving this as raw SQL for now because doing it without ARRAY_AGG seems too complex to be worth it.
+        # SQLAlchemy 1.1 (the "development" version as of this writing) appears to have much better support for
+        # array_agg, so once 1.1 becomes stable we should consider porting this into SQLAlchemy syntax
+        map = session.execute(textwrap.dedent("""\
             SELECT intersections.id,
                    intersections.intersection,
                    ARRAY_AGG("GeographyMap".value ORDER BY "GeographyMap".geography_map_key_id) AS values
@@ -66,9 +71,8 @@ class Geography:
 
             JOIN "GeographyMap" ON "GeographyMap".intersection_id = intersections.id
             GROUP BY intersections.id, intersections.intersection;
-        """))
+        """)).fetchall()
 
-        map = config.cfg.cur.fetchall()
         assert len(map) == expected_rows, "Expected %i rows in the geography map but found %i" % (expected_rows, len(map))
 
         # convert the query results into a list of indexes and a list of data (column values) that can be used
