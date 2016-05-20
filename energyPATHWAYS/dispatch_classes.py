@@ -377,13 +377,13 @@ class Dispatch(object):
             
     
     def set_gen_technologies(self, geography, thermal_dispatch_df):
-        pmaxs = np.array(util.df_slice(thermal_dispatch_df,['capacity',geography],['IO',self.dispatch_geography]).values).T[0]
-        marginal_costs = np.array(util.df_slice(thermal_dispatch_df,['cost',geography],['IO',self.dispatch_geography]).values).T[0]
-        MOR = np.array(util.df_slice(thermal_dispatch_df,['maintenance_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
-        FOR = np.array(util.df_slice(thermal_dispatch_df,['forced_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
-        must_runs = np.array(util.df_slice(thermal_dispatch_df,['must_run',geography],['IO',self.dispatch_geography]).values).T[0]
-        clustered_dict = self._cluster_generators(n_clusters = int(cfg.cfgfile.get('opt','generator_steps')), pmax=pmaxs, marginal_cost=marginal_costs, FORs=FOR, 
-                                     MORs=MOR, must_run=must_runs, pad_stack=True, zero_mc_4_must_run=True)
+        pmax = np.array(util.df_slice(thermal_dispatch_df,['capacity',geography],['IO',self.dispatch_geography]).values).T[0]
+        marginal_cost = np.array(util.df_slice(thermal_dispatch_df,['cost',geography],['IO',self.dispatch_geography]).values).T[0]
+        MORs = np.array(util.df_slice(thermal_dispatch_df,['maintenance_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
+        FORs = np.array(util.df_slice(thermal_dispatch_df,['forced_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
+        must_run = np.array(util.df_slice(thermal_dispatch_df,['must_run',geography],['IO',self.dispatch_geography]).values).T[0]
+        clustered_dict = self._cluster_generators(n_clusters = int(cfg.cfgfile.get('opt','generator_steps')), pmax=pmax, marginal_cost=marginal_cost, FORs=FORs, 
+                                     MORs=MORs, must_run=must_run, pad_stack=True, zero_mc_4_must_run=True)
         generator_numbers = range(len(clustered_dict['derated_pmax']))
         for number in generator_numbers:
             generator = str(((max(generator_numbers)+1)* (self.dispatch_geographies.index(geography))) + (number)+1)
@@ -515,13 +515,17 @@ class Dispatch(object):
         Returns:
             clustered: a dictionary with generator clusters
         """
+        ind = np.nonzero(pmax)
+        pmax = pmax[ind]
+        marginal_cost = marginal_cost[ind]
+        FORs = FORs[ind]
+        MORs = MORs[ind]
+        must_run = must_run[ind]
         assert n_clusters>=1
         assert n_clusters<=len(pmax)
-        
         new_mc = copy.deepcopy(marginal_cost) #copy mc before changing it
         if zero_mc_4_must_run:
             new_mc[np.nonzero(must_run)] = 0
-        
         # clustering is done here
         cluster = KMeans(n_clusters=n_clusters, precompute_distances='auto')
         factor = (max(marginal_cost) - min(marginal_cost))*10
@@ -538,7 +542,6 @@ class Dispatch(object):
         clustered['marginal_cost'] = np.array([group_wgtav(c, derated_pmax, new_mc) for c in range(n_clusters)])
         order = np.argsort(clustered['marginal_cost']) #order the result by marginal cost
         clustered['marginal_cost'] = clustered['marginal_cost'][order]
-        
         clustered['derated_pmax'] = np.array([group_sum(c, derated_pmax) for c in range(n_clusters)])[order]
         clustered['pmax'] = np.array([group_sum(c, pmax) for c in range(n_clusters)])[order]
         clustered['FORs'] = np.array([group_wgtav(c, pmax, FORs) for c in range(n_clusters)])[order]

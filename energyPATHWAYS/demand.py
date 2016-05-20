@@ -26,7 +26,7 @@ import multiprocessing
 
 from profilehooks import timecall
 from config import cfg
-
+import pdb
 
 def calculate(subsector):
     print "calculating" + " " +  subsector.name 
@@ -242,7 +242,7 @@ class Sector(object):
 
 
     def add_subsectors(self):
-        ids= util.sql_read_table('DemandSubsectors',column_names='id',sector_id=self.id,is_active=True)
+        ids= util.sql_read_table('DemandSubsectors',column_names='id',sector_id=self.id,is_active=True, return_iterable=True)
         for id in ids:
             self.add_subsector(id, self.id)
 
@@ -325,7 +325,6 @@ class Sector(object):
                 else:
                     print "calculating " + subsector.name
                     subsector.calculate() 
-
 ##        #clear the calculations for the next scenario loop
         for subsector in self.subsectors.values():
             subsector.calculated = False
@@ -600,7 +599,6 @@ class Subsector(DataMapFunctions):
             cfg.init_geo()
             cfg.init_date_lookup()
             cfg.init_outputs_id_map()
-        """ subsector calculation function """
 #        print '    '+'calculating measures'
         self.calculate_measures()
 #        print '    '+'adding linked inputs'
@@ -696,6 +694,7 @@ class Subsector(DataMapFunctions):
                 df_list.append(df)
             keys = measure_types
             names = ['measure_types']
+#            pdb.set_trace()
             df = pd.concat(df_list,keys=keys,names=names)
             unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
             df.columns = [unit]
@@ -739,8 +738,6 @@ class Subsector(DataMapFunctions):
         df = util.df_list_concatenate(values, keys=keys, new_names=['cost category', 'new/replacement'], levels_to_keep=override_levels_to_keep)
         unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
         df.columns = [unit]        
-        
-        
         return df
 
     def calculate_measures(self):
@@ -790,7 +787,7 @@ class Subsector(DataMapFunctions):
         """ calculates cost outputs for all subsector types """
         if hasattr(self,'stock'):
             self.calculate_costs_stock()
-            self.calculate_costs_measures()
+        self.calculate_costs_measures()
 
     def calculate_years(self):
         """determines the analysis period within the subsector based on the minimum year
@@ -1539,7 +1536,6 @@ class Subsector(DataMapFunctions):
 
     def calc_tech_survival_functions(self, steps_per_year=1, rollover_threshold=.99):
         self.stock.spy = steps_per_year
-        
         for technology in self.technologies.values():
             technology.spy = steps_per_year
             technology.set_survival_parameters()
@@ -1553,13 +1549,17 @@ class Subsector(DataMapFunctions):
 #                print '       '+'increasing stock rollover time steps per year to ' + str(steps_per_year*2) + ' to account for short lifetimes of equipment'
                 self.calc_tech_survival_functions(steps_per_year=steps_per_year*2)
 
-    def calc_measure_survival_functions(self, measures):
+    def calc_measure_survival_functions(self, measures, steps_per_year=1, rollover_threshold=.99):
         for measure in measures.values():
+            measure.spy = steps_per_year
             measure.set_survival_parameters()
             measure.set_survival_vintaged()
             measure.set_decay_vintaged()
             measure.set_survival_initial_stock()
             measure.set_decay_initial_stock()
+        for measure in measures.values():
+            if measure.survival_vintaged[1] < rollover_threshold:
+                self.calc_measure_survival_functions(measures,steps_per_year=steps_per_year*2)
 
     def max_cal_year(self, demand):
         """finds the maximum year to calibrate service demand input in energy terms 
@@ -1657,11 +1657,7 @@ class Subsector(DataMapFunctions):
         max_column = max(level_values)
         df = df.unstack(level='year')
         df.columns = df.columns.droplevel()
-        try:
-            df = df.loc[:, max_column].to_frame()
-        except:
-            print self.id
-            print df
+        df = df.loc[:, max_column].to_frame()
         for column in self.years:
             df[column] = df[max_column]
         df = util.DfOper.mult([df,df_for_indexing])
@@ -1842,7 +1838,7 @@ class Subsector(DataMapFunctions):
         self.create_measure_survival_functions(measures, stock)
         self.create_measure_rollover_markov_matrices(measures, stock)
         levels = stock.rollover_group_names
-        rollover_groups = stock.total.groupby(level=levels).groups
+        rollover_groups = util.remove_df_levels(stock.total,'year').groupby(level=levels).groups
         full_levels = stock.rollover_group_levels + [measures.keys()] + [
             [self.vintages[0] - 1] + self.vintages]
         full_names = stock.rollover_group_names + ['measure', 'vintage']
@@ -1856,6 +1852,8 @@ class Subsector(DataMapFunctions):
 
         for elements in rollover_groups.keys():
             specified_stock = util.df_slice(stock.specified, elements, levels)
+            if np.all(specified_stock.sum())==0:
+                continue
             annual_stock_change = util.df_slice(stock.annual_stock_changes, elements, levels)
             self.rollover = Rollover(vintaged_markov_matrix=stock.vintaged_markov_matrix,
                                      initial_markov_matrix=stock.initial_markov_matrix,
@@ -1863,14 +1861,14 @@ class Subsector(DataMapFunctions):
                                      num_techs=len(measures.keys()), initial_stock=None,
                                      sales_share=None, stock_changes=annual_stock_change.values,
                                      specified_stock=specified_stock.values, specified_retirements=None)
-#            self.rollover._run()
-            try:
-                self.rollover.run()
-            except:
-                print "specified stock exceeded in rollover group %s" %elements
-            stock_total, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
-            stock.values.loc[elements], stock.retirements.loc[elements, 'value'] = stock_total, retirements
-            stock.sales.loc[elements, 'value'] = sales_record
+            if abs(annual_stock_change.sum().values)!=0:
+#                try:
+                self.rollover.run(exceedance_tolerance=1.1)
+#                except:
+#                    print "specified stock exceeded for measures in %s" %self.id
+                stock_total, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
+                stock.values.loc[elements], stock.retirements.loc[elements, 'value'] = stock_total, retirements
+                stock.sales.loc[elements, 'value'] = sales_record
 
 
     def calculate_costs_measures(self):

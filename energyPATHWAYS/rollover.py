@@ -213,11 +213,12 @@ class Rollover(object):
         self.sum_defined_sales = np.sum(self.defined_sales[self.specified])
 
         if len(self.specified) and np.sum(self.prior_year_stock):
-            if not self.stock_changes_as_min and (round(sum(self.specified_stock[i][self.stock_specified]), 5) / round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5))>1.01:
-                print round(sum(self.specified_stock[i][self.stock_specified]), 5)
-                print round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5)
-                print  (round(sum(self.specified_stock[i][self.stock_specified]), 5) / round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5))
-                raise RuntimeError('Specified stock in a given year is greater than the total stock')
+            if round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5)>0:
+                if not self.stock_changes_as_min and (round(sum(self.specified_stock[i][self.stock_specified]), 5) / round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5))>self.exceedance_tolerance:
+                    print round(sum(self.specified_stock[i][self.stock_specified]), 5)
+                    print round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5)
+                    print  (round(sum(self.specified_stock[i][self.stock_specified]), 5) / round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5))
+                    raise RuntimeError('Specified stock in a given year is greater than the total stock')
 
             # if we have both a specified stock and specified sales for a tech, we need to true up the vintaged stock to make both match, if possible
             if len(set(self.sales_specified) & set(self.stock_specified)):
@@ -340,14 +341,14 @@ class Rollover(object):
         self.check_outputs()
         self.calculate_outputs(list_steps)
 
-    def run(self, num=None, introduced_stock_changes=None, introduced_specified_stock=None, introduced_specified_sales=None):
+    def run(self, num=None, introduced_stock_changes=None, introduced_specified_stock=None, introduced_specified_sales=None, exceedance_tolerance=1.01):
         """
         num_years: number of years to simulate
         stock_changes: annual increase (positive) or decrease (negative) in total stock
         """
         list_steps = range(self.i, self.num_years*self.spy) if num is None else range(self.i, min(self.i+num*self.spy, self.num_years*self.spy))
         self.introduce_inputs_override(num, introduced_stock_changes, introduced_specified_stock, introduced_specified_sales)
-        
+        self.exceedance_tolerance=exceedance_tolerance
         for i in list_steps:
             self.i = i
             self.prinxy = np.zeros(self.num_techs)  # probability of retiring in next x years

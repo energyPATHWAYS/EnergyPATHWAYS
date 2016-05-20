@@ -54,7 +54,6 @@ class TimeSeries:
 
         A, K, M, B = TimeSeries.logistic_default_param(x, y)
         popt = TimeSeries.leastsq_curve_fit(x, y, f=TimeSeries.generalized_logistic, p0=(A, K, M, B))
-        print popt
 
         if popt is None:
             # Raise an error if no fit is found
@@ -81,7 +80,6 @@ class TimeSeries:
             popt, pcov = optimize.curve_fit(f, x, y, p0)
             return popt
         except RuntimeError as e:
-            print e
             return None
 
     @staticmethod

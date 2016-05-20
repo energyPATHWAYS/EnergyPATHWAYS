@@ -393,11 +393,17 @@ class Supply(object):
                 else:
                     if loop == 1:
                         self.initialize_year(year,loop)
-                        self.calculate_demand(year,loop)
+                        self.calculate_coefficients(year,loop)
                         self.update_io_df(year)
                         self.calculate_io(year,loop)  
                         self.calculate_stocks(year, loop)
-                        self.calculate_coefficients(year,loop)
+                        self.calculate_coefficients(year,loop)                        
+#                        self.calculate_coefficients(year,loop)
+#                        self.calculate_demand(year,loop)
+#                        self.update_io_df(year)
+#                        self.calculate_io(year,loop)  
+#                        self.calculate_stocks(year, loop)
+#                        self.calculate_coefficients(year,loop)
                     if loop == 2:
                         #sets a flag for whether any reconciliation occurs in the loop
                         #determined in the reconcile function
@@ -443,11 +449,18 @@ class Supply(object):
                         self.reconcile_constraints(year,loop)
                         if self.reconciled is True:
                             self.update_demand(year,loop)
-                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
-#                            self.calculate_stocks(year, loop)
                             self.calculate_coefficients(year,loop)
                             self.update_io_df(year)
                             self.calculate_io(year, loop)    
+                        self.reconciled = False
+                        self.reconcile_oversupply(year,loop)
+                        if self.reconciled is True:
+                            self.update_demand(year,loop)
+                        #if reconciliation has occured, we have to recalculate coefficients and resolve the io
+#                            self.calculate_stocks(year, loop)
+                            self.calculate_coefficients(year,loop)
+                            self.update_io_df(year)
+                            self.calculate_io(year, loop)
                         self.calculate_stocks(year, loop)
                         self.calculate_embodied_costs(year, loop)
                     if loop == 3:
@@ -831,7 +844,7 @@ class Supply(object):
             for node_id in self.electricity_load_nodes[zone]['flexible']:
                 node = self.nodes[node_id]
                 coefficients = node.active_coefficients_untraded
-                indexer = util.level_specific_indexer(node.stock.coefficients.loc[:,year].to_frame(),'supply_node',[self.electricity_nodes[zone]+[zone]])
+                indexer = util.level_specific_indexer(coefficients,'supply_node',[self.electricity_nodes[zone]+[zone]])
                 energy_demand = DfOper.mult([util.remove_df_levels(node.stock.values_energy.loc[:,year].to_frame(),['vintage','supply_technology']),coefficients])
                 capacity = DfOper.mult([util.remove_df_levels(node.stock.values.loc[:,year].to_frame(),['vintage','supply_technology']), coefficients.loc[indexer,year].to_frame()])
                 if zone == self.distribution_node_id and 'demand_sector' not in node.stock.values.index.names:
@@ -961,29 +974,30 @@ class Supply(object):
         """
         self.non_flexible_gen = util.recursivedict()
         for zone in self.dispatch_zones:
-            for node_id in self.electricity_gen_nodes[zone]['non_flexible']:
-                node = self.nodes[node_id]
-                energy_supply = node.active_supply
-                #geomap to dispatch geography
-                if self.dispatch_geography != self.geography:                
-                    geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
-                    map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key, eliminate_zeros=False)
-                    energy_supply = DfOper.mult([energy_supply,map_df])
-                if zone == self.distribution_node_id:
-                    #specific for distribution node because of feeder allocation requirement
-                    indexer = util.level_specific_indexer(self.dispatch_feeder_allocation.values, 'year', year)
-                    energy_supply = util.remove_df_levels(util.DfOper.mult([energy_supply, self.dispatch_feeder_allocation.values.loc[indexer, :]]), 'demand_sector')
-                    for geography in self.dispatch_geographies:
-                        for dispatch_feeder in self.dispatch_feeders:
-                            indexer = util.level_specific_indexer(energy_supply, [self.dispatch_geography, 'dispatch_feeder'],[geography,dispatch_feeder])
-                            self.non_flexible_gen[geography][zone][node.id][dispatch_feeder]= energy_supply.loc[indexer,:]
-                else:
-                    energy_supply = util.remove_df_levels(energy_supply,'demand_sector')
-                    for geography in self.dispatch_geographies:
-                        #feeder is set to 0 for flexible load not on the distribution system
-                        indexer = util.level_specific_indexer(energy_supply, self.dispatch_geography,geography)
-                        self.non_flexible_gen[geography][zone][node.id][0] = util.remove_df_levels(energy_supply.loc[indexer,:],['demand_sector'])
-
+                non_thermal_dispatch_nodes = [x for x in self.electricity_gen_nodes[zone]['non_flexible'] if x not in 
+                                                self.nodes[self.thermal_dispatch_node_id].values.index.get_level_values('supply_node')]
+                for node_id in non_thermal_dispatch_nodes:
+                    node = self.nodes[node_id]
+                    energy_supply = node.active_supply
+                    #geomap to dispatch geography
+                    if self.dispatch_geography != self.geography:                
+                        geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
+                        map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,geography_map_key, eliminate_zeros=False)
+                        energy_supply = DfOper.mult([energy_supply,map_df])
+                    if zone == self.distribution_node_id:
+                        #specific for distribution node because of feeder allocation requirement
+                        indexer = util.level_specific_indexer(self.dispatch_feeder_allocation.values, 'year', year)
+                        energy_supply = util.remove_df_levels(util.DfOper.mult([energy_supply, self.dispatch_feeder_allocation.values.loc[indexer, :]]), 'demand_sector')
+                        for geography in self.dispatch_geographies:
+                            for dispatch_feeder in self.dispatch_feeders:
+                                indexer = util.level_specific_indexer(energy_supply, [self.dispatch_geography, 'dispatch_feeder'],[geography,dispatch_feeder])
+                                self.non_flexible_gen[geography][zone][node.id][dispatch_feeder]= energy_supply.loc[indexer,:]
+                    else:
+                        energy_supply = util.remove_df_levels(energy_supply,'demand_sector')
+                        for geography in self.dispatch_geographies:
+                            #feeder is set to 0 for flexible load not on the distribution system
+                            indexer = util.level_specific_indexer(energy_supply, self.dispatch_geography,geography)
+                            self.non_flexible_gen[geography][zone][node.id][0] = util.remove_df_levels(energy_supply.loc[indexer,:],['demand_sector'])
         self.non_flexible_gen = util.freeze_recursivedict(self.non_flexible_gen)
 
     def prepare_dispatch_inputs(self, year, loop):
@@ -1914,7 +1928,7 @@ class Supply(object):
             if hasattr(output_node, 'active_coefficients_total') and getattr(output_node, 'active_coefficients_total') is not None:
               if internal_trade_node in set(output_node.active_coefficients_total.index.get_level_values('supply_node')):
                   #if this output node is a blend node, the reconciliation happens here. 
-                  if output_node.id in self.blend_nodes or isinstance(output_node,ImportNode) or output_node.internal_trades == 'stop':
+                  if output_node.id in self.blend_nodes and output_node.tradable_geography or isinstance(output_node,ImportNode) or output_node.internal_trades == 'stop':
                      indexer = util.level_specific_indexer(output_node.active_trade_adjustment_df,'supply_node', internal_trade_node)  
                      output_node.active_trade_adjustment_df.loc[indexer, :]  =  internal_trade_adjustment.values
                      self.reconciled = True
@@ -2172,9 +2186,7 @@ class Supply(object):
                     self.inverse_dict[key][year][sector]= df
             
     def create_embodied_cost_and_energy_demand_link(self):
-        map_dict = dict(util.sql_read_table('SupplyNodes',['final_energy_link','id']))
-        if None in map_dict.keys():
-            del map_dict[None]
+        map_dict = self.map_dict
         keys = sorted(map_dict.items(), key=operator.itemgetter(1))
         keys = [x[0] for x in keys]
             #sorts final energy in the same order as the supply node dataframes
@@ -2189,9 +2201,7 @@ class Supply(object):
         
     
     def create_embodied_emissions_demand_link(self):
-        map_dict = dict(util.sql_read_table('SupplyNodes',['final_energy_link','id']))
-        if None in map_dict.keys():
-            del map_dict[None]
+        map_dict = self.map_dict
         #sorts final energy in the same order as the supply node dataframes
         keys = sorted(map_dict.items(), key=operator.itemgetter(1))
         keys = [x[0] for x in keys]
@@ -2206,7 +2216,7 @@ class Supply(object):
     def map_demand_to_io(self):
         """maps final energy demand ids to node nodes for IO table demand calculation"""    
         #loops through all final energy types in demand df and adds 
-        map_dict = dict(util.sql_read_table('SupplyNodes',['final_energy_link','id']))
+        map_dict = self.map_dict
         self.demand_df = self.demand_object.energy_demand.unstack(level='year')   
         self.demand_df.columns = self.demand_df.columns.droplevel()       
         for demand_sector, geography, final_energy in self.demand_df.groupby(level = self.demand_df.index.names).groups:        
@@ -2626,7 +2636,7 @@ class Node(DataMapFunctions):
             active_geomapped_potential, active_geomapped_supply = self.potential.format_potential_and_supply_for_constraint_check(self.active_supply, self.tradable_geography, year)           
             self.potential_exceedance = util.DfOper.divi([active_geomapped_potential,active_geomapped_supply], expandable = (False,False), collapsible = (True, True))
             #reformat dataframes for a remap
-            self.potential_exceedance[self.potential_exceedance<0] = 0
+            self.potential_exceedance[self.potential_exceedance<0] = 1            
             self.potential_exceedance = self.potential_exceedance.replace([np.nan,np.inf],[1,1])
 #            remap_active = pd.DataFrame(self.potential.active_potential.stack(), columns=['value'])
 #            util.replace_index_name(remap_active, 'year')
@@ -2921,18 +2931,19 @@ class Node(DataMapFunctions):
             
 
         
-class  Export(Abstract):
+class Export(Abstract):
     def __init__(self,node_id, measure_id=None, **kwargs):
-        self.id = node_id
         self.input_type = 'total'
         if measure_id is None:
+            self.id = node_id
             self.sql_id_table = 'SupplyExport'
             self.sql_data_table = 'SupplyExportData'
             Abstract.__init__(self, self.id, primary_key='supply_node_id')
         else:
+            self.id = measure_id
             self.sql_id_table = 'SupplyExportMeasures'
             self.sql_data_table = 'SupplyExportMeasuresData'
-            Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
+            Abstract.__init__(self, measure_id, primary_key='id', data_id_key='parent_id')
             
     def calculate(self, years, demand_sectors):
         self.years = years
@@ -4932,14 +4943,15 @@ class SupplyStockNode(Node):
                 for node in self.active_trade_adjustment_df.index.get_level_values('supply_node'):
                     embodied_cost_indexer = util.level_specific_indexer(embodied_cost_df, 'supply_node',node)
                     trade_adjustment_indexer = util.level_specific_indexer(self.active_trade_adjustment_df, 'supply_node',node)
-                    self.active_dispatch_costs.loc[trade_adjustment_indexer,:] = DfOper.mult([self.active_trade_adjustment_df.loc[trade_adjustment_indexer,:],embodied_cost_df.loc[embodied_cost_indexer,:]]).values 
+                    self.active_dispatch_costs.loc[trade_adjustment_indexer,:] = util.DfOper.mult([self.active_trade_adjustment_df.loc[trade_adjustment_indexer,:],
+                                                                                             embodied_cost_df.loc[embodied_cost_indexer,:]]).values 
                 self.active_dispatch_costs = self.active_dispatch_costs.groupby(level='supply_node').sum()
                 self.active_dispatch_costs = self.active_dispatch_costs.stack([self.geography,'demand_sector'])
                 self.active_dispatch_costs = util.reduce_levels(self.active_dispatch_costs, self.stock.rollover_group_names+['supply_node'], agg_function='mean')
-                self.active_dispatch_costs = DfOper.mult([self.active_dispatch_costs.to_frame(), self.active_dispatch_coefficients])
+                self.active_dispatch_costs = util.DfOper.mult([self.active_dispatch_costs.to_frame(), self.active_dispatch_coefficients])
                 self.active_dispatch_costs = util.remove_df_levels(self.active_dispatch_costs, 'supply_node')
                 self.active_dispatch_costs = self.active_dispatch_costs.reorder_levels(self.stock.values.index.names)               
-                self.active_dispatch_costs = DfOper.add([self.active_dispatch_costs,self.rollover_output(tech_class='variable_om', tech_att= 'values_level', stock_att='ones',year=year)])
+                self.active_dispatch_costs = util.DfOper.add([self.active_dispatch_costs,self.rollover_output(tech_class='variable_om', tech_att= 'values_level', stock_att='ones',year=year)])
                 self.active_dispatch_costs[self.active_dispatch_costs<0] = 0
     
     def stock_normalize(self,year):
@@ -5133,7 +5145,7 @@ class StorageNode(SupplyStockNode):
                                                                          stock_att='values_financial_replacement',year=year)            
         self.stock.fixed_om.loc[:,year]=  self.rollover_output(tech_class='fixed_om',tech_att='values_level',
                                                                          stock_att='values',year=year)  
-        self.stock.variable_om.loc[:,year] = DfOper.mult([self.rollover_output(tech_class='variable_om',tech_att='values', stock_att='values_normal_energy',year=year), self.active_supply],non_expandable_levels=None).groupby(level=self.stock.variable_om.index.names).sum()      
+        self.stock.variable_om.loc[:,year] = DfOper.mult([self.rollover_output(tech_class='variable_om',tech_att='values_level', stock_att='values_normal_energy',year=year), self.active_supply],non_expandable_levels=None).groupby(level=self.stock.variable_om.index.names).sum()      
         self.stock.installation_cost_new.loc[:,year] = self.rollover_output(tech_class='installation_cost_new',tech_att='values_level',
                                                                          stock_att='values_financial_new',year=year)
         self.stock.installation_cost_replacement.loc[:,year] = self.rollover_output(tech_class='installation_cost_replacement',tech_att='values_level',
