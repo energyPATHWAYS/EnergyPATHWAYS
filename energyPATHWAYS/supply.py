@@ -289,6 +289,7 @@ class Supply(object):
              
     def add_measures(self,case_id):
         """ Adds measures to supply nodes based on case and package inputs"""
+        self.case_id = case_id
         for node in self.nodes.values():  
             node.filter_packages('SupplyCasesData', 'supply_node_id', case_id)
             #all nodes have export measures
@@ -849,10 +850,9 @@ class Supply(object):
         for zone in self.dispatch_zones:
             for node_id in self.electricity_load_nodes[zone]['flexible']:
                 node = self.nodes[node_id]
-                coefficients = node.active_coefficients_untraded
-                indexer = util.level_specific_indexer(coefficients,'supply_node',[self.electricity_nodes[zone]+[zone]])
-                energy_demand = DfOper.mult([node.active_supply,coefficients])
-                capacity = DfOper.mult([util.remove_df_levels(node.stock.values.loc[:,year].to_frame(),['vintage','supply_technology']), coefficients.loc[indexer,year].to_frame()])
+                indexer =  util.level_specific_indexer(node.stock.coefficients.loc[:,year],'supply_node',[self.electricity_nodes[zone]+[zone]])
+                energy_demand = util.DfOper.mult([util.remove_df_levels(node.stock.values_energy.loc[:,year].to_frame(),['vintage','supply_technology']), util.remove_df_levels(node.stock.coefficients.loc[indexer,year].to_frame(),['vintage','supply_technology'])])
+                capacity = util.DfOper.mult([util.remove_df_levels(node.stock.values.loc[:,year].to_frame(),['vintage','supply_technology']), util.remove_df_levels(node.stock.coefficients.loc[indexer,year].to_frame(),['vintage','supply_technology'])])
                 if zone == self.distribution_node_id and 'demand_sector' not in node.stock.values.index.names:
                     #requires energy on the distribution system to be allocated to feeder for dispatch
                     energy_demand = DfOper.mult([energy_demand, node.active_supply.groupby(level=[self.geography,'demand_sector']).transform(lambda x: x/x.sum())])   
@@ -1082,9 +1082,9 @@ class Supply(object):
                 if hasattr(node,'active_dispatch_costs'):
                     active_dispatch_costs = node.active_dispatch_costs
                     #TODO remove
-                    if node.id == 15 and year>2040:
+                    if node.id == 15 and year>2040 and self.case_id!=1:
                        active_dispatch_costs = node.active_dispatch_costs * (1+((year-2040)/2))
-                    if node.id == 14 and year>2040:
+                    if node.id == 14 and year>2040 and self.case_id!=1:
                        active_dispatch_costs = node.active_dispatch_costs /(1+((year-2040)/2))
                     stock_values = node.stock.values.loc[:,year].to_frame()
                     stock_values = stock_values[((stock_values.index.get_level_values('vintage')==year) == True) | ((stock_values[year]>0) == True)]

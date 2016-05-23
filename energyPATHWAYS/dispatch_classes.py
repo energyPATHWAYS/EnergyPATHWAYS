@@ -620,6 +620,7 @@ class Dispatch(object):
 
         if np.any(np.isnan(gen_maintenance)):
             raise ValueError("Calculation has returned maintenance rates of nan")
+        gen_maintenance[:] = 0
         return gen_maintenance
 
     @staticmethod
