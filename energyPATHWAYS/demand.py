@@ -98,9 +98,8 @@ class Demand(object):
                 return None
             levels_with_na_only = [name for level, name in zip(df.index.levels, df.index.names) if list(level)==[u'N/A']]
             return util.remove_df_levels(df, levels_with_na_only).sort_index()
-            
         output_list = ['energy', 'stock', 'sales','annual_costs', 'levelized_costs', 'service_demand']
-        unit_flag = [False, True, False, False, True]
+        unit_flag = [False, True, False, False, True, True]
         for output_name, include_unit in zip(output_list,unit_flag):
             df = self.group_output(output_name, include_unit=include_unit)
             df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
@@ -569,7 +568,7 @@ class Subsector(DataMapFunctions):
         """filters packages by case"""
         packages = [x for x in util.sql_read_headers('DemandCasesData') if x not in ['parent_id', 'id', 'subsector_id']]
         for package in packages:
-            package_id = util.sql_read_table('DemandCasesData', package, subsector_id=self.id, parent_id=case_id)
+            package_id = util.sql_read_table('DemandCasesData', package, subsector_id=self.id, parent_id=case_id,return_unique=True)
             setattr(self, package, package_id)
 
 
@@ -648,11 +647,18 @@ class Subsector(DataMapFunctions):
     def format_output_service_demand(self, override_levels_to_keep):
         if not hasattr(self, 'service_demand'):
             return None
+        if hasattr(self.service_demand,'modifier'):
+            df = util.DfOper.mult([self.service_demand.modifier, self.stock.values_normal,self.service_demand.values])
+        else:
+            df = self.service_demand.values
         levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
-        levels_to_eleminate = [l for l in self.service_demand.values.index.names if l not in levels_to_keep]
-        df = util.remove_df_levels(self.service_demand.values, levels_to_eleminate).sort()
+        levels_to_eliminate = [l for l in df.index.names if l not in levels_to_keep]
+        df = util.remove_df_levels(df,levels_to_eliminate).sort()
+        df = df.stack().to_frame()
+        util.replace_column_name(df,'value')
+        util.replace_index_name(df, 'year')
         df = util.add_and_set_index(df, 'unit', self.service_demand.unit.upper(), index_location=-2)
-        df.columns = ['value']       
+        df.columns = ['value']
         return df
     
     def format_output_sales(self, override_levels_to_keep):
@@ -1759,7 +1765,8 @@ class Subsector(DataMapFunctions):
                for specified_stock in technology.specified_stocks.values():
                    specified_stock.remap(map_from='values', current_geography = cfg.cfgfile.get('case','primary_geography'), drivers=self.stock.total)
                    self.stock.technology.sort(inplace=True)
-                   indexer = util.level_specific_indexer(self.stock.technology,'technology',technology.id)
+                   indexer = util.level_specific_indexer(self
+                   .stock.technology,'technology',technology.id)
                    df = util.remove_df_levels(self.stock.technology.loc[indexer,:],'technology')
                    df = df.reorder_levels([x for x in self.stock.technology.index.names if x not in ['technology']])
                    df.sort(inplace=True)
@@ -1838,7 +1845,10 @@ class Subsector(DataMapFunctions):
         self.create_measure_survival_functions(measures, stock)
         self.create_measure_rollover_markov_matrices(measures, stock)
         levels = stock.rollover_group_names
-        rollover_groups = util.remove_df_levels(stock.total,'year').groupby(level=levels).groups
+        if len(levels) == 1:
+            rollover_groups = util.remove_df_levels(stock.total,'year').groupby(level=levels[0]).groups
+        else:
+            rollover_groups = util.remove_df_levels(stock.total,'year').groupby(level=levels).groups
         full_levels = stock.rollover_group_levels + [measures.keys()] + [
             [self.vintages[0] - 1] + self.vintages]
         full_names = stock.rollover_group_names + ['measure', 'vintage']
@@ -1849,10 +1859,12 @@ class Subsector(DataMapFunctions):
         index = pd.MultiIndex.from_product(full_levels, names=full_names)
         stock.retirements = util.empty_df(index=index, columns=['value'])
         stock.sales = util.empty_df(index=index, columns=['value'])
-
+        if not any([x.cost.data for x in measures.values()]):
+            #no need to do stock rollover if there are no costs
+            return
         for elements in rollover_groups.keys():
             specified_stock = util.df_slice(stock.specified, elements, levels)
-            if np.all(specified_stock.sum())==0:
+            if np.all(specified_stock.sum().values==0):
                 continue
             annual_stock_change = util.df_slice(stock.annual_stock_changes, elements, levels)
             self.rollover = Rollover(vintaged_markov_matrix=stock.vintaged_markov_matrix,
@@ -2489,7 +2501,7 @@ class Subsector(DataMapFunctions):
             df = pd.DataFrame(df.stack(), columns=['value'])
             util.replace_index_name(df, 'year')
             self.output_service_drivers[link.linked_subsector_id] = df
-        self.reformat_service_demand()
+#        self.reformat_service_demand()
 
     def calculate_output_technology_stocks(self):
         """ calculates technology stocks for use in subsectors with linked technologies
@@ -2663,7 +2675,7 @@ class Subsector(DataMapFunctions):
         self.calculate_parasitic()
         self.service_demand.values = self.service_demand.values.unstack('year')
         self.service_demand.values.columns = self.service_demand.values.columns.droplevel()
-        all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'], self.service_demand.modifier, self.service_demand.values])
+        all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'],self.service_demand.modifier, self.service_demand.values]) 
         self.energy_forecast = util.DfOper.add([all_energy, self.parasitic_energy])
         self.energy_forecast = pd.DataFrame(self.energy_forecast.stack())
         util.replace_index_name(self.energy_forecast, 'year')

@@ -180,6 +180,8 @@ class Dispatch(object):
             period_flex_load_timepoints = dictionary with keys of period and values of a nested dictionary with the keys of period_hours and the values of those period hours offset
             by the flexible_load_constraint_offset configuration parameter
           """
+          if hasattr(self,'hours'):
+              return
           self.hours = np.arange(1,len(time_index)+1)
           self.period_hours = range(1,self.opt_hours+1)
           self.periods = range(0,len(time_index)/(self.opt_hours-1))

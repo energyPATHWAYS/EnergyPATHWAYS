@@ -35,7 +35,7 @@ class DemandMeasure(StockItem):
         if self.input_type == 'total':
             self.savings = self.clean_timeseries('values', inplace=False, time_index_name='year', time_index=self.years)
         else:
-            self.remap(map_from='raw_values', map_to='values', time_index_name='year')
+            self.remap(map_from='raw_values', map_to='values', time_index_name='year',lower=-100)
 
     def convert(self):
         if self.input_type == 'total':
