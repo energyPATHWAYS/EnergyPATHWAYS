@@ -30,6 +30,8 @@ import functools
 import itertools
 import decimal
 import psycopg2
+import data_models.data_source as data_source
+from data_models.system import Currency, CurrencyConversion, InflationConversion
 
 
 def freeze_recursivedict(recursivedict):
@@ -301,32 +303,28 @@ def unit_conversion_factor(unit_from, unit_to):
 def exchange_rate(currency_from, currency_from_year, currency_to=None):
     """calculate exchange rate between two specified currencies"""
     currency_to_name = config.cfg.cfgfile.get('case', 'currency_name') if currency_to is None else currency_to
-    currency_to = sql_read_table('Currencies',column_names='id',name=currency_to_name)
-    currency_from_values = sql_read_table('CurrenciesConversion', 'value', currency_id=currency_from,
-                                          currency_year_id=currency_from_year)
-    currency_from_value = np.asarray(currency_from_values).mean()
-    currency_to_values = sql_read_table('CurrenciesConversion', 'value', currency_id=currency_to,
-                                        currency_year_id=currency_from_year)
-    currency_to_value = np.asarray(currency_to_values).mean()
+    currency_to = data_source.fetch_one(Currency, name=currency_to_name).id
+    currency_from_value = data_source.fetch_one(CurrencyConversion, currency_id=currency_from,
+                                                currency_year=currency_from_year).value
+    currency_to_value = data_source.fetch_one(CurrencyConversion, currency_id=currency_to,
+                                               currency_year=currency_from_year).value
     return currency_to_value / currency_from_value
 
 
 def inflation_rate(currency, currency_from_year, currency_to_year=None):
     """calculate inflation rate between two years in a specified currency"""
     currency_to_year = config.cfg.cfgfile.get('case', 'currency_year_id') if currency_to_year is None else currency_to_year
-    currency_from_values = sql_read_table('InflationConversion', 'value', currency_id=currency,
-                                          currency_year_id=currency_from_year)
-    currency_from_value = np.asarray(currency_from_values).mean()
-    currency_to_values = sql_read_table('InflationConversion', 'value', currency_id=currency,
-                                        currency_year_id=currency_to_year)
-    currency_to_value = np.asarray(currency_to_values).mean()
+    currency_from_value = data_source.fetch_one(InflationConversion, currency_id=currency,
+                                                 currency_year=currency_from_year).value
+    currency_to_value = data_source.fetch_one(InflationConversion, currency_id=currency,
+                                              currency_year=currency_to_year).value
     return currency_to_value / currency_from_value
 
 
 def currency_convert(data, currency_from, currency_from_year):
     """converts cost data in original currency specifications (currency,year) to model currency and year"""
     currency_to_name, currency_to_year = config.cfg.cfgfile.get('case', 'currency_name'), config.cfg.cfgfile.get('case', 'currency_year_id')
-    currency_to = sql_read_table('Currencies',column_names='id',name=currency_to_name)
+    currency_to = data_source.fetch_one(Currency, name=currency_to_name).id
     # inflate in original currency and then exchange in model currency year
     try:
         a = inflation_rate(currency_from, currency_from_year)
