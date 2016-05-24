@@ -2110,7 +2110,7 @@ class Subsector(DataMapFunctions):
         ss_reference = self.helper_calc_sales_share(elements, levels, reference=True,
                                                     space_for_reference=space_for_reference)
         
-        if np.sum(ss_reference)==0:
+        if np.sum(ss_reference)==0 and np.sum(ss_measure)==0:
             ss_reference = SalesShare.scale_reference_array_to_gap( np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1)), space_for_reference)        
             #sales shares are always 1 with only one technology so the default can be used as a reference            
             if len(self.tech_ids)>1:
@@ -2377,15 +2377,15 @@ class Subsector(DataMapFunctions):
         initial_tech_dfs = [self.reformat_tech_df(initial_stock_df, tech, tech_class=None, tech_att='initial_book_life_matrix',id=tech.id) for tech in self.technologies.values()]
         initial_tech_df = pd.concat(initial_tech_dfs)
         # stock values in any year equals vintage sales multiplied by book life
-        self.stock.values_financial_new = DfOper.mult([self.stock.sales_new, tech_df])
-        self.stock.values_financial_replacement = DfOper.mult([self.stock.sales_replacement, tech_df])
+        self.stock.values_financial_new = util.DfOper.mult([self.stock.sales_new, tech_df])
+        self.stock.values_financial_replacement = util.DfOper.mult([self.stock.sales_replacement, tech_df])
         # initial stock values in any year equals stock.values multiplied by the initial tech_df
-        initial_values_financial_new = DfOper.mult([self.stock.values_new, initial_tech_df],non_expandable_levels=('year'))
-        initial_values_financial_replacement = DfOper.mult([self.stock.values_replacement, initial_tech_df],non_expandable_levels=('year'))
+        initial_values_financial_new = util.DfOper.mult([self.stock.values_new, initial_tech_df],non_expandable_levels=('year'))
+        initial_values_financial_replacement = util.DfOper.mult([self.stock.values_replacement, initial_tech_df],non_expandable_levels=('year'))
         # sum normal and initial stock values
-        self.stock.values_financial_new = DfOper.add([self.stock.values_financial_new, initial_values_financial_new],non_expandable_levels=('year'))
-        self.stock.values_financial_replacement = DfOper.add([self.stock.values_financial_replacement, initial_values_financial_replacement],non_expandable_levels=('year'))
-        self.stock.values_financial = DfOper.add([self.stock.values_financial_new,self.stock.values_financial_replacement])
+        self.stock.values_financial_new = util.DfOper.add([self.stock.values_financial_new, initial_values_financial_new],non_expandable_levels=('year'))
+        self.stock.values_financial_replacement = util.DfOper.add([self.stock.values_financial_replacement, initial_values_financial_replacement],non_expandable_levels=('year'))
+        self.stock.values_financial = util.DfOper.add([self.stock.values_financial_new,self.stock.values_financial_replacement])
     
     def calculate_costs_stock(self):
         """

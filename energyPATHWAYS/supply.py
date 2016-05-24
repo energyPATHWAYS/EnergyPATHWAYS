@@ -2320,7 +2320,7 @@ class Node(DataMapFunctions):
         measure_ids = util.sql_read_table('SupplyStockMeasurePackagesData', 'measure_id', package_id=package_id,
                                           return_iterable=True)
         for measure_id in measure_ids:
-            total_stocks = util.sql_read_table('SupplyStockMeasures', 'id', supply_technology_id=None, 
+            total_stocks = util.sql_read_table('SupplyStockMeasures', 'id',id=measure_id, supply_technology_id=None, 
                                                    supply_node_id=self.id, return_iterable=True)
             for total_stock in total_stocks:
                 self.total_stocks[total_stock] = SupplySpecifiedStock(id=total_stock,
@@ -4377,7 +4377,7 @@ class SupplyStockNode(Node):
         space_for_reference = 1 - np.sum(ss_measure, axis=1)
         ss_reference = self.helper_calc_sales_share(elements, levels, reference=True,
                                                     space_for_reference=space_for_reference)      
-        if np.sum(ss_reference)==0:
+        if np.sum(ss_reference)==0 and np.sum(ss_measure)==0:
             ss_reference = SalesShare.scale_reference_array_to_gap( np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1)), space_for_reference)        
             #sales shares are always 1 with only one technology so the default can be used as a reference
             if len(self.tech_ids)>1:

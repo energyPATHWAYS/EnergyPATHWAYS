@@ -766,7 +766,7 @@ def initial_book_life_df(book_life, mean_lifetime, vintages, years):
     vintages = np.asarray(vintages)
     vintages = np.concatenate(((min(vintages) - 1,), vintages))
     exist = np.zeros((len(vintages), len(years)))
-    maximum_remaining = .5 * book_life/float(mean_lifetime)
+    maximum_remaining = book_life/float(mean_lifetime)
     for i, year in enumerate(years):
         for vintage in [vintages[0]]:
             # TODO Ryan, better assumption about remaining useful/book life?
