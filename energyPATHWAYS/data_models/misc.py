@@ -4,6 +4,20 @@ from sqlalchemy.orm import relationship
 import data_source
 
 
+class ModelConfig(Base):
+    __tablename__ = 'ModelConfig'
+
+    id = Column(Integer, primary_key=True)
+    section = Column(Text, unique=False)
+    key = Column(Text, unique=True)
+    value = Column(Text, unique=False)
+
+    def  __init__(self, section, key, value):
+        self.section = section
+        self.key = key
+        self.value = value
+
+
 class OtherIndex(Base):
     __tablename__ = 'OtherIndexes'
 

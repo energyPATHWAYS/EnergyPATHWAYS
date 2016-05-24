@@ -116,6 +116,7 @@ class CurrencyConversion(Base):
 
     UniqueConstraint(currency_id, currency_year)
 
+
 class InputType(Base):
     __tablename__ = 'InputTypes'
 
@@ -123,27 +124,12 @@ class InputType(Base):
     name = Column(Text, unique=True)
 
 
-class ModelConfig(Base):
-    __tablename__ = 'ModelConfig'
-
-    id = Column(Integer, primary_key=True)
-    section = Column(Text, unique=False)
-    key = Column(Text, unique=True)
-    value = Column(Text, unique=False)
-
-    def  __init__(self, section, key, value):
-        self.section = section
-        self.key = key
-        self.value = value
-
-
-
-
 class OptPeriod(Base):
     __tablename__ = 'OptPeriods'
 
     id = Column(Integer, primary_key=True)
     hours = Column(Integer, unique=True)
+
 
 class ShapesType(Base):
     __tablename__ = 'ShapesTypes'

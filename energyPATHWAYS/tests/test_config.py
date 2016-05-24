@@ -1,20 +1,17 @@
 # -*- coding: utf-8 -*-
 __author__ = 'Sam & Michael'
 
-import sqlalchemy as sa
-from sqlalchemy.engine.url import URL
 from ConfigParser import ConfigParser
 import unittest as ut
-from  energyPATHWAYS.orm import dbConf
 
-from energyPATHWAYS.data_models import system
-import energyPATHWAYS as ep
+from  energyPATHWAYS.orm import dbConf
+from energyPATHWAYS.config import ConfigFromDB
 from energyPATHWAYS.util import *
+from energyPATHWAYS.data_models import data_source
+data_source.init(dbConf.conf)
 
 from profile_tools import * # profile(), timer()
 
-engine = sa.create_engine(URL(**dbConf.conf)) #,echo=True
-MakeSession = sa.orm.sessionmaker(bind=engine)
 
 # Note: for now I recommend running this test with only a representative sample of subsectors active for speed reasons.
 # Eventually we will be able to decouple these tests from the U.S. example database and this will no longer be a
@@ -25,31 +22,6 @@ MakeSession = sa.orm.sessionmaker(bind=engine)
 # If/when you want to reset things back to the original example state, you can use:
 # UPDATE "DemandSubsectors" SET is_active = TRUE;
 # UPDATE "DemandSubsectors" SET is_active = FALSE WHERE id IN (13, 14, 32);
-
-class ConfigFromDB(ConfigParser):
-
-    def saveToDB(self):
-        entries = []
-        ses = MakeSession()
-        for section in self.sections():
-            print '[%s]' % section
-            for key, value in self.items(section):
-                print '  %s : %s' % (key, value)
-                entry = system.ModelConfig(section, key, value)
-                ses.add(entry)
-        ses.commit()
-        ses.close()
-
-    def loadFromDB(self):
-        ses = MakeSession()
-        entries = ses.query(system.ModelConfig).all()
-        self.populateFromEntries(entries)
-
-    def populateFromEntries(self, entries):
-        for entry in entries:
-            if not self.has_section(entry.section):
-                self.add_section(entry.section)
-            self.set(entry.section, entry.key, entry.value)
 
 
 class ConfigTest(ut.TestCase):

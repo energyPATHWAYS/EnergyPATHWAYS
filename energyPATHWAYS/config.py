@@ -1,9 +1,9 @@
 __author__ = 'Ben Haley & Ryan Jones'
 
-import ConfigParser
 import os
 import warnings
 from collections import defaultdict
+from ConfigParser import ConfigParser
 
 import pandas as pd
 import pint
@@ -12,10 +12,46 @@ import psycopg2
 import geomapper
 import util
 import data_models.data_source as data_source
+
 #import ipdb
 
 # Don't print warnings
 warnings.simplefilter("ignore")
+
+
+class ConfigFromDB(ConfigParser):
+
+    def saveToDB(self):
+        from data_models import misc
+        entries = []
+        ses = data_source.MakeSession()
+        try:
+            for section in self.sections():
+                print '[%s]' % section
+                for key, value in self.items(section):
+                    print '  %s : %s' % (key, value)
+                    entry = misc.ModelConfig(section, key, value)
+                    ses.add(entry)
+            ses.commit()
+        finally:
+            ses.close()
+
+    def loadFromDB(self):
+        from data_models import misc
+        ses = data_source.MakeSession()
+        try:
+            entries = ses.query(misc.ModelConfig).all()
+            if len(entries) == 0:
+                raise ValueError("No model configuration found in the database. Please enter by hand or import an INI file using 'python main.py file.ini'")
+            self.populateFromEntries(entries)
+        finally:
+            ses.close()
+
+    def populateFromEntries(self, entries):
+        for entry in entries:
+            if not self.has_section(entry.section):
+                self.add_section(entry.section)
+            self.set(entry.section, entry.key, entry.value)
 
 
 class Config:
@@ -28,29 +64,31 @@ class Config:
         self.dnmtr_col_names = ['driver_denominator_1_id', 'driver_denominator_2_id']
         self.drivr_col_names = ['driver_1_id', 'driver_2_id']
         
-    def init_cfgfile(self, cfgfile_path):
-        if not os.path.isfile(cfgfile_path):
-            raise OSError('config file not found: ' + str(cfgfile_path))
-        
-        cfgfile = ConfigParser.ConfigParser()
+    def init_cfg(self, dbcfg_path, just_db=False):
+        if not os.path.isfile(dbcfg_path):
+            raise OSError('Database config file %s not found please create one as a copy of %s.default: ' % (str(dbcfg_path), str(dbcfg_path)))
+
+        self.cfgfile = ConfigFromDB()
             
-        cfgfile.read(cfgfile_path)
-        
-#        cfgfile.add_section('directory')
-#        cfgfile.set('directory', 'path', self.directory)
-        cfgfile.set('case', 'years', range(int(cfgfile.get('case', 'demand_start_year')),
-                                           int(cfgfile.get('case', 'end_year')) + 1,
-                                           int(cfgfile.get('case', 'year_step'))))
-        cfgfile.set('case', 'supply_years', range(int(cfgfile.get('case', 'current_year')),
-                                                  int(cfgfile.get('case', 'end_year')) + 1,
-                                                  int(cfgfile.get('case', 'year_step'))))
-        
-        self.primary_geography = cfgfile.get('case', 'primary_geography')
-        self.cfgfile = cfgfile
+        self.cfgfile.read(dbcfg_path)
+        self.init_db()
+        if not just_db:
+            self.cfgfile.loadFromDB()
+
+    #        cfgfile.add_section('directory')
+    #        cfgfile.set('directory', 'path', self.directory)
+            self.cfgfile.set('case', 'years', range(int(self.cfgfile.get('case', 'demand_start_year')),
+                                               int(self.cfgfile.get('case', 'end_year')) + 1,
+                                               int(self.cfgfile.get('case', 'year_step'))))
+            self.cfgfile.set('case', 'supply_years', range(int(self.cfgfile.get('case', 'current_year')),
+                                                      int(self.cfgfile.get('case', 'end_year')) + 1,
+                                                      int(self.cfgfile.get('case', 'year_step'))))
+
+            self.primary_geography = self.cfgfile.get('case', 'primary_geography')
         
         
     def init_db(self):
-        pg_host = cfg.cfgfile.get('database', 'pg_host')
+        pg_host = cfg.cfgfile.get('database', 'pg_host') # todo: why is this cfg and not self?
         if not pg_host:
             pg_host = 'localhost'
         pg_user = self.cfgfile.get('database', 'pg_user')

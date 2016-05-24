@@ -25,7 +25,7 @@ import multiprocessing
 #        cfg.outputs_id_map['subsector'] = util.upper_dict(util.flatten_list([[(k, v.name) for k, v in sector.subsectors.items()] for sector in self.sectors.values()]))
 
 from profilehooks import timecall
-from config import cfg
+#from config import cfg
 import data_models.data_source as data_source
 from data_models.misc import FinalEnergy
 from data_models.demand import DemandDriver
@@ -571,9 +571,9 @@ class Subsector(DataMapFunctions):
 
 
     def calculate(self):
-        cfg.init_cfgfile(self.cfgfile_path)
+        cfg.init_cfg(self.cfgfile_path)
         if cfg.cfgfile.get('case','parallel_process') == 'True':
-            cfg.init_db()
+            #cfg.init_db()
             cfg.path = self.custom_pint_definitions_path
             cfg.init_pint(self.custom_pint_definitions_path)
             cfg.init_geo()

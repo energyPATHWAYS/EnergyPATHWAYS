@@ -164,9 +164,9 @@ class Supply(object):
     def initial_calculate(self):
         """Calculates all nodes in years before IO loop"""
         print "calculating supply-side prior to current year"
-        cfg.init_cfgfile(self.cfgfile_path)
+        cfg.init_cfg(self.cfgfile_path)
         if cfg.cfgfile.get('case','parallel_process') == 'True':
-            cfg.init_db()
+            #cfg.init_db()
             cfg.path = self.custom_pint_definitions_path
             cfg.init_pint(self.custom_pint_definitions_path)
             cfg.init_geo()
@@ -3028,9 +3028,9 @@ class BlendNode(Node):
 
             
     def calculate(self):
-        cfg.init_cfgfile(self.cfgfile_path)
+        cfg.init_cfg(self.cfgfile_path)
         if cfg.cfgfile.get('case','parallel_process') == 'True':
-            cfg.init_db()
+            #cfg.init_db()
             cfg.path = self.custom_pint_definitions_path
             cfg.init_pint(self.custom_pint_definitions_path)
             cfg.init_geo()
@@ -3143,9 +3143,9 @@ class SupplyNode(Node,StockItem):
         self.add_stock()
 
     def calculate(self):
-        cfg.init_cfgfile(self.cfgfile_path)
+        cfg.init_cfg(self.cfgfile_path)
         if cfg.cfgfile.get('case','parallel_process') == 'True':
-            cfg.init_db()
+            #cfg.init_db()
             cfg.path = self.custom_pint_definitions_path
             cfg.init_pint(self.custom_pint_definitions_path)
             cfg.init_geo()
@@ -3981,9 +3981,9 @@ class SupplyStockNode(Node):
 
     def calculate(self): 
         #all nodes can have potential conversions. Set to None if no data. 
-        cfg.init_cfgfile(self.cfgfile_path)
+        cfg.init_cfg(self.cfgfile_path)
         if cfg.cfgfile.get('case','parallel_process') == 'True':
-            cfg.init_db()
+            #cfg.init_db()
             cfg.path = self.custom_pint_definitions_path
             cfg.init_pint(self.custom_pint_definitions_path)
             cfg.init_geo()
@@ -5208,9 +5208,9 @@ class ImportNode(Node):
         self.coefficients = SupplyCoefficients(self.id)
 
     def calculate(self):
-        cfg.init_cfgfile(self.cfgfile_path)
+        cfg.init_cfg(self.cfgfile_path)
         if cfg.cfgfile.get('case','parallel_process') == 'True':
-            cfg.init_db()
+            #cfg.init_db()
             cfg.path = self.custom_pint_definitions_path
             cfg.init_pint(self.custom_pint_definitions_path)
             cfg.init_geo()
@@ -5291,8 +5291,8 @@ class PrimaryNode(Node):
       
 
     def calculate(self):
-        cfg.init_cfgfile(self.cfgfile_path)
-        cfg.init_db()
+        cfg.init_cfg(self.cfgfile_path)
+        #cfg.init_db()
         cfg.path = self.custom_pint_definitions_path
         cfg.init_pint(self.custom_pint_definitions_path)
         cfg.init_geo()

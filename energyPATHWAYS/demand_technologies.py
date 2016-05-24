@@ -90,7 +90,7 @@ class DemandTechnology(StockItem):
         Used to determine start year of subsector for analysis."""
 
         attributes = vars(self)
-        self.min_year = cfg.cfgfile.get('case', 'current_year')
+        self.min_year = cfg.cfgfile.getint('case', 'current_year')
         for att in attributes:
             obj = getattr(self, att)
             if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'raw_values'):

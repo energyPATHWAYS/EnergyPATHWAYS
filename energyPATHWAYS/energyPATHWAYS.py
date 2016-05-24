@@ -1,16 +1,20 @@
 __author__ = 'Ben Haley & Ryan Jones'
 
 import os
+import pandas as pd
+from datetime import datetime
+
+from config import cfg
 from demand import Demand
 from util import ExportMethods
 import util
 from outputs import Output
 import time
-from config import cfg
+
 from supply import Supply
-import pandas as pd
+
 import shape
-from datetime import datetime
+
 # from supply import Supply
 import smtplib
 from profilehooks import timecall
@@ -25,29 +29,37 @@ class PathwaysModel(object):
     Highest level classification of the definition of an energy system.
     Includes the primary geography of the energy system (i.e. country name) as well as the author.
     """
-    def __init__(self, cfgfile_path, custom_pint_definitions_path=None, name=None, author=None):
+    def __init__(self, cfgfile_path, custom_pint_definitions_path=None, name=None, author=None, just_db=False):
         self.cfgfile_path = cfgfile_path
         self.custom_pint_definitions_path = custom_pint_definitions_path
-        self.model_config(cfgfile_path, custom_pint_definitions_path)
-        self.name = cfg.cfgfile.get('case', 'scenario') if name is None else name
-        self.author = cfg.cfgfile.get('case', 'author') if author is None else author      
-        self.scenario_dict = dict(zip(util.sql_read_table('Scenarios','id', return_iterable=True, is_active=True),
-                                  util.sql_read_table('Scenarios','name', return_iterable=True, is_active=True)))
-        self.outputs = Output()
-        self.geography = cfg.cfgfile.get('case', 'primary_geography')
+        self.model_config(cfgfile_path, custom_pint_definitions_path, just_db)
+        if not just_db:
+            self.name = cfg.cfgfile.get('case', 'scenario') if name is None else name
+            self.author = cfg.cfgfile.get('case', 'author') if author is None else author
+            self.scenario_dict = dict(zip(util.sql_read_table('Scenarios','id', return_iterable=True, is_active=True),
+                                      util.sql_read_table('Scenarios','name', return_iterable=True, is_active=True)))
+            self.outputs = Output()
+            self.geography = cfg.cfgfile.get('case', 'primary_geography')
         
 
-    def model_config(self, cfgfile_path, custom_pint_definitions_path):
-        cfg.init_cfgfile(cfgfile_path)
-        cfg.init_db()
-        cfg.path = custom_pint_definitions_path
-        cfg.init_pint(custom_pint_definitions_path)
-        cfg.init_geo()
-        cfg.init_date_lookup()
-        if shape.shapes.rerun:
-            shape.shapes.create_empty_shapes()
-#            shape.shapes.activate_shape(cfg.electricity_energy_type_shape_id)
-        cfg.init_outputs_id_map()
+    def model_config(self, cfgfile_path, custom_pint_definitions_path, just_db=True):
+        cfg.init_cfg(cfgfile_path, just_db)
+        #cfg.init_db()
+        if not just_db:
+            cfg.path = custom_pint_definitions_path
+            cfg.init_pint(custom_pint_definitions_path)
+            cfg.init_geo()
+            cfg.init_date_lookup()
+            if shape.shapes.rerun:
+                shape.shapes.create_empty_shapes()
+    #            shape.shapes.activate_shape(cfg.electricity_energy_type_shape_id)
+            cfg.init_outputs_id_map()
+
+    def load_ini_into_db(self, ini_file_path):
+        import config
+        cfg = config.ConfigFromDB()
+        cfg.read(ini_file_path)
+        cfg.saveToDB()
 
     def configure_energy_system(self):
         print 'configuring energy system'

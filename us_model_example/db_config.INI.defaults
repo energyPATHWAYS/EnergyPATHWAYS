@@ -1,0 +1,11 @@
+# copy this to db_config.INI and set locally appropriate values for database access
+[database]
+# the address of the computer your postgres server is running on; usually localhost
+pg_host: localhost
+# your postgres username
+pg_user: postgres
+# your postgres password, if required
+pg_password: postgres
+# the name of the pathways database you'd like to use
+pg_database: sandbox
+
