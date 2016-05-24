@@ -117,6 +117,15 @@ CREATE TABLE migrated."InputTypes" (
 	UNIQUE (name)
 );
 
+CREATE TABLE migrated."ModelConfig" (
+	id SERIAL NOT NULL, 
+	"group" TEXT, 
+	key TEXT, 
+	value TEXT, 
+	PRIMARY KEY (id), 
+	UNIQUE (key)
+);
+
 CREATE TABLE migrated."OptPeriods" (
 	id SERIAL NOT NULL, 
 	hours INTEGER, 

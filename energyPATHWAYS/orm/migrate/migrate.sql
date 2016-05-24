@@ -158,6 +158,15 @@ FROM public."DemandDrivers";
 INSERT INTO migrated."DemandDriversData" (parent_id, gau_id, oth_1_id, oth_2_id, year, value, id)
 SELECT parent_id, gau_id, oth_1_id, oth_2_id, year, value, id FROM public."DemandDriversData";
 
+CREATE TABLE IF NOT EXISTS migrated."ModelConfig" (
+       id SERIAL NOT NULL,
+       "group" TEXT,
+       key TEXT,
+       value TEXT,
+       PRIMARY KEY (id),
+       UNIQUE (key)
+);
+
 -- Reset all sequences in migrated, which have now become out of sync due to inserts with fixed primary key values
 -- Very important! If you skip this part, the migration will appear to work but you won't be able to insert
 -- any rows after.
