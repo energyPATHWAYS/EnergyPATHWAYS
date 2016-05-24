@@ -2014,10 +2014,14 @@ class Subsector(DataMapFunctions):
         df_concat = self.linked_stock.values()
         if len(df_concat) > 0:
             self.stock.linked_technology = pd.concat(df_concat, axis=0)
-            total = util.remove_df_levels(self.stock.total, 'technology')
-            self.stock.remap(map_from='linked_technology', map_to='linked_technology', drivers=total,
+            if np.all(np.isnan(self.stock.technology.values)):
+                subsector_stock = util.remove_df_levels(self.stock.total, 'technology')
+            else:
+                subsector_stock = util.remove_df_levels(self.stock.technology,'year')
+            self.stock.remap(map_from='linked_technology', map_to='linked_technology', drivers=subsector_stock,
                              current_geography=cfg.cfgfile.get('case', 'primary_geography'), current_data_type='total',
-                             time_index=self.years)    
+                             time_index=self.years)   
+            self.stock.linked_technology[self.stock.linked_technology==0]=np.nan
             self.stock.has_linked_technology = True
         else:
             self.stock.has_linked_technology = False
@@ -2110,10 +2114,10 @@ class Subsector(DataMapFunctions):
         ss_reference = self.helper_calc_sales_share(elements, levels, reference=True,
                                                     space_for_reference=space_for_reference)
         
-        if np.sum(ss_reference)==0 and np.sum(ss_measure)==0:
+        if np.sum(ss_reference)==0:
             ss_reference = SalesShare.scale_reference_array_to_gap( np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1)), space_for_reference)        
             #sales shares are always 1 with only one technology so the default can be used as a reference            
-            if len(self.tech_ids)>1:
+            if len(self.tech_ids)>1 and np.sum(ss_measure)<1:
                 reference_sales_shares = False
             else:
                 reference_sales_shares = True
@@ -2243,12 +2247,8 @@ class Subsector(DataMapFunctions):
                                      num_techs=len(self.tech_ids), initial_stock=initial_stock,
                                      sales_share=sales_share, stock_changes=annual_stock_change.values,
                                      specified_stock=technology_stock.values, specified_retirements=None,
-                                     steps_per_year=self.stock.spy)
-            try:                            
-                self.rollover.run()
-            except:
-                print self.name
-                print elements
+                                     steps_per_year=self.stock.spy)                        
+            self.rollover.run()
             stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
             self.stock.values.loc[elements], self.stock.values_new.loc[elements], self.stock.values_replacement.loc[
                 elements] = stock, stock_new, stock_replacement
@@ -2273,10 +2273,14 @@ class Subsector(DataMapFunctions):
         if np.nansum(self.stock.technology.loc[elements,:].values[0])==self.stock.total.loc[elements,:].values[0]:
             initial_stock = self.stock.technology.loc[elements,:].values[0]
             rerun_sales_shares = False
-        #Second best way is if we have an initiaal sales share
+        #Second best way is if we have an initial sales share
         elif initial_sales_share:                
-            initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, transition_matrix=sales_share[0], num_years=len(self.years))
+            initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, 
+                                                           transition_matrix=sales_share[0], num_years=len(self.years))
             rerun_sales_shares = True
+            for i in range(1,len(sales_share)):
+                if np.any(sales_share[0]!=sales_share[i]):
+                    rerun_sales_shares=False
         #Third best way is if we have specified some technologies in the initial year, even if not all
         elif min_technology_year:
             initial_stock = self.stock.technology.loc[elements+(min_technology_year,),:].values/np.nansum(self.stock.technology.loc[elements+(min_technology_year,),:].values) * initial_total 

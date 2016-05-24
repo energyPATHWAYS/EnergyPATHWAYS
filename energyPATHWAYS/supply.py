@@ -4377,10 +4377,10 @@ class SupplyStockNode(Node):
         space_for_reference = 1 - np.sum(ss_measure, axis=1)
         ss_reference = self.helper_calc_sales_share(elements, levels, reference=True,
                                                     space_for_reference=space_for_reference)      
-        if np.sum(ss_reference)==0 and np.sum(ss_measure)==0:
+        if np.sum(ss_reference)==0:
             ss_reference = SalesShare.scale_reference_array_to_gap( np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1)), space_for_reference)        
             #sales shares are always 1 with only one technology so the default can be used as a reference
-            if len(self.tech_ids)>1:
+            if len(self.tech_ids)>1 and np.sum(ss_measure)<1:
                 reference_sales_shares = False
             else:
                 reference_sales_shares = True

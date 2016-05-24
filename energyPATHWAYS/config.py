@@ -105,8 +105,8 @@ class Config:
 
     def init_outputs_id_map(self):
         self.currency_name = self.cfgfile.get('case', 'currency_name')
-#        self.output_demand_levels = ['year','vintage','technology',self.cfgfile.get('case','primary_geography'),'sector','subsector','final_energy']
-        self.output_demand_levels = ['year','technology',self.cfgfile.get('case','primary_geography'),'sector','subsector','final_energy']
+        self.output_demand_levels = ['year','vintage','technology',self.cfgfile.get('case','primary_geography'),'sector','subsector','final_energy']
+#        self.output_demand_levels = ['year','technology',self.cfgfile.get('case','primary_geography'),'sector','subsector','final_energy']
         self.output_supply_levels = ['year','vintage','supply_technology',self.cfgfile.get('case','primary_geography'), self.cfgfile.get('case','primary_geography') + "_supply", 'demand_sector','final_energy','supply_node','ghg']
         self.output_combined_levels = list(set(self.output_supply_levels+self.output_demand_levels))
         vintage = self.cfgfile.get('output_detail','vintage')
