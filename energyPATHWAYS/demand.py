@@ -700,7 +700,6 @@ class Subsector(DataMapFunctions):
                 df_list.append(df)
             keys = measure_types
             names = ['measure_types']
-#            pdb.set_trace()
             df = pd.concat(df_list,keys=keys,names=names)
             unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
             df.columns = [unit]
@@ -1290,8 +1289,7 @@ class Subsector(DataMapFunctions):
                     self.energy_demand.map_from = 'values'
                     # change the energy demand to a per stock_time_unit energy demand
                     # ex. kBtu/year to kBtu/hour average service demand
-                    time_step_energy = util.unit_convert(self.energy_demand.values, unit_from_den='year',
-                                                         unit_to_den=self.stock.time_unit)
+                    time_step_energy = util.unit_convert(self.energy_demand.values, unit_from_den='year',unit_to_den=self.stock.time_unit)
                     # divide by capacity factor stock inputs to get a service demand stock
                     # ex. kBtu/hour/capacity factor equals kBtu/hour stock
                     self.stock.remap(map_from='raw_values', map_to='int_values', fill_timeseries=False)
@@ -1300,7 +1298,7 @@ class Subsector(DataMapFunctions):
                         raise ValueError(
                             'energy demand must have the same index levels as stock when stock is specified in capacity factor terms')
                     else:
-                        self.stock.int_values = DfOper.divi([time_step_energy, self.stock.int_values])
+                        self.stock.int_values = DfOper.divi([time_step_energy, self.stock.int_values],expandable=(False,True),collapsible=(True,False))
                     # project energy demand stock
                     self.stock.map_from = 'int_values'
                     self.stock.projected_input_type = 'total'
@@ -1310,15 +1308,15 @@ class Subsector(DataMapFunctions):
                     self.efficiency_removal()
                     # change the service demand to a per stock_time_unit service demand
                     # ex. kBtu/year to kBtu/hour average service demand
-                    time_step_service = util.unit_convert(self.service_demand.values, unit_from_den='year',
-                                                          unit_to_den=self.stock.time_unit)
+                    time_step_service = util.unit_convert(self.service_demand.int_values, unit_from_den='year', unit_to_den=self.stock.time_unit)
                     # divide by capacity factor stock inputs to get a service demand stock
                     # ex. kBtu/hour/capacity factor equals kBtu/hour stock
                     _, x = util.difference_in_df_names(time_step_service, self.stock.int_values)
                     if x:
                         raise ValueError('service demand must have the same index levels as stock when stock is specified in capacity factor terms')
                     else:
-                        self.stock.int_values = DfOper.divi([time_step_service, self.stock.int_values])
+                        self.stock.remap(map_from='raw_values', map_to='int_values', fill_timeseries=False)
+                        self.stock.int_values = DfOper.divi([time_step_service, self.stock.int_values],expandable=(False,True),collapsible=(True,False))
                     # stock is by definition service demand dependent
                     self.stock.is_service_demand_dependent = 1
             elif self.stock.demand_stock_unit_type == 'service demand':
@@ -1627,7 +1625,6 @@ class Subsector(DataMapFunctions):
                                                       unit_to_num=cfg.cfgfile.get('case', 'energy_unit'))
         # make a copy of energy demand for use as service demand        
         self.service_demand = self.energy_demand
-
         self.service_demand.raw_values = self.service_demand.values
         self.service_demand.int_values = DfOper.divi([self.service_demand.raw_values, eff])
         self.service_demand.int_values.replace([np.inf, -np.inf], 1, inplace=True)
@@ -2273,7 +2270,11 @@ class Subsector(DataMapFunctions):
         if np.nansum(self.stock.technology.loc[elements,:].values[0])==self.stock.total.loc[elements,:].values[0]:
             initial_stock = self.stock.technology.loc[elements,:].values[0]
             rerun_sales_shares = False
-        #Second best way is if we have an initial sales share
+        #Second best way is if we have all technology stocks specified in some year before the current year
+        elif min_technology_year is not None and min_technology_year<=int(cfg.cfgfile.get('case','current_year')) and np.nansum(self.stock.technology.loc[elements+(min_technology_year,),:].values)==self.stock.total.loc[elements+(min_technology_year,),:].values:
+            initial_stock = self.stock.technology.loc[elements+(min_technology_year,),:].values/np.nansum(self.stock.technology.loc[elements+(min_technology_year,),:].values) * initial_total 
+            rerun_sales_shares = False
+        #Third best way is if we have an initial sales share
         elif initial_sales_share:                
             initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, 
                                                            transition_matrix=sales_share[0], num_years=len(self.years))
@@ -2281,7 +2282,7 @@ class Subsector(DataMapFunctions):
             for i in range(1,len(sales_share)):
                 if np.any(sales_share[0]!=sales_share[i]):
                     rerun_sales_shares=False
-        #Third best way is if we have specified some technologies in the initial year, even if not all
+        #Fourth best way is if we have specified some technologies in the initial year, even if not all
         elif min_technology_year:
             initial_stock = self.stock.technology.loc[elements+(min_technology_year,),:].values/np.nansum(self.stock.technology.loc[elements+(min_technology_year,),:].values) * initial_total 
             rerun_sales_shares = False

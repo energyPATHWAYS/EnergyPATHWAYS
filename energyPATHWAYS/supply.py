@@ -69,6 +69,7 @@ class Supply(object):
         self.map_dict = dict(util.sql_read_table('SupplyNodes',['final_energy_link','id']))   
         if None in self.map_dict.keys():
             del self.map_dict[None]
+        
 
      
     def calculate_technologies(self):
@@ -310,6 +311,7 @@ class Supply(object):
         
     def calculate_loop(self):
         """Performs all IO loop calculations""" 
+        self.dispatch_years = range(2015,max(self.years)+1,5)
         for year in self.years:
             for loop in ['initial',1,2,3]:
                 if year == min(self.years):
@@ -471,13 +473,14 @@ class Supply(object):
                             self.reconciled = False
                         self.calculate_embodied_costs(year, loop)
                     if loop == 3:
-                        self.prepare_dispatch_inputs(year, loop)
-                        self.solve_electricity_dispatch(year)
-                        self.calculate_coefficients(year,loop)
-                        self.update_coefficients_from_dispatch(year)
-                        self.update_io_df(year)
-                        self.calculate_io(year,loop)
-                        self.calculate_stocks(year,loop)
+                        if year in self.dispatch_years:
+                            self.prepare_dispatch_inputs(year, loop)
+                            self.solve_electricity_dispatch(year)
+                            self.calculate_coefficients(year,loop)
+                            self.update_coefficients_from_dispatch(year)
+                            self.update_io_df(year)
+                            self.calculate_io(year,loop)
+                            self.calculate_stocks(year,loop)
             self.calculate_embodied_costs(year, loop)
             self.calculate_embodied_emissions(year)
             self.calculate_annual_costs(year)
