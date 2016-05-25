@@ -18,9 +18,9 @@ custom_pint_definitions_path = os.path.join(directory, 'unit_defs.txt')
 #Save models after the demand-side calculation or after the supply-loop calculation
 save_models = True
 #resolve the demand-side. A completed demand-side model must be saved.
-resolve_demand = False
+resolve_demand = True
 #resolve the supply-side. A completed supply-side model must be saved. 
-resolve_supply = False
+resolve_supply = True
 
 append_results = True
 ###########
@@ -112,4 +112,4 @@ if __name__ == "__main__":
 #            #after the first secnario loop, we want to append results so we change the boolean to True
 #            append_results = True
 #            model.export_results()
-#        
+        

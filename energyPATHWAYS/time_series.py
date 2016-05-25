@@ -238,6 +238,9 @@ class TimeSeries:
 
         if not isinstance(data, pd.core.frame.DataFrame):
             raise ValueError('cleaning requires a pandas dataframe as an input')
+        
+        if np.all(data.isnull()):
+            raise ValueError('cleaning requires at least one finite data point')
 
         if data.index.nlevels > 1:
             return TimeSeries._clean_multindex(data[:], time_index_name, interpolation_method, extrapolation_method, newindex, **kwargs)
