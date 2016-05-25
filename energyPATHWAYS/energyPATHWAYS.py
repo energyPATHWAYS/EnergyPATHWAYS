@@ -44,9 +44,6 @@ class PathwaysModel(object):
         cfg.init_pint(custom_pint_definitions_path)
         cfg.init_geo()
         cfg.init_date_lookup()
-        if shape.shapes.rerun:
-            shape.shapes.create_empty_shapes()
-#            shape.shapes.activate_shape(cfg.electricity_energy_type_shape_id)
         cfg.init_outputs_id_map()
 
     def configure_energy_system(self):
@@ -63,6 +60,7 @@ class PathwaysModel(object):
     def populate_shapes(self):
         print 'processing shapes'
         if shape.shapes.rerun:
+            shape.shapes.create_empty_shapes()
             shape.shapes.initiate_active_shapes()
             shape.shapes.process_active_shapes()
 

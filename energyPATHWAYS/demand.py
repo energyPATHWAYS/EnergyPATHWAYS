@@ -320,7 +320,7 @@ class Sector(object):
         else:
             for subsector in self.subsectors.values():
                 if subsector.calculated:
-                    pass
+                    continue
                 else:
                     print "calculating " + subsector.name
                     subsector.calculate() 
