@@ -311,7 +311,7 @@ class Supply(object):
         
     def calculate_loop(self):
         """Performs all IO loop calculations""" 
-        self.dispatch_years = range(2015,max(self.years)+1,5)
+        self.dispatch_years = range(int(cfg.cfgfile.get('case','current_year')),max(self.years)+1,int(cfg.cfgfile.get('case','dispatch_step')))
         for year in self.years:
             for loop in ['initial',1,2,3]:
                 if year == min(self.years):
@@ -771,7 +771,8 @@ class Supply(object):
             dist_cap_factor = util.remove_df_levels(DfOper.mult([dist_cap_factor,map_df]),self.dispatch_geography)        
         dist_cap_factor = util.remove_df_levels(DfOper.mult([dist_cap_factor, util.df_slice(self.dispatch_feeder_allocation.values,year, 'year')]),'dispatch_feeder')
         distribution_grid_node.capacity_factor.values.loc[:,year] = dist_cap_factor.values
-        distribution_grid_node.capacity_factor.values.loc[:,min(year+1,max_year)] = dist_cap_factor.values
+        for i in range(1,int(cfg.cfgfile.get('case','dispatch_step'))):
+            distribution_grid_node.capacity_factor.values.loc[:,min(year+i,max_year)] = dist_cap_factor.values
         if hasattr(distribution_grid_node, 'stock'):
                 distribution_grid_node.update_stock(year,3) 
                 
@@ -786,7 +787,8 @@ class Supply(object):
             map_df = cfg.geo.map_df(self.dispatch_geography, self.geography, geography_map_key, eliminate_zeros=False)
             bulk_cap_factor = util.remove_df_levels(DfOper.mult([bulk_cap_factor,map_df]),self.dispatch_geography)       
         transmission_grid_node.capacity_factor.values.loc[:,year] = bulk_cap_factor.values
-        transmission_grid_node.capacity_factor.values.loc[:,min(year+1,max_year)] = bulk_cap_factor.values
+        for i in range(1,int(cfg.cfgfile.get('case','dispatch_step'))):
+            transmission_grid_node.capacity_factor.values.loc[:,min(year+i,max_year)] = bulk_cap_factor.values
         if hasattr(transmission_grid_node, 'stock'):
             transmission_grid_node.update_stock(year,3) 
         
@@ -1084,11 +1086,15 @@ class Supply(object):
                 node.calculate_dispatch_costs(year, embodied_cost_df,loop)
                 if hasattr(node,'active_dispatch_costs'):
                     active_dispatch_costs = node.active_dispatch_costs
-                    #TODO remove
-                    if node.id == 15 and year>2040 and self.case_id!=1:
-                       active_dispatch_costs = node.active_dispatch_costs * (1+((year-2040)/2))
-                    if node.id == 14 and year>2040 and self.case_id!=1:
-                       active_dispatch_costs = node.active_dispatch_costs /(1+((year-2040)/2))
+                    #TODO Remove 1 is the Reference Case
+                    if self.case_id == 1:
+                        co2_price = 20
+                    else:
+                        co2_price = 100
+                    if hasattr(self,'active_physical_emissions_coefficients'):    
+                        co2_cost = util.DfOper.mult([node.active_physical_emissions_coefficients.sum().to_frame(), 1- node.active_co2_capture_rate]) * co2_price * (year-int(cfg.cfgfile.get('case','current_year')))/(2050-int(cfg.cfgfile.get('case','current_year'))) * util.unit_conversion(unit_from_den='ton',unit_to_den=cfg.cfgfile.get('case','mass_unit'))[0]
+                        co2_cost = co2_cost.groupby(level=self.geography).mean()
+                        active_dispatch_costs = util.DfOper.add([node.active_dispatch_costs ,co2_cost])
                     stock_values = node.stock.values.loc[:,year].to_frame()
                     stock_values = stock_values[((stock_values.index.get_level_values('vintage')==year) == True) | ((stock_values[year]>0) == True)]
                     capacity_factor = node.stock.capacity_factor.loc[:,year].to_frame()
@@ -3676,7 +3682,7 @@ class SupplyNode(Node,StockItem):
                         self.levelized_costs.loc[:,year]   += util.remove_df_levels((DfOper.mult([DfOper.divi([DfOper.mult([initial_cost_values_level_no_vintage,initial_stock_values],non_expandable_levels=None), initial_financial_stock_values],non_expandable_levels=None),financial_stock_values[year].to_frame()],non_expandable_levels=None)*cost.throughput_correlation),'vintage')[year]
                     else:
                         self.levelized_costs.loc[:,year]  += util.remove_df_levels(util.DfOper.mult([cost.values_level_no_vintage[year].to_frame(),initial_stock_values],non_expandable_levels=None)*(1-cost.throughput_correlation),'vintage')[year]            
-                        self.levelized_costs.loc[:,year]   += util.remove_df_levels(util.DfOper.mult([cost.values_level[year].to_frame(), stock_values[year].to_frame()],non_expandable_levels=None)*(cost.throughput_correlation),'vintage')[year] 
+                        self.levelized_costs.loc[:,year]   += util.remove_df_levels(util.DfOper.mult([cost.values_level_no_vintage[year].to_frame(), stock_values[year].to_frame()],non_expandable_levels=None)*(cost.throughput_correlation),'vintage')[year] 
                 elif cost.supply_cost_type == 'revenue requirement':
                     if cost.is_capital_cost:
                         self.levelized_costs.loc[:,year]   += util.remove_df_levels(DfOper.mult([DfOper.divi([cost.values_level[year].to_frame(), stock_values[start_year].to_frame()],non_expandable_levels=None),stock_values[start_year].to_frame()],non_expandable_levels=None)*(1-cost.throughput_correlation),'vintage')[year]
@@ -5404,7 +5410,8 @@ class PrimaryNode(Node):
                 disallowed_levels = [x for x in self.active_embodied_cost.index.names if x not in levels]
                 if len(disallowed_levels):
                     self.active_embodied_cost = util.remove_df_levels(self.active_embodied_cost, disallowed_levels)
-                self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])               
+                self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],
+                                                                                                                            levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])               
             else:
                 allowed_indices = ['demand_sector', cfg.cfgfile.get('case','primary_geography')]
                 if set(self.cost.values.index.names).issubset(allowed_indices):
