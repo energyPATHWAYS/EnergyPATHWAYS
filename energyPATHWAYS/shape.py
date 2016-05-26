@@ -73,7 +73,6 @@ class Shapes(object):
         self.active_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H', tz=self.dispatch_outputs_timezone)
     
     
-    
     @staticmethod
     def create_time_slice_elements(active_dates_index):
         business_days = pd.bdate_range(active_dates_index[0].date(), active_dates_index[-1].date())

@@ -21,7 +21,8 @@ save_models = True
 resolve_demand = True
 #resolve the supply-side. A completed supply-side model must be saved. 
 resolve_supply = True
-append_results = False
+
+append_results = True
 ###########
 #
 #
@@ -32,8 +33,6 @@ def remove_results(append_results):
                result_dir = [os.listdir(folder)][0]
                for result_file in result_dir:
                    os.remove(os.path.join(folder,result_file))
-
-
 
 if __name__ == "__main__":
     if resolve_demand and resolve_supply:
@@ -111,4 +110,4 @@ if __name__ == "__main__":
 #            #after the first secnario loop, we want to append results so we change the boolean to True
 #            append_results = True
 #            model.export_results()
-#        
+        

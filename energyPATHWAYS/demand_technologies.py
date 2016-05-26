@@ -41,7 +41,6 @@ class DemandTechnology(StockItem):
         self.min_year()
         if self.shape_id is not None:
             self.shape = shapes.data[self.shape_id]
-            shapes.activate_shape(self.shape_id)
 
     def get_shape(default_shape):
         pass

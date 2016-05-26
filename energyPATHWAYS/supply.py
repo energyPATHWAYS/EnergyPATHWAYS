@@ -285,8 +285,6 @@ class Supply(object):
             else:
                 print ValueError('insufficient data in supply node %s' %id)
    
-
-
              
     def add_measures(self,case_id):
         """ Adds measures to supply nodes based on case and package inputs"""
@@ -310,8 +308,9 @@ class Supply(object):
         
         
     def calculate_loop(self):
-        """Performs all IO loop calculations""" 
-        self.dispatch_years = range(int(cfg.cfgfile.get('case','current_year')),max(self.years)+1,int(cfg.cfgfile.get('case','dispatch_step')))
+        """Performs all IO loop calculations"""
+        dispatch_year_step = int(cfg.cfgfile.get('case','dispatch_step'))
+        self.dispatch_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_year_step))
         for year in self.years:
             for loop in ['initial',1,2,3]:
                 if year == min(self.years):

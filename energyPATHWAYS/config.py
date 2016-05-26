@@ -13,9 +13,6 @@ import psycopg2
 # Don't print warnings
 warnings.simplefilter("ignore")
 
-
-    
-
 class Config:
     def __init__(self):
         # sys.path.insert(0, os.getcwd())

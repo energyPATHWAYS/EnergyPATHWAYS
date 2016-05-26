@@ -38,7 +38,6 @@ class SupplyTechnology(StockItem):
         
         if self.shape_id is not None:
             self.shape = shapes.data[self.shape_id]
-            shapes.activate_shape(self.shape_id)
 
     def calculate(self, vintages, years):
         self.vintages = vintages
