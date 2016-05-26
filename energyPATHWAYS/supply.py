@@ -1091,7 +1091,7 @@ class Supply(object):
                         co2_price = 20
                     else:
                         co2_price = 100
-                    if hasattr(self,'active_physical_emissions_coefficients'):    
+                    if hasattr(node,'active_physical_emissions_coefficients') and hasattr(node,'active_co2_capture_rate'):    
                         co2_cost = util.DfOper.mult([node.active_physical_emissions_coefficients.sum().to_frame(), 1- node.active_co2_capture_rate]) * co2_price * (year-int(cfg.cfgfile.get('case','current_year')))/(2050-int(cfg.cfgfile.get('case','current_year'))) * util.unit_conversion(unit_from_den='ton',unit_to_den=cfg.cfgfile.get('case','mass_unit'))[0]
                         co2_cost = co2_cost.groupby(level=self.geography).mean()
                         active_dispatch_costs = util.DfOper.add([node.active_dispatch_costs ,co2_cost])
@@ -4639,10 +4639,10 @@ class SupplyStockNode(Node):
         self.calculate_actual_stock(year,loop)    
         if loop!= 'initial':
             if not self.thermal_dispatch_node:
-#                adjustment_factor = self.calculate_adjustment_factor(year)
+                adjustment_factor = self.calculate_adjustment_factor(year)
                 for elements in self.rollover_groups.keys():
                     elements = util.ensure_tuple(elements)
-#                    self.rollover_dict[elements].factor_adjust_current_year(adjustment_factor.loc[elements].values)
+                    self.rollover_dict[elements].factor_adjust_current_year(adjustment_factor.loc[elements].values)
                     stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover_dict[(elements)].return_formatted_outputs(year_offset=0)
                     self.stock.values.loc[elements, year], self.stock.values_new.loc[elements, year], self.stock.values_replacement.loc[
                         elements,year] = stock, stock_new, stock_replacement 
@@ -4886,7 +4886,8 @@ class SupplyStockNode(Node):
         self.stock.act_stock_changes = self.stock.act_stock_changes[year]
 #        if self.id == 12:
 #            print self.stock.act_stock_changes.sum() * 1800
-
+#        if self.id == 12 and year == 2016 and loop ==2:
+#            pdb.set_trace()
         
                 
         
