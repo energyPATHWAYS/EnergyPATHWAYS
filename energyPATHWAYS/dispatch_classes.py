@@ -854,8 +854,8 @@ class Dispatch(object):
                                                               end_state_of_charge, period))  
         zipped_inputs = list(zip(periods, model_list,input_bulk_dfs, input_dist_dfs, 
                                  input_flex_dfs,opt_hours, period_hours, solver_name,stdout_detail, dispatch_geography))
-        if cfg.cfgfile.get('case','parallel_process') == 'True':
-            available_cpus = multiprocessing.cpu_count()
+        if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
+            available_cpus = min(multiprocessing.cpu_count(), int(cfg.cfgfile.get('case','num_cores')))
             pool = Pool(processes=available_cpus)
             results = pool.map(run_optimization,zipped_inputs)
             pool.close()
