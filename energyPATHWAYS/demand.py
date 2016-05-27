@@ -697,8 +697,12 @@ class Subsector(DataMapFunctions):
                     df = df.stack().to_frame()
                     df.columns = ['value']
                     util.replace_index_name(df, 'year')
+                    df.sort(inplace=True)
+                    df = df[df>0]
                 else:
                     util.replace_index_name(df, 'year','vintage')
+                    df.sort(inplace=True)
+                    df = df[df>0]
                 df_list.append(df)
             keys = measure_types
             names = ['measure_types']

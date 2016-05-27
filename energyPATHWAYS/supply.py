@@ -3690,6 +3690,9 @@ class SupplyNode(Node,StockItem):
                     else:
                         self.levelized_costs.loc[:,year]  += (util.df_slice(cost.values_level.loc[:,year].to_frame(),year,'vintage') *(1-cost.throughput_correlation))[year]
                         self.levelized_costs.loc[:,year]  +=  (util.df_slice(cost.values_level.loc[:,year].to_frame(), year,'vintage').loc[:,year].to_frame() * (cost.throughput_correlation))[year]
+                if cost.capacity is False:
+                        cap_factor_multiplier = util.DfOper.divi([self.capacity_factor.values.loc[:,start_year].to_frame(),self.capacity_factor.values.loc[:,year].to_frame()])
+                        self.levelized_costs.loc[:,year] = util.DfOper.mult([self.levelized_costs.loc[:,year].to_frame(),cap_factor_multiplier]).values                       
 #        total_stock = util.remove_df_levels(self.stock.values_energy.loc[:,year].to_frame(),'vintage')
         if loop == 3:
             flow = self.throughput
