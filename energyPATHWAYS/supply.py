@@ -306,266 +306,88 @@ class Supply(object):
             elif isinstance(node, SupplyNode):
                 node.add_total_stock_measures(node.stock_package_id)
 
-#    def _calculate_initial_loop(self):
-#        """
-#        in the first year of the io loop, we have an initial loop step called 'initial'.
-#        this loop is necessary in order to calculate initial active coefficients. Because we haven't calculated
-#        throughput for all nodes, these coefficients are just proxies in this initial loop
-#        """
-#        loop, year = 'initial', min(self.years)
-#        print "looping through IO calculate for year: " + str(year) + " and loop: "  + str(loop)
-#        self.calculate_demand(year, loop)
-#        self.pass_initial_demand_to_nodes(year)
-#        self.discover_thermal_nodes()
-#        self.calculate_stocks(year, loop)
-#        self.calculate_coefficients(year, loop)
-#        self.bulk_node_id = self.discover_bulk_id()
-#        self.discover_thermal_nodes()
-#        self.update_io_df(year)
-#        self.calculate_io(year, loop)
-#
-#    def _recalculate_stocks_and_io(self, year, loop):
-#        """ Basic calculation control for the IO
-#        """
-#        self.calculate_coefficients(year, loop)
-#        # we have just solved the dispatch, so coefficients need to be updated before updating the io
-#        if loop == 3 and year in self.dispatch_years:
-#            self.update_coefficients_from_dispatch(year)
-#        self.update_io_df(year)
-#        self.calculate_io(year, loop)
-#        self.calculate_stocks(year, loop)
-#
-#    def _recalculate_after_reconciliation(self, year, loop, update_demand=False):
-#        """ if reconciliation has occured, we have to recalculate coefficients and resolve the io
-#        """
-#        if self.reconciled is True:
-#            if update_demand:
-#                self.update_demand(year,loop)
-#            self._recalculate_stocks_and_io(year, loop)
-#            self.reconciled = False
-#
-#    def calculate_loop(self):
-#        """Performs all IO loop calculations"""
-#        dispatch_year_step = int(cfg.cfgfile.get('case','dispatch_step'))
-#        self.dispatch_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_year_step))
-#        self._calculate_initial_loop()
-#        first_year = min(self.years)
-#        for year in self.years:
-#            for loop in [1, 2, 3]:
-#                print "looping through IO calculate for year: " + str(year) + " and loop: "  + str(loop)
-#                # starting loop
-#                if loop == 1:
-#                    if year is not first_year:
-#                        # initialize year is not necessary in the first year
-#                        self.initialize_year(year, loop)
-#                    self._recalculate_stocks_and_io(year, loop)
-#                    self.calculate_coefficients(year, loop)
-#                
-#                # reconciliation loop
-#                elif loop == 2:
-#                    # sets a flag for whether any reconciliation occurs in the loop determined in the reconcile function
-#                    self.reconciled = False
-#                    # each time, if reconciliation has occured, we have to recalculate coefficients and resolve the io
-#                    self.reconcile_trades(year, loop)
-#                    self._recalculate_after_reconciliation(year, loop, update_demand=False)
-#                    
-#                    for i in range(2):
-#                        self.reconcile_oversupply(year, loop)
-#                        self._recalculate_after_reconciliation(year, loop, update_demand=True)
-#                    
-#                    self.reconcile_constraints(year,loop)
-#                    self._recalculate_after_reconciliation(year, loop, update_demand=True)
-#                    
-#                    self.reconcile_oversupply(year, loop)
-#                    self._recalculate_after_reconciliation(year, loop, update_demand=True)
-#                
-#                # dispatch loop
-#                elif loop == 3 and year in self.dispatch_years:
-#                    # loop - 1 is necessary so that it uses last year's throughput 
-#                    self.calculate_embodied_costs(year, loop-1) # necessary here because of the dispatch
-#                    self.prepare_dispatch_inputs(year, loop)
-#                    self.solve_electricity_dispatch(year)
-#                    self._recalculate_stocks_and_io(year, loop)
-#            
-#            self.calculate_embodied_costs(year, loop=3)
-#            self.calculate_embodied_emissions(year)
-#            self.calculate_annual_costs(year)
-                            
+    def _calculate_initial_loop(self):
+        """
+        in the first year of the io loop, we have an initial loop step called 'initial'.
+        this loop is necessary in order to calculate initial active coefficients. Because we haven't calculated
+        throughput for all nodes, these coefficients are just proxies in this initial loop
+        """
+        loop, year = 'initial', min(self.years)
+        print "looping through IO calculate for year: " + str(year) + " and loop: "  + str(loop)
+        self.calculate_demand(year, loop)
+        self.pass_initial_demand_to_nodes(year)
+        self.discover_thermal_nodes()
+        self.calculate_stocks(year, loop)
+        self.calculate_coefficients(year, loop)
+        self.bulk_node_id = self.discover_bulk_id()
+        self.discover_thermal_nodes()
+        self.update_io_df(year)
+        self.calculate_io(year, loop)
+
+    def _recalculate_stocks_and_io(self, year, loop):
+        """ Basic calculation control for the IO
+        """
+        self.calculate_coefficients(year, loop)
+        # we have just solved the dispatch, so coefficients need to be updated before updating the io
+        if loop == 3 and year in self.dispatch_years:
+            self.update_coefficients_from_dispatch(year)
+        self.update_io_df(year)
+        self.calculate_io(year, loop)
+        self.calculate_stocks(year, loop)
+
+    def _recalculate_after_reconciliation(self, year, loop, update_demand=False):
+        """ if reconciliation has occured, we have to recalculate coefficients and resolve the io
+        """
+        if self.reconciled is True:
+            if update_demand:
+                self.update_demand(year,loop)
+            self._recalculate_stocks_and_io(year, loop)
+            self.reconciled = False
 
     def calculate_loop(self):
         """Performs all IO loop calculations"""
         dispatch_year_step = int(cfg.cfgfile.get('case','dispatch_step'))
         self.dispatch_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_year_step))
+        self._calculate_initial_loop()
+        first_year = min(self.years)
         for year in self.years:
-            for loop in ['initial',1,2,3]:
-                if year == min(self.years):
-                    print "looping through IO calculate for year: " + str(year) + " and loop: "  + str(loop)
-                elif loop != 'initial':
-                    print "looping through IO calculate for year: " + str(year) + " and loop: "  + str(loop)
-                if year == min(self.years):
-                    #in the first year of the io loop, we have an initial loop step called 'initial'.
-                    #this loop is necessary in order to calculate initial active coefficients. Because we haven't calculated
-                    #throughput for all nodes, these coefficients are just proxies in this initial loop
-                    if loop == 'initial':
-                        self.calculate_demand(year,loop)
-                        self.pass_initial_demand_to_nodes(year)
-                        self.discover_thermal_nodes()
-                        self.calculate_stocks(year, loop)
-                        self.calculate_coefficients(year,loop)
-                        self.bulk_node_id = self.discover_bulk_id()
-                        self.discover_thermal_nodes()
-                        self.update_io_df(year)
-                        self.calculate_io(year,loop)  
-                    elif loop  == 1:
-                        self.calculate_coefficients(year,loop)
-                        self.update_io_df(year)
-                        self.calculate_io(year,loop)  
-                        self.calculate_stocks(year, loop)
-                        self.calculate_coefficients(year,loop)
-                    if loop == 2:
-                        #sets a flag for whether any reconciliation occurs in the loop
-                        #determined in the reconcile function
-                        self.reconciled = False
-                        self.reconcile_trades(year,loop)
-                        if self.reconciled is True:
-                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
-                            self.calculate_coefficients(year,loop)
-                            self.update_io_df(year)
-                            self.calculate_io(year, loop)
-                            self.calculate_stocks(year, loop)
-                            self.reconciled = False
-                        self.reconcile_oversupply(year,loop)
-                        if self.reconciled is True:
-                            self.update_demand(year,loop)
-                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
-#                            self.calculate_stocks(year, loop)
-                            self.calculate_coefficients(year,loop)
-                            self.update_io_df(year)
-                            self.calculate_io(year, loop)
-                            self.calculate_stocks(year, loop)
-                            self.reconciled = False
-#                        self.reconcile_trades(year,loop)
-#                        if self.reconciled is True:
-#                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
-#    #                        self.calculate_stocks(year, loop)
-#                            self.calculate_coefficients(year,loop)
-#                            self.update_io_df(year)
-#                            self.calculate_io(year, loop)
-                        self.reconcile_oversupply(year,loop)
-                        if self.reconciled is True:
-                            self.update_demand(year,loop)
-                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
-                            self.calculate_coefficients(year,loop)
-                            self.update_io_df(year)
-                            self.calculate_io(year, loop)
-                            self.calculate_stocks(year, loop)
-                            self.reconciled = False
-                        self.reconcile_constraints(year,loop)
-                        if self.reconciled is True:
-                            self.update_demand(year,loop)
-                            self.calculate_coefficients(year,loop)
-                            self.update_io_df(year)
-                            self.calculate_io(year, loop)    
-                            self.calculate_stocks(year, loop)                            
-                            self.reconciled = False
-                        self.reconcile_oversupply(year,loop)
-                        if self.reconciled is True:
-                            self.update_demand(year,loop)
-                        #if reconciliation has occured, we have to recalculate coefficients and resolve the io
-                            self.calculate_coefficients(year,loop)
-                            self.update_io_df(year)
-                            self.calculate_io(year, loop)
-                            self.calculate_stocks(year, loop) 
-                            self.reconciled = False
-                        self.calculate_embodied_costs(year, loop)
-                    if loop == 3:
-                        self.prepare_dispatch_inputs(year, loop)
-                        self.solve_electricity_dispatch(year)
-                        self.calculate_coefficients(year,loop)
-                        self.update_coefficients_from_dispatch(year)
-                        self.update_io_df(year)
-                        self.calculate_io(year, loop)
-                        self.calculate_stocks(year,loop)
-                else:
-                    if loop == 1:
-                        self.initialize_year(year,loop)
-                        self.calculate_coefficients(year,loop)
-                        self.update_io_df(year)
-                        self.calculate_io(year,loop)  
-                        self.calculate_stocks(year, loop)
-                        self.calculate_coefficients(year,loop)                        
-#                        self.calculate_coefficients(year,loop)
-#                        self.calculate_demand(year,loop)
-#                        self.update_io_df(year)
-#                        self.calculate_io(year,loop)  
-#                        self.calculate_stocks(year, loop)
-#                        self.calculate_coefficients(year,loop)
-                    if loop == 2:
-                        #sets a flag for whether any reconciliation occurs in the loop
-                        #determined in the reconcile function
-                        self.reconciled = False
-                        self.reconcile_trades(year,loop)
-                        if self.reconciled is True:
-                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
-                            self.calculate_coefficients(year,loop)
-                            self.update_io_df(year)
-                            self.calculate_io(year, loop)
-                            self.calculate_stocks(year, loop)
-                            self.reconciled = False
-                        self.reconcile_oversupply(year,loop)
-                        if self.reconciled is True:
-                            self.update_demand(year,loop)
-                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
-#                            self.calculate_stocks(year, loop)
-                            self.calculate_coefficients(year,loop)
-                            self.update_io_df(year)
-                            self.calculate_io(year, loop)
-                            self.calculate_stocks(year, loop)
-                            self.reconciled = False
-#                        self.reconcile_trades(year,loop)
-#                        if self.reconciled is True:
-#                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
-#    #                        self.calculate_stocks(year, loop)
-#                            self.calculate_coefficients(year,loop)
-#                            self.update_io_df(year)
-#                            self.calculate_io(year, loop)
-                        self.reconcile_oversupply(year,loop)
-                        if self.reconciled is True:
-                            self.update_demand(year,loop)
-                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
-                            self.calculate_coefficients(year,loop)
-                            self.update_io_df(year)
-                            self.calculate_io(year, loop)
-                            self.calculate_stocks(year, loop)
-                            self.reconciled = False
-                        self.reconcile_constraints(year,loop)
-                        if self.reconciled is True:
-                            self.update_demand(year,loop)
-                            self.calculate_coefficients(year,loop)
-                            self.update_io_df(year)
-                            self.calculate_io(year, loop)    
-                            self.calculate_stocks(year, loop)                            
-                            self.reconciled = False
-                        self.reconcile_oversupply(year,loop)
-                        if self.reconciled is True:
-                            self.update_demand(year,loop)
-                        #if reconciliation has occured, we have to recalculate coefficients and resolve the io
-                            self.calculate_coefficients(year,loop)
-                            self.update_io_df(year)
-                            self.calculate_io(year, loop)
-                            self.calculate_stocks(year, loop) 
-                            self.reconciled = False
-                        self.calculate_embodied_costs(year, loop)
-                    if loop == 3:
-                        if year in self.dispatch_years:
-                            self.prepare_dispatch_inputs(year, loop)
-                            self.solve_electricity_dispatch(year)
-                            self.calculate_coefficients(year,loop)
-                            self.update_coefficients_from_dispatch(year)
-                            self.update_io_df(year)
-                            self.calculate_io(year,loop)
-                            self.calculate_stocks(year,loop)
-            self.calculate_embodied_costs(year, loop)
+            for loop in [1, 2, 3]:
+                print "looping through IO calculate for year: " + str(year) + " and loop: "  + str(loop)
+                # starting loop
+                if loop == 1:
+                    if year is not first_year:
+                        # initialize year is not necessary in the first year
+                        self.initialize_year(year, loop)
+                    self._recalculate_stocks_and_io(year, loop)
+                    self.calculate_coefficients(year, loop)
+                
+                # reconciliation loop
+                elif loop == 2:
+                    # sets a flag for whether any reconciliation occurs in the loop determined in the reconcile function
+                    self.reconciled = False
+                    # each time, if reconciliation has occured, we have to recalculate coefficients and resolve the io
+                    self.reconcile_trades(year, loop)
+                    self._recalculate_after_reconciliation(year, loop, update_demand=False)
+                    
+                    for i in range(2):
+                        self.reconcile_oversupply(year, loop)
+                        self._recalculate_after_reconciliation(year, loop, update_demand=True)
+                    
+                    self.reconcile_constraints(year,loop)
+                    self._recalculate_after_reconciliation(year, loop, update_demand=True)
+                    
+                    self.reconcile_oversupply(year, loop)
+                    self._recalculate_after_reconciliation(year, loop, update_demand=True)
+                
+                # dispatch loop
+                elif loop == 3 and year in self.dispatch_years:
+                    # loop - 1 is necessary so that it uses last year's throughput 
+                    self.calculate_embodied_costs(year, loop-1) # necessary here because of the dispatch
+                    self.prepare_dispatch_inputs(year, loop)
+                    self.solve_electricity_dispatch(year)
+                    self._recalculate_stocks_and_io(year, loop)
+            
+            self.calculate_embodied_costs(year, loop=3)
             self.calculate_embodied_emissions(year)
             self.calculate_annual_costs(year)
     
