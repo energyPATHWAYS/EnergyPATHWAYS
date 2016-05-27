@@ -697,12 +697,15 @@ class Subsector(DataMapFunctions):
                     df = df.stack().to_frame()
                     df.columns = ['value']
                     util.replace_index_name(df, 'year')
+                else:
+                    util.replace_index_name(df, 'year','vintage')
                 df_list.append(df)
             keys = measure_types
             names = ['measure_types']
             df = pd.concat(df_list,keys=keys,names=names)
             unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
             df.columns = [unit]
+            return df
         else:
             return None
         
@@ -720,7 +723,7 @@ class Subsector(DataMapFunctions):
         else:
             keys = ['stock', 'measure']
             names = ['cost_type']
-            return util.df_list_concatenate(cost_list,keys=keys,new_names=names).groupby('cost_type').sum()
+            return util.df_list_concatenate(cost_list,keys=keys,new_names=names)
   
     def format_output_stock_costs(self, att, override_levels_to_keep=None):
         """ 
@@ -733,7 +736,7 @@ class Subsector(DataMapFunctions):
         keys = util.flatten_list([[tuple(k)]*len(v) for k, v in zip(keys, values)])
         values = list(values)
         for index,value in enumerate(values):
-            if value.columns.names != ['value']:
+            if value.columns != ['value']:
                 value = value.stack().to_frame()
                 value.columns = ['value']
                 util.replace_index_name(value, 'year')

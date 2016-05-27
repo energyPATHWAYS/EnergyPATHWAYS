@@ -1091,8 +1091,9 @@ class Supply(object):
                     else:
                         co2_price = 100
                     if hasattr(node,'active_physical_emissions_coefficients') and hasattr(node,'active_co2_capture_rate'):    
-                        co2_cost = util.DfOper.mult([node.active_physical_emissions_coefficients.sum().to_frame(), 1- node.active_co2_capture_rate]) * co2_price * (year-int(cfg.cfgfile.get('case','current_year')))/(2050-int(cfg.cfgfile.get('case','current_year'))) * util.unit_conversion(unit_from_den='ton',unit_to_den=cfg.cfgfile.get('case','mass_unit'))[0]
-                        co2_cost = co2_cost.groupby(level=self.geography).mean()
+                        emissions_rate = util.DfOper.mult([node.stock.dispatch_coefficients.loc[:,year].to_frame(), util.DfOper.divi([node.active_physical_emissions_coefficients.sum().to_frame(),node.active_coefficients_untraded]).replace([np.inf,np.nan],0)])
+                        emissions_rate = util.remove_df_levels(emissions_rate,[x for x in emissions_rate.index.names if x not in node.stock.values.index.names],agg_function='mean')
+                        co2_cost = util.DfOper.mult([emissions_rate, 1-util.DfOper.divi([node.co2_capture_rate.loc[:,year].to_frame(),node.stock.values_normal_energy.loc[:,year].to_frame()]).replace([np.nan,np.inf,-np.inf],0)]) * co2_price * max((year-2020),0)/(2050-2020) * util.unit_conversion(unit_from_den='ton',unit_to_den=cfg.cfgfile.get('case','mass_unit'))[0]
                         active_dispatch_costs = util.DfOper.add([node.active_dispatch_costs ,co2_cost])
                     stock_values = node.stock.values.loc[:,year].to_frame()
                     stock_values = stock_values[((stock_values.index.get_level_values('vintage')==year) == True) | ((stock_values[year]>0) == True)]
@@ -2754,7 +2755,7 @@ class Node(DataMapFunctions):
                 if hasattr(self,'stock_energy_geo') and hasattr(self,'potential_geo'):
                     #this is a special case when we have a stock and specified potential. We want to distribute growth in the stock by potential while maintaing trades to support existing stock. 
                     active_supply = util.remove_df_levels(self.active_supply, [x for x in self.active_supply.index.names if x not in self.stock.act_total_energy.index.names])                
-                    total_active_supply = util.remove_df_levels(util.DfOper.mult([active_supply,cfg.geo.map_df(primary_geography,self.tradable_geography, eliminate_zeros=False)]),primary_geography)
+                    total_active_supply = util.remove_df_levels(util.DfOper.mult([active_supply,cfg.geo.map_df(self.tradable_geography,primary_geography, eliminate_zeros=False)]),primary_geography)
                     total_stock = util.remove_df_levels(self.stock_energy_geo,primary_geography)
                     stock_share = util.DfOper.divi([total_stock,total_active_supply])
                     stock_share[stock_share>1] = 1
