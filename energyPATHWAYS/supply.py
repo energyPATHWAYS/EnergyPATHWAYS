@@ -3819,11 +3819,13 @@ class SupplyPotential(Abstract):
                 self.geo_map(converted_geography=tradable_geography, attr='active_throughput', inplace=True, current_geography=primary_geography)
                 self.geo_map(converted_geography=tradable_geography, attr='full_supply_curve', inplace=True, current_geography=primary_geography)
         reindexed_throughput = util.DfOper.none([self.active_throughput,self.active_supply_curve],expandable=(True,False),collapsible=(True,True))    
-        self.active_supply_curve = util.expand_multi(self.active_supply_curve, reindexed_throughput.index.levels,reindexed_throughput.index.names)
-        self.active_supply_curve[self.active_supply_curve>reindexed_throughput] = reindexed_throughput
-        self.active_supply_curve =  self.active_supply_curve.groupby(level=util.ix_excl(self.active_supply_curve, 'resource_bins')).diff(1).fillna(reindexed_throughput)
+        self.active_supply_curve = util.expand_multi(self.active_supply_curve, reindexed_throughput.index.levels,reindexed_throughput.index.names)        
+        bin_supply_curve = self.active_supply_curve.groupby(level=[x for x in self.active_supply_curve.index.names if x!= 'resource_bins']).cumsum()
+        bin_supply_curve[bin_supply_curve>reindexed_throughput] = reindexed_throughput
+        self.active_supply_curve = bin_supply_curve.groupby(level=util.ix_excl(bin_supply_curve,'resource_bins')).diff().fillna(bin_supply_curve)         
         if tradable_geography is not None and tradable_geography!=primary_geography:
-            self.active_supply_curve = util.remove_df_levels(util.DfOper.mult([original_supply_curve,util.DfOper.mult([util.DfOper.divi([self.active_supply_curve,self.full_supply_curve]),map_df])]),tradable_geography)
+            normalized = original_supply_curve.groupby(level=[tradable_geography,'resource_bins']).transform(lambda x: x/x.sum())
+            self.active_supply_curve = util.remove_df_levels(util.DfOper.mult([normalized,self.active_supply_curve]),tradable_geography)
         self.active_supply_curve.columns = ['value']
         
 
