@@ -697,13 +697,12 @@ class Subsector(DataMapFunctions):
                     df = df.stack().to_frame()
                     df.columns = ['value']
                     util.replace_index_name(df, 'year')
-                    print df.type
-                    if df.sum()==0:
+                    if df.sum().values ==0:
                         continue
-                    df = df[df>0]
+                    df = df[df.values>0]
                 else:
                     util.replace_index_name(df, 'year','vintage')
-                    df = df[df>0]
+                    df = df[df.values>0]
                 df_list.append(df)
             if len(df_list):
                 keys = measure_types
