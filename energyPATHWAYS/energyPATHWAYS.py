@@ -192,8 +192,11 @@ class PathwaysModel(object):
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
            self.embodied_energy_costs_df = pd.concat([self.embodied_energy_costs_df],keys=[key],names=[name])       
-        #calculte and format direct demand emissions        
-        self.demand_costs_df= self.demand.outputs.return_cleaned_output('levelized_costs')  
+        #calculte and format direct demand costs      
+        self.demand_costs_df= self.demand.outputs.return_cleaned_output('levelized_costs') 
+        levels_to_keep = cfg.output_combined_levels 
+        levels_to_keep = [x for x in levels_to_keep if x in self.demand_costs_df.index.names]
+        self.demand_costs_df= self.demand_costs_df.groupby(level=levels_to_keep).sum()
 #        del self.demand.outputs.levelized_costs
         keys = ["DOMESTIC","DEMAND"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]

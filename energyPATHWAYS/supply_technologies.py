@@ -79,7 +79,7 @@ class SupplyTechnology(StockItem):
         measure_ids = util.sql_read_table('SupplyStockMeasurePackagesData', 'measure_id', package_id=package_id,
                                           return_iterable=True)
         for measure_id in measure_ids:
-            specified_stocks = util.sql_read_table('SupplyStockMeasures', 'id', supply_technology_id=self.id,return_iterable=True)
+            specified_stocks = util.sql_read_table('SupplyStockMeasures', 'id', id=measure_id, supply_technology_id=self.id,return_iterable=True)
             for specified_stock in specified_stocks:
                 self.specified_stocks[specified_stock] = SupplySpecifiedStock(id=specified_stock,
                                                                         sql_id_table='SupplyStockMeasures',

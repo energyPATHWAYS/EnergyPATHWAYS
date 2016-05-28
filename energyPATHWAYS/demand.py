@@ -35,6 +35,14 @@ def calculate(subsector):
     else:
         subsector.calculate()
     return subsector
+def aggregate_electricity_shapes(params):
+    subsector = params[0]
+    year = params[1]
+    active_shape = params[2]
+    feeder_allocation = params[3]
+    default_max_lead_hours = params[4]
+    default_max_lag_hours = params[5]
+    return subsector.aggregate_electricity_shapes(year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours)
 
 
 def rollover_subset_run(key_value_pair):
@@ -420,9 +428,20 @@ class Sector(object):
         
         feeder_allocation = util.df_slice(self.feeder_allocation, year, 'year')
         default_max_lead_hours = self.max_lead_hours
-        default_max_lag_hours = self.max_lag_hours
-        
-        return util.DfOper.add([sub.aggregate_electricity_shapes(year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours)
+        default_max_lag_hours = self.max_lag_hours        
+        if cfg.cfgfile.get('case','parallel_process') == 'True':    
+            parallel_params = []
+            for subsector in self.subsectors.values():
+                parallel_params.append([subsector,year,active_shape,feeder_allocation,default_max_lead_hours,default_max_lag_hours])
+            available_cpus = multiprocessing.cpu_count()   
+            pool = Pool(processes=available_cpus)
+            multiprocessing.freeze_support()
+            results = pool.map(aggregate_electricity_shapes,parallel_params)
+            pool.close()
+            pool.join()  
+            return util.DfOper.add(results,expandable=False,collapsible=False)
+        else:
+            return util.DfOper.add([sub.aggregate_electricity_shapes(year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours)
                                 for sub in self.subsectors.values()],
                                 expandable=False, collapsible=False)
 
@@ -465,7 +484,14 @@ class Subsector(DataMapFunctions):
         """ Final levels that will always return from this function
         ['dispatch_feeder', 'timeshift_type', 'gau', 'weather_datetime']
         """
-        
+        cfg.init_cfgfile(self.cfgfile_path)
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            cfg.init_db()
+            cfg.path = self.custom_pint_definitions_path
+            cfg.init_pint(self.custom_pint_definitions_path)
+            cfg.init_geo()
+            cfg.init_date_lookup()
+            cfg.init_outputs_id_map()
         if default_shape is None and self.shape_id is None:
             raise ValueError('Electricity shape cannot be aggregated without an active shape in subsector ' + self.name)
         active_shape = self.shape if hasattr(self, 'shape') else default_shape
@@ -505,7 +531,10 @@ class Subsector(DataMapFunctions):
             # here we might have a problem because some of the technology shapes had flex load others didn't, this could lead to NaN
             # it might be possible to simply fill with 2, which would be the native shape
             return util.remove_df_levels(util.DfOper.mult((energy_slice, active_feeder_allocation, technology_shapes)), levels='technology')
-        
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
+            cfg.cur.close()
+            del cfg.cur
+
 
     def add_energy_system_data(self):
         """ 
@@ -2289,9 +2318,11 @@ class Subsector(DataMapFunctions):
             initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, 
                                                            transition_matrix=sales_share[0], num_years=len(self.years))
             rerun_sales_shares = True
-            for i in range(1,len(sales_share)):
-                if np.any(sales_share[0]!=sales_share[i]):
-                    rerun_sales_shares=False
+            ss_measure = self.helper_calc_sales_share(elements,self.stock.rollover_group_names,reference=False)
+            if np.sum(ss_measure) == 0:
+                for i in range(1,len(sales_share)):
+                    if np.any(sales_share[0]!=sales_share[i]):
+                        rerun_sales_shares=False
         #Fourth best way is if we have specified some technologies in the initial year, even if not all
         elif min_technology_year:
             initial_stock = self.stock.technology.loc[elements+(min_technology_year,),:].values/np.nansum(self.stock.technology.loc[elements+(min_technology_year,),:].values) * initial_total 
