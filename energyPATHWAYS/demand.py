@@ -12,7 +12,7 @@ import copy
 from datetime import datetime
 from demand_subsector_classes import DemandStock, SubDemand, ServiceEfficiency, ServiceLink
 from shared_classes import AggregateStock
-from demand_measures import ServiceDemandMeasure, EnergyEfficiencyMeasure, FuelSwitchingMeasure
+from demand_measures import ServiceDemandMeasure, EnergyEfficiencyMeasure, FuelSwitchingMeasure, FlexibleLoadMeasure
 from demand_technologies import DemandTechnology, SalesShare
 from rollover import Rollover
 from util import DfOper
@@ -497,8 +497,7 @@ class Subsector(DataMapFunctions):
         active_shape = self.shape if hasattr(self, 'shape') else default_shape
         reconciliation = self.electricity_reconciliation if hasattr(self, 'electricity_reconciliation') else None
         active_feeder_allocation = default_feeder_allocation
-        active_max_lead_hours = self.max_lead_hours if self.max_lead_hours is not None else default_max_lead_hours
-        active_max_lag_hours = self.max_lag_hours if self.max_lag_hours is not None else default_max_lag_hours
+
         
         # subsector consumes no electricity, so we need to just skip it
         if not hasattr(self,'energy_forecast') or cfg.electricity_energy_type_id not in util.get_elements_from_level(self.energy_forecast, 'final_energy'):
@@ -511,15 +510,20 @@ class Subsector(DataMapFunctions):
         if not hasattr(self, 'technologies') or np.all([tech.shape_id is None for tech in self.technologies.values()]):
             energy_slice = energy_slice.groupby(level=cfg.cfgfile.get('case', 'primary_geography')).sum()
             
-            # TODO read in flexible load measures
-            has_flex_load_measure = False
-            if has_flex_load_measure:
+            if hasattr(self, 'flexible_load_measure'):
+                active_max_lead_hours = self.max_lead_hours if self.max_lead_hours is not None else default_max_lead_hours
+                active_max_lag_hours = self.max_lag_hours if self.max_lag_hours is not None else default_max_lag_hours
+                percent_flexible = self.flexible_load_measure.values.xs(year, level='year')
+                
                 # first step is to make the three shifted profiles
                 flex = Shape.produce_flexible_load(util.DfOper.mult((active_shape.values, reconciliation)),
-                                                   percent_flexible=0, hr_delay=active_max_lag_hours, hr_advance=active_max_lead_hours)
+                                                   percent_flexible=percent_flexible, hr_delay=active_max_lag_hours, hr_advance=active_max_lead_hours)
                 return util.DfOper.mult((energy_slice, active_feeder_allocation, flex))
             else:
-                return util.DfOper.mult((energy_slice, active_feeder_allocation, active_shape.values, reconciliation))
+                return util.DfOper.mult((energy_slice,
+                                         active_feeder_allocation,
+                                         util.df_slice(active_shape.values, elements=2, levels='timeshift_type', drop_level=False),
+                                         reconciliation))
 
         # some technologies have their own shapes, so we need to aggregate from that level
         else:
@@ -608,6 +612,7 @@ class Subsector(DataMapFunctions):
         self.add_energy_efficiency_measures()
         self.add_fuel_switching_measures()
         self.add_stock_measures()
+        self.add_flexible_load_measures()
 
     def add_stock_measures(self):
         """ add specified stock and sales measures to model if the subsector
@@ -722,7 +727,7 @@ class Subsector(DataMapFunctions):
             df_list = []
             for measure_type in measure_types:
                 df = getattr(getattr(self,measure_type),att)['unspecified']
-                if df.columns != ['value']:
+                if list(df.columns) != ['value']:
                     df = df.stack().to_frame()
                     df.columns = ['value']
                     util.replace_index_name(df, 'year')
@@ -771,8 +776,8 @@ class Subsector(DataMapFunctions):
         keys, values = zip(*[(a, b) for a, b in util.unpack_dict(cost_dict)])
         keys = util.flatten_list([[tuple(k)]*len(v) for k, v in zip(keys, values)])
         values = list(values)
-        for index,value in enumerate(values):
-            if value.columns != ['value']:
+        for index, value in enumerate(values):
+            if list(value.columns) != ['value']:
                 value = value.stack().to_frame()
                 value.columns = ['value']
                 util.replace_index_name(value, 'year')
@@ -1075,6 +1080,14 @@ class Subsector(DataMapFunctions):
                 measure.savings = DfOper.mult([measure.savings, impact_adjustment])
         self.service_demand.values = DfOper.subt([self.service_demand.values,
                                                     self.service_demand_savings])
+
+    def add_flexible_load_measures(self):
+        """
+        add all flexible load measures in a selected package to a dictionary
+        """
+        if self.flexible_load_package_id is not None:
+            id = util.sql_read_table("DemandFlexibleLoadMeasurePackagesData",column_names='measure_id',package_id=self.flexible_load_package_id,return_iterable=False)
+            self.flexible_load_measure = FlexibleLoadMeasure(id)
 
     def add_fuel_switching_measures(self):
         """

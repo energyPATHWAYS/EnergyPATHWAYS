@@ -338,41 +338,39 @@ class Shape(dmf.DataMapFunctions):
     
     @staticmethod
     def produce_flexible_load(shape_df, percent_flexible=None, hr_delay=None, hr_advance=None):
-        percent_flexible = 0 if percent_flexible is None else percent_flexible
         hr_delay = 0 if hr_delay is None else hr_delay
         hr_advance = 0 if hr_advance is None else hr_advance
         
-        if percent_flexible==0 or (hr_delay==0 and hr_advance==0):
-            return util.df_slice(shape_df, elements=2, levels='timeshift_type')
-                
-        timeshift_levels = list(util.get_elements_from_level(shape_df, 'timeshift_type'))
-        timeshift_levels.sort()
+        native_slice = util.df_slice(shape_df, elements=2, levels='timeshift_type')
+        
+        if percent_flexible.sum().sum()==0:
+            return native_slice
+
+        pflex_stacked = pd.concat([percent_flexible]*3, keys=[1,2,3], names=['timeshift_type'])
+
+        timeshift_levels = sorted(list(util.get_elements_from_level(shape_df, 'timeshift_type')))
         if timeshift_levels==[1, 2, 3]:
-            delay = util.df_slice(shape_df, elements=1, levels='timeshift_type')
-            native = util.df_slice(shape_df, elements=2, levels='timeshift_type')
-            advance = util.df_slice(shape_df, elements=3, levels='timeshift_type')
+            # here, we have flexible load profiles already specified by the user
+            full_load = shape_df
         elif timeshift_levels==[2]:
-            # TODO this could be a lambda function
-            def shift(df, hr):
-                """ positive hours is a shift forward, negative hours a shift back"""
-                return df.shift(hr).bfill().ffill()
-                
-            non_weather = [n for n in shape_df.index.names if n!='weather_datetime']
-            delay = shape_df.groupby(level=non_weather).apply(shift, hr=hr_delay)
-            native = shape_df
-            advance = shape_df.groupby(level=non_weather).apply(shift, hr=-hr_advance)
+            # positive hours is a shift forward, negative hours a shift back
+            shift = lambda df, hr: df.shift(hr).bfill().ffill()
+            non_weather = [n for n in native_slice.index.names if n!='weather_datetime']
+            full_load = pd.concat([native_slice.groupby(level=non_weather).apply(shift, hr=hr_delay),
+                                   native_slice,
+                                   native_slice.groupby(level=non_weather).apply(shift, hr=-hr_advance)],
+                                   keys=[1,2,3], names=['timeshift_type'])
         else:
             raise ValueError("elements in the level timeshift_type are not recognized")
-
-        return pd.concat([delay*percent_flexible + native*(1-percent_flexible),
-                          native,
-                          advance*percent_flexible + native*(1-percent_flexible)], keys=[1,2,3], names=['timeshift_type'])
+        
+        native_slice_stacked = pd.concat([native_slice]*3, keys=[1,2,3], names=['timeshift_type'])
+        return util.DfOper.add((util.DfOper.mult((full_load, pflex_stacked), collapsible=False),
+                                util.DfOper.mult((native_slice_stacked, 1-pflex_stacked), collapsible=False)))
 
 
 directory = os.getcwd()
 rerun_shapes = False
-#######################
-#######################
+
 if rerun_shapes:
     shapes = Shapes()
     shapes.rerun = True
@@ -384,7 +382,5 @@ else:
     except:
         shapes = Shapes()
         shapes.rerun = True
-    
-#######################
 
 
