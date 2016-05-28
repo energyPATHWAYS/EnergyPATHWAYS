@@ -494,7 +494,10 @@ class Subsector(DataMapFunctions):
                                                    percent_flexible=percent_flexible, hr_delay=active_max_lag_hours, hr_advance=active_max_lead_hours)
                 return util.DfOper.mult((energy_slice, active_feeder_allocation, flex))
             else:
-                return util.DfOper.mult((energy_slice, active_feeder_allocation, active_shape.values, reconciliation))
+                return util.DfOper.mult((energy_slice,
+                                         active_feeder_allocation,
+                                         util.df_slice(active_shape.values, elements=2, levels='timeshift_type', drop_level=False),
+                                         reconciliation))
 
         # some technologies have their own shapes, so we need to aggregate from that level
         else:
@@ -695,7 +698,7 @@ class Subsector(DataMapFunctions):
             df_list = []
             for measure_type in measure_types:
                 df = getattr(getattr(self,measure_type),att)['unspecified']
-                if df.columns != ['value']:
+                if list(df.columns) != ['value']:
                     df = df.stack().to_frame()
                     df.columns = ['value']
                     util.replace_index_name(df, 'year')
@@ -744,8 +747,8 @@ class Subsector(DataMapFunctions):
         keys, values = zip(*[(a, b) for a, b in util.unpack_dict(cost_dict)])
         keys = util.flatten_list([[tuple(k)]*len(v) for k, v in zip(keys, values)])
         values = list(values)
-        for index,value in enumerate(values):
-            if value.columns != ['value']:
+        for index, value in enumerate(values):
+            if list(value.columns) != ['value']:
                 value = value.stack().to_frame()
                 value.columns = ['value']
                 util.replace_index_name(value, 'year')
