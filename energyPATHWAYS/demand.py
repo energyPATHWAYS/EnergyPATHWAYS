@@ -422,9 +422,21 @@ class Sector(object):
         default_max_lead_hours = self.max_lead_hours
         default_max_lag_hours = self.max_lag_hours
         
-        return util.DfOper.add([sub.aggregate_electricity_shapes(year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours)
-                                for sub in self.subsectors.values()],
-                                expandable=False, collapsible=False)
+        none_len = lambda df: 0 if df is None else len(df)
+
+        if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
+            available_cpus = multiprocessing.cpu_count()   
+            pool = Pool(processes=available_cpus)
+            multiprocessing.freeze_support()
+            other_args = (year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours)
+            shapes = pool.map(aggregate_electricity_shapes_multi, [(sub,) + other_args for sub in self.subsectors.values()])
+            pool.close()
+            pool.join()
+        else:
+            shapes = [sub.aggregate_electricity_shapes(year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours) for sub in self.subsectors.values()]
+        
+        return util.DfOper.add(sorted(shapes, key=none_len), expandable=False, collapsible=False)
+
 
     def pass_electricity_reconciliation(self, electricity_reconciliation):
         """ This function threads the reconciliation factors into sectors and subsectors
@@ -433,6 +445,10 @@ class Sector(object):
         """
         for subsector in self.subsectors:
             self.subsectors[subsector].set_electricity_reconciliation(electricity_reconciliation)
+
+def aggregate_electricity_shapes_multi(arg):
+    sub, year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours = arg
+    return sub.aggregate_electricity_shapes(year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours)
 
 
 class Subsector(DataMapFunctions):
@@ -471,7 +487,6 @@ class Subsector(DataMapFunctions):
         active_shape = self.shape if hasattr(self, 'shape') else default_shape
         reconciliation = self.electricity_reconciliation if hasattr(self, 'electricity_reconciliation') else None
         active_feeder_allocation = default_feeder_allocation
-
         
         # subsector consumes no electricity, so we need to just skip it
         if not hasattr(self,'energy_forecast') or cfg.electricity_energy_type_id not in util.get_elements_from_level(self.energy_forecast, 'final_energy'):
@@ -495,9 +510,10 @@ class Subsector(DataMapFunctions):
                 return util.DfOper.mult((energy_slice, active_feeder_allocation, flex))
             else:
                 return util.DfOper.mult((energy_slice,
-                                         active_feeder_allocation,
-                                         util.df_slice(active_shape.values, elements=2, levels='timeshift_type', drop_level=False),
-                                         reconciliation))
+                                              active_feeder_allocation,
+                                              reconciliation,
+                                              util.df_slice(active_shape.values, elements=2, levels='timeshift_type', drop_level=False),
+                                              ))
 
         # some technologies have their own shapes, so we need to aggregate from that level
         else:
