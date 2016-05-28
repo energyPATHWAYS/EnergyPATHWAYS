@@ -699,15 +699,22 @@ class Subsector(DataMapFunctions):
                     df = df.stack().to_frame()
                     df.columns = ['value']
                     util.replace_index_name(df, 'year')
+                    if df.sum().values ==0:
+                        continue
+                    df = df[df.values>0]
                 else:
                     util.replace_index_name(df, 'year','vintage')
+                    df = df[df.values>0]
                 df_list.append(df)
-            keys = measure_types
-            names = ['measure_types']
-            df = pd.concat(df_list,keys=keys,names=names)
-            unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
-            df.columns = [unit]
-            return df
+            if len(df_list):
+                keys = measure_types
+                names = ['measure_types']
+                df = pd.concat(df_list,keys=keys,names=names)
+                unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
+                df.columns = [unit]
+                return df
+            else:
+                return None
         else:
             return None
         
