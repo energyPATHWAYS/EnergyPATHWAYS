@@ -428,17 +428,17 @@ class Sector(object):
         
         feeder_allocation = util.df_slice(self.feeder_allocation, year, 'year')
         default_max_lead_hours = self.max_lead_hours
-        default_max_lag_hours = self.max_lag_hours        
-        if cfg.cfgfile.get('case','parallel_process') == 'True':    
+        default_max_lag_hours = self.max_lag_hours
+        if cfg.cfgfile.get('case','parallel_process') == 'True':
             parallel_params = []
             for subsector in self.subsectors.values():
                 parallel_params.append([subsector,year,active_shape,feeder_allocation,default_max_lead_hours,default_max_lag_hours])
-            available_cpus = multiprocessing.cpu_count()   
+            available_cpus = multiprocessing.cpu_count()
             pool = Pool(processes=available_cpus)
             multiprocessing.freeze_support()
             results = pool.map(aggregate_electricity_shapes,parallel_params)
             pool.close()
-            pool.join()  
+            pool.join()
             return util.DfOper.add(results,expandable=False,collapsible=False)
         else:
             return util.DfOper.add([sub.aggregate_electricity_shapes(year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours)
@@ -497,7 +497,6 @@ class Subsector(DataMapFunctions):
         active_shape = self.shape if hasattr(self, 'shape') else default_shape
         reconciliation = self.electricity_reconciliation if hasattr(self, 'electricity_reconciliation') else None
         active_feeder_allocation = default_feeder_allocation
-
         
         # subsector consumes no electricity, so we need to just skip it
         if not hasattr(self,'energy_forecast') or cfg.electricity_energy_type_id not in util.get_elements_from_level(self.energy_forecast, 'final_energy'):
@@ -521,9 +520,10 @@ class Subsector(DataMapFunctions):
                 return util.DfOper.mult((energy_slice, active_feeder_allocation, flex))
             else:
                 return util.DfOper.mult((energy_slice,
-                                         active_feeder_allocation,
-                                         util.df_slice(active_shape.values, elements=2, levels='timeshift_type', drop_level=False),
-                                         reconciliation))
+                                              active_feeder_allocation,
+                                              reconciliation,
+                                              util.df_slice(active_shape.values, elements=2, levels='timeshift_type', drop_level=False),
+                                              ))
 
         # some technologies have their own shapes, so we need to aggregate from that level
         else:
