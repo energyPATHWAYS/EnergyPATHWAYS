@@ -50,18 +50,18 @@ if __name__ == "__main__":
             if save_models:
                 with open(os.path.join(directory, str(scenario_id)+'_model.p'), 'wb') as outfile:
                     pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)
-            model.pass_results_to_supply()
-            model.calculate_supply()
-            if save_models:
-                with open(os.path.join(directory, str(scenario_id)+'_full_model_run.p'), 'wb') as outfile:
-                    pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)
-            model.supply.calculate_supply_outputs()
-            model.pass_results_to_demand()
-            model.calculate_combined_results()
-            remove_results(append_results)
-            #after the first secnario loop, we want to append results so we change the boolean to True
-            append_results = True
-            model.export_results()
+#            model.pass_results_to_supply()
+#            model.calculate_supply()
+#            if save_models:
+#                with open(os.path.join(directory, str(scenario_id)+'_full_model_run.p'), 'wb') as outfile:
+#                    pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)
+#            model.supply.calculate_supply_outputs()
+#            model.pass_results_to_demand()
+#            model.calculate_combined_results()
+#            remove_results(append_results)
+#            #after the first secnario loop, we want to append results so we change the boolean to True
+#            append_results = True
+#            model.export_results()
     elif resolve_demand and not resolve_supply: 
         model = energyPATHWAYS.PathwaysModel(cfgfile_path, custom_pint_definitions_path)
         model.populate_shapes()
