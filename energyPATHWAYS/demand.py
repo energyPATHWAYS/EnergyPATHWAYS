@@ -439,11 +439,11 @@ class Sector(object):
             results = pool.map(aggregate_electricity_shapes,parallel_params)
             pool.close()
             pool.join()
-            return util.DfOper.add(results,expandable=True,collapsible=False)
+            return util.DfOper.add(results,expandable=False,collapsible=False)
         else:
             return util.DfOper.add([sub.aggregate_electricity_shapes(year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours)
                                 for sub in self.subsectors.values()],
-                                expandable=True, collapsible=False)
+                                expandable=False, collapsible=False)
 
     def pass_electricity_reconciliation(self, electricity_reconciliation):
         """ This function threads the reconciliation factors into sectors and subsectors

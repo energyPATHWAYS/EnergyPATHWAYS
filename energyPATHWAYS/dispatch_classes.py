@@ -246,7 +246,7 @@ class Dispatch(object):
                                        df = util.df_slice(distribution_load, [geography, feeder, timeshift], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).cumsum()
                                        for timepoint in self.period_timepoints[period]:
                                            time_index = timepoint-1
-                                           self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0][0]
+                                           self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0]
                                    else:
                                        df = load_df 
                                        df = df.cumsum() 
@@ -258,7 +258,7 @@ class Dispatch(object):
                                        df = util.df_slice(distribution_load, [geography, feeder, timeshift], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).cumsum()
                                        for timepoint in self.period_timepoints[period]:
                                            time_index = timepoint -1
-                                           self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0][0] 
+                                           self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0]
                                     else:
                                         df = load_df 
                                         df = df.cumsum()

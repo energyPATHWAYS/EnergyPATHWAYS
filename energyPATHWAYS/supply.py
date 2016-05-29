@@ -1093,7 +1093,7 @@ class Supply(object):
                     active_dispatch_costs = node.active_dispatch_costs
                     #TODO Remove 1 is the Reference Case
                     if self.case_id == 1:
-                        co2_price = 20
+                        co2_price = 30
                     else:
                         co2_price = 500
                     if hasattr(node,'active_physical_emissions_coefficients') and hasattr(node,'active_co2_capture_rate'):    
