@@ -392,8 +392,8 @@ class Supply(object):
                             self.calculate_io(year, loop)
                             self.calculate_stocks(year, loop) 
                             self.reconciled = False
-                        self.calculate_embodied_costs(year, loop)
                     if loop == 3:
+                        self.calculate_embodied_costs(year, loop)
                         self.prepare_dispatch_inputs(year, loop)
                         self.solve_electricity_dispatch(year)
                         self.calculate_coefficients(year,loop)
@@ -470,9 +470,9 @@ class Supply(object):
                             self.calculate_io(year, loop)
                             self.calculate_stocks(year, loop) 
                             self.reconciled = False
-                        self.calculate_embodied_costs(year, loop)
                     if loop == 3:
                         if year in self.dispatch_years:
+                            self.calculate_embodied_costs(year, loop)
                             self.prepare_dispatch_inputs(year, loop)
                             self.solve_electricity_dispatch(year)
                             self.calculate_coefficients(year,loop)
@@ -719,15 +719,18 @@ class Supply(object):
                             hourly_p_max = util.remove_df_levels(util.DfOper.mult([capacity,p_max_shape]),self.geography).values
                             p_max = split_and_apply(hourly_p_max, dispatch_periods, np.mean)                        
                         if zone == self.transmission_node_id:                    
-                            net_indexer = util.level_specific_indexer(self.bulk_net_load,self.dispatch_geography, geography)
+                            net_indexer = util.level_specific_indexer(self.bulk_net_load,[self.dispatch_geography,'timeshift_type'], [geography,2])
                             if load:                               
                                 self.energy_budgets = energy_budgets
                                 self.p_min = p_min
                                 self.p_max = p_max
-                                indexer = util.level_specific_indexer(self.bulk_load,self.dispatch_geography, geography)   
+                                 
                                 dispatch = np.transpose([Dispatch.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
-                                self.dispatch_result = dispatch                                
-                                self.bulk_load.loc[indexer,:] += dispatch
+                                self.dispatch_result = dispatch            
+                                for timeshift_type in list(set(self.bulk_load.index.get_level_values('timeshift_type'))):
+                                    indexer = util.level_specific_indexer(self.bulk_load,[self.dispatch_geography,'timeshift_type'], [geography,timeshift_type])  
+                                    self.bulk_load.loc[indexer,:] += dispatch
+                                indexer = util.level_specific_indexer(self.bulk_load,self.dispatch_geography, geography)  
                                 self.dispatched_bulk_load.loc[indexer,:] += dispatch
                             else:
                                 indexer = util.level_specific_indexer(self.bulk_gen,self.dispatch_geography, geography)
@@ -738,7 +741,10 @@ class Supply(object):
                             if load:
                                 indexer = util.level_specific_indexer(self.dist_load,[self.dispatch_geography,'dispatch_feeder'], [geography,feeder])
                                 dispatch =  np.transpose([Dispatch.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
-                                self.distribution_load.loc[indexer,:] += dispatch
+                                for timeshift_type in list(set(self.distribution_load.index.get_level_values('timeshift_type'))):
+                                    indexer = util.level_specific_indexer(self.distribution_load,[self.dispatch_geography,'timeshift_type'], [geography,timeshift_type])  
+                                    self.distribution_load.loc[indexer,:] += dispatch
+                                indexer = util.level_specific_indexer(self.distribution_load,self.dispatch_geography, geography) 
                                 self.dispatched_dist_load.loc[indexer,:] += dispatch
 
                             else:
@@ -763,20 +769,20 @@ class Supply(object):
     def set_grid_capacity_factors(self, year):
         max_year = max(self.years)
         distribution_grid_node = self.nodes[self.distribution_grid_node_id]        
-        dist_cap_factor = DfOper.divi([self.dist_only_net_load.groupby(level=[self.dispatch_geography,'dispatch_feeder']).mean(),self.dist_only_net_load.groupby(level=[self.dispatch_geography,'dispatch_feeder']).max()])
+        dist_cap_factor = util.DfOper.divi([util.df_slice(self.dist_only_net_load,2,'timeshift_type').groupby(level=[self.dispatch_geography,'dispatch_feeder']).mean(),self.dist_only_net_load.groupby(level=[self.dispatch_geography,'dispatch_feeder']).max()])
         geography_map_key = distribution_grid_node.geography_map_key if hasattr(distribution_grid_node, 'geography_map_key') and distribution_grid_node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')       
         if self.dispatch_geography != self.geography:    
             map_df = cfg.geo.map_df(self.dispatch_geography, self.geography, geography_map_key, eliminate_zeros=False)
-            dist_cap_factor = util.remove_df_levels(DfOper.mult([dist_cap_factor,map_df]),self.dispatch_geography)        
-        dist_cap_factor = util.remove_df_levels(DfOper.mult([dist_cap_factor, util.df_slice(self.dispatch_feeder_allocation.values,year, 'year')]),'dispatch_feeder')
+            dist_cap_factor = util.remove_df_levels(util.DfOper.mult([dist_cap_factor,map_df]),self.dispatch_geography)        
+        dist_cap_factor = util.remove_df_levels(util.DfOper.mult([dist_cap_factor, util.df_slice(self.dispatch_feeder_allocation.values,year, 'year')]),'dispatch_feeder')
         distribution_grid_node.capacity_factor.values.loc[:,year] = dist_cap_factor.values
-        for i in range(1,int(cfg.cfgfile.get('case','dispatch_step'))):
+        for i in range(1,int(cfg.cfgfile.get('case','dispatch_step'))+1):
             distribution_grid_node.capacity_factor.values.loc[:,min(year+i,max_year)] = dist_cap_factor.values
         if hasattr(distribution_grid_node, 'stock'):
                 distribution_grid_node.update_stock(year,3) 
                 
         #hardcoded 50% assumption of colocated energy for dispatched flexible gen. I.e. wind and solar. Means that transmission capacity isn't needed to support energy demands. 
-        bulk_flow = DfOper.subt([DfOper.add([self.bulk_load,util.remove_df_levels(self.dist_only_net_load,'dispatch_feeder')]),self.dispatched_bulk_load * .5])
+        bulk_flow = util.df_slice(DfOper.subt([DfOper.add([self.bulk_load,util.remove_df_levels(self.dist_only_net_load,'dispatch_feeder')]),self.dispatched_bulk_load * .5]),2,'timeshift_type')
 #        bulk_flow = DfOper.add([self.dist_net_load_no_feeders,self.bulk_load])
         
         bulk_cap_factor = DfOper.divi([bulk_flow.groupby(level=self.dispatch_geography).mean(),bulk_flow.groupby(level=self.dispatch_geography).max()]) 
@@ -786,7 +792,7 @@ class Supply(object):
             map_df = cfg.geo.map_df(self.dispatch_geography, self.geography, geography_map_key, eliminate_zeros=False)
             bulk_cap_factor = util.remove_df_levels(DfOper.mult([bulk_cap_factor,map_df]),self.dispatch_geography)       
         transmission_grid_node.capacity_factor.values.loc[:,year] = bulk_cap_factor.values
-        for i in range(1,int(cfg.cfgfile.get('case','dispatch_step'))):
+        for i in range(1,int(cfg.cfgfile.get('case','dispatch_step'))+1):
             transmission_grid_node.capacity_factor.values.loc[:,min(year+i,max_year)] = bulk_cap_factor.values
         if hasattr(transmission_grid_node, 'stock'):
             transmission_grid_node.update_stock(year,3) 
@@ -1091,7 +1097,8 @@ class Supply(object):
                     else:
                         co2_price = 500
                     if hasattr(node,'active_physical_emissions_coefficients') and hasattr(node,'active_co2_capture_rate'):    
-                        emissions_rate = util.DfOper.mult([node.stock.dispatch_coefficients.loc[:,year].to_frame(), util.DfOper.divi([node.active_physical_emissions_coefficients.sum().to_frame(),node.active_coefficients_untraded]).replace([np.inf,np.nan],0)])
+                        total_physical =node.active_physical_emissions_coefficients.groupby(level='supply_node').sum().stack().stack().to_frame()
+                        emissions_rate = util.DfOper.mult([node.stock.dispatch_coefficients.loc[:,year].to_frame(), util.DfOper.divi([total_physical,node.active_coefficients_untraded]).replace([np.inf,np.nan],0)])
                         emissions_rate = util.remove_df_levels(emissions_rate,[x for x in emissions_rate.index.names if x not in node.stock.values.index.names],agg_function='mean')
                         co2_cost = util.DfOper.mult([emissions_rate, 1-util.DfOper.divi([node.co2_capture_rate.loc[:,year].to_frame(),node.stock.values_normal_energy.loc[:,year].to_frame()]).replace([np.nan,np.inf,-np.inf],0)]) * co2_price * max((year-2020),0)/(2050-2020) * util.unit_conversion(unit_from_den='ton',unit_to_den=cfg.cfgfile.get('case','mass_unit'))[0]
                         active_dispatch_costs = util.DfOper.add([node.active_dispatch_costs ,co2_cost])
@@ -1171,7 +1178,7 @@ class Supply(object):
         self.calculate_weighted_sales(year)
         self.capacity_weights(year)
         parallel_params = list(zip(self.dispatch_geographies,[util.df_slice(self.active_thermal_dispatch_df,x,self.dispatch_geography,drop_level=False) for x in self.dispatch_geographies],
-                                   [self.dispatch_geography]*len(self.dispatch_geographies),[self.bulk_net_load]*len(self.dispatch_geographies)))
+                                   [self.dispatch_geography]*len(self.dispatch_geographies),[util.df_slice(self.bulk_net_load,2,'timeshift_type')]*len(self.dispatch_geographies)))
         def run_thermal_dispatch(params):
             dispatch_geography = params[0]
             thermal_dispatch_df = params[1]
@@ -3535,9 +3542,7 @@ class SupplyNode(Node,StockItem):
         self.update_total(year)
         self.update_requirement(year)            
         self.stock_rollover(year, loop, self.stock.act_stock_changes)
-#        if cfg.cfgfile.get('case','parallel_process') == 'True':
-#            cfg.cur.close()
-#            del cfg.cur
+
 
 
     def determine_throughput(self,year,loop):
@@ -3545,10 +3550,6 @@ class SupplyNode(Node,StockItem):
         if year == int(cfg.cfgfile.get('case','current_year')) and loop == 'initial':
             #in the initial loop of the supply-side, we only know internal demand
             self.throughput = self.active_demand
-            self.previous_year_throughpout= self.active_demand
-        elif year == int(cfg.cfgfile.get('case','current_year')) and loop != 'initial' or (year!= int(cfg.cfgfile.get('case','current_year')) and loop == 1):         
-            self.previous_throughput = copy.deepcopy(self.throughput)
-            self.throughput = self.active_supply
         else:
             self.throughput = self.active_supply
         if  self.throughput is not None:
@@ -3693,11 +3694,7 @@ class SupplyNode(Node,StockItem):
                     else:
                         self.levelized_costs.loc[:,year]  += (util.df_slice(level_costs.loc[:,year].to_frame(),year,'vintage') *(1-cost.throughput_correlation))[year]
                         self.levelized_costs.loc[:,year]  +=  (util.df_slice(level_costs.loc[:,year].to_frame(), year,'vintage').loc[:,year].to_frame() * (cost.throughput_correlation))[year]
-        if loop == 3:
-            flow = self.throughput
-        else:
-            flow = self.previous_year_throughpout
-        self.embodied_cost.loc[:,year] = util.DfOper.divi([self.levelized_costs[year].to_frame(), flow],expandable=(False,False)).replace([np.inf,np.nan,-np.nan],[0,0,0]).values        
+        self.embodied_cost.loc[:,year] = util.DfOper.divi([self.levelized_costs[year].to_frame(), self.throughput],expandable=(False,False)).replace([np.inf,np.nan,-np.nan],[0,0,0]).values        
         self.active_embodied_cost = util.expand_multi(self.embodied_cost[year].to_frame(), levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])
 
     def calculate_annual_costs(self,year):
