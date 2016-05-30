@@ -35,6 +35,7 @@ def calculate(subsector):
     else:
         subsector.calculate()
     return subsector
+    
 def aggregate_electricity_shapes(params):
     subsector = params[0]
     year = params[1]
@@ -43,7 +44,6 @@ def aggregate_electricity_shapes(params):
     default_max_lead_hours = params[4]
     default_max_lag_hours = params[5]
     return subsector.aggregate_electricity_shapes(year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours)
-
 
 def rollover_subset_run(key_value_pair):
         elements = key_value_pair.keys()[0]
@@ -519,11 +519,12 @@ class Subsector(DataMapFunctions):
                                                    percent_flexible=percent_flexible, hr_delay=active_max_lag_hours, hr_advance=active_max_lead_hours)
                 return util.DfOper.mult((energy_slice, active_feeder_allocation, flex))
             else:
-                return util.DfOper.mult((energy_slice,
+                return_df = util.DfOper.mult((energy_slice,
                                               active_feeder_allocation,
                                               reconciliation,
-                                              util.df_slice(active_shape.values, elements=2, levels='timeshift_type', drop_level=False),
+                                              util.df_slice(active_shape.values, elements=2, levels='timeshift_type', drop_level=True),
                                               ))
+                return pd.concat([return_df]*3, keys=[1,2,3], names=['timeshift_type'])
 
         # some technologies have their own shapes, so we need to aggregate from that level
         else:
