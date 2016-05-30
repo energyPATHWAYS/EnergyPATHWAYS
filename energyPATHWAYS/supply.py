@@ -311,6 +311,8 @@ class Supply(object):
         """Performs all IO loop calculations"""
         dispatch_year_step = int(cfg.cfgfile.get('case','dispatch_step'))
         self.dispatch_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_year_step))
+#        self.dispatch_years.append(2049)
+#        self.dispatch_years.sort()
         for year in self.years:
             for loop in ['initial',1,2,3]:
                 if year == min(self.years):
@@ -1099,12 +1101,13 @@ class Supply(object):
                     if hasattr(node,'active_physical_emissions_coefficients') and hasattr(node,'active_co2_capture_rate'):    
                         total_physical =node.active_physical_emissions_coefficients.groupby(level='supply_node').sum().stack().stack().to_frame()
                         emissions_rate = util.DfOper.mult([node.stock.dispatch_coefficients.loc[:,year].to_frame(), util.DfOper.divi([total_physical,node.active_coefficients_untraded]).replace([np.inf,np.nan],0)])
+                        emissions_rate = util.remove_df_levels(emissions_rate,'supply_node')
                         emissions_rate = util.remove_df_levels(emissions_rate,[x for x in emissions_rate.index.names if x not in node.stock.values.index.names],agg_function='mean')
-                        co2_cost = util.DfOper.mult([emissions_rate, 1-util.DfOper.divi([node.co2_capture_rate.loc[:,year].to_frame(),node.stock.values_normal_energy.loc[:,year].to_frame()]).replace([np.nan,np.inf,-np.inf],0)]) * co2_price * max((year-2020),0)/(2050-2020) * util.unit_conversion(unit_from_den='ton',unit_to_den=cfg.cfgfile.get('case','mass_unit'))[0]
+                        co2_cost = util.DfOper.mult([emissions_rate, 1-node.rollover_output(tech_class = 'co2_capture', stock_att='exist',year=year)]) * co2_price * max((year-2020),0)/(2050-2020) * util.unit_conversion(unit_from_den='ton',unit_to_den=cfg.cfgfile.get('case','mass_unit'))[0]
                         active_dispatch_costs = util.DfOper.add([node.active_dispatch_costs ,co2_cost])
                     stock_values = node.stock.values.loc[:,year].to_frame()
                     stock_values = stock_values[((stock_values.index.get_level_values('vintage')==year) == True) | ((stock_values[year]>0) == True)]
-                    capacity_factor = node.stock.capacity_factor.loc[:,year].to_frame()
+                    capacity_factor = copy.deepcopy(node.stock.capacity_factor.loc[:,year].to_frame())
                     if self.dispatch_geography != self.geography:
                         geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
                         int_map_df = cfg.geo.map_df(self.geography, self.dispatch_geography, column=geography_map_key, eliminate_zeros=False)
@@ -2163,7 +2166,7 @@ class Supply(object):
         
     def calculate_demand(self,year,loop):
         self.map_export_to_io(year, loop)
-        self.io_total_active_demand_df = DfOper.add([self.io_demand_df.loc[:,year].to_frame(),self.io_export_df.loc[:,year].to_frame()])
+        self.io_total_active_demand_df = util.DfOper.add([self.io_demand_df.loc[:,year].to_frame(),self.io_export_df.loc[:,year].to_frame()])
 
         
         
@@ -3574,12 +3577,12 @@ class SupplyNode(Node,StockItem):
         default_conversion = self.capacity_factor.values.loc[:,year].to_frame() * util.unit_conversion(unit_from_num='year',unit_to_num=cfg.cfgfile.get('case', 'time_step'))[0]
         self.stock.act_energy_capacity_ratio = util.DfOper.divi([self.stock.act_rem_energy.groupby(level=util.ix_excl(self.stock.act_rem_energy,['vintage'])).sum(),
                                     self.stock.remaining.loc[:, year].to_frame().groupby(level=util.ix_excl(self.stock.remaining, ['vintage'])).sum()]).fillna(default_conversion)
-        self.stock.act_energy_capacity_ratio[self.stock.act_energy_capacity_ratio==0]= 1
+        self.stock.act_energy_capacity_ratio[self.stock.act_energy_capacity_ratio==0]= util.unit_conversion(unit_from_num='year',unit_to_num=cfg.cfgfile.get('case', 'time_step'))[0]
         
 
     def update_total(self, year):
         """sets the minimum necessary total stock - based on throughput (stock requirement) and total of the specified and remaining stock"""
-        self.stock.act_total_energy = DfOper.mult([self.stock.total.loc[:,year].to_frame(), self.stock.act_energy_capacity_ratio],fill_value=np.nan)
+        self.stock.act_total_energy = util.DfOper.mult([self.stock.total.loc[:,year].to_frame(), self.stock.act_energy_capacity_ratio],fill_value=np.nan)
         self.stock.act_total_energy = self.stock.act_total_energy.fillna(util.remove_df_levels(self.stock.act_rem_energy,'vintage'))   
     
     def update_requirement(self,year):    
@@ -5320,11 +5323,12 @@ class ImportNode(Node):
         "calculates the embodied costs of nodes with emissions"
         if hasattr(self,'cost') and self.cost.data is True:
             if hasattr(self,'potential') and self.potential.data is True:
-                self.active_embodied_cost = DfOper.mult([self.potential.active_supply_curve_normal,self.cost.values.loc[:,year].to_frame()])
+                supply_curve = copy.deepcopy(self.potential.active_supply_curve_normal)
+                supply_curve = supply_curve[supply_curve.values>0]
+                supply_curve[supply_curve>0]=1
+                cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
                 levels = ['demand_sector',cfg.cfgfile.get('case','primary_geography')]
-                disallowed_levels = [x for x in self.active_embodied_cost.index.names if x not in levels]
-                if len(disallowed_levels):
-                    self.active_embodied_cost = util.remove_df_levels(self.active_embodied_cost, disallowed_levels)
+                self.active_embodied_cost = cost.groupby(level = [x for x in levels if x in cost.index.names]).max()
                 self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])               
             else:
                 allowed_indices = ['demand_sector', cfg.cfgfile.get('case','primary_geography')]
@@ -5405,11 +5409,12 @@ class PrimaryNode(Node):
         "calculates the embodied costs of nodes with emissions"
         if hasattr(self,'cost') and self.cost.data is True:
             if hasattr(self,'potential') and self.potential.data is True:
-                self.active_embodied_cost = util.DfOper.mult([self.potential.active_supply_curve_normal,self.cost.values.loc[:,year].to_frame()])
+                supply_curve = copy.deepcopy(self.potential.active_supply_curve_normal)
+                supply_curve = supply_curve[supply_curve.values>0]
+                supply_curve[supply_curve>0]=1
+                cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
                 levels = ['demand_sector',cfg.cfgfile.get('case','primary_geography')]
-                disallowed_levels = [x for x in self.active_embodied_cost.index.names if x not in levels]
-                if len(disallowed_levels):
-                    self.active_embodied_cost = util.remove_df_levels(self.active_embodied_cost, disallowed_levels)
+                self.active_embodied_cost = cost.groupby(level = [x for x in levels if x in cost.index.names]).max()
                 self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],
                                                                                                                             levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])               
             else:
