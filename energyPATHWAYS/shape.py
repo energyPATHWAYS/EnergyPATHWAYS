@@ -344,8 +344,8 @@ class Shape(dmf.DataMapFunctions):
         native_slice = util.df_slice(shape_df, elements=2, levels='timeshift_type')
         native_slice_stacked = pd.concat([native_slice]*3, keys=[1,2,3], names=['timeshift_type'])
         
-        if percent_flexible.sum().sum()==0:
-            return native_slice
+#        if percent_flexible.sum().sum()==0:
+#            return native_slice
 
         pflex_stacked = pd.concat([percent_flexible]*3, keys=[1,2,3], names=['timeshift_type'])
 

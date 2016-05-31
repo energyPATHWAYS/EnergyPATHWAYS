@@ -132,6 +132,7 @@ class Config:
         self.outputs_id_map['subsector'] = util.upper_dict(util.sql_read_table('DemandSubsectors', ['id', 'name']))           
         self.outputs_id_map['sector'] = util.upper_dict(util.sql_read_table('DemandSectors', ['id', 'name']))
         self.outputs_id_map['ghg'] = util.upper_dict(util.sql_read_table('GreenhouseGases', ['id', 'name']))
+        self.outputs_id_map['driver'] = util.upper_dict(util.sql_read_table('DemandDrivers', ['id', 'name']))
         for id, name in util.sql_read_table('OtherIndexes', ('id', 'name'), return_iterable=True):
             if name in ('technology', 'final_energy'):
                 continue

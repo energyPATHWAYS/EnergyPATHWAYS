@@ -805,12 +805,10 @@ class Supply(object):
                                 self.energy_budgets = energy_budgets
                                 self.p_min = p_min
                                 self.p_max = p_max
-                                 
                                 dispatch = np.transpose([Dispatch.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
                                 self.dispatch_result = dispatch            
-                                for timeshift_type in list(set(self.bulk_load.index.get_level_values('timeshift_type'))):
-                                    indexer = util.level_specific_indexer(self.bulk_load,[self.dispatch_geography,'timeshift_type'], [geography,timeshift_type])  
-                                    self.bulk_load.loc[indexer,:] += dispatch
+                                indexer = util.level_specific_indexer(self.bulk_load,[self.dispatch_geography], [geography])  
+                                self.bulk_load.loc[indexer,:] += dispatch
                                 indexer = util.level_specific_indexer(self.bulk_load,self.dispatch_geography, geography)  
                                 self.dispatched_bulk_load.loc[indexer,:] += dispatch
                             else:
@@ -886,10 +884,11 @@ class Supply(object):
         self.dispatch.parallelize_opt(year)
         for geography in self.dispatch_geographies:
             for feeder in self.dispatch_feeders:
-                load_indexer = util.level_specific_indexer(self.distribution_load, [self.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, 2])
-                self.distribution_load.loc[load_indexer,:] += util.df_slice(self.dispatch.dist_storage_df,[geography, feeder, 'charge'], [self.dispatch_geography, 'dispatch_feeder', 'charge_discharge']).values
-                self.distribution_load.loc[load_indexer,:] += util.df_slice(self.dispatch.flex_load_df,[geography, feeder], [self.dispatch_geography, 'dispatch_feeder']).values             
-                gen_indexer = util.level_specific_indexer(self.distribution_gen,[self.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, 2])
+                for timeshift_type in list(set(self.distribution_load.index.get_level_values('timeshift_type'))):
+                    load_indexer = util.level_specific_indexer(self.distribution_load, [self.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, timeshift_type])
+                    self.distribution_load.loc[load_indexer,:] += util.df_slice(self.dispatch.dist_storage_df,[geography, feeder, 'charge'], [self.dispatch_geography, 'dispatch_feeder', 'charge_discharge']).values
+                    self.distribution_load.loc[load_indexer,:] += util.df_slice(self.dispatch.flex_load_df,[geography, feeder], [self.dispatch_geography, 'dispatch_feeder']).values             
+                gen_indexer = util.level_specific_indexer(self.distribution_gen,[self.dispatch_geography, 'dispatch_feeder'], [geography, feeder])
                 self.distribution_gen.loc[gen_indexer,: ] += util.df_slice(self.dispatch.dist_storage_df,[geography, feeder, 'discharge'], [self.dispatch_geography, 'dispatch_feeder', 'charge_discharge']).values
         for geography in self.dispatch_geographies:       
             load_indexer = util.level_specific_indexer(self.bulk_load, [self.dispatch_geography], [geography])
@@ -1623,7 +1622,7 @@ class Supply(object):
                     df_feeder.append(util.remove_df_levels(util.DfOper.mult([gen,shape]),self.geography))
                 df_node.append(pd.concat(df_feeder, keys=self.dispatch_feeders, names=['dispatch_feeder']))
             df_geo.append(DfOper.add(df_node, expandable=False, collapsible=False))
-        return pd.concat(df_geo, keys=self.dispatch_geographies, names=[self.dispatch_geography])    
+        return util.remove_df_levels(pd.concat(df_geo, keys=self.dispatch_geographies, names=[self.dispatch_geography]),'timeshift_type')   
         
     def shaped_bulk(self, year, load_or_gen_dict):
         df_geo = []
@@ -1640,10 +1639,10 @@ class Supply(object):
                 shape = shape.groupby(level=[self.geography, 'timeshift_type']).transform(lambda x: x/x.sum())
                 df_node.append(util.remove_df_levels(DfOper.mult([gen,shape]), self.geography))              
             df_geo.append(DfOper.add(df_node))
-        return pd.concat(df_geo, keys=self.dispatch_geographies, names=[self.dispatch_geography])
+        return util.remove_df_levels(pd.concat(df_geo, keys=self.dispatch_geographies, names=[self.dispatch_geography]),'timeshift_type')
             
     def set_initial_net_load_signals(self,year):
-        self.distribution_load = DfOper.add([self.demand_object.aggregate_electricity_shapes(year),self.shaped_dist(year, self.non_flexible_load)])
+        self.distribution_load = util.DfOper.add([self.demand_object.aggregate_electricity_shapes(year),self.shaped_dist(year, self.non_flexible_load)])
         self.distribution_gen = self.shaped_dist(year, self.non_flexible_gen)
         self.bulk_gen = self.shaped_bulk(year, self.non_flexible_gen)
         self.bulk_load = self.shaped_bulk(year, self.non_flexible_load)
@@ -2478,7 +2477,7 @@ class Node(DataMapFunctions):
             util.replace_index_name(df, 'year','vintage')
         else:
             df = self.annual_costs.stack().to_frame()
-            util.replace_index_name(df,'vintage')
+            util.replace_index_name(df,'year')
         df = util.remove_df_levels(df, levels_to_eliminate).sort()
         cost_unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
         df.columns = [cost_unit.upper()]    
@@ -3324,16 +3323,22 @@ class SupplyNode(Node,StockItem):
         if self.potential.data is True:
             for name, level in zip(self.potential.raw_values.index.names, self.potential.raw_values.index.levels):
                 if (name == 'resource_bins' or name == 'demand_sector') and name not in self.rollover_group_names: 
-                    self.rollover_group_levels.append(list(level))
-                    self.rollover_group_names.append(name)            
+                        if name == 'demand_sector':
+                            level = self.demand_sectors
+                        self.rollover_group_levels.append(list(level))
+                        self.rollover_group_names.append(name)            
         if self.stock.data is True:
             for name, level in zip(self.stock.raw_values.index.names, self.stock.raw_values.index.levels):
                 if (name == 'resource_bins' or name == 'demand_sector') and name not in self.rollover_group_names:
+                    if name == 'demand_sector':
+                        level = self.demand_sectors                    
                     self.rollover_group_levels.append(list(level))
                     self.rollover_group_names.append(name)
         for cost in self.costs.keys():
             for name, level in zip(self.costs[cost].raw_values.index.names, self.costs[cost].raw_values.index.levels):
                 if (name == 'resource_bins' or name == 'demand_sector') and name not in self.rollover_group_names:
+                    if name == 'demand_sector':
+                        level = self.demand_sectors                    
                     self.rollover_group_levels.append(list(level))
                     self.rollover_group_names.append(name)
         if self.id == self.distribution_grid_node_id and 'demand_sector' not in self.rollover_group_names:
@@ -4082,6 +4087,8 @@ class SupplyStockNode(Node):
         if self.stock.data is True:
             for name, level in zip(self.stock.raw_values.index.names, self.stock.raw_values.index.levels):
                 if (name == 'resource_bins' or name == 'demand_sector') and name not in self.stock.rollover_group_names:
+                    if name == 'demand_sector':
+                            level = self.demand_sectors
                     self.stock.rollover_group_levels.append(list(level))
                     self.stock.rollover_group_names.append(name)     
                 elif name == 'resource_bins' or name == 'demand_sector':
@@ -4091,6 +4098,8 @@ class SupplyStockNode(Node):
         if self.potential.data is True:
             for name, level in zip(self.potential.raw_values.index.names, self.potential.raw_values.index.levels):
                 if (name == 'resource_bins' or name == 'demand_sector') and name not in self.stock.rollover_group_names:
+                    if name == 'demand_sector':
+                        level = self.demand_sectors
                     self.stock.rollover_group_levels.append(list(level))
                     self.stock.rollover_group_names.append(name)    
                 elif name == 'resource_bins' or name == 'demand_sector':
@@ -4104,6 +4113,8 @@ class SupplyStockNode(Node):
                 if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'raw_values') and obj.raw_values is not None:
                     for name, level in zip(obj.raw_values.index.names, obj.raw_values.index.levels):
                         if (name == 'resource_bins' or name == 'demand_sector') and name not in self.stock.rollover_group_names:
+                            if name == 'demand_sector':
+                                level = self.demand_sectors
                             self.stock.rollover_group_levels.append(list(level))
                             self.stock.rollover_group_names.append(name)
                         elif name == 'resource_bins' or name == 'demand_sector':
@@ -4216,7 +4227,7 @@ class SupplyStockNode(Node):
                 if len(mismatched_levels):
                     self.case_stock.total = util.remove_df_levels(self.case_stock.total,mismatched_levels)
                 #if there are still level mismatches, it means the reference stock has more levels, which returns an error
-                if util.difference_in_df_names(self.case_stock.total, self.stock.total,return_bool=True):
+                if np.any(util.difference_in_df_names(self.case_stock.total, self.stock.total,return_bool=True)):
                     raise ValueError("total stock indices in node %s do not match input energy system stock data" %self.id)
                 else:
                     #if the previous test is passed, we use the reference stock to fill in the Nans of the case stock

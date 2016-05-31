@@ -28,6 +28,12 @@ from profilehooks import timecall
 from config import cfg
 import pdb
 
+
+
+
+
+
+
 def calculate(subsector):
     print "calculating" + " " +  subsector.name 
     if subsector.calculated:
@@ -100,6 +106,25 @@ class Demand(object):
         for sector in self.sectors:
             self.sectors[sector].pass_electricity_reconciliation(self.electricity_reconciliation)
 
+    
+    def aggregate_drivers(self):
+        def remove_na_levels(df):
+            if df is None:
+                return None
+            levels_with_na_only = [name for level, name in zip(df.index.levels, df.index.names) if list(level)==[u'N/A']]
+            return util.remove_df_levels(df, levels_with_na_only).sort_index()
+        df_list = []
+        for driver in self.drivers.values():
+            df = driver.values
+            df['unit'] = driver.unit_base
+            df.set_index('unit',inplace=True,append=True)
+            df_list.append(df)
+        df=util.df_list_concatenate(df_list,
+                                     keys=[x.id for x in self.drivers.values()],new_names='driver',levels_to_keep=['driver']+cfg.output_demand_levels)
+        df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
+        setattr(self.outputs, 'driver', df)
+    
+    
     def aggregate_results(self):
         def remove_na_levels(df):
             if df is None:
@@ -112,6 +137,7 @@ class Demand(object):
             df = self.group_output(output_name, include_unit=include_unit)
             df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
             setattr(self.outputs, output_name, df)
+        self.aggregate_drivers()
             
     def link_to_supply(self, embodied_emissions_link, direct_emissions_link, energy_link, cost_link):   
         print "linking supply emissions to energy demand"
