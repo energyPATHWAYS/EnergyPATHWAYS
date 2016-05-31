@@ -342,6 +342,7 @@ class Shape(dmf.DataMapFunctions):
         hr_advance = 0 if hr_advance is None else hr_advance
         
         native_slice = util.df_slice(shape_df, elements=2, levels='timeshift_type')
+        native_slice_stacked = pd.concat([native_slice]*3, keys=[1,2,3], names=['timeshift_type'])
         
         if percent_flexible.sum().sum()==0:
             return native_slice
@@ -354,16 +355,22 @@ class Shape(dmf.DataMapFunctions):
             full_load = shape_df
         elif timeshift_levels==[2]:
             # positive hours is a shift forward, negative hours a shift back
-            shift = lambda df, hr: df.shift(hr).bfill().ffill()
+            shift = lambda df, hr: df.shift(hr).ffill().fillna(value=0)
+            
+            def fix_first_point(df, hr):
+                df.iloc[0] += native_slice.iloc[:hr].sum().sum()
+                return df
+            
             non_weather = [n for n in native_slice.index.names if n!='weather_datetime']
-            full_load = pd.concat([native_slice.groupby(level=non_weather).apply(shift, hr=hr_delay),
-                                   native_slice,
-                                   native_slice.groupby(level=non_weather).apply(shift, hr=-hr_advance)],
-                                   keys=[1,2,3], names=['timeshift_type'])
+            
+            delay_load = native_slice.groupby(level=non_weather).apply(shift, hr=hr_delay)
+            advance_load = native_slice.groupby(level=non_weather).apply(shift, hr=-hr_advance)
+            advance_load = advance_load.groupby(level=non_weather).transform(fix_first_point, hr=hr_advance)
+            
+            full_load = pd.concat([delay_load, native_slice, advance_load], keys=[1,2,3], names=['timeshift_type'])
         else:
             raise ValueError("elements in the level timeshift_type are not recognized")
         
-        native_slice_stacked = pd.concat([native_slice]*3, keys=[1,2,3], names=['timeshift_type'])
         return util.DfOper.add((util.DfOper.mult((full_load, pflex_stacked), collapsible=False),
                                 util.DfOper.mult((native_slice_stacked, 1-pflex_stacked), collapsible=False)))
 
