@@ -317,8 +317,8 @@ class Sector(object):
         precursors = set(util.flatten_list(self.subsector_precursors.values()))
         self.calculate_precursors(precursors)
         self.calculate_links(self.subsectors.keys(), precursors)
-        if cfg.cfgfile.get('case','parallel_process') == 'True':
-            available_cpus = multiprocessing.cpu_count()   
+        if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
+            available_cpus = min(multiprocessing.cpu_count(), int(cfg.cfgfile.get('case','num_cores')))
             pool = Pool(processes=available_cpus)
             multiprocessing.freeze_support()
             subsectors = pool.map(calculate,self.subsectors.values())
