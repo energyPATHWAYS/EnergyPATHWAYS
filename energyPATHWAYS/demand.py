@@ -2280,6 +2280,18 @@ class Subsector(DataMapFunctions):
         return df
 
 
+    def calculate_service_modified_sales(self,elements,levels,sales_share):
+        sd_modifier = copy.deepcopy(self.sd_modifier)
+        sd_modifier = sd_modifier[sd_modifier>0]
+        service_modified_sales = util.df_slice(sd_modifier,elements,levels,drop_level=False)
+        service_modified_sales=service_modified_sales.groupby(level=levels+['technology','vintage']).mean().mean(axis=1).to_frame()
+        service_modified_sales = service_modified_sales.swaplevel('technology','vintage')
+        service_modified_sales.sort(inplace=True)
+        service_modified_sales = service_modified_sales.unstack('technology').values
+        service_modified_sales = np.array([np.outer(i, 1./i) for i in service_modified_sales])[1:]
+        sales_share *= service_modified_sales
+        return sales_share
+        
     def stock_rollover(self):
         """ Stock rollover function."""
         self.format_technology_stock()
@@ -2313,6 +2325,9 @@ class Subsector(DataMapFunctions):
             
             if rerun_sales_shares:
                sales_share =  self.calculate_total_sales_share_after_initial(elements, self.stock.rollover_group_names)
+               
+            if hasattr(self,'sd_modifier') and self.stock.is_service_demand_dependent and self.stock.demand_stock_unit_type == 'equipment':
+                sales_share = self.calculate_service_modified_sales(elements,self.stock.rollover_group_names,sales_share)
 
             technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names)
 

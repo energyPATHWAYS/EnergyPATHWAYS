@@ -296,7 +296,7 @@ class Rollover(object):
             
             # True up the residual
             if np.sum(self.stock_change_by_tech[self.solvable]):
-                self.stock_change_by_tech[self.solvable] *= round(((self.stock_changes[i] + self.rolloff_summed) - self.sum_defined_sales), 9) / np.sum(self.stock_change_by_tech[self.solvable])
+#                self.stock_change_by_tech[self.solvable] *= round(((self.stock_changes[i] + self.rolloff_summed) - self.sum_defined_sales), 9) / np.sum(self.stock_change_by_tech[self.solvable])
                 self.stock_change_by_tech[self.solvable] = np.clip(self.stock_change_by_tech[self.solvable], 0, None) #sometimes you can get small negatives based on the rounding elsewhere
 
     def set_final_sales(self):        
