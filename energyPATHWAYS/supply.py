@@ -854,6 +854,7 @@ class Supply(object):
             map_df = cfg.geo.map_df(self.dispatch_geography, self.geography, geography_map_key, eliminate_zeros=False)
             dist_cap_factor = util.remove_df_levels(util.DfOper.mult([dist_cap_factor,map_df]),self.dispatch_geography)        
         dist_cap_factor = util.remove_df_levels(util.DfOper.mult([dist_cap_factor, util.df_slice(self.dispatch_feeder_allocation.values,year, 'year')]),'dispatch_feeder')
+        dist_cap_factor = dist_cap_factor.reorder_levels([self.geography,'demand_sector']).sort()
         distribution_grid_node.capacity_factor.values.loc[:,year] = dist_cap_factor.values
         for i in range(1,int(cfg.cfgfile.get('case','dispatch_step'))+1):
             distribution_grid_node.capacity_factor.values.loc[:,min(year+i,max_year)] = dist_cap_factor.values
@@ -864,12 +865,12 @@ class Supply(object):
         bulk_flow = util.df_slice(DfOper.subt([DfOper.add([self.bulk_load,util.remove_df_levels(self.dist_only_net_load,'dispatch_feeder')]),self.dispatched_bulk_load * .5]),2,'timeshift_type')
 #        bulk_flow = DfOper.add([self.dist_net_load_no_feeders,self.bulk_load])
         
-        bulk_cap_factor = DfOper.divi([bulk_flow.groupby(level=self.dispatch_geography).mean(),bulk_flow.groupby(level=self.dispatch_geography).max()]) 
+        bulk_cap_factor = util.DfOper.divi([bulk_flow.groupby(level=self.dispatch_geography).mean(),bulk_flow.groupby(level=self.dispatch_geography).max()]) 
         transmission_grid_node = self.nodes[self.transmission_node_id]              
         geography_map_key = transmission_grid_node.geography_map_key if hasattr(transmission_grid_node, 'geography_map_key') and transmission_grid_node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')       
         if self.dispatch_geography != self.geography:            
             map_df = cfg.geo.map_df(self.dispatch_geography, self.geography, geography_map_key, eliminate_zeros=False)
-            bulk_cap_factor = util.remove_df_levels(DfOper.mult([bulk_cap_factor,map_df]),self.dispatch_geography)       
+            bulk_cap_factor = util.remove_df_levels(util.DfOper.mult([bulk_cap_factor,map_df]),self.dispatch_geography)       
         transmission_grid_node.capacity_factor.values.loc[:,year] = bulk_cap_factor.values
         for i in range(1,int(cfg.cfgfile.get('case','dispatch_step'))+1):
             transmission_grid_node.capacity_factor.values.loc[:,min(year+i,max_year)] = bulk_cap_factor.values
@@ -1130,7 +1131,11 @@ class Supply(object):
         #updates the grid capacity factors for distribution and transmission grid (i.e. load factors)
         self.set_grid_capacity_factors(year)
         #solves dispatch (stack model) for thermal resource connected to thermal dispatch node
-        self.solve_thermal_dispatch(year)        
+        self.solve_thermal_dispatch(year)     
+        try:
+            self.calculate_curtailment(year)
+        except:
+            print "curtailment calculation failed"
                 
         
     def prepare_thermal_dispatch_nodes(self,year,loop):
@@ -1181,7 +1186,7 @@ class Supply(object):
                         emissions_rate = util.DfOper.mult([node.stock.dispatch_coefficients.loc[:,year].to_frame(), util.DfOper.divi([total_physical,node.active_coefficients_untraded]).replace([np.inf,np.nan],0)])
                         emissions_rate = util.remove_df_levels(emissions_rate,'supply_node')
                         emissions_rate = util.remove_df_levels(emissions_rate,[x for x in emissions_rate.index.names if x not in node.stock.values.index.names],agg_function='mean')
-                        co2_cost = util.DfOper.mult([emissions_rate, 1-node.rollover_output(tech_class = 'co2_capture', stock_att='exist',year=year)]) * co2_price * max((year-2020),0)/(2050-2020) * util.unit_conversion(unit_from_den='ton',unit_to_den=cfg.cfgfile.get('case','mass_unit'))[0]
+                        co2_cost = util.DfOper.mult([emissions_rate, 1-node.rollover_output(tech_class = 'co2_capture', stock_att='exist',year=year)]) * co2_price * max((year-2020),0)/(max(self.years)-2020) * util.unit_conversion(unit_from_den='ton',unit_to_den=cfg.cfgfile.get('case','mass_unit'))[0]
                         active_dispatch_costs = util.DfOper.add([node.active_dispatch_costs ,co2_cost])
                     stock_values = node.stock.values.loc[:,year].to_frame()
                     stock_values = stock_values[((stock_values.index.get_level_values('vintage')==year) == True) | ((stock_values[year]>0) == True)]
@@ -1324,7 +1329,27 @@ class Supply(object):
                                                           [str(resource),'stock_changes'])
                     node.stock.dispatch_cap.loc[resource,year]+= dispatch_df.loc[dispatch_capacity_indexer,year].values
 
-
+    def calculate_curtailment(self,year):
+        if year == int(cfg.cfgfile.get('case','current_year')):
+            self.curtailment_list = []
+        bulk_net_load = util.df_slice(self.bulk_net_load,2,'timeshift_type')
+        initial_overgen = copy.deepcopy(bulk_net_load)
+        initial_overgen[initial_overgen.values>0]=0
+        initial_overgen *= -1
+        initial_overgen = initial_overgen.groupby(level=self.dispatch_geography).sum()
+        bulk_net_load[bulk_net_load.values<0]=0
+        curtailment = util.DfOper.add([util.DfOper.subt([self.thermal_totals.sum().to_frame(),bulk_net_load.groupby(level=self.dispatch_geography).sum()]),initial_overgen])
+        map_df = cfg.geo.map_df(self.dispatch_geography,self.geography,eliminate_zeros=False)
+        supply = util.DfOper.mult([self.nodes[self.bulk_id].active_supply,map_df])
+        normal_supply = supply.groupby(level=[self.dispatch_geography]).transform(lambda x: x/x.sum())
+        curtailment = util.remove_df_levels(util.DfOper.mult([curtailment,normal_supply]),self.dispatch_geography)
+        curtailment.columns = ['value']
+        self.curtailment_list.append(curtailment)
+        if year == max(self.dispatch_years):
+            keys = self.dispatch_years
+            names = ['year']
+            self.outputs.curtailment = pd.concat(self.curtailment_list,keys=keys, names=names)
+   
     def update_coefficients_from_dispatch(self,year):
         self.calculate_thermal_totals(year)
         self.update_thermal_coefficients(year)
@@ -2096,6 +2121,7 @@ class Supply(object):
                 if oversupply_node in set(output_node.active_coefficients_total.index.get_level_values('supply_node')):
                   if output_node.id in self.blend_nodes:
                      indexer = util.level_specific_indexer(output_node.values,'supply_node', oversupply_node)
+                     
                      output_node.values.loc[indexer, year] = DfOper.mult([output_node.values.loc[indexer, year].to_frame(),oversupply_factor]).values
                      output_node.reconciled = True
                      self.reconciled=True
@@ -4069,6 +4095,10 @@ class SupplyStockNode(Node):
             oversupply_factor[oversupply_factor<1] = 1
             if (oversupply_factor.values>1).any():
                 self.oversupply_factor = oversupply_factor
+                #TODO fix
+                if self.id == 10:
+                    indexer = util.level_specific_indexer(self.oversupply_factor,'demand_sector',3)
+                    self.oversupply_factor.loc[indexer,:] = 1
                 return oversupply_factor
             else:
                 return None
@@ -4673,7 +4703,7 @@ class SupplyStockNode(Node):
              min_technology_year = min(technology_years)
         else:
              min_technology_year = None
-        if np.nansum(self.stock.technology_rollover.loc[elements,:].values[0])==self.stock.total_rollover.loc[elements,:].values[0] and np.nansum(self.stock.technology_rollover.loc[elements,:].values[0])>0:
+        if (np.nansum(self.stock.technology_rollover.loc[elements,:].values[0])/self.stock.total_rollover.loc[elements,:].values[0])>.99 and np.nansum(self.stock.technology_rollover.loc[elements,:].values[0])>0:
             initial_stock = self.stock.technology_rollover.loc[elements,:].fillna(0).values[0] 
             rerun_sales_shares = False
         elif initial_sales_share:                

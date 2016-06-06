@@ -120,7 +120,7 @@ class Demand(object):
             df.set_index('unit',inplace=True,append=True)
             df_list.append(df)
         df=util.df_list_concatenate(df_list,
-                                     keys=[x.id for x in self.drivers.values()],new_names='driver',levels_to_keep=['driver']+cfg.output_demand_levels)
+                                     keys=[x.id for x in self.drivers.values()],new_names='driver',levels_to_keep=['driver','unit']+cfg.output_demand_levels)
         df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
         setattr(self.outputs, 'driver', df)
     
@@ -709,7 +709,8 @@ class Subsector(DataMapFunctions):
         if not hasattr(self, 'service_demand'):
             return None
         if hasattr(self.service_demand,'modifier'):
-            df = util.DfOper.mult([self.service_demand.modifier, self.stock.values_normal,self.service_demand.values])
+            service_demand_normal = util.DfOper.mult([self.service_demand.modifier,self.stock.values]).groupby(level=self.stock.rollover_group_names).transform(lambda x: x/x.sum())
+            df = util.DfOper.mult([service_demand_normal,self.service_demand.values])
         else:
             df = self.service_demand.values
         levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
@@ -2346,7 +2347,7 @@ class Subsector(DataMapFunctions):
         else:
              min_technology_year = None
         #Best way is if we have all technology stocks specified
-        if np.nansum(self.stock.technology.loc[elements,:].values[0])==self.stock.total.loc[elements,:].values[0]:
+        if (np.nansum(self.stock.technology.loc[elements,:].values[0])/self.stock.total.loc[elements,:].values[0])>.99:
             initial_stock = self.stock.technology.loc[elements,:].values[0]
             rerun_sales_shares = False
         #Second best way is if we have all technology stocks specified in some year before the current year
