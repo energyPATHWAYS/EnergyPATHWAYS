@@ -1131,11 +1131,9 @@ class Supply(object):
         #updates the grid capacity factors for distribution and transmission grid (i.e. load factors)
         self.set_grid_capacity_factors(year)
         #solves dispatch (stack model) for thermal resource connected to thermal dispatch node
-        self.solve_thermal_dispatch(year)     
-        try:
-            self.calculate_curtailment(year)
-        except:
-            print "curtailment calculation failed"
+        self.solve_thermal_dispatch(year)  
+        self.calculate_thermal_totals(year)
+        self.calculate_curtailment(year)
                 
         
     def prepare_thermal_dispatch_nodes(self,year,loop):
@@ -1351,7 +1349,6 @@ class Supply(object):
             self.outputs.curtailment = pd.concat(self.curtailment_list,keys=keys, names=names)
    
     def update_coefficients_from_dispatch(self,year):
-        self.calculate_thermal_totals(year)
         self.update_thermal_coefficients(year)
         self.store_active_thermal_df(year)
 #        self.update_bulk_coefficients()

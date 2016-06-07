@@ -2280,15 +2280,27 @@ class Subsector(DataMapFunctions):
         return df
 
 
+    def tech_sd_modifier(self):
+            sd_modifier = util.empty_df(index=self.stock.values.index, columns=self.stock.values.columns.values, fill_value=1)
+            for tech in self.tech_ids:
+                if self.technologies[tech].service_demand_modifier.raw_values is not None:
+                    tech_modifier = getattr(getattr(self.technologies[tech], 'service_demand_modifier'), 'values')
+                    tech_modifier = util.expand_multi(tech_modifier, sd_modifier.index.levels, sd_modifier.index.names,
+                                                      drop_index='technology').fillna(method='bfill')
+                    indexer = util.level_specific_indexer(sd_modifier, 'technology', tech)
+                    sd_modifier.loc[indexer, :] = tech_modifier.values
+            self.tech_sd_modifier = sd_modifier
+
+
     def calculate_service_modified_sales(self,elements,levels,sales_share):
-        sd_modifier = copy.deepcopy(self.sd_modifier)
+        sd_modifier = copy.deepcopy(self.tech_sd_modifier)
         sd_modifier = sd_modifier[sd_modifier>0]
         service_modified_sales = util.df_slice(sd_modifier,elements,levels,drop_level=False)
         service_modified_sales=service_modified_sales.groupby(level=levels+['technology','vintage']).mean().mean(axis=1).to_frame()
         service_modified_sales = service_modified_sales.swaplevel('technology','vintage')
         service_modified_sales.sort(inplace=True)
         service_modified_sales = service_modified_sales.unstack('technology').values
-        service_modified_sales = np.array([np.outer(i, 1./i) for i in service_modified_sales])[1:]
+        service_modified_sales = np.array([np.outer(i, 1./i).T for i in service_modified_sales])[1:]
         sales_share *= service_modified_sales
         return sales_share
         
@@ -2314,6 +2326,8 @@ class Subsector(DataMapFunctions):
         self.stock.sales = util.empty_df(index=index, columns=['value'])
         self.stock.sales_new = copy.deepcopy(self.stock.sales)
         self.stock.sales_replacement = copy.deepcopy(self.stock.sales)
+        if self.stock.is_service_demand_dependent and self.stock.demand_stock_unit_type == 'equipment':        
+            self.tech_sd_modifier()        
         for elements in rollover_groups.keys():
             elements = util.ensure_tuple(elements)
             #returns sales share and a flag as to whether the sales share can be used to parameterize initial stock. 
@@ -2326,7 +2340,7 @@ class Subsector(DataMapFunctions):
             if rerun_sales_shares:
                sales_share =  self.calculate_total_sales_share_after_initial(elements, self.stock.rollover_group_names)
                
-            if hasattr(self,'sd_modifier') and self.stock.is_service_demand_dependent and self.stock.demand_stock_unit_type == 'equipment':
+            if self.stock.is_service_demand_dependent and self.stock.demand_stock_unit_type == 'equipment':
                 sales_share = self.calculate_service_modified_sales(elements,self.stock.rollover_group_names,sales_share)
 
             technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names)
