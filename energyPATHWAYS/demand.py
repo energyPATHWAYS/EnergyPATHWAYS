@@ -1056,7 +1056,7 @@ class Subsector(DataMapFunctions):
 
     def add_service_demand_measures(self):
         """
-        add all service dmeand measures in a selected package to a dictionary
+        add all service demand measures in a selected package to a dictionary
         """
         self.service_demand_measures = {}
         ids = util.sql_read_table("DemandServiceDemandMeasurePackagesData",column_names='measure_id',package_id=self.service_demand_package_id,return_iterable=True)
