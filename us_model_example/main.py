@@ -23,9 +23,8 @@ resolve_demand = True
 resolve_supply = False
 append_results = False
 ###########
-#
 
-#
+
 def remove_results(append_results):
    if append_results == False:
        for folder in [os.path.join(os.getcwd(),'combined_outputs'),os.path.join(os.getcwd(),'demand_outputs'), os.path.join(os.getcwd(),'supply_outputs')]:

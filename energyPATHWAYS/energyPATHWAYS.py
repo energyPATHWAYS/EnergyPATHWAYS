@@ -17,9 +17,6 @@ from profilehooks import timecall
 
 
 
- 
-
-
 class PathwaysModel(object):
     """
     Highest level classification of the definition of an energy system.
@@ -28,9 +25,7 @@ class PathwaysModel(object):
     def __init__(self, cfgfile_path, custom_pint_definitions_path=None, name=None, author=None):
         self.cfgfile_path = cfgfile_path
         self.custom_pint_definitions_path = custom_pint_definitions_path
-        self.model_config(cfgfile_path, custom_pint_definitions_path)
-        self.name = cfg.cfgfile.get('case', 'scenario') if name is None else name
-        self.author = cfg.cfgfile.get('case', 'author') if author is None else author      
+        self.model_config(cfgfile_path, custom_pint_definitions_path)     
         self.scenario_dict = dict(zip(util.sql_read_table('Scenarios','id', return_iterable=True, is_active=True),
                                   util.sql_read_table('Scenarios','name', return_iterable=True, is_active=True)))
         self.outputs = Output()
