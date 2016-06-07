@@ -1382,6 +1382,8 @@ class Subsector(DataMapFunctions):
                     # project energy demand stock
                     self.stock.map_from = 'int_values'
                     self.stock.projected_input_type = 'total'
+                    
+                    
                     self.project_stock(map_from=self.stock.map_from)
                     self.stock_subset_prep()
                     # remove stock efficiency from energy demand to return service demand

@@ -803,6 +803,7 @@ def create_markov_matrix(markov_vector, num_techs, num_years, steps_per_year=1):
     for i in range(int(num_years*steps_per_year)):
         markov_matrix[:, :-i - 1, i] = np.transpose(markov_vector[i:-1])
     markov_matrix[:, -1, :] = markov_matrix[:, -2, :]
+    markov_matrix[:, :, -1] = 0
     return np.cumprod(markov_matrix, axis=2)
 
 
