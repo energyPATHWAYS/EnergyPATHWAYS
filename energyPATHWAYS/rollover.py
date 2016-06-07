@@ -279,9 +279,9 @@ class Rollover(object):
     def set_final_stock_changes(self):
         i = self.i  # make an int
         # calculate final sales
-        test = (self.rolloff_summed + self.stock_changes[i])/self.rolloff_summed
+#        test = (self.rolloff_summed + self.stock_changes[i])/self.rolloff_summed
         if np.sum(self.rolloff):
-            self.stock_change_by_tech = np.dot(self.sales_share[i], self.rolloff*test)  # natural sales
+            self.stock_change_by_tech = np.dot(self.sales_share[i], self.rolloff)  # natural sales
         else:
             self.stock_change_by_tech = np.mean(np.linalg.matrix_power(self.sales_share[i], 100), axis=1) * self.stock_changes[i]
         #stock changes are greater than all defined sales, so all sales need to increase to agree with stock changes
@@ -293,10 +293,9 @@ class Rollover(object):
         else:
             if len(self.specified):
                 self.stock_change_by_tech[self.specified] = self.defined_sales[self.specified]
-            
             # True up the residual
             if np.sum(self.stock_change_by_tech[self.solvable]):
-#                self.stock_change_by_tech[self.solvable] *= round(((self.stock_changes[i] + self.rolloff_summed) - self.sum_defined_sales), 9) / np.sum(self.stock_change_by_tech[self.solvable])
+                self.stock_change_by_tech[self.solvable] *= round(((self.stock_changes[i] + self.rolloff_summed) - self.sum_defined_sales), 9) / np.sum(self.stock_change_by_tech[self.solvable])
                 self.stock_change_by_tech[self.solvable] = np.clip(self.stock_change_by_tech[self.solvable], 0, None) #sometimes you can get small negatives based on the rounding elsewhere
 
     def set_final_sales(self):        

@@ -1347,6 +1347,7 @@ class Supply(object):
             keys = self.dispatch_years
             names = ['year']
             self.outputs.curtailment = pd.concat(self.curtailment_list,keys=keys, names=names)
+            util.replace_index_name(self.outputs.curtailment,'sector','demand_sector')
    
     def update_coefficients_from_dispatch(self,year):
         self.update_thermal_coefficients(year)
