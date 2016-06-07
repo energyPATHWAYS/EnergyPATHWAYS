@@ -294,13 +294,13 @@ class Rollover(object):
     def get_stock_growth_allocation(self, stock_replacement_allocation):
         i = self.i
         # here, this indicates that we have a service demand modifier and need to take it into account when stock grows
-        if not np.all(np.sum(self.sales_share[i], axis=0)==1):
+        if not np.all(np.round(np.sum(self.sales_share[i], axis=0),5)==1):
             historical_rolloff = self.natural_rolloff[0]
             if sum(historical_rolloff[self.solvable]):
                 stock_growth_allocation = historical_rolloff[self.solvable] / sum(historical_rolloff[self.solvable])
             else:
                 # sum is zero, so we need to use something else to allocate
-                steady_state = np.mean(np.linalg.matrix_power(historical_rolloff, 100), axis=1)
+                steady_state = np.mean(np.linalg.matrix_power(self.sales_share[0], 100), axis=1)
                 if sum(steady_state[self.solvable]):
                     stock_growth_allocation[self.solvable] = steady_state[self.solvable] / sum(steady_state[self.solvable])
                 else:
@@ -320,7 +320,7 @@ class Rollover(object):
         if len(self.specified):
             # stock changes are greater than all defined sales, so all sales need to increase to agree with stock changes
             if not len(self.solvable):
-                if self.stock_changes_as_min and ((self.stock_changes[i] + self.rolloff_summed) > self.sum_defined_sales):
+                if self.stock_changes_as_min and ((self.stock_changes[i] + self.rolloff_summed) > self.sum_defined_sales) and self.sum_defined_sales:
                     specified_gross_up = (self.stock_changes[i] + self.rolloff_summed) / self.sum_defined_sales
                 else:
                     specified_gross_up = 1
@@ -337,17 +337,21 @@ class Rollover(object):
         extra_natural_replacements = max(0, (self.rolloff_summed - self.sum_defined_sales))
         # over and aboce natural rolloff and defined sales
         extra_stock_growth = self.stock_changes[i] - max(0, (self.sum_defined_sales - self.rolloff_summed))
+        
+        # we can just zero out any negative extra_stock_growth because we don't mind if the specified sales/stock is greater than stock changes        
+        if self.stock_changes_as_min:
+            extra_stock_growth = max(0, extra_stock_growth)
 
         replacements_by_tech = np.dot(self.sales_share[i], extra_natural_replacements * stock_replacement_allocation)
         growth_by_tech = np.dot(self.sales_share[i], extra_stock_growth * stock_growth_allocation)
-        
         temp_by_tech = replacements_by_tech + growth_by_tech
+        
         if min(temp_by_tech)<(-0.001*self.rolloff_summed):
-            raise ValueError('negative stock change by tech')
-        
+            raise ValueError('stock changes by tech is negative')
+            
         self.stock_change_by_tech[self.solvable] = temp_by_tech[self.solvable]
-        
         self.stock_change_by_tech = np.clip(self.stock_change_by_tech, 0, None) #sometimes you can get small negatives based on the rounding elsewhere
+
 
     def set_final_sales(self):        
         # gross up for retirements within the period (approximation)
