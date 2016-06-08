@@ -153,7 +153,7 @@ class Rollover(object):
         if incremental_retirement == 0 or sum(self.prior_year_stock[retireable]) == 0:
             return
 
-        if round(incremental_retirement,6) > round(sum(self.prior_year_stock[retireable]),6):
+        if round(sum(self.prior_year_stock[retireable]),5)>0 and (round(incremental_retirement,5)/round(sum(self.prior_year_stock[retireable]),5))>self.exceedance_tolerance:
             print incremental_retirement
             print sum(self.prior_year_stock[retireable])
             raise ValueError('specified incremental stock retirements are greater than retireable stock size')

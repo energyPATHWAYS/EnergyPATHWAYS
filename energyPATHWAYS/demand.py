@@ -1378,13 +1378,12 @@ class Subsector(DataMapFunctions):
                         raise ValueError(
                             'energy demand must have the same index levels as stock when stock is specified in capacity factor terms')
                     else:
-                        self.stock.int_values = DfOper.divi([time_step_energy, self.stock.int_values],expandable=(False,True),collapsible=(True,False))
+                        self.stock.int_values = DfOper.divi([time_step_energy, self.stock.int_values],expandable=(False,True),collapsible=(True,False))*1E6
                     # project energy demand stock
                     self.stock.map_from = 'int_values'
                     self.stock.projected_input_type = 'total'
-                    
-                    
                     self.project_stock(map_from=self.stock.map_from)
+                    self.stock.projected = False
                     self.stock_subset_prep()
                     # remove stock efficiency from energy demand to return service demand
                     self.efficiency_removal()
