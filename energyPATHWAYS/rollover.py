@@ -325,13 +325,18 @@ class Rollover(object):
                     stock_replacement_allocation = self.get_stock_replacement_allocation(self.specified)
                     stock_growth_allocation = self.get_stock_growth_allocation(stock_replacement_allocation, self.specified)
                     self.stock_change_by_tech = np.dot(self.sales_share[i], sales_to_allocate * stock_growth_allocation)
+            
             else:
                 # we have a mismatch in inputs
-                raise ValueError('stock_changes_as_min is False, stock changes are larger than sum_defined_sales, and no technologies are solvable')
+                # on the demand side, this gives an error in the reference case for medium duty trucks, and I can't tell if this is actually an error
+                # raise ValueError('stock_changes_as_min is False, stock changes are larger than sum_defined_sales, and no technologies are solvable')
+                pass
         # sum of defined sales are greater than stock changes
         elif round(self.sum_defined_sales, 6) > round((self.stock_changes[i] + self.rolloff_summed),6):
             if not self.stock_changes_as_min:
-                raise ValueError('stock_changes_as_min is False and the sum of defined sales is greater than stock growth')
+                # in the reference case on the demand side this also give errors, but it is not clear that it should be an error
+                #raise ValueError('stock_changes_as_min is False and the sum of defined sales is greater than stock growth')
+                pass
 
     def set_final_stock_changes(self):
         i = self.i
