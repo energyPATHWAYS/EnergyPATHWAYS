@@ -2286,7 +2286,9 @@ class Supply(object):
             self.active_io = self.io_dict[year][sector]
             active_cost_io = self.adjust_for_not_incremental(self.active_io)
             self.active_demand = self.io_total_active_demand_df.loc[indexer,:]
-            self.io_supply_df.loc[indexer,year] = solve_IO(self.active_io.values, self.active_demand.values)  
+            self.io_supply_df.loc[indexer,year] = solve_IO(self.active_io.values, self.active_demand.values)
+            # TODO this is a temporary fix to deal with negative values
+            self.io_supply_df.loc[:,year][self.io_supply_df.loc[:,year].values<0] = 0
             self.inverse_dict['energy'][year][sector] = pd.DataFrame(solve_IO(self.active_io.values), index=index, columns=index)
             self.inverse_dict['cost'][year][sector] = pd.DataFrame(solve_IO(active_cost_io.values), index=index, columns=index)
             idx = pd.IndexSlice
