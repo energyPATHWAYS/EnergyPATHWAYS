@@ -219,7 +219,7 @@ class Rollover(object):
 
         if len(self.specified) and np.sum(self.prior_year_stock):
             if round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5)>0:
-                if not self.stock_changes_as_min and (round(sum(self.specified_stock[i][self.stock_specified]), 5) / round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5))>self.exceedance_tolerance:
+                if not self.stock_changes_as_min and self.percent_larger(sum(self.specified_stock[i][self.stock_specified]), np.sum(self.prior_year_stock) + self.stock_changes[i])>self.exceedance_tolerance:
                     print round(sum(self.specified_stock[i][self.stock_specified]), 5)
                     print round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5)
                     print  (round(sum(self.specified_stock[i][self.stock_specified]), 5) / round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5))

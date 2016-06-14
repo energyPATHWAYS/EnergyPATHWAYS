@@ -25,7 +25,7 @@ from collections import defaultdict
 from outputs import Output
 from pathos.multiprocessing import Pool as Pool
 import multiprocessing
-from collections import defaultdict           
+from collections import defaultdict     
 import pdb
            
 def node_calculate(node):
