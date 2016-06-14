@@ -28,8 +28,6 @@ class Rollover(object):
         self.initial_markov_matrix = initial_markov_matrix
         self.num_years, self.num_vintages, self.num_techs = num_years, num_vintages, num_techs
         self.exceedance_tolerance = exceedance_tolerance
-        self.percent_larger = lambda a, b: (a - b) / a
-        self.percent_different = lambda a, b: abs(a - b) / a
 
         # additional inputs
         self.initialize_initial_stock(initial_stock)
@@ -158,7 +156,7 @@ class Rollover(object):
             return
 
         if round(sum(self.prior_year_stock[retireable]),5)>0 and \
-                        self.percent_larger(incremental_retirement, sum(self.prior_year_stock[retireable])) > self.exceedance_tolerance:
+                        util.percent_larger(incremental_retirement, sum(self.prior_year_stock[retireable])) > self.exceedance_tolerance:
             print incremental_retirement
             print sum(self.prior_year_stock[retireable])
             raise ValueError('specified incremental stock retirements are greater than retireable stock size')
@@ -219,7 +217,7 @@ class Rollover(object):
 
         if len(self.specified) and np.sum(self.prior_year_stock):
             if round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5)>0:
-                if not self.stock_changes_as_min and self.percent_larger(sum(self.specified_stock[i][self.stock_specified]), np.sum(self.prior_year_stock) + self.stock_changes[i])>self.exceedance_tolerance:
+                if not self.stock_changes_as_min and util.percent_larger(sum(self.specified_stock[i][self.stock_specified]), np.sum(self.prior_year_stock) + self.stock_changes[i])>self.exceedance_tolerance:
                     print round(sum(self.specified_stock[i][self.stock_specified]), 5)
                     print round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5)
                     print  (round(sum(self.specified_stock[i][self.stock_specified]), 5) / round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5))

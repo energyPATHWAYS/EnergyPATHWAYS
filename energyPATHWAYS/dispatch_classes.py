@@ -19,12 +19,11 @@ import csv
 import logging
 from sklearn.cluster import KMeans
 from pathos.multiprocessing import Pool
-import multiprocessing
-from profilehooks import profile, timecall
+#import multiprocessing
+from pathos.multiprocessing import Pool, cpu_count
 # Dispatch modules
 import dispatch_problem_PATHWAYS
 import year_to_period_allocation
-
 
   
 def run_optimization(zipped_input):
@@ -853,7 +852,7 @@ class Dispatch(object):
         zipped_inputs = list(zip(periods, model_list,input_bulk_dfs, input_dist_dfs, 
                                  input_flex_dfs,opt_hours, period_hours, solver_name,stdout_detail, dispatch_geography))
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-            available_cpus = min(multiprocessing.cpu_count(), int(cfg.cfgfile.get('case','num_cores')))
+            available_cpus = min(cpu_count(), int(cfg.cfgfile.get('case','num_cores')))
             pool = Pool(processes=available_cpus)
             results = pool.map(run_optimization,zipped_inputs)
             pool.close()

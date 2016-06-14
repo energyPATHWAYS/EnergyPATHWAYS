@@ -31,6 +31,11 @@ import itertools
 import decimal
 import psycopg2
 
+def percent_larger(a, b):
+    return (a - b) / a
+
+def percent_different(a, b):
+    return abs(a - b) / a
 
 def freeze_recursivedict(recursivedict):
     recursivedict = dict(recursivedict)

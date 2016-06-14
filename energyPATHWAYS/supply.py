@@ -15,17 +15,13 @@ from supply_technologies import SupplyTechnology, StorageTechnology
 from supply_classes import SupplySpecifiedStock
 from shared_classes import SalesShare, SpecifiedStock, Stock, StockItem
 from rollover_old import Rollover
-from profilehooks import profile, timecall
 from solve_io import solve_IO, inv_IO
 from dispatch_classes import Dispatch, DispatchFeederAllocation
 import inspect
 import operator
 from shape import shapes, Shape
-from collections import defaultdict
 from outputs import Output
-from pathos.multiprocessing import Pool as Pool
-import multiprocessing
-from collections import defaultdict     
+from pathos.multiprocessing import freeze_support, Pool, cpu_count   
 import pdb
            
 def node_calculate(node):
@@ -195,9 +191,9 @@ class Supply(object):
             
     def calculate_nodes(self):
         """Performs an initial calculation for all import, conversion, delivery, and storage nodes"""
-        available_cpus = min(multiprocessing.cpu_count(), int(cfg.cfgfile.get('case','num_cores')))
+        available_cpus = min(cpu_count(), int(cfg.cfgfile.get('case','num_cores')))
         pool = Pool(processes=available_cpus)
-        multiprocessing.freeze_support()
+        freeze_support()
         for node in self.nodes.values():
 #            node.years = copy.deepcopy(self.years)
             node.demand_sectors = self.demand_sectors
@@ -1288,7 +1284,7 @@ class Supply(object):
             return thermal_dispatch_df
 
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-            available_cpus = min(multiprocessing.cpu_count(), int(cfg.cfgfile.get('case','num_cores')), len(self.dispatch_geographies))
+            available_cpus = min(cpu_count(), int(cfg.cfgfile.get('case','num_cores')), len(self.dispatch_geographies))
             pool = Pool(processes=available_cpus)
             dispatch_results = pool.map(run_thermal_dispatch,parallel_params)
             dispatch_results = pd.concat(dispatch_results)
@@ -1911,19 +1907,6 @@ class Supply(object):
             year (int) = year of analysis 
             loop (int or str) = loop identifier        
         """
-#        available_cpus = min(multiprocessing.cpu_count(), int(cfg.cfgfile.get('case','num_cores')))
-#        pool = Pool(processes=available_cpus)
-#        multiprocessing.freeze_support()
-#        if cfg.cfgfile.get('case','parallel_process') == 'True':
-#            for node in self.nodes.values():
-#                node.year = year
-#                node.loop = loop
-#            nodes = pool.map(node_update_stock,self.nodes.values())
-#            self.nodes = dict(zip(self.nodes.keys(),nodes))
-#            pool.close()
-#            pool.join()  
-#            pool.terminate()
-#        else:
         for node in self.nodes.values():
             if hasattr(node, 'stock'):
                 if loop == 3 and node.id in self.nodes[self.bulk_id].values.index.get_level_values('supply_node'):

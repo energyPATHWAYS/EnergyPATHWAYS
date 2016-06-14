@@ -18,18 +18,8 @@ from rollover import Rollover
 from util import DfOper
 from outputs import Output
 import dispatch_classes
-from multiprocessing import Pool as Pool
-from pathos.multiprocessing import freeze_support
-import multiprocessing
-#        cfg.outputs_id_map['sector'] = util.upper_dict([(k, v.name) for k, v in self.sectors.items()])
-#        cfg.outputs_id_map['subsector'] = util.upper_dict(util.flatten_list([[(k, v.name) for k, v in sector.subsectors.items()] for sector in self.sectors.values()]))
-
-from profilehooks import timecall
-from config import cfg
+from pathos.multiprocessing import freeze_support, Pool, cpu_count
 import pdb
-
-
-
 
 
 
@@ -344,9 +334,9 @@ class Sector(object):
         self.calculate_precursors(precursors)
         self.calculate_links(self.subsectors.keys(), precursors)
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-            available_cpus = min(multiprocessing.cpu_count(), int(cfg.cfgfile.get('case','num_cores')))
+            available_cpus = min(cpu_count(), int(cfg.cfgfile.get('case','num_cores')))
             pool = Pool(processes=available_cpus)
-            multiprocessing.freeze_support()
+            freeze_support()
             subsectors = pool.map(calculate,self.subsectors.values())
             self.subsectors = dict(zip(self.subsectors.keys(),subsectors))
             pool.close()
@@ -459,9 +449,9 @@ class Sector(object):
             parallel_params = []
             for subsector in self.subsectors.values():
                 parallel_params.append([subsector,year,active_shape,feeder_allocation,default_max_lead_hours,default_max_lag_hours])
-            available_cpus = multiprocessing.cpu_count()
+            available_cpus = cpu_count()
             pool = Pool(processes=available_cpus)
-            multiprocessing.freeze_support()
+            freeze_support()
             results = pool.map(aggregate_electricity_shapes,parallel_params)
             pool.close()
             pool.join()
@@ -1950,10 +1940,11 @@ class Subsector(DataMapFunctions):
                                      num_years=len(self.years), num_vintages=len(self.vintages),
                                      num_techs=len(measures.keys()), initial_stock=None,
                                      sales_share=None, stock_changes=annual_stock_change.values,
-                                     specified_stock=specified_stock.values, specified_retirements=None)
+                                     specified_stock=specified_stock.values, specified_retirements=None,
+                                     exceedance_tolerance=0.1)
             if abs(annual_stock_change.sum().values)!=0:
 #                try:
-                self.rollover.run(exceedance_tolerance=1.1)
+                self.rollover.run()
 #                except:
 #                    print "specified stock exceeded for measures in %s" %self.id
                 stock_total, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
