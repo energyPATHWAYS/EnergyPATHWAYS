@@ -28,7 +28,6 @@ import year_to_period_allocation
 
   
 def run_optimization(zipped_input):
-    import numpy as np
     period = zipped_input[0]
     model = zipped_input[1]
     bulk_storage_df = zipped_input[2]
@@ -36,7 +35,7 @@ def run_optimization(zipped_input):
     flex_load_df = zipped_input[4]
     opt_hours = zipped_input[5]
     period_hours = zipped_input[6]
-    hours = list(period * opt_hours + np.asarray(period_hours))  
+    hours = list(period * opt_hours + np.asarray(period_hours))
     solver_name = zipped_input[7]      
     stdout_detail = zipped_input[8]
     dispatch_geography = zipped_input[9]
@@ -833,7 +832,7 @@ class Dispatch(object):
         instance.solutions.load_from(solution)
         return instance
 
-    def parallelize_opt(self,year):
+    def parallelize_opt(self, year):
         state_of_charge = self.run_year_to_month_allocation()
         start_state_of_charge, end_state_of_charge = state_of_charge[0], state_of_charge[1]
         model_list = []
@@ -850,8 +849,7 @@ class Dispatch(object):
         stdout_detail = [self.stdout_detail] * len(periods)
         dispatch_geography = [self.dispatch_geography] * len(periods)
         for period in self.periods:
-             model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
-                                                              end_state_of_charge, period))  
+             model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge, end_state_of_charge, period))  
         zipped_inputs = list(zip(periods, model_list,input_bulk_dfs, input_dist_dfs, 
                                  input_flex_dfs,opt_hours, period_hours, solver_name,stdout_detail, dispatch_geography))
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':

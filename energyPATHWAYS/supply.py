@@ -14,7 +14,7 @@ from supply_measures import BlendMeasure, ExportMeasure, StockMeasure, StockSale
 from supply_technologies import SupplyTechnology, StorageTechnology
 from supply_classes import SupplySpecifiedStock
 from shared_classes import SalesShare, SpecifiedStock, Stock, StockItem
-from rollover import Rollover
+from rollover_old import Rollover
 from profilehooks import profile, timecall
 from solve_io import solve_IO, inv_IO
 from dispatch_classes import Dispatch, DispatchFeederAllocation
@@ -542,13 +542,13 @@ class Supply(object):
                             self.update_demand(year,loop)
                             self.calculate_coefficients(year,loop)
                             self.update_io_df(year)
-                            self.calculate_io(year, loop)    
-                            self.calculate_stocks(year, loop)                            
+                            self.calculate_io(year, loop) 
+                            self.calculate_stocks(year, loop)                        
                             self.reconciled = False
                         self.reconcile_oversupply(year,loop)
                         if self.reconciled is True:
                             self.update_demand(year,loop)
-                        #if reconciliation has occured, we have to recalculate coefficients and resolve the io
+                            #if reconciliation has occured, we have to recalculate coefficients and resolve the io
                             self.calculate_coefficients(year,loop)
                             self.update_io_df(year)
                             self.calculate_io(year, loop)
@@ -883,6 +883,7 @@ class Supply(object):
         self.prepare_optimization_inputs(year)
         print "solving storage and dispatchable load optimization"
         self.dispatch.parallelize_opt(year)
+        
         for geography in self.dispatch_geographies:
             for feeder in self.dispatch_feeders:
                 for timeshift_type in list(set(self.distribution_load.index.get_level_values('timeshift_type'))):
