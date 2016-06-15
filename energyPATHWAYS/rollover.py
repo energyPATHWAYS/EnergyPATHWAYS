@@ -267,7 +267,8 @@ class Rollover(object):
         i = self.i  # make an int
         if (np.sum(self.prior_year_stock) > 0) and (self.specified_retirements is not None) and (self.specified_retirements[i] > 0):
             self.update_prinxy(self.specified_retirements[i], self.all_techs)
-            self.update_rolloff()
+        # always needs to happen since we hadn't called update rolloff before this point
+        self.update_rolloff()
 
     def account_for_stock_shrinkage(self):
         i = self.i  # make an int
