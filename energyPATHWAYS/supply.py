@@ -14,7 +14,8 @@ from supply_measures import BlendMeasure, ExportMeasure, StockMeasure, StockSale
 from supply_technologies import SupplyTechnology, StorageTechnology
 from supply_classes import SupplySpecifiedStock
 from shared_classes import SalesShare, SpecifiedStock, Stock, StockItem
-from rollover_old import Rollover
+#from rollover_old import Rollover
+from rollover import Rollover
 from solve_io import solve_IO, inv_IO
 from dispatch_classes import Dispatch, DispatchFeederAllocation
 import inspect
@@ -410,7 +411,7 @@ class Supply(object):
                         self.bulk_node_id = self.discover_bulk_id()
                         self.discover_thermal_nodes()
                         self.update_io_df(year)
-                        self.calculate_io(year,loop)  
+                        self.calculate_io(year,loop)
                     elif loop  == 1:
                         self.calculate_coefficients(year,loop)
                         self.update_io_df(year)

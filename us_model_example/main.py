@@ -7,6 +7,37 @@ import os
 from energyPATHWAYS import *
 cfg = energyPATHWAYS.cfg
 from energyPATHWAYS.shape import shapes
+from matplotlib import pylab
+
+#directory = os.path.join('D:\\', 'EnergyPATHWAYS', 'Results')
+#with open(os.path.join(directory, '2016.6.14 reference case old stockrollover on supply', '1_full_model_run.p'), 'rb') as infile:
+#    model = pickle.load(infile)
+#
+#old = {}
+#old['rooftop'] = model.supply.nodes[10].rollover_dict[(64, 1)]
+#old['dist_pv'] = model.supply.nodes[11].rollover_dict[(64,)]
+#old['coal'] = model.supply.nodes[15].rollover_dict[(64,)]
+#old['gas'] = model.supply.nodes[14].rollover_dict[(64,)]
+#old['dist'] = model.supply.nodes[32].rollover_dict[(64,1)]
+#old['trans'] = model.supply.nodes[33].rollover_dict[(64,)]
+#
+#
+#with open(os.path.join(directory, '2016.6.14 reference case with error', '1_full_model_run.p'), 'rb') as infile:
+#    model = pickle.load(infile)
+#
+#new = {}
+#new['rooftop'] = model.supply.nodes[10].rollover_dict[(64, 1)]
+#new['dist_pv'] = model.supply.nodes[11].rollover_dict[(64,)]
+#new['coal'] = model.supply.nodes[15].rollover_dict[(64,)]
+#new['gas'] = model.supply.nodes[14].rollover_dict[(64,)]
+#new['dist'] = model.supply.nodes[32].rollover_dict[(64,1)]
+#new['trans'] = model.supply.nodes[33].rollover_dict[(64,)]
+#
+#
+#pylab.plot(new['coal'].stock.sum(axis=0).sum(axis=0))
+#pylab.plot(new['coal'].sales_record.sum(axis=1))
+#
+#pd.DataFrame(old['coal'].sales_record).to_clipboard()
 
 
 directory = os.getcwd()

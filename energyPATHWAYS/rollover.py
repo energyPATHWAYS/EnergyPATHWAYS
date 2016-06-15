@@ -12,7 +12,7 @@ class Rollover(object):
     def __init__(self, vintaged_markov_matrix, initial_markov_matrix, num_years, num_vintages, num_techs,
                  initial_stock=None, sales_share=None, stock_changes=None, specified_stock=None,
                  specified_retirements=None, specified_sales=None, steps_per_year=1, stock_changes_as_min=False,
-                 exceedance_tolerance=0.01):
+                 exceedance_tolerance=0.01, index_current_year=0):
         """
         initial stock of NaN is assumed to be zero
         """
@@ -28,6 +28,7 @@ class Rollover(object):
         self.initial_markov_matrix = initial_markov_matrix
         self.num_years, self.num_vintages, self.num_techs = num_years, num_vintages, num_techs
         self.exceedance_tolerance = exceedance_tolerance
+        self.index_current_year = index_current_year
 
         # additional inputs
         self.initialize_initial_stock(initial_stock)
@@ -266,6 +267,7 @@ class Rollover(object):
         i = self.i  # make an int
         if (np.sum(self.prior_year_stock) > 0) and (self.specified_retirements is not None) and (self.specified_retirements[i] > 0):
             self.update_prinxy(self.specified_retirements[i], self.all_techs)
+            self.update_rolloff()
 
     def account_for_stock_shrinkage(self):
         i = self.i  # make an int
@@ -285,11 +287,12 @@ class Rollover(object):
         if np.sum(self.rolloff[_solvable]):
             stock_replacement_allocation[_solvable] = self.rolloff[_solvable] / sum(self.rolloff[_solvable])
         else:
+            raise ValueError("no allocation method found")
             steady_state = np.mean(np.linalg.matrix_power(self.sales_share[i], 100), axis=1)
             if sum(steady_state[_solvable]):
                 stock_replacement_allocation[_solvable] = steady_state[_solvable] / sum(steady_state[_solvable])
             else:
-                stock_replacement_allocation[_solvable] = 1./len(_solvable)
+                raise ValueError("no allocation method found")
         
         return stock_replacement_allocation
 
@@ -298,16 +301,18 @@ class Rollover(object):
         stock_growth_allocation = np.zeros(self.num_techs)
         # here, this indicates that we have a service demand modifier and need to take it into account when stock grows
         if not np.all(np.round(np.sum(self.sales_share[i], axis=0),5)==1):
-            historical_rolloff = self.natural_rolloff[0]
+            index_current_year = min(self.index_current_year, i)
+            historical_rolloff = self.natural_rolloff[index_current_year]
             if sum(historical_rolloff[_solvable]):
                 stock_growth_allocation[_solvable] = historical_rolloff[_solvable] / sum(historical_rolloff[_solvable])
             else:
+                raise ValueError("no allocation method found")
                 # sum is zero, so we need to use something else to allocate
                 steady_state = np.mean(np.linalg.matrix_power(self.sales_share[0], 100), axis=1)
                 if sum(steady_state[_solvable]):
                     stock_growth_allocation[_solvable] = steady_state[_solvable] / sum(steady_state[_solvable])
                 else:
-                    stock_growth_allocation[_solvable] = 1./len(_solvable)
+                    raise ValueError("no allocation method found")
         else:
             stock_growth_allocation = stock_replacement_allocation        
         return stock_growth_allocation
@@ -315,7 +320,7 @@ class Rollover(object):
     def all_specified_stock_changes(self):
         i = self.i
         # stock changes are greater than all defined sales
-        if round((self.stock_changes[i] + self.rolloff_summed),6) > round(self.sum_defined_sales, 6):
+        if (self.stock_changes[i] + self.rolloff_summed) > self.sum_defined_sales:
             if self.stock_changes_as_min:
                 # stock changes as min happens on the supply side, we take the larger of specified stocks or stock growth
                 if self.sum_defined_sales:
@@ -358,8 +363,8 @@ class Rollover(object):
             return
         
         # this takes into account that some of the stocks are already specified
-        stock_replacement_allocation = self.get_stock_replacement_allocation(self.solvable)
-        stock_growth_allocation = self.get_stock_growth_allocation(stock_replacement_allocation, self.solvable)
+        stock_replacement_allocation = self.get_stock_replacement_allocation(self.all_techs)
+        stock_growth_allocation = self.get_stock_growth_allocation(stock_replacement_allocation, self.all_techs)
         
         # the difference between stock changes and the defined sales needs to be allocated
         sales_to_allocate = (self.stock_changes[i] + self.rolloff_summed) - self.sum_defined_sales
@@ -371,7 +376,7 @@ class Rollover(object):
             sales_to_allocate = max(0, sales_to_allocate)
         
         # this is the portion of sales that is simply the replacement of stock that is retiring
-        natural_replacements = min(self.rolloff_summed, sales_to_allocate)
+        natural_replacements = min(self.rolloff_summed - self.sum_defined_sales, sales_to_allocate)
         # this is the portion of sales that is from stock growth, and we may want to allocate it differently
         stock_growth = sales_to_allocate - natural_replacements
 
@@ -382,7 +387,7 @@ class Rollover(object):
         if min(solveable_by_tech)<(-0.0001*self.rolloff_summed):
             raise ValueError('stock changes by tech is negative')
             
-        self.stock_change_by_tech[self.solvable] = solveable_by_tech[self.solvable]
+        self.stock_change_by_tech += solveable_by_tech
         self.stock_change_by_tech = np.clip(self.stock_change_by_tech, 0, None) #sometimes you can get small negatives based on the rounding elsewhere
 
     def set_final_sales(self):        
@@ -451,9 +456,6 @@ class Rollover(object):
 
             # specified early retirements are done first
             self.account_for_specified_retirements()
-
-            # Get natural rolloff (with specified early retirements)
-            self.update_rolloff()
 
             # We have specified stock
             self.account_for_specified_stock()
