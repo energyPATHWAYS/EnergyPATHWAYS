@@ -868,7 +868,12 @@ class Dispatch(object):
 #        self.optimization_instance = [x[3] for x in results]
         self.bulk_storage_df = util.DfOper.add(output_bulk_dfs)
         self.dist_storage_df = util.DfOper.add(output_dist_dfs)
+        test = util.DfOper.add(output_flex_dfs)
+        if np.any(np.isnan(test.values)):
+            test.fillna(self.flex_load_df)
+        self.flex_load_df = test
         self.flex_load_df = util.DfOper.add(output_flex_dfs)
+        
                 
     def run_year_to_month_allocation(self):
         model = year_to_period_allocation.year_to_period_allocation_formulation(self)
