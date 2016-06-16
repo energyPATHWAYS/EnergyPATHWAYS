@@ -793,7 +793,7 @@ class Dispatch(object):
         rounding_error = pmax_est/pmax_rounded
         rounding_error[~np.isfinite(rounding_error)] = 0
         gen_energies[pmax_rounded!=0] *= rounding_error[pmax_rounded!=0]
-        gen_energies *= min(1,sum(load)/sum(gen_energies)) #this can cause problems if you have too much must run
+#        gen_energies *= min(1,sum(load)/sum(gen_energies)) #this can cause problems if you have too much must run
         
         gen_cf = gen_energies/np.max((pmaxs+stock_changes), axis=0)/float(len(load))
         gen_cf[np.nonzero(np.max((pmaxs+stock_changes), axis=0)==0)] = 0

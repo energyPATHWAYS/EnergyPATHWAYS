@@ -1173,7 +1173,7 @@ class Supply(object):
                     active_dispatch_costs = node.active_dispatch_costs
                     #TODO Remove 1 is the Reference Case
                     if self.case_id == 1:
-                        co2_price = 35
+                        co2_price = 40
                     else:
                         co2_price = 500
                     if hasattr(node,'active_physical_emissions_coefficients') and hasattr(node,'active_co2_capture_rate'):    
@@ -1345,6 +1345,7 @@ class Supply(object):
             names = ['year']
             self.outputs.curtailment = pd.concat(self.curtailment_list,keys=keys, names=names)
             util.replace_index_name(self.outputs.curtailment,'sector','demand_sector')
+            self.outputs.curtailment.columns = [cfg.cfgfile.get('case','energy_unit')]
    
     def update_coefficients_from_dispatch(self,year):
         self.update_thermal_coefficients(year)
