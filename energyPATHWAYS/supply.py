@@ -4489,8 +4489,7 @@ class SupplyStockNode(Node):
     def calculate_total_sales_share(self, elements, levels):
         ss_measure = self.helper_calc_sales_share(elements, levels, reference=False)
         space_for_reference = 1 - np.sum(ss_measure, axis=1)
-        ss_reference = self.helper_calc_sales_share(elements, levels, reference=True,
-                                                    space_for_reference=space_for_reference)      
+        ss_reference = self.helper_calc_sales_share(elements, levels, reference=True, space_for_reference=space_for_reference)      
         if np.sum(ss_reference)==0:
             ss_reference = SalesShare.scale_reference_array_to_gap( np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1)), space_for_reference)        
             #sales shares are always 1 with only one technology so the default can be used as a reference
@@ -4647,7 +4646,7 @@ class SupplyStockNode(Node):
             if np.any(np.isnan(sales_share)):
                 raise ValueError('Sales share has NaN values in node ' + str(self.id))
             sales = self.calculate_total_sales(elements, self.stock.rollover_group_names)
-            initial_total = util.df_slice(self.stock.total_rollover, elements, self.stock.rollover_group_names).values[0]            
+            initial_total = util.df_slice(self.stock.total_rollover, elements, self.stock.rollover_group_names).values[0]       
             initial_stock, rerun_sales_shares = self.calculate_initial_stock(elements, initial_total, sales_share,initial_sales_share)
             if rerun_sales_shares:
                  sales_share = self.calculate_total_sales_share_after_initial(elements,self.stock.rollover_group_names)
@@ -4681,33 +4680,37 @@ class SupplyStockNode(Node):
             self.calculate_actual_stock(year,1) 
             
     
-    def calculate_initial_stock(self,elements, initial_total, sales_share, initial_sales_share):      
+    def calculate_initial_stock(self, elements, initial_total, sales_share, initial_sales_share):      
         technology = self.stock.technology_rollover.sum(axis=1).to_frame()
         technology_years = technology[technology>0].index.get_level_values('year')
-        if len(technology_years) and not np.all(np.isnan(self.stock.technology_rollover.values)) :
+        if len(technology_years) and not np.all(np.isnan(self.stock.technology_rollover.values)):
              min_technology_year = min(technology_years)
         else:
              min_technology_year = None
+             
         if (np.nansum(self.stock.technology_rollover.loc[elements,:].values[0])/self.stock.total_rollover.loc[elements,:].values[0])>.99 and np.nansum(self.stock.technology_rollover.loc[elements,:].values[0])>0:
             initial_stock = self.stock.technology_rollover.loc[elements,:].fillna(0).values[0] 
             rerun_sales_shares = False
         elif initial_sales_share:                
             initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, transition_matrix=sales_share[0], num_years=len(self.years))
             rerun_sales_shares = True
-            for i in range(1,len(sales_share)):
+            for i in range(1, len(sales_share)):
                 if np.any(sales_share[0]!=sales_share[i]):
-                    rerun_sales_shares=False 
+                    rerun_sales_shares=False
         elif min_technology_year:
             initial_stock = self.stock.technology_rollover.loc[elements+(min_technology_year,),:].fillna(0).values/np.nansum(self.stock.technology_rollover.loc[elements+(min_technology_year,),:].values) * initial_total 
             rerun_sales_shares = False          
         else:
             raise ValueError("""user has not input stock data with technologies or sales share data so the model 
                                 cannot determine the technology composition of the initial stock in node %s""" % self.name)            
-        return initial_stock, rerun_sales_shares
         
-
-
-    
+        # TODO Ben to review
+        # this is a fix for the case where we have no initial stock and we don't want to rerun the reference sales share
+        # the problem came up in model.supply.nodes[97].rollover_dict[(61, 1)] (CSP)
+        if any(np.isnan(initial_stock)):
+            rerun_sales_shares = False 
+        
+        return initial_stock, rerun_sales_shares
     
     
     def stock_rollover(self,year, loop, stock_changes):     
