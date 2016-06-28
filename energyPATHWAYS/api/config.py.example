@@ -1,0 +1,11 @@
+# URI to the pathways database
+SQLALCHEMY_DATABASE_URI = 'postgresql://username:password@localhost:5432/pathways'
+
+# Secret key used to generate secure login tokens. Here are some easy ways to generate something "good enough"
+# for our purposes:
+# http://www.howtogeek.com/howto/30184/10-ways-to-generate-a-random-password-from-the-command-line/
+SECRET_KEY = 'put_something_long_and_random_here;REPLACE THIS!'
+
+# Uncomment this if you are running in DEBUG or TESTING mode but would like to receive "clean" responses
+# to exceptions rather than stack traces.
+# PROPAGATE_EXCEPTIONS = False
