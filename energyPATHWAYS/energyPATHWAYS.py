@@ -54,6 +54,9 @@ class PathwaysModel(object):
     
     def populate_shapes(self):
         print 'processing shapes'
+        if not hasattr(shape.shapes, 'converted_geography') or shape.shapes.converted_geography != cfg.cfgfile.get('case', 'primary_geography'):
+            shape.shapes.__init__()
+            shape.shapes.rerun = True
         if shape.shapes.rerun:
             shape.shapes.create_empty_shapes()
             shape.shapes.initiate_active_shapes()

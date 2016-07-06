@@ -71,7 +71,7 @@ class Shapes(object):
         dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))
         self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.timezone_names[dispatch_outputs_timezone_id])
         self.active_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H', tz=self.dispatch_outputs_timezone)
-    
+        self.converted_geography = cfg.cfgfile.get('case', 'primary_geography')
     
     @staticmethod
     def create_time_slice_elements(active_dates_index):
@@ -253,6 +253,7 @@ class Shape(dmf.DataMapFunctions):
 
         if inplace:
             setattr(self, attr, mapped_data)
+            self.converted_geography = converted_geography
         else:
             return mapped_data
 
@@ -386,7 +387,7 @@ else:
         with open(os.path.join(directory, 'shapes.p'), 'rb') as infile:
             shapes = pickle.load(infile)
         shapes.rerun = False
-    except:
+    except IOError:
         shapes = Shapes()
         shapes.rerun = True
 

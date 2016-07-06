@@ -10,7 +10,7 @@ import pandas as pd
 from datamapfunctions import Abstract, DataMapFunctions
 from config import cfg
 
-class StockItem (object):
+class StockItem(object):
     def __init__(self):
         self.spy = 1. #stock rollover steps per year
 
@@ -157,7 +157,6 @@ class Stock(Abstract):
 
     def return_stock_slice(self, elements, levels, stock_name='technology'):
         group = util.df_slice(getattr(self,stock_name), elements, levels)
-
         return group
 
 
