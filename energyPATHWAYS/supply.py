@@ -996,7 +996,7 @@ class Supply(object):
                     active_dispatch_costs = node.active_dispatch_costs
                     #TODO Remove 1 is the Reference Case
                     if self.case_id == 1:
-                        co2_price = 30
+                        co2_price = 40
                     else:
                         co2_price = 500
                     if hasattr(node,'active_physical_emissions_coefficients') and hasattr(node,'active_co2_capture_rate'):    
@@ -1004,7 +1004,7 @@ class Supply(object):
                         emissions_rate = util.DfOper.mult([node.stock.dispatch_coefficients.loc[:,year].to_frame(), util.DfOper.divi([total_physical,node.active_coefficients_untraded]).replace([np.inf,np.nan],0)])
                         emissions_rate = util.remove_df_levels(emissions_rate,'supply_node')
                         emissions_rate = util.remove_df_levels(emissions_rate,[x for x in emissions_rate.index.names if x not in node.stock.values.index.names],agg_function='mean')
-                        co2_cost = util.DfOper.mult([emissions_rate, 1-node.rollover_output(tech_class = 'co2_capture', stock_att='exist',year=year)]) * co2_price * max((year-2020),0)/(max(self.years)-2020) * util.unit_conversion(unit_from_den='ton',unit_to_den=cfg.cfgfile.get('case','mass_unit'))[0]
+                        co2_cost = util.DfOper.mult([emissions_rate, 1-node.rollover_output(tech_class = 'co2_capture', stock_att='exist',year=year)]) * co2_price * max((year-2015),0)/(max(self.years)-2015) * util.unit_conversion(unit_from_den='ton',unit_to_den=cfg.cfgfile.get('case','mass_unit'))[0]
                         active_dispatch_costs = util.DfOper.add([node.active_dispatch_costs ,co2_cost])
                     stock_values = node.stock.values.loc[:,year].to_frame()
                     stock_values = stock_values[((stock_values.index.get_level_values('vintage')==year) == True) | ((stock_values[year]>0) == True)]
@@ -1168,6 +1168,7 @@ class Supply(object):
             names = ['year']
             self.outputs.curtailment = pd.concat(self.curtailment_list,keys=keys, names=names)
             util.replace_index_name(self.outputs.curtailment,'sector','demand_sector')
+            self.outputs.curtailment.columns = [cfg.cfgfile.get('case','energy_unit')]
    
     def update_coefficients_from_dispatch(self,year):
         self.update_thermal_coefficients(year)

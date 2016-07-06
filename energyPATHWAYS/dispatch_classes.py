@@ -793,7 +793,7 @@ class Dispatch(object):
         rounding_error = pmax_est/pmax_rounded
         rounding_error[~np.isfinite(rounding_error)] = 0
         gen_energies[pmax_rounded!=0] *= rounding_error[pmax_rounded!=0]
-        gen_energies *= min(1,sum(load)/sum(gen_energies)) #this can cause problems if you have too much must run
+#        gen_energies *= min(1,sum(load)/sum(gen_energies)) #this can cause problems if you have too much must run
         
         gen_cf = gen_energies/np.max((pmaxs+stock_changes), axis=0)/float(len(load))
         gen_cf[np.nonzero(np.max((pmaxs+stock_changes), axis=0)==0)] = 0
@@ -866,9 +866,17 @@ class Dispatch(object):
         output_dist_dfs = [x[1] for x in results]
         output_flex_dfs = [x[2] for x in results]
 #        self.optimization_instance = [x[3] for x in results]
-        self.bulk_storage_df = util.DfOper.add(output_bulk_dfs)
-        self.dist_storage_df = util.DfOper.add(output_dist_dfs)
-        self.flex_load_df = util.DfOper.add(output_flex_dfs)
+        bulk_test = util.DfOper.add(output_bulk_dfs)
+        dist_test = util.DfOper.add(output_dist_dfs)
+        flex_test = util.DfOper.add(output_flex_dfs)
+        if np.any(np.isnan(flex_test.values)):
+            flex_test = flex_test.fillna(self.flex_load_df)
+            bulk_test = bulk_test.fillna(self.bulk_storage_df)
+            dist_test = dist_test.fillna(self.dist_storage_df)
+        self.flex_load_df = flex_test
+        self.dist_storage_df = dist_test 
+        self.bulk_storage_df = bulk_test
+        
                 
     def run_year_to_month_allocation(self):
         model = year_to_period_allocation.year_to_period_allocation_formulation(self)
