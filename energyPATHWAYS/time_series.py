@@ -54,7 +54,6 @@ class TimeSeries:
 
         A, K, M, B = TimeSeries.logistic_default_param(x, y)
         popt = TimeSeries.leastsq_curve_fit(x, y, f=TimeSeries.generalized_logistic, p0=(A, K, M, B))
-        print popt
 
         if popt is None:
             # Raise an error if no fit is found
@@ -81,7 +80,6 @@ class TimeSeries:
             popt, pcov = optimize.curve_fit(f, x, y, p0)
             return popt
         except RuntimeError as e:
-            print e
             return None
 
     @staticmethod
@@ -240,6 +238,9 @@ class TimeSeries:
 
         if not isinstance(data, pd.core.frame.DataFrame):
             raise ValueError('cleaning requires a pandas dataframe as an input')
+        
+        if np.all(data.isnull()):
+            raise ValueError('cleaning requires at least one finite data point')
 
         if data.index.nlevels > 1:
             return TimeSeries._clean_multindex(data[:], time_index_name, interpolation_method, extrapolation_method, newindex, **kwargs)

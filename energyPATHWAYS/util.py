@@ -31,6 +31,11 @@ import itertools
 import decimal
 import psycopg2
 
+def percent_larger(a, b):
+    return (a - b) / a
+
+def percent_different(a, b):
+    return abs(a - b) / a
 
 def freeze_recursivedict(recursivedict):
     recursivedict = dict(recursivedict)
@@ -766,7 +771,7 @@ def initial_book_life_df(book_life, mean_lifetime, vintages, years):
     vintages = np.asarray(vintages)
     vintages = np.concatenate(((min(vintages) - 1,), vintages))
     exist = np.zeros((len(vintages), len(years)))
-    maximum_remaining = .5 * book_life/float(mean_lifetime)
+    maximum_remaining = book_life/float(mean_lifetime)
     for i, year in enumerate(years):
         for vintage in [vintages[0]]:
             # TODO Ryan, better assumption about remaining useful/book life?
@@ -803,6 +808,7 @@ def create_markov_matrix(markov_vector, num_techs, num_years, steps_per_year=1):
     for i in range(int(num_years*steps_per_year)):
         markov_matrix[:, :-i - 1, i] = np.transpose(markov_vector[i:-1])
     markov_matrix[:, -1, :] = markov_matrix[:, -2, :]
+    markov_matrix[:, :, -1] = 0
     return np.cumprod(markov_matrix, axis=2)
 
 

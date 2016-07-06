@@ -19,16 +19,14 @@ import csv
 import logging
 from sklearn.cluster import KMeans
 from pathos.multiprocessing import Pool
-import multiprocessing
-from profilehooks import profile, timecall
+#import multiprocessing
+from pathos.multiprocessing import Pool, cpu_count
 # Dispatch modules
 import dispatch_problem_PATHWAYS
 import year_to_period_allocation
 
-
   
 def run_optimization(zipped_input):
-    import numpy as np
     period = zipped_input[0]
     model = zipped_input[1]
     bulk_storage_df = zipped_input[2]
@@ -36,7 +34,7 @@ def run_optimization(zipped_input):
     flex_load_df = zipped_input[4]
     opt_hours = zipped_input[5]
     period_hours = zipped_input[6]
-    hours = list(period * opt_hours + np.asarray(period_hours))  
+    hours = list(period * opt_hours + np.asarray(period_hours))
     solver_name = zipped_input[7]      
     stdout_detail = zipped_input[8]
     dispatch_geography = zipped_input[9]
@@ -180,6 +178,8 @@ class Dispatch(object):
             period_flex_load_timepoints = dictionary with keys of period and values of a nested dictionary with the keys of period_hours and the values of those period hours offset
             by the flexible_load_constraint_offset configuration parameter
           """
+          if hasattr(self,'hours'):
+              return
           self.hours = np.arange(1,len(time_index)+1)
           self.period_hours = range(1,self.opt_hours+1)
           self.periods = range(0,len(time_index)/(self.opt_hours-1))
@@ -244,7 +244,7 @@ class Dispatch(object):
                                        df = util.df_slice(distribution_load, [geography, feeder, timeshift], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).cumsum()
                                        for timepoint in self.period_timepoints[period]:
                                            time_index = timepoint-1
-                                           self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0][0]
+                                           self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0]
                                    else:
                                        df = load_df 
                                        df = df.cumsum() 
@@ -256,7 +256,7 @@ class Dispatch(object):
                                        df = util.df_slice(distribution_load, [geography, feeder, timeshift], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).cumsum()
                                        for timepoint in self.period_timepoints[period]:
                                            time_index = timepoint -1
-                                           self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0][0] 
+                                           self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0]
                                     else:
                                         df = load_df 
                                         df = df.cumsum()
@@ -377,13 +377,13 @@ class Dispatch(object):
             
     
     def set_gen_technologies(self, geography, thermal_dispatch_df):
-        pmaxs = np.array(util.df_slice(thermal_dispatch_df,['capacity',geography],['IO',self.dispatch_geography]).values).T[0]
-        marginal_costs = np.array(util.df_slice(thermal_dispatch_df,['cost',geography],['IO',self.dispatch_geography]).values).T[0]
-        MOR = np.array(util.df_slice(thermal_dispatch_df,['maintenance_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
-        FOR = np.array(util.df_slice(thermal_dispatch_df,['forced_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
-        must_runs = np.array(util.df_slice(thermal_dispatch_df,['must_run',geography],['IO',self.dispatch_geography]).values).T[0]
-        clustered_dict = self._cluster_generators(n_clusters = int(cfg.cfgfile.get('opt','generator_steps')), pmax=pmaxs, marginal_cost=marginal_costs, FORs=FOR, 
-                                     MORs=MOR, must_run=must_runs, pad_stack=True, zero_mc_4_must_run=True)
+        pmax = np.array(util.df_slice(thermal_dispatch_df,['capacity',geography],['IO',self.dispatch_geography]).values).T[0]
+        marginal_cost = np.array(util.df_slice(thermal_dispatch_df,['cost',geography],['IO',self.dispatch_geography]).values).T[0]
+        MORs = np.array(util.df_slice(thermal_dispatch_df,['maintenance_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
+        FORs = np.array(util.df_slice(thermal_dispatch_df,['forced_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
+        must_run = np.array(util.df_slice(thermal_dispatch_df,['must_run',geography],['IO',self.dispatch_geography]).values).T[0]
+        clustered_dict = self._cluster_generators(n_clusters = int(cfg.cfgfile.get('opt','generator_steps')), pmax=pmax, marginal_cost=marginal_cost, FORs=FORs, 
+                                     MORs=MORs, must_run=must_run, pad_stack=True, zero_mc_4_must_run=True)
         generator_numbers = range(len(clustered_dict['derated_pmax']))
         for number in generator_numbers:
             generator = str(((max(generator_numbers)+1)* (self.dispatch_geographies.index(geography))) + (number)+1)
@@ -515,13 +515,17 @@ class Dispatch(object):
         Returns:
             clustered: a dictionary with generator clusters
         """
+        ind = np.nonzero(pmax)
+        pmax = pmax[ind]
+        marginal_cost = marginal_cost[ind]
+        FORs = FORs[ind]
+        MORs = MORs[ind]
+        must_run = must_run[ind]
         assert n_clusters>=1
         assert n_clusters<=len(pmax)
-        
         new_mc = copy.deepcopy(marginal_cost) #copy mc before changing it
         if zero_mc_4_must_run:
             new_mc[np.nonzero(must_run)] = 0
-        
         # clustering is done here
         cluster = KMeans(n_clusters=n_clusters, precompute_distances='auto')
         factor = (max(marginal_cost) - min(marginal_cost))*10
@@ -538,7 +542,6 @@ class Dispatch(object):
         clustered['marginal_cost'] = np.array([group_wgtav(c, derated_pmax, new_mc) for c in range(n_clusters)])
         order = np.argsort(clustered['marginal_cost']) #order the result by marginal cost
         clustered['marginal_cost'] = clustered['marginal_cost'][order]
-        
         clustered['derated_pmax'] = np.array([group_sum(c, derated_pmax) for c in range(n_clusters)])[order]
         clustered['pmax'] = np.array([group_sum(c, pmax) for c in range(n_clusters)])[order]
         clustered['FORs'] = np.array([group_wgtav(c, pmax, FORs) for c in range(n_clusters)])[order]
@@ -615,6 +618,7 @@ class Dispatch(object):
 
         if np.any(np.isnan(gen_maintenance)):
             raise ValueError("Calculation has returned maintenance rates of nan")
+#        gen_maintenance[:] = 0
         return gen_maintenance
 
     @staticmethod
@@ -763,7 +767,7 @@ class Dispatch(object):
             raise ValueError('capacity weights should not vary across dispatch periods')
         
         load[load<0] = 0
-        decimals = 6 - int(math.log10(max(load)))
+        decimals = 6 - int(math.log10(max(np.abs(load))))
         
         load_groups = (load,) if dispatch_periods is None else np.array_split(load, np.where(np.diff(dispatch_periods)!=0)[0]+1)
         num_groups = len(load_groups)
@@ -789,7 +793,7 @@ class Dispatch(object):
         rounding_error = pmax_est/pmax_rounded
         rounding_error[~np.isfinite(rounding_error)] = 0
         gen_energies[pmax_rounded!=0] *= rounding_error[pmax_rounded!=0]
-#        gen_energies *= sum(load)/sum(gen_energies) #this can cause problems if you have too much must run
+#        gen_energies *= min(1,sum(load)/sum(gen_energies)) #this can cause problems if you have too much must run
         
         gen_cf = gen_energies/np.max((pmaxs+stock_changes), axis=0)/float(len(load))
         gen_cf[np.nonzero(np.max((pmaxs+stock_changes), axis=0)==0)] = 0
@@ -827,7 +831,7 @@ class Dispatch(object):
         instance.solutions.load_from(solution)
         return instance
 
-    def parallelize_opt(self,year):
+    def parallelize_opt(self, year):
         state_of_charge = self.run_year_to_month_allocation()
         start_state_of_charge, end_state_of_charge = state_of_charge[0], state_of_charge[1]
         model_list = []
@@ -844,12 +848,11 @@ class Dispatch(object):
         stdout_detail = [self.stdout_detail] * len(periods)
         dispatch_geography = [self.dispatch_geography] * len(periods)
         for period in self.periods:
-             model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge,
-                                                              end_state_of_charge, period))  
+             model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge, end_state_of_charge, period))  
         zipped_inputs = list(zip(periods, model_list,input_bulk_dfs, input_dist_dfs, 
                                  input_flex_dfs,opt_hours, period_hours, solver_name,stdout_detail, dispatch_geography))
-        if cfg.cfgfile.get('case','parallel_process') == 'True':
-            available_cpus = multiprocessing.cpu_count()
+        if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
+            available_cpus = min(cpu_count(), int(cfg.cfgfile.get('case','num_cores')))
             pool = Pool(processes=available_cpus)
             results = pool.map(run_optimization,zipped_inputs)
             pool.close()
@@ -863,9 +866,17 @@ class Dispatch(object):
         output_dist_dfs = [x[1] for x in results]
         output_flex_dfs = [x[2] for x in results]
 #        self.optimization_instance = [x[3] for x in results]
-        self.bulk_storage_df = util.DfOper.add(output_bulk_dfs)
-        self.dist_storage_df = util.DfOper.add(output_dist_dfs)
-        self.flex_load_df = util.DfOper.add(output_flex_dfs)
+        bulk_test = util.DfOper.add(output_bulk_dfs)
+        dist_test = util.DfOper.add(output_dist_dfs)
+        flex_test = util.DfOper.add(output_flex_dfs)
+        if np.any(np.isnan(flex_test.values)):
+            flex_test = flex_test.fillna(self.flex_load_df)
+            bulk_test = bulk_test.fillna(self.bulk_storage_df)
+            dist_test = dist_test.fillna(self.dist_storage_df)
+        self.flex_load_df = flex_test
+        self.dist_storage_df = dist_test 
+        self.bulk_storage_df = bulk_test
+        
                 
     def run_year_to_month_allocation(self):
         model = year_to_period_allocation.year_to_period_allocation_formulation(self)

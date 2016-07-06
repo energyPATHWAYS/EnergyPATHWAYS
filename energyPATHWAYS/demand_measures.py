@@ -14,6 +14,17 @@ from util import DfOper
 from shared_classes import StockItem
 
 
+class FlexibleLoadMeasure(Abstract):
+    def __init__(self, id, **kwargs):
+        self.id = id
+        self.sql_id_table = 'DemandFlexibleLoadMeasures'
+        self.sql_data_table = 'DemandFlexibleLoadMeasuresData'
+        Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
+        self.input_type = 'intensity'
+        self.remap()
+        self.values.sort_index(inplace=True)
+        
+
 class DemandMeasure(StockItem):
     def __init__(self):
         StockItem.__init__(self)
@@ -35,7 +46,7 @@ class DemandMeasure(StockItem):
         if self.input_type == 'total':
             self.savings = self.clean_timeseries('values', inplace=False, time_index_name='year', time_index=self.years)
         else:
-            self.remap(map_from='raw_values', map_to='values', time_index_name='year')
+            self.remap(map_from='raw_values', map_to='values', time_index_name='year',lower=-100)
 
     def convert(self):
         if self.input_type == 'total':

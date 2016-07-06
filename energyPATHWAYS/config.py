@@ -13,9 +13,6 @@ import psycopg2
 # Don't print warnings
 warnings.simplefilter("ignore")
 
-
-    
-
 class Config:
     def __init__(self):
         # sys.path.insert(0, os.getcwd())
@@ -105,8 +102,9 @@ class Config:
 
     def init_outputs_id_map(self):
         self.currency_name = self.cfgfile.get('case', 'currency_name')
-        self.output_demand_levels = ['year','vintage','technology',self.cfgfile.get('case','primary_geography'),'sector','subsector','final_energy']
-        self.output_supply_levels = ['year','vintage','supply_technology',self.cfgfile.get('case','primary_geography'), self.cfgfile.get('case','primary_geography') + "_supply", 'demand_sector','final_energy','supply_node','ghg']
+#        self.output_demand_levels = ['year','vintage','technology',self.cfgfile.get('case','primary_geography'),'sector','subsector','final_energy']
+        self.output_demand_levels = ['year','technology',self.cfgfile.get('case','primary_geography'),'sector','subsector','final_energy']
+        self.output_supply_levels = ['year','vintage','supply_technology',self.cfgfile.get('case','primary_geography'), self.cfgfile.get('case','primary_geography') + "_supply", 'demand_sector','final_energy','supply_node','ghg','resource_bins']
         self.output_combined_levels = list(set(self.output_supply_levels+self.output_demand_levels))
         vintage = self.cfgfile.get('output_detail','vintage')
         if vintage != 'True':
@@ -134,6 +132,7 @@ class Config:
         self.outputs_id_map['subsector'] = util.upper_dict(util.sql_read_table('DemandSubsectors', ['id', 'name']))           
         self.outputs_id_map['sector'] = util.upper_dict(util.sql_read_table('DemandSectors', ['id', 'name']))
         self.outputs_id_map['ghg'] = util.upper_dict(util.sql_read_table('GreenhouseGases', ['id', 'name']))
+        self.outputs_id_map['driver'] = util.upper_dict(util.sql_read_table('DemandDrivers', ['id', 'name']))
         for id, name in util.sql_read_table('OtherIndexes', ('id', 'name'), return_iterable=True):
             if name in ('technology', 'final_energy'):
                 continue
