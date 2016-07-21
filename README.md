@@ -17,11 +17,9 @@ EnergyPATHWAYS will attempt to install any necessary packages that are not in yo
 
 #### Solver
 
-The energyPATHWAYS electric system dispatch requires an optimization solver that is supported by the pyomo package. If you already have a commercial solver such as CPLEX or Gurobi installed you are welcome to use that, otherwise we recommend either [Cbc](https://projects.coin-or.org/Cbc) or [GLPK](https://www.gnu.org/software/glpk/), which are both open source and freely downloadable. Cbc appears to be slightly faster than GLPK at solving the energyPATHWAYS dispatch. 
+The energyPATHWAYS electric system dispatch requires an optimization solver that is supported by the pyomo package. If you already have a commercial solver such as CPLEX or Gurobi installed you are welcome to use that, otherwise we recommend [Cbc](https://projects.coin-or.org/Cbc) which is open source and freely downloadable. Cbc appears to be slightly faster than GLPK at solving the energyPATHWAYS dispatch. 
 
 To install Cbc, see the official [download and install instructions](https://projects.coin-or.org/Cbc#DownloadandInstall). Note that as of this writing, there is no OS X homebrew formula for Cbc, so downloading the OS X binary from the AMPL page linked to from those instructions is the easiest way to get Cbc on a Mac; you will need to move the downloaded `cbc` binary to somewhere that is referenced in your environment path (e.g. your Anaconda environment directory, or `/usr/bin`, etc.).
-
-To install GLPK on Windows, see [these instructions](https://en.wikibooks.org/wiki/GLPK/Windows_executables). Note that "the archive from Sourceforge" referred to can be found at the [winglpk Sourceforge site](https://sourceforge.net/projects/winglpk/); use the green "download" button to get the latest version. OS X and Linux users will likely find it easiest to install GLPK using a package manager. On OS X you can use [macports](https://www.macports.org/) (run `port install glpk` after installing macports) or [homebrew](http://brew.sh/) (`brew install homebrew/science/glpk`). On Linux you can [use your usual package manager](https://en.wikibooks.org/wiki/GLPK/Linux_packages).
 
 Our experience with COIN or GLPK is that each must be added to the system path manually on a PC. For instructions on how to add the solvers to your system path, Google “adding a new application to system path windows” or similar and follow the instructions for your version of Windows.
 

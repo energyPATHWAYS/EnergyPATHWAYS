@@ -86,3 +86,6 @@ target/
 /california_model_example/supply_outputs/
 /model building tools/create geography tables/inputs/*.csv
 /model building tools/create geography tables/outputs/*.csv
+
+/model building tools/aggregate results/inputs/*
+/model building tools/aggregate results/outputs/*

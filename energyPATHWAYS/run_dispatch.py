@@ -22,7 +22,7 @@ import dispatch_problem_PATHWAYS
 import year_to_period_allocation
 import get_inputs
 import export_results
-from config import cfgfile
+from config import cfg
 
 
 
@@ -162,7 +162,7 @@ if __name__ == "__main__":
 
     # ############# SETTINGS ############# #
     # Currently using all available CPUs in multiprocessing function below
-    available_cpus = multiprocessing.cpu_count()
+    available_cpus = min(multiprocessing.cpu_count(), int(cfg.cfgfile.get('case','num_cores')))
 
     # Solver info
     solver_name = cfgfile.get('case','solver')

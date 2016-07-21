@@ -17,9 +17,6 @@ from profilehooks import timecall
 
 
 
- 
-
-
 class PathwaysModel(object):
     """
     Highest level classification of the definition of an energy system.
@@ -28,9 +25,7 @@ class PathwaysModel(object):
     def __init__(self, cfgfile_path, custom_pint_definitions_path=None, name=None, author=None):
         self.cfgfile_path = cfgfile_path
         self.custom_pint_definitions_path = custom_pint_definitions_path
-        self.model_config(cfgfile_path, custom_pint_definitions_path)
-        self.name = cfg.cfgfile.get('case', 'scenario') if name is None else name
-        self.author = cfg.cfgfile.get('case', 'author') if author is None else author      
+        self.model_config(cfgfile_path, custom_pint_definitions_path)     
         self.scenario_dict = dict(zip(util.sql_read_table('Scenarios','id', return_iterable=True, is_active=True),
                                   util.sql_read_table('Scenarios','name', return_iterable=True, is_active=True)))
         self.outputs = Output()
@@ -44,9 +39,6 @@ class PathwaysModel(object):
         cfg.init_pint(custom_pint_definitions_path)
         cfg.init_geo()
         cfg.init_date_lookup()
-        if shape.shapes.rerun:
-            shape.shapes.create_empty_shapes()
-#            shape.shapes.activate_shape(cfg.electricity_energy_type_shape_id)
         cfg.init_outputs_id_map()
 
     def configure_energy_system(self):
@@ -62,7 +54,11 @@ class PathwaysModel(object):
     
     def populate_shapes(self):
         print 'processing shapes'
+        if not hasattr(shape.shapes, 'converted_geography') or shape.shapes.converted_geography != cfg.cfgfile.get('case', 'primary_geography'):
+            shape.shapes.__init__()
+            shape.shapes.rerun = True
         if shape.shapes.rerun:
+            shape.shapes.create_empty_shapes()
             shape.shapes.initiate_active_shapes()
             shape.shapes.process_active_shapes()
 
@@ -194,8 +190,11 @@ class PathwaysModel(object):
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
            self.embodied_energy_costs_df = pd.concat([self.embodied_energy_costs_df],keys=[key],names=[name])       
-        #calculte and format direct demand emissions        
-        self.demand_costs_df= self.demand.outputs.return_cleaned_output('levelized_costs')  
+        #calculte and format direct demand costs      
+        self.demand_costs_df= self.demand.outputs.return_cleaned_output('levelized_costs') 
+        levels_to_keep = [x.upper() for x in cfg.output_combined_levels]
+        levels_to_keep = [x for x in levels_to_keep if x in self.demand_costs_df.index.names]
+        self.demand_costs_df= self.demand_costs_df.groupby(level=levels_to_keep).sum()
 #        del self.demand.outputs.levelized_costs
         keys = ["DOMESTIC","DEMAND"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
