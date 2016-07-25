@@ -26,12 +26,16 @@ class CaseDataSchema(Schema):
 class DemandSubsectorSchema(Schema):
     id = fields.Integer(required=True)
     name = fields.Str(requried=True)
+    sector_id = fields.Integer()
+    sector_name = fields.Str()
     demand_case_data = fields.Nested(CaseDataSchema, many=True)
 
 
 class SupplyNodeSchema(Schema):
     id = fields.Integer(required=True)
     name = fields.Str(requried=True)
+    supply_type_id = fields.Integer()
+    supply_type_name = fields.Str()
     supply_case_data = fields.Nested(CaseDataSchema, many=True)
 
 

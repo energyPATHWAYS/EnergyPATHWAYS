@@ -170,8 +170,16 @@ class PackageGroups(Resource):
     @auth.login_required
     def get(self):
         return {
-            'subsectors': schemas.DemandSubsectorSchema().dump(models.DemandSubsector.query.all(), many=True).data,
-            'nodes': schemas.SupplyNodeSchema().dump(models.SupplyNode.query.all(), many=True).data
+            'subsectors': schemas.DemandSubsectorSchema().dump(
+                models.DemandSubsector.query.order_by(
+                    models.DemandSubsector.sector_id, models.DemandSubsector.id
+                ).all(), many=True
+            ).data,
+            'nodes': schemas.SupplyNodeSchema().dump(
+                models.SupplyNode.query.order_by(
+                    models.SupplyNode.supply_type_id, models.SupplyNode.id
+                ).all(), many=True
+            ).data
         }
 
 

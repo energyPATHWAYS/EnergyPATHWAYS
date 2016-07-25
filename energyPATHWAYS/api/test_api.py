@@ -28,27 +28,45 @@ class TestAPI(unittest.TestCase):
             jane_doe = models.User(email='jane_doe@example.com', admin=False, **self.jane_doe_credentials)
             models.db.session.add_all([admin, jane_doe])
 
+            # demand sectors
+            models.db.session.add_all([
+                models.DemandSector(id=1, name='residential'),
+                models.DemandSector(id=2, name='commercial'),
+                models.DemandSector(id=3, name='transportation'),
+                models.DemandSector(id=4, name='productive')
+            ])
+
             # demand subsectors for testing
-            light_duty_vehicles = models.DemandSubsector(name='Light Duty Vehicles')
+            light_duty_vehicles = models.DemandSubsector(name='Light Duty Vehicles', sector_id=3)
             for i in range(3):
                 light_duty_vehicles.demand_case_data.append(models.DemandCaseData(description='LDV option ' + str(i)))
-            commercial_lighting = models.DemandSubsector(name='Commercial Lighting')
+            commercial_lighting = models.DemandSubsector(name='Commercial Lighting', sector_id=2)
             for i in range(2):
                 commercial_lighting.demand_case_data.append(models.DemandCaseData(description='CL option ' + str(i)))
-            residential_heating = models.DemandSubsector(name='Residential Heating')
+            residential_heating = models.DemandSubsector(name='Residential Heating', sector_id=1)
             residential_heating.demand_case_data.append(models.DemandCaseData(description='RH only option'))
             models.db.session.add_all([light_duty_vehicles, commercial_lighting, residential_heating])
 
+            # supply types
+            models.db.session.add_all([
+                models.SupplyType(id=1, name='Blend'),
+                models.SupplyType(id=2, name='Conversion'),
+                models.SupplyType(id=3, name='Delivery'),
+                models.SupplyType(id=4, name='Import'),
+                models.SupplyType(id=5, name='Primary'),
+                models.SupplyType(id=6, name='Storage')
+            ])
+
             # supply nodes for testing
-            rooftop_pv = models.SupplyNode(name='Rooftop Solar PV')
+            rooftop_pv = models.SupplyNode(name='Rooftop Solar PV', supply_type_id=2)
             for _ in range(3):
                 rooftop_pv.supply_case_data.append(models.SupplyCaseData())
-            gasoline_blend = models.SupplyNode(name='Gasoline Blend')
+            gasoline_blend = models.SupplyNode(name='Gasoline Blend', supply_type_id=1)
             for _ in range(2):
                 gasoline_blend.supply_case_data.append(models.SupplyCaseData())
-            nuclear = models.SupplyNode(name='Nuclear Power Plants')
-            nuclear.supply_case_data.append(models.SupplyCaseData())
-            models.db.session.add_all([rooftop_pv, gasoline_blend, nuclear])
+            uranium = models.SupplyNode(name='Uranium Import', supply_type_id=4)
+            uranium.supply_case_data.append(models.SupplyCaseData())
+            models.db.session.add_all([rooftop_pv, gasoline_blend, uranium])
 
             # scenarios for testing
             # a built-in scenario
@@ -113,6 +131,21 @@ class TestAPI(unittest.TestCase):
         rv = self.get('/package_groups', credentials)
         self.assertEqual(rv.status_code, 200)
         return json.loads(rv.data)
+
+    def test_package_groups(self):
+        options = self.load_options(self.jane_doe_credentials)
+
+        # Supply nodes are sorted by supply_type_id
+        self.assertEqual(options['nodes'][0]['supply_type_id'], 1)
+        self.assertEqual(options['nodes'][0]['supply_type_name'], 'Blend')
+        self.assertEqual(options['nodes'][-1]['supply_type_id'], 4)
+        self.assertEqual(options['nodes'][-1]['supply_type_name'], 'Import')
+
+        # Demand subsectors are sorted by sector
+        self.assertEqual(options['subsectors'][0]['sector_id'], 1)
+        self.assertEqual(options['subsectors'][0]['sector_name'], 'residential')
+        self.assertEqual(options['subsectors'][-1]['sector_id'], 3)
+        self.assertEqual(options['subsectors'][-1]['sector_name'], 'transportation')
 
     def test_scenario_list(self):
         # Unauthorized users cannot access the /scenarios route.

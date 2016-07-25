@@ -18,18 +18,43 @@ GLOBAL_SCHEMA = 'shared'
 RUN_SCHEMA = 'public_runs'
 
 
-class DemandSubsector(db.Model):
-    __tablename__ = 'DemandSubsectors'
+class DemandSector(db.Model):
+    __tablename__ = 'DemandSectors'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.Text)
     # more columns I'm ignoring for now...
+
+
+class SupplyType(db.Model):
+    __tablename__ = 'SupplyTypes'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.Text)
+
+
+class DemandSubsector(db.Model):
+    __tablename__ = 'DemandSubsectors'
+    id = db.Column(db.Integer, primary_key=True)
+    sector_id = db.Column(db.ForeignKey(DemandSector.id))
+    name = db.Column(db.Text)
+    # more columns I'm ignoring for now...
+
+    sector = db.relationship(DemandSector)
+
+    def sector_name(self):
+        return self.sector.name
 
 
 class SupplyNode(db.Model):
     __tablename__ = 'SupplyNodes'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.Text)
+    supply_type_id = db.Column(db.ForeignKey(SupplyType.id))
     # more columns I'm ignoring for now...
+
+    supply_type = db.relationship(SupplyType)
+
+    def supply_type_name(self):
+        return self.supply_type.name
 
 
 class DemandCaseData(db.Model):
