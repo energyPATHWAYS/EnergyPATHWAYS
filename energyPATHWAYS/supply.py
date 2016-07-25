@@ -286,7 +286,7 @@ class Supply(object):
         """ Adds measures to supply nodes based on case and package inputs"""
         self.case_id = case_id
         for node in self.nodes.values():  
-            node.filter_packages('SupplyCasesData', 'supply_node_id', case_id)
+            node.filter_packages(case_id)
             #all nodes have export measures
             node.add_export_measures()  
             #once measures are loaded, export classes can be initiated
@@ -2552,14 +2552,31 @@ class Node(DataMapFunctions):
          data.columns = data.columns.droplevel(-1)
          return data
             
-    def filter_packages(self, case_data_table, node_key, case_id):
+    def filter_packages(self, case_id):
         """filters packages by case"""
-        packages = [x for x in util.sql_read_headers(case_data_table) if x not in ['parent_id', 'id', node_key]]
-        for package in packages:
-            package_id = util.sql_read_table(case_data_table, package, supply_node_id=self.id, parent_id=case_id,return_unique=True)
-            setattr(self, package, package_id)
-                
-    
+        col_names = util.sql_read_headers('SupplyCasesData')
+
+        query = """
+                    SELECT "SupplyCasesData".*
+                    FROM "SupplyCasesData"
+                    JOIN "SupplyCasesSupplyCasesData"
+                      ON "SupplyCasesSupplyCasesData".supply_case_data_id = "SupplyCasesData".id
+                    WHERE "SupplyCasesData".supply_node_id = %i
+                      AND "SupplyCasesSupplyCasesData".supply_case_id = %i
+                """
+
+        cfg.cur.execute(query % (self.id, case_id))
+        assert cfg.cur.rowcount <= 1,\
+            "More than one SupplyCasesData row found for supply node %i, case %i." % (self.id, case_id)
+        result = cfg.cur.fetchone()
+
+        #print "Loading packages for supply node " + str(self.id)
+        for idx, col_name in enumerate(col_names):
+            if col_name.endswith('package_id'):
+                val = result[idx] if result else None
+                #print '  Setting %s to %s' % (col_name, "None" if val is None else str(val))
+                setattr(self, col_name, val)
+
     def add_export_measures(self):
             """
             add all export measures in a selected package to a dictionary

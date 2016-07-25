@@ -613,14 +613,30 @@ class Subsector(DataMapFunctions):
         self.add_service_links()
         self.calculate_years()
 
-
-    def filter_packages(self,case_id):
+    def filter_packages(self, case_id):
         """filters packages by case"""
-        packages = [x for x in util.sql_read_headers('DemandCasesData') if x not in ['parent_id', 'id', 'subsector_id']]
-        for package in packages:
-            package_id = util.sql_read_table('DemandCasesData', package, subsector_id=self.id, parent_id=case_id,return_unique=True)
-            setattr(self, package, package_id)
+        col_names = util.sql_read_headers('DemandCasesData')
 
+        query = """
+                    SELECT "DemandCasesData".*
+                    FROM "DemandCasesData"
+                    JOIN "DemandCasesDemandCasesData"
+                      ON "DemandCasesDemandCasesData".demand_case_data_id = "DemandCasesData".id
+                    WHERE "DemandCasesData".subsector_id = %i
+                      AND "DemandCasesDemandCasesData".demand_case_id = %i
+                """
+
+        cfg.cur.execute(query % (self.id, case_id))
+        assert cfg.cur.rowcount <= 1,\
+            "More than one DemandCasesData row found for subsector %i, case %i." % (self.id, case_id)
+        result = cfg.cur.fetchone()
+
+        #print "Loading packages for subsector " + str(self.id)
+        for idx, col_name in enumerate(col_names):
+            if col_name.endswith('package_id'):
+                val = result[idx] if result else None
+                #print '  Setting %s to %s' % (col_name, "None" if val is None else str(val))
+                setattr(self, col_name, val)
 
     def add_measures(self,case_id):
         """ add measures to subsector based on case and package inputs """
