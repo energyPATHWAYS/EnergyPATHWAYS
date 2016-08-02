@@ -23,6 +23,6 @@ setup(name='energyPATHWAYS',
       include_package_data=True,
       entry_points='''
         [console_scripts]
-        energyPATHWAYS=energyPATHWAYS.run:run
+        energyPATHWAYS=energyPATHWAYS.run:click_run
         ''',
 )
