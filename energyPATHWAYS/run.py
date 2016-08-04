@@ -37,30 +37,36 @@ sys.excepthook = myexcepthook
 @click.option('--pickle_shapes', default=True, help='cache shapes after processing')
 @click.option('--save_models', default=True, help='cashe models after running')
 @click.option('-o', '--output_path', type=click.Path(exists=True), help='path for writing outputs')
-def click_run(config, pint, scenario, load_demand, solve_demand, load_supply, solve_supply, pickle_shapes, save_models, output_path):
-    run(config, pint, scenario, load_demand, solve_demand, load_supply, solve_supply, pickle_shapes, save_models, output_path)
+@click.option('-a', '--api_run/--no_api_run', default=False)
+def click_run(config, pint, scenario, load_demand, solve_demand, load_supply, solve_supply, pickle_shapes, save_models, output_path, api_run):
+    run(config, pint, scenario, load_demand, solve_demand, load_supply, solve_supply, pickle_shapes, save_models, output_path, api_run)
 
-def run(config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, output_path=None):
+def run(config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, output_path=None, api_run=False):
     global model
     cfg.initialize_config(config, pint, output_path)
     scenario_ids = list_scenario_ids(scenario)
     shape.init_shapes()
-    
+
     for scenario_id in scenario_ids:
         print 'running scenario_id {}'.format(scenario_id)
+        if api_run:
+            util.update_status(scenario_id, 2)
         model = load_model(config, pint, load_demand, load_supply, scenario_id)
-        
+
         solve_model(model, scenario_id, load_demand, solve_demand, load_supply, solve_supply, save_models)
-            
+
         # remove old results first time around
-        if scenario_id == scenario_ids[0]:            
+        if scenario_id == scenario_ids[0]:
             remove_old_results()
-        
+
         if hasattr(model, 'demand_solved') and model.demand_solved:
             model.export_result('demand_outputs')
         if hasattr(model, 'supply_solved') and model.supply_solved:
             model.export_result('supply_outputs')
             model.export_result('combined_outputs')
+
+        if api_run:
+            util.update_status(scenario_id, 3)
 
 def solve_model(model, scenario_id, load_demand, solve_demand, load_supply, solve_supply, save_models):
     try:
@@ -73,7 +79,7 @@ def solve_model(model, scenario_id, load_demand, solve_demand, load_supply, solv
             if save_models:
                 with open(os.path.join(directory, str(scenario_id)+'_model.p'), 'wb') as outfile:
                     pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)
-        
+
         if solve_supply and not load_supply:
             if not model.demand_solved:
                 raise ValueError('demand must be solved first before supply')
@@ -83,7 +89,7 @@ def solve_model(model, scenario_id, load_demand, solve_demand, load_supply, solv
             if save_models:
                 with open(os.path.join(directory, str(scenario_id)+'_full_model_run.p'), 'wb') as outfile:
                     pickle.dump(model, outfile, pickle.HIGHEST_PROTOCOL)
-        
+
         if hasattr(model, 'supply_solved') and model.supply_solved:
             model.supply.calculate_supply_outputs()
             model.pass_results_to_demand()
@@ -131,7 +137,7 @@ if __name__ == "__main__":
     config = os.path.join(directory, 'config.INI')
     pint = os.path.join(directory, 'unit_defs.txt')
     scenario = 5
-    
+
     t = time.time()
     run(config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True)
     print time.time() - t

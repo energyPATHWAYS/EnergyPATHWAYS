@@ -599,11 +599,11 @@ class Subsector(DataMapFunctions):
                     FROM "DemandCasesData"
                     JOIN "DemandCasesDemandCasesData"
                       ON "DemandCasesDemandCasesData".demand_case_data_id = "DemandCasesData".id
-                    WHERE "DemandCasesData".subsector_id = %i
-                      AND "DemandCasesDemandCasesData".demand_case_id = %i
+                    WHERE "DemandCasesData".subsector_id = %s
+                      AND "DemandCasesDemandCasesData".demand_case_id = %s
                 """
 
-        cfg.cur.execute(query % (self.id, case_id))
+        cfg.cur.execute(query, (self.id, case_id))
         assert cfg.cur.rowcount <= 1,\
             "More than one DemandCasesData row found for subsector %i, case %i." % (self.id, case_id)
         result = cfg.cur.fetchone()

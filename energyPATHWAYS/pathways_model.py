@@ -246,3 +246,4 @@ class PathwaysModel(object):
          self.outputs.energy= self.outputs.energy[self.outputs.energy['VALUE']!=0]
          energy_unit = cfg.cfgfile.get('case','energy_unit')
          self.outputs.energy.columns = [energy_unit.upper()]
+

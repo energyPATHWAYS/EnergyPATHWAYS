@@ -2498,11 +2498,11 @@ class Node(DataMapFunctions):
                     FROM "SupplyCasesData"
                     JOIN "SupplyCasesSupplyCasesData"
                       ON "SupplyCasesSupplyCasesData".supply_case_data_id = "SupplyCasesData".id
-                    WHERE "SupplyCasesData".supply_node_id = %i
-                      AND "SupplyCasesSupplyCasesData".supply_case_id = %i
+                    WHERE "SupplyCasesData".supply_node_id = %s
+                      AND "SupplyCasesSupplyCasesData".supply_case_id = %s
                 """
 
-        cfg.cur.execute(query % (self.id, case_id))
+        cfg.cur.execute(query, (self.id, case_id))
         assert cfg.cur.rowcount <= 1,\
             "More than one SupplyCasesData row found for supply node %i, case %i." % (self.id, case_id)
         result = cfg.cur.fetchone()

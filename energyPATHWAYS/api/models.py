@@ -180,7 +180,7 @@ class Scenario(db.Model):
 
 
 # Note: ideally, this and other "system" (universal) tables could be put in the 'shared' schema, but I don't want
-# to undertake to move the rest of the system tables right now so I am leaving this in the model ('public') schema
+# to undertake to move the rest of the system tables right now so I am leaving this in the model run schema
 # for consistency.
 class ScenarioRunStatus(db.Model):
     __tablename__ = 'scenario_run_statuses'

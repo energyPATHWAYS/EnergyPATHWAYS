@@ -1,3 +1,4 @@
+import subprocess
 from flask import Flask, g, request
 from flask_restful import Resource, Api
 from sqlalchemy.exc import DataError
@@ -193,7 +194,11 @@ class ScenarioRunner(Resource):
         models.db.session.add(run)
         models.db.session.commit()
 
-        # TODO: actually run the scenario
+        # Actually run the scenario
+        subprocess.Popen(['energyPATHWAYS', '-a',
+                          '-c', '../../us_model_example/config.INI',
+                          '-u', '../../us_model_example/unit_defs.txt',
+                          '-s', str(scenario_id)])
 
         return {'message': 'Scenario run initiated'}, 200,\
                {'Location': api.url_for(ScenarioRunner, scenario_id=scenario.id)}

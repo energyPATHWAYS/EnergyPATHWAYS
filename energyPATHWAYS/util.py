@@ -253,6 +253,30 @@ def sql_read_headers(table_name):
     return [tup[0] for tup in table_info]
 
 
+def update_status(scenario_id, status_id):
+    """Update the status of the active run for the current scenario in the database"""
+    # FIXME: See api/models.py ScenarioRunStatus for the valid status_ids. I'm reluctant to import those constants here
+    # at this time because I don't want the dependencies of that file (e.g. sqlalchemy) to become dependencies
+    # of the main model yet.
+    query = """
+                SELECT public_runs.scenario_runs.id
+                FROM public_runs.scenario_runs
+                JOIN public_runs.scenario_run_statuses
+                  ON public_runs.scenario_runs.status_id = public_runs.scenario_run_statuses.id
+                WHERE public_runs.scenario_runs.scenario_id = %s
+                  AND public_runs.scenario_run_statuses.finished = FALSE
+            """
+
+    cfg.cur.execute(query, (scenario_id,))
+    assert cfg.cur.rowcount == 1, \
+        "Can't update status; %i active scenario runs found for scenario %i." % (cfg.cur.rowcount, scenario_id)
+    scenario_run_id = cfg.cur.fetchone()[0]
+
+    cfg.cur.execute("UPDATE public_runs.scenario_runs SET status_id = %s WHERE id = %s",
+                    (status_id, scenario_run_id))
+    cfg.con.commit()
+
+
 def unpack_dict(dictionary, _keys=None, return_items=True):
     if not isinstance(dictionary, dict):
         raise TypeError('unpack_dict takes a dictionary as an argument')
