@@ -16,10 +16,13 @@ setup(name='energyPATHWAYS',
                         'profilehooks',
                         'psycopg2',
                         'matplotlib', # util.py
-                        'sklearn', # dispatch_classes.py
-#                        'pathos'
+                        'scikit-learn', # dispatch_classes.py
+                        'click'
                         ],
-      extras_require = {
-        'documentation': ["Sphinx"]
-      }
+      extras_require={'documentation': ["Sphinx"]},
+      include_package_data=True,
+      entry_points='''
+        [console_scripts]
+        energyPATHWAYS=energyPATHWAYS.run:click_run
+        ''',
 )

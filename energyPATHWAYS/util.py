@@ -8,7 +8,7 @@ Contains unclassified global functions
 
 """
 
-import config
+import config as cfg
 import pint
 import pandas as pd
 import os
@@ -185,11 +185,11 @@ def sql_read_table(table_name, column_names='*', return_unique=False, return_ite
             data = [None]
         else:
             query = query + " where " + " and ".join(list_of_filters)
-            config.cfg.cur.execute(query)
-            data = [tup[0] if len(tup) == 1 else tup for tup in config.cfg.cur.fetchall()]
+            cfg.cur.execute(query)
+            data = [tup[0] if len(tup) == 1 else tup for tup in cfg.cur.fetchall()]
     else:
-        config.cfg.cur.execute(query)
-        data = [tup[0] if len(tup) == 1 else tup for tup in config.cfg.cur.fetchall()]
+        cfg.cur.execute(query)
+        data = [tup[0] if len(tup) == 1 else tup for tup in cfg.cur.fetchall()]
     # pull out the first element if length is 1 and we don't want to return an iterable
     if len(data) == 0 or data == [None]:
         return [] if return_iterable else None
@@ -202,8 +202,8 @@ def sql_read_table(table_name, column_names='*', return_unique=False, return_ite
 def sql_get_datatype(table_name, column_names):
     if isinstance(column_names, basestring):
         column_names = [column_names]
-    config.cfg.cur.execute("select column_name, data_type from INFORMATION_SCHEMA.COLUMNS where table_name = %s and table_schema = 'public';", (table_name,))
-    table_info = config.cfg.cur.fetchall()
+    cfg.cur.execute("select column_name, data_type from INFORMATION_SCHEMA.COLUMNS where table_name = %s and table_schema = 'public';", (table_name,))
+    table_info = cfg.cur.fetchall()
     return dict([tup for tup in table_info if tup[0] in column_names])
 
 
@@ -247,8 +247,8 @@ def sql_read_dataframe(table_name, index_column_name=None, data_column_names='*'
 
 
 def sql_read_headers(table_name):
-    config.cfg.cur.execute("select column_name from INFORMATION_SCHEMA.COLUMNS where table_name = %s and table_schema = 'public';", (table_name,))
-    table_info = config.cfg.cur.fetchall()
+    cfg.cur.execute("select column_name from INFORMATION_SCHEMA.COLUMNS where table_name = %s and table_schema = 'public';", (table_name,))
+    table_info = cfg.cur.fetchall()
     # return list of all column headers
     return [tup[0] for tup in table_info]
 
@@ -287,12 +287,12 @@ def unit_conversion_factor(unit_from, unit_to):
                 unit_from.magnitude()
                 quant_from = unit_from
             except:
-                quant_from = config.cfg.ureg.Quantity(unit_from)
+                quant_from = cfg.ureg.Quantity(unit_from)
             try:
                 unit_to.magnitude()
                 quant_to = unit_to
             except:
-                quant_to = config.cfg.ureg.Quantity(unit_to)
+                quant_to = cfg.ureg.Quantity(unit_to)
             if quant_from.dimensionality == quant_to.dimensionality:
                 # return conversion factor
                 return quant_from.to(quant_to).magnitude
@@ -305,7 +305,7 @@ def unit_conversion_factor(unit_from, unit_to):
 
 def exchange_rate(currency_from, currency_from_year, currency_to=None):
     """calculate exchange rate between two specified currencies"""
-    currency_to_name = config.cfg.cfgfile.get('case', 'currency_name') if currency_to is None else currency_to
+    currency_to_name = cfg.cfgfile.get('case', 'currency_name') if currency_to is None else currency_to
     currency_to = sql_read_table('Currencies',column_names='id',name=currency_to_name)
     currency_from_values = sql_read_table('CurrenciesConversion', 'value', currency_id=currency_from,
                                           currency_year_id=currency_from_year)
@@ -318,7 +318,7 @@ def exchange_rate(currency_from, currency_from_year, currency_to=None):
 
 def inflation_rate(currency, currency_from_year, currency_to_year=None):
     """calculate inflation rate between two years in a specified currency"""
-    currency_to_year = config.cfg.cfgfile.get('case', 'currency_year_id') if currency_to_year is None else currency_to_year
+    currency_to_year = cfg.cfgfile.get('case', 'currency_year_id') if currency_to_year is None else currency_to_year
     currency_from_values = sql_read_table('InflationConversion', 'value', currency_id=currency,
                                           currency_year_id=currency_from_year)
     currency_from_value = np.asarray(currency_from_values).mean()
@@ -330,7 +330,7 @@ def inflation_rate(currency, currency_from_year, currency_to_year=None):
 
 def currency_convert(data, currency_from, currency_from_year):
     """converts cost data in original currency specifications (currency,year) to model currency and year"""
-    currency_to_name, currency_to_year = config.cfg.cfgfile.get('case', 'currency_name'), config.cfg.cfgfile.get('case', 'currency_year_id')
+    currency_to_name, currency_to_year = cfg.cfgfile.get('case', 'currency_name'), cfg.cfgfile.get('case', 'currency_year_id')
     currency_to = sql_read_table('Currencies',column_names='id',name=currency_to_name)
     # inflate in original currency and then exchange in model currency year
     try:
@@ -1238,10 +1238,10 @@ def reindex_df_level_with_new_elements(df, level_name, new_elements, fill_value=
 def find_weibul_beta(mean_lifetime, lifetime_variance):
     """http://interstat.statjournals.net/YEAR/2000/articles/0010001.pdf"""
     if lifetime_variance == 0:
-        return config.cfg.weibul_coeff_of_var['beta'][-1]
+        return cfg.weibul_coeff_of_var['beta'][-1]
     else:
         mean_to_std = mean_lifetime / (lifetime_variance ** .5)
-        return config.cfg.weibul_coeff_of_var['beta'][nearest_index(config.cfg.weibul_coeff_of_var['mean/std'], mean_to_std)]
+        return cfg.weibul_coeff_of_var['beta'][nearest_index(cfg.weibul_coeff_of_var['mean/std'], mean_to_std)]
 
 
 def add_and_set_index(df, index, value, index_location=None):
@@ -1258,7 +1258,7 @@ def determ_energy(unit):
     
     """
     # TODO check if static method appropriate
-    if config.cfg.ureg.Quantity(unit).dimensionality == config.cfg.ureg.Quantity(config.cfg.cfgfile.get('case', 'energy_unit')).dimensionality:
+    if cfg.ureg.Quantity(unit).dimensionality == cfg.ureg.Quantity(cfg.cfgfile.get('case', 'energy_unit')).dimensionality:
         return True
 
 

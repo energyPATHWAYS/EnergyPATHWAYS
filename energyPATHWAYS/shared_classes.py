@@ -8,7 +8,7 @@ import util
 import numpy as np
 import pandas as pd
 from datamapfunctions import Abstract, DataMapFunctions
-from config import cfg
+import config as cfg
 
 class StockItem(object):
     def __init__(self):

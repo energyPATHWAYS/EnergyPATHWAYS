@@ -11,7 +11,7 @@ import copy
 import pandas as pd
 from scipy import optimize, interpolate, stats
 import math
-from config import cfg
+import config as cfg
 from collections import defaultdict
 import os
 from pyomo.opt import SolverFactory
@@ -25,6 +25,27 @@ from pathos.multiprocessing import Pool, cpu_count
 import dispatch_problem_PATHWAYS
 import year_to_period_allocation
 
+def run_thermal_dispatch(params):
+    dispatch_geography = params[0]
+    thermal_dispatch_df = params[1]
+    dispatch_geography_index = params[2]
+    load = util.df_slice(params[3],dispatch_geography, dispatch_geography_index)
+    months = load.index.get_level_values('weather_datetime').month
+    load = load.values.flatten()
+    pmaxs = np.array(util.df_slice(thermal_dispatch_df,'capacity','IO').values).T[0]
+    marginal_costs = np.array(util.df_slice(thermal_dispatch_df,'cost','IO').values).T[0]
+    MOR = np.array(util.df_slice(thermal_dispatch_df,'maintenance_outage_rate','IO').values).T[0]
+    FOR = np.array(util.df_slice(thermal_dispatch_df,'forced_outage_rate','IO').values).T[0]
+    must_runs = np.array(util.df_slice(thermal_dispatch_df,'must_run','IO').values).T[0]
+    capacity_weights = np.array(util.df_slice(thermal_dispatch_df,'capacity_weights','IO').values).T[0]
+    maintenance_rates = Dispatch.schedule_generator_maintenance(load=load,pmaxs=pmaxs,annual_maintenance_rates=MOR, dispatch_periods=months)
+    dispatch_results = Dispatch.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
+                                                         FOR=FOR, must_runs=must_runs, dispatch_periods=months, capacity_weights=capacity_weights)
+    for output in ['gen_cf', 'generation','stock_changes']:
+        indexer = util.level_specific_indexer(thermal_dispatch_df,'IO',output)                                                              
+        thermal_dispatch_df.loc[indexer,:] = dispatch_results[output]
+    
+    return thermal_dispatch_df
   
 def run_optimization(zipped_input):
     period = zipped_input[0]
@@ -112,8 +133,7 @@ class DispatchNodeConfig(DataMapFunctions):
         
 
 class Dispatch(object):
-    def __init__(self, dispatch_feeders, dispatch_geography, dispatch_geographies, 
-                 stdout_detail, results_directory,  **kwargs):
+    def __init__(self, dispatch_feeders, dispatch_geography, dispatch_geographies, stdout_detail):
         #TODO replace 1 with a config parameter
         for col, att in util.object_att_from_table('DispatchConfig',1):
             setattr(self, col, att)
@@ -137,7 +157,6 @@ class Dispatch(object):
             self.stdout_detail = False
         else:
             self.stdout_detail = True
-        self.results_directory = results_directory
         self.solve_kwargs = {"keepfiles": False, "tee": False}
         self.upward_imbalance_penalty = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
         self.downward_imbalance_penalty = util.unit_convert(100.0,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
@@ -881,7 +900,7 @@ class Dispatch(object):
     def run_year_to_month_allocation(self):
         model = year_to_period_allocation.year_to_period_allocation_formulation(self)
         results = self.run_pyomo(model,None)
-        state_of_charge = self.export_allocation_results(results, self.results_directory)
+        state_of_charge = self.export_allocation_results(results)
         return state_of_charge
 
     @staticmethod
@@ -897,21 +916,23 @@ class Dispatch(object):
              dic = dic.setdefault(key, {})
         dic[keys[-1]] = value
 
-    def export_allocation_results(self, instance, results_directory, write_to_file=False):
+    def export_allocation_results(self, instance, write_to_file=False):
 
         periods_set = getattr(instance, "PERIODS")
         geographies_set = getattr(instance, "GEOGRAPHIES")
         tech_set = getattr(instance, "VERY_LARGE_STORAGE_TECHNOLOGIES")
 
         if write_to_file:
-            load_writer = csv.writer(open(os.path.join(results_directory, "alloc_loads.csv"), "wb"))
+            path = os.path.join(cfg.output_path, 'dispatch_outputs')
+            
+            load_writer = csv.writer(open(os.path.join(path, "alloc_loads.csv"), "wb"))
             load_writer.writerow(["geography", "period", "avg_net_load", "period_net_load"])
 
             for g in geographies_set:
                 for p in periods_set:
                     load_writer.writerow([g, p, instance.average_net_load[g], instance.period_net_load[g, p]])
 
-            net_charge_writer = csv.writer(open(os.path.join(results_directory, "alloc_results_state_of_charge.csv"), "wb"))
+            net_charge_writer = csv.writer(open(os.path.join(path, "alloc_results_state_of_charge.csv"), "wb"))
             net_charge_writer.writerow(["technology", "period", "geography", "discharge", "charge", "net_power", "start_state_of_charge",
                                     "end_state_of_charge"])
         start_soc = dict()

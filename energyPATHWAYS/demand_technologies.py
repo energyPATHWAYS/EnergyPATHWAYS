@@ -5,15 +5,14 @@ Created on Mon Sep 28 10:01:16 2015
 @author: Ben
 """
 
-from config import cfg
+import config as cfg
 import util
 from datamapfunctions import Abstract
 import numpy as np
 import copy
 import inspect
 from shared_classes import StockItem, SalesShare, SpecifiedStock
-from shape import shapes
-
+import shape
 
 class DemandTechnology(StockItem):
     def __init__(self, id, subsector_id, service_demand_unit, stock_time_unit, cost_of_capital, **kwargs):
@@ -40,7 +39,7 @@ class DemandTechnology(StockItem):
         self.add_class()
         self.min_year()
         if self.shape_id is not None:
-            self.shape = shapes.data[self.shape_id]
+            self.shape = shape.shapes.data[self.shape_id]
 
     def get_shape(default_shape):
         pass

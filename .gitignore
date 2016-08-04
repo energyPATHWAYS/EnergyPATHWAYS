@@ -89,3 +89,6 @@ target/
 
 /model building tools/aggregate results/inputs/*
 /model building tools/aggregate results/outputs/*
+
+# profiler
+/us_model_example/*.profile

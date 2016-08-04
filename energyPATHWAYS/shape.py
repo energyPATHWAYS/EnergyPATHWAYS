@@ -5,7 +5,7 @@ Created on Mon Oct 05 14:45:48 2015
 @author: ryan
 """
 
-from config import cfg
+import config as cfg
 import datamapfunctions as dmf
 import util
 import pandas as pd
@@ -88,6 +88,17 @@ class Shapes(object):
         return time_slice_elements
 
 class Shape(dmf.DataMapFunctions):
+#    data = {}
+#    @classmethod
+#    def something(cls):
+#        cls.data
+#        pass
+#
+#    @staticmethod
+#    def something():
+#        Shape.data
+#        pass
+    
     def __init__(self, id=None):
         if id is not None:
             self.id = id
@@ -375,20 +386,27 @@ class Shape(dmf.DataMapFunctions):
         return util.DfOper.add((util.DfOper.mult((full_load, pflex_stacked), collapsible=False),
                                 util.DfOper.mult((native_slice_stacked, 1-pflex_stacked), collapsible=False)))
 
+# electricity shapes
+force_rerun_shapes = False
+pickle_shape = True
+shapes = Shapes()
 
-directory = os.getcwd()
-rerun_shapes = False
 
-if rerun_shapes:
-    shapes = Shapes()
-    shapes.rerun = True
-else:
-    try:
-        with open(os.path.join(directory, 'shapes.p'), 'rb') as infile:
+def init_shapes():
+    global shapes
+    if os.path.isfile(os.path.join(os.getcwd(), 'shapes.p')):
+        print 'loading shapes'
+        with open(os.path.join(os.getcwd(), 'shapes.p'), 'rb') as infile:
             shapes = pickle.load(infile)
-        shapes.rerun = False
-    except IOError:
-        shapes = Shapes()
-        shapes.rerun = True
-
-
+    
+    if (not hasattr(shapes, 'converted_geography')) or (shapes.converted_geography != cfg.primary_geography) or force_rerun_shapes:
+        print 'processing shapes'
+        shapes.__init__()
+        shapes.create_empty_shapes()
+        shapes.initiate_active_shapes()
+        shapes.process_active_shapes()
+        
+        if pickle_shape:
+            print 'pickling shapes'
+            with open(os.path.join(os.getcwd(), 'shapes.p'), 'wb') as outfile:
+                pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)

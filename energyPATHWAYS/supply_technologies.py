@@ -10,11 +10,11 @@ from datamapfunctions import Abstract
 import util
 import copy
 import numpy as np
-from config import cfg
+import config as cfg
 from shared_classes import StockItem
 from supply_classes import SupplySalesShare, SupplySales, SupplySpecifiedStock
 import pandas as pd
-from shape import shapes, Shape
+import shape
 
 
 class SupplyTechnology(StockItem):
@@ -37,7 +37,7 @@ class SupplyTechnology(StockItem):
         StockItem.__init__(self)
         
         if self.shape_id is not None:
-            self.shape = shapes.data[self.shape_id]
+            self.shape = shape.shapes.data[self.shape_id]
 
     def calculate(self, vintages, years):
         self.vintages = vintages

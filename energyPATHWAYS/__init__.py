@@ -4,7 +4,7 @@ import config
 import shape
 import util
 import dispatch_classes
-from energyPATHWAYS import PathwaysModel
+import pathways_model
 
 
 

@@ -9,7 +9,7 @@ from shared_classes import Stock, StockItem, SpecifiedStock
 from datamapfunctions import DataMapFunctions, Abstract
 import util
 import numpy as np    
-from config import cfg
+import config as cfg
         
 class SupplyStock(Stock, StockItem):
     def __init__(self, id, drivers, sql_id_table='SupplyStock', sql_data_table='SupplyStockData',

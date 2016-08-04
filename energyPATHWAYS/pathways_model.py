@@ -6,7 +6,7 @@ from util import ExportMethods
 import util
 from outputs import Output
 import time
-from config import cfg
+import config as cfg
 from supply import Supply
 import pandas as pd
 import shape
@@ -16,55 +16,30 @@ import smtplib
 from profilehooks import timecall
 
 
-
 class PathwaysModel(object):
     """
     Highest level classification of the definition of an energy system.
-    Includes the primary geography of the energy system (i.e. country name) as well as the author.
     """
-    def __init__(self, cfgfile_path, custom_pint_definitions_path=None, name=None, author=None):
+    def __init__(self, cfgfile_path, custom_pint_definitions_path=None):
         self.cfgfile_path = cfgfile_path
         self.custom_pint_definitions_path = custom_pint_definitions_path
-        self.model_config(cfgfile_path, custom_pint_definitions_path)     
-        self.scenario_dict = dict(zip(util.sql_read_table('Scenarios','id', return_iterable=True, is_active=True),
-                                  util.sql_read_table('Scenarios','name', return_iterable=True, is_active=True)))
         self.outputs = Output()
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
-        
-
-    def model_config(self, cfgfile_path, custom_pint_definitions_path):
-        cfg.init_cfgfile(cfgfile_path)
-        cfg.init_db()
-        cfg.path = custom_pint_definitions_path
-        cfg.init_pint(custom_pint_definitions_path)
-        cfg.init_geo()
-        cfg.init_date_lookup()
-        cfg.init_outputs_id_map()
 
     def configure_energy_system(self):
         print 'configuring energy system'
         self.demand = Demand(self.cfgfile_path, self.custom_pint_definitions_path)
-        self.supply = Supply(os.path.join(os.getcwd(),'outputs'),self.cfgfile_path, self.custom_pint_definitions_path)
+        self.supply = Supply(self.cfgfile_path, self.custom_pint_definitions_path)
         self.configure_demand()
         self.configure_supply()
 
     def populate_energy_system(self):
-        self.populate_demand_system()
-        self.populate_supply_system()
-    
-    def populate_shapes(self):
-        print 'processing shapes'
-        if not hasattr(shape.shapes, 'converted_geography') or shape.shapes.converted_geography != cfg.cfgfile.get('case', 'primary_geography'):
-            shape.shapes.__init__()
-            shape.shapes.rerun = True
-        if shape.shapes.rerun:
-            shape.shapes.create_empty_shapes()
-            shape.shapes.initiate_active_shapes()
-            shape.shapes.process_active_shapes()
+        self.demand.populate_subsectors()
+        self.supply.add_nodes()
 
     def populate_measures(self, scenario_id):
         self.scenario_id = scenario_id
-        self.scenario = self.scenario_dict[self.scenario_id]
+        self.scenario = cfg.scenario_dict[self.scenario_id]
         self.demand_case_id = util.sql_read_table('Scenarios','demand_case',id=self.scenario_id)
         self.populate_demand_measures()
         self.supply_case_id = util.sql_read_table('Scenarios','supply_case',id=self.scenario_id)
@@ -88,21 +63,6 @@ class PathwaysModel(object):
             
     def configure_supply(self):
         self.supply.add_node_list()
-
-    def populate_demand_system(self):
-        print 'remapping drivers'
-        self.demand.remap_drivers()
-        print 'populating energy system data'
-        for sector in self.demand.sectors.values():
-            print '  '+sector.name+' sector'
-#            print 'reading energy system data for the %s sector' %sector.name
-            for subsector in sector.subsectors.values():
-                print '    '+subsector.name
-                subsector.add_energy_system_data()
-            sector.precursor_dict()
-
-    def populate_supply_system(self):
-        self.supply.add_nodes()
 
     def populate_demand_measures(self):
         for sector in self.demand.sectors.values():
@@ -140,32 +100,36 @@ class PathwaysModel(object):
         self.calculate_combined_cost_results()
         print "calculating combined energy results"
         self.calculate_combined_energy_results()
-    
-    def export_results(self):
-        for attribute in dir(self.outputs):
-            if isinstance(getattr(self.outputs,attribute), pd.DataFrame):
-                result_df = getattr(self.outputs, attribute)
-                keys = [self.scenario.upper(),str(datetime.now().replace(second=0,microsecond=0))]
-                names = ['SCENARIO','TIMESTAMP']
-                for key, name in zip(keys,names):
-                    result_df = pd.concat([result_df],keys=[key],names=[name])
-                ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'combined_outputs'), append_results=True)
-        for attribute in dir(self.demand.outputs):
-            if isinstance(getattr(self.demand.outputs,attribute), pd.DataFrame):
-                result_df = self.demand.outputs.return_cleaned_output(attribute)
-                keys = [self.scenario.upper(),str(datetime.now().replace(second=0,microsecond=0))]
-                names = ['SCENARIO','TIMESTAMP']
-                for key, name in zip(keys,names):
-                    result_df = pd.concat([result_df],keys=[key],names=[name])
-                ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'demand_outputs'), append_results=True)
-        for attribute in dir(self.supply.outputs):
-            if isinstance(getattr(self.supply.outputs,attribute), pd.DataFrame):
-                result_df = self.supply.outputs.return_cleaned_output(attribute)
-                keys = [self.scenario.upper(),str(datetime.now().replace(second=0,microsecond=0))]
-                names = ['SCENARIO','TIMESTAMP']
-                for key, name in zip(keys,names):
-                    result_df = pd.concat([result_df],keys=[key],names=[name])
-                ExportMethods.writeobj(attribute,result_df, os.path.join(os.getcwd(),'supply_outputs'), append_results=True)
+
+    def export_result(self, result_name):
+        if result_name=='combined_outputs':
+            res_obj = self.outputs
+        elif result_name=='demand_outputs':
+            res_obj = self.demand.outputs
+        elif result_name=='supply_outputs':
+            res_obj = self.supply.outputs
+        else:
+            raise ValueError('result_name not recognized')
+        
+        if not os.path.exists(os.path.join(cfg.output_path, result_name)):
+            os.mkdir(os.path.join(cfg.output_path, result_name))
+        
+        for attribute in dir(res_obj):
+            if not isinstance(getattr(res_obj, attribute), pd.DataFrame):
+                continue
+            
+            result_df = getattr(res_obj, 'return_cleaned_output')(attribute)
+            keys = [self.scenario.upper(),str(datetime.now().replace(second=0, microsecond=0))]
+            names = ['SCENARIO','TIMESTAMP']
+            for key, name in zip(keys, names):
+                result_df = pd.concat([result_df], keys=[key], names=[name])
+                
+            path = os.path.join(cfg.output_path, result_name, attribute+'.csv')
+            if os.path.isfile(path):
+                # append and don't write header if the file already exists
+                result_df.to_csv(path, header=False, mode='ab')
+            else:
+                result_df.to_csv(path, header=True, mode='w')
         
     def calculate_combined_cost_results(self):
         #calculate and format export costs

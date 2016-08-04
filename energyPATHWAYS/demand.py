@@ -1,8 +1,7 @@
 __author__ = 'Ben Haley & Ryan Jones'
 
-from config import cfg
-from shape import shapes, Shape
-
+import config as cfg
+import shape
 import util
 from datamapfunctions import DataMapFunctions
 import numpy as np
@@ -18,35 +17,11 @@ from rollover import Rollover
 from util import DfOper
 from outputs import Output
 import dispatch_classes
-from pathos.multiprocessing import freeze_support, Pool, cpu_count
+import energyPATHWAYS.helper_multiprocess as helper_multiprocess
+#from pathos.multiprocessing import Pool, cpu_count
+from multiprocessing import Pool, cpu_count
 import pdb
 
-
-
-
-def calculate(subsector):
-    print "calculating" + " " +  subsector.name 
-    if subsector.calculated:
-        pass
-    else:
-        subsector.calculate()
-    return subsector
-    
-def aggregate_electricity_shapes(params):
-    subsector = params[0]
-    year = params[1]
-    active_shape = params[2]
-    feeder_allocation = params[3]
-    default_max_lead_hours = params[4]
-    default_max_lag_hours = params[5]
-    return subsector.aggregate_electricity_shapes(year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours)
-
-def rollover_subset_run(key_value_pair):
-        elements = key_value_pair.keys()[0]
-        rollover = key_value_pair.values()[0]
-        rollover.run()
-        stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = rollover.return_formatted_outputs()
-        return stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement, elements
 
 class Demand(object):
     def __init__(self, cfgfile_path, custom_pint_definitions_path, **kwargs):
@@ -55,21 +30,37 @@ class Demand(object):
         self.outputs = Output()
         self.geographies = cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]
         self.geography = cfg.cfgfile.get('case', 'primary_geography')
-        self.default_electricity_shape = shapes.data[cfg.electricity_energy_type_shape_id]
+        self.default_electricity_shape = shape.shapes.data[cfg.electricity_energy_type_shape_id]
         self.cfgfile_path = cfgfile_path
         self.custom_pint_definitions_path = custom_pint_definitions_path
 
+    def populate_subsectors(self):
+        print 'remapping drivers'
+        self.remap_drivers()
+        print 'populating energy system data'
+        for sector in self.sectors.values():
+            print '  '+sector.name+' sector'
+            if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
+                pool = Pool(processes=cpu_count())
+                subsectors = pool.map(helper_multiprocess.subsector_populate, sector.subsectors.values())
+                pool.close()
+                pool.join()
+                sector.subsectors = dict(zip(sector.subsectors.keys(), subsectors))
+            else:
+                for subsector in sector.subsectors.values():
+                    subsector.add_energy_system_data()
+            sector.make_precursor_dict()
 
     def aggregate_electricity_shapes(self, year, geomap_to_dispatch_geography=True):
         """ Final levels that will always return from this function
         ['dispatch_feeder', 'timeshift_type', 'gau', 'weather_datetime']
         """ 
         agg_load = util.DfOper.add([sec.aggregate_electricity_shapes(year, self.default_electricity_shape) for sec in self.sectors.values()], expandable=False, collapsible=False)
-        return Shape.geomap_to_dispatch_geography(agg_load) if geomap_to_dispatch_geography else agg_load
+        return shape.Shape.geomap_to_dispatch_geography(agg_load) if geomap_to_dispatch_geography else agg_load
 
     def create_electricity_reconciliation(self):
         # weather_year is the year for which we have top down load data
-        weather_year = int(np.round(np.mean(shapes.active_dates_index.year)))
+        weather_year = int(np.round(np.mean(shape.shapes.active_dates_index.year)))
         
         # the next four lines create the top down load shape in the weather_year
         levels_to_keep = [cfg.cfgfile.get('case','primary_geography'), 'year', 'final_energy']
@@ -223,7 +214,7 @@ class Demand(object):
         if id in self.sectors:
             # ToDo note that a sector by the same name was added twice
             return
-        self.sectors[id] = Sector(id, self.drivers,self.cfgfile_path, self.custom_pint_definitions_path)
+        self.sectors[id] = Sector(id, self.drivers, self.cfgfile_path, self.custom_pint_definitions_path)
 
 
     def calculate_demand(self):
@@ -233,7 +224,7 @@ class Demand(object):
 
 
 class Driver(object, DataMapFunctions):
-    def __init__(self, id, **kwargs):
+    def __init__(self, id):
         self.id = id
         self.sql_id_table = 'DemandDrivers'
         self.sql_data_table = 'DemandDriversData'
@@ -246,7 +237,7 @@ class Driver(object, DataMapFunctions):
 
 
 class Sector(object):
-    def __init__(self, id, drivers,cfgfile_path,custom_pint_definitions_path,**kwargs):
+    def __init__(self, id, drivers, cfgfile_path, custom_pint_definitions_path):
         self.cfgfile_path = cfgfile_path
         self.custom_pint_definitions_path = custom_pint_definitions_path
         self.drivers = drivers
@@ -256,20 +247,18 @@ class Sector(object):
             setattr(self, col, att)
         self.outputs = Output()
         if self.shape_id is not None:
-            self.shape = shapes.data[self.shape_id]
+            self.shape = shape.shapes.data[self.shape_id]
 
         feeder_allocation_class = dispatch_classes.DispatchFeederAllocation(1)
         # FIXME: This next line will fail if we don't have a feeder allocation for each demand_sector
         self.feeder_allocation = util.df_slice(feeder_allocation_class.values, id, 'demand_sector')
 
-
-
     def add_subsectors(self):
-        ids= util.sql_read_table('DemandSubsectors',column_names='id',sector_id=self.id,is_active=True, return_iterable=True)
+        ids= util.sql_read_table('DemandSubsectors',column_names='id',sector_id=self.id, is_active=True, return_iterable=True)
         for id in ids:
             self.add_subsector(id, self.id)
 
-    def add_subsector(self, id, sector_id,**kwargs):
+    def add_subsector(self, id, sector_id):
         """Adds subsector object to sector"""
         if id in self.subsectors:
             # ToDo note that a subsector was added twice
@@ -300,7 +289,7 @@ class Sector(object):
         for subsector in self.subsectors.values():
                 yield subsector
 
-    def precursor_dict(self):
+    def make_precursor_dict(self):
         """
         determines calculation order based on subsector precursors for service demand drivers or specified stocks
         example: 
@@ -333,22 +322,20 @@ class Sector(object):
         precursors = set(util.flatten_list(self.subsector_precursors.values()))
         self.calculate_precursors(precursors)
         self.calculate_links(self.subsectors.keys(), precursors)
+        
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-            available_cpus = min(cpu_count(), int(cfg.cfgfile.get('case','num_cores')))
-            pool = Pool(processes=available_cpus)
-            freeze_support()
-            subsectors = pool.map(calculate,self.subsectors.values())
-            self.subsectors = dict(zip(self.subsectors.keys(),subsectors))
+            pool = Pool(processes=cfg.available_cpus)
+#            freeze_support()
+            subsectors = pool.map(helper_multiprocess.subsector_calculate, self.subsectors.values())
             pool.close()
-            pool.join()  
+            pool.join()
+            self.subsectors = dict(zip(self.subsectors.keys(), subsectors))
         else:
             for subsector in self.subsectors.values():
-                if subsector.calculated:
-                    continue
-                else:
-                    print "calculating " + subsector.name
-                    subsector.calculate() 
-##        #clear the calculations for the next scenario loop
+                if not subsector.calculated:
+                    subsector.calculate()
+                             
+        #clear the calculations for the next scenario loop
         for subsector in self.subsectors.values():
             subsector.calculated = False
 
@@ -399,7 +386,8 @@ class Sector(object):
             #        # pass service demand and stock preursors to subsector
             subsector.linked_service_demand_drivers = self.service_precursors[subsector.id]
             subsector.linked_stock = self.stock_precursors[subsector.id]
-            self.subsectors[subsector.id]= calculate(subsector)
+            subsector.calculate()
+#            self.subsectors[subsector.id] = subsector
 
     def calculate_links(self,all_subsectors, precursors):
         for subsector_id in all_subsectors:
@@ -448,14 +436,12 @@ class Sector(object):
         if cfg.cfgfile.get('case','parallel_process') == 'True':
             parallel_params = []
             for subsector in self.subsectors.values():
-                parallel_params.append([subsector,year,active_shape,feeder_allocation,default_max_lead_hours,default_max_lag_hours])
-            available_cpus = cpu_count()
-            pool = Pool(processes=available_cpus)
-            freeze_support()
-            results = pool.map(aggregate_electricity_shapes,parallel_params)
+                parallel_params.append([subsector, year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours])
+            pool = Pool(processes=cfg.cpu_count())
+            results = pool.map(helper_multiprocess.aggregate_electricity_shapes, parallel_params)
             pool.close()
             pool.join()
-            return util.DfOper.add(results,expandable=False,collapsible=False)
+            return util.DfOper.add(results, expandable=False, collapsible=False)
         else:
             return util.DfOper.add([sub.aggregate_electricity_shapes(year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours)
                                 for sub in self.subsectors.values()],
@@ -489,7 +475,8 @@ class Subsector(DataMapFunctions):
         self.outputs = Output()
         self.calculated = False
         if self.shape_id is not None:
-            self.shape = shapes.data[self.shape_id]
+            self.shape = shape.shapes.data[self.shape_id]
+        self.shapes_weather_year = int(np.round(np.mean(shape.shapes.active_dates_index.year)))
 
     def set_electricity_reconciliation(self, electricity_reconciliation):
         """ Electricity reconciliation is solved top down and passed back to subsector, where it is applied
@@ -500,14 +487,6 @@ class Subsector(DataMapFunctions):
         """ Final levels that will always return from this function
         ['dispatch_feeder', 'timeshift_type', 'gau', 'weather_datetime']
         """
-        cfg.init_cfgfile(self.cfgfile_path)
-        if cfg.cfgfile.get('case','parallel_process') == 'True':
-            cfg.init_db()
-            cfg.path = self.custom_pint_definitions_path
-            cfg.init_pint(self.custom_pint_definitions_path)
-            cfg.init_geo()
-            cfg.init_date_lookup()
-            cfg.init_outputs_id_map()
         if default_shape is None and self.shape_id is None:
             raise ValueError('Electricity shape cannot be aggregated without an active shape in subsector ' + self.name)
         active_shape = self.shape if hasattr(self, 'shape') else default_shape
@@ -531,7 +510,7 @@ class Subsector(DataMapFunctions):
                 percent_flexible = self.flexible_load_measure.values.xs(year, level='year')
                 
                 # first step is to make the three shifted profiles
-                flex = Shape.produce_flexible_load(util.DfOper.mult((active_shape.values, reconciliation)),
+                flex = shape.Shape.produce_flexible_load(util.DfOper.mult((active_shape.values, reconciliation)),
                                                    percent_flexible=percent_flexible, hr_delay=active_max_lag_hours, hr_advance=active_max_lead_hours)
                 return util.DfOper.mult((energy_slice, active_feeder_allocation, flex))
             else:
@@ -552,16 +531,14 @@ class Subsector(DataMapFunctions):
             # here we might have a problem because some of the technology shapes had flex load others didn't, this could lead to NaN
             # it might be possible to simply fill with 2, which would be the native shape
             return util.remove_df_levels(util.DfOper.mult((energy_slice, active_feeder_allocation, technology_shapes)), levels='technology')
-        if cfg.cfgfile.get('case','parallel_process') == 'True':
-            cfg.cur.close()
-            del cfg.cur
-
 
     def add_energy_system_data(self):
         """ 
         populates energy system based on available data and determines 
         subsector type 
         """
+        print '    '+self.name
+        
         if self.has_stock is True and self.has_service_demand is True:
             self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', drivers=self.drivers)
             self.add_stock()
@@ -655,16 +632,8 @@ class Subsector(DataMapFunctions):
                 self.technologies[tech].add_specified_stock_measures(self.stock_package_id)
                 self.technologies[tech].add_sales_share_measures(self.sales_package_id)
 
-
     def calculate(self):
-        cfg.init_cfgfile(self.cfgfile_path)
-        if cfg.cfgfile.get('case','parallel_process') == 'True':
-            cfg.init_db()
-            cfg.path = self.custom_pint_definitions_path
-            cfg.init_pint(self.custom_pint_definitions_path)
-            cfg.init_geo()
-            cfg.init_date_lookup()
-            cfg.init_outputs_id_map()
+        print "calculating" + " " +  self.name
 #        print '    '+'calculating measures'
         self.calculate_measures()
 #        print '    '+'adding linked inputs'
@@ -679,9 +648,6 @@ class Subsector(DataMapFunctions):
         self.calculate_costs()
 #        print '    '+'processing outputs'
         self.remove_extra_subsector_attributes()
-        if cfg.cfgfile.get('case','parallel_process') == 'True':
-            cfg.cur.close()
-            del cfg.cur
 
     def add_linked_inputs(self, linked_service_demand_drivers, linked_stock):
         """ adds linked inputs to subsector """
@@ -878,7 +844,6 @@ class Subsector(DataMapFunctions):
         """
 #        self.calculate_driver_min_year()
         driver_min_year = 9999
-        weather_min_year = int(np.round(np.mean(shapes.active_dates_index.year)))
         if self.sub_type == 'stock and energy':
             tech_min_year = self.calculate_tech_min_year()
             stock_min_year = min(
@@ -936,7 +901,7 @@ class Subsector(DataMapFunctions):
             self.min_year = min(int(cfg.cfgfile.get('case', 'current_year')), driver_min_year, tech_min_year,
                                     stock_min_year, sales_share_min_year)
         self.min_year = max(self.min_year, int(cfg.cfgfile.get('case', 'demand_start_year')))
-        self.min_year = min(weather_min_year,self.min_year)
+        self.min_year = min(self.shapes_weather_year, self.min_year)
         self.min_year = int(int(cfg.cfgfile.get('case', 'year_step'))*round(float(self.min_year)/int(cfg.cfgfile.get('case', 'year_step'))))
         self.years = range(self.min_year, int(cfg.cfgfile.get('case', 'end_year')) + 1,
                            int(cfg.cfgfile.get('case', 'year_step')))
