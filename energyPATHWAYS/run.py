@@ -21,6 +21,7 @@ import pdb
 import traceback
 
 model = None
+start_time = time.time()
 
 def myexcepthook(exctype, value, tb):
     logging.error(''.join(traceback.format_tb(tb)))
@@ -48,8 +49,8 @@ def click_run(path, config, pint, scenario, load_demand, solve_demand, load_supp
 def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False,
         solve_supply=True, pickle_shapes=True, save_models=True, log_name=None, log_level='INFO', stdout=True, api_run=False):
     global model
+    setuplogging(path, log_name, log_level, stdout)
     cfg.initialize_config(path, config, pint)
-    setuplogging(log_name, log_level, stdout)
     shape.init_shapes()
     scenario_id = get_scenario_id(scenario)
     
@@ -64,6 +65,8 @@ def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load
 
     if api_run:
         util.update_status(scenario_id, 3)
+    logging.info('EnergyPATHWAYS run for scenario_id {} successful!'.format(scenario_id))
+    logging.info('Calculation time {} seconds'.format(time.time() - start_time))
 
 def load_model(path, load_demand, load_supply, scenario_id):
     if load_supply:
@@ -87,9 +90,10 @@ def get_scenario_id(scenario):
         scenario_id = cfg.scenario_dict.keys()[cfg.scenario_dict.values().index(scenario)]
     return scenario_id
 
-def setuplogging(log_name, log_level, stdout=True):
-    log_name = '{} energyPATHWAYS.log'.format(str(datetime.datetime.now())[:-4].replace(':', '.')) if log_name is None else log_name
-    logging.basicConfig(filename=log_name, level=log_level)
+def setuplogging(path, log_name, log_level, stdout=True):
+    path = os.getcwd() if path is None else path
+    log_name = '{} energyPATHWAYS log.log'.format(str(datetime.datetime.now())[:-4].replace(':', '.')) if log_name is None else log_name
+    logging.basicConfig(filename=os.path.join(path, log_name), level=log_level)
     if stdout:
         soh = logging.StreamHandler(sys.stdout)
         soh.setLevel(log_level)
@@ -103,10 +107,7 @@ if __name__ == "__main__":
     pint = 'unit_defs.txt'
     scenario = 5
 
-    t = time.time()
     run(workingdir, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)
-    print time.time() - t
-
-#    t = time.time()
 #    cProfile.run('run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)', filename='full_run.profile')
-#    print time.time() - t
+    
+    

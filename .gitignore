@@ -71,7 +71,7 @@ target/
 /.idea/energyPATHWAYS.iml
 /.gitignore
 
-# Temp model copy
+# Cache
 /us_model_example/*.p
 /california_model_example/*.p
 
@@ -92,3 +92,4 @@ target/
 
 # profiler
 /us_model_example/*.profile
+/us_model_example/*.log
