@@ -7,6 +7,7 @@ Created on Thu Oct 01 09:26:56 2015
 
 import numpy as np
 import util
+import logging
 
 class Rollover(object):
     def __init__(self, vintaged_markov_matrix, initial_markov_matrix, num_years, num_vintages, num_techs,
@@ -158,8 +159,7 @@ class Rollover(object):
 
         if round(sum(self.prior_year_stock[retireable]),5)>0 and \
                         util.percent_larger(incremental_retirement, sum(self.prior_year_stock[retireable])) > self.exceedance_tolerance:
-            print incremental_retirement
-            print sum(self.prior_year_stock[retireable])
+            logging.error('incremental_retirement = {}, sum(self.prior_year_stock[retireable]) = {}'.format(incremental_retirement, sum(self.prior_year_stock[retireable])))
             raise ValueError('specified incremental stock retirements are greater than retireable stock size')
 
         starting_rolloff = np.sum(self.calc_stock_rolloff(self.prinxy))
@@ -219,9 +219,9 @@ class Rollover(object):
         if len(self.specified) and np.sum(self.prior_year_stock):
             if round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5)>0:
                 if not self.stock_changes_as_min and util.percent_larger(sum(self.specified_stock[i][self.stock_specified]), np.sum(self.prior_year_stock) + self.stock_changes[i])>self.exceedance_tolerance:
-                    print round(sum(self.specified_stock[i][self.stock_specified]), 5)
-                    print round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5)
-                    print  (round(sum(self.specified_stock[i][self.stock_specified]), 5) / round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5))
+                    logging.error('round(sum(self.specified_stock[i][self.stock_specified]), 5) = {}'.format(round(sum(self.specified_stock[i][self.stock_specified]), 5)))
+                    logging.error('round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5) = {}'.format(round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5)))
+                    logging.error('(round(sum(self.specified_stock[i][self.stock_specified]), 5) / round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5)) = {}'.format((round(sum(self.specified_stock[i][self.stock_specified]), 5) / round(np.sum(self.prior_year_stock) + self.stock_changes[i], 5))))
                     raise RuntimeError('Specified stock in a given year is greater than the total stock')
 
             # if we have both a specified stock and specified sales for a tech, we need to true up the vintaged stock to make both match, if possible
@@ -256,7 +256,6 @@ class Rollover(object):
 
             # We need additional early retirement to make room for defined_sales
             if round(self.sum_defined_sales, 6) > round(self.rolloff_summed + self.stock_changes[i], 6):
-                # print 'We need additional early retirement to make room for defined_sales ' + str(i)
                 incremental_retirement = self.sum_defined_sales - (self.rolloff_summed + self.stock_changes[i])
                 self.update_prinxy(incremental_retirement, self.solvable)
 
@@ -273,7 +272,6 @@ class Rollover(object):
     def account_for_stock_shrinkage(self):
         i = self.i  # make an int
         if round(self.stock_changes[i], 6) < round(self.sum_defined_sales - self.rolloff_summed, 6):
-            # print 'stock change is less than specified sales minus rolloff, we need additional retirements ' + str(i)
             incremental_retirement = (self.sum_defined_sales - self.rolloff_summed) - self.stock_changes[i]
             self.update_prinxy(incremental_retirement, self.solvable)
             self.update_rolloff()

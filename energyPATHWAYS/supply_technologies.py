@@ -115,8 +115,8 @@ class SupplyTechnology(StockItem):
         if class_b is None:
             class_a_instance = getattr(self, class_a)
             if class_a_instance.data is False and hasattr(class_a_instance, 'reference_tech_id') is False and class_a is 'capital_cost_new':
-                 #raises a warning if no capital costs are input   
-                 print "Conversion technology %s has no capital cost data" % (self.id)
+                logging.error("Conversion technology %s has no capital cost data" % (self.id))
+                raise ValueError
         else:
             class_a_instance = getattr(self, class_a)
             class_b_instance = getattr(self, class_b)

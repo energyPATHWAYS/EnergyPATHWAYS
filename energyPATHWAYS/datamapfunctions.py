@@ -65,7 +65,7 @@ class DataMapFunctions:
             for row in read_data:
                 try:
                     data.append([row[i] for i in rowmap] +
-                                [row[i] * (self.unit_prefix if hasattr(self, 'unit_prefix') else 1) for i in data_col_ind ])
+                                [row[i] * (self.unit_prefix if hasattr(self, 'unit_prefix') else 1) for i in data_col_ind])
                 except:
                     if hide_exceptions == False:
                         print (self.id, row, i)
@@ -239,11 +239,7 @@ class DataMapFunctions:
                 self.geo_map(converted_geography, attr=map_to, inplace=True)
                 current_geography = converted_geography
             total_driver = DfOper.mult([self.drivers[id].values for id in denominator_driver_ids])
-            try:
-                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver)))
-            except:
-                print getattr(self, map_to)
-                print total_driver
+            setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver)))
             # the datatype is now total
             current_data_type = 'total'
 
@@ -262,8 +258,7 @@ class DataMapFunctions:
 
 class Abstract(DataMapFunctions):
     def __init__(self, id, primary_key='id', data_id_key=None, **filters):
-        
-        # Ryan: I've introduced a new parameter called data_id_key, which is the key in the "Data" table
+        # From Ryan: I've introduced a new parameter called data_id_key, which is the key in the "Data" table
         # because we are introducing primary keys into the Data tables, it is sometimes necessary to specify them separately
         # before we only has primary_key, which was shared in the "parent" and "data" tables, and this is still the default as we make the change.
         if data_id_key is None:
@@ -272,7 +267,7 @@ class Abstract(DataMapFunctions):
         try:
             col_att = util.object_att_from_table(self.sql_id_table, id, primary_key)
         except:
-            print self.sql_id_table, id, primary_key
+            logging.error(self.sql_id_table, id, primary_key)
             raise
 
         if col_att is None:

@@ -2,104 +2,105 @@ __author__ = 'Ben Haley & Ryan Jones'
 
 import os
 from demand import Demand
-from util import ExportMethods
 import util
 from outputs import Output
+import cPickle as pickle
 import time
+import shutil
 import config as cfg
 from supply import Supply
 import pandas as pd
+import logging
 import shape
 from datetime import datetime
 # from supply import Supply
 import smtplib
 from profilehooks import timecall
 
-
 class PathwaysModel(object):
     """
     Highest level classification of the definition of an energy system.
     """
-    def __init__(self, cfgfile_path, custom_pint_definitions_path=None):
-        self.cfgfile_path = cfgfile_path
-        self.custom_pint_definitions_path = custom_pint_definitions_path
-        self.outputs = Output()
-        self.geography = cfg.cfgfile.get('case', 'primary_geography')
-
-    def configure_energy_system(self):
-        print 'configuring energy system'
-        self.demand = Demand(self.cfgfile_path, self.custom_pint_definitions_path)
-        self.supply = Supply(self.cfgfile_path, self.custom_pint_definitions_path)
-        self.configure_demand()
-        self.configure_supply()
-
-    def populate_energy_system(self):
-        self.demand.populate_subsectors()
-        self.supply.add_nodes()
-
-    def populate_measures(self, scenario_id):
+    def __init__(self, scenario_id):
         self.scenario_id = scenario_id
         self.scenario = cfg.scenario_dict[self.scenario_id]
-        self.demand_case_id = util.sql_read_table('Scenarios','demand_case',id=self.scenario_id)
-        self.populate_demand_measures()
-        self.supply_case_id = util.sql_read_table('Scenarios','supply_case',id=self.scenario_id)
-        self.populate_supply_measures()
+        self.demand_case_id = util.sql_read_table('Scenarios', 'demand_case', id=self.scenario_id)
+        self.supply_case_id = util.sql_read_table('Scenarios', 'supply_case', id=self.scenario_id)
+        self.outputs = Output()
+        self.demand = Demand()
+        self.supply = Supply(demand_object=self.demand)
+        self.demand_solved, self.supply_solved = False, False
 
-    def calculate(self):
-        self.calculate_demand_only()
-        self.pass_results_to_supply()
-        self.calculate_supply()
+    def run(self, scenario_id, solve_demand, solve_supply, save_models):
+        try:
+            if solve_demand:
+                self.calculate_demand(save_models)
 
-    def configure_demand(self):
-        """Read in and initialize data"""
-        # Drivers must come first
-        self.demand.add_drivers()
+            self.remove_old_results()
+            if hasattr(self, 'demand_solved') and self.demand_solved:
+                self.export_result('demand_outputs')
 
-        # Sectors requires drivers be read in
-        self.demand.add_sectors()
-        for sector in self.demand.sectors.values():
-            # print 'configuring the %s sector'  %sector.name
-            sector.add_subsectors()
-            
-    def configure_supply(self):
-        self.supply.add_node_list()
+            if solve_supply:
+                self.calculate_supply(save_models)
 
-    def populate_demand_measures(self):
-        for sector in self.demand.sectors.values():
-            #            print 'reading %s measures' %sector.name
-            for subsector in sector.subsectors.values():
-                subsector.add_measures(self.demand_case_id)
-        
-    def populate_supply_measures(self):
-        self.supply.add_measures(self.supply_case_id)
+            if hasattr(self, 'supply_solved') and self.supply_solved:
+                self.supply.calculate_supply_outputs()
+                self.pass_supply_results_back_to_demand()
+                self.calculate_combined_results()
+                self.export_result('supply_outputs')
+                self.export_result('combined_outputs')
+        except:
+            # pickle the model in the event that it crashes
+            with open(os.path.join(cfg.workingdir, str(scenario_id) + '_model_error.p'), 'wb') as outfile:
+                pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
+            raise
 
-    def calculate_demand_only(self):
+    def calculate_demand(self, save_models):
+        logging.info('configuring energy system demand')
+
+        self.demand.add_subsectors()
+        self.demand.add_measures(self.demand_case_id)
         self.demand.calculate_demand()
-        print "aggregating demand results"
+        logging.info("aggregating demand results")
         self.demand.aggregate_results()
-    
-    def calculate_supply(self):
+        self.demand_solved = True
+        if save_models:
+            with open(os.path.join(cfg.workingdir, str(self.scenario_id) + '_model.p'), 'wb') as outfile:
+                pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
+
+    def calculate_supply(self, save_models):
+        if not self.demand_solved:
+            raise ValueError('demand must be solved first before supply')
+
+        self.supply.add_nodes()
+        self.supply.add_measures(self.supply_case_id)
         self.supply.initial_calculate()     
         self.supply.calculate_loop()
-        self.supply.final_calculate()
-             
-    def pass_results_to_supply(self):
-        for sector in self.demand.sectors.values():
-             sector.aggregate_subsector_energy_for_supply_side()
-        self.demand.aggregate_sector_energy_for_supply_side()
-        self.supply.demand_object = self.demand
-        
-    def pass_results_to_demand(self):
-        print "calculating link to supply"
+        self.supply.concatenate_annual_costs()
+        self.supply.calculate_capacity_utilization()
+        self.supply_solved = True
+        if save_models:
+            with open(os.path.join(cfg.workingdir, str(self.scenario_id) + '_full_model_run.p'), 'wb') as outfile:
+                pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
+
+    def pass_supply_results_back_to_demand(self):
+        logging.info("calculating link to supply")
         self.demand.link_to_supply(self.supply.emissions_demand_link, self.supply.demand_emissions_rates, self.supply.energy_demand_link, self.supply.cost_demand_link)
     
     def calculate_combined_results(self):
-        print "calculating combined emissions results"
+        logging.info("calculating combined emissions results")
         self.calculate_combined_emissions_results()
-        print "calculating combined cost results"
+        logging.info("calculating combined cost results")
         self.calculate_combined_cost_results()
-        print "calculating combined energy results"
+        logging.info("calculating combined energy results")
         self.calculate_combined_energy_results()
+
+    def remove_old_results(self):
+        folder_names = ['combined_outputs', 'demand_outputs', 'supply_outputs']
+        for folder_name in folder_names:
+            folder = os.path.join(cfg.workingdir, folder_name)
+            if os.path.isdir(folder):
+                shutil.rmtree(folder)
 
     def export_result(self, result_name):
         if result_name=='combined_outputs':
@@ -111,8 +112,8 @@ class PathwaysModel(object):
         else:
             raise ValueError('result_name not recognized')
         
-        if not os.path.exists(os.path.join(cfg.output_path, result_name)):
-            os.mkdir(os.path.join(cfg.output_path, result_name))
+        if not os.path.exists(os.path.join(cfg.workingdir, result_name)):
+            os.mkdir(os.path.join(cfg.workingdir, result_name))
         
         for attribute in dir(res_obj):
             if not isinstance(getattr(res_obj, attribute), pd.DataFrame):
@@ -124,7 +125,7 @@ class PathwaysModel(object):
             for key, name in zip(keys, names):
                 result_df = pd.concat([result_df], keys=[key], names=[name])
                 
-            path = os.path.join(cfg.output_path, result_name, attribute+'.csv')
+            path = os.path.join(cfg.workingdir, result_name, attribute+'.csv')
             if os.path.isfile(path):
                 # append and don't write header if the file already exists
                 result_df.to_csv(path, header=False, mode='ab')
@@ -166,24 +167,22 @@ class PathwaysModel(object):
             self.demand_costs_df = pd.concat([self.demand_costs_df],keys=[key],names=[name])      
 #        levels_to_keep = cfg.output_levels      
 #        levels_to_keep = [x.upper() for x in levels_to_keep]
-#        levels_to_keep += names + [self.geography.upper() +'_SUPPLY', 'SUPPLY_NODE']
+#        levels_to_keep += names + [cfg.primary_geography.upper() +'_SUPPLY', 'SUPPLY_NODE']
         keys = ['EXPORTED', 'SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['COST TYPE']
         self.outputs.costs = util.df_list_concatenate([self.export_costs_df, self.embodied_energy_costs_df, self.demand_costs_df],keys=keys,new_names=names)
-#        util.replace_index_name(self.outputs.costs, self.geography.upper() +'_EARNED', self.geography.upper() +'_SUPPLY')
-#        util.replace_index_name(self.outputs.costs, self.geography.upper() +'_CONSUMED', self.geography.upper())
+#        util.replace_index_name(self.outputs.costs, cfg.primary_geography.upper() +'_EARNED', cfg.primary_geography.upper() +'_SUPPLY')
+#        util.replace_index_name(self.outputs.costs, cfg.primary_geography.upper() +'_CONSUMED', cfg.primary_geography.upper())
         self.outputs.costs[self.outputs.costs<0]=0
         self.outputs.costs= self.outputs.costs[self.outputs.costs[cost_unit.upper()]!=0]
-#        self.outputs.costs.sort(inplace=True)       
-
-    
+#        self.outputs.costs.sort(inplace=True)
         
     def calculate_combined_emissions_results(self):
         #calculate and format export emissions
         if self.supply.export_emissions is not None:
             setattr(self.outputs,'export_emissions',self.supply.export_emissions)
             if 'supply_geography' not in cfg.output_combined_levels:
-                util.remove_df_levels(self.outputs.export_emissions,self.geography +'_supply')
+                util.remove_df_levels(self.outputs.export_emissions,cfg.primary_geography +'_supply')
             self.export_emissions_df = self.outputs.return_cleaned_output('export_emissions')
             del self.outputs.export_emissions
             util.replace_index_name(self.export_emissions_df, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
@@ -208,19 +207,19 @@ class PathwaysModel(object):
         for key,name in zip(keys,names):
             self.direct_emissions_df = pd.concat([self.direct_emissions_df],keys=[key],names=[name])   
         if 'supply_geography' in cfg.output_combined_levels:
-            keys = self.direct_emissions_df.index.get_level_values(self.geography.upper()).values
-            names = self.geography.upper() +'_SUPPLY'
+            keys = self.direct_emissions_df.index.get_level_values(cfg.primary_geography.upper()).values
+            names = cfg.primary_geography.upper() +'_SUPPLY'
             self.direct_emissions_df[names] = keys
             self.direct_emissions_df.set_index(names,append=True,inplace=True)
 #        levels_to_keep = cfg.output_levels      
 #        levels_to_keep = [x.upper() for x in levels_to_keep]
-#        levels_to_keep += names + [self.geography.upper() +'_SUPPLY', 'SUPPLY_NODE']
+#        levels_to_keep += names + [cfg.primary_geography.upper() +'_SUPPLY', 'SUPPLY_NODE']
         keys = ['EXPORTED', 'SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['EMISSIONS TYPE']
         self.outputs.emissions = util.df_list_concatenate([self.export_emissions_df, self.embodied_emissions_df, self.direct_emissions_df],keys=keys,new_names = names)
 #        util.replace_index_name(self.outputs.emissions, "ENERGY","FINAL_ENERGY")
-        util.replace_index_name(self.outputs.emissions, self.geography.upper() +'_EMITTED', self.geography.upper() +'_SUPPLY')
-        util.replace_index_name(self.outputs.emissions, self.geography.upper() +'_CONSUMED', self.geography.upper())
+        util.replace_index_name(self.outputs.emissions, cfg.primary_geography.upper() +'_EMITTED', cfg.primary_geography.upper() +'_SUPPLY')
+        util.replace_index_name(self.outputs.emissions, cfg.primary_geography.upper() +'_CONSUMED', cfg.primary_geography.upper())
         self.outputs.emissions= self.outputs.emissions[self.outputs.emissions['VALUE']!=0]
         emissions_unit = cfg.cfgfile.get('case','mass_unit')
         self.outputs.emissions.columns = [emissions_unit.upper()]

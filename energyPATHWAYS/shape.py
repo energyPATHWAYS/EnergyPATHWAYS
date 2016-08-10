@@ -15,6 +15,7 @@ import time
 import numpy as np
 import cPickle as pickle
 import os
+import logging
 
 #http://stackoverflow.com/questions/27491988/canonical-offset-from-utc-using-pytz
 
@@ -33,10 +34,10 @@ class Shapes(object):
             self.active_shape_ids.append(id)
 
     def initiate_active_shapes(self):
-        print ' reading data for:'
+        logging.info(' reading data for:')
         for id in self.active_shape_ids:
             shape = self.data[id]
-            print '     shape: ' + shape.name
+            logging.info('     shape: ' + shape.name)
             if hasattr(shape, 'raw_values'):
                 return
             
@@ -63,10 +64,10 @@ class Shapes(object):
 
     def process_active_shapes(self):
         #run the weather date shapes first because they inform the daterange for dispatch
-        print ' mapping data for:'
+        logging.info(' mapping data for:')
         for id in self.active_shape_ids:
             shape = self.data[id]
-            print '     shape: ' + shape.name
+            logging.info('     shape: ' + shape.name)
             shape.process_shape(self.active_dates_index, self.time_slice_elements)
         dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))
         self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.timezone_names[dispatch_outputs_timezone_id])
@@ -394,19 +395,19 @@ shapes = Shapes()
 
 def init_shapes():
     global shapes
-    if os.path.isfile(os.path.join(os.getcwd(), 'shapes.p')):
-        print 'loading shapes'
-        with open(os.path.join(os.getcwd(), 'shapes.p'), 'rb') as infile:
+    if os.path.isfile(os.path.join(cfg.workingdir, 'shapes.p')):
+        logging.info('loading shapes')
+        with open(os.path.join(cfg.workingdir, 'shapes.p'), 'rb') as infile:
             shapes = pickle.load(infile)
     
     if (not hasattr(shapes, 'converted_geography')) or (shapes.converted_geography != cfg.primary_geography) or force_rerun_shapes:
-        print 'processing shapes'
+        logging.info('processing shapes')
         shapes.__init__()
         shapes.create_empty_shapes()
         shapes.initiate_active_shapes()
         shapes.process_active_shapes()
         
         if pickle_shape:
-            print 'pickling shapes'
-            with open(os.path.join(os.getcwd(), 'shapes.p'), 'wb') as outfile:
+            logging.info('pickling shapes')
+            with open(os.path.join(cfg.workingdir, 'shapes.p'), 'wb') as outfile:
                 pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)

@@ -13,181 +13,7 @@ import copy
 import inspect
 from shared_classes import StockItem, SalesShare, SpecifiedStock
 import shape
-
-class DemandTechnology(StockItem):
-    def __init__(self, id, subsector_id, service_demand_unit, stock_time_unit, cost_of_capital, **kwargs):
-        self.id = id
-        self.subsector_id = subsector_id
-        StockItem.__init__(self)
-        self.service_demand_unit = service_demand_unit
-        self.stock_time_unit = stock_time_unit
-        for col, att in util.object_att_from_table('DemandTechs', self.id):
-            setattr(self, col, att)
-        # if cost_of_capital at the technology level is None, it uses subsector defaults
-        if self.cost_of_capital is None:
-            self.cost_of_capital = cost_of_capital
-        else:
-            pass
-        # we can have multiple sales shares because sales share may be specific
-        # to the transition between two technolog)
-        self.reference_sales_shares = {}
-        if self.id in util.sql_read_table('DemandSalesData', 'technology', return_unique=True, return_iterable=True):
-            self.reference_sales_shares[1] = SalesShare(id=self.id, subsector_id=self.subsector_id, reference=True,
-                                                        sql_id_table='DemandSales', sql_data_table='DemandSalesData',
-                                                        primary_key='subsector_id', data_id_key='technology')
-        self.book_life()
-        self.add_class()
-        self.min_year()
-        if self.shape_id is not None:
-            self.shape = shape.shapes.data[self.shape_id]
-
-    def get_shape(default_shape):
-        pass
-
-    def add_sales_share_measures(self, package_id):
-        self.sales_shares = {}
-        measure_ids = util.sql_read_table('DemandSalesMeasurePackagesData', 'measure_id', package_id=package_id,
-                                          return_iterable=True)
-        for measure_id in measure_ids:
-            sales_share_ids = util.sql_read_table('DemandSalesMeasures', 'id', demand_tech_id=self.id, id=measure_id,
-                                                  return_iterable=True)
-            for sales_share_id in sales_share_ids:
-                self.sales_shares[sales_share_id] = SalesShare(id=sales_share_id, subsector_id=self.subsector_id,
-                                                               reference=False, sql_id_table='DemandSalesMeasures',
-                                                               sql_data_table='DemandSalesMeasuresData',
-                                                               primary_key='id', data_id_key='parent_id')
-
-    def add_specified_stock_measures(self, package_id):
-        self.specified_stocks = {}
-        measure_ids = util.sql_read_table('DemandStockMeasurePackagesData', 'measure_id', package_id=package_id,
-                                          return_iterable=True)
-        for measure_id in measure_ids:
-            specified_stocks = util.sql_read_table('DemandStockMeasures', 'id', demand_tech_id=self.id,
-                                                   subsector_id=self.subsector_id,
-                                                   return_iterable=True)
-            for specified_stock in specified_stocks:
-                self.specified_stocks[specified_stock] = SpecifiedStock(id=specified_stock,
-                                                                        sql_id_table='DemandStockMeasures',
-                                                                        sql_data_table='DemandStockMeasuresData')
-
-    def add_service_links(self):
-        """adds all technology service links"""
-        self.service_links = {}
-        service_links = util.sql_read_table('DemandTechsServiceLink', 'service_link_id', return_unique=True,
-                                            demand_tech_id=self.id)
-        if service_links is not None:
-            service_links = util.ensure_iterable_and_not_string(service_links)
-            for service_link in service_links:
-                id = util.sql_read_table('DemandTechsServiceLink', 'id', return_unique=True, demand_tech_id=self.id,
-                                         service_link_id=service_link)
-                self.service_links[service_link] = DemandTechServiceLink(self, id, 'DemandTechsServiceLink',
-                                                                         'DemandTechsServiceLinkData')
-
-    def min_year(self):
-        """calculates the minimum or start year of data in the technology specification. 
-        Used to determine start year of subsector for analysis."""
-
-        attributes = vars(self)
-        self.min_year = cfg.cfgfile.get('case', 'current_year')
-        for att in attributes:
-            obj = getattr(self, att)
-            if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'raw_values'):
-                try:
-                    att_min_year = min(obj.raw_values.index.levels[util.position_in_index(obj.raw_values, 'vintage')])
-                except:
-                    att_min_year = self.min_year
-                if att_min_year < self.min_year:
-                    self.min_year = att_min_year
-                else:
-                    pass
-
-    def calculate(self, vintages, years):
-        self.vintages = vintages
-        self.years = years
-        attributes = vars(self)
-        for att in attributes:
-            obj = getattr(self, att)
-            if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'calculate'):
-                obj.calculate(self.vintages, self.years)
-        for links in self.service_links.values():
-            links.calculate(self.vintages, self.years)
-
-    def book_life(self):
-        """ 
-        determines book life for measures based on input mean or max/min lifetimes. 
-        Used for cost levelization
-        """
-        if self.mean_lifetime is not None:
-            self.book_life = getattr(self, 'mean_lifetime')
-        elif self.max_lifetime is not None and self.min_lifetime is not None:
-            self.book_life = (getattr(self, 'min_lifetime') + getattr(self, 'max_lifetime')) / 2
-        else:
-            print "incomplete lifetime information entered for technology %s" % self.name
-
-
-    def add_class(self):
-        """
-        Adds all demand technology classes and uses replace_costs function on 
-        equivalent costs.
-        
-        """
-        self.capital_cost_new = DemandTechCost(self, 'DemandTechsCapitalCost', 'DemandTechsCapitalCostNewData')
-        self.capital_cost_replacement = DemandTechCost(self, 'DemandTechsCapitalCost',
-                                                       'DemandTechsCapitalCostReplacementData')
-        self.installation_cost_new = DemandTechCost(self, 'DemandTechsInstallationCost',
-                                                    'DemandTechsInstallationCostNewData')
-        self.installation_cost_replacement = DemandTechCost(self, 'DemandTechsInstallationCost',
-                                                            'DemandTechsInstallationCostReplacementData')
-        self.fuel_switch_cost = DemandTechCost(self, 'DemandTechsFuelSwitchCost', 'DemandTechsFuelSwitchCostData')
-        self.fixed_om = DemandTechCost(self, 'DemandTechsFixedMaintenanceCost', 'DemandTechsFixedMaintenanceCostData')
-
-        self.efficiency_main = DemandTechEfficiency(self, 'DemandTechsMainEfficiency', 'DemandTechsMainEfficiencyData')
-        self.efficiency_aux = DemandTechEfficiency(self, 'DemandTechsAuxEfficiency', 'DemandTechsAuxEfficiencyData')
-        if hasattr(self.efficiency_main,'definition') and self.efficiency_main.definition == 'absolute':
-            self.efficiency_aux.utility_factor = 1 - self.efficiency_main.utility_factor
-        self.service_demand_modifier = ServiceDemandModifier(self, 'DemandTechsServiceDemandModifier',
-                                                             'DemandTechsServiceDemandModifierData')
-        self.parasitic_energy = ParasiticEnergy(self, 'DemandTechsParasiticEnergy', 'DemandTechsParasiticEnergyData')
-        # add service links to service links dictionary
-        self.add_service_links()
-        self.replace_class('capital_cost_new', 'capital_cost_replacement')
-        self.replace_class('installation_cost_new', 'installation_cost_replacement')
-        self.replace_class('fuel_switch_cost')
-        self.replace_class('fixed_om')
-
-
-    def replace_class(self, class_a, class_b=None):
-        """ 
-        Adds all available cost data to classes. Removes classes with no data and replaces 
-        them with cost classes containing equivalent data.
-        
-        Ex. If capital costs for new installations are input but capital costs for replacement are not, 
-        it copies capital costs for new to the replacement capital cost class
-        """
-        # if no class_b is specified, there is no equivalent cost for class_a
-        if class_b is None:
-            class_a_instance = getattr(self, class_a)
-            if class_a_instance.data is False and hasattr(class_a_instance, 'reference_tech_id') is False:
-                pass
-                # print "demand technology %s has no %s cost data" % (self.id, class_a)
-                # setattr(self, class_a, None)
-        else:
-            class_a_instance = getattr(self, class_a)
-            class_b_instance = getattr(self, class_b)
-            if class_a_instance.data is True and class_a_instance.raw_values is not None and class_b_instance.data is True and class_b_instance.raw_values is not None:
-                pass
-            elif class_a_instance.data is False and class_b_instance.data is False and \
-                            hasattr(class_a_instance, 'reference_tech_id') is False and \
-                            hasattr(class_b_instance, 'reference_tech_id') is False:
-                pass
-            # print "demand technology %s has no input data for %s or %s" % (self.id, class_a, class_b)
-            elif class_a_instance.data is True and class_a_instance.raw_values is not None and (class_b_instance.data is False or (class_b_instance.data is True and class_b_instance.raw_values is None)):
-                setattr(self, class_b, copy.deepcopy(class_a_instance))
-            elif (class_a_instance.data is False or (class_a_instance.data is True and class_a_instance.raw_values is None))and class_b_instance.data is True and class_b_instance.raw_values is not None:
-                setattr(self, class_a, copy.deepcopy(class_b_instance))
-
-
-
+import logging
 
 
 class DemandTechCost(Abstract):
@@ -352,7 +178,7 @@ class DemandTechEfficiency(Abstract):
 
 
 class DemandTechServiceLink(Abstract):
-    """ service link efficiency    
+    """ service link efficiency
     ex. clothes washer hot water efficiency
     """
 
@@ -403,4 +229,171 @@ class ServiceDemandModifier(Abstract):
             self.absolute = True
 
 
+class DemandTechnology(StockItem):
+    def __init__(self, id, subsector_id, service_demand_unit, stock_time_unit, cost_of_capital, **kwargs):
+        self.id = id
+        self.subsector_id = subsector_id
+        StockItem.__init__(self)
+        self.service_demand_unit = service_demand_unit
+        self.stock_time_unit = stock_time_unit
+        for col, att in util.object_att_from_table('DemandTechs', self.id):
+            setattr(self, col, att)
+        # if cost_of_capital at the technology level is None, it uses subsector defaults
+        if self.cost_of_capital is None:
+            self.cost_of_capital = cost_of_capital
+        else:
+            pass
+        # we can have multiple sales shares because sales share may be specific
+        # to the transition between two technolog)
+        self.reference_sales_shares = {}
+        if self.id in util.sql_read_table('DemandSalesData', 'technology', return_unique=True, return_iterable=True):
+            self.reference_sales_shares[1] = SalesShare(id=self.id, subsector_id=self.subsector_id, reference=True,
+                                                        sql_id_table='DemandSales', sql_data_table='DemandSalesData',
+                                                        primary_key='subsector_id', data_id_key='technology')
+        self.book_life()
+        self.add_class()
+        self.min_year()
+        if self.shape_id is not None:
+            self.shape = shape.shapes.data[self.shape_id]
 
+    def get_shape(default_shape):
+        pass
+
+    def add_sales_share_measures(self, package_id):
+        self.sales_shares = {}
+        measure_ids = util.sql_read_table('DemandSalesMeasurePackagesData', 'measure_id', package_id=package_id,
+                                          return_iterable=True)
+        for measure_id in measure_ids:
+            sales_share_ids = util.sql_read_table('DemandSalesMeasures', 'id', demand_tech_id=self.id, id=measure_id,
+                                                  return_iterable=True)
+            for sales_share_id in sales_share_ids:
+                self.sales_shares[sales_share_id] = SalesShare(id=sales_share_id, subsector_id=self.subsector_id,
+                                                               reference=False, sql_id_table='DemandSalesMeasures',
+                                                               sql_data_table='DemandSalesMeasuresData',
+                                                               primary_key='id', data_id_key='parent_id')
+
+    def add_specified_stock_measures(self, package_id):
+        self.specified_stocks = {}
+        measure_ids = util.sql_read_table('DemandStockMeasurePackagesData', 'measure_id', package_id=package_id,
+                                          return_iterable=True)
+        for measure_id in measure_ids:
+            specified_stocks = util.sql_read_table('DemandStockMeasures', 'id', demand_tech_id=self.id,
+                                                   subsector_id=self.subsector_id,
+                                                   return_iterable=True)
+            for specified_stock in specified_stocks:
+                self.specified_stocks[specified_stock] = SpecifiedStock(id=specified_stock,
+                                                                        sql_id_table='DemandStockMeasures',
+                                                                        sql_data_table='DemandStockMeasuresData')
+
+    def add_service_links(self):
+        """adds all technology service links"""
+        self.service_links = {}
+        service_links = util.sql_read_table('DemandTechsServiceLink', 'service_link_id', return_unique=True,
+                                            demand_tech_id=self.id)
+        if service_links is not None:
+            service_links = util.ensure_iterable_and_not_string(service_links)
+            for service_link in service_links:
+                id = util.sql_read_table('DemandTechsServiceLink', 'id', return_unique=True, demand_tech_id=self.id,
+                                         service_link_id=service_link)
+                self.service_links[service_link] = DemandTechServiceLink(self, id, 'DemandTechsServiceLink',
+                                                                         'DemandTechsServiceLinkData')
+
+    def min_year(self):
+        """calculates the minimum or start year of data in the technology specification.
+        Used to determine start year of subsector for analysis."""
+
+        attributes = vars(self)
+        self.min_year = cfg.cfgfile.get('case', 'current_year')
+        for att in attributes:
+            obj = getattr(self, att)
+            if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'raw_values'):
+                try:
+                    att_min_year = min(obj.raw_values.index.levels[util.position_in_index(obj.raw_values, 'vintage')])
+                except:
+                    att_min_year = self.min_year
+                if att_min_year < self.min_year:
+                    self.min_year = att_min_year
+                else:
+                    pass
+
+    def calculate(self, vintages, years):
+        self.vintages = vintages
+        self.years = years
+        attributes = vars(self)
+        for att in attributes:
+            obj = getattr(self, att)
+            if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'calculate'):
+                obj.calculate(self.vintages, self.years)
+        for links in self.service_links.values():
+            links.calculate(self.vintages, self.years)
+
+    def book_life(self):
+        """
+        determines book life for measures based on input mean or max/min lifetimes.
+        Used for cost levelization
+        """
+        if self.mean_lifetime is not None:
+            self.book_life = getattr(self, 'mean_lifetime')
+        elif self.max_lifetime is not None and self.min_lifetime is not None:
+            self.book_life = (getattr(self, 'min_lifetime') + getattr(self, 'max_lifetime')) / 2
+        else:
+            logging.warning("incomplete lifetime information entered for technology %s" % self.name)
+
+
+    def add_class(self):
+        """
+        Adds all demand technology classes and uses replace_costs function on
+        equivalent costs.
+
+        """
+        self.capital_cost_new = DemandTechCost(self, 'DemandTechsCapitalCost', 'DemandTechsCapitalCostNewData')
+        self.capital_cost_replacement = DemandTechCost(self, 'DemandTechsCapitalCost',
+                                                       'DemandTechsCapitalCostReplacementData')
+        self.installation_cost_new = DemandTechCost(self, 'DemandTechsInstallationCost',
+                                                    'DemandTechsInstallationCostNewData')
+        self.installation_cost_replacement = DemandTechCost(self, 'DemandTechsInstallationCost',
+                                                            'DemandTechsInstallationCostReplacementData')
+        self.fuel_switch_cost = DemandTechCost(self, 'DemandTechsFuelSwitchCost', 'DemandTechsFuelSwitchCostData')
+        self.fixed_om = DemandTechCost(self, 'DemandTechsFixedMaintenanceCost', 'DemandTechsFixedMaintenanceCostData')
+
+        self.efficiency_main = DemandTechEfficiency(self, 'DemandTechsMainEfficiency', 'DemandTechsMainEfficiencyData')
+        self.efficiency_aux = DemandTechEfficiency(self, 'DemandTechsAuxEfficiency', 'DemandTechsAuxEfficiencyData')
+        if hasattr(self.efficiency_main,'definition') and self.efficiency_main.definition == 'absolute':
+            self.efficiency_aux.utility_factor = 1 - self.efficiency_main.utility_factor
+        self.service_demand_modifier = ServiceDemandModifier(self, 'DemandTechsServiceDemandModifier',
+                                                             'DemandTechsServiceDemandModifierData')
+        self.parasitic_energy = ParasiticEnergy(self, 'DemandTechsParasiticEnergy', 'DemandTechsParasiticEnergyData')
+        # add service links to service links dictionary
+        self.add_service_links()
+        self.replace_class('capital_cost_new', 'capital_cost_replacement')
+        self.replace_class('installation_cost_new', 'installation_cost_replacement')
+        self.replace_class('fuel_switch_cost')
+        self.replace_class('fixed_om')
+
+
+    def replace_class(self, class_a, class_b=None):
+        """
+        Adds all available cost data to classes. Removes classes with no data and replaces
+        them with cost classes containing equivalent data.
+
+        Ex. If capital costs for new installations are input but capital costs for replacement are not,
+        it copies capital costs for new to the replacement capital cost class
+        """
+        # if no class_b is specified, there is no equivalent cost for class_a
+        if class_b is None:
+            class_a_instance = getattr(self, class_a)
+            if class_a_instance.data is False and hasattr(class_a_instance, 'reference_tech_id') is False:
+                logging.warning("demand technology %s has no %s cost data" % (self.id, class_a))
+        else:
+            class_a_instance = getattr(self, class_a)
+            class_b_instance = getattr(self, class_b)
+            if class_a_instance.data is True and class_a_instance.raw_values is not None and class_b_instance.data is True and class_b_instance.raw_values is not None:
+                pass
+            elif class_a_instance.data is False and class_b_instance.data is False and \
+                            hasattr(class_a_instance, 'reference_tech_id') is False and \
+                            hasattr(class_b_instance, 'reference_tech_id') is False:
+                logging.warning("demand technology %s has no input data for %s or %s" % (self.id, class_a, class_b))
+            elif class_a_instance.data is True and class_a_instance.raw_values is not None and (class_b_instance.data is False or (class_b_instance.data is True and class_b_instance.raw_values is None)):
+                setattr(self, class_b, copy.deepcopy(class_a_instance))
+            elif (class_a_instance.data is False or (class_a_instance.data is True and class_a_instance.raw_values is None))and class_b_instance.data is True and class_b_instance.raw_values is not None:
+                setattr(self, class_a, copy.deepcopy(class_b_instance))

@@ -14,10 +14,14 @@ from multiprocessing import cpu_count
 # Don't print warnings
 warnings.simplefilter("ignore")
 
-# various inputs
-output_path = None
+# core inputs
+workingdir = None
 cfgfile = None
+cfgfile_name = None
 primary_geography = None
+dispatch_geography = None
+geographies = None
+dispatch_geographies = None
 primary_geography_id = None
 scenario_dict = None
 weibul_coeff_of_var = None
@@ -32,6 +36,7 @@ drivr_col_names = ['driver_1_id', 'driver_2_id']
 
 # Initiate pint for unit conversions
 ureg = None
+pint_definitions_file = None
 
 # Geography conversions
 geo = None
@@ -62,31 +67,28 @@ outputs_id_map = defaultdict(dict)
 # parallel processing
 available_cpus = None
 
-def initialize_config(cfgfile_path, custom_pint_definitions_path, _output_path=None):
-    global weibul_coeff_of_var, scenario_dict, available_cpus, output_path
-    output_path = os.getcwd() if _output_path is None else _output_path 
-    weibul_coeff_of_var = util.create_weibul_coefficient_of_variation()
-    init_cfgfile(cfgfile_path)
-    # TODO: this requires the cfg global to be assigned to a config object but note that it is in the constructor. Thus the global assignment above. Yuck.
+def initialize_config(_path, _cfgfile_name, _pint_definitions_file):
+    global weibul_coeff_of_var, scenario_dict, available_cpus, workingdir, cfgfile_name, pint_definitions_file
+    workingdir = os.getcwd() if _path is None else _path
+    cfgfile_name = _cfgfile_name
+    pint_definitions_file = _pint_definitions_file
+    init_cfgfile(os.path.join(workingdir, cfgfile_name))
     init_db()
-    scenario_dict = dict(util.sql_read_table('Scenarios',['id', 'name'], return_iterable=True))
-    available_cpus = min(cpu_count(), int(cfgfile.get('case','num_cores')))
-    init_pint(custom_pint_definitions_path)
+    init_pint(os.path.join(workingdir, pint_definitions_file))
     init_geo()
     init_date_lookup()
     init_output_parameters()
 
-def load_config(cfgfile_path):
-    global cfgfile
+    scenario_dict = dict(util.sql_read_table('Scenarios',['id', 'name'], return_iterable=True))
+    available_cpus = min(cpu_count(), int(cfgfile.get('case','num_cores')))
+    weibul_coeff_of_var = util.create_weibul_coefficient_of_variation()
+
+def init_cfgfile(cfgfile_path):
+    global cfgfile, years, supply_years
+
     cfgfile = ConfigParser.ConfigParser()
     cfgfile.read(cfgfile_path)
 
-def init_cfgfile(cfgfile_path):
-    load_config(cfgfile_path)
-    global primary_geography, years, supply_years
-    
-    primary_geography = cfgfile.get('case', 'primary_geography')
-    
     years = range(int(cfgfile.get('case', 'demand_start_year')),
                    int(cfgfile.get('case', 'end_year')) + 1,
                    int(cfgfile.get('case', 'year_step')))
@@ -97,7 +99,6 @@ def init_cfgfile(cfgfile_path):
     
     cfgfile.set('case', 'years', years)
     cfgfile.set('case', 'supply_years', supply_years)
-
 
 def init_db():
     global con, cur, dnmtr_col_names, drivr_col_names
@@ -114,23 +115,26 @@ def init_db():
     # Open pathways database
     con = psycopg2.connect(conn_str)
     cur = con.cursor()
-        
 
-def init_pint(custom_pint_definitions_path=None):
+def init_pint(pint_definitions_path):
     # Initiate pint for unit conversions
     global ureg
     ureg = pint.UnitRegistry()
     
-    if custom_pint_definitions_path is not None:
-        if not os.path.isfile(custom_pint_definitions_path):
-            raise OSError('pint definitions file not found: ' + str(custom_pint_definitions_path))
-        ureg.load_definitions(custom_pint_definitions_path)
+    if pint_definitions_path is not None:
+        if not os.path.isfile(pint_definitions_path):
+            raise OSError('pint definitions file not found: ' + str(pint_definitions_path))
+        ureg.load_definitions(pint_definitions_path)
         
 def init_geo():
     #Geography conversions
-    global geo, primary_geography_id
+    global geo, primary_geography, primary_geography_id, geographies, dispatch_geography, dispatch_geographies
     geo = geomapper.GeoMapper()
+    primary_geography = cfgfile.get('case', 'primary_geography')
     primary_geography_id = util.sql_read_table('Geographies', 'id', name=primary_geography)
+    geographies = geo.geographies[primary_geography]
+    dispatch_geography = cfgfile.get('case', 'dispatch_geography')
+    dispatch_geographies = geo.geographies[dispatch_geography]
 
 def init_date_lookup():
     global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id

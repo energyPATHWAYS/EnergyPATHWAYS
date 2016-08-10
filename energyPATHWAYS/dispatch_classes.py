@@ -9,7 +9,7 @@ import numpy as np
 from datamapfunctions import Abstract,DataMapFunctions
 import copy
 import pandas as pd
-from scipy import optimize, interpolate, stats
+from scipy import optimize
 import math
 import config as cfg
 from collections import defaultdict
@@ -18,12 +18,14 @@ from pyomo.opt import SolverFactory
 import csv
 import logging
 from sklearn.cluster import KMeans
-from pathos.multiprocessing import Pool
 #import multiprocessing
 from pathos.multiprocessing import Pool, cpu_count
+#from multiprocessing import Pool, cpu_count
 # Dispatch modules
 import dispatch_problem_PATHWAYS
 import year_to_period_allocation
+import pdb
+import time
 
 def run_thermal_dispatch(params):
     dispatch_geography = params[0]
@@ -59,63 +61,48 @@ def run_optimization(zipped_input):
     solver_name = zipped_input[7]      
     stdout_detail = zipped_input[8]
     dispatch_geography = zipped_input[9]
-    if stdout_detail:
-        print "Optimizing dispatch for period " + str(period)
-    if stdout_detail:
-        print "Getting problem formulation..."
-    if stdout_detail:
-        print "Creating model instance..."
+    logging.debug("Optimizing dispatch for period " + str(period))
+    logging.debug("Getting problem formulation...")
+    logging.debug("Creating model instance...")
     instance = model.create_instance(None)
-    if stdout_detail:
-        print "Getting solver..."
+    logging.debug("Getting solver...")
     solver = SolverFactory(solver_name)
-    if stdout_detail:
-        print "Solving..."
+    logging.debug("Solving...")
     solution = solver.solve(instance)
-    if stdout_detail:
-        print "Loading solution..."
+    logging.debug("Loading solution...")
     instance.solutions.load_from(solution)        
     timepoints_set = getattr(instance, "TIMEPOINTS")
     storage_tech_set = getattr(instance, "STORAGE_TECHNOLOGIES")
+#    pdb.set_trace()
     #TODO Ryan List Comprehension
+    # this takes 11.5 seconds per execution
     for tech in storage_tech_set:
         feeder = instance.feeder[tech] 
         geography = instance.geography[tech]
-        charge = []
-        discharge = []
+        charge = [instance.Charge[tech, timepoint].value for timepoint in timepoints_set]
+        discharge = [instance.Provide_Power[tech, timepoint].value for timepoint in timepoints_set]
         if feeder == 0:
             charge_indexer = util.level_specific_indexer(bulk_storage_df, [dispatch_geography, 'charge_discharge', 'hour'], [geography, 'charge',(hours)])
-            discharge_indexer = util.level_specific_indexer(bulk_storage_df, [dispatch_geography, 'charge_discharge', 'hour'], [geography, 'discharge',(hours)]) 
-            for timepoint in timepoints_set:                
-                charge.append(instance.Charge[tech, timepoint].value)
-                discharge.append(instance.Provide_Power[tech, timepoint].value)
-            charge = np.column_stack(np.asarray(charge)).T
-            discharge = np.column_stack(np.asarray(discharge)).T
-            bulk_storage_df.loc[charge_indexer,:] += charge
-            bulk_storage_df.loc[discharge_indexer,:] += discharge
+            discharge_indexer = util.level_specific_indexer(bulk_storage_df, [dispatch_geography, 'charge_discharge', 'hour'], [geography, 'discharge',(hours)])
+            bulk_storage_df.loc[charge_indexer,:] += np.column_stack(np.asarray(charge)).T
+            bulk_storage_df.loc[discharge_indexer,:] += np.column_stack(np.asarray(discharge)).T
         else:
             charge_indexer = util.level_specific_indexer(dist_storage_df, [dispatch_geography,'dispatch_feeder','charge_discharge','hour'], [geography, feeder, 'charge', (hours)])
-            discharge_indexer = util.level_specific_indexer(dist_storage_df, [dispatch_geography,'dispatch_feeder','charge_discharge','hour'], [geography, feeder, 'discharge', (hours)]) 
-            for timepoint in timepoints_set:                
-                charge.append(instance.Charge[tech, timepoint].value)
-                discharge.append(instance.Provide_Power[tech, timepoint].value)
-            charge = np.column_stack(np.asarray(charge)).T
-            discharge = np.column_stack(np.asarray(discharge)).T
-            dist_storage_df.loc[charge_indexer,:] += charge
-            dist_storage_df.loc[discharge_indexer,:] += discharge
+            discharge_indexer = util.level_specific_indexer(dist_storage_df, [dispatch_geography,'dispatch_feeder','charge_discharge','hour'], [geography, feeder, 'discharge', (hours)])
+            dist_storage_df.loc[charge_indexer,:] += np.column_stack(np.asarray(charge)).T
+            dist_storage_df.loc[discharge_indexer,:] += np.column_stack(np.asarray(discharge)).T
+    
     timepoints_set = getattr(instance, "TIMEPOINTS")
     geographies_set = getattr(instance, "GEOGRAPHIES")
     feeder_set = getattr(instance,"FEEDERS")
     #TODO Ryan List Comprehension
+    # this takes 1.5 seconds per execution
     for geography in geographies_set:
         for feeder in feeder_set:
             if feeder != 0:
-                flex_load = []
+                flex_load = [instance.Flexible_Load[geography, timepoint, feeder].value for timepoint in timepoints_set]
                 indexer = util.level_specific_indexer(flex_load_df, [dispatch_geography,'dispatch_feeder','hour'], [geography, feeder,(hours)])
-                for timepoint in timepoints_set:                
-                    flex_load.append(instance.Flexible_Load[geography, timepoint, feeder].value)
-                flex_load = np.asarray(flex_load)
-                flex_load_df.loc[indexer,:] = flex_load 
+                flex_load_df.loc[indexer,:] = np.asarray(flex_load)
     return [bulk_storage_df, dist_storage_df, flex_load_df]
 
 
@@ -133,9 +120,9 @@ class DispatchNodeConfig(DataMapFunctions):
         
 
 class Dispatch(object):
-    def __init__(self, dispatch_feeders, dispatch_geography, dispatch_geographies, stdout_detail):
+    def __init__(self, dispatch_feeders, dispatch_geography, dispatch_geographies):
         #TODO replace 1 with a config parameter
-        for col, att in util.object_att_from_table('DispatchConfig',1):
+        for col, att in util.object_att_from_table('DispatchConfig', 1):
             setattr(self, col, att)
         self.opt_hours = util.sql_read_table('OptPeriods','hours', id=self.opt_hours)
         self.node_config_dict = dict()
@@ -152,7 +139,7 @@ class Dispatch(object):
         self.dispatch_geography = dispatch_geography
         self.dispatch_geographies = dispatch_geographies
         self.solver_name = self.find_solver()
-        self.stdout_detail = stdout_detail
+        self.stdout_detail = cfg.cfgfile.get('opt','stdout_detail')
         if self.stdout_detail == 'False':
             self.stdout_detail = False
         else:
@@ -171,10 +158,10 @@ class Dispatch(object):
         _level = logger.getEffectiveLevel()
         logger.setLevel(logging.ERROR)
         for requested_solver in requested_solvers:
-#            print "Looking for %s solver" % requested_solver
+            logging.debug("Looking for %s solver" % requested_solver)
             if SolverFactory(requested_solver).available(False):
                 solver_name = requested_solver
-                print "Using %s solver" % requested_solver
+                logging.info("Using %s solver" % requested_solver)
                 break
         # restore logging
         logger.setLevel(_level)
@@ -836,17 +823,13 @@ class Dispatch(object):
         :param kwargs:
         :return: instance
         """
-        if self.stdout_detail:
-            print "Creating model instance..."
+        logging.debug("Creating model instance...")
         instance = model.create_instance(data)
-        if self.stdout_detail:
-            print "Getting solver..."
+        logging.debug("Getting solver...")
         solver = SolverFactory(self.solver_name)
-        if self.stdout_detail:
-            print "Solving..."
+        logging.debug("Solving...")
         solution = solver.solve(instance, **kwargs)
-        if self.stdout_detail:
-            print "Loading solution..."
+        logging.debug("Loading solution...")
         instance.solutions.load_from(solution)
         return instance
 
@@ -870,17 +853,18 @@ class Dispatch(object):
              model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge, end_state_of_charge, period))  
         zipped_inputs = list(zip(periods, model_list,input_bulk_dfs, input_dist_dfs, 
                                  input_flex_dfs,opt_hours, period_hours, solver_name,stdout_detail, dispatch_geography))
+        
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
             available_cpus = min(cpu_count(), int(cfg.cfgfile.get('case','num_cores')))
             pool = Pool(processes=available_cpus)
-            results = pool.map(run_optimization,zipped_inputs)
+            results = pool.map(run_optimization, zipped_inputs)
             pool.close()
             pool.join()
-            pool.terminate()
         else:
             results = []
             for zipped_input in zipped_inputs:
                 results.append(run_optimization(zipped_input))
+        
         output_bulk_dfs = [x[0] for x in results]
         output_dist_dfs = [x[1] for x in results]
         output_flex_dfs = [x[2] for x in results]
@@ -899,7 +883,7 @@ class Dispatch(object):
                 
     def run_year_to_month_allocation(self):
         model = year_to_period_allocation.year_to_period_allocation_formulation(self)
-        results = self.run_pyomo(model,None)
+        results = self.run_pyomo(model, None)
         state_of_charge = self.export_allocation_results(results)
         return state_of_charge
 
@@ -923,7 +907,7 @@ class Dispatch(object):
         tech_set = getattr(instance, "VERY_LARGE_STORAGE_TECHNOLOGIES")
 
         if write_to_file:
-            path = os.path.join(cfg.output_path, 'dispatch_outputs')
+            path = os.path.join(cfg.workingdir, 'dispatch_outputs')
             
             load_writer = csv.writer(open(os.path.join(path, "alloc_loads.csv"), "wb"))
             load_writer.writerow(["geography", "period", "avg_net_load", "period_net_load"])
