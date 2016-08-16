@@ -19,6 +19,7 @@ import logging
 import cProfile
 import pdb
 import traceback
+import ipdb
 
 model = None
 start_time = time.time()
@@ -32,13 +33,13 @@ sys.excepthook = myexcepthook
 @click.option('-p', '--path', type=click.Path(exists=True), help='working directory for energyPATHWAYS run')
 @click.option('-c', '--config', default='config.INI', help='file name for the energyPATHWAYS configuration file')
 @click.option('-u', '--pint', default='unit_defs.txt', help='file name for custom unit definitions for the library pint')
-@click.option('-s', '--scenario', multiple=True, help='scenario name or id')
+@click.option('-s', '--scenario', help='scenario name or id')
 @click.option('-ld', '--load_demand/--no_load_demand', default=False, help='load a cached model with the demand side complete')
 @click.option('--solve_demand/--no_solve_demand', default=True, help='solve the demand side of the model')
 @click.option('-ls', '--load_supply/--no_load_supply', default=False, help='load a cached model with the demand and supply side complete')
 @click.option('--solve_supply/--no_solve_supply', default=True, help='solve the supply side of the model')
 @click.option('--pickle_shapes/--no_pickle_shapes', default=True, help='cache shapes after processing')
-@click.option('--save_models/no_save_models', default=True, help='cashe models after running')
+@click.option('--save_models/--no_save_models', default=True, help='cashe models after running')
 @click.option('--log_name', help='file name for the log file')
 @click.option('--log_level', default='INFO', help='available levels are CRITICAL, ERROR, WARNING, INFO, or DEBUG')
 @click.option('--stdout/--no_stdout', default=True, help='print logger to the command line')
