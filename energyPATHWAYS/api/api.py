@@ -1,6 +1,7 @@
 import subprocess
 from flask import Flask, g, request
 from flask_restful import Resource, Api
+from flask_cors import CORS
 from sqlalchemy.exc import DataError
 import models
 import schemas
@@ -36,6 +37,11 @@ api_errors = {
 
 # Initialize the application
 app = Flask(__name__)
+
+# TODO: This allows the API to respond to XMLHttpRequests from any domain. This is preferable for development, but
+# for production we should restrict the allowed origin only to the Pathways web interface server
+# (or just host the web app and API on the same domain, in which case there's no need for CORS)
+CORS(app)
 api = Api(app, errors=api_errors)
 models.db.init_app(app)
 auth = HTTPBasicAuth()
