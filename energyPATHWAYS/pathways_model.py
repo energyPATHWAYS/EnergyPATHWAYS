@@ -31,12 +31,13 @@ class PathwaysModel(object):
         self.supply = Supply(demand_object=self.demand)
         self.demand_solved, self.supply_solved = False, False
 
-    def run(self, scenario_id, solve_demand, solve_supply, save_models):
+    def run(self, scenario_id, solve_demand, solve_supply, save_models, append_results):
         try:
             if solve_demand:
                 self.calculate_demand(save_models)
-
-            self.remove_old_results()
+            
+            if not append_results:
+                self.remove_old_results()
             if hasattr(self, 'demand_solved') and self.demand_solved:
                 self.export_result('demand_outputs')
 
@@ -56,12 +57,12 @@ class PathwaysModel(object):
             raise
 
     def calculate_demand(self, save_models):
-        logging.info('configuring energy system demand')
+        logging.info('Configuring energy system demand')
 
         self.demand.add_subsectors()
         self.demand.add_measures(self.demand_case_id)
         self.demand.calculate_demand()
-        logging.info("aggregating demand results")
+        logging.info("Aggregating demand results")
         self.demand.aggregate_results()
         self.demand_solved = True
         if save_models:
@@ -71,7 +72,8 @@ class PathwaysModel(object):
     def calculate_supply(self, save_models):
         if not self.demand_solved:
             raise ValueError('demand must be solved first before supply')
-
+        logging.info('Configuring energy system supply')
+        
         self.supply.add_nodes()
         self.supply.add_measures(self.supply_case_id)
         self.supply.initial_calculate()     
@@ -84,15 +86,15 @@ class PathwaysModel(object):
                 pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
 
     def pass_supply_results_back_to_demand(self):
-        logging.info("calculating link to supply")
+        logging.info("Calculating link to supply")
         self.demand.link_to_supply(self.supply.emissions_demand_link, self.supply.demand_emissions_rates, self.supply.energy_demand_link, self.supply.cost_demand_link)
     
     def calculate_combined_results(self):
-        logging.info("calculating combined emissions results")
+        logging.info("Calculating combined emissions results")
         self.calculate_combined_emissions_results()
-        logging.info("calculating combined cost results")
+        logging.info("Calculating combined cost results")
         self.calculate_combined_cost_results()
-        logging.info("calculating combined energy results")
+        logging.info("Calculating combined energy results")
         self.calculate_combined_energy_results()
 
     def remove_old_results(self):

@@ -337,7 +337,7 @@ class DemandTechnology(StockItem):
         elif self.max_lifetime is not None and self.min_lifetime is not None:
             self.book_life = (getattr(self, 'min_lifetime') + getattr(self, 'max_lifetime')) / 2
         else:
-            logging.warning("incomplete lifetime information entered for technology %s" % self.name)
+            logging.debug("incomplete lifetime information entered for technology %s" % self.name)
 
 
     def add_class(self):
@@ -383,7 +383,7 @@ class DemandTechnology(StockItem):
         if class_b is None:
             class_a_instance = getattr(self, class_a)
             if class_a_instance.data is False and hasattr(class_a_instance, 'reference_tech_id') is False:
-                logging.warning("demand technology %s has no %s cost data" % (self.id, class_a))
+                logging.debug("demand technology %s has no %s cost data" % (self.id, class_a))
         else:
             class_a_instance = getattr(self, class_a)
             class_b_instance = getattr(self, class_b)
@@ -392,7 +392,7 @@ class DemandTechnology(StockItem):
             elif class_a_instance.data is False and class_b_instance.data is False and \
                             hasattr(class_a_instance, 'reference_tech_id') is False and \
                             hasattr(class_b_instance, 'reference_tech_id') is False:
-                logging.warning("demand technology %s has no input data for %s or %s" % (self.id, class_a, class_b))
+                logging.debug("demand technology %s has no input data for %s or %s" % (self.id, class_a, class_b))
             elif class_a_instance.data is True and class_a_instance.raw_values is not None and (class_b_instance.data is False or (class_b_instance.data is True and class_b_instance.raw_values is None)):
                 setattr(self, class_b, copy.deepcopy(class_a_instance))
             elif (class_a_instance.data is False or (class_a_instance.data is True and class_a_instance.raw_values is None))and class_b_instance.data is True and class_b_instance.raw_values is not None:

@@ -9,6 +9,9 @@ import pandas as pd
 from collections import defaultdict
 import psycopg2
 import util
+import datetime
+import logging
+import sys
 from multiprocessing import cpu_count
 
 # Don't print warnings
@@ -33,6 +36,10 @@ cur = None
 # common data inputs
 dnmtr_col_names = ['driver_denominator_1_id', 'driver_denominator_2_id']
 drivr_col_names = ['driver_1_id', 'driver_2_id']
+tech_classes = ['capital_cost_new', 'capital_cost_replacement', 'installation_cost_new', 'installation_cost_replacement', 'fixed_om', 'variable_om', 'efficiency']
+#storage techs have additional attributes specifying costs for energy (i.e. kWh of energy storage) and discharge capacity (i.e. kW)
+storage_tech_classes = ['installation_cost_new','installation_cost_replacement', 'fixed_om', 'variable_om', 'efficiency', 'capital_cost_new_capacity', 'capital_cost_replacement_capacity',
+                        'capital_cost_new_energy', 'capital_cost_replacement_energy']
 
 # Initiate pint for unit conversions
 ureg = None
@@ -67,21 +74,39 @@ outputs_id_map = defaultdict(dict)
 # parallel processing
 available_cpus = None
 
-def initialize_config(_path, _cfgfile_name, _pint_definitions_file):
-    global weibul_coeff_of_var, scenario_dict, available_cpus, workingdir, cfgfile_name, pint_definitions_file
+#logging
+log_name = None
+
+
+def initialize_config(_path, _cfgfile_name, _pint_definitions_file, _log_name):
+    global weibul_coeff_of_var, scenario_dict, available_cpus, workingdir, cfgfile_name, pint_definitions_file, log_name, log_initialized
     workingdir = os.getcwd() if _path is None else _path
     cfgfile_name = _cfgfile_name
     pint_definitions_file = _pint_definitions_file
+    
     init_cfgfile(os.path.join(workingdir, cfgfile_name))
     init_db()
     init_pint(os.path.join(workingdir, pint_definitions_file))
     init_geo()
     init_date_lookup()
     init_output_parameters()
+    
+    log_name = '{} energyPATHWAYS log.log'.format(str(datetime.datetime.now())[:-4].replace(':', '.')) if _log_name is None else _log_name
+    setuplogging()
 
     scenario_dict = dict(util.sql_read_table('Scenarios',['id', 'name'], return_iterable=True))
     available_cpus = min(cpu_count(), int(cfgfile.get('case','num_cores')))
     weibul_coeff_of_var = util.create_weibul_coefficient_of_variation()
+
+def setuplogging():
+    log_path = os.path.join(workingdir, log_name)
+    log_level = cfgfile.get('log', 'log_level').upper()
+    logging.basicConfig(filename=log_path, level=log_level)
+    if cfgfile.get('log', 'stdout').lower() == 'true':
+        soh = logging.StreamHandler(sys.stdout)
+        soh.setLevel(log_level)
+        logger = logging.getLogger()
+        logger.addHandler(soh)
 
 def init_cfgfile(cfgfile_path):
     global cfgfile, years, supply_years

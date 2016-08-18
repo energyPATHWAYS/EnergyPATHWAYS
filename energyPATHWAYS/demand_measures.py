@@ -12,6 +12,7 @@ import numpy as np
 import inspect
 from util import DfOper
 from shared_classes import StockItem
+import logging
 
 
 class FlexibleLoadMeasure(Abstract):
@@ -65,7 +66,7 @@ class DemandMeasure(StockItem):
         elif hasattr(self, 'max_lifetime') and hasattr(self, 'min_lifetime'):
             self.book_life = (getattr(self, 'min_lifetime') + getattr(self, 'max_lifetime')) / 2
         else:
-            logging.warning("incomplete lifetime information entered for technology %s" % self.name)
+            logging.debug("incomplete lifetime information entered for technology %s" % self.name)
 
 
 class ServiceDemandMeasure(Abstract, DemandMeasure):
@@ -130,7 +131,7 @@ class FuelSwitchingMeasure(Abstract, StockItem):
         elif hasattr(self, 'max_lifetime') and hasattr(self, 'min_lifetime'):
             self.book_life = (getattr(self, 'min_lifetime') + getattr(self, 'max_lifetime')) / 2
         else:
-            logging.warning("incomplete lifetime information entered for technology %s" % self.name)
+            logging.debug("incomplete lifetime information entered for technology %s" % self.name)
 
 
 class FuelSwitchingImpact(Abstract):

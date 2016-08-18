@@ -38,9 +38,9 @@ class Demand(object):
         # Sectors requires drivers be read in
         self.add_sectors()
 
-        logging.info('remapping drivers')
+        logging.info('Remapping drivers')
         self.remap_drivers()
-        logging.info('populating energy system data')
+        logging.info('Populating energy system data')
         for sector in self.sectors.values():
             logging.info('  '+sector.name+' sector')
             if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
@@ -55,6 +55,7 @@ class Demand(object):
             sector.make_precursor_dict()
 
     def add_measures(self, demand_case_id):
+        logging.info('Adding demand measures')
         for sector in self.sectors.values():
             for subsector in sector.subsectors.values():
                 subsector.add_measures(demand_case_id)
@@ -221,8 +222,11 @@ class Demand(object):
             self.sectors[id].add_subsectors()
 
     def calculate_demand(self):
+        logging.info('Calculating demand')
         for sector in self.sectors.values():
+            logging.info('  {} sector'.format(sector.name))
             sector.manage_calculations()
+        logging.info('Creating electricity shape reconciliation')
         self.create_electricity_reconciliation()
 
 
@@ -418,6 +422,7 @@ class Subsector(DataMapFunctions):
         self.workingdir = cfg.workingdir
         self.cfgfile_name = cfg.cfgfile_name
         self.pint_definitions_file = cfg.pint_definitions_file
+        self.log_name = cfg.log_name
         # boolean check on data availability to determine calculation steps
         self.has_stock = stock
         self.has_service_demand = service_demand
@@ -561,12 +566,11 @@ class Subsector(DataMapFunctions):
         assert cfg.cur.rowcount <= 1,\
             "More than one DemandCasesData row found for subsector %i, case %i." % (self.id, case_id)
         result = cfg.cur.fetchone()
-
-        logging.info("Loading packages for subsector " + str(self.id))
+        logging.info("    Loading packages for " + str(self.name))
         for idx, col_name in enumerate(col_names):
             if col_name.endswith('package_id'):
                 val = result[idx] if result else None
-                logging.warning('  Setting %s to %s' % (col_name, "None" if val is None else str(val)))
+                logging.debug('  Setting %s to %s' % (col_name, "None" if val is None else str(val)))
                 setattr(self, col_name, val)
 
     def add_measures(self, case_id):
@@ -587,20 +591,20 @@ class Subsector(DataMapFunctions):
                 self.technologies[tech].add_sales_share_measures(self.sales_package_id)
 
     def calculate(self):
-        logging.info("calculating" + " " +  self.name)
-        logging.debug('    '+'calculating measures')
+        logging.info("    calculating" + " " +  self.name)
+        logging.debug('      '+'calculating measures')
         self.calculate_measures()
-        logging.debug('    '+'adding linked inputs')
+        logging.debug('      '+'adding linked inputs')
         self.add_linked_inputs(self.linked_service_demand_drivers, self.linked_stock)
-        logging.debug('    '+'forecasting energy drivers')
+        logging.debug('      '+'forecasting energy drivers')
         self.project()
-        logging.debug('    '+'calculating subsector energy demand')
+        logging.debug('      '+'calculating subsector energy demand')
         self.calculate_energy()
         self.project_measure_stocks()
         self.calculated = True
-        logging.debug('    '+'calculating costs')
+        logging.debug('      '+'calculating costs')
         self.calculate_costs()
-        logging.debug('    '+'processing outputs')
+        logging.debug('      '+'processing outputs')
         self.remove_extra_subsector_attributes()
 
     def add_linked_inputs(self, linked_service_demand_drivers, linked_stock):

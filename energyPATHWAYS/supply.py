@@ -39,6 +39,8 @@ class Supply(object):
     """    
     def __init__(self, demand_object=None):
         """Initializes supply instance"""
+        self.all_nodes, self.blend_nodes, self.non_storage_nodes = [], [], []
+        self.nodes = {}
         self.demand_object = demand_object # used to retrieve results from demand-side
         self.demand_sectors = util.sql_read_table('DemandSectors','id')
         self.thermal_dispatch_node_id = util.sql_read_table('DispatchConfig', 'thermal_dispatch_node_id')
@@ -61,10 +63,6 @@ class Supply(object):
     def calculate_technologies(self):
         """ initiates calculation of all technology attributes - costs, efficiency, etc.
         """
-        tech_classes = ['capital_cost_new', 'capital_cost_replacement', 'installation_cost_new', 'installation_cost_replacement', 'fixed_om', 'variable_om', 'efficiency']
-        #storage techs have additional attributes specifying costs for energy (i.e. kWh of energy storage) and discharge capacity (i.e. kW)
-        storage_tech_classes = ['installation_cost_new','installation_cost_replacement', 'fixed_om', 'variable_om', 'efficiency', 'capital_cost_new_capacity', 'capital_cost_replacement_capacity',
-                                'capital_cost_new_energy', 'capital_cost_replacement_energy']
         for node in self.nodes.values():
             if not hasattr(node, 'technologies'):
                 continue
@@ -74,9 +72,9 @@ class Supply(object):
             
             # indentation is correct
             if isinstance(technology, StorageTechnology):
-                node.remap_tech_attrs(storage_tech_classes)
+                node.remap_tech_attrs(cfg.storage_tech_classes)
             else:
-                node.remap_tech_attrs(tech_classes)
+                node.remap_tech_attrs(cfg.tech_classes)
     
     def aggregate_results(self):
         def remove_na_levels(df):
@@ -140,16 +138,19 @@ class Supply(object):
             
     def initial_calculate(self):
         """Calculates all nodes in years before IO loop"""
-        logging.info("calculating supply-side prior to current year")
+        logging.info("Calculating supply-side prior to current year")
         self.calculate_years()
-        self.add_empty_output_df() 
+        self.add_empty_output_df()
+        logging.info("Creating input-output table")
         self.create_IO()
         self.create_inverse_dict()
         self.cost_dict = util.recursivedict()
         self.emissions_dict = util.recursivedict()
         self.create_embodied_cost_and_energy_demand_link()
         self.create_embodied_emissions_demand_link()
+        logging.info("Initiating calculation of technology attributes")
         self.calculate_technologies()
+        logging.info("Running stock rollover prior to current year")
         self.calculate_nodes()
         self.calculate_initial_demand()    
 
@@ -176,25 +177,17 @@ class Supply(object):
 
         self.io_dict = util.freeze_recursivedict(self.io_dict)
 
-    def add_node_list(self):
-        """Adds list of nodes to supply-side"""
-        self.nodes = {}
-        self.all_nodes = []
-        self.blend_nodes = []
-        self.non_storage_nodes = []
-        ids = util.sql_read_table('SupplyNodes', column_names='id', return_iterable=True)
-        ids.sort()
-        for id in ids:
-            self.all_nodes.append(id)
-
     def add_nodes(self):  
         """Adds node instances for all active supply nodes"""
-        self.add_node_list()
-        for node_id in self.all_nodes:
-            supply_type_id, is_active = util.sql_read_table('SupplyNodes', column_names=('supply_type_id', 'is_active'), id=node_id, is_active=True)
-            supply_type_name = util.sql_read_table('SupplyTypes', column_names='name', id=supply_type_id)   
+        logging.info('Adding supply nodes')
+        supply_type_dict = dict(util.sql_read_table('SupplyTypes', column_names=['id', 'name']))
+        supply_nodes = util.sql_read_table('SupplyNodes', column_names=['id', 'name', 'supply_type_id', 'is_active'], return_iterable=True)
+        supply_nodes.sort()
+        for node_id, name, supply_type_id, is_active  in supply_nodes:
+            self.all_nodes.append(node_id)
             if is_active:
-                self.add_node(node_id, supply_type_name)
+                logging.info('    {} node {}'.format(supply_type_dict[supply_type_id], name))
+                self.add_node(node_id, supply_type_dict[supply_type_id])
         
         # this ideally should be moved to the init statements for each of the nodes
         for node in self.nodes.values():
@@ -223,7 +216,7 @@ class Supply(object):
             if len(util.sql_read_table('SupplyTechs', 'supply_node_id', supply_node_id=id, return_iterable=True)):          
                 self.nodes[id] = StorageNode(id, supply_type)
             else:
-                logging.warning(ValueError('insufficient data in storage node %s' %id))
+                logging.debug(ValueError('insufficient data in storage node %s' %id))
             
         elif supply_type == "Import":
             self.nodes[id] = ImportNode(id, supply_type)
@@ -237,13 +230,14 @@ class Supply(object):
             elif len(util.sql_read_table('SupplyTechs', 'supply_node_id', supply_node_id=id, return_iterable=True)):          
                 self.nodes[id] = SupplyStockNode(id, supply_type)
             else:
-                logging.warning(ValueError('insufficient data in supply node %s' %id))
+                logging.debug(ValueError('insufficient data in supply node %s' %id))
 
         if supply_type != "Storage":
             self.non_storage_nodes.append(id)
              
     def add_measures(self, case_id):
         """ Adds measures to supply nodes based on case and package inputs"""
+        logging.info('Adding supply measures')
         self.case_id = case_id
         for node in self.nodes.values():  
             node.filter_packages(case_id)
@@ -269,7 +263,6 @@ class Supply(object):
         throughput for all nodes, these coefficients are just proxies in this initial loop
         """
         loop, year = 'initial', min(self.years)
-        logging.info("looping through IO calculate for year: " + str(year) + " and loop: "  + str(loop))
         self.calculate_demand(year, loop)
         self.pass_initial_demand_to_nodes(year)
         self.discover_thermal_nodes()
@@ -303,14 +296,16 @@ class Supply(object):
     def calculate_loop(self):
         """Performs all IO loop calculations"""
         dispatch_year_step = int(cfg.cfgfile.get('case','dispatch_step'))
+        logging.info("Dispatch year step = {}".format(dispatch_year_step))
         self.dispatch_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_year_step))
         self._calculate_initial_loop()
         first_year = min(self.years)
         for year in self.years:
+            logging.info("Starting supply side calculations for {}".format(year))
             for loop in [1, 2, 3]:
-                logging.info("looping through IO calculate for year: " + str(year) + " and loop: "  + str(loop))
                 # starting loop
                 if loop == 1:
+                    logging.info("    loop {}: input-output calculation".format(loop))
                     if year is not first_year:
                         # initialize year is not necessary in the first year
                         self.initialize_year(year, loop)
@@ -319,6 +314,7 @@ class Supply(object):
                 
                 # reconciliation loop
                 elif loop == 2:
+                    logging.info("    loop {}: supply reconciliation".format(loop))
                     # sets a flag for whether any reconciliation occurs in the loop determined in the reconcile function
                     self.reconciled = False
                     # each time, if reconciliation has occured, we have to recalculate coefficients and resolve the io
@@ -337,6 +333,7 @@ class Supply(object):
                 
                 # dispatch loop
                 elif loop == 3 and year in self.dispatch_years:
+                    logging.info("    loop {}: electricity dispatch".format(loop))
                     # loop - 1 is necessary so that it uses last year's throughput 
                     self.calculate_embodied_costs(year, loop-1) # necessary here because of the dispatch
                     self.prepare_dispatch_inputs(year, loop)
@@ -513,7 +510,7 @@ class Supply(object):
         self.dispatched_dist_gen = copy.deepcopy(self.distribution_gen)*0
         for node_id in [x for x in self.dispatch.dispatch_order if x in self.nodes.keys()]:
             node = self.nodes[node_id]
-            logging.info("solving dispatch for %s" %node.name)
+            logging.info("      solving dispatch for %s" %node.name)
             full_energy_shape, p_min_shape, p_max_shape = node.aggregate_flexible_electricity_shapes(year, util.remove_df_levels(util.df_slice(self.dispatch_feeder_allocation.values,year,'year'),year))
             if node_id in self.flexible_gen.keys():
                 lookup = self.flexible_gen
@@ -584,18 +581,15 @@ class Supply(object):
                                 self.distribution_gen.loc[indexer,:] += dispatch
                                 self.dispatched_dist_gen.loc[indexer,:] += dispatch
                     self.update_net_load_signal()
-           
-
+    
     def prepare_optimization_inputs(self,year):
-        logging.info("preparing optimization inputs")
+        logging.info("      preparing optimization inputs")
         self.dispatch.set_timeperiods(shape.shapes.active_dates_index)
         self.dispatch.set_losses(self.distribution_losses)
         self.set_net_load_thresholds(year)
         self.dispatch.set_opt_loads(self.distribution_load,self.distribution_gen,self.bulk_load,self.bulk_gen)
         self.dispatch.set_technologies(self.storage_capacity_dict, self.storage_efficiency_dict, self.active_thermal_dispatch_df)
         self.dispatch.set_average_net_loads(self.bulk_net_load)
-
-     
      
     def set_grid_capacity_factors(self, year):
         max_year = max(self.years)
@@ -633,7 +627,7 @@ class Supply(object):
     def solve_storage_and_flex_load_optimization(self,year):
         """prepares, solves, and updates the net load with results from the storage and flexible load optimization""" 
         self.prepare_optimization_inputs(year)
-        logging.info("solving storage and dispatchable load optimization")
+        logging.info("      solving dispatch for storage and dispatchable load")
         self.dispatch.parallelize_opt(year)
         
         for geography in cfg.dispatch_geographies:
@@ -856,7 +850,7 @@ class Supply(object):
             year (int) = year of analysis 
             loop (int or str) = loop identifier
         """
-        logging.info("initiating electricity dispatch")
+        logging.info("      preparing dispatch inputs")
         self.solved_gen_list = []
         self.set_electricity_gen_nodes(self.nodes[self.distribution_node_id],self.nodes[self.distribution_node_id])
         self.solved_gen_list = []
@@ -982,8 +976,6 @@ class Supply(object):
                     resource = eval(resource)
                     if resource[-1] == year:                 
                         self.active_thermal_dispatch_df.loc[(dispatch_geography,node.id, str(resource), 'capacity_weights'),year]= (util.df_slice(weights,[dispatch_geography, resource[0], node_id],[cfg.dispatch_geography,cfg.primary_geography,'supply_node']).values * node.active_weighted_sales.loc[resource[0:-1:1],:].values)[0][0]
-
-
     
     def calculate_weighted_sales(self,year):
         """sets the anticipated share of sales by technology for capacity additions added in the thermal dispatch. 
@@ -1005,13 +997,10 @@ class Supply(object):
             node.active_weighted_sales = weighted_sales
             node.active_weighted_sales = node.active_weighted_sales.fillna(1/float(len(node.tech_ids)))
 
-
-        
-
     def solve_thermal_dispatch(self,year):
         """solves the thermal dispatch, updating the capacity factor for each thermal dispatch technology
         and adding capacity to each node based on determination of need"""
-        logging.info('solving thermal dispatch')
+        logging.info('      solving thermal dispatch')
         self.calculate_weighted_sales(year)
         self.capacity_weights(year)
         parallel_params = list(zip(cfg.dispatch_geographies,[util.df_slice(self.active_thermal_dispatch_df,x,cfg.dispatch_geography,drop_level=False) for x in cfg.dispatch_geographies],
@@ -1023,7 +1012,6 @@ class Supply(object):
             dispatch_results = pool.map(dispatch_classes.run_thermal_dispatch, parallel_params)
             pool.close()
             pool.join()
-#            pool.terminate()
         else:
             dispatch_results = []
             for params in parallel_params:
@@ -1402,7 +1390,6 @@ class Supply(object):
         self.bulk_load = self.shaped_bulk(year, self.non_flexible_load)
         self.update_net_load_signal()            
         
-        
     def update_net_load_signal(self):    
         self.dist_only_net_load =  DfOper.subt([self.distribution_load,self.distribution_gen])
         self.bulk_only_net_load = DfOper.subt([self.bulk_load,self.bulk_gen])
@@ -1774,7 +1761,7 @@ class Supply(object):
             if constrained_node in set(output_node.active_coefficients_total.index.get_level_values('supply_node')):
                   #if this output node is a blend node, the reconciliation happens here. 
                   if output_node.id in self.blend_nodes:
-                     logging.info("constrained node %s being reconciled in blend node %s" %(self.nodes[constrained_node].name, output_node.name))
+                     logging.info("      constrained node %s being reconciled in blend node %s" %(self.nodes[constrained_node].name, output_node.name))
                      indexer = util.level_specific_indexer(output_node.values,'supply_node', constrained_node)
                      output_node.values.loc[indexer,year] =  DfOper.mult([output_node.values.loc[indexer, year].to_frame(),constraint_adjustment]).values
                      #flag for the blend node that it has been reconciled and needs to recalculate residual
@@ -2126,6 +2113,7 @@ class Node(DataMapFunctions):
         self.workingdir = cfg.workingdir
         self.cfgfile_name = cfg.cfgfile_name
         self.pint_definitions_file = cfg.pint_definitions_file
+        self.log_name = cfg.log_name
 
     def determine_shape(self):
         if self.shape_id is not None:
@@ -2473,10 +2461,11 @@ class Node(DataMapFunctions):
             "More than one SupplyCasesData row found for supply node %i, case %i." % (self.id, case_id)
         result = cfg.cur.fetchone()
 
-        logging.debug("Loading packages for supply node " + str(self.id))
+        logging.info("    Loading packages for node " + str(self.name))
         for idx, col_name in enumerate(col_names):
             if col_name.endswith('package_id'):
                 val = result[idx] if result else None
+                logging.debug('  Setting %s to %s' % (col_name, "None" if val is None else str(val)))
                 setattr(self, col_name, val)
 
     def add_export_measures(self):
