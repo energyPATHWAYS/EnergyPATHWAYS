@@ -58,8 +58,8 @@ class TimeSeries:
 
         if popt is None:
             # Raise an error if no fit is found
-            logging.warning("leastsq_curve_fit failed to find a solution - data does not support logistic fit")
-            logging.warning("Model using default logistic curve")
+            logging.debug("leastsq_curve_fit failed to find a solution - data does not support logistic fit")
+            logging.debug("Model using default logistic curve")
             # TODO: print to log file here
             return TimeSeries.default_logistic(x, y, newindex)
 
@@ -173,7 +173,7 @@ class TimeSeries:
                 interpolation_method = 'nearest'
             elif interpolation_method=='logistic':
                 interpolation_method = 'nearest'
-                logging.warning('More than one x, y pair is needed for logistic regression')
+                logging.debug('More than one x, y pair is needed for logistic regression')
             elif interpolation_method is not None:
                 interpolation_method = 'nearest'
 
@@ -181,7 +181,7 @@ class TimeSeries:
                 extrapolation_method = 'nearest'
             elif extrapolation_method=='logistic':
                 extrapolation_method = 'nearest'
-                logging.warning('More than one x, y pair is needed for logistic regression')
+                logging.debug('More than one x, y pair is needed for logistic regression')
             elif extrapolation_method is not None:
                 extrapolation_method = 'nearest'
 

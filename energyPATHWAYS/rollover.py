@@ -374,7 +374,7 @@ class Rollover(object):
         sales_to_allocate = (self.stock_changes[i] + self.rolloff_summed) - self.sum_defined_sales
 
         if not self.stock_changes_as_min and round(sales_to_allocate, 6) < 0:
-            # just give a logger warning here.
+            logging.debug("sales_to_allocate = {} and should not be negative".format(sales_to_allocate))
             # on the demand side, when we have a linked stock, it is possible for this to be different
             sales_to_allocate = max(0, sales_to_allocate)
 #            raise ValueError('stock_changes_as_min is False and the sum of defined sales is greater than stock growth')

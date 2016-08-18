@@ -11,20 +11,20 @@ import config as cfg
 #from dispatch_classes import Dispatch
 
 def node_calculate(node):
-    cfg.initialize_config(node.workingdir, node.cfgfile_name, node.pint_definitions_file)
+    cfg.initialize_config(node.workingdir, node.cfgfile_name, node.pint_definitions_file, node.log_name)
     node.calculate()
     cfg.cur.close()
     return node
 
 def subsector_calculate(subsector):
     if not subsector.calculated:
-        cfg.initialize_config(subsector.workingdir, subsector.cfgfile_name, subsector.pint_definitions_file)
+        cfg.initialize_config(subsector.workingdir, subsector.cfgfile_name, subsector.pint_definitions_file, subsector.log_name)
         subsector.calculate()
         cfg.cur.close()
     return subsector
 
 def subsector_populate(subsector):
-    cfg.initialize_config(subsector.workingdir, subsector.cfgfile_name, subsector.pint_definitions_file)
+    cfg.initialize_config(subsector.workingdir, subsector.cfgfile_name, subsector.pint_definitions_file, subsector.log_name)
     subsector.add_energy_system_data()
     cfg.cur.close()
     return subsector
@@ -38,7 +38,7 @@ def aggregate_electricity_shapes(params):
     default_max_lead_hours = params[4]
     default_max_lag_hours = params[5]
     
-    cfg.initialize_config(subsector.workingdir, subsector.cfgfile_name, subsector.pint_definitions_file)
+    cfg.initialize_config(subsector.workingdir, subsector.cfgfile_name, subsector.pint_definitions_file, subsector.log_name)
     aggregate_electricity_shape = subsector.aggregate_electricity_shapes(year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours)
     cfg.cur.close()
     
