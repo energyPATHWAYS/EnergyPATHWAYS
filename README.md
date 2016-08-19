@@ -60,7 +60,13 @@ Please note that energyPATHWAYS is under development and the database structure 
 
 ### Running the Model
 
-Also located inside of the us\_model\_example folder is a script (main.py) that shows how a pathways model can be created and executed; after running the script, look in the output/ subdirectory for your results (it will be created if it doesn't exist). This documentation will become more developed over time as the energyPATHWAYS tool grows and the user community expands.
+After installing energyPATHWAYS, it can be run from the command line.
+
+`` $ energyPATHWAYS [options]``
+
+It is necessary to point energyPATHWAYS to a configuration file in the run directory. This file, among general model setup, points the model the the correct database. An example (config.INI) is found in the us\_model\_example folder.
+
+This documentation will become more developed over time as the energyPATHWAYS tool grows and the user community expands.
 
 ## Background
 
