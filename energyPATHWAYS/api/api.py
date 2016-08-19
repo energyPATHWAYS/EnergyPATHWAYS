@@ -202,8 +202,7 @@ class ScenarioRunner(Resource):
 
         # Actually run the scenario
         subprocess.Popen(['energyPATHWAYS', '-a',
-                          '-c', '../../us_model_example/config.INI',
-                          '-u', '../../us_model_example/unit_defs.txt',
+                          '-p', '../../us_model_example',
                           '-s', str(scenario_id)])
 
         return {'message': 'Scenario run initiated'}, 200,\

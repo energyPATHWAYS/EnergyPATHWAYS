@@ -62,7 +62,7 @@ def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load
         logging.info('Starting scenario_id {}'.format(scenario_id))
         if api_run:
             util.update_status(scenario_id, 2)
-        model = load_model(path, load_demand, load_supply, scenario_id)
+        model = load_model(path, load_demand, load_supply, scenario_id, api_run)
         model.run(scenario_id,
                   solve_demand=solve_demand and not (load_demand or load_supply),
                   solve_supply=solve_supply and not load_supply,
@@ -84,7 +84,10 @@ def parse_scenario_ids(scenario):
         scenario = str(scenario).split(',')
     return [int(str(s).rstrip().lstrip()) for s in scenario]
 
-def load_model(path, load_demand, load_supply, scenario_id):
+def load_model(path, load_demand, load_supply, scenario_id, api_run):
+    # Note that the api_run parameter is effectively ignored if you are loading a previously pickled model
+    # (with load_supply or load_demand); the model's api_run property will be set to whatever it was when the model
+    # was pickled.
     if load_supply:
         with open(os.path.join(path, str(scenario_id)+'_full_model_run.p'), 'rb') as infile:
             model = pickle.load(infile)
@@ -92,7 +95,7 @@ def load_model(path, load_demand, load_supply, scenario_id):
         with open(os.path.join(path, str(scenario_id)+'_model.p'), 'rb') as infile:
             model = pickle.load(infile)
     else:
-        model = PathwaysModel(scenario_id)
+        model = PathwaysModel(scenario_id, api_run)
     return model
 
 if __name__ == "__main__":

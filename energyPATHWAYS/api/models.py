@@ -345,7 +345,7 @@ class OutputType(db.Model):
 
 
 class Output(db.Model):
-    __tablename__ = 'output'
+    __tablename__ = 'outputs'
     __table_args__ = {'schema': RUN_SCHEMA}
 
     id = db.Column(db.Integer, primary_key=True)
