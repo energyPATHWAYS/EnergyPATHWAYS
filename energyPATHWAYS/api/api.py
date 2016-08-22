@@ -1,4 +1,6 @@
 import subprocess
+import logging
+import datetime
 from flask import Flask, g, request
 from flask_restful import Resource, Api
 from flask_cors import CORS
@@ -243,4 +245,11 @@ api.add_resource(Token, '/token')
 # start the server with the 'run()' method
 if __name__ == '__main__':
     app.config.from_pyfile('config.py')
-    app.run(debug=True)
+    app.run()
+
+    # Logging recipe from http://flask.pocoo.org/docs/0.11/errorhandling/#logging-to-a-file
+    # There's also a bunch of guidance there about sending emails on error, etc., when we're ready for that
+    if not app.debug:
+        logging.basicConfig(filename='../../us_model_example/api %s.log' % (str(datetime.datetime.now())),
+                            level=logging.DEBUG)
+
