@@ -41,6 +41,7 @@ class Config:
                                                   int(cfgfile.get('case', 'year_step'))))
         
         self.primary_geography = cfgfile.get('case', 'primary_geography')
+        self.dispatch_geography = cfgfile.get('case', 'dispatch_geography')
         self.cfgfile = cfgfile
         
         
@@ -122,7 +123,9 @@ class Config:
 #        if 'primary_geography' in self.output_supply_levels:
 #            self.output_supply_levels[self.output_supply_levels.index('primary_geography')] = self.primary_geography     
         primary_geography_id = util.sql_read_table('Geographies', 'id', name=self.primary_geography)
+        dispatch_geography_id = util.sql_read_table('Geographies', 'id', name=self.dispatch_geography)
         self.outputs_id_map[self.primary_geography] = util.upper_dict(util.sql_read_table('GeographiesData', ['id', 'name'], geography_id=primary_geography_id, return_unique=True, return_iterable=True))
+        self.outputs_id_map[self.dispatch_geography] = util.upper_dict(util.sql_read_table('GeographiesData', ['id', 'name'], geography_id=dispatch_geography_id, return_unique=True, return_iterable=True))
         self.outputs_id_map[self.primary_geography+"_supply"] =  self.outputs_id_map[self.primary_geography]       
         self.outputs_id_map['technology'] = util.upper_dict(util.sql_read_table('DemandTechs', ['id', 'name']))
         self.outputs_id_map['supply_technology'] = util.upper_dict(util.sql_read_table('SupplyTechs', ['id', 'name']))
@@ -133,10 +136,13 @@ class Config:
         self.outputs_id_map['sector'] = util.upper_dict(util.sql_read_table('DemandSectors', ['id', 'name']))
         self.outputs_id_map['ghg'] = util.upper_dict(util.sql_read_table('GreenhouseGases', ['id', 'name']))
         self.outputs_id_map['driver'] = util.upper_dict(util.sql_read_table('DemandDrivers', ['id', 'name']))
+        self.outputs_id_map['dispatch_feeder'] = util.upper_dict(util.sql_read_table('DispatchFeeders', ['id', 'name']))
+        self.outputs_id_map['dispatch_feeder'][0] = 'BULK'
         for id, name in util.sql_read_table('OtherIndexes', ('id', 'name'), return_iterable=True):
             if name in ('technology', 'final_energy'):
                 continue
             self.outputs_id_map[name] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name'], other_index_id=id, return_unique=True))
+        
 
 
 #######################

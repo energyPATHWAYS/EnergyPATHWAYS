@@ -14,7 +14,7 @@ import math
 from config import cfg
 from collections import defaultdict
 import os
-from pyomo.opt import SolverFactory
+from pyomo.opt import SolverFactory, SolverStatus
 import csv
 import logging
 from sklearn.cluster import KMeans
@@ -24,7 +24,7 @@ from pathos.multiprocessing import Pool, cpu_count
 # Dispatch modules
 import dispatch_problem_PATHWAYS
 import year_to_period_allocation
-
+import pdb 
   
 def run_optimization(zipped_input):
     period = zipped_input[0]
@@ -280,7 +280,7 @@ class Dispatch(object):
                 gen_df = util.df_slice(bulk_gen, [geography, 2], [self.dispatch_geography, 'timeshift_type'])
                 for timepoint in self.period_timepoints[period]:
                    time_index = timepoint -1
-                   self.bulk_load[period][(geography,timepoint)] = load_df.iloc[time_index].values[0]     
+                   self.bulk_load[period][(geography,timepoint)] = load_df.iloc[time_index].values[0]    
                    self.bulk_gen[period][(geography,timepoint)] = gen_df.iloc[time_index].values[0]
                    
     def set_max_flex_loads(self, distribution_load):
@@ -383,7 +383,7 @@ class Dispatch(object):
         FORs = np.array(util.df_slice(thermal_dispatch_df,['forced_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
         must_run = np.array(util.df_slice(thermal_dispatch_df,['must_run',geography],['IO',self.dispatch_geography]).values).T[0]
         clustered_dict = self._cluster_generators(n_clusters = int(cfg.cfgfile.get('opt','generator_steps')), pmax=pmax, marginal_cost=marginal_cost, FORs=FORs, 
-                                     MORs=MORs, must_run=must_run, pad_stack=True, zero_mc_4_must_run=True)
+                                     MORs=MORs, must_run=must_run, pad_stack=False, zero_mc_4_must_run=True)
         generator_numbers = range(len(clustered_dict['derated_pmax']))
         for number in generator_numbers:
             generator = str(((max(generator_numbers)+1)* (self.dispatch_geographies.index(geography))) + (number)+1)
@@ -736,7 +736,8 @@ class Dispatch(object):
                 normed_capacity_weights /= sum(normed_capacity_weights)
                 ncwi = np.nonzero(normed_capacity_weights)[0]
             # we need more capacity
-                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - combined_rate[ncwi])
+                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - combined_rate[ncwi]
+                )
                 
         return stock_changes
     
@@ -870,9 +871,17 @@ class Dispatch(object):
         dist_test = util.DfOper.add(output_dist_dfs)
         flex_test = util.DfOper.add(output_flex_dfs)
         if np.any(np.isnan(flex_test.values)):
-            flex_test = flex_test.fillna(self.flex_load_df)
-            bulk_test = bulk_test.fillna(self.bulk_storage_df)
-            dist_test = dist_test.fillna(self.dist_storage_df)
+#            util.ExportMethods.writeobj(str(year) + 'flex',flex_test, os.path.join(os.getcwd(),'dispatch_outputs'), append_results=True)
+            results = []
+            for zipped_input in zipped_inputs:
+                results.append(run_optimization(zipped_input))
+                output_bulk_dfs = [x[0] for x in results]
+                output_dist_dfs = [x[1] for x in results]
+                output_flex_dfs = [x[2] for x in results]
+                bulk_test = util.DfOper.add(output_bulk_dfs)
+                dist_test = util.DfOper.add(output_dist_dfs)
+                flex_test = util.DfOper.add(output_flex_dfs)
+            util.ExportMethods.writeobj(str(year) + 'fixed_flex',flex_test, os.path.join(os.getcwd(),'dispatch_outputs'), append_results=True)
         self.flex_load_df = flex_test
         self.dist_storage_df = dist_test 
         self.bulk_storage_df = bulk_test

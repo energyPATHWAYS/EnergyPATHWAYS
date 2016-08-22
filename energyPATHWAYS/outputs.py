@@ -25,7 +25,27 @@ class Output(object):
         index = cleaned_output.index
         index.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(index.names, index.levels)], inplace=True)
         index.names = [x.upper() if isinstance(x, basestring) else x for x in index.names]
-        cleaned_output.columns = [x.upper() if isinstance(x, basestring) else x for x in cleaned_output.columns]
-        
+        if isinstance(cleaned_output.columns,pd.MultiIndex):
+            columns = cleaned_output.columns
+            columns.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(columns.names, columns.levels)], inplace=True)
+            columns.names = [x.upper() if isinstance(x, basestring) else x for x in columns.names]
+        else:
+            cleaned_output.columns = [x.upper() if isinstance(x, basestring) else x for x in cleaned_output.columns]        
         return cleaned_output
 
+    def clean_df(self, df):
+        if type(df) is not pd.core.frame.DataFrame:
+            raise ValueError('output_type must be a pandas dataframe')
+        if 'year' in df.index.names:
+            df = df[df.index.get_level_values('year')>=int(cfg.cfgfile.get('case','current_year'))]
+        dct = cfg.outputs_id_map
+        index = df.index
+        index.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(index.names, index.levels)], inplace=True)
+        index.names = [x.upper() if isinstance(x, basestring) else x for x in index.names]
+        if isinstance(df.columns,pd.MultiIndex):
+            columns = df.columns
+            columns.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(columns.names, columns.levels)], inplace=True)
+            columns.names = [x.upper() if isinstance(x, basestring) else x for x in columns.names]
+        else:
+            df.columns = [x.upper() if isinstance(x, basestring) else x for x in df.columns]        
+        return df

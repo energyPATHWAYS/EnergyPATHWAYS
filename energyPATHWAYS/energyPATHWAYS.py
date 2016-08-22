@@ -1,4 +1,4 @@
-__author__ = 'Ben Haley & Ryan Jones'
+F__author__ = 'Ben Haley & Ryan Jones'
 
 import os
 from demand import Demand
@@ -116,7 +116,7 @@ class PathwaysModel(object):
         self.demand.aggregate_results()
     
     def calculate_supply(self):
-        self.supply.initial_calculate()     
+        self.supply.initial_calculate(self.scenario)     
         self.supply.calculate_loop()
         self.supply.final_calculate()
              
@@ -128,7 +128,9 @@ class PathwaysModel(object):
         
     def pass_results_to_demand(self):
         print "calculating link to supply"
-        self.demand.link_to_supply(self.supply.emissions_demand_link, self.supply.demand_emissions_rates, self.supply.energy_demand_link, self.supply.cost_demand_link)
+        self.demand.link_to_supply(self.supply.emissions_demand_link, 
+                                   self.supply.demand_emissions_rates, 
+                                   self.supply.energy_demand_link, self.supply.cost_demand_link)
     
     def calculate_combined_results(self):
         print "calculating combined emissions results"
@@ -279,3 +281,23 @@ class PathwaysModel(object):
          self.outputs.energy= self.outputs.energy[self.outputs.energy['VALUE']!=0]
          energy_unit = cfg.cfgfile.get('case','energy_unit')
          self.outputs.energy.columns = [energy_unit.upper()]
+    
+    def return_io(self):
+        dfs = []
+        keys = self.supply.demand_sectors
+        names = ['demand_sector']  
+        for sector in self.supply.demand_sectors:
+            dfs.append(self.supply.io_dict[2050][sector])
+        df = pd.concat(dfs,keys=keys,names=names)
+        df = pd.concat([df]*len(keys),keys=keys,names=names,axis=1)
+        for row_sector in self.supply.demand_sectors:
+            for col_sector in self.supply.demand_sectors:
+                if row_sector == col_sector:           
+                    df.loc[util.level_specific_indexer(df,'demand_sector',row_sector),util.level_specific_indexer(df,'demand_sector',col_sector,axis=1)] = 0
+        self.supply.outputs.io = df
+        result_df = self.supply.outputs.return_cleaned_output('io')
+        keys = [self.scenario.upper(),str(datetime.now().replace(second=0,microsecond=0))]
+        names = ['SCENARIO','TIMESTAMP']
+        for key, name in zip(keys,names):
+            result_df = pd.concat([result_df],keys=[key],names=[name])
+        ExportMethods.writeobj('io',result_df, os.path.join(os.getcwd(),'supply_outputs'), append_results=True)
