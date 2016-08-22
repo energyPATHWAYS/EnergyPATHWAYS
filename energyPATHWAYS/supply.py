@@ -23,7 +23,10 @@ from shape import shapes, Shape
 from outputs import Output
 from pathos.multiprocessing import freeze_support, Pool, cpu_count   
 import pdb
-           
+import os
+from datetime import datetime
+
+
 def node_calculate(node):
     node.calculate()
     return node                      
@@ -162,7 +165,7 @@ class Supply(object):
             node.vintages = copy.deepcopy(node.years)
         self.years = cfg.cfgfile.get('case','supply_years') 
             
-    def initial_calculate(self):
+    def initial_calculate(self, scenario):
         """Calculates all nodes in years before IO loop"""
         print "calculating supply-side prior to current year"
         cfg.init_cfgfile(self.cfgfile_path)
@@ -184,6 +187,7 @@ class Supply(object):
         self.calculate_technologies()
         self.calculate_nodes()
         self.calculate_initial_demand()    
+        self.scenario = scenario
     
     def final_calculate(self):
         self.concatenate_annual_costs()
@@ -755,6 +759,7 @@ class Supply(object):
         self.dispatched_bulk_gen = copy.deepcopy(self.bulk_gen)*0
         self.dispatched_dist_load = copy.deepcopy(self.distribution_load)*0
         self.dispatched_dist_gen = copy.deepcopy(self.distribution_gen)*0
+        node_list = []
         for node_id in [x for x in self.dispatch.dispatch_order if x in self.nodes.keys()]:
             node = self.nodes[node_id]
             print "solving dispatch for %s" %node.name
@@ -767,8 +772,10 @@ class Supply(object):
                 load = True
             else:
                 continue        
+            geography_list = []
             for geography in lookup[node_id].keys():
                 for zone in lookup[node_id][geography].keys():
+                    feeder_list = []
                     for feeder in lookup[node_id][geography][zone].keys():
                         capacity = lookup[node_id][geography][zone][feeder]['capacity']
                         energy = lookup[node_id][geography][zone][feeder]['energy']
@@ -827,9 +834,31 @@ class Supply(object):
                                 dispatch =  np.transpose([Dispatch.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
                                 self.distribution_gen.loc[indexer,:] += dispatch
                                 self.dispatched_dist_gen.loc[indexer,:] += dispatch
+                        index = pd.MultiIndex.from_product([shapes.active_dates_index,[feeder]],names=['weather_datetime','dispatch_feeder'])
+                        dispatch=pd.DataFrame(dispatch,index=index,columns=['value'])
+                        if load is False:
+                            dispatch *=-1
+                        feeder_list.append(dispatch)      
                     self.update_net_load_signal()
-           
+                    geography_list.append(pd.concat(feeder_list))
+            node_list.append(pd.concat(geography_list, keys=self.dispatch_geographies, names=[self.dispatch_geography]))
+            df = pd.concat(node_list,keys=[x for x in self.dispatch.dispatch_order if x in self.nodes.keys()],names=['supply_node'])
+        df = pd.concat([df],keys=[year],names=['year'])
 
+        if 0 in util.elements_in_index_level(df,'dispatch_feeder'):
+            bulk_df = util.df_slice(df,0,'dispatch_feeder')
+            bulk_df = self.outputs.clean_df(bulk_df)
+            bulk_df.columns = [cfg.cfgfile.get('case','energy_unit').upper()]
+            util.replace_index_name(bulk_df, 'DISPATCH_OUTPUT', 'SUPPLY_NODE')
+            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,bulk_df])
+        if len([x for x in  util.elements_in_index_level(df,'dispatch_feeder') if x in self.dispatch_feeders]):        
+            distribution_df = util.df_slice(df,[x for x in  util.elements_in_index_level(df,'dispatch_feeder') if x in self.dispatch_feeders],self.dispatch_feeders)
+            df = util.DfOper.mult([distribution_df,self.distribution_losses])          
+            distribution_df = self.outputs.clean_df(distribution_df)
+            distribution_df.columns = [cfg.cfgfile.get('case','energy_unit').upper()]  
+            util.replace_index_name(distribution_df, 'DISPATCH_OUTPUT', 'SUPPLY_NODE')
+            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch_df,util.remove_df_levels(distribution_df,'DISPATCH_FEEDER')])
+        
     def prepare_optimization_inputs(self,year):
         print "preparing optimization inputs"
         self.dispatch.set_timeperiods(shapes.active_dates_index)
@@ -872,6 +901,13 @@ class Supply(object):
             transmission_grid_node.capacity_factor.values.loc[:,min(year+i,max_year)] = bulk_cap_factor.values
         if hasattr(transmission_grid_node, 'stock'):
             transmission_grid_node.update_stock(year,3) 
+#        self.outputs.distribution_dispatch = util.df_slice(self.dist_only_net_load,2,'timeshift_type')
+#        self.outputs.bulk_net_load = bulk_flow
+#        util.ExportMethods.writeobj('distribution_net_load_results',self.outputs.return_cleaned_output('distribution_net_load'), 
+#                                    os.path.join(os.getcwd(),'dispatch_outputs'), append_results=True)      
+#        util.ExportMethods.writeobj('bulk_net_load_results',self.outputs.return_cleaned_output('bulk_net_load'), 
+#                                    os.path.join(os.getcwd(),'dispatch_outputs'), append_results=True)     
+        
         
 #    @timecall(immediate=True)   
     def solve_storage_and_flex_load_optimization(self,year):
@@ -879,7 +915,6 @@ class Supply(object):
         self.prepare_optimization_inputs(year)
         print "solving storage and dispatchable load optimization"
         self.dispatch.parallelize_opt(year)
-        
         for geography in self.dispatch_geographies:
             for feeder in self.dispatch_feeders:
                 for timeshift_type in list(set(self.distribution_load.index.get_level_values('timeshift_type'))):
@@ -894,6 +929,51 @@ class Supply(object):
             gen_indexer = util.level_specific_indexer(self.bulk_gen, [self.dispatch_geography], [geography])
             self.bulk_gen.loc[gen_indexer,: ] += util.df_slice(self.dispatch.bulk_storage_df,[geography,'discharge'], [self.dispatch_geography, 'charge_discharge']).values    
         self.update_net_load_signal()  
+        self.produce_distributed_storage_outputs(year)
+        self.produce_bulk_storage_outputs(year)
+        self.produce_flex_load_outputs(year)
+        
+        
+        
+    def produce_distributed_storage_outputs(self,year): 
+        distribution_df = util.remove_df_levels(util.DfOper.mult([self.dispatch.dist_storage_df,self.distribution_losses]),'dispatch_feeder')
+        charge_df = util.df_slice(distribution_df,'charge','charge_discharge')
+        index = pd.MultiIndex.from_product([[year],self.dispatch_geographies,shapes.active_dates_index],names=['year',self.dispatch_geography,'weather_datetime'])
+        charge_df = pd.DataFrame(charge_df.values,index=index,columns =[cfg.cfgfile.get('case','energy_unit').upper()])
+        charge_df = self.outputs.clean_df(charge_df)
+        charge_df = pd.concat([charge_df],keys=['DISTRIBUTED STORAGE CHARGE'],names=['DISPATCH_OUTPUT'])
+        self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,charge_df])
+        discharge_df = util.df_slice(distribution_df,'discharge','charge_discharge')*-1
+        index = pd.MultiIndex.from_product([[year],self.dispatch_geographies,shapes.active_dates_index],names=['year',self.dispatch_geography,'weather_datetime'])
+        discharge_df = pd.DataFrame(discharge_df.values,index=index,columns =[cfg.cfgfile.get('case','energy_unit').upper()])
+        discharge_df = self.outputs.clean_df(discharge_df)
+        discharge_df = pd.concat([discharge_df],keys=['DISTRIBUTED STORAGE DISCHARGE'],names=['DISPATCH_OUTPUT'])
+        self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,discharge_df])
+    
+    def produce_bulk_storage_outputs(self,year): 
+        bulk_df = self.dispatch.bulk_storage_df
+        charge_df = util.df_slice(bulk_df,'charge','charge_discharge')
+        index = pd.MultiIndex.from_product([[year],self.dispatch_geographies,shapes.active_dates_index],names=['year',self.dispatch_geography,'weather_datetime'])
+        charge_df = pd.DataFrame(charge_df.values,index=index,columns =[cfg.cfgfile.get('case','energy_unit').upper()])
+        charge_df = self.outputs.clean_df(charge_df)
+        charge_df = pd.concat([charge_df],keys=['BULK STORAGE CHARGE'],names=['DISPATCH_OUTPUT'])
+        self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,charge_df])
+        discharge_df = util.df_slice(bulk_df,'discharge','charge_discharge')*-1
+        index = pd.MultiIndex.from_product([[year],self.dispatch_geographies,shapes.active_dates_index],names=['year',self.dispatch_geography,'weather_datetime'])
+        discharge_df = pd.DataFrame(discharge_df.values,index=index,columns =[cfg.cfgfile.get('case','energy_unit').upper()])
+        discharge_df = self.outputs.clean_df(discharge_df)
+        discharge_df = pd.concat([discharge_df],keys=['BULK STORAGE DISCHARGE'],names=['DISPATCH_OUTPUT'])
+        self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,discharge_df])
+    
+    def produce_flex_load_outputs(self,year): 
+        flex_load_df = util.DfOper.mult([self.dispatch.flex_load_df,self.distribution_losses])
+        index = pd.MultiIndex.from_product([self.dispatch_geographies,self.dispatch_feeders,shapes.active_dates_index,year],names=[self.dispatch_geography,'dispatch_feeder','weather_datetime','year'])
+        flex_load_df = pd.DataFrame(flex_load_df.values,index=index,columns =[cfg.cfgfile.get('case','energy_unit').upper()])
+        flex_load_df= self.outputs.clean_df(flex_load_df)
+        label_replace_dict = dict(zip(util.elements_in_index_level(flex_load_df,'DISPATCH_FEEDER'),[x+' FLEXIBLE LOAD' for x in util.elements_in_index_level(flex_load_df,'DISPATCH_FEEDER')]))
+        util.replace_index_label(flex_load_df,label_replace_dict,'DISPATCH_FEEDER')
+        util.replace_index_name(flex_load_df,'DISPATCH_OUTPUT','DISPATCH_FEEDER')
+        self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,flex_load_df])
      
     def set_distribution_losses(self,year):
         distribution_grid_node =self.nodes[self.distribution_grid_node_id] 
@@ -1123,9 +1203,15 @@ class Supply(object):
         """
         #solves dispatched load and gen on the supply-side for nodes like hydro and H2 electrolysis
         self.solve_heuristic_load_and_gen(year)
-        #solves electricity storage and flexible demand load optimization
+        #solves electricity storage and flexible demand load optimizatio
         self.solve_storage_and_flex_load_optimization(year)
         #updates the grid capacity factors for distribution and transmission grid (i.e. load factors)
+        keys = [self.scenario.upper(),str(datetime.now().replace(second=0,microsecond=0))]
+        names = ['SCENARIO','TIMESTAMP']
+        for key, name in zip(keys,names):
+            self.bulk_dispatch = pd.concat([self.bulk_dispatch],keys=[key],names=[name])
+        util.ExportMethods.writeobj('hourly_dispatch_results',self.bulk_dispatch, 
+                                    os.path.join(os.getcwd(),'dispatch_outputs'), append_results=True)  
         self.set_grid_capacity_factors(year)
         #solves dispatch (stack model) for thermal resource connected to thermal dispatch node
         self.solve_thermal_dispatch(year)  
@@ -1297,6 +1383,8 @@ class Supply(object):
             for params in parallel_params:
                 dispatch_results = run_thermal_dispatch(params)
                 dispatch_result_list.append(dispatch_results)
+                
+                
             dispatch_results = pd.concat(dispatch_result_list)
             dispatch_results.sort(inplace=True)
             self.active_thermal_dispatch_df= dispatch_results        
@@ -1625,7 +1713,7 @@ class Supply(object):
                self.nodes[node_id].active_shape = self.nodes[node_id].aggregate_electricity_shapes(year, util.remove_df_levels(util.df_slice(self.dispatch_feeder_allocation.values,year,'year'),year))   
         
    
-    def shaped_dist(self, year, load_or_gen_dict):
+    def shaped_dist(self, year, load_or_gen_dict,generation):
         df_geo = []      
         for geography in self.dispatch_geographies:
             df_node = []
@@ -1642,13 +1730,21 @@ class Supply(object):
                         shape= node.active_shape
                     df_feeder.append(util.remove_df_levels(util.DfOper.mult([gen,shape]),self.geography))
                 df_node.append(pd.concat(df_feeder, keys=self.dispatch_feeders, names=['dispatch_feeder']))
-            df_geo.append(DfOper.add(df_node, expandable=False, collapsible=False))
-        return util.remove_df_levels(pd.concat(df_geo, keys=self.dispatch_geographies, names=[self.dispatch_geography]),'timeshift_type')   
+            df_geo.append(pd.concat(df_node,keys=node_ids,names=['supply_node']))
+        df_geo = pd.concat(df_geo, keys=self.dispatch_geographies, names=[self.dispatch_geography])
+        df_output = util.remove_df_levels(util.DfOper.mult([df_geo,self.distribution_losses]),'dispatch_feeder')
+        df_output =  self.outputs.clean_df(util.df_slice(df_output,2,'timeshift_type'))
+        util.replace_index_name(df_output,'DISPATCH_OUTPUT','SUPPLY_NODE')
+        df_output.columns = [cfg.cfgfile.get('case','energy_unit').upper()]
+        if generation:
+            df_output*=-1
+        self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,df_output])
+        return util.remove_df_levels(df_geo,['timeshift_type','supply_node'])   
         
-    def shaped_bulk(self, year, load_or_gen_dict):
-        df_geo = []
+    def shaped_bulk(self, year, load_or_gen_dict,generation):
+        geo_list = []
         for geography in self.dispatch_geographies:
-            df_node = []
+            node_list = []
             node_ids = load_or_gen_dict[geography][self.transmission_node_id].keys()
             for node_id in node_ids:
                 node = self.nodes[node_id]
@@ -1658,18 +1754,36 @@ class Supply(object):
                 else:
                     shape = node.active_shape
                 shape = shape.groupby(level=[self.geography, 'timeshift_type']).transform(lambda x: x/x.sum())
-                df_node.append(util.remove_df_levels(DfOper.mult([gen,shape]), self.geography))              
-            df_geo.append(DfOper.add(df_node))
-        return util.remove_df_levels(pd.concat(df_geo, keys=self.dispatch_geographies, names=[self.dispatch_geography]),'timeshift_type')
+                node_list.append(util.remove_df_levels(util.DfOper.mult([gen,shape]),self.geography)) 
+            geo_list.append(pd.concat(node_list,keys=node_ids,names=['supply_node']))    
+        df_geo = pd.concat(geo_list,keys=self.dispatch_geographies,names=[self.dispatch_geography]) 
+        df_output = pd.concat([df_geo],keys=[year],names=['year']) 
+        df_output =  self.outputs.clean_df(util.df_slice(df_output,2,'timeshift_type'))
+        util.replace_index_name(df_output,'DISPATCH_OUTPUT','SUPPLY_NODE')
+        df_output.columns = [cfg.cfgfile.get('case','energy_unit').upper()]
+        if generation:
+            df_output*=-1
+        df_output = util.reorder_b_to_match_a(df_output,self.bulk_dispatch)
+        self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,df_output])
+        return util.remove_df_levels(df_geo,['supply_node','timeshift_type'])
             
     def set_initial_net_load_signals(self,year):
-        self.distribution_load = util.DfOper.add([self.demand_object.aggregate_electricity_shapes(year),self.shaped_dist(year, self.non_flexible_load)])
-        self.distribution_gen = self.shaped_dist(year, self.non_flexible_gen)
-        self.bulk_gen = self.shaped_bulk(year, self.non_flexible_gen)
-        self.bulk_load = self.shaped_bulk(year, self.non_flexible_load)
+        final_demand = self.demand_object.aggregate_electricity_shapes(year)
+        self.output_final_demand_for_bulk_dispatch_outputs(final_demand)
+        self.distribution_load = util.DfOper.add([final_demand,self.shaped_dist(year, self.non_flexible_load,generation=False)])
+        self.distribution_gen = self.shaped_dist(year, self.non_flexible_gen,generation=True)
+        self.bulk_gen = self.shaped_bulk(year, self.non_flexible_gen,generation=True)
+        self.bulk_load = self.shaped_bulk(year, self.non_flexible_load,generation=False)
         self.update_net_load_signal()            
         
-        
+    def output_final_demand_for_bulk_dispatch_outputs(self,final_demand):
+        df_output = util.DfOper.mult([util.df_slice(final_demand,2,'timeshift_type'),self.distribution_losses])
+        df_output = self.outputs.clean_df(df_output)
+        util.replace_index_name(df_output,'DISPATCH_OUTPUT','DISPATCH_FEEDER')
+        df_output.columns = [cfg.cfgfile.get('case','energy_unit').upper()]
+        self.bulk_dispatch = df_output
+    
+    
     def update_net_load_signal(self):    
         self.dist_only_net_load =  DfOper.subt([self.distribution_load,self.distribution_gen])
         self.bulk_only_net_load = DfOper.subt([self.bulk_load,self.bulk_gen])
@@ -2277,8 +2391,8 @@ class Supply(object):
             self.inverse_dict['energy'][year][sector] = pd.DataFrame(solve_IO(self.active_io.values), index=index, columns=index)
             self.inverse_dict['cost'][year][sector] = pd.DataFrame(solve_IO(active_cost_io.values), index=index, columns=index)
             idx = pd.IndexSlice
-            self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:].round(5) 
-            self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:].round(5)
+            self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:].round(7) 
+            self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:].round(7)
         
         for node in self.nodes.values():
             indexer = util.level_specific_indexer(self.io_supply_df,levels=['supply_node'], elements = [node.id])
@@ -2839,7 +2953,8 @@ class Node(DataMapFunctions):
                 self.geo_step1 = cfg.geo.map_df(self.tradable_geography,primary_geography,eliminate_zeros=False)
                 if hasattr(self,'potential') and self.potential.data is True:
                      self.potential_geo = util.DfOper.mult([util.remove_df_levels(self.potential.active_supply_curve,
-                                                                                  [x for x in self.potential.active_supply_curve.index.names if x not in [primary_geography,'demand_sector']]),cfg.geo.map_df(self.tradable_geography,primary_geography,)])
+                                                                                  [x for x in self.potential.active_supply_curve.index.names if x not in [primary_geography,'demand_sector']]),
+                                                                                    cfg.geo.map_df(self.tradable_geography,primary_geography,)])
                      util.replace_index_name(self.potential_geo,cfg.primary_geography + "from", primary_geography)         
                      #if a node has potential, this becomes the basis for remapping
                 if hasattr(self,'stock') and hasattr(self.stock,'act_total_energy'):
@@ -2856,12 +2971,14 @@ class Node(DataMapFunctions):
                     active_supply = util.remove_df_levels(self.active_supply, [x for x in self.active_supply.index.names if x not in self.stock.act_total_energy.index.names])                
                     total_active_supply = util.remove_df_levels(util.DfOper.mult([active_supply,cfg.geo.map_df(self.tradable_geography,primary_geography, eliminate_zeros=False)]),primary_geography)
                     total_stock = util.remove_df_levels(self.stock_energy_geo,primary_geography)
-                    stock_share = util.DfOper.divi([total_stock,total_active_supply])
+                    stock_share = util.remove_df_levels(util.DfOper.divi([total_stock,total_active_supply]),primary_geography + "from")
                     stock_share[stock_share>1] = 1
                     stock_geo_step = self.stock_energy_geo.groupby(level=util.ix_excl(self.stock_energy_geo,primary_geography + "from")).transform(lambda x: x/x.sum()).fillna(0)
                     stock_geo_step = util.DfOper.mult([stock_geo_step, stock_share])
                     potential_share = 1- stock_share
-                    potential_geo_step = self.potential_geo.groupby(level=util.ix_excl(self.potential_geo,primary_geography + "from")).transform(lambda x: x/x.sum()).fillna(0)
+                    potential_geo_step = util.DfOper.subt([self.potential_geo,self.stock_energy_geo])
+                    potential_geo_step[potential_geo_step<0]=0
+                    potential_geo_step = potential_geo_step.groupby(level=util.ix_excl(self.potential_geo,primary_geography + "from")).transform(lambda x: x/x.sum()).fillna(0)
                     potential_geo_step = util.DfOper.mult([potential_geo_step, potential_share])
                     self.geo_step2 = util.DfOper.add([stock_geo_step,potential_geo_step])
                 elif hasattr(self,'stock_energy_geo'):
@@ -2870,7 +2987,7 @@ class Node(DataMapFunctions):
                     self.geo_step2 = self.stock_capacity_geo.groupby(level=util.ix_excl(self.stock_capacity_geo,primary_geography + "from")).transform(lambda x: x/x.sum()).fillna(0)
                 elif hasattr(self,'potential_geo'):
                     self.geo_step2 = self.potential_geo.groupby(level=util.ix_excl(self.potential_geo,primary_geography + "from")).transform(lambda x: x/x.sum()).fillna(0)
-                self.geomapped_coefficients = DfOper.mult([self.geo_step1, self.geo_step2])     
+                self.geomapped_coefficients = util.DfOper.mult([self.geo_step1, self.geo_step2])     
                 self.geomapped_coefficients = self.geomapped_coefficients.unstack(primary_geography)
                 util.replace_index_name(self.geomapped_coefficients,primary_geography,primary_geography + "from")
                 self.geomapped_coefficients = util.remove_df_levels(self.geomapped_coefficients,self.tradable_geography)              
@@ -3913,7 +4030,7 @@ class SupplyPotential(Abstract):
                 self.geo_map(converted_geography=tradable_geography, attr='full_supply_curve', inplace=True, current_geography=primary_geography)
         reindexed_throughput = util.DfOper.none([self.active_throughput,self.active_supply_curve],expandable=(True,False),collapsible=(True,True))    
         self.active_supply_curve = util.expand_multi(self.active_supply_curve, reindexed_throughput.index.levels,reindexed_throughput.index.names)        
-        bin_supply_curve = self.active_supply_curve.groupby(level=[x for x in self.active_supply_curve.index.names if x!= 'resource_bins']).cumsum()
+        bin_supply_curve = copy.deepcopy(self.active_supply_curve)
         bin_supply_curve[bin_supply_curve>reindexed_throughput] = reindexed_throughput
         self.active_supply_curve = bin_supply_curve.groupby(level=util.ix_excl(bin_supply_curve,'resource_bins')).diff().fillna(bin_supply_curve)         
         if tradable_geography is not None and tradable_geography!=primary_geography:
@@ -5113,7 +5230,7 @@ class SupplyStockNode(Node):
         variable_om = util.remove_df_levels(self.stock.fixed_om,'vintage').stack().to_frame()
         util.replace_index_name(variable_om,'vintage')            
         variable_om.columns = ['value']
-        keys = ['capital cost - new', 'capital cost - replacement','installation cost - new','installation cost - replacement'
+        keys = ['capital cost - new', 'capital cost - replacement','installation cost - new','installation cost - replacement',
                 'fixed om', 'variable om']
         names = ['cost_type']
         self.annual_costs = pd.concat([self.stock.capital_cost_new_annual, self.stock.capital_cost_replacement_annual, self.stock.installation_cost_new_annual,

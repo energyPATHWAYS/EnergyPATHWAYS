@@ -20,9 +20,9 @@ save_models = True
 #resolve the demand-side. A completed demand-side model must be saved.
 resolve_demand = True
 #resolve the supply-side. A completed supply-side model must be saved. 
-resolve_supply = True
-append_results = True
-###########
+resolve_supply =  True
+append_results = False
+
 
 
 def remove_results(append_results):
@@ -102,12 +102,13 @@ if __name__ == "__main__":
             with open(os.path.join(directory, str(scenario_id)+'_full_model_run.p'), 'rb') as infile:
                 model = pickle.load(infile)
             model.model_config(cfgfile_path, custom_pint_definitions_path)
-            model.demand.aggregate_results()
-            model.supply.calculate_supply_outputs()
-            model.pass_results_to_demand()
-            model.calculate_combined_results()
-            remove_results(append_results)
-            #after the first secnario loop, we want to append results so we change the boolean to True
-            append_results = True
-            model.export_results()
+#            model.demand.aggregate_results()
+##            model.return_io()
+#            model.supply.calculate_supply_outputs()
+#            model.pass_results_to_demand()
+#            model.calculate_combined_results()
+#            remove_results(append_results)
+#            #after the first secnario loop, we want to append results so we change the boolean to True
+#            append_results = True
+#            model.export_results()
 
