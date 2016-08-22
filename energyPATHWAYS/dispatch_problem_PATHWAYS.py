@@ -612,7 +612,8 @@ def dispatch_problem_formulation(dispatch, start_state_of_charge, end_state_of_c
                                    if model.geography[storage_technology] == geography and model.feeder[storage_technology]==feeder)
 
         return model.DistSysCapacityNeed[geography, timepoint, feeder] \
-            >= (model.distribution_load[geography, timepoint,feeder] +
+            >= (model.distribution_load[geography, timepoint,feeder] -
+                model.distribution_gen[geography, timepoint,feeder] + 
                 model.Flexible_Load[geography, timepoint, feeder] +
                 distribution_charging - model.distribution_gen[geography, timepoint,feeder] - distribution_power
                 ) - model.dist_net_load_threshold[geography,feeder]

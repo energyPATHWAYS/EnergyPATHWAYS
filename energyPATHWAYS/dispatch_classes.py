@@ -14,7 +14,7 @@ import math
 import config as cfg
 from collections import defaultdict
 import os
-from pyomo.opt import SolverFactory
+from pyomo.opt import SolverFactory, SolverStatus
 import csv
 import logging
 from sklearn.cluster import KMeans
@@ -44,11 +44,11 @@ def run_thermal_dispatch(params):
     dispatch_results = Dispatch.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
                                                          FOR=FOR, must_runs=must_runs, dispatch_periods=months, capacity_weights=capacity_weights)
     for output in ['gen_cf', 'generation','stock_changes']:
-        indexer = util.level_specific_indexer(thermal_dispatch_df,'IO',output)                                                              
+        indexer = util.level_specific_indexer(thermal_dispatch_df,'IO',output)
         thermal_dispatch_df.loc[indexer,:] = dispatch_results[output]
-    
+
     return thermal_dispatch_df
-  
+
 def run_optimization(zipped_input):
     period = zipped_input[0]
     model = zipped_input[1]
@@ -91,7 +91,7 @@ def run_optimization(zipped_input):
             discharge_indexer = util.level_specific_indexer(dist_storage_df, [dispatch_geography,'dispatch_feeder','charge_discharge','hour'], [geography, feeder, 'discharge', (hours)])
             dist_storage_df.loc[charge_indexer,:] += np.column_stack(np.asarray(charge)).T
             dist_storage_df.loc[discharge_indexer,:] += np.column_stack(np.asarray(discharge)).T
-    
+
     timepoints_set = getattr(instance, "TIMEPOINTS")
     geographies_set = getattr(instance, "GEOGRAPHIES")
     feeder_set = getattr(instance,"FEEDERS")
@@ -286,7 +286,7 @@ class Dispatch(object):
                 gen_df = util.df_slice(bulk_gen, [geography, 2], [self.dispatch_geography, 'timeshift_type'])
                 for timepoint in self.period_timepoints[period]:
                    time_index = timepoint -1
-                   self.bulk_load[period][(geography,timepoint)] = load_df.iloc[time_index].values[0]     
+                   self.bulk_load[period][(geography,timepoint)] = load_df.iloc[time_index].values[0]
                    self.bulk_gen[period][(geography,timepoint)] = gen_df.iloc[time_index].values[0]
                    
     def set_max_flex_loads(self, distribution_load):
@@ -389,7 +389,7 @@ class Dispatch(object):
         FORs = np.array(util.df_slice(thermal_dispatch_df,['forced_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
         must_run = np.array(util.df_slice(thermal_dispatch_df,['must_run',geography],['IO',self.dispatch_geography]).values).T[0]
         clustered_dict = self._cluster_generators(n_clusters = int(cfg.cfgfile.get('opt','generator_steps')), pmax=pmax, marginal_cost=marginal_cost, FORs=FORs, 
-                                     MORs=MORs, must_run=must_run, pad_stack=True, zero_mc_4_must_run=True)
+                                     MORs=MORs, must_run=must_run, pad_stack=False, zero_mc_4_must_run=True)
         generator_numbers = range(len(clustered_dict['derated_pmax']))
         for number in generator_numbers:
             generator = str(((max(generator_numbers)+1)* (self.dispatch_geographies.index(geography))) + (number)+1)
@@ -742,7 +742,8 @@ class Dispatch(object):
                 normed_capacity_weights /= sum(normed_capacity_weights)
                 ncwi = np.nonzero(normed_capacity_weights)[0]
             # we need more capacity
-                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - combined_rate[ncwi])
+                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - combined_rate[ncwi]
+                )
                 
         return stock_changes
     
@@ -853,7 +854,7 @@ class Dispatch(object):
              model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge, end_state_of_charge, period))  
         zipped_inputs = list(zip(periods, model_list,input_bulk_dfs, input_dist_dfs, 
                                  input_flex_dfs,opt_hours, period_hours, solver_name,stdout_detail, dispatch_geography))
-        
+
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
             available_cpus = min(cpu_count(), int(cfg.cfgfile.get('case','num_cores')))
             pool = Pool(processes=available_cpus)
@@ -864,21 +865,13 @@ class Dispatch(object):
             results = []
             for zipped_input in zipped_inputs:
                 results.append(run_optimization(zipped_input))
-        
+
         output_bulk_dfs = [x[0] for x in results]
         output_dist_dfs = [x[1] for x in results]
         output_flex_dfs = [x[2] for x in results]
-#        self.optimization_instance = [x[3] for x in results]
-        bulk_test = util.DfOper.add(output_bulk_dfs)
-        dist_test = util.DfOper.add(output_dist_dfs)
-        flex_test = util.DfOper.add(output_flex_dfs)
-        if np.any(np.isnan(flex_test.values)):
-            flex_test = flex_test.fillna(self.flex_load_df)
-            bulk_test = bulk_test.fillna(self.bulk_storage_df)
-            dist_test = dist_test.fillna(self.dist_storage_df)
-        self.flex_load_df = flex_test
-        self.dist_storage_df = dist_test 
-        self.bulk_storage_df = bulk_test
+        self.flex_load_df = util.DfOper.add(output_flex_dfs)
+        self.dist_storage_df = util.DfOper.add(output_dist_dfs)
+        self.bulk_storage_df = util.DfOper.add(output_bulk_dfs)
         
                 
     def run_year_to_month_allocation(self):
@@ -908,7 +901,7 @@ class Dispatch(object):
 
         if write_to_file:
             path = os.path.join(cfg.workingdir, 'dispatch_outputs')
-            
+
             load_writer = csv.writer(open(os.path.join(path, "alloc_loads.csv"), "wb"))
             load_writer.writerow(["geography", "period", "avg_net_load", "period_net_load"])
 

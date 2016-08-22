@@ -1,4 +1,4 @@
-__author__ = 'Ben Haley & Ryan Jones'
+F__author__ = 'Ben Haley & Ryan Jones'
 
 import os
 from demand import Demand
@@ -28,7 +28,7 @@ class PathwaysModel(object):
         self.supply_case_id = util.sql_read_table('Scenarios', 'supply_case', id=self.scenario_id)
         self.outputs = Output()
         self.demand = Demand()
-        self.supply = Supply(demand_object=self.demand)
+        self.supply = Supply(self.scenario, demand_object=self.demand)
         self.demand_solved, self.supply_solved = False, False
 
     def run(self, scenario_id, solve_demand, solve_supply, save_models, append_results):
@@ -73,11 +73,12 @@ class PathwaysModel(object):
         if not self.demand_solved:
             raise ValueError('demand must be solved first before supply')
         logging.info('Configuring energy system supply')
-        
+
         self.supply.add_nodes()
         self.supply.add_measures(self.supply_case_id)
-        self.supply.initial_calculate()     
+        self.supply.initial_calculate()
         self.supply.calculate_loop()
+        self.supply.final_calculate()
         self.supply.concatenate_annual_costs()
         self.supply.calculate_capacity_utilization()
         self.supply_solved = True
@@ -113,20 +114,20 @@ class PathwaysModel(object):
             res_obj = self.supply.outputs
         else:
             raise ValueError('result_name not recognized')
-        
+
         if not os.path.exists(os.path.join(cfg.workingdir, result_name)):
             os.mkdir(os.path.join(cfg.workingdir, result_name))
-        
+
         for attribute in dir(res_obj):
             if not isinstance(getattr(res_obj, attribute), pd.DataFrame):
                 continue
-            
+
             result_df = getattr(res_obj, 'return_cleaned_output')(attribute)
             keys = [self.scenario.upper(),str(datetime.now().replace(second=0, microsecond=0))]
             names = ['SCENARIO','TIMESTAMP']
             for key, name in zip(keys, names):
                 result_df = pd.concat([result_df], keys=[key], names=[name])
-                
+
             path = os.path.join(cfg.workingdir, result_name, attribute+'.csv')
             if os.path.isfile(path):
                 # append and don't write header if the file already exists
@@ -248,3 +249,22 @@ class PathwaysModel(object):
          energy_unit = cfg.cfgfile.get('case','energy_unit')
          self.outputs.energy.columns = [energy_unit.upper()]
 
+    def return_io(self):
+        dfs = []
+        keys = self.supply.demand_sectors
+        names = ['demand_sector']
+        for sector in self.supply.demand_sectors:
+            dfs.append(self.supply.io_dict[2050][sector])
+        df = pd.concat(dfs,keys=keys,names=names)
+        df = pd.concat([df]*len(keys),keys=keys,names=names,axis=1)
+        for row_sector in self.supply.demand_sectors:
+            for col_sector in self.supply.demand_sectors:
+                if row_sector == col_sector:
+                    df.loc[util.level_specific_indexer(df,'demand_sector',row_sector),util.level_specific_indexer(df,'demand_sector',col_sector,axis=1)] = 0
+        self.supply.outputs.io = df
+        result_df = self.supply.outputs.return_cleaned_output('io')
+        keys = [self.scenario.upper(),str(datetime.now().replace(second=0,microsecond=0))]
+        names = ['SCENARIO','TIMESTAMP']
+        for key, name in zip(keys,names):
+            result_df = pd.concat([result_df], keys=[key],names=[name])
+        result_df.to_csv(os.path.join(cfg.workingdir,'supply_outputs', 'io.csv'), header=True, mode='ab')
