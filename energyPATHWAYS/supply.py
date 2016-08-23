@@ -864,7 +864,7 @@ class Supply(object):
         self.dispatch.set_timeperiods(shapes.active_dates_index)
         self.dispatch.set_losses(self.distribution_losses)
         self.set_net_load_thresholds(year)
-        self.dispatch.set_opt_loads(self.distribution_load,self.distribution_gen,self.bulk_load,self.bulk_gen)
+        self.dispatch.set_opt_loads(self.distribution_load,self.distribution_gen,self.bulk_load,self.bulk_gen,self.dispatched_bulk_load)
         self.dispatch.set_technologies(self.storage_capacity_dict, self.storage_efficiency_dict, self.active_thermal_dispatch_df)
         self.dispatch.set_average_net_loads(self.bulk_net_load)
 
@@ -885,11 +885,9 @@ class Supply(object):
             distribution_grid_node.capacity_factor.values.loc[:,min(year+i,max_year)] = dist_cap_factor.values
         if hasattr(distribution_grid_node, 'stock'):
                 distribution_grid_node.update_stock(year,3) 
-                
         #hardcoded 50% assumption of colocated energy for dispatched flexible gen. I.e. wind and solar. Means that transmission capacity isn't needed to support energy demands. 
+        #TODO change to config parameter
         bulk_flow = util.df_slice(DfOper.subt([DfOper.add([self.bulk_load,util.remove_df_levels(self.dist_only_net_load,'dispatch_feeder')]),self.dispatched_bulk_load * .5]),2,'timeshift_type')
-#        bulk_flow = DfOper.add([self.dist_net_load_no_feeders,self.bulk_load])
-        
         bulk_cap_factor = util.DfOper.divi([bulk_flow.groupby(level=self.dispatch_geography).mean(),bulk_flow.groupby(level=self.dispatch_geography).max()]) 
         transmission_grid_node = self.nodes[self.transmission_node_id]              
         geography_map_key = transmission_grid_node.geography_map_key if hasattr(transmission_grid_node, 'geography_map_key') and transmission_grid_node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')       
@@ -901,12 +899,7 @@ class Supply(object):
             transmission_grid_node.capacity_factor.values.loc[:,min(year+i,max_year)] = bulk_cap_factor.values
         if hasattr(transmission_grid_node, 'stock'):
             transmission_grid_node.update_stock(year,3) 
-#        self.outputs.distribution_dispatch = util.df_slice(self.dist_only_net_load,2,'timeshift_type')
-#        self.outputs.bulk_net_load = bulk_flow
-#        util.ExportMethods.writeobj('distribution_net_load_results',self.outputs.return_cleaned_output('distribution_net_load'), 
-#                                    os.path.join(os.getcwd(),'dispatch_outputs'), append_results=True)      
-#        util.ExportMethods.writeobj('bulk_net_load_results',self.outputs.return_cleaned_output('bulk_net_load'), 
-#                                    os.path.join(os.getcwd(),'dispatch_outputs'), append_results=True)     
+
         
         
 #    @timecall(immediate=True)   

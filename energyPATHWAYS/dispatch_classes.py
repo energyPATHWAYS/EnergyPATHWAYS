@@ -212,19 +212,20 @@ class Dispatch(object):
                 else:
                     self.dist_net_load_thresholds[(geography,feeder)] =  util.df_slice(distribution_stock,[geography, feeder],[self.dispatch_geography, 'dispatch_feeder']).values[0][0]
 
-    def set_opt_loads(self, distribution_load, distribution_gen, bulk_load, bulk_gen):
+    def set_opt_loads(self, distribution_load, distribution_gen, bulk_load, bulk_gen, dispatched_bulk_load):
         self.distribution_load = util.recursivedict()
         self.distribution_gen = util.recursivedict()
         self.min_cumulative_flex_load = util.recursivedict()
         self.max_cumulative_flex_load = util.recursivedict()
         self.cumulative_distribution_load = util.recursivedict()
         self.bulk_load = util.recursivedict()
+        self.dispatched_bulk_load = util.recursivedict()
         self.bulk_gen = util.recursivedict()
         self.set_opt_distribution_net_loads(distribution_load,distribution_gen)
-        self.set_opt_bulk_net_loads(bulk_load,bulk_gen)
+        self.set_opt_bulk_net_loads(bulk_load,bulk_gen,dispatched_bulk_load)
         
     def set_opt_distribution_net_loads(self, distribution_load, distribution_gen):
-        self.set_max_flex_loads(distribution_load)
+        self.set_max__min_flex_loads(distribution_load)
         active_timeshift_types = list(set(distribution_load.index.get_level_values('timeshift_type')))
         for geography in self.dispatch_geographies:
             for feeder in self.feeders:
@@ -273,18 +274,21 @@ class Dispatch(object):
                                 
                                 
                                 
-    def set_opt_bulk_net_loads(self, bulk_load, bulk_gen):
+    def set_opt_bulk_net_loads(self, bulk_load, bulk_gen, dispatched_bulk_load):
         for geography in self.dispatch_geographies:
             for period in self.periods:
-                load_df = util.df_slice(bulk_load, [geography, 2], [self.dispatch_geography, 'timeshift_type'])
+                bulk_load_df = util.df_slice(bulk_load, [geography, 2], [self.dispatch_geography, 'timeshift_type'])
+                dispatched_bulk_load_df = util.df_slice(dispatched_bulk_load, [geography, 2], [self.dispatch_geography, 'timeshift_type'])
                 gen_df = util.df_slice(bulk_gen, [geography, 2], [self.dispatch_geography, 'timeshift_type'])
                 for timepoint in self.period_timepoints[period]:
                    time_index = timepoint -1
-                   self.bulk_load[period][(geography,timepoint)] = load_df.iloc[time_index].values[0]    
+                   self.bulk_load[period][(geography,timepoint)] = bulk_load_df.iloc[time_index].values[0]   
+                   self.dispatched_bulk_load[period][(geography,timepoint)] = dispatched_bulk_load_df.iloc[time_index].values[0]   
                    self.bulk_gen[period][(geography,timepoint)] = gen_df.iloc[time_index].values[0]
                    
-    def set_max_flex_loads(self, distribution_load):
+    def set_max__min_flex_loads(self, distribution_load):
         self.max_flex_load = defaultdict(dict)
+        self.min_flex_load = defaultdict(dict)
         for geography in self.dispatch_geographies:
             for feeder in self.feeders:
                 for period in self.periods:
@@ -292,9 +296,11 @@ class Dispatch(object):
                     stop = (period+1) * self.opt_hours - 1
                     if feeder !=0:
                         self.max_flex_load[period][(geography,feeder)] = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).iloc[start:stop].max().values[0] 
+                        self.min_flex_load[period][(geography,feeder)] = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).iloc[start:stop].min().values[0] 
                     else:
                         self.max_flex_load[period][(geography,feeder)] = 0.0
-   
+                        self.min_flex_load[period][(geography,feeder)] = 0.0
+                        
     def set_average_net_loads(self,total_net_load):
         self.period_net_load = defaultdict(dict)
         self.average_net_load = dict()

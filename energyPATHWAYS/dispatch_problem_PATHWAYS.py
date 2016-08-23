@@ -188,6 +188,9 @@ def dispatch_problem_formulation(dispatch, start_state_of_charge, end_state_of_c
     dispatch_model.bulk_load = Param(dispatch_model.GEOGRAPHIES, dispatch_model.TIMEPOINTS,
                                            within=Reals,
                                            initialize=dispatch.bulk_load[period]) 
+    dispatch_model.dispatched_bulk_load = Param(dispatch_model.GEOGRAPHIES, dispatch_model.TIMEPOINTS,
+                                           within=Reals,
+                                           initialize=dispatch.dispatched_bulk_load[period]) 
     
     dispatch_model.distribution_gen = Param(dispatch_model.GEOGRAPHIES, dispatch_model.TIMEPOINTS, dispatch_model.FEEDERS,
                                                initialize=dispatch.distribution_gen[period], within=Reals)
@@ -208,9 +211,11 @@ def dispatch_problem_formulation(dispatch, start_state_of_charge, end_state_of_c
                                                     within=Reals,
                                                     initialize=dispatch.cumulative_distribution_load[period])
 
-    # TODO: should this also vary by timepoint
+
     dispatch_model.max_flex_load = Param(dispatch_model.GEOGRAPHIES,dispatch_model.FEEDERS,
                                          within=NonNegativeReals, initialize=dispatch.max_flex_load[period])
+    dispatch_model.min_flex_load = Param(dispatch_model.GEOGRAPHIES,dispatch_model.FEEDERS,
+                                         within=NonNegativeReals, initialize=dispatch.min_flex_load[period])
 
     # T&D
 
@@ -528,7 +533,7 @@ def dispatch_problem_formulation(dispatch, start_state_of_charge, end_state_of_c
 #                                                                    rule=flexible_load_sum)
 
                                                                     
-    def max_flex_load_rule(model, geography, timepoint, feeder):
+    def flex_load_capacity_rule(model, geography, timepoint, feeder):
         """
         Maximum flexible load that can be shifted to a given timepoint.
         :param model:
@@ -536,10 +541,10 @@ def dispatch_problem_formulation(dispatch, start_state_of_charge, end_state_of_c
         :param timepoint:
         :return:
         """
-        return 0 <= model.Flexible_Load[geography, timepoint, feeder] + model.distribution_load[geography,timepoint,feeder] <= model.max_flex_load[geography, feeder]
+        return model.min_flex_load[geography, feeder] <= model.Flexible_Load[geography, timepoint, feeder] + model.distribution_load[geography,timepoint,feeder] <= model.max_flex_load[geography, feeder]
 
-    dispatch_model.Max_Flex_Load_Constraint = Constraint(dispatch_model.GEOGRAPHIES, dispatch_model.TIMEPOINTS,dispatch_model.FEEDERS,
-                                                         rule=max_flex_load_rule)
+    dispatch_model.Flex_Load_Capacity_Constraint = Constraint(dispatch_model.GEOGRAPHIES, dispatch_model.TIMEPOINTS,dispatch_model.FEEDERS,
+                                                         rule=flex_load_capacity_rule)
 
 #    # EV loads; currently same implementation as flex load
 #    def cumulative_ev_load_rule(model, geography, timepoint):
@@ -651,20 +656,14 @@ def dispatch_problem_formulation(dispatch, start_state_of_charge, end_state_of_c
             else:
                 pass
         
-        
-        
-#        distribution_power = sum(model.Provide_Power[technology, timepoint]
-#                                for technology in model.TECHNOLOGIES
-#                                if model.geography[technology] == geography and model.feeder[technology]!=0)
-#
-#        distribution_charging = sum(model.Charge[technology, timepoint]
-#                                   for technology in model.STORAGE_TECHNOLOGIES
-#                                   if model.geography[technology] == geography and model.feeder[technology]!=0)
 
-        return model.BulkSysCapacityNeed[geography, timepoint] \
+        return model.BulkSysCapacityNeed[geography, timepoint] + model.bulk_net_load_threshold[geography] \
             >= sum((model.distribution_load[geography, timepoint,feeder] - model.distribution_gen[geography, timepoint,feeder]  - distribution_power[feeder] + distribution_charging[feeder] +
                 model.Flexible_Load[geography, timepoint,feeder])* (model.t_and_d_losses[geography,feeder])
-                 for feeder in model.FEEDERS)- model.Unserved_Energy[geography, timepoint] - model.bulk_net_load_threshold[geography]
+                 for feeder in model.FEEDERS)- model.Unserved_Energy[geography, timepoint] +  model.bulk_load[geography, timepoint] - model.dispatched_bulk_load[geography, timepoint] * .5
+                 
+                 
+                 
 
     dispatch_model.Bulk_System_Penalty_Constraint = Constraint(dispatch_model.GEOGRAPHIES,
                                                                dispatch_model.TIMEPOINTS,
