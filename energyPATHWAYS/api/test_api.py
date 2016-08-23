@@ -1,4 +1,5 @@
 import unittest
+import mock
 import json
 import api
 import base64
@@ -131,6 +132,18 @@ class TestAPI(unittest.TestCase):
         rv = self.get('/package_groups', credentials)
         self.assertEqual(rv.status_code, 200)
         return json.loads(rv.data)
+
+    @mock.patch('subprocess.Popen')
+    def run_scenario(self, scenario_id, credentials, mock_popen):
+        """
+        Posts to the scenario run route but with the subprocess starter mocked so we don't actually get
+        models running while running unit tests. Always use this when kicking off scenario runs within a unit test!
+        """
+        rv = self.post('/scenarios/%i/run' % (scenario_id,), credentials)
+        # If a success status was returned, we expect that a model run subprocess was started
+        # Conversely, if any other code was returned, we expect that a model run subprocess was *not* started!
+        self.assertEqual(rv.status_code == 200, mock_popen.called)
+        return rv
 
     def test_package_groups(self):
         options = self.load_options(self.jane_doe_credentials)
@@ -269,7 +282,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(len(modified_scenario['supply_package_group_ids']), 1)
 
         # Initiate a run of the scenario
-        rv = self.post('/scenarios/%i/run' % (self.jane_scenario_id,), self.jane_doe_credentials)
+        rv = self.run_scenario(self.jane_scenario_id, self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 200)
 
         # The scenario cannot be edited now that it is running
@@ -279,15 +292,13 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(rv.status_code, 400)
 
     def test_run_scenario(self):
-        run_path = '/scenarios/%i/run' % (self.jane_scenario_id,)
-
         # Check the response to a status check when the scenario has never been run before
-        rv = self.get(run_path, self.jane_doe_credentials)
+        rv = self.get('/scenarios/%i/run' % (self.jane_scenario_id,), self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 200)
         self.assertEqual(json.loads(rv.data)['name'], 'Never run')
 
         # Initiate a new run of the scenario
-        rv = self.post(run_path, self.jane_doe_credentials)
+        rv = self.run_scenario(self.jane_scenario_id, self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 200)
 
         # The Scenario is now queued
@@ -296,7 +307,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(json.loads(rv.data)['name'], 'Queued')
 
         # An attempt to run the same scenario again after it's queued is rejected
-        rv = self.post(run_path, self.jane_doe_credentials)
+        rv = self.run_scenario(self.jane_scenario_id, self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 400)
 
     def test_outputs(self):
@@ -308,7 +319,7 @@ class TestAPI(unittest.TestCase):
             self.get(outputs_path, self.jane_doe_credentials)
 
         # Start a run for the scenario
-        rv = self.post('/scenarios/%i/run' % (self.jane_scenario_id,), self.jane_doe_credentials)
+        rv = self.run_scenario(self.jane_scenario_id, self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 200)
 
         # Still can't get outputs because the run has not successfully completed
