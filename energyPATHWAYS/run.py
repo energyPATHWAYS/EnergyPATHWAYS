@@ -52,9 +52,7 @@ def click_run(path, config, pint, scenario, load_demand, solve_demand, load_supp
 def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False,
         solve_supply=True, pickle_shapes=True, save_models=True, log_name=None, api_run=False):
     global model
-    print "here"
     cfg.initialize_config(path, config, pint, log_name)
-    print "here"
     shape.init_shapes()
     
     
@@ -104,7 +102,6 @@ if __name__ == "__main__":
     config = 'config.INI'
     pint = 'unit_defs.txt'
     scenario = 5
-    print "here"
     
     run(workingdir, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)
 #    cProfile.run('run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)', filename='full_run.profile')

@@ -22,11 +22,11 @@ workingdir = None
 cfgfile = None
 cfgfile_name = None
 primary_geography = None
+primary_geography_id = None
+geographies = None
 dispatch_geography = None
 dispatch_geography_id = None
-geographies = None
 dispatch_geographies = None
-primary_geography_id = None
 scenario_dict = None
 weibul_coeff_of_var = None
 
@@ -83,18 +83,18 @@ def initialize_config(_path, _cfgfile_name, _pint_definitions_file, _log_name):
     global weibul_coeff_of_var, scenario_dict, available_cpus, workingdir, cfgfile_name, pint_definitions_file, log_name, log_initialized
     workingdir = os.getcwd() if _path is None else _path
     cfgfile_name = _cfgfile_name
-    pint_definitions_file = _pint_definitions_file
-    
+    pint_definitions_file = _pint_definitions_file    
     init_cfgfile(os.path.join(workingdir, cfgfile_name))
+    
+    log_name = '{} energyPATHWAYS log.log'.format(str(datetime.datetime.now())[:-4].replace(':', '.')) if _log_name is None else _log_name
+    setuplogging()
+    
     init_db()
     init_pint(os.path.join(workingdir, pint_definitions_file))
     init_geo()
     init_date_lookup()
     init_output_parameters()
     
-    log_name = '{} energyPATHWAYS log.log'.format(str(datetime.datetime.now())[:-4].replace(':', '.')) if _log_name is None else _log_name
-    setuplogging()
-
     scenario_dict = dict(util.sql_read_table('Scenarios',['id', 'name'], return_iterable=True))
     available_cpus = min(cpu_count(), int(cfgfile.get('case','num_cores')))
     weibul_coeff_of_var = util.create_weibul_coefficient_of_variation()
@@ -137,10 +137,13 @@ def init_db():
     conn_str = "host='%s' dbname='%s' user='%s'" % (pg_host, pg_database, pg_user)
     if pg_password:
         conn_str += " password='%s'" % pg_password
-
+    
+    logging.debug("Connecting to postgres database {}".format(pg_database))
     # Open pathways database
     con = psycopg2.connect(conn_str)
     cur = con.cursor()
+    logging.debug("Connection successful...")
+    
 
 def init_pint(pint_definitions_path):
     # Initiate pint for unit conversions

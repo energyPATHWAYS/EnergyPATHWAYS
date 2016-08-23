@@ -597,7 +597,7 @@ class Supply(object):
                         feeder_list.append(dispatch)
                     self.update_net_load_signal()
                     geography_list.append(pd.concat(feeder_list))
-            node_list.append(pd.concat(geography_list, keys=self.dispatch_geographies, names=[self.dispatch_geography]))
+            node_list.append(pd.concat(geography_list, keys=cfg.dispatch_geographies, names=[cfg.dispatch_geography]))
             df = pd.concat(node_list,keys=[x for x in self.dispatch.dispatch_order if x in self.nodes.keys()],names=['supply_node'])
         df = pd.concat([df],keys=[year],names=['year'])
 
@@ -687,13 +687,13 @@ class Supply(object):
     def produce_distributed_storage_outputs(self,year):
         distribution_df = util.remove_df_levels(util.DfOper.mult([self.dispatch.dist_storage_df,self.distribution_losses]),'dispatch_feeder')
         charge_df = util.df_slice(distribution_df,'charge','charge_discharge')
-        index = pd.MultiIndex.from_product([[year],self.dispatch_geographies,shape.shapes.active_dates_index],names=['year',self.dispatch_geography,'weather_datetime'])
+        index = pd.MultiIndex.from_product([[year],cfg.dispatch_geographies,shape.shapes.active_dates_index],names=['year',cfg.dispatch_geography,'weather_datetime'])
         charge_df = pd.DataFrame(charge_df.values,index=index,columns =[cfg.cfgfile.get('case','energy_unit').upper()])
         charge_df = self.outputs.clean_df(charge_df)
         charge_df = pd.concat([charge_df],keys=['DISTRIBUTED STORAGE CHARGE'],names=['DISPATCH_OUTPUT'])
         self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,charge_df])
         discharge_df = util.df_slice(distribution_df,'discharge','charge_discharge')*-1
-        index = pd.MultiIndex.from_product([[year],self.dispatch_geographies,shape.shapes.active_dates_index],names=['year',self.dispatch_geography,'weather_datetime'])
+        index = pd.MultiIndex.from_product([[year],cfg.dispatch_geographies,shape.shapes.active_dates_index],names=['year',cfg.dispatch_geography,'weather_datetime'])
         discharge_df = pd.DataFrame(discharge_df.values,index=index,columns =[cfg.cfgfile.get('case','energy_unit').upper()])
         discharge_df = self.outputs.clean_df(discharge_df)
         discharge_df = pd.concat([discharge_df],keys=['DISTRIBUTED STORAGE DISCHARGE'],names=['DISPATCH_OUTPUT'])
@@ -702,13 +702,13 @@ class Supply(object):
     def produce_bulk_storage_outputs(self,year):
         bulk_df = self.dispatch.bulk_storage_df
         charge_df = util.df_slice(bulk_df,'charge','charge_discharge')
-        index = pd.MultiIndex.from_product([[year],self.dispatch_geographies,shape.shapes.active_dates_index],names=['year',self.dispatch_geography,'weather_datetime'])
+        index = pd.MultiIndex.from_product([[year],cfg.dispatch_geographies,shape.shapes.active_dates_index],names=['year',cfg.dispatch_geography,'weather_datetime'])
         charge_df = pd.DataFrame(charge_df.values,index=index,columns =[cfg.cfgfile.get('case','energy_unit').upper()])
         charge_df = self.outputs.clean_df(charge_df)
         charge_df = pd.concat([charge_df],keys=['BULK STORAGE CHARGE'],names=['DISPATCH_OUTPUT'])
         self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,charge_df])
         discharge_df = util.df_slice(bulk_df,'discharge','charge_discharge')*-1
-        index = pd.MultiIndex.from_product([[year],self.dispatch_geographies,shape.shapes.active_dates_index],names=['year',self.dispatch_geography,'weather_datetime'])
+        index = pd.MultiIndex.from_product([[year],cfg.dispatch_geographies,shape.shapes.active_dates_index],names=['year',cfg.dispatch_geography,'weather_datetime'])
         discharge_df = pd.DataFrame(discharge_df.values,index=index,columns =[cfg.cfgfile.get('case','energy_unit').upper()])
         discharge_df = self.outputs.clean_df(discharge_df)
         discharge_df = pd.concat([discharge_df],keys=['BULK STORAGE DISCHARGE'],names=['DISPATCH_OUTPUT'])
@@ -716,7 +716,7 @@ class Supply(object):
 
     def produce_flex_load_outputs(self,year):
         flex_load_df = util.DfOper.mult([self.dispatch.flex_load_df,self.distribution_losses])
-        index = pd.MultiIndex.from_product([self.dispatch_geographies,self.dispatch_feeders,shape.shapes.active_dates_index,year],names=[self.dispatch_geography,'dispatch_feeder','weather_datetime','year'])
+        index = pd.MultiIndex.from_product([cfg.dispatch_geographies,self.dispatch_feeders,shape.shapes.active_dates_index,year],names=[cfg.dispatch_geography,'dispatch_feeder','weather_datetime','year'])
         flex_load_df = pd.DataFrame(flex_load_df.values,index=index,columns =[cfg.cfgfile.get('case','energy_unit').upper()])
         flex_load_df= self.outputs.clean_df(flex_load_df)
         label_replace_dict = dict(zip(util.elements_in_index_level(flex_load_df,'DISPATCH_FEEDER'),[x+' FLEXIBLE LOAD' for x in util.elements_in_index_level(flex_load_df,'DISPATCH_FEEDER')]))
@@ -959,7 +959,9 @@ class Supply(object):
         names = ['SCENARIO','TIMESTAMP']
         for key, name in zip(keys,names):
             self.bulk_dispatch = pd.concat([self.bulk_dispatch],keys=[key],names=[name])
-
+        
+        if not os.path.exists(os.path.join(cfg.workingdir,'dispatch_outputs')):
+            os.mkdir(os.path.join(cfg.workingdir,'dispatch_outputs'))
         path = os.path.join(cfg.workingdir,'dispatch_outputs', 'hourly_dispatch_results.csv')
         if os.path.isfile(path):
             # append and don't write header if the file already exists
@@ -1456,7 +1458,7 @@ class Supply(object):
                     df_feeder.append(util.remove_df_levels(util.DfOper.mult([gen, dist_shape]),cfg.primary_geography))
                 df_node.append(pd.concat(df_feeder, keys=self.dispatch_feeders, names=['dispatch_feeder']))
             df_geo.append(pd.concat(df_node,keys=node_ids,names=['supply_node']))
-        df_geo = pd.concat(df_geo, keys=self.dispatch_geographies, names=[self.dispatch_geography])
+        df_geo = pd.concat(df_geo, keys=cfg.dispatch_geographies, names=[cfg.dispatch_geography])
         df_output = util.remove_df_levels(util.DfOper.mult([df_geo,self.distribution_losses]),'dispatch_feeder')
         df_output =  self.outputs.clean_df(util.df_slice(df_output,2,'timeshift_type'))
         util.replace_index_name(df_output,'DISPATCH_OUTPUT','SUPPLY_NODE')
@@ -1468,7 +1470,7 @@ class Supply(object):
         
     def shaped_bulk(self, year, load_or_gen_dict,generation):
         geo_list = []
-        for geography in self.dispatch_geographies:
+        for geography in cfg.dispatch_geographies:
             node_list = []
             node_ids = load_or_gen_dict[geography][self.transmission_node_id].keys()
             for node_id in node_ids:
@@ -1477,11 +1479,11 @@ class Supply(object):
                 if 'dispatch_feeder' in node.active_shape.index.names:
                     bulk_shape = util.remove_df_levels(node.active_shape, 'dispatch_feeder')
                 else:
-                    shape = node.active_shape
-                shape = shape.groupby(level=[self.geography, 'timeshift_type']).transform(lambda x: x/x.sum())
-                node_list.append(util.remove_df_levels(util.DfOper.mult([gen,shape]),self.geography))
+                    bulk_shape = node.active_shape
+                bulk_shape = bulk_shape.groupby(level=[cfg.primary_geography, 'timeshift_type']).transform(lambda x: x/x.sum())
+                node_list.append(util.remove_df_levels(util.DfOper.mult([gen,bulk_shape]),cfg.primary_geography))
             geo_list.append(pd.concat(node_list,keys=node_ids,names=['supply_node']))
-        df_geo = pd.concat(geo_list,keys=self.dispatch_geographies,names=[self.dispatch_geography])
+        df_geo = pd.concat(geo_list,keys=cfg.dispatch_geographies,names=[cfg.dispatch_geography])
         df_output = pd.concat([df_geo],keys=[year],names=['year'])
         df_output =  self.outputs.clean_df(util.df_slice(df_output,2,'timeshift_type'))
         util.replace_index_name(df_output,'DISPATCH_OUTPUT','SUPPLY_NODE')

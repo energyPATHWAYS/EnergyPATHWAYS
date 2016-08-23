@@ -99,7 +99,7 @@ class PathwaysModel(object):
         self.calculate_combined_energy_results()
 
     def remove_old_results(self):
-        folder_names = ['combined_outputs', 'demand_outputs', 'supply_outputs']
+        folder_names = ['combined_outputs', 'demand_outputs', 'supply_outputs', 'dispatch_outputs']
         for folder_name in folder_names:
             folder = os.path.join(cfg.workingdir, folder_name)
             if os.path.isdir(folder):
