@@ -225,6 +225,9 @@ class TestAPI(unittest.TestCase):
                        headers={'Content-Type': 'application/json'},
                        data=scenario_data)
         self.assertEqual(rv.status_code, 201)
+        response_data = json.loads(rv.data)
+        self.assertEqual(response_data['message'], 'Created')
+        self.assertIsInstance(response_data['id'], int)
 
         # The Location header returned from the post takes us to the detail for the new scenario, where we can
         # confirm that the details are correct

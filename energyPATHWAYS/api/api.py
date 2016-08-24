@@ -144,7 +144,7 @@ class Scenarios(Resource):
         models.db.session.add(scenario)
         models.db.session.commit()
 
-        return {'message': 'Created'}, 201, self._location_header(scenario)
+        return {'message': 'Created', 'id': scenario.id}, 201, self._location_header(scenario)
 
     @auth.login_required
     @guest_forbidden
