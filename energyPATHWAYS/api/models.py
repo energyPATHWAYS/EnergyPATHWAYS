@@ -264,7 +264,7 @@ class User(db.Model):
     def is_correct_password(self, plaintext):
         return bcrypt.check_password_hash(self.password_hash, plaintext)
 
-    def generate_auth_token(self, secret_key, expiration=3600):
+    def generate_auth_token(self, secret_key, expiration=86400):
         s = Serializer(secret_key, expires_in=expiration)
         return s.dumps({'id': self.id})
 
