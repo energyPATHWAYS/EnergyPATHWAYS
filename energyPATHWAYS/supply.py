@@ -1725,9 +1725,13 @@ class Supply(object):
                 df_node.append(pd.concat(df_feeder, keys=self.dispatch_feeders, names=['dispatch_feeder']))
             df_geo.append(pd.concat(df_node,keys=node_ids,names=['supply_node']))
         df_geo = pd.concat(df_geo, keys=self.dispatch_geographies, names=[self.dispatch_geography])
-        df_output = util.remove_df_levels(util.DfOper.mult([df_geo,self.distribution_losses]),'dispatch_feeder')
-        df_output =  self.outputs.clean_df(util.df_slice(df_output,2,'timeshift_type'))
+        df_output =  self.outputs.clean_df(util.df_slice(df_geo,2,'timeshift_type'))
         util.replace_index_name(df_output,'DISPATCH_OUTPUT','SUPPLY_NODE')
+        df_output = df_output.reset_index(level=['DISPATCH_OUTPUT','DISPATCH_FEEDER'])
+        df_output['NEW_DISPATCH_OUTPUT'] = df_output['DISPATCH_FEEDER'] + " " + df_output['DISPATCH_OUTPUT']
+        df_output = df_output.set_index('NEW_DISPATCH_OUTPUT',append=True)
+        df_output = df_output[year].to_frame()
+        util.replace_index_name(df_output,'DISPATCH_OUTPUT','NEW_DISPATCH_OUTPUT')
         df_output.columns = [cfg.cfgfile.get('case','energy_unit').upper()]
         if generation:
             df_output*=-1
