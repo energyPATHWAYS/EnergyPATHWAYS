@@ -134,6 +134,8 @@ class Dispatch(object):
         self.unserved_energy_cost = util.unit_convert(10**5,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
         self.dist_net_load_penalty = util.unit_convert(10**3,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
         self.bulk_net_load_penalty = util.unit_convert(10**3,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
+        self.upward_imbalance_penalty = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
+        self.downward_imbalance_penalty = util.unit_convert(100.0,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
         self.dispatch_feeders = dispatch_feeders
         self.feeders = [0] + dispatch_feeders
         self.dispatch_geography = dispatch_geography
@@ -145,8 +147,7 @@ class Dispatch(object):
         else:
             self.stdout_detail = True
         self.solve_kwargs = {"keepfiles": False, "tee": False}
-        self.upward_imbalance_penalty = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
-        self.downward_imbalance_penalty = util.unit_convert(100.0,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
+
   
   
     def find_solver(self):
@@ -218,19 +219,20 @@ class Dispatch(object):
                 else:
                     self.dist_net_load_thresholds[(geography,feeder)] =  util.df_slice(distribution_stock,[geography, feeder],[self.dispatch_geography, 'dispatch_feeder']).values[0][0]
 
-    def set_opt_loads(self, distribution_load, distribution_gen, bulk_load, bulk_gen):
+    def set_opt_loads(self, distribution_load, distribution_gen, bulk_load, bulk_gen, dispatched_bulk_load):
         self.distribution_load = util.recursivedict()
         self.distribution_gen = util.recursivedict()
         self.min_cumulative_flex_load = util.recursivedict()
         self.max_cumulative_flex_load = util.recursivedict()
         self.cumulative_distribution_load = util.recursivedict()
         self.bulk_load = util.recursivedict()
+        self.dispatched_bulk_load = util.recursivedict()
         self.bulk_gen = util.recursivedict()
         self.set_opt_distribution_net_loads(distribution_load,distribution_gen)
-        self.set_opt_bulk_net_loads(bulk_load,bulk_gen)
+        self.set_opt_bulk_net_loads(bulk_load,bulk_gen,dispatched_bulk_load)
         
     def set_opt_distribution_net_loads(self, distribution_load, distribution_gen):
-        self.set_max_flex_loads(distribution_load)
+        self.set_max__min_flex_loads(distribution_load)
         active_timeshift_types = list(set(distribution_load.index.get_level_values('timeshift_type')))
         for geography in self.dispatch_geographies:
             for feeder in self.feeders:
@@ -250,25 +252,25 @@ class Dispatch(object):
                                        df = util.df_slice(distribution_load, [geography, feeder, timeshift], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).cumsum()
                                        for timepoint in self.period_timepoints[period]:
                                            time_index = timepoint-1
-                                           self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0]
+                                           self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0]*.999999
                                    else:
                                        df = load_df 
                                        df = df.cumsum() 
                                        for timepoint in self.period_timepoints[period]:
                                            time_index = timepoint-1
-                                           self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0] 
+                                           self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0] * .999999
                                elif timeshift == 3:
                                     if timeshift in active_timeshift_types:
                                        df = util.df_slice(distribution_load, [geography, feeder, timeshift], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).cumsum()
                                        for timepoint in self.period_timepoints[period]:
                                            time_index = timepoint -1
-                                           self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0]
+                                           self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0]*1.0000001
                                     else:
-                                        df = load_df 
+                                        df = load_df *1.0001
                                         df = df.cumsum()
                                         for timepoint in self.period_timepoints[period]:
                                             time_index = timepoint -1
-                                            self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0] 
+                                            self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0]*1.0000001
                        else:
                             for timepoint in self.period_timepoints[period]:
                                 self.distribution_load[period][(geography,timepoint,feeder)] = 0.0
@@ -279,28 +281,34 @@ class Dispatch(object):
                                 
                                 
                                 
-    def set_opt_bulk_net_loads(self, bulk_load, bulk_gen):
+    def set_opt_bulk_net_loads(self, bulk_load, bulk_gen, dispatched_bulk_load):
         for geography in self.dispatch_geographies:
             for period in self.periods:
-                load_df = util.df_slice(bulk_load, [geography, 2], [self.dispatch_geography, 'timeshift_type'])
+                bulk_load_df = util.df_slice(bulk_load, [geography, 2], [self.dispatch_geography, 'timeshift_type'])
+                dispatched_bulk_load_df = util.df_slice(dispatched_bulk_load, [geography, 2], [self.dispatch_geography, 'timeshift_type'])
                 gen_df = util.df_slice(bulk_gen, [geography, 2], [self.dispatch_geography, 'timeshift_type'])
                 for timepoint in self.period_timepoints[period]:
                    time_index = timepoint -1
-                   self.bulk_load[period][(geography,timepoint)] = load_df.iloc[time_index].values[0]
+                   self.bulk_load[period][(geography,timepoint)] = bulk_load_df.iloc[time_index].values[0]
+                   self.dispatched_bulk_load[period][(geography,timepoint)] = dispatched_bulk_load_df.iloc[time_index].values[0]
                    self.bulk_gen[period][(geography,timepoint)] = gen_df.iloc[time_index].values[0]
                    
-    def set_max_flex_loads(self, distribution_load):
+    def set_max__min_flex_loads(self, distribution_load):
+        self.flex_load_penalty = util.unit_convert(5,unit_from_den='megawatt_hour',unit_to_den=cfg.cfgfile.get('case','energy_unit'))
         self.max_flex_load = defaultdict(dict)
+        self.min_flex_load = defaultdict(dict)
         for geography in self.dispatch_geographies:
             for feeder in self.feeders:
                 for period in self.periods:
                     start = period * self.opt_hours
                     stop = (period+1) * self.opt_hours - 1
                     if feeder !=0:
-                        self.max_flex_load[period][(geography,feeder)] = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).iloc[start:stop].max().values[0] 
+                        self.max_flex_load[period][(geography,feeder)] = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).iloc[start:stop].max().values[0]*1.0000001
+                        self.min_flex_load[period][(geography,feeder)] = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).iloc[start:stop].min().values[0] * .999999
                     else:
                         self.max_flex_load[period][(geography,feeder)] = 0.0
-   
+                        self.min_flex_load[period][(geography,feeder)] = 0.0
+
     def set_average_net_loads(self,total_net_load):
         self.period_net_load = defaultdict(dict)
         self.average_net_load = dict()
@@ -869,9 +877,18 @@ class Dispatch(object):
         output_bulk_dfs = [x[0] for x in results]
         output_dist_dfs = [x[1] for x in results]
         output_flex_dfs = [x[2] for x in results]
-        self.flex_load_df = util.DfOper.add(output_flex_dfs)
-        self.dist_storage_df = util.DfOper.add(output_dist_dfs)
-        self.bulk_storage_df = util.DfOper.add(output_bulk_dfs)
+#        self.optimization_instance = [x[3] for x in results]
+        bulk_test = util.DfOper.add(output_bulk_dfs)
+        dist_test = util.DfOper.add(output_dist_dfs)
+        flex_test = util.DfOper.add(output_flex_dfs)
+        for period in self.periods:
+            period_test = output_bulk_dfs[period]
+            if np.any(np.isnan(period_test.values)):
+                zipped_input = zipped_inputs[period]
+                pdb.set_trace()
+        self.flex_load_df = flex_test
+        self.dist_storage_df = dist_test 
+        self.bulk_storage_df = bulk_test
         
                 
     def run_year_to_month_allocation(self):

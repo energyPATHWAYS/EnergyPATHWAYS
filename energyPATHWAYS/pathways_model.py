@@ -259,7 +259,7 @@ class PathwaysModel(object):
         df = pd.concat([df]*len(keys),keys=keys,names=names,axis=1)
         for row_sector in self.supply.demand_sectors:
             for col_sector in self.supply.demand_sectors:
-                if row_sector == col_sector:
+                if row_sector != col_sector:
                     df.loc[util.level_specific_indexer(df,'demand_sector',row_sector),util.level_specific_indexer(df,'demand_sector',col_sector,axis=1)] = 0
         self.supply.outputs.io = df
         result_df = self.supply.outputs.return_cleaned_output('io')

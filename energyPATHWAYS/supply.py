@@ -620,7 +620,7 @@ class Supply(object):
         self.dispatch.set_timeperiods(shape.shapes.active_dates_index)
         self.dispatch.set_losses(self.distribution_losses)
         self.set_net_load_thresholds(year)
-        self.dispatch.set_opt_loads(self.distribution_load,self.distribution_gen,self.bulk_load,self.bulk_gen)
+        self.dispatch.set_opt_loads(self.distribution_load,self.distribution_gen,self.bulk_load,self.bulk_gen,self.dispatched_bulk_load)
         self.dispatch.set_technologies(self.storage_capacity_dict, self.storage_efficiency_dict, self.active_thermal_dispatch_df)
         self.dispatch.set_average_net_loads(self.bulk_net_load)
 
@@ -638,12 +638,10 @@ class Supply(object):
         for i in range(1,int(cfg.cfgfile.get('case','dispatch_step'))+1):
             distribution_grid_node.capacity_factor.values.loc[:,min(year+i,max_year)] = dist_cap_factor.values
         if hasattr(distribution_grid_node, 'stock'):
-                distribution_grid_node.update_stock(year,3) 
-                
+                distribution_grid_node.update_stock(year,3)
         #hardcoded 50% assumption of colocated energy for dispatched flexible gen. I.e. wind and solar. Means that transmission capacity isn't needed to support energy demands. 
+        #TODO change to config parameter
         bulk_flow = util.df_slice(DfOper.subt([DfOper.add([self.bulk_load,util.remove_df_levels(self.dist_only_net_load,'dispatch_feeder')]),self.dispatched_bulk_load * .5]),2,'timeshift_type')
-#        bulk_flow = DfOper.add([self.dist_net_load_no_feeders,self.bulk_load])
-        
         bulk_cap_factor = util.DfOper.divi([bulk_flow.groupby(level=cfg.dispatch_geography).mean(),bulk_flow.groupby(level=cfg.dispatch_geography).max()])
         transmission_grid_node = self.nodes[self.transmission_node_id]              
         geography_map_key = transmission_grid_node.geography_map_key if hasattr(transmission_grid_node, 'geography_map_key') and transmission_grid_node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')       
@@ -654,16 +652,17 @@ class Supply(object):
         for i in range(1,int(cfg.cfgfile.get('case','dispatch_step'))+1):
             transmission_grid_node.capacity_factor.values.loc[:,min(year+i,max_year)] = bulk_cap_factor.values
         if hasattr(transmission_grid_node, 'stock'):
-            transmission_grid_node.update_stock(year,3)
+            transmission_grid_node.update_stock(year,3) 
 
-
+        
+        
 #    @timecall(immediate=True)   
     def solve_storage_and_flex_load_optimization(self,year):
         """prepares, solves, and updates the net load with results from the storage and flexible load optimization""" 
         self.prepare_optimization_inputs(year)
         logging.info("      solving dispatch for storage and dispatchable load")
         self.dispatch.parallelize_opt(year)
-        
+
         for geography in cfg.dispatch_geographies:
             for feeder in self.dispatch_feeders:
                 for timeshift_type in list(set(self.distribution_load.index.get_level_values('timeshift_type'))):
@@ -959,7 +958,7 @@ class Supply(object):
         names = ['SCENARIO','TIMESTAMP']
         for key, name in zip(keys,names):
             self.bulk_dispatch = pd.concat([self.bulk_dispatch],keys=[key],names=[name])
-        
+
         if not os.path.exists(os.path.join(cfg.workingdir,'dispatch_outputs')):
             os.mkdir(os.path.join(cfg.workingdir,'dispatch_outputs'))
         path = os.path.join(cfg.workingdir,'dispatch_outputs', 'hourly_dispatch_results.csv')
@@ -1459,9 +1458,13 @@ class Supply(object):
                 df_node.append(pd.concat(df_feeder, keys=self.dispatch_feeders, names=['dispatch_feeder']))
             df_geo.append(pd.concat(df_node,keys=node_ids,names=['supply_node']))
         df_geo = pd.concat(df_geo, keys=cfg.dispatch_geographies, names=[cfg.dispatch_geography])
-        df_output = util.remove_df_levels(util.DfOper.mult([df_geo,self.distribution_losses]),'dispatch_feeder')
-        df_output =  self.outputs.clean_df(util.df_slice(df_output,2,'timeshift_type'))
+        df_output =  self.outputs.clean_df(util.df_slice(df_geo,2,'timeshift_type'))
         util.replace_index_name(df_output,'DISPATCH_OUTPUT','SUPPLY_NODE')
+        df_output = df_output.reset_index(level=['DISPATCH_OUTPUT','DISPATCH_FEEDER'])
+        df_output['NEW_DISPATCH_OUTPUT'] = df_output['DISPATCH_FEEDER'] + " " + df_output['DISPATCH_OUTPUT']
+        df_output = df_output.set_index('NEW_DISPATCH_OUTPUT',append=True)
+        df_output = df_output[year].to_frame()
+        util.replace_index_name(df_output,'DISPATCH_OUTPUT','NEW_DISPATCH_OUTPUT')
         df_output.columns = [cfg.cfgfile.get('case','energy_unit').upper()]
         if generation:
             df_output*=-1
