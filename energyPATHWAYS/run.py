@@ -6,6 +6,7 @@ Created on Thu Jul 07 19:20:05 2016
 """
 
 import sys
+import signal
 import click
 import os
 import cPickle as pickle
@@ -19,13 +20,47 @@ import logging
 import cProfile
 import traceback
 
+
 model = None
+api_run_flag = False
 run_start_time = time.time()
 
+
+def update_api_run_status(status_id):
+    print "Updating status"
+    try:
+        global model
+        if model and model.api_run:
+            util.update_status(model.scenario_id, status_id)
+    # This is one of the few times I think a broad except clause is justified; if we've failed to update the run
+    # status in the database at this point we don't really care why, and we don't want it to prevent any other
+    # cleanup code from running. We'll just log it for future troubleshooting.
+    except Exception:
+        logging.exception("Exception caught attempting to write abnormal termination status %i to database."
+                          % (status_id,))
+    print "Finished updating status"
+
+
 def myexcepthook(exctype, value, tb):
-    logging.error(''.join(traceback.format_tb(tb)))
+    logging.error("Exception caught during model run.", exc_info=(exctype, value, tb))
+    update_api_run_status(4)
     sys.__excepthook__(exctype, value, tb)
 sys.excepthook = myexcepthook
+
+
+def signal_handler(signal, frame):
+    logging.error('Execution interrupted by signal ' + str(signal))
+    # As documented here,
+    # http://stackoverflow.com/questions/39215527/psycopg2-connection-unusable-after-selects-interrupted-by-os-signal
+    # The normal database connection may be in an unusable state here if the signal arrived while the connection
+    # was in the middle of performing some work. Therefore, we re-initialize the connection so that we can use it to
+    # write the cancelation status to the db.
+    cfg.init_db()
+    update_api_run_status(5)
+    sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
 
 @click.command()
 @click.option('-p', '--path', type=click.Path(exists=True), help='Working directory for energyPATHWAYS run.')
