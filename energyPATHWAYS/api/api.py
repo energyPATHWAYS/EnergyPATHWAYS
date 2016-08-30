@@ -1,6 +1,7 @@
 import subprocess
 import logging
 import datetime
+from collections import defaultdict
 from flask import Flask, g, request
 from flask_restful import Resource, Api
 from flask_cors import CORS
@@ -111,6 +112,52 @@ class Scenarios(Resource):
     def _location_header(scenario):
         return {'Location': api.url_for(Scenarios, scenario_id=scenario.id)}
 
+    @classmethod
+    def _duplicates(cls, list_):
+        seen = set()
+        dupes = []
+        for item in list_:
+            if item in seen:
+                dupes.append(item)
+            else:
+                seen.add(item)
+        return dupes
+
+    @classmethod
+    def _validate_scenario_data(cls, scenario_data):
+        messages = defaultdict(list)
+        for ds in ('demand', 'supply'):
+            # set up data access specifics we'll need later on depending on whether we're currently validating the
+            # demand side or the supply side
+            ds_key = ds + '_package_group_ids'
+            if ds == 'demand':
+                case_data_class = models.DemandCaseData
+                group_column = 'subsector_id'
+            else:
+                case_data_class = models.SupplyCaseData
+                group_column = 'supply_node_id'
+
+            request_pg_ids = scenario_data[ds_key]
+            dupe_pg_ids = cls._duplicates(request_pg_ids)
+            if dupe_pg_ids:
+                messages[ds_key].append("Duplicated package group ids detected: %s" % (str(dupe_pg_ids),))
+
+            found_pgs = case_data_class.query.filter(case_data_class.id.in_(request_pg_ids)).all()
+            not_found_pg_ids = set(request_pg_ids) - set(pg.id for pg in found_pgs)
+            if not_found_pg_ids:
+                messages[ds_key].append("One or more requested package group ids were not found: %s" %
+                                        (str(list(not_found_pg_ids)),))
+
+            grouped_pgs = defaultdict(list)
+            for pg in found_pgs:
+                grouped_pgs[getattr(pg, group_column)].append(pg.id)
+            for group_id, pg_ids in grouped_pgs.iteritems():
+                if len(pg_ids) > 1:
+                    messages[ds_key].append("Too many package group ids specified for %s %i: %s" %
+                                            (group_column, group_id, str(pg_ids)))
+
+        return messages
+
     @auth.login_required
     def get(self, scenario_id=None):
         if scenario_id is None:
@@ -128,13 +175,12 @@ class Scenarios(Resource):
         # Note that this will only work if the request's content type is 'application/json'
         scenario_data, errors = schemas.ScenarioSchema().load(request.get_json())
         if errors:
-            return {'message': 'Data for new scenario did not pass validation:', 'errors': errors}, 400
+            return {'message': 'Data for new scenario did not pass validation', 'errors': errors}, 400
 
-        # TODO: possible worthwhile things to validate (these go for the put() below as well)
-        # 1. that all of the demand package groups and supply package groups requested actually exist
-        # (at the moment any that don't exist will simply be ignored because nothing in the database will match
-        # them in the in_() calls below)
-        # 2. that the user did not try to select more than one package group for the same subsector / node
+        scenario_data_errors = self._validate_scenario_data(scenario_data)
+        if scenario_data_errors:
+            return {'message': 'Problems detected with scenario specification', 'errors': scenario_data_errors}, 400
+
         scenario = models.Scenario.new_with_cases(name=scenario_data['name'],
                                                   description=scenario_data['description'],
                                                   user_id=g.user.id)
@@ -161,6 +207,10 @@ class Scenarios(Resource):
         scenario_data, errors = schemas.ScenarioSchema().load(request.get_json())
         if errors:
             return {'message': 'Data for updating scenario did not pass validation:', 'errors': errors}, 400
+
+        scenario_data_errors = self._validate_scenario_data(scenario_data)
+        if scenario_data_errors:
+            return {'message': 'Problems detected with scenario specification', 'errors': scenario_data_errors}, 400
 
         scenario.name = scenario_data['name']
         scenario.description = scenario_data['description']
@@ -244,6 +294,8 @@ api.add_resource(Token, '/token')
 
 # start the server with the 'run()' method
 if __name__ == '__main__':
+    # Note that we do not configure the app when it is created above, because different users of this file might
+    # want to configure the app differently. E.g. test_api.py uses a different config file.
     app.config.from_pyfile('config.py')
     app.run()
 

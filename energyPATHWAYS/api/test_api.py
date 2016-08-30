@@ -60,13 +60,13 @@ class TestAPI(unittest.TestCase):
 
             # supply nodes for testing
             rooftop_pv = models.SupplyNode(name='Rooftop Solar PV', supply_type_id=2)
-            for _ in range(3):
-                rooftop_pv.supply_case_data.append(models.SupplyCaseData())
+            for i in range(3):
+                rooftop_pv.supply_case_data.append(models.SupplyCaseData(description='RS option ' + str(i)))
             gasoline_blend = models.SupplyNode(name='Gasoline Blend', supply_type_id=1)
-            for _ in range(2):
-                gasoline_blend.supply_case_data.append(models.SupplyCaseData())
+            for i in range(2):
+                gasoline_blend.supply_case_data.append(models.SupplyCaseData(description='GB option ' + str(i)))
             uranium = models.SupplyNode(name='Uranium Import', supply_type_id=4)
-            uranium.supply_case_data.append(models.SupplyCaseData())
+            uranium.supply_case_data.append(models.SupplyCaseData(description='UI only option'))
             models.db.session.add_all([rooftop_pv, gasoline_blend, uranium])
 
             # scenarios for testing
@@ -132,6 +132,12 @@ class TestAPI(unittest.TestCase):
         rv = self.get('/package_groups', credentials)
         self.assertEqual(rv.status_code, 200)
         return json.loads(rv.data)
+
+    def _janes_existing_scenario(self):
+        """Find Jane's existing scenario (which will be the one she can see that isn't built-in)"""
+        rv = self.get(self.SCENARIOS_PATH, self.jane_doe_credentials)
+        self.assertEqual(rv.status_code, 200)
+        return [s for s in json.loads(rv.data) if not s['is_built_in']][0]
 
     @mock.patch('subprocess.Popen')
     def run_scenario(self, scenario_id, credentials, mock_popen):
@@ -251,10 +257,7 @@ class TestAPI(unittest.TestCase):
         modified_marker = ' modified!'
         options = self.load_options(self.jane_doe_credentials)
 
-        # Find Jane's existing scenario (which will be the one she can see that isn't built-in)
-        rv = self.get(self.SCENARIOS_PATH, self.jane_doe_credentials)
-        self.assertEqual(rv.status_code, 200)
-        scenario = [s for s in json.loads(rv.data) if not s['is_built_in']][0]
+        scenario = self._janes_existing_scenario()
 
         # Make sure the scenario contents are as we expect
         self.assertEqual(len(scenario['demand_package_group_ids']), 1)
@@ -293,6 +296,48 @@ class TestAPI(unittest.TestCase):
                       headers={'Content-Type': 'application/json'},
                       data=scenario_data)
         self.assertEqual(rv.status_code, 400)
+
+    def test_validate_scenario(self):
+        options = self.load_options(self.jane_doe_credentials)
+        dpg_id_1 = options['subsectors'][1]['demand_case_data'][0]['id']
+        dpg_id_2 = options['subsectors'][1]['demand_case_data'][1]['id']
+        spg_id_1 = options['nodes'][0]['supply_case_data'][0]['id']
+        spg_id_2 = options['nodes'][0]['supply_case_data'][1]['id']
+
+        # Set up a dict describing the scenario we'd like to create
+        scenario_name = "Jane's wonky scenario"
+        scenario_description = "This scenario is unfortunate"
+        scenario_data = json.dumps(
+            dict(name=scenario_name,
+                 description=scenario_description,
+                 demand_package_group_ids=[dpg_id_1, dpg_id_2, -1, dpg_id_1],
+                 supply_package_group_ids=[spg_id_1, spg_id_2, -1, spg_id_1]
+                 )
+        )
+
+        # Post the new scenario
+        rv = self.post(self.SCENARIOS_PATH, self.jane_doe_credentials,
+                       headers={'Content-Type': 'application/json'},
+                       data=scenario_data)
+        self.assertEqual(rv.status_code, 400)
+        data = json.loads(rv.data)
+        # We are expecting three errors on both the demand and supply side:
+        # 1) A duplicated package id (dpg_id_1 / spg_id_1)
+        # 2) A not-found package id (-1)
+        # 3) An instance of two package ids belonging to the same subsector / supply_node (dpg_id_1 & dpg_id_2 on the
+        # demand side, spg_id_1 and spg_id_2 on the supply side)
+        self.assertEquals(len(data['errors']['demand_package_group_ids']), 3)
+        self.assertEquals(len(data['errors']['supply_package_group_ids']), 3)
+
+        # We expect the same result if we attempt to PUT this scenario specification over an existing one
+        scenario = self._janes_existing_scenario()
+        rv = self.put('%s/%i' % (self.SCENARIOS_PATH, scenario['id']), self.jane_doe_credentials,
+                      headers={'Content-Type': 'application/json'},
+                      data=scenario_data)
+        self.assertEqual(rv.status_code, 400)
+        data = json.loads(rv.data)
+        self.assertEquals(len(data['errors']['demand_package_group_ids']), 3)
+        self.assertEquals(len(data['errors']['supply_package_group_ids']), 3)
 
     def test_run_scenario(self):
         # Check the response to a status check when the scenario has never been run before
