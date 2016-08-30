@@ -19,7 +19,19 @@ setup(name='energyPATHWAYS',
                         'scikit-learn', # dispatch_classes.py
                         'click'
                         ],
-      extras_require={'documentation': ["Sphinx"]},
+      extras_require={'documentation': ["Sphinx"],
+                      'api': ['flask',
+                              'flask_bcrypt',
+                              'flask_cors',
+                              'flask_httpauth',
+                              'flask_restful',
+                              'flask_sqlalchemy',
+                              'itsdangerous',
+                              'marshmallow',
+                              'mock',
+                              'sqlalchemy'
+                              ]
+                      },
       include_package_data=True,
       entry_points='''
         [console_scripts]
