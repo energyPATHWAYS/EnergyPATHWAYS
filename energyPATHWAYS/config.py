@@ -71,6 +71,7 @@ output_demand_levels = None
 output_supply_levels = None
 output_combined_levels = None
 outputs_id_map = defaultdict(dict)
+dispatch_write_years = None
 
 # parallel processing
 available_cpus = None

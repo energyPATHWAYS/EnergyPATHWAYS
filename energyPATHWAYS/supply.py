@@ -300,11 +300,16 @@ class Supply(object):
             self._recalculate_stocks_and_io(year, loop)
             self.reconciled = False
 
+    def set_dispatch_years(self):
+        dispatch_year_step = int(cfg.cfgfile.get('case','dispatch_step'))
+        dispatch_write_step = int(cfg.cfgfile.get('output_detail','dispatch_write_step'))
+        logging.info("Dispatch year step = {}".format(dispatch_year_step))
+        self.dispatch_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_year_step))
+        self.dispatch_write_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_write_step))
+
     def calculate_loop(self):
         """Performs all IO loop calculations"""
-        dispatch_year_step = int(cfg.cfgfile.get('case','dispatch_step'))
-        logging.info("Dispatch year step = {}".format(dispatch_year_step))
-        self.dispatch_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_year_step))        
+        self.set_dispatch_years()
         first_year = min(self.years)
         self._calculate_initial_loop()
         for year in self.years:
@@ -959,7 +964,8 @@ class Supply(object):
         for key, name in zip(keys,names):
             self.bulk_dispatch = pd.concat([self.bulk_dispatch],keys=[key],names=[name])
         
-        Output.write(self.bulk_dispatch, 'hourly_dispatch_results.csv', os.path.join(cfg.workingdir,'dispatch_outputs'))
+        if year in self.dispatch_write_years:
+            Output.write(self.bulk_dispatch, 'hourly_dispatch_results.csv', os.path.join(cfg.workingdir,'dispatch_outputs'))
 
         self.set_grid_capacity_factors(year)
         #solves dispatch (stack model) for thermal resource connected to thermal dispatch node
