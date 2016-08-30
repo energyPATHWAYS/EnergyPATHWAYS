@@ -8,6 +8,9 @@ Created on Mon Oct 26 19:11:59 2015
 import pandas as pd
 import util
 import config as cfg
+import os
+import logging
+import time
 
 class Output(object):
     def __init__(self):
@@ -49,3 +52,28 @@ class Output(object):
         else:
             df.columns = [x.upper() if isinstance(x, basestring) else x for x in df.columns]        
         return df
+
+    @staticmethod
+    def write(df, file_name, path):
+        if not os.path.exists(path):
+            os.mkdir(path)
+        
+        tries = 1
+        while True:
+            try:
+                if os.path.isfile(os.path.join(path, file_name)):
+                    # append and don't write header if the file already exists
+                    df.to_csv(os.path.join(path, file_name), header=False, mode='ab')
+                else:
+                    df.to_csv(os.path.join(path, file_name), header=True, mode='w')
+                return
+            except Exception as e:
+                logging.error('file {} cannot be written: {}'.format(file_name, e))
+                if tries>6:
+                    raise
+                elif tries>=4:
+                    raw_input('Close file {} and press enter to continue...'.format(file_name))
+                elif tries<4:
+                    logging.error('waiting {} seconds...'.format(4**tries))
+                    time.sleep(4**tries)
+                tries += 1

@@ -30,6 +30,10 @@ import functools
 import itertools
 import decimal
 import psycopg2
+import logging
+
+
+        
 
 def percent_larger(a, b):
     return (a - b) / a

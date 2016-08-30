@@ -89,9 +89,11 @@ def load_model(path, load_demand, load_supply, scenario_id):
     if load_supply:
         with open(os.path.join(path, str(scenario_id)+'_full_model_run.p'), 'rb') as infile:
             model = pickle.load(infile)
+        logging.info('Loaded complete EnergyPATHWAYS model from pickle')
     elif load_demand:
         with open(os.path.join(path, str(scenario_id)+'_model.p'), 'rb') as infile:
             model = pickle.load(infile)
+        logging.info('Loaded demand-side EnergyPATHWAYS model from pickle')
     else:
         model = PathwaysModel(scenario_id)
     return model
@@ -101,7 +103,7 @@ if __name__ == "__main__":
     os.chdir(workingdir)
     config = 'config.INI'
     pint = 'unit_defs.txt'
-    scenario = 5
+    scenario = 1
     
     run(workingdir, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)
 #    cProfile.run('run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)', filename='full_run.profile')

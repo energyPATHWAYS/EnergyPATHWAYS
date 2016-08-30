@@ -115,9 +115,6 @@ class PathwaysModel(object):
         else:
             raise ValueError('result_name not recognized')
 
-        if not os.path.exists(os.path.join(cfg.workingdir, result_name)):
-            os.mkdir(os.path.join(cfg.workingdir, result_name))
-
         for attribute in dir(res_obj):
             if not isinstance(getattr(res_obj, attribute), pd.DataFrame):
                 continue
@@ -127,13 +124,8 @@ class PathwaysModel(object):
             names = ['SCENARIO','TIMESTAMP']
             for key, name in zip(keys, names):
                 result_df = pd.concat([result_df], keys=[key], names=[name])
-
-            path = os.path.join(cfg.workingdir, result_name, attribute+'.csv')
-            if os.path.isfile(path):
-                # append and don't write header if the file already exists
-                result_df.to_csv(path, header=False, mode='ab')
-            else:
-                result_df.to_csv(path, header=True, mode='w')
+            
+            Output.write(result_df, attribute+'.csv', os.path.join(cfg.workingdir, result_name))
         
     def calculate_combined_cost_results(self):
         #calculate and format export costs

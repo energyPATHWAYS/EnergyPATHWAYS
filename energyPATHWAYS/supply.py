@@ -304,15 +304,15 @@ class Supply(object):
         """Performs all IO loop calculations"""
         dispatch_year_step = int(cfg.cfgfile.get('case','dispatch_step'))
         logging.info("Dispatch year step = {}".format(dispatch_year_step))
-        self.dispatch_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_year_step))
-        self._calculate_initial_loop()
+        self.dispatch_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_year_step))        
         first_year = min(self.years)
+        self._calculate_initial_loop()
         for year in self.years:
             logging.info("Starting supply side calculations for {}".format(year))
             for loop in [1, 2, 3]:
                 # starting loop
                 if loop == 1:
-                    logging.info("    loop {}: input-output calculation".format(loop))
+                    logging.info("   loop {}: input-output calculation".format(loop))
                     if year is not first_year:
                         # initialize year is not necessary in the first year
                         self.initialize_year(year, loop)
@@ -321,7 +321,7 @@ class Supply(object):
 
                 # reconciliation loop
                 elif loop == 2:
-                    logging.info("    loop {}: supply reconciliation".format(loop))
+                    logging.info("   loop {}: supply reconciliation".format(loop))
                     # sets a flag for whether any reconciliation occurs in the loop determined in the reconcile function
                     self.reconciled = False
                     # each time, if reconciliation has occured, we have to recalculate coefficients and resolve the io
@@ -340,7 +340,7 @@ class Supply(object):
 
                 # dispatch loop
                 elif loop == 3 and year in self.dispatch_years:
-                    logging.info("    loop {}: electricity dispatch".format(loop))
+                    logging.info("   loop {}: electricity dispatch".format(loop))
                     # loop - 1 is necessary so that it uses last year's throughput
                     self.calculate_embodied_costs(year, loop-1) # necessary here because of the dispatch
                     self.prepare_dispatch_inputs(year, loop)
@@ -958,15 +958,8 @@ class Supply(object):
         names = ['SCENARIO','TIMESTAMP']
         for key, name in zip(keys,names):
             self.bulk_dispatch = pd.concat([self.bulk_dispatch],keys=[key],names=[name])
-
-        if not os.path.exists(os.path.join(cfg.workingdir,'dispatch_outputs')):
-            os.mkdir(os.path.join(cfg.workingdir,'dispatch_outputs'))
-        path = os.path.join(cfg.workingdir,'dispatch_outputs', 'hourly_dispatch_results.csv')
-        if os.path.isfile(path):
-            # append and don't write header if the file already exists
-            self.bulk_dispatch.to_csv(path, header=False, mode='ab')
-        else:
-            self.bulk_dispatch.to_csv(path, header=True, mode='w')
+        
+        Output.write(self.bulk_dispatch, 'hourly_dispatch_results.csv', os.path.join(cfg.workingdir,'dispatch_outputs'))
 
         self.set_grid_capacity_factors(year)
         #solves dispatch (stack model) for thermal resource connected to thermal dispatch node
@@ -1569,7 +1562,7 @@ class Supply(object):
             self.emissions_dict[year][sector] = pd.DataFrame(emissions * inverse.values,index=row_index,columns=col_index)
 
 
-    def map_embodied_to_demand(self, embodied_dict,link_dict):
+    def map_embodied_to_demand(self, embodied_dict, link_dict):
         """Maps embodied emissions results for supply node to their associated final energy type and then
         to final energy demand. 
         Args: 
