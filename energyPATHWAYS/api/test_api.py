@@ -4,12 +4,18 @@ import json
 import api
 import base64
 import sqlalchemy.schema as schema
+from collections import namedtuple
 from sqlalchemy.sql.expression import func
 import models
 
 
 class TestAPI(unittest.TestCase):
     SCENARIOS_PATH = '/scenarios'
+    TEST_PID = 12345
+
+    # We use this to generate return values for our mock subprocess.Popen() below. The return value needs to have a
+    # pid property because the scenario runner will want to read it and store it in the database.
+    MockProcess = namedtuple('MockProcess', ['pid'])
 
     def setUp(self):
         api.app.config.from_pyfile('test_config.py')
@@ -139,7 +145,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(rv.status_code, 200)
         return [s for s in json.loads(rv.data) if not s['is_built_in']][0]
 
-    @mock.patch('subprocess.Popen')
+    @mock.patch('subprocess.Popen', return_value=MockProcess(pid=TEST_PID))
     def run_scenario(self, scenario_id, credentials, mock_popen):
         """
         Posts to the scenario run route but with the subprocess starter mocked so we don't actually get
@@ -353,6 +359,11 @@ class TestAPI(unittest.TestCase):
         rv = self.get(rv.headers['Location'], self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 200)
         self.assertEqual(json.loads(rv.data)['name'], 'Queued')
+
+        # The id of the process running the scenario has been stored correctly
+        with api.app.app_context():
+            run = models.Scenario.query.get(self.jane_scenario_id).latest_run
+        self.assertEqual(run.pid, self.TEST_PID)
 
         # An attempt to run the same scenario again after it's queued is rejected
         rv = self.run_scenario(self.jane_scenario_id, self.jane_doe_credentials)

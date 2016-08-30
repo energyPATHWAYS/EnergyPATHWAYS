@@ -253,9 +253,13 @@ class ScenarioRunner(Resource):
         models.db.session.commit()
 
         # Actually run the scenario
-        subprocess.Popen(['energyPATHWAYS', '-a',
-                          '-p', '../../us_model_example',
-                          '-s', str(scenario_id)])
+        proc = subprocess.Popen(['energyPATHWAYS', '-a',
+                                 '-p', '../../us_model_example',
+                                 '-s', str(scenario_id)])
+
+        # Store the pid of the model process in the database
+        run.pid = proc.pid
+        models.db.session.commit()
 
         return {'message': 'Scenario run initiated'}, 200,\
                {'Location': api.url_for(ScenarioRunner, scenario_id=scenario.id)}
