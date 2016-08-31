@@ -40,6 +40,7 @@ api_errors = {
 
 # Initialize the application
 app = Flask(__name__)
+app.config.from_pyfile('config.py')
 
 # TODO: This allows the API to respond to XMLHttpRequests from any domain. This is preferable for development, but
 # for production we should restrict the allowed origin only to the Pathways web interface server
@@ -298,9 +299,6 @@ api.add_resource(Token, '/token')
 
 # start the server with the 'run()' method
 if __name__ == '__main__':
-    # Note that we do not configure the app when it is created above, because different users of this file might
-    # want to configure the app differently. E.g. test_api.py uses a different config file.
-    app.config.from_pyfile('config.py')
     app.run()
 
     # Logging recipe from http://flask.pocoo.org/docs/0.11/errorhandling/#logging-to-a-file

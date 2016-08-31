@@ -1,12 +1,11 @@
-# This config will be used during unit testing. To change the production configuration, edit config.py
+# This config will be used to *override* values from the production config during unit testing.
+# To change the production configuration, edit config.py
 
 # URI to the pathways database
 SQLALCHEMY_DATABASE_URI = 'postgresql://username:password@localhost:5432/pathways_test'
 
-# Secret key used to generate secure login tokens. Here are some easy ways to generate something "good enough"
-# for our purposes:
-# http://www.howtogeek.com/howto/30184/10-ways-to-generate-a-random-password-from-the-command-line/
-SECRET_KEY = 'put_something_long_and_random_here;REPLACE THIS!'
+# Tell Flask that we are in testing mode
+TESTING = True
 
 # Uncomment this if you are running in DEBUG or TESTING mode but would like to receive "clean" responses
 # to exceptions rather than stack traces.

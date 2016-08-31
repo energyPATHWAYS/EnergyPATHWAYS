@@ -17,9 +17,11 @@ class TestAPI(unittest.TestCase):
     # pid property because the scenario runner will want to read it and store it in the database.
     MockProcess = namedtuple('MockProcess', ['pid'])
 
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         api.app.config.from_pyfile('test_config.py')
-        api.app.testing = True
+
+    def setUp(self):
         self.test_app = api.app.test_client()
 
         with api.app.app_context():
