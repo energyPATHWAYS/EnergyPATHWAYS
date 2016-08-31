@@ -55,7 +55,6 @@ def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load
     cfg.initialize_config(path, config, pint, log_name)
     shape.init_shapes()
     
-    
     scenario_ids = parse_scenario_ids(scenario)
     logging.info('Scenario_ids run list = {}'.format(scenario_ids))
     for scenario_id in scenario_ids:

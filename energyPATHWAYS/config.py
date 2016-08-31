@@ -104,10 +104,10 @@ def setuplogging():
     log_path = os.path.join(workingdir, log_name)
     log_level = cfgfile.get('log', 'log_level').upper()
     logging.basicConfig(filename=log_path, level=log_level)
-    if cfgfile.get('log', 'stdout').lower() == 'true':
+    logger = logging.getLogger()
+    if cfgfile.get('log', 'stdout').lower() == 'true' and not any(type(h) is logging.StreamHandler for h in logger.handlers):
         soh = logging.StreamHandler(sys.stdout)
         soh.setLevel(log_level)
-        logger = logging.getLogger()
         logger.addHandler(soh)
 
 def init_cfgfile(cfgfile_path):
