@@ -22,12 +22,11 @@ import traceback
 
 
 model = None
-api_run_flag = False
 run_start_time = time.time()
 
 
 def update_api_run_status(status_id):
-    print "Updating status"
+    logging.debug("Updating scenario run status in database.")
     try:
         global model
         if model and model.api_run:
@@ -38,11 +37,14 @@ def update_api_run_status(status_id):
     except Exception:
         logging.exception("Exception caught attempting to write abnormal termination status %i to database."
                           % (status_id,))
-    print "Finished updating status"
+    logging.debug("Finished updating scenario run status in database.")
 
 
 def myexcepthook(exctype, value, tb):
     logging.error("Exception caught during model run.", exc_info=(exctype, value, tb))
+    # It is possible that we arrived here due to a database exception, and if so the database will be in a state
+    # where it is not accepting commands. To be safe, we do a rollback before attempting to write the run status.
+    cfg.con.rollback()
     update_api_run_status(4)
     sys.__excepthook__(exctype, value, tb)
 sys.excepthook = myexcepthook
