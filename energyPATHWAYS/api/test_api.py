@@ -1,18 +1,27 @@
 import unittest
+import mock
 import json
 import api
 import base64
 import sqlalchemy.schema as schema
+from collections import namedtuple
 from sqlalchemy.sql.expression import func
 import models
 
 
 class TestAPI(unittest.TestCase):
     SCENARIOS_PATH = '/scenarios'
+    TEST_PID = 12345
+
+    # We use this to generate return values for our mock subprocess.Popen() below. The return value needs to have a
+    # pid property because the scenario runner will want to read it and store it in the database.
+    MockProcess = namedtuple('MockProcess', ['pid'])
+
+    @classmethod
+    def setUpClass(cls):
+        api.app.config.from_pyfile('test_config.py')
 
     def setUp(self):
-        api.app.config.from_pyfile('test_config.py')
-        api.app.testing = True
         self.test_app = api.app.test_client()
 
         with api.app.app_context():
@@ -59,13 +68,13 @@ class TestAPI(unittest.TestCase):
 
             # supply nodes for testing
             rooftop_pv = models.SupplyNode(name='Rooftop Solar PV', supply_type_id=2)
-            for _ in range(3):
-                rooftop_pv.supply_case_data.append(models.SupplyCaseData())
+            for i in range(3):
+                rooftop_pv.supply_case_data.append(models.SupplyCaseData(description='RS option ' + str(i)))
             gasoline_blend = models.SupplyNode(name='Gasoline Blend', supply_type_id=1)
-            for _ in range(2):
-                gasoline_blend.supply_case_data.append(models.SupplyCaseData())
+            for i in range(2):
+                gasoline_blend.supply_case_data.append(models.SupplyCaseData(description='GB option ' + str(i)))
             uranium = models.SupplyNode(name='Uranium Import', supply_type_id=4)
-            uranium.supply_case_data.append(models.SupplyCaseData())
+            uranium.supply_case_data.append(models.SupplyCaseData(description='UI only option'))
             models.db.session.add_all([rooftop_pv, gasoline_blend, uranium])
 
             # scenarios for testing
@@ -131,6 +140,24 @@ class TestAPI(unittest.TestCase):
         rv = self.get('/package_groups', credentials)
         self.assertEqual(rv.status_code, 200)
         return json.loads(rv.data)
+
+    def _janes_existing_scenario(self):
+        """Find Jane's existing scenario (which will be the one she can see that isn't built-in)"""
+        rv = self.get(self.SCENARIOS_PATH, self.jane_doe_credentials)
+        self.assertEqual(rv.status_code, 200)
+        return [s for s in json.loads(rv.data) if not s['is_built_in']][0]
+
+    @mock.patch('subprocess.Popen', return_value=MockProcess(pid=TEST_PID))
+    def run_scenario(self, scenario_id, credentials, mock_popen):
+        """
+        Posts to the scenario run route but with the subprocess starter mocked so we don't actually get
+        models running while running unit tests. Always use this when kicking off scenario runs within a unit test!
+        """
+        rv = self.post('/scenarios/%i/run' % (scenario_id,), credentials)
+        # If a success status was returned, we expect that a model run subprocess was started
+        # Conversely, if any other code was returned, we expect that a model run subprocess was *not* started!
+        self.assertEqual(rv.status_code == 200, mock_popen.called)
+        return rv
 
     def test_package_groups(self):
         options = self.load_options(self.jane_doe_credentials)
@@ -212,6 +239,9 @@ class TestAPI(unittest.TestCase):
                        headers={'Content-Type': 'application/json'},
                        data=scenario_data)
         self.assertEqual(rv.status_code, 201)
+        response_data = json.loads(rv.data)
+        self.assertEqual(response_data['message'], 'Created')
+        self.assertIsInstance(response_data['id'], int)
 
         # The Location header returned from the post takes us to the detail for the new scenario, where we can
         # confirm that the details are correct
@@ -235,10 +265,7 @@ class TestAPI(unittest.TestCase):
         modified_marker = ' modified!'
         options = self.load_options(self.jane_doe_credentials)
 
-        # Find Jane's existing scenario (which will be the one she can see that isn't built-in)
-        rv = self.get(self.SCENARIOS_PATH, self.jane_doe_credentials)
-        self.assertEqual(rv.status_code, 200)
-        scenario = [s for s in json.loads(rv.data) if not s['is_built_in']][0]
+        scenario = self._janes_existing_scenario()
 
         # Make sure the scenario contents are as we expect
         self.assertEqual(len(scenario['demand_package_group_ids']), 1)
@@ -269,7 +296,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(len(modified_scenario['supply_package_group_ids']), 1)
 
         # Initiate a run of the scenario
-        rv = self.post('/scenarios/%i/run' % (self.jane_scenario_id,), self.jane_doe_credentials)
+        rv = self.run_scenario(self.jane_scenario_id, self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 200)
 
         # The scenario cannot be edited now that it is running
@@ -278,16 +305,56 @@ class TestAPI(unittest.TestCase):
                       data=scenario_data)
         self.assertEqual(rv.status_code, 400)
 
-    def test_run_scenario(self):
-        run_path = '/scenarios/%i/run' % (self.jane_scenario_id,)
+    def test_validate_scenario(self):
+        options = self.load_options(self.jane_doe_credentials)
+        dpg_id_1 = options['subsectors'][1]['demand_case_data'][0]['id']
+        dpg_id_2 = options['subsectors'][1]['demand_case_data'][1]['id']
+        spg_id_1 = options['nodes'][0]['supply_case_data'][0]['id']
+        spg_id_2 = options['nodes'][0]['supply_case_data'][1]['id']
 
+        # Set up a dict describing the scenario we'd like to create
+        scenario_name = "Jane's wonky scenario"
+        scenario_description = "This scenario is unfortunate"
+        scenario_data = json.dumps(
+            dict(name=scenario_name,
+                 description=scenario_description,
+                 demand_package_group_ids=[dpg_id_1, dpg_id_2, -1, dpg_id_1],
+                 supply_package_group_ids=[spg_id_1, spg_id_2, -1, spg_id_1]
+                 )
+        )
+
+        # Post the new scenario
+        rv = self.post(self.SCENARIOS_PATH, self.jane_doe_credentials,
+                       headers={'Content-Type': 'application/json'},
+                       data=scenario_data)
+        self.assertEqual(rv.status_code, 400)
+        data = json.loads(rv.data)
+        # We are expecting three errors on both the demand and supply side:
+        # 1) A duplicated package id (dpg_id_1 / spg_id_1)
+        # 2) A not-found package id (-1)
+        # 3) An instance of two package ids belonging to the same subsector / supply_node (dpg_id_1 & dpg_id_2 on the
+        # demand side, spg_id_1 and spg_id_2 on the supply side)
+        self.assertEquals(len(data['errors']['demand_package_group_ids']), 3)
+        self.assertEquals(len(data['errors']['supply_package_group_ids']), 3)
+
+        # We expect the same result if we attempt to PUT this scenario specification over an existing one
+        scenario = self._janes_existing_scenario()
+        rv = self.put('%s/%i' % (self.SCENARIOS_PATH, scenario['id']), self.jane_doe_credentials,
+                      headers={'Content-Type': 'application/json'},
+                      data=scenario_data)
+        self.assertEqual(rv.status_code, 400)
+        data = json.loads(rv.data)
+        self.assertEquals(len(data['errors']['demand_package_group_ids']), 3)
+        self.assertEquals(len(data['errors']['supply_package_group_ids']), 3)
+
+    def test_run_scenario(self):
         # Check the response to a status check when the scenario has never been run before
-        rv = self.get(run_path, self.jane_doe_credentials)
+        rv = self.get('/scenarios/%i/run' % (self.jane_scenario_id,), self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 200)
         self.assertEqual(json.loads(rv.data)['name'], 'Never run')
 
         # Initiate a new run of the scenario
-        rv = self.post(run_path, self.jane_doe_credentials)
+        rv = self.run_scenario(self.jane_scenario_id, self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 200)
 
         # The Scenario is now queued
@@ -295,8 +362,13 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(rv.status_code, 200)
         self.assertEqual(json.loads(rv.data)['name'], 'Queued')
 
+        # The id of the process running the scenario has been stored correctly
+        with api.app.app_context():
+            run = models.Scenario.query.get(self.jane_scenario_id).latest_run
+        self.assertEqual(run.pid, self.TEST_PID)
+
         # An attempt to run the same scenario again after it's queued is rejected
-        rv = self.post(run_path, self.jane_doe_credentials)
+        rv = self.run_scenario(self.jane_scenario_id, self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 400)
 
     def test_outputs(self):
@@ -308,7 +380,7 @@ class TestAPI(unittest.TestCase):
             self.get(outputs_path, self.jane_doe_credentials)
 
         # Start a run for the scenario
-        rv = self.post('/scenarios/%i/run' % (self.jane_scenario_id,), self.jane_doe_credentials)
+        rv = self.run_scenario(self.jane_scenario_id, self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 200)
 
         # Still can't get outputs because the run has not successfully completed

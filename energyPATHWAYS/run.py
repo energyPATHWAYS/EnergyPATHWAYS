@@ -6,6 +6,7 @@ Created on Thu Jul 07 19:20:05 2016
 """
 
 import sys
+import signal
 import click
 import os
 import cPickle as pickle
@@ -19,13 +20,46 @@ import logging
 import cProfile
 import traceback
 
+
 model = None
 run_start_time = time.time()
 
+
+def update_api_run_status(status_id):
+    logging.debug("Updating scenario run status in database.")
+    try:
+        global model
+        if model and model.api_run:
+            util.update_status(model.scenario_id, status_id)
+    # This is one of the few times I think a broad except clause is justified; if we've failed to update the run
+    # status in the database at this point we don't really care why, and we don't want it to prevent any other
+    # cleanup code from running. We'll just log it for future troubleshooting.
+    except Exception:
+        logging.exception("Exception caught attempting to write abnormal termination status %i to database."
+                          % (status_id,))
+    logging.debug("Finished updating scenario run status in database.")
+
 def myexcepthook(exctype, value, tb):
-    logging.error(''.join(traceback.format_tb(tb)))
+    logging.error("Exception caught during model run.", exc_info=(exctype, value, tb))
+    # It is possible that we arrived here due to a database exception, and if so the database will be in a state
+    # where it is not accepting commands. To be safe, we do a rollback before attempting to write the run status.
+    cfg.con.rollback()
+    update_api_run_status(4)
     sys.__excepthook__(exctype, value, tb)
 sys.excepthook = myexcepthook
+
+def signal_handler(signal, frame):
+    logging.error('Execution interrupted by signal ' + str(signal))
+    # As documented here,
+    # http://stackoverflow.com/questions/39215527/psycopg2-connection-unusable-after-selects-interrupted-by-os-signal
+    # The normal database connection may be in an unusable state here if the signal arrived while the connection
+    # was in the middle of performing some work. Therefore, we re-initialize the connection so that we can use it to
+    # write the cancelation status to the db.
+    cfg.init_db()
+    update_api_run_status(5)
+    sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 @click.command()
 @click.option('-p', '--path', type=click.Path(exists=True), help='Working directory for energyPATHWAYS run.')
@@ -63,7 +97,8 @@ def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load
         logging.info('Starting scenario_id {}'.format(scenario_id))
         if api_run:
             util.update_status(scenario_id, 2)
-        model = load_model(load_demand, load_supply, scenario_id)
+        
+        model = load_model(load_demand, load_supply, scenario_id, api_run)
         model.run(scenario_id,
                   solve_demand=solve_demand and not (load_demand or load_supply),
                   solve_supply=solve_supply and not load_supply,
@@ -85,7 +120,10 @@ def parse_scenario_ids(scenario):
         scenario = str(scenario).split(',')
     return [int(str(s).rstrip().lstrip()) for s in scenario]
 
-def load_model(load_demand, load_supply, scenario_id):
+def load_model(load_demand, load_supply, scenario_id, api_run):
+    # Note that the api_run parameter is effectively ignored if you are loading a previously pickled model
+    # (with load_supply or load_demand); the model's api_run property will be set to whatever it was when the model
+    # was pickled.
     if load_supply:
         with open(os.path.join(cfg.workingdir, str(scenario_id)+'_full_model_run.p'), 'rb') as infile:
             model = pickle.load(infile)
@@ -95,17 +133,19 @@ def load_model(load_demand, load_supply, scenario_id):
             model = pickle.load(infile)
         logging.info('Loaded demand-side EnergyPATHWAYS model from pickle')
     else:
-        model = PathwaysModel(scenario_id)
+        model = PathwaysModel(scenario_id, api_run)
     return model
+
 
 if __name__ == "__main__":
     workingdir = r'C:\github\energyPATHWAYS\us_model_example'
     os.chdir(workingdir)
     config = 'config.INI'
     pint = 'unit_defs.txt'
-    scenario = '1'
+    scenario = 1
     
     run(workingdir, config, pint, scenario, load_demand=True, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False, clear_results=False)
-#    cProfile.run('run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)', filename='full_run.profile')
+    # note that when running the profiler, it is recommended to not run the model for more than 10 years due to memory use
+    # cProfile.run('run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)', filename='full_run.profile')
 
     
