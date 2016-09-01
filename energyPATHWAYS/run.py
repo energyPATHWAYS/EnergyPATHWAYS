@@ -41,16 +41,17 @@ sys.excepthook = myexcepthook
 @click.option('--log_name', help='File name for the log file.')
 @click.option('-a', '--api_run/--no_api_run', default=False)
 @click.option('-d', '--debug/--no_debug', default=False, help='On error the model will exit into an ipython debugger.')
-def click_run(path, config, pint, scenario, load_demand, solve_demand, load_supply, solve_supply, pickle_shapes, save_models, log_name, api_run, debug):
+@click.option('--clear_results/--no_clear_results', default=False, help='Should results be cleared or appended when starting a new model run')
+def click_run(path, config, pint, scenario, load_demand, solve_demand, load_supply, solve_supply, pickle_shapes, save_models, log_name, api_run, debug, clear_results):
     if debug:
         import ipdb
         with ipdb.launch_ipdb_on_exception():
-            run(path, config, pint, scenario, load_demand, solve_demand, load_supply, solve_supply, pickle_shapes, save_models, log_name, api_run)
+            run(path, config, pint, scenario, load_demand, solve_demand, load_supply, solve_supply, pickle_shapes, save_models, log_name, api_run, clear_results)
     else:
-        run(path, config, pint, scenario, load_demand, solve_demand, load_supply, solve_supply, pickle_shapes, save_models, log_name, api_run)
+        run(path, config, pint, scenario, load_demand, solve_demand, load_supply, solve_supply, pickle_shapes, save_models, log_name, api_run, clear_results)
 
 def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False,
-        solve_supply=True, pickle_shapes=True, save_models=True, log_name=None, api_run=False):
+        solve_supply=True, pickle_shapes=True, save_models=True, log_name=None, api_run=False, clear_results=False):
     global model
     cfg.initialize_config(path, config, pint, log_name)
     shape.init_shapes()
@@ -62,12 +63,12 @@ def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load
         logging.info('Starting scenario_id {}'.format(scenario_id))
         if api_run:
             util.update_status(scenario_id, 2)
-        model = load_model(path, load_demand, load_supply, scenario_id)
+        model = load_model(load_demand, load_supply, scenario_id)
         model.run(scenario_id,
                   solve_demand=solve_demand and not (load_demand or load_supply),
                   solve_supply=solve_supply and not load_supply,
                   save_models=save_models,
-                  append_results=True if scenario_id!=scenario_ids[0] else False)
+                  append_results=False if (scenario_id==scenario_ids[0] and clear_results) else True)
     
         if api_run:
             util.update_status(scenario_id, 3)
@@ -84,13 +85,13 @@ def parse_scenario_ids(scenario):
         scenario = str(scenario).split(',')
     return [int(str(s).rstrip().lstrip()) for s in scenario]
 
-def load_model(path, load_demand, load_supply, scenario_id):
+def load_model(load_demand, load_supply, scenario_id):
     if load_supply:
-        with open(os.path.join(path, str(scenario_id)+'_full_model_run.p'), 'rb') as infile:
+        with open(os.path.join(cfg.workingdir, str(scenario_id)+'_full_model_run.p'), 'rb') as infile:
             model = pickle.load(infile)
         logging.info('Loaded complete EnergyPATHWAYS model from pickle')
     elif load_demand:
-        with open(os.path.join(path, str(scenario_id)+'_model.p'), 'rb') as infile:
+        with open(os.path.join(cfg.workingdir, str(scenario_id)+'_model.p'), 'rb') as infile:
             model = pickle.load(infile)
         logging.info('Loaded demand-side EnergyPATHWAYS model from pickle')
     else:
@@ -102,9 +103,9 @@ if __name__ == "__main__":
     os.chdir(workingdir)
     config = 'config.INI'
     pint = 'unit_defs.txt'
-    scenario = 5
+    scenario = '1'
     
-    run(workingdir, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)
+    run(workingdir, config, pint, scenario, load_demand=True, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False, clear_results=False)
 #    cProfile.run('run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)', filename='full_run.profile')
 
     
