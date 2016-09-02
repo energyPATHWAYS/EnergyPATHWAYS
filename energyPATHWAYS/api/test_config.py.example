@@ -1,7 +1,7 @@
 # This config will be used to *override* values from the production config during unit testing.
 # To change the production configuration, edit config.py
 
-# URI to the pathways database
+# URI to the pathways TESTING database
 SQLALCHEMY_DATABASE_URI = 'postgresql://username:password@localhost:5432/pathways_test'
 
 # Tell Flask that we are in testing mode
