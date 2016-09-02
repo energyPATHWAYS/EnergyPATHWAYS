@@ -9,6 +9,7 @@ Created on Sat Apr 16 15:02:05 2016
 import os
 import csv
 import pandas as pd
+import numpy as np
 
 directory = os.getcwd()
 
@@ -50,8 +51,9 @@ for row in GeographiesSpatialJoin.iterrows():
     # iterate down the columns in each row
     for col in row[1].iteritems():
         if col[0] in gau_columns:
-            print GeographiesDataDict[col]
-            GeographyIntersectionData.append([intersection_id, GeographiesDataDict[col]])
+            if col[1] is not np.nan:
+                print GeographiesDataDict[col]
+                GeographyIntersectionData.append([intersection_id, GeographiesDataDict[col]])
         elif col[0] in map_key_columns:
             GeographyMap.append([intersection_id, MapKeysDict[col[0]], col[1]])
         else:

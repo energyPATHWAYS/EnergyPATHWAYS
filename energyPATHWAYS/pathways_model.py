@@ -21,8 +21,9 @@ class PathwaysModel(object):
     """
     Highest level classification of the definition of an energy system.
     """
-    def __init__(self, scenario_id):
+    def __init__(self, scenario_id, api_run=False):
         self.scenario_id = scenario_id
+        self.api_run = api_run
         self.scenario = cfg.scenario_dict[self.scenario_id]
         self.demand_case_id = util.sql_read_table('Scenarios', 'demand_case', id=self.scenario_id)
         self.supply_case_id = util.sql_read_table('Scenarios', 'supply_case', id=self.scenario_id)
@@ -38,8 +39,8 @@ class PathwaysModel(object):
             
             if not append_results:
                 self.remove_old_results()
-            if hasattr(self, 'demand_solved') and self.demand_solved:
-                self.export_result('demand_outputs')
+            if hasattr(self, 'demand_solved') and self.demand_solved and not self.api_run:
+                self.export_result_to_csv('demand_outputs')
 
             if solve_supply:
                 self.calculate_supply(save_models)
@@ -48,8 +49,11 @@ class PathwaysModel(object):
                 self.supply.calculate_supply_outputs()
                 self.pass_supply_results_back_to_demand()
                 self.calculate_combined_results()
-                self.export_result('supply_outputs')
-                self.export_result('combined_outputs')
+                if self.api_run:
+                    self.export_results_to_db()
+                else:
+                    self.export_result_to_csv('supply_outputs')
+                    self.export_result_to_csv('combined_outputs')
         except:
             # pickle the model in the event that it crashes
             with open(os.path.join(cfg.workingdir, str(scenario_id) + '_model_error.p'), 'wb') as outfile:
@@ -105,7 +109,7 @@ class PathwaysModel(object):
             if os.path.isdir(folder):
                 shutil.rmtree(folder)
 
-    def export_result(self, result_name):
+    def export_result_to_csv(self, result_name):
         if result_name=='combined_outputs':
             res_obj = self.outputs
         elif result_name=='demand_outputs':
@@ -126,7 +130,27 @@ class PathwaysModel(object):
                 result_df = pd.concat([result_df], keys=[key], names=[name])
             
             Output.write(result_df, attribute+'.csv', os.path.join(cfg.workingdir, result_name))
-        
+
+    def export_results_to_db(self):
+        scenario_run_id = util.active_scenario_run_id(self.scenario_id)
+
+        # Energy demand
+        df = self.outputs.energy.groupby(level=['FINAL_ENERGY', 'YEAR']).sum()
+        util.write_output_to_db(scenario_run_id, 3, df)
+
+        # Annual costs
+        df = self.outputs.costs.groupby(level=['SECTOR', 'YEAR']).sum()
+        util.write_output_to_db(scenario_run_id, 4, df)
+
+        # Annual emissions
+        df = self.outputs.emissions.groupby(level=['SECTOR', 'YEAR']).sum()
+        util.write_output_to_db(scenario_run_id, 5, df)
+
+        # Electricity supply
+        df = self.outputs.energy.xs('ELECTRICITY', level='FINAL_ENERGY')\
+            .groupby(level=['SUPPLY_NODE', 'YEAR']).sum()
+        util.write_output_to_db(scenario_run_id, 13, df)
+
     def calculate_combined_cost_results(self):
         #calculate and format export costs
         cost_unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
