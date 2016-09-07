@@ -267,7 +267,7 @@ class ScenarioRunner(Resource):
 
     @auth.login_required
     def get(self, scenario_id):
-        return schemas.ScenarioRunStatusSchema().dump(fetch_owned_scenario(scenario_id).status).data
+        return schemas.ScenarioRunStatusSchema().dump(fetch_readable_scenario(scenario_id).status).data
 
 
 class Outputs(Resource):

@@ -102,7 +102,7 @@ class TestAPI(unittest.TestCase):
 
             models.db.session.commit()
 
-            self.bultin_scenario_id = builtin.id
+            self.builtin_scenario_id = builtin.id
             self.admin_scenario_id = admin_scenario.id
             self.jane_scenario_id = jane_scenario.id
 
@@ -201,10 +201,21 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(len(resp), 3)
 
     def test_scenario_detail(self):
-        # Jane can get her scenario and the built-in scenario, but not the admin's scenario
+        # Jane can get her scenario, and it matches what we expect from the database
         rv = self.get('%s/%i' % (self.SCENARIOS_PATH, self.jane_scenario_id), self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 200)
-        rv = self.get('%s/%i' % (self.SCENARIOS_PATH, self.bultin_scenario_id), self.jane_doe_credentials)
+        resp = json.loads(rv.data)
+        with api.app.app_context():
+            jane_scenario = models.Scenario.query.get(self.jane_scenario_id)
+            self.assertEqual(resp['name'], jane_scenario.name)
+            self.assertEqual(resp['description'], jane_scenario.description)
+            self.assertEqual(len(resp['demand_package_group_ids']), len(jane_scenario.demand_case.data))
+            self.assertEqual(len(resp['supply_package_group_ids']), len(jane_scenario.supply_case.data))
+            self.assertFalse(resp['is_built_in'])
+            self.assertEqual(resp['status']['name'], 'Never run')
+
+        # Jane can also get the built-in scenario, but not the admin's scenario
+        rv = self.get('%s/%i' % (self.SCENARIOS_PATH, self.builtin_scenario_id), self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 200)
         with self.assertRaises(api.Forbidden):
             self.get('%s/%i' % (self.SCENARIOS_PATH, self.admin_scenario_id), self.jane_doe_credentials)
@@ -348,8 +359,10 @@ class TestAPI(unittest.TestCase):
         self.assertEquals(len(data['errors']['supply_package_group_ids']), 3)
 
     def test_run_scenario(self):
+        scenario_run_path = '/scenarios/%i/run'
+
         # Check the response to a status check when the scenario has never been run before
-        rv = self.get('/scenarios/%i/run' % (self.jane_scenario_id,), self.jane_doe_credentials)
+        rv = self.get(scenario_run_path % (self.jane_scenario_id,), self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 200)
         self.assertEqual(json.loads(rv.data)['name'], 'Never run')
 
@@ -370,6 +383,18 @@ class TestAPI(unittest.TestCase):
         # An attempt to run the same scenario again after it's queued is rejected
         rv = self.run_scenario(self.jane_scenario_id, self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 400)
+
+        # Jane can also get the status of a built-in scenario
+        rv = self.get(scenario_run_path % (self.builtin_scenario_id,), self.jane_doe_credentials)
+        self.assertEqual(rv.status_code, 200)
+        # But she can't initiate a run of that scenario
+        with self.assertRaises(api.Forbidden):
+            self.run_scenario(self.builtin_scenario_id, self.jane_doe_credentials)
+        # Nor can she get the status or run a scenario owned by another user
+        with self.assertRaises(api.Forbidden):
+            self.get(scenario_run_path % (self.admin_scenario_id,), self.jane_doe_credentials)
+        with self.assertRaises(api.Forbidden):
+            self.run_scenario(self.admin_scenario_id, self.jane_doe_credentials)
 
     def test_outputs(self):
         output_type_id = 3
