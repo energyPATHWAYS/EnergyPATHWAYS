@@ -223,6 +223,23 @@ class Scenarios(Resource):
 
         return {'message': 'Updated'}, 200, self._location_header(scenario)
 
+    @auth.login_required
+    @guest_forbidden
+    def delete(self, scenario_id=None):
+        if scenario_id is None:
+            return {'message': "Requests to delete a scenario must specify the id in the URI."}, 400
+
+        scenario = fetch_owned_scenario(scenario_id)
+        # We don't allow built-in scenarios to be deleted via the API (even by an admin) because it may be unsafe.
+        # See comment on demand_case and supply_case relationships for Scenario in models.py for discussion.
+        if scenario.is_built_in():
+            return {'message': "Built-in scenarios cannot be deleted via this API."}, 400
+
+        models.db.session.delete(scenario)
+        models.db.session.commit()
+
+        return {'message': 'Deleted'}, 200
+
 
 class PackageGroups(Resource):
     # The package group options are the same for everyone, but only authorized users are allowed to make scenarios and

@@ -122,8 +122,13 @@ class Scenario(db.Model):
     supply_case_id = db.Column('supply_case', db.ForeignKey(SupplyCase.id))
     user_id = db.Column(db.ForeignKey(GLOBAL_SCHEMA + '.users.id'))
 
-    demand_case = db.relationship(DemandCase)
-    supply_case = db.relationship(SupplyCase)
+    # Note that the assumption of single_parent here will be true for any scenarios created via the API
+    # (because the API creates a new DemandCase and a new SupplyCase for each new scenario) but it may not be true
+    # for scenarios manually created in the database (multiple scenarios could share a demand case or supply case)
+    # Therefore, trying to use the API (or sqlalchemy in general) to delete a scenario that was created manually
+    # in the database could result in a foreign key constraint violation error rather than a successful deletion.
+    demand_case = db.relationship(DemandCase, cascade="all, delete-orphan", single_parent=True)
+    supply_case = db.relationship(SupplyCase, cascade="all, delete-orphan", single_parent=True)
 
     # Note that this relies on the runs backref being sorted with most recent first
     @property
@@ -226,7 +231,8 @@ class ScenarioRun(db.Model):
     status_id = db.Column(db.ForeignKey(ScenarioRunStatus.id), server_default='1')
     pid = db.Column(db.Integer())
 
-    scenario = db.relationship(Scenario, backref=db.backref('runs', order_by=ready_time.desc()))
+    scenario = db.relationship(Scenario, backref=db.backref('runs', order_by=ready_time.desc(),
+                                                            cascade="all, delete-orphan"))
     status = db.relationship(ScenarioRunStatus)
 
 
@@ -353,7 +359,8 @@ class Output(db.Model):
     output_type_id = db.Column(db.ForeignKey(OutputType.id))
     unit = db.Column(db.Text())
 
-    scenario_run = db.relationship(ScenarioRun, backref=db.backref('outputs', lazy='dynamic'))
+    scenario_run = db.relationship(ScenarioRun, backref=db.backref('outputs', lazy='dynamic',
+                                                                   cascade="all, delete-orphan"))
     output_type = db.relationship(OutputType)
 
     @property
@@ -372,6 +379,7 @@ class OutputData(db.Model):
     year = db.Column(db.Integer())
     value = db.Column(db.Float())
 
-    output = db.relationship(Output, backref=db.backref('data', order_by=[subsector, series, year]))
+    output = db.relationship(Output, backref=db.backref('data', order_by=[subsector, series, year],
+                                                        cascade="all, delete-orphan"))
 
 

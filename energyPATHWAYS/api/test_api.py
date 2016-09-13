@@ -12,6 +12,8 @@ import models
 class TestAPI(unittest.TestCase):
     SCENARIOS_PATH = '/scenarios'
     TEST_PID = 12345
+    TEST_OUTPUT_TYPE_ID = 3
+    TEST_OUTPUT_UNIT = 'moonbeams'
 
     # We use this to generate return values for our mock subprocess.Popen() below. The return value needs to have a
     # pid property because the scenario runner will want to read it and store it in the database.
@@ -94,6 +96,7 @@ class TestAPI(unittest.TestCase):
                                                            description='Plain Jane',
                                                            user=jane_doe)
             jane_scenario.demand_case.data.append(light_duty_vehicles.demand_case_data[2])
+            jane_scenario.supply_case.data.append(rooftop_pv.supply_case_data[1])
             models.db.session.add_all([builtin, admin_scenario, jane_scenario])
 
             # populate the scenario_run_statuses and output_types tables
@@ -135,6 +138,9 @@ class TestAPI(unittest.TestCase):
     def put(self, path, credentials=None, **kwargs):
         return self.test_app.put(path, **self._add_auth_header(credentials, **kwargs))
 
+    def delete(self, path, credentials=None, **kwargs):
+        return self.test_app.delete(path, **self._add_auth_header(credentials, **kwargs))
+
     # Get the list of package groups that we can choose from
     def load_options(self, credentials):
         rv = self.get('/package_groups', credentials)
@@ -158,6 +164,26 @@ class TestAPI(unittest.TestCase):
         # Conversely, if any other code was returned, we expect that a model run subprocess was *not* started!
         self.assertEqual(rv.status_code == 200, mock_popen.called)
         return rv
+
+    def _fake_run_completion(self, scenario_id):
+        """Mark the scenario's latest run as complete and add some fake outputs"""
+        with api.app.app_context():
+            run = models.Scenario.query.get(scenario_id).latest_run
+            run.status_id = models.ScenarioRunStatus.SUCCESS_ID
+            run.outputs.append(models.Output(
+                output_type_id=self.TEST_OUTPUT_TYPE_ID,
+                unit=self.TEST_OUTPUT_UNIT,
+                data=[
+                    models.OutputData(series='pony', year='2015', value='1.5'),
+                    models.OutputData(series='pony', year='2025', value='2.5'),
+                    models.OutputData(series='pony', year='2035', value='3.5'),
+                    models.OutputData(series='bear', year='2030', value='10'),
+                    models.OutputData(series='bear', year='2025', value='20'),
+                    models.OutputData(series='bear', year='2020', value='5'),
+                ]
+            ))
+            models.db.session.add(run)
+            models.db.session.commit()
 
     def test_package_groups(self):
         options = self.load_options(self.jane_doe_credentials)
@@ -280,9 +306,9 @@ class TestAPI(unittest.TestCase):
 
         # Make sure the scenario contents are as we expect
         self.assertEqual(len(scenario['demand_package_group_ids']), 1)
-        self.assertEqual(len(scenario['supply_package_group_ids']), 0)
+        self.assertEqual(len(scenario['supply_package_group_ids']), 1)
 
-        # Prepare a modified scenario (with a supply_package_group_id) and PUT it
+        # Prepare a modified scenario (with an additional supply_package_group_id) and PUT it
         scenario_data = json.dumps(
             dict(name=scenario['name'] + modified_marker,
                  description=scenario['description'] + modified_marker,
@@ -304,7 +330,7 @@ class TestAPI(unittest.TestCase):
         # Still one demand package group like before
         self.assertEqual(len(modified_scenario['demand_package_group_ids']), 1)
         # But now also with the supply package group we added
-        self.assertEqual(len(modified_scenario['supply_package_group_ids']), 1)
+        self.assertEqual(len(modified_scenario['supply_package_group_ids']), 2)
 
         # Initiate a run of the scenario
         rv = self.run_scenario(self.jane_scenario_id, self.jane_doe_credentials)
@@ -358,6 +384,60 @@ class TestAPI(unittest.TestCase):
         self.assertEquals(len(data['errors']['demand_package_group_ids']), 3)
         self.assertEquals(len(data['errors']['supply_package_group_ids']), 3)
 
+    def test_delete_scenario(self):
+        # Jane can't delete a scenario she doesn't own
+        with self.assertRaises(api.Forbidden):
+            self.delete('%s/%i' % (self.SCENARIOS_PATH, self.admin_scenario_id), self.jane_doe_credentials)
+
+        # No one (not even an admin) can delete a built-in scenario via the API
+        rv = self.delete('%s/%i' % (self.SCENARIOS_PATH, self.builtin_scenario_id), self.admin_credentials)
+        self.assertEqual(rv.status_code, 400)
+
+        # Run Jane's scenario and fake completion of the run so we can then make sure everything that might possibly
+        # be attached to a scenario really gets deleted
+        self.run_scenario(self.jane_scenario_id, self.jane_doe_credentials)
+        self._fake_run_completion(self.jane_scenario_id)
+
+        # Verify that all the data that we expect to be associated with a Scenario and a completed run are present
+        with api.app.app_context():
+            scenario = models.Scenario.query.get(self.jane_scenario_id)
+            demand_case_id = scenario.demand_case_id
+            supply_case_id = scenario.supply_case_id
+            scenario_run_id = scenario.latest_run.id
+            output_id = scenario.latest_run.outputs[0].id
+
+            self.assertIsNotNone(models.DemandCase.query.get(demand_case_id))
+            dcdcd_count = models.db.session.query(models.demand_case_demand_case_data)\
+                .filter_by(demand_case_id=demand_case_id).count()
+            self.assertGreater(dcdcd_count, 0)
+            self.assertIsNotNone(models.SupplyCase.query.get(supply_case_id))
+            scscd_count = models.db.session.query(models.supply_case_supply_case_data)\
+                .filter_by(supply_case_id=supply_case_id).count()
+            self.assertGreater(scscd_count, 0)
+            self.assertIsNotNone(models.ScenarioRun.query.get(scenario_run_id))
+            self.assertIsNotNone(models.Output.query.get(output_id))
+            output_data_count = models.OutputData.query.filter_by(parent_id=output_id).count()
+            self.assertGreater(output_data_count, 0)
+
+        # Delete the scenario
+        self.delete('%s/%i' % (self.SCENARIOS_PATH, self.jane_scenario_id), self.jane_doe_credentials)
+
+        # Now all the stuff we verified before the delete is gone
+        with api.app.app_context():
+            self.assertIsNone(models.Scenario.query.get(self.jane_scenario_id))
+            dcdcd_count = models.db.session.query(models.demand_case_demand_case_data)\
+                .filter_by(demand_case_id=demand_case_id).count()
+            self.assertEqual(dcdcd_count, 0)
+            self.assertIsNone(models.DemandCase.query.get(demand_case_id))
+            self.assertIsNone(models.SupplyCase.query.get(supply_case_id))
+            scscd_count = models.db.session.query(models.supply_case_supply_case_data)\
+                .filter_by(supply_case_id=supply_case_id).count()
+            self.assertEqual(scscd_count, 0)
+            self.assertIsNone(models.ScenarioRun.query.get(scenario_run_id))
+            self.assertIsNone(models.Output.query.get(output_id))
+            output_data_count = models.OutputData.query.filter_by(parent_id=output_id).count()
+            self.assertEqual(output_data_count, 0)
+
     def test_run_scenario(self):
         scenario_run_path = '/scenarios/%i/run'
 
@@ -397,8 +477,7 @@ class TestAPI(unittest.TestCase):
             self.run_scenario(self.admin_scenario_id, self.jane_doe_credentials)
 
     def test_outputs(self):
-        output_type_id = 3
-        outputs_path = '/scenarios/%i/output/%i' % (self.jane_scenario_id, output_type_id)
+        outputs_path = '/scenarios/%i/output/%i' % (self.jane_scenario_id, self.TEST_OUTPUT_TYPE_ID)
 
         # Can't get outputs for a scenario that's never been run
         with self.assertRaises(api.NotFound):
@@ -413,33 +492,16 @@ class TestAPI(unittest.TestCase):
             self.get(outputs_path, self.jane_doe_credentials)
 
         # Add some fake outputs and push the run through to successful completion
-        scenario_id = self.jane_scenario_id
-        unit = 'moonbeams'
-        with api.app.app_context():
-            run = models.Scenario.query.get(scenario_id).latest_run
-            run.status_id = models.ScenarioRunStatus.SUCCESS_ID
-            run.outputs.append(models.Output(
-                output_type_id=output_type_id,
-                unit=unit,
-                data=[
-                    models.OutputData(series='pony', year='2015', value='1.5'),
-                    models.OutputData(series='pony', year='2025', value='2.5'),
-                    models.OutputData(series='pony', year='2035', value='3.5'),
-                    models.OutputData(series='bear', year='2030', value='10'),
-                    models.OutputData(series='bear', year='2025', value='20'),
-                    models.OutputData(series='bear', year='2020', value='5'),
-                ]
-            ))
-            models.db.session.add(run)
-            models.db.session.commit()
+        self._fake_run_completion(self.jane_scenario_id)
 
-        # Now we can retrieve the output data
+        # Now we can retrieve the output data. Note that some of these assertions depend upon the specifics of the
+        # fake outputs being set up by self._fake_run_completion()
         rv = self.get(outputs_path, self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 200)
         resp = json.loads(rv.data)
-        self.assertEqual(resp['output_type_id'], output_type_id)
+        self.assertEqual(resp['output_type_id'], self.TEST_OUTPUT_TYPE_ID)
         self.assertEqual(resp['output_type_name'], 'Energy demand')
-        self.assertEqual(resp['unit'], unit)
+        self.assertEqual(resp['unit'], self.TEST_OUTPUT_UNIT)
         self.assertEqual(len(resp['data']), 6)
         # Data should come back sorted, so we'll test some specific expectations for the first row
         first_point = resp['data'][0]
