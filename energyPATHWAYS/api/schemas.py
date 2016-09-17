@@ -54,3 +54,11 @@ class OutputSchema(Schema):
     output_type_name = fields.Str()
     unit = fields.Str()
     data = fields.Nested(OutputDataSchema, many=True)
+
+
+class ScenarioWithOutputSchema(ScenarioSchema):
+    outputs = fields.Nested(OutputSchema, many=True)
+
+
+class ScenarioWithBasicOutputSchema(ScenarioSchema):
+    outputs = fields.Nested(OutputSchema, attribute='basic_outputs', many=True)

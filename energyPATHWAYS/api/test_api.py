@@ -252,6 +252,52 @@ class TestAPI(unittest.TestCase):
         with self.assertRaises(api.NotFound):
             self.get('%s/%i' % (self.SCENARIOS_PATH, max_id + 1), self.jane_doe_credentials)
 
+    def test_scenarios_with_outputs(self):
+        outputs_query_str = '?outputs'
+
+        # If we request Jane's scenario without asking for outputs, no outputs field is provided in the response
+        rv = self.get('%s/%i' % (self.SCENARIOS_PATH, self.jane_scenario_id), self.jane_doe_credentials)
+        self.assertEqual(rv.status_code, 200)
+        resp = json.loads(rv.data)
+        self.assertFalse('outputs' in resp)
+
+        janes_scenario_with_outputs = '%s/%i%s' % (self.SCENARIOS_PATH, self.jane_scenario_id, outputs_query_str)
+
+        # If we request the scenario with outputs, we receive an outputs key in the response, but its value is
+        # None because there are no outputs yet
+        rv = self.get(janes_scenario_with_outputs, self.jane_doe_credentials)
+        self.assertEqual(rv.status_code, 200)
+        resp = json.loads(rv.data)
+        self.assertIsNone(resp['outputs'])
+
+        # Add some fake outputs. For the purposes of this test, we don't care whether the Outputs actually
+        # have data attached.
+        with api.app.app_context():
+            run = models.ScenarioRun(scenario_id=self.jane_scenario_id, status_id=models.ScenarioRunStatus.SUCCESS_ID)
+            max_basic_output_type_id = max(models.OutputType.BASIC_OUTPUT_TYPE_IDS)
+            # The first output we add will be a "basic" one, the second one will not be (because its
+            # output_type_id is one larger than the largest basic output_type_id).
+            for output_type_id in [max_basic_output_type_id, max_basic_output_type_id + 1]:
+                run.outputs.append(models.Output(
+                    output_type_id=output_type_id,
+                    unit=self.TEST_OUTPUT_UNIT,
+                ))
+            models.db.session.add(run)
+            models.db.session.commit()
+
+        # Now when we request the scenario with outputs, we get two outputs back
+        rv = self.get(janes_scenario_with_outputs, self.jane_doe_credentials)
+        self.assertEqual(rv.status_code, 200)
+        resp = json.loads(rv.data)
+        self.assertEqual(len(resp['outputs']), 2)
+
+        # When we request the scenarios list, Jane's scenario has only the basic output
+        rv = self.get(self.SCENARIOS_PATH + outputs_query_str, self.jane_doe_credentials)
+        self.assertEqual(rv.status_code, 200)
+        resp = json.loads(rv.data)
+        janes_scenario_from_list = [s for s in resp if s['id'] == self.jane_scenario_id][0]
+        self.assertEqual(len(janes_scenario_from_list['outputs']), 1)
+
     def test_create_scenario(self):
         options = self.load_options(self.jane_doe_credentials)
 

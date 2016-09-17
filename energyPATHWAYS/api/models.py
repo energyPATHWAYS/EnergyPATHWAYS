@@ -146,6 +146,16 @@ class Scenario(db.Model):
         else:
             return self.latest_run.status
 
+    def outputs(self):
+        if self.successfully_run():
+            return self.latest_run.outputs
+        else:
+            return None
+
+    def basic_outputs(self):
+        o = self.outputs()
+        return o.filter(Output.output_type_id.in_(OutputType.BASIC_OUTPUT_TYPE_IDS)) if o else None
+
     # This makes the assumption that a Scenario will have at most one active run at a time, and if it has an active
     # run it will be the most recent run. The API enforces this, but it is possible to manually muck it up in the
     # database.
@@ -319,6 +329,10 @@ class Guest(object):
 class OutputType(db.Model):
     __tablename__ = 'output_types'
     __table_args__ = {'schema': RUN_SCHEMA}
+
+    # These are the ids of the "basic" ouptut type ids; that is, those we want to show on the list of scenarios page.
+    # See contents() below for which types these refer to.
+    BASIC_OUTPUT_TYPE_IDS = [4, 5]
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.Text, nullable=False, unique=True)

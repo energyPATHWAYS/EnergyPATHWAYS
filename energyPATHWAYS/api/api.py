@@ -161,10 +161,19 @@ class Scenarios(Resource):
 
     @auth.login_required
     def get(self, scenario_id=None):
+        schema = schemas.ScenarioSchema()
+        outputs_requested = 'outputs' in request.args
+
         if scenario_id is None:
-            return schemas.ScenarioSchema().dump(g.user.readable_scenarios, many=True).data
+            # If outputs are requested with the scenario list, we send only the basic outputs
+            if outputs_requested:
+                schema = schemas.ScenarioWithBasicOutputSchema()
+            return schema.dump(g.user.readable_scenarios, many=True).data
         else:
-            return schemas.ScenarioSchema().dump(fetch_readable_scenario(scenario_id)).data
+            # If outputs are requested for an individual scenario, we send *all* the outputs
+            if outputs_requested:
+                schema = schemas.ScenarioWithOutputSchema()
+            return schema.dump(fetch_readable_scenario(scenario_id)).data
 
     @auth.login_required
     @guest_forbidden
