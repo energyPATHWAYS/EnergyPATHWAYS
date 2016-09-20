@@ -17,7 +17,6 @@ from time_series import TimeSeries
 from collections import defaultdict, OrderedDict, MutableSet
 import time
 import csv
-import inspect
 import matplotlib
 from matplotlib import cm
 import os as _os
@@ -32,8 +31,6 @@ import decimal
 import psycopg2
 import logging
 
-
-        
 
 def percent_larger(a, b):
     return (a - b) / a
