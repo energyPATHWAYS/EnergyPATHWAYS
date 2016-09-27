@@ -183,8 +183,8 @@ class Shape(dmf.DataMapFunctions):
         self.standardize_time_across_timezones()
         self.geomap_to_primary_geography()
         self.sum_over_time_zone()
-#        self.normalize()
-#        self.add_timeshift_type()
+        self.normalize()
+        self.add_timeshift_type()
 
     def add_timeshift_type(self):
         """Later these shapes will need a level called timeshift type, and it is faster to add it now if it doesn't already have it"""
