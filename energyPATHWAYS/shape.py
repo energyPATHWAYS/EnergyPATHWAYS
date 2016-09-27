@@ -183,8 +183,8 @@ class Shape(dmf.DataMapFunctions):
         self.standardize_time_across_timezones()
         self.geomap_to_primary_geography()
         self.sum_over_time_zone()
-        self.normalize()
-        self.add_timeshift_type()
+#        self.normalize()
+#        self.add_timeshift_type()
 
     def add_timeshift_type(self):
         """Later these shapes will need a level called timeshift type, and it is faster to add it now if it doesn't already have it"""
@@ -221,10 +221,16 @@ class Shape(dmf.DataMapFunctions):
                 return
             else:
                 return getattr(self, attr)
-
+        
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
-
-        subsection, supersection = 'time zone', self.geography
+        
+        if self.input_type == 'total':
+            subsection, supersection = 'time zone', self.geography
+        elif self.input_type == 'intensity':
+            subsection, supersection = self.geography, 'time zone'
+        else:
+            raise ValueError('input_type must be either "total" or "intensity"')
+        
         # create dataframe with map from one geography to another
         map_df = cfg.geo.map_df(subsection, supersection, column=geography_map_key)
         self.map_df_tz = map_df
@@ -240,19 +246,20 @@ class Shape(dmf.DataMapFunctions):
     def geomap_to_primary_geography(self, attr='values', inplace=True, converted_geography=None):
         """This needs more testing for cases where the converted_geography is time zone or self.geography is time zone
         """
-        converted_geography = cfg.cfgfile.get('case', 'primary_geography')
-        geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
-
-        if self.geography==converted_geography:
+        if self.geography==cfg.primary_geography:
             self.map_df_primary = None
             if inplace:
                 return
             else:
                 return getattr(self, attr)
-
-        # we should add dispatch region as another subsection to ensure proper geomap to dispatch region after
-        subsection = 'time zone' if self.geography=='time zone' else ['time zone', self.geography]
-        supersection = converted_geography
+        
+        geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
+        if self.input_type == 'total':
+            subsection, supersection = cfg.primary_geography, self.geography
+        elif self.input_type == 'intensity':
+            subsection, supersection = self.geography, cfg.primary_geography
+        else:
+            raise ValueError('input_type must be either "total" or "intensity"')
         
         map_df = cfg.geo.map_df(subsection, supersection, column=geography_map_key)
         self.map_df_primary = map_df

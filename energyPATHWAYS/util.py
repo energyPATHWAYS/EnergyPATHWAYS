@@ -545,8 +545,7 @@ def remove_df_elements(data, elements, level):
 def level_specific_indexer(df, levels, elements, axis=0):
     elements, levels = ensure_iterable_and_not_string(elements), ensure_iterable_and_not_string(levels)
     if len(elements) != len(levels):
-        raise ValueError(
-            'Number of elements ' + str(len(elements)) + ' must match the number of levels ' + str(len(levels)))
+        raise ValueError('Number of elements ' + str(len(elements)) + ' must match the number of levels ' + str(len(levels)))
     if axis == 0:
         names = df.index.names
     else:
@@ -940,8 +939,7 @@ class DfOper:
         # First check for errors
         DfOper._raise_errors(a, b, action, a_can_collapse, a_can_expand, b_can_collapse, b_can_expand)
 
-        new_a, new_b = DfOper._account_for_mismatched_elements(a, b, fill_value, a_can_collapse, a_can_expand,
-                                                               b_can_collapse, b_can_expand, non_expandable_levels)
+        new_a, new_b = DfOper._account_for_mismatched_elements(a, b, fill_value, a_can_collapse, a_can_expand, b_can_collapse, b_can_expand, non_expandable_levels)
 
         # multi index level differences
         names_a_not_in_b, names_b_not_in_a = difference_in_df_names(new_a, new_b)
@@ -951,8 +949,7 @@ class DfOper:
                                        copy=False)
             return DfOper._operate(new_a, new_b, action)
         else:
-            new_a, new_b = DfOper._merge_then_separate_for_operation(new_a, new_b, join, fill_value, a_can_collapse,
-                                                                     a_can_expand, b_can_collapse, b_can_expand)
+            new_a, new_b = DfOper._merge_then_separate_for_operation(new_a, new_b, join, fill_value, a_can_collapse, a_can_expand, b_can_collapse, b_can_expand)
             return DfOper._operate(new_a, new_b, action)
 
     @staticmethod
