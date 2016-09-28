@@ -169,7 +169,7 @@ class DataMapFunctions:
             drivers (list of or single dataframe): drivers for the remap
             input_type_override (string): either 'total' or 'intensity' (defaults to self.type)
         """
-        converted_geography = cfg.cfgfile.get('case', 'primary_geography') if converted_geography is None else converted_geography
+        converted_geography = cfg.primary_geography if converted_geography is None else converted_geography
         current_data_type = self.input_type if current_data_type is None else current_data_type
         current_geography = self.geography if current_geography is None else current_geography
         # TODO fix pluralization
@@ -220,7 +220,7 @@ class DataMapFunctions:
     def project(self, map_from='raw_values', map_to='values', additional_drivers=None, interpolation_method='missing',extrapolation_method='missing',
                 time_index_name='year', fill_timeseries=True, converted_geography=None, current_geography=None, current_data_type=None, fill_value=0.,projected=False):
         
-        converted_geography = cfg.cfgfile.get('case', 'primary_geography') if converted_geography is None else converted_geography
+        converted_geography = cfg.primary_geography if converted_geography is None else converted_geography
         current_data_type = self.input_type if current_data_type is None else current_data_type
         if map_from != 'raw_values' and current_data_type == 'total':
             denominator_driver_ids = []

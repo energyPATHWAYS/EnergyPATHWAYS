@@ -376,7 +376,7 @@ class SupplyTechCO2Capture(Abstract):
             self.remap(time_index_name='vintage')
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         elif self.data is False:
-            index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],self.vintages], names=[cfg.cfgfile.get('case', 'primary_geography'),'vintage'])
+            index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.primary_geography],self.vintages], names=[cfg.primary_geography,'vintage'])
             self.values = util.empty_df(index,columns=years,fill_value=0.0)    
             self.data = True
 

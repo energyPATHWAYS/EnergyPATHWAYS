@@ -1298,8 +1298,8 @@ class Supply(object):
 
         
     def add_column_index(self, data):
-         names = ['demand_sector', cfg.cfgfile.get('case','primary_geography')]
-         keys = [self.demand_sectors, cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]]
+         names = ['demand_sector', cfg.primary_geography]
+         keys = [self.demand_sectors, cfg.geo.geographies[cfg.primary_geography]]
          data  = copy.deepcopy(data)
          for key,name in zip(keys,names):
              data  = pd.concat([data]*len(key), axis=1, keys=key, names=[name])
@@ -2143,14 +2143,14 @@ class Supply(object):
           
     def add_empty_output_df(self):           
         """adds an empty df to node instances"""
-        index =  pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],
-                                                            self.demand_sectors], names=[cfg.cfgfile.get('case','primary_geography'), 'demand_sector']) 
+        index =  pd.MultiIndex.from_product([cfg.geo.geographies[cfg.primary_geography],
+                                                            self.demand_sectors], names=[cfg.primary_geography, 'demand_sector'])
         self.empty_output_df = util.empty_df(index = index, columns = self.years,fill_value = 1E-25)      
         
     def add_io_df(self,attribute_names):
         #TODO only need to run years with a complete demand data set. Check demand dataframe. 
-        index =  pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],self.demand_sectors, self.all_nodes
-                                                                ], names=[cfg.cfgfile.get('case','primary_geography'),
+        index =  pd.MultiIndex.from_product([cfg.geo.geographies[cfg.primary_geography],self.demand_sectors, self.all_nodes
+                                                                ], names=[cfg.primary_geography,
                                                                  'demand_sector','supply_node'])                                                            
         for attribute_name in util.put_in_list(attribute_names):
             setattr(self, attribute_name, util.empty_df(index = index, columns = self.years))
@@ -2158,15 +2158,15 @@ class Supply(object):
             
     def add_io_embodied_emissions_df(self):
         #TODO only need to run years with a complete demand data set. Check demand dataframe. 
-        index =  pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],self.demand_sectors, self.all_nodes,self.ghgs,
-                                                                ], names=[cfg.cfgfile.get('case','primary_geography'),
+        index =  pd.MultiIndex.from_product([cfg.geo.geographies[cfg.primary_geography],self.demand_sectors, self.all_nodes,self.ghgs,
+                                                                ], names=[cfg.primary_geography,
                                                                  'demand_sector', 'supply_node','ghg'])                                                            
         
         setattr(self, 'io_embodied_emissions_df', util.empty_df(index = index, columns = self.years))
             
     def create_inverse_dict(self):
-        index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.all_nodes
-                                                                ], names=[cfg.cfgfile.get('case','primary_geography'),'supply_node'])  
+        index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.primary_geography], self.all_nodes
+                                                                ], names=[cfg.primary_geography,'supply_node'])
         df = util.empty_df(index = index, columns = index)
         self.inverse_dict = util.recursivedict()   
         for key in ['energy', 'cost']:
@@ -2179,7 +2179,7 @@ class Supply(object):
         keys = sorted(map_dict.items(), key=operator.itemgetter(1))
         keys = [x[0] for x in keys]
             #sorts final energy in the same order as the supply node dataframes
-        index = pd.MultiIndex.from_product([cfg.geographies, self.all_nodes], names=[cfg.cfgfile.get('case','primary_geography')+"_supply",'supply_node'])
+        index = pd.MultiIndex.from_product([cfg.geographies, self.all_nodes], names=[cfg.primary_geography+"_supply",'supply_node'])
         columns = pd.MultiIndex.from_product([cfg.geographies,keys], names=[cfg.primary_geography,'final_energy'])
         self.embodied_cost_link_dict = util.recursivedict()
         self.embodied_energy_link_dict = util.recursivedict()
@@ -2194,7 +2194,7 @@ class Supply(object):
         #sorts final energy in the same order as the supply node dataframes
         keys = sorted(map_dict.items(), key=operator.itemgetter(1))
         keys = [x[0] for x in keys]
-        index = pd.MultiIndex.from_product([cfg.geographies, self.all_nodes, self.ghgs], names=[cfg.cfgfile.get('case','primary_geography')+"_supply",'supply_node','ghg'])
+        index = pd.MultiIndex.from_product([cfg.geographies, self.all_nodes, self.ghgs], names=[cfg.primary_geography+"_supply",'supply_node','ghg'])
         columns = pd.MultiIndex.from_product([cfg.geographies,keys], names=[cfg.primary_geography,'final_energy'])
         self.embodied_emissions_link_dict = util.recursivedict()
         for year in self.years:
@@ -2209,8 +2209,8 @@ class Supply(object):
         self.demand_df = self.demand_object.energy_demand.unstack(level='year')   
         self.demand_df.columns = self.demand_df.columns.droplevel()       
         for demand_sector, geography, final_energy in self.demand_df.groupby(level = self.demand_df.index.names).groups:        
-            supply_indexer = util.level_specific_indexer(self.io_demand_df, levels=[cfg.cfgfile.get('case', 'primary_geography'), 'demand_sector','supply_node'],elements=[geography, demand_sector, map_dict[final_energy]])      
-            demand_indexer =  util.level_specific_indexer(self.demand_df, levels = [ 'sector', cfg.cfgfile.get('case', 'primary_geography'), 'final_energy'],elements=[demand_sector, geography, final_energy])  
+            supply_indexer = util.level_specific_indexer(self.io_demand_df, levels=[cfg.primary_geography, 'demand_sector','supply_node'],elements=[geography, demand_sector, map_dict[final_energy]])
+            demand_indexer =  util.level_specific_indexer(self.demand_df, levels = [ 'sector', cfg.primary_geography, 'final_energy'],elements=[demand_sector, geography, final_energy])
             self.io_demand_df.loc[supply_indexer, self.years] = self.demand_df.loc[demand_indexer, self.years].values
 
                 
@@ -2279,7 +2279,7 @@ class Node(DataMapFunctions):
                                                                         sql_data_table='SupplyStockMeasuresData')
         
     def set_cost_dataframes(self):
-        index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors], names=[cfg.cfgfile.get('case','primary_geography'), 'demand_sector'])
+        index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.primary_geography], self.demand_sectors], names=[cfg.primary_geography, 'demand_sector'])
         self.levelized_costs = util.empty_df(index=index,columns=self.years,fill_value=0.0)
         self.annual_costs = util.empty_df(index=index,columns=self.years,fill_value=0.0)   
        
@@ -2375,7 +2375,7 @@ class Node(DataMapFunctions):
         """
         if not hasattr(self,'stock'):
             if self.shape_id is None:
-                index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],[2],shape.shapes.active_dates_index], names=[cfg.primary_geography,'timeshift_type','weather_datetime'])
+                index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.primary_geography],[2],shape.shapes.active_dates_index], names=[cfg.primary_geography,'timeshift_type','weather_datetime'])
                 energy_shape = util.empty_df(fill_value=1/float(len(shape.shapes.active_dates_index)),index=index, columns=['value'])
             else:
                 energy_shape = self.shape.values
@@ -2385,7 +2385,7 @@ class Node(DataMapFunctions):
         else:
             values_energy = self.stock.values_energy[year]
         if self.shape_id is None:
-            index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')],[2],shape.shapes.active_dates_index], names=[cfg.primary_geography,'timeshift_type','weather_datetime'])
+            index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.primary_geography],[2],shape.shapes.active_dates_index], names=[cfg.primary_geography,'timeshift_type','weather_datetime'])
             energy_shape = util.empty_df(fill_value=1/float(len(shape.shapes.active_dates_index)),index=index, columns=['value'])
         # we don't have technologies or none of the technologies have specific shapes
         elif not hasattr(self, 'technologies') or np.all([tech.shape_id is None for tech in self.technologies.values()]):
@@ -2521,12 +2521,12 @@ class Node(DataMapFunctions):
         if hasattr(self,'potential') and self.potential.data is True:
             self.potential.remap_to_potential_and_normalize(throughput, year, self.tradable_geography)
             if self.coefficients.data is True:
-                self.active_coefficients = util.remove_df_levels(DfOper.mult([self.coefficients.values.groupby(level=[cfg.cfgfile.get('case', 'primary_geography'),  'demand_sector', 'efficiency_type','supply_node']).sum().loc[:,year].to_frame(),
+                self.active_coefficients = util.remove_df_levels(DfOper.mult([self.coefficients.values.groupby(level=[cfg.primary_geography,  'demand_sector', 'efficiency_type','supply_node']).sum().loc[:,year].to_frame(),
                                                     self.potential.active_supply_curve_normal]),'resource_bins')
             else:
                 self.active_coefficients = None     
         elif self.coefficients.data is True: 
-            self.active_coefficients =  self.coefficients.values.groupby(level=[cfg.cfgfile.get('case', 'primary_geography'),  'demand_sector', 'efficiency_type','supply_node']).sum().loc[:,year].to_frame()
+            self.active_coefficients =  self.coefficients.values.groupby(level=[cfg.primary_geography,  'demand_sector', 'efficiency_type','supply_node']).sum().loc[:,year].to_frame()
         else:
             self.active_coefficients = None        
         if self.active_coefficients is not None:
@@ -2558,8 +2558,8 @@ class Node(DataMapFunctions):
             self.active_emissions_coefficients = None
 
     def add_column_index(self, data):
-         names = ['demand_sector', cfg.cfgfile.get('case','primary_geography')]
-         keys = [self.demand_sectors, cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]]
+         names = ['demand_sector', cfg.primary_geography]
+         keys = [self.demand_sectors, cfg.geo.geographies[cfg.primary_geography]]
          data  = copy.deepcopy(data)
          for key,name in zip(keys,names):
              data  = pd.concat([data]*len(key), axis=1, keys=key, names=[name])
@@ -2660,8 +2660,8 @@ class Node(DataMapFunctions):
 #            #if less than or equal to 0, then there is no exceedance
 #            self.potential_exceedance[self.potential_exceedance>1] = 1
 #            self.potential_exceedance = 1 - self.potential_exceedance
-#            keys = [self.demand_sectors, cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')]]
-#            names = ['demand_sector', cfg.cfgfile.get('case','primary_geography')]
+#            keys = [self.demand_sectors, cfg.geo.geographies[cfg.primary_geography]]
+#            names = ['demand_sector', cfg.primary_geography]
 #            potential_exceedance = copy.deepcopy(self.potential_exceedance)
 #            for key,name in zip(keys,names):
 #                potential_exceedance  = pd.concat([potential_exceedance]*len(key), axis=1, keys=key, names=[name])
@@ -3083,7 +3083,7 @@ class BlendNode(Node):
          
     def set_residual(self):
         """creats an empty df with the value for the residual node of 1. For nodes with no blend measures specified"""
-        df_index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors, self.nodes, self.years, [2]], names=[cfg.cfgfile.get('case','primary_geography'), 'demand_sector','supply_node','year','efficiency_type' ])
+        df_index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.primary_geography], self.demand_sectors, self.nodes, self.years, [2]], names=[cfg.primary_geography, 'demand_sector','supply_node','year','efficiency_type' ])
         self.raw_values = util.empty_df(index=df_index,columns=['value'],fill_value=1e-7)
         indexer = util.level_specific_indexer(self.raw_values, 'supply_node', self.residual_supply_node_id)
         self.raw_values.loc[indexer, 'value'] = 1
@@ -3150,8 +3150,8 @@ class SupplyNode(Node,StockItem):
             #requires distribution grid node to maintain demand sector resolution in its stocks
             self.rollover_group_levels.append(self.demand_sectors)
             self.rollover_group_names.append('demand_sector')
-        self.rollover_group_names = [cfg.cfgfile.get('case', 'primary_geography')] + self.rollover_group_names
-        self.rollover_group_levels = [cfg.geo.geographies[cfg.cfgfile.get('case', 'primary_geography')]] + self.rollover_group_levels
+        self.rollover_group_names = [cfg.primary_geography] + self.rollover_group_names
+        self.rollover_group_levels = [cfg.geo.geographies[cfg.primary_geography]] + self.rollover_group_levels
 
 #    def add_stock_measure(self, package_id):
 #        measure_id = util.sql_read_table('SupplyStockMeasurePackagesData', 'measure_id', package_id=package_id, return_iterable=False)
@@ -3562,7 +3562,7 @@ class SupplyNode(Node,StockItem):
                         self.levelized_costs.loc[:,year]  += (util.df_slice(level_costs.loc[:,year].to_frame(),year,'vintage') *(1-cost.throughput_correlation))[year]
                         self.levelized_costs.loc[:,year]  +=  (util.df_slice(level_costs.loc[:,year].to_frame(), year,'vintage').loc[:,year].to_frame() * (cost.throughput_correlation))[year]
         self.embodied_cost.loc[:,year] = util.DfOper.divi([self.levelized_costs[year].to_frame(), self.throughput],expandable=(False,False)).replace([np.inf,np.nan,-np.nan],[0,0,0]).values        
-        self.active_embodied_cost = util.expand_multi(self.embodied_cost[year].to_frame(), levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])
+        self.active_embodied_cost = util.expand_multi(self.embodied_cost[year].to_frame(), levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],levels_names=[cfg.primary_geography,'demand_sector'])
 
     def calculate_annual_costs(self,year):
             start_year = min(self.years)
@@ -3653,9 +3653,9 @@ class SupplyPotential(Abstract):
             # this means that they must be copied to resource values and values are the result of
             # multiplying the original values by the conversion dataframe
 #            self.resource_values = util.unit_convert(self.values,unit_from_den=self.time_unit, unit_to_den='year')
-#            self.resource_supply_curve = self.resource_values.groupby(level=[cfg.cfgfile.get('case', 'primary_geography')]).cumsum()
+#            self.resource_supply_curve = self.resource_values.groupby(level=[cfg.primary_geography]).cumsum()
             self.values = DfOper.mult([self.values, self.conversion.values])
-#            self.supply_curve = util.remove_df_levels(self.values, [x for x in self.values.index.names if x not in [cfg.cfgfile.get('case', 'primary_geography'),'resource_bins']])
+#            self.supply_curve = util.remove_df_levels(self.values, [x for x in self.values.index.names if x not in [cfg.primary_geography,'resource_bins']])
             self.supply_curve = self.values.groupby(level=[x for x in self.values.index.names if x not in 'resource_bins']).cumsum()
         else:
             if util.determ_energy(self.unit):
@@ -3667,7 +3667,7 @@ class SupplyPotential(Abstract):
     def remap_to_potential(self, active_throughput, year, tradable_geography=None):
         """remaps throughput to potential bins"""    
         #original supply curve represents an annual timeslice 
-        primary_geography = cfg.cfgfile.get('case', 'primary_geography')
+        primary_geography = cfg.primary_geography
         self.active_throughput = active_throughput    
         self.active_throughput[self.active_throughput<=0] = 1E-25
         original_supply_curve = self.supply_curve.loc[:,year].to_frame()  
@@ -3692,18 +3692,18 @@ class SupplyPotential(Abstract):
     def remap_to_potential_and_normalize(self,active_throughput, year,tradable_geography=None) :
         """returns the proportion of the supply curve that is in each bin"""
         self.remap_to_potential(active_throughput, year, tradable_geography)
-        self.active_supply_curve_normal= self.active_supply_curve.groupby(level=cfg.cfgfile.get('case', 'primary_geography')).transform(lambda x:x/x.sum()).fillna(0.)
+        self.active_supply_curve_normal= self.active_supply_curve.groupby(level=cfg.primary_geography).transform(lambda x:x/x.sum()).fillna(0.)
 
     def format_potential_and_supply_for_constraint_check(self,active_supply, tradable_geography, year):
-        if tradable_geography == cfg.cfgfile.get('case', 'primary_geography'):
+        if tradable_geography == cfg.primary_geography:
             self.active_potential = self.values.loc[:,year].to_frame()
             self.active_geomapped_potential = self.active_potential
             self.active_geomapped_supply = active_supply
         else:
             self.active_potential = self.values.loc[:,year].to_frame()
-            self.active_geomapped_potential = self.geo_map(converted_geography=tradable_geography, attr='active_potential', inplace=False, current_geography=cfg.cfgfile.get('case', 'primary_geography'), current_data_type='total')
+            self.active_geomapped_potential = self.geo_map(converted_geography=tradable_geography, attr='active_potential', inplace=False, current_geography=cfg.primary_geography, current_data_type='total')
             self.active_geomapped_supply = active_supply
-            self.active_geomapped_supply = self.geo_map(converted_geography=tradable_geography, attr='active_geomapped_supply', inplace=False, current_geography=cfg.cfgfile.get('case', 'primary_geography'), current_data_type='total')
+            self.active_geomapped_supply = self.geo_map(converted_geography=tradable_geography, attr='active_geomapped_supply', inplace=False, current_geography=cfg.primary_geography, current_data_type='total')
         levels = util.intersect(self.active_geomapped_supply.index.names, self.active_geomapped_supply.index.names)
         disallowed_potential_levels = [x for x in self.active_geomapped_potential.index.names if x not in levels]
         disallowed_supply_levels = [x for x in self.active_geomapped_supply.index.names if x not in levels]
@@ -3815,7 +3815,7 @@ class SupplyCoefficients(Abstract):
                 keys = self.demand_sectors
                 names = ['demand_sector']
                 self.values = pd.concat([self.values]*len(keys),keys=keys,names=names)
-            self.values = self.values.reorder_levels([cfg.cfgfile.get('case', 'primary_geography'),'demand_sector', 'efficiency_type', 'supply_node'])
+            self.values = self.values.reorder_levels([cfg.primary_geography,'demand_sector', 'efficiency_type', 'supply_node'])
             
     def convert(self):
         """
@@ -3910,8 +3910,8 @@ class SupplyStockNode(Node):
             original_levels = self.stock.rollover_group_levels[self.stock.rollover_group_names.index('demand_sector')]
             new_levels = list(set(original_levels+self.demand_sectors))
             self.stock.rollover_group_levels[self.stock.rollover_group_names.index('demand_sector')] = new_levels
-        self.stock.rollover_group_names = [cfg.cfgfile.get('case', 'primary_geography')] + self.stock.rollover_group_names
-        self.stock.rollover_group_levels = [cfg.geo.geographies[cfg.cfgfile.get('case', 'primary_geography')]] + self.stock.rollover_group_levels
+        self.stock.rollover_group_names = [cfg.primary_geography] + self.stock.rollover_group_names
+        self.stock.rollover_group_levels = [cfg.geo.geographies[cfg.primary_geography]] + self.stock.rollover_group_levels
         
     def add_stock(self):
         """add stock instance to node"""
@@ -4750,7 +4750,7 @@ class SupplyStockNode(Node):
     def  calculate_per_unit_costs(self,year):        
             total_costs = util.remove_df_levels(self.levelized_costs.loc[:,year].to_frame(),['vintage', 'supply_technology'])
             self.embodied_cost.loc[:,year] = DfOper.divi([total_costs, self.active_supply],expandable=(False,False)).replace([np.inf,np.nan,-np.nan],[0,0,0])        
-            self.active_embodied_cost = util.expand_multi(self.embodied_cost[year].to_frame(), levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])
+            self.active_embodied_cost = util.expand_multi(self.embodied_cost[year].to_frame(), levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],levels_names=[cfg.primary_geography,'demand_sector'])
 
     def calculate_annual_costs(self,year):
         if not hasattr(self.stock,'capital_cost_new_annual'):
@@ -4831,12 +4831,12 @@ class SupplyStockNode(Node):
             self.active_coefficients = util.remove_df_levels(pd.concat([self.stock.coefficients.loc[:,year].to_frame()]*len(keys), keys=keys,names=name).fillna(0),['supply_technology', 'vintage','resource_bins'])              
             self.active_coefficients_untraded = copy.deepcopy(self.active_coefficients)
             self.active_coefficients_untraded.sort(inplace=True,axis=0)
-            self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([cfg.cfgfile.get('case','primary_geography'),'demand_sector', 'supply_node']).sort().fillna(0)     
+            self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([cfg.primary_geography,'demand_sector', 'supply_node']).sort().fillna(0)
         else:            
             self.active_coefficients = util.remove_df_levels(self.stock.coefficients.loc[:,year].to_frame().fillna(0),['supply_technology', 'vintage','resource_bins'])              
             self.active_coefficients_untraded = copy.deepcopy(self.active_coefficients)
             self.active_coefficients_untraded.sort(inplace=True,axis=0)         
-            self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([cfg.cfgfile.get('case','primary_geography'),'demand_sector', 'supply_node']).sort().fillna(0)            
+            self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([cfg.primary_geography,'demand_sector', 'supply_node']).sort().fillna(0)
         self.active_coefficients_total = DfOper.mult([self.active_coefficients_total_untraded,self.active_trade_adjustment_df]).fillna(0)
         nodes = list(set(self.active_trade_adjustment_df.index.get_level_values('supply_node')))
         df_list = []
@@ -4991,7 +4991,7 @@ class StorageNode(SupplyStockNode):
         total_costs = util.remove_df_levels(self.levelized_costs.loc[:,year].to_frame(),['vintage', 'supply_technology'])
 #        total_stock = util.remove_df_levels(self.stock.values_energy.loc[:,year].to_frame(), ['vintage', 'supply_technology'])            
         self.embodied_cost.loc[:,year] = DfOper.divi([total_costs, self.active_supply.groupby(level=self.stock.rollover_group_names).sum()])        
-        self.active_embodied_cost = util.expand_multi(self.embodied_cost[year].to_frame(), levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])
+        self.active_embodied_cost = util.expand_multi(self.embodied_cost[year].to_frame(), levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],levels_names=[cfg.primary_geography,'demand_sector'])
 
     def calculate_annual_costs(self,year):
         if not hasattr(self.stock,'capital_cost_new_annual_energy'):
@@ -5068,14 +5068,14 @@ class ImportNode(Node):
                 supply_curve = supply_curve[supply_curve.values>0]
                 supply_curve[supply_curve>0]=1
                 cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
-                levels = ['demand_sector',cfg.cfgfile.get('case','primary_geography')]
+                levels = ['demand_sector',cfg.primary_geography]
                 self.active_embodied_cost = cost.groupby(level = [x for x in levels if x in cost.index.names]).max()
-                self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])               
+                self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],levels_names=[cfg.primary_geography,'demand_sector'])
             else:
-                allowed_indices = ['demand_sector', cfg.cfgfile.get('case','primary_geography')]
+                allowed_indices = ['demand_sector', cfg.primary_geography]
                 if set(self.cost.values.index.names).issubset(allowed_indices):
                     self.active_embodied_cost = self.cost.values.loc[:,year].to_frame()
-                    self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])
+                    self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],levels_names=[cfg.primary_geography,'demand_sector'])
                 else:
                     raise ValueError("too many indexes in cost inputs of node %s" %self.id)
             self.levelized_costs.loc[:,year] = DfOper.mult([self.active_embodied_cost,self.active_supply]).values
@@ -5143,15 +5143,15 @@ class PrimaryNode(Node):
                 supply_curve = supply_curve[supply_curve.values>0]
                 supply_curve[supply_curve>0]=1
                 cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
-                levels = ['demand_sector',cfg.cfgfile.get('case','primary_geography')]
+                levels = ['demand_sector',cfg.primary_geography]
                 self.active_embodied_cost = cost.groupby(level = [x for x in levels if x in cost.index.names]).max()
-                self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],
-                                                                                                                            levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])               
+                self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],
+                                                                                                                            levels_names=[cfg.primary_geography,'demand_sector'])
             else:
-                allowed_indices = ['demand_sector', cfg.cfgfile.get('case','primary_geography')]
+                allowed_indices = ['demand_sector', cfg.primary_geography]
                 if set(self.cost.values.index.names).issubset(allowed_indices):
                     self.active_embodied_cost = self.cost.values.loc[:,year].to_frame()
-                    self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.cfgfile.get('case','primary_geography')], self.demand_sectors],levels_names=[cfg.cfgfile.get('case', 'primary_geography'),'demand_sector'])
+                    self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],levels_names=[cfg.primary_geography,'demand_sector'])
                 else:
                     raise ValueError("too many indexes in cost inputs of node %s" %self.id)
             self.levelized_costs.loc[:,year] = DfOper.mult([self.active_embodied_cost,self.active_supply]).values

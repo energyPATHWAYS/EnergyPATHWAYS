@@ -20,6 +20,7 @@ import datetime
 import logging
 import cProfile
 import traceback
+import pandas as pd
 
 
 model = None
@@ -99,11 +100,11 @@ def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load
             util.update_status(scenario_id, 2)
         
         model = load_model(load_demand, load_supply, scenario_id, api_run)
-        model.run(scenario_id,
-                  solve_demand=solve_demand and not (load_demand or load_supply),
-                  solve_supply=solve_supply and not load_supply,
-                  save_models=save_models,
-                  append_results=False if (scenario_id==scenario_ids[0] and clear_results) else True)
+#        model.run(scenario_id,
+#                  solve_demand=solve_demand and not (load_demand or load_supply),
+#                  solve_supply=solve_supply and not load_supply,
+#                  save_models=save_models,
+#                  append_results=False if (scenario_id==scenario_ids[0] and clear_results) else True)
     
         if api_run:
             util.update_status(scenario_id, 3)
@@ -148,3 +149,7 @@ if __name__ == "__main__":
     # note that when running the profiler, it is recommended to not run the model for more than 10 years due to memory use
     # cProfile.run('run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)', filename='full_run.profile')
     # Output.writeobj(model)
+
+from collections import defaultdict
+self = cfg.geo
+self.filter_map_table()

@@ -45,7 +45,7 @@ def freeze_recursivedict(recursivedict):
             recursivedict[key] = freeze_recursivedict(value)
     return recursivedict
 
-def upper_dict(query,append=None):
+def upper_dict(query, append=None):
     id_dict = {} if query is None else dict([(id, name.upper()) for id, name in (query if is_iterable(query[0]) else [query])])    
     for key,value in id_dict.iteritems():
         if append is not None:

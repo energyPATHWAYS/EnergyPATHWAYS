@@ -21,12 +21,6 @@ warnings.simplefilter("ignore")
 workingdir = None
 cfgfile = None
 cfgfile_name = None
-primary_geography = None
-primary_geography_id = None
-geographies = None
-dispatch_geography = None
-dispatch_geography_id = None
-dispatch_geographies = None
 scenario_dict = None
 weibul_coeff_of_var = None
 
@@ -46,8 +40,19 @@ storage_tech_classes = ['installation_cost_new','installation_cost_replacement',
 ureg = None
 pint_definitions_file = None
 
-# Geography conversions
+# Geography
 geo = None
+primary_geography = None
+primary_geography_id = None
+primary_subset_id = None
+breakout_geography_id = None
+geographies = None
+
+dispatch_geography = None
+dispatch_geography_id = None
+dispatch_subset_id = None
+dispatch_breakout_geography_id = None
+dispatch_geographies = None
 
 # output config
 currency_name = None
@@ -159,13 +164,20 @@ def init_pint(pint_definitions_path):
 def init_geo():
     #Geography conversions
     global geo, primary_geography, primary_geography_id, geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id
+    global primary_subset_id, breakout_geography_id, dispatch_breakout_geography_id
     geo = geomapper.GeoMapper()
-    primary_geography = cfgfile.get('case', 'primary_geography')
-    primary_geography_id = util.sql_read_table('Geographies', 'id', name=primary_geography)
+    
+    primary_geography_id = int(cfgfile.get('case', 'primary_geography_id'))
+    primary_geography = geo.id_to_geography[primary_geography_id]
+    primary_subset_id = [int(g) for g in cfgfile.get('case', 'primary_subset_id').split(',') if len(g)]
+    breakout_geography_id = [int(g) for g in cfgfile.get('case', 'breakout_geography_id').split(',') if len(g)]
+    
+    dispatch_geography_id = int(cfgfile.get('case', 'dispatch_geography_id'))
+    dispatch_geography = geo.id_to_geography[dispatch_geography_id]
+    dispatch_breakout_geography_id = [int(g) for g in cfgfile.get('case', 'dispatch_breakout_geography_id').split(',') if len(g)]
+    
+    dispatch_geographies = geo.geographies[dispatch_geography]    
     geographies = geo.geographies[primary_geography]
-    dispatch_geography = cfgfile.get('case', 'dispatch_geography')
-    dispatch_geography_id = util.sql_read_table('Geographies', 'id', name=dispatch_geography)
-    dispatch_geographies = geo.geographies[dispatch_geography]
 
 def init_date_lookup():
     global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id
@@ -190,8 +202,8 @@ def init_date_lookup():
 
 def init_output_levels():
     global output_demand_levels, output_supply_levels, output_combined_levels
-    output_demand_levels = ['year','technology',cfgfile.get('case','primary_geography'),'sector','subsector','final_energy']
-    output_supply_levels = ['year','vintage','supply_technology',cfgfile.get('case','primary_geography'), cfgfile.get('case','primary_geography') + "_supply", 'demand_sector','final_energy','supply_node','ghg','resource_bins']
+    output_demand_levels = ['year','technology', primary_geography,'sector','subsector','final_energy']
+    output_supply_levels = ['year','vintage','supply_technology',primary_geography, primary_geography + "_supply", 'demand_sector','final_energy','supply_node','ghg','resource_bins']
     output_combined_levels = list(set(output_supply_levels + output_demand_levels))
     
     if cfgfile.get('output_detail','vintage').lower() != 'true':
@@ -201,11 +213,11 @@ def init_output_levels():
         output_combined_levels.remove('technology')
     
     if cfgfile.get('output_detail','supply_geography').lower() != 'true':
-        output_combined_levels.remove(cfgfile.get('case','primary_geography') + "_supply")
+        output_combined_levels.remove(primary_geography + "_supply")
 
 def init_outputs_id_map():
     global outputs_id_map
-    outputs_id_map[primary_geography] = util.upper_dict(util.sql_read_table('GeographiesData', ['id', 'name'], geography_id=primary_geography_id, return_unique=True, return_iterable=True))
+    outputs_id_map[primary_geography] = util.upper_dict(geo.geography_names.items())
     outputs_id_map[primary_geography+"_supply"] =  outputs_id_map[primary_geography]       
     outputs_id_map['technology'] = util.upper_dict(util.sql_read_table('DemandTechs', ['id', 'name']))
     outputs_id_map['supply_technology'] = util.upper_dict(util.sql_read_table('SupplyTechs', ['id', 'name']))

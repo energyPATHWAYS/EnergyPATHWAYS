@@ -266,8 +266,6 @@ class TimeSeries:
         wholeindex = np.array(sorted(list(set(newindex) | set(data.index.get_level_values(time_index_name)))), dtype=int)
 
         # Add new levels to data for missing time indices
-        # full_levels = [list(newindex) if name==time_index_name else list(level) for name, level in zip(data.index.names, data.index.levels)]
-        # data = data.join(pd.DataFrame(index=pd.MultiIndex.from_product(full_levels, names=data.index.names)), how='outer').sort_index()
         data = util.reindex_df_level_with_new_elements(data, time_index_name, wholeindex)
         
 

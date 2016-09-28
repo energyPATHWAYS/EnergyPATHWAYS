@@ -72,7 +72,7 @@ class Demand(object):
         weather_year = int(np.round(np.mean(shape.shapes.active_dates_index.year)))
         
         # the next four lines create the top down load shape in the weather_year
-        levels_to_keep = [cfg.cfgfile.get('case','primary_geography'), 'year', 'final_energy']
+        levels_to_keep = [cfg.primary_geography, 'year', 'final_energy']
         temp_energy = self.group_output('energy', levels_to_keep=levels_to_keep, specific_years=weather_year)
         top_down_energy = util.remove_df_levels(util.df_slice(temp_energy, cfg.electricity_energy_type_id, 'final_energy'), levels='year')
         top_down_shape = top_down_energy * util.df_slice(self.default_electricity_shape.values, 2, 'timeshift_type')
@@ -170,7 +170,7 @@ class Demand(object):
         
     def aggregate_sector_energy_for_supply_side(self):
         """Aggregates for the supply side, works with function in sector"""
-        names = ['sector', cfg.cfgfile.get('case', 'primary_geography'), 'final_energy', 'year']
+        names = ['sector', cfg.primary_geography, 'final_energy', 'year']
         sectors_aggregates = [sector.aggregate_subsector_energy_for_supply_side() for sector in self.sectors.values()]
         self.energy_demand = pd.concat([s for s in sectors_aggregates if len(s)], keys=self.sectors.keys(), names=names)
         
@@ -367,7 +367,7 @@ class Sector(object):
 
     def aggregate_subsector_energy_for_supply_side(self):
         """Aggregates for the supply side, works with function in demand"""
-        levels_to_keep = [cfg.cfgfile.get('case', 'primary_geography'), 'final_energy', 'year']
+        levels_to_keep = [cfg.primary_geography, 'final_energy', 'year']
         return util.DfOper.add([pd.DataFrame(subsector.energy_forecast.value.groupby(level=levels_to_keep).sum()).sort() for subsector in self.subsectors.values() if hasattr(subsector, 'energy_forecast')])
 
     def group_output(self, output_type, levels_to_keep=None, include_unit=False, specific_years=None):
@@ -461,7 +461,7 @@ class Subsector(DataMapFunctions):
         
         # if none of the technologies have shapes, great! we can avoid having to aggregate each one separately
         if not hasattr(self, 'technologies') or np.all([tech.shape_id is None for tech in self.technologies.values()]):
-            energy_slice = energy_slice.groupby(level=cfg.cfgfile.get('case', 'primary_geography')).sum()
+            energy_slice = energy_slice.groupby(level=cfg.primary_geography).sum()
             
             if hasattr(self, 'flexible_load_measure'):
                 active_max_lead_hours = self.max_lead_hours if self.max_lead_hours is not None else default_max_lead_hours
@@ -483,7 +483,7 @@ class Subsector(DataMapFunctions):
         # some technologies have their own shapes, so we need to aggregate from that level
         else:
             raise ValueError("Technology shapes are not fully implemented")
-            energy_slice = energy_slice.groupby(level=[cfg.cfgfile.get('case', 'primary_geography'), 'technology']).sum()
+            energy_slice = energy_slice.groupby(level=[cfg.primary_geography, 'technology']).sum()
             
             technology_shapes = pd.concat([tech.get_shape(default_shape=active_shape) for tech in self.technologies.values()],
                                            keys=self.technologies.keys(), names=['technology'])
@@ -1700,13 +1700,13 @@ class Subsector(DataMapFunctions):
 
     def project_total_stock(self, map_from, service_dependent=False):
         if map_from == 'values':
-            current_geography = cfg.cfgfile.get('case', 'primary_geography')
+            current_geography = cfg.primary_geography
             current_data_type = 'total'
             self.stock.values = self.stock.values.groupby(level=util.ix_excl(self.stock.values, 'vintage')).sum()
             self.stock.values = self.stack_and_reduce_years(self.stock.values, min(self.years), max(self.years))
             projected  = True
         elif map_from == 'int_values':
-            current_geography = cfg.cfgfile.get('case', 'primary_geography')
+            current_geography = cfg.primary_geography
             current_data_type = self.stock.current_data_type if hasattr(self.stock, 'current_data_type')  else 'total'
             projected = False
         else:
@@ -1721,7 +1721,7 @@ class Subsector(DataMapFunctions):
 
     def project_technology_stock(self, map_from, service_dependent):
         if map_from == 'values' or map_from == 'int_values':
-            current_geography = cfg.cfgfile.get('case', 'primary_geography')
+            current_geography = cfg.primary_geography
             current_data_type = 'total'
             projected = True
         else:
@@ -1770,7 +1770,7 @@ class Subsector(DataMapFunctions):
         for technology in self.technologies.values():
             if len(technology.specified_stocks):
                for specified_stock in technology.specified_stocks.values():
-                   specified_stock.remap(map_from='values', current_geography = cfg.cfgfile.get('case','primary_geography'), drivers=self.stock.total)
+                   specified_stock.remap(map_from='values', current_geography = cfg.primary_geography, drivers=self.stock.total)
                    self.stock.technology.sort(inplace=True)
                    indexer = util.level_specific_indexer(self
                    .stock.technology,'technology',technology.id)
@@ -1968,8 +1968,8 @@ class Subsector(DataMapFunctions):
         else:
             measure_df['measure'] = id
             measure_df.set_index('measure', append=True, inplace=True)
-            level_order = [cfg.cfgfile.get('case', 'primary_geography')] + util.ix_excl(measure_df, [
-                cfg.cfgfile.get('case', 'primary_geography'), 'vintage']) + ['vintage']
+            level_order = [cfg.primary_geography] + util.ix_excl(measure_df, [
+                cfg.primary_geography, 'vintage']) + ['vintage']
             level_order = [x for x in level_order if x in measure_df.index.names]
             measure_df = measure_df.reorder_levels(level_order)
             return measure_df
@@ -2024,7 +2024,7 @@ class Subsector(DataMapFunctions):
             else:
                 subsector_stock = util.remove_df_levels(self.stock.technology,'year')
             self.stock.remap(map_from='linked_technology', map_to='linked_technology', drivers=subsector_stock,
-                             current_geography=cfg.cfgfile.get('case', 'primary_geography'), current_data_type='total',
+                             current_geography=cfg.primary_geography, current_data_type='total',
                              time_index=self.years)   
             self.stock.linked_technology[self.stock.linked_technology==0]=np.nan
             self.stock.has_linked_technology = True
@@ -2062,11 +2062,11 @@ class Subsector(DataMapFunctions):
             current_data_type = self.service_demand.input_type
             projected = False
         elif map_from == 'int_values':
-            current_geography = cfg.cfgfile.get('case', 'primary_geography')
+            current_geography = cfg.primary_geography
             current_data_type = self.service_demand.current_data_type if hasattr(self.service_demand, 'current_data_type')  else 'total'
             projected =  False
         else:
-            current_geography = cfg.cfgfile.get('case', 'primary_geography')
+            current_geography = cfg.primary_geography
             current_data_type =  'total'
             projected =  True
         self.service_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
@@ -2083,11 +2083,11 @@ class Subsector(DataMapFunctions):
             current_data_type = self.energy_demand.input_type
             projected = False
         elif map_from == 'int_values':
-            current_geography = cfg.cfgfile.get('case', 'primary_geography')
+            current_geography = cfg.primary_geography
             current_data_type = self.energy_demand.current_data_type if hasattr(self.energy_demand, 'current_data_type')  else 'total'
             projected =  False
         else:
-            current_geography = cfg.cfgfile.get('case', 'primary_geography')
+            current_geography = cfg.primary_geography
             current_data_type =  'total'
             projected =  True
 

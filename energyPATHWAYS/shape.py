@@ -72,7 +72,7 @@ class Shapes(object):
         dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))
         self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.timezone_names[dispatch_outputs_timezone_id])
         self.active_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H', tz=self.dispatch_outputs_timezone)
-        self.converted_geography = cfg.cfgfile.get('case', 'primary_geography')
+        self.converted_geography = cfg.primary_geography
     
     @staticmethod
     def create_time_slice_elements(active_dates_index):
@@ -198,7 +198,7 @@ class Shape(dmf.DataMapFunctions):
         if 'dispatch_constraint' in group_to_normalize:
             # this first normailization does what we need for hydro pmin and pmax, which is a special case of normalization
             combined_map_df = util.DfOper.mult((self.map_df_tz, self.map_df_primary))
-            normalization_factors = combined_map_df.groupby(level=cfg.cfgfile.get('case', 'primary_geography')).sum()
+            normalization_factors = combined_map_df.groupby(level=cfg.primary_geography).sum()
             self.values = util.DfOper.divi((self.values, normalization_factors))
             
             temp = self.values.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
@@ -209,7 +209,6 @@ class Shape(dmf.DataMapFunctions):
             self.values = temp
         else:
             self.values = self.values.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
-        
 
 
     def geomap_to_time_zone(self, attr='values', inplace=True):
@@ -280,8 +279,8 @@ class Shape(dmf.DataMapFunctions):
     def geomap_to_dispatch_geography(df):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table
         """
-        converted_geography = cfg.cfgfile.get('case', 'primary_geography')
-        dispatch_geography = cfg.cfgfile.get('case', 'dispatch_geography')
+        converted_geography = cfg.primary_geography
+        dispatch_geography = cfg.dispatch_geography
         if converted_geography==dispatch_geography:
             return df
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key')
@@ -298,7 +297,7 @@ class Shape(dmf.DataMapFunctions):
         return mapped_data
 
     def sum_over_time_zone(self, attr='values', inplace=True):
-        converted_geography = cfg.cfgfile.get('case', 'primary_geography')
+        converted_geography = cfg.primary_geography
         
         if converted_geography=='time zone':
             if inplace:
