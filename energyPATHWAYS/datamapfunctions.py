@@ -13,6 +13,7 @@ import copy
 import time
 from pprint import pprint
 from util import DfOper
+import logging
 
 
 class DataMapFunctions:
@@ -73,6 +74,10 @@ class DataMapFunctions:
             self.raw_values = pd.DataFrame(data, columns=column_names).set_index(keys=self.df_index_names).sort_index()
         else:
             self.raw_values = None
+        
+        if cfg.primary_subset_id and self.raw_values is not None:
+            self.raw_values_unfiltered = self.raw_values.copy()
+            self.raw_values = cfg.geo.filter_extra_geos_from_df(self.raw_values)
 
     def clean_timeseries(self, attr='values', inplace=True, time_index_name='year', 
                          time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing'):
@@ -113,38 +118,22 @@ class DataMapFunctions:
         # Unless specified, input_type used is attribute of the object
         current_data_type = self.input_type if current_data_type is None else current_data_type
         current_geography = self.geography if current_geography is None else current_geography
-        geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self,
-                                                                                            'geography_map_key') else self.geography_map_key
-
-        if current_geography == converted_geography:
-            if inplace:
-                return
-            else:
-                return getattr(self, attr)
-        if current_data_type == 'total':
-            subsection, supersection = converted_geography, current_geography
-        elif current_data_type == 'intensity':
-            subsection, supersection = current_geography, converted_geography
-        else:
-            raise ValueError('Input_type must be either "total" or "intensity"')
+        geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
 
         # create dataframe with map from one geography to another
-        map_df = cfg.geo.map_df(subsection, supersection, column=geography_map_key)
-        # converted_gau = geo.geographies[converted_geography]
+        map_df = cfg.geo.map_df(current_geography, converted_geography, normalize_as=current_data_type, map_key=geography_map_key)
 
-        # necessary to expand our dataframe over the new geography. keys and names set up a new dataframe level.
-        # expanded = pd.concat([getattr(self, attr)]*len(converted_gau), keys=converted_gau, names=(converted_geography,))
-
-        mapped_data = DfOper.mult([getattr(self, attr), map_df],fill_value=fill_value)
-        mapped_data = util.remove_df_levels(mapped_data, current_geography)
+        mapped_data = DfOper.mult([getattr(self, attr), map_df], fill_value=fill_value)
+        if current_geography!=converted_geography:
+            mapped_data = util.remove_df_levels(mapped_data, current_geography)
+            
         if hasattr(mapped_data.index,'swaplevel'):
-            mapped_data = mapped_data.swaplevel(converted_geography,0)
-        mapped_data.sort(inplace=True)
+            mapped_data = mapped_data.swaplevel(converted_geography, 0)
+        
         if inplace:
-            setattr(self, attr, mapped_data)
-        # setattr(self, 'geography', converted_geography)
+            setattr(self, attr, mapped_data.sort())
         else:
-            return mapped_data
+            return mapped_data.sort()
 
     def ensure_correct_geography(self, map_to, converted_geography, current_geography=None, current_data_type=None):
         current_data_type = copy.copy(self.input_type) if current_data_type is None else current_data_type

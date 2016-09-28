@@ -37,7 +37,7 @@ class Shapes(object):
         logging.info(' reading data for:')
         for id in self.active_shape_ids:
             shape = self.data[id]
-            logging.info('     shape: ' + shape.name)
+            logging.info('    shape: ' + shape.name)
             if hasattr(shape, 'raw_values'):
                 return
             
@@ -67,12 +67,12 @@ class Shapes(object):
         logging.info(' mapping data for:')
         for id in self.active_shape_ids:
             shape = self.data[id]
-            logging.info('     shape: ' + shape.name)
+            logging.info('    shape: ' + shape.name)
             shape.process_shape(self.active_dates_index, self.time_slice_elements)
         dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))
         self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.timezone_names[dispatch_outputs_timezone_id])
         self.active_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H', tz=self.dispatch_outputs_timezone)
-        self.converted_geography = cfg.primary_geography
+        self.converted_geography_check = (cfg.primary_geography, tuple(sorted(cfg.primary_subset_id)))
     
     @staticmethod
     def create_time_slice_elements(active_dates_index):
@@ -183,8 +183,8 @@ class Shape(dmf.DataMapFunctions):
         self.standardize_time_across_timezones()
         self.geomap_to_primary_geography()
         self.sum_over_time_zone()
-        self.normalize()
-        self.add_timeshift_type()
+#        self.normalize()
+#        self.add_timeshift_type()
 
     def add_timeshift_type(self):
         """Later these shapes will need a level called timeshift type, and it is faster to add it now if it doesn't already have it"""
@@ -214,66 +214,37 @@ class Shape(dmf.DataMapFunctions):
     def geomap_to_time_zone(self, attr='values', inplace=True):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table
         """
-        if self.geography=='time zone':
-            self.map_df_tz = None
-            if inplace:
-                return
-            else:
-                return getattr(self, attr)
-        
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
-        
-        if self.input_type == 'total':
-            subsection, supersection = 'time zone', self.geography
-        elif self.input_type == 'intensity':
-            subsection, supersection = self.geography, 'time zone'
-        else:
-            raise ValueError('input_type must be either "total" or "intensity"')
         
         # create dataframe with map from one geography to another
-        map_df = cfg.geo.map_df(subsection, supersection, column=geography_map_key)
-        self.map_df_tz = map_df
+        self.map_df_tz = cfg.geo.map_df(self.geography, 'time zone', normalize_as=self.input_type, map_key=geography_map_key)
 
-        mapped_data = util.DfOper.mult([getattr(self, attr), map_df])
+        mapped_data = util.DfOper.mult([getattr(self, attr), self.map_df_tz])
         mapped_data = mapped_data.swaplevel('weather_datetime', -1)
-        mapped_data.sort(inplace=True)
         if inplace:
-            setattr(self, attr, mapped_data)
+            setattr(self, attr, mapped_data.sort())
         else:
-            return mapped_data
+            return mapped_data.sort()
 
     def geomap_to_primary_geography(self, attr='values', inplace=True, converted_geography=None):
-        """This needs more testing for cases where the converted_geography is time zone or self.geography is time zone
+        """ maps the dataframe to primary geography
         """
-        if self.geography==cfg.primary_geography:
-            self.map_df_primary = None
-            if inplace:
-                return
-            else:
-                return getattr(self, attr)
-        
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
-        if self.input_type == 'total':
-            subsection, supersection = cfg.primary_geography, self.geography
-        elif self.input_type == 'intensity':
-            subsection, supersection = self.geography, cfg.primary_geography
-        else:
-            raise ValueError('input_type must be either "total" or "intensity"')
         
-        map_df = cfg.geo.map_df(subsection, supersection, column=geography_map_key)
-        self.map_df_primary = map_df
+        self.map_df_primary = cfg.geo.map_df(self.geography, cfg.primary_geography, normalize_as=self.input_type, map_key=geography_map_key)
         
-        mapped_data = util.DfOper.mult((getattr(self, attr), map_df), fill_value=None)
-        levels = [ind for ind in mapped_data.index.names if (ind!=self.geography and self.geography!='time zone')]
-        mapped_data = mapped_data.groupby(level=levels).sum()
+        mapped_data = util.DfOper.mult((getattr(self, attr), self.map_df_primary), fill_value=None)
+        if self.geography!=cfg.primary_geography and self.geography!='time zone':
+            mapped_data = util.remove_df_levels(mapped_data, self.geography)
+#        levels = [ind for ind in mapped_data.index.names if ((ind==self.geography and self.geography!=cfg.primary_geography) or ind=='time zone')]
+#        mapped_data = mapped_data.groupby(level=levels).sum()
         mapped_data = mapped_data.swaplevel('weather_datetime', -1)
-        mapped_data.sort(inplace=True)
 
         if inplace:
-            setattr(self, attr, mapped_data)
-            self.converted_geography = converted_geography
+            setattr(self, attr, mapped_data.sort())
+            self.converted_geography_check = (converted_geography, tuple(sorted(cfg.primary_subset_id)))
         else:
-            return mapped_data
+            return mapped_data.sort()
 
     @staticmethod
     def geomap_to_dispatch_geography(df):
@@ -287,7 +258,7 @@ class Shape(dmf.DataMapFunctions):
         
         subsection, supersection = dispatch_geography, converted_geography
         # create dataframe with map from one geography to another
-        map_df = cfg.geo.map_df(subsection, supersection, column=geography_map_key)
+        map_df = cfg.geo.map_df(subsection, supersection, map_key=geography_map_key)
         mapped_data = util.DfOper.mult([df, map_df])
         
         levels = [ind for ind in mapped_data.index.names if ind!=converted_geography]
@@ -402,18 +373,18 @@ shapes = Shapes()
 def init_shapes():
     global shapes
     if os.path.isfile(os.path.join(cfg.workingdir, 'shapes.p')):
-        logging.info('loading shapes')
+        logging.info('Loading shapes')
         with open(os.path.join(cfg.workingdir, 'shapes.p'), 'rb') as infile:
             shapes = pickle.load(infile)
     
-    if (not hasattr(shapes, 'converted_geography')) or (shapes.converted_geography != cfg.primary_geography) or force_rerun_shapes:
-        logging.info('processing shapes')
+    if (not hasattr(shapes, 'converted_geography_check')) or (shapes.converted_geography_check != (cfg.primary_geography, tuple(sorted(cfg.primary_subset_id)))) or force_rerun_shapes:
+        logging.info('Processing shapes')
         shapes.__init__()
         shapes.create_empty_shapes()
         shapes.initiate_active_shapes()
         shapes.process_active_shapes()
         
         if pickle_shape:
-            logging.info('pickling shapes')
+            logging.info('Pickling shapes')
             with open(os.path.join(cfg.workingdir, 'shapes.p'), 'wb') as outfile:
                 pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)

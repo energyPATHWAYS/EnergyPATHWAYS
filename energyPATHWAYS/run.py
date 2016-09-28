@@ -89,6 +89,7 @@ def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load
         solve_supply=True, pickle_shapes=True, save_models=True, log_name=None, api_run=False, clear_results=False):
     global model
     cfg.initialize_config(path, config, pint, log_name)
+    cfg.geo.log_geo_subset()
     shape.init_shapes()
     
     scenario_ids = parse_scenario_ids(scenario)
@@ -100,11 +101,11 @@ def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load
             util.update_status(scenario_id, 2)
         
         model = load_model(load_demand, load_supply, scenario_id, api_run)
-#        model.run(scenario_id,
-#                  solve_demand=solve_demand and not (load_demand or load_supply),
-#                  solve_supply=solve_supply and not load_supply,
-#                  save_models=save_models,
-#                  append_results=False if (scenario_id==scenario_ids[0] and clear_results) else True)
+        model.run(scenario_id,
+                  solve_demand=solve_demand and not (load_demand or load_supply),
+                  solve_supply=solve_supply and not load_supply,
+                  save_models=save_models,
+                  append_results=False if (scenario_id==scenario_ids[0] and clear_results) else True)
     
         if api_run:
             util.update_status(scenario_id, 3)
@@ -145,11 +146,38 @@ if __name__ == "__main__":
     pint = 'unit_defs.txt'
     scenario = 1
     
-    run(workingdir, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False, clear_results=False)
+    run(workingdir, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=False, pickle_shapes=True, save_models=True, api_run=False, clear_results=False)
     # note that when running the profiler, it is recommended to not run the model for more than 10 years due to memory use
     # cProfile.run('run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)', filename='full_run.profile')
     # Output.writeobj(model)
+    
+#self = cfg.geo
+#current_geography = 'census division'
+#converted_geography = 'us'
+#normalize_as='total'
+#
+#subset_geographies = set(cfg.geo.gau_to_geography[id] for id in cfg.primary_subset_id)
+#current_geography = util.ensure_iterable_and_not_string(current_geography)
+#converted_geography = util.ensure_iterable_and_not_string(converted_geography)
+#union_geo = list(set(current_geography) | set(converted_geography) | subset_geographies)
+#level_to_remove = list(subset_geographies - set(current_geography) - set(converted_geography))
+#map_key = cfg.cfgfile.get('case', 'default_geography_map_key')
+#
+#self.map_df(current_geography, converted_geography, normalize_as='total')
+#self.map_df(current_geography, converted_geography, normalize_as='intensity')
 
-from collections import defaultdict
-self = cfg.geo
-self.filter_map_table()
+
+#shapes = shape.Shapes()
+#shapes.create_empty_shapes()
+#shapes.initiate_active_shapes()
+
+#self = shapes.data[8]
+#self.process_shape(shapes.active_dates_index, shapes.time_slice_elements)
+
+#self = shapes.data[1]
+#self.process_shape(shapes.active_dates_index, shapes.time_slice_elements)
+#
+#hydro = shapes.data[7]
+#hydro.process_shape(shapes.active_dates_index, shapes.time_slice_elements)
+
+

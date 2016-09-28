@@ -21,7 +21,7 @@ class GeoMapper:
         self.gau_to_geography = dict(util.flatten_list([(v, k) for v in vs] for k, vs in self.geographies.iteritems()))
         self.id_to_geography = dict((k, v) for k, v in util.sql_read_table('Geographies'))
         self.read_geography_data()
-        self.normalize = lambda x: x / (x.sum())
+        self._update_geographies_after_subset()
 
     def read_geography_indicies(self):
         cfg.cur.execute(textwrap.dedent("""\
@@ -94,50 +94,43 @@ class GeoMapper:
         # sortlevel sorts all of the indicies so that we can slice the dataframe
         self.values.sortlevel(0, inplace=True)
 
-    def filter_map_table(self, primary_subset_id=None):
+    def log_geo_subset(self, primary_subset_id=None):
         """
-        primary_subset_id is a list of gaus to keep
+        get a positional index in self.values (geomap table) that describes the primary_subset geography
         """
-        primary_subset_id = cfg.primary_subset_id if primary_subset_id is None else []
-        if len(primary_subset_id):
-            logging.info('filtering geomapping table')
+        primary_subset_id = cfg.primary_subset_id if primary_subset_id is None else primary_subset_id
+        if primary_subset_id:
+            logging.info('Filtering geomapping table')
+            for id in primary_subset_id:
+                logging.info(' analysis will include the {} {}'.format(self.gau_to_geography[id], self.geography_names[id]))
+
+    def _get_iloc_geo_subset(self, df, primary_subset_id=None):
+        """
+        get a positional index in self.values (geomap table) that describes the primary_subset geography
+        """
+        primary_subset_id = cfg.primary_subset_id if primary_subset_id is None else primary_subset_id
+        if primary_subset_id:
+            return list(set(np.concatenate([np.nonzero(df.index.get_level_values(self.gau_to_geography[id])==id)[0] for id in primary_subset_id])))
         else:
-            return
-        
-        primary_subset_dict = defaultdict(list)
-        for id in primary_subset_id:
-            logging.info(' analysis will include the {} {}'.format(self.gau_to_geography[id], self.geography_names[id]))
-            primary_subset_dict[self.gau_to_geography[id]].append(id)
-        
-        def _loc_values(level):
-            return self.values.loc[util.level_specific_indexer(self.values, [level], [primary_subset_dict[level]]), :]
-        
-        join_df = pd.concat([_loc_values(level) for level in primary_subset_dict])
-        join_df = join_df.groupby(level=join_df.index.names).first()
-
-        # this is a row that has the remainder for each geography map key after filtering.. it needs to be added as a new row
-        remainder = (self.values.sum() - join_df.sum()).to_frame()
-        self.remainder = remainder
-        # if we don't have a residual, we basically have no filtering and we can stop because it will have no impact
-        if (remainder[0]==0).all():
-            return
-        # -1 indicates remainder
-        ind = pd.DataFrame([[self.geographies[n][0] if len(self.geographies[n])==1 else -1 for n in self.values.index.names]], columns=self.values.index.names)
-        remainder = ind.join(remainder.transpose()).set_index(self.values.index.names)
-#        remainder = pd.concat([pd.DataFrame(ind, index=list(self.values.index.names)), remainder]).transpose().set_index(self.values.index.names)
-        
-        join_df = pd.concat((join_df, remainder)).sort()
-        np.testing.assert_almost_equal(self.values.sum().values, join_df.sum().values, decimal=3)        
-        self.values_unfiltered = self.values.copy()
-        self.values = join_df
-        
-        self.update_geographies()
-
-    def update_geographies(self):
+            return range(len(df))
+    
+    def _update_geographies_after_subset(self):
+        self.geographies_unfiltered = copy.copy(self.geographies) # keep a record
+        filtered_geomap = self.values.iloc[self._get_iloc_geo_subset(self.values)]
         for key in self.geographies:
-            self.geographies[key] = sorted(list(set(self.values.index.get_level_values(key)) - set([-1])))
+            self.geographies[key] = list(set(filtered_geomap.index.get_level_values(key)))
 
-    def map_df(self, subsection, supersection, column=None, reset_index=False, eliminate_zeros=True):
+    def _normalize(self, table, levels):
+        if table.index.nlevels>1:
+            table = table.groupby(level=levels).transform(lambda x: x / (x.sum()))
+        else:
+            table[:] = 1
+        return table
+
+    def create_composite_geography_levels(self):
+        pass
+
+    def map_df(self, current_geography, converted_geography, normalize_as='total', map_key=None, reset_index=False, eliminate_zeros=True, primary_subset_id='from config', geomap_data='from self'):
         """ main function that maps geographies to one another
         Two options for two overlapping areas
             (A u B) / A     (A is supersection)
@@ -150,16 +143,48 @@ class GeoMapper:
             self.map_df('households', subsection=('census division'), supersection=('state'))
             "what fraction of each state is in each census division
         """
-        subsection = util.ensure_iterable_and_not_string(subsection)
-        column = cfg.cfgfile.get('case', 'default_geography_map_key') if column is None else column
-        table = self.values[column].groupby(level=[supersection]+subsection).sum()
-        table = pd.DataFrame(table.groupby(level=supersection).transform(self.normalize))
+        assert normalize_as=='total' or normalize_as=='intensity'
+        geomap_data = self.values if geomap_data=='from self' else geomap_data
+        if primary_subset_id=='from config':
+            primary_subset_id = cfg.primary_subset_id
+        elif primary_subset_id is None or primary_subset_id is False:
+            primary_subset_id = []
+        
+        subset_geographies = set(cfg.geo.gau_to_geography[id] for id in primary_subset_id)
+        current_geography = util.ensure_iterable_and_not_string(current_geography)
+        converted_geography = util.ensure_iterable_and_not_string(converted_geography)
+        union_geo = list(subset_geographies | set(current_geography) | set(converted_geography))
+        level_to_remove = list(subset_geographies - set(current_geography) - set(converted_geography))
+        map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if map_key is None else map_key
+        
+        table = geomap_data[map_key].groupby(level=union_geo).sum().to_frame()
+        if normalize_as=='total':
+            table = self._normalize(table, current_geography)
+        if primary_subset_id:
+            # filter the table
+            table = table.iloc[self._get_iloc_geo_subset(table, primary_subset_id)]
+            table = util.remove_df_levels(table, level_to_remove)
+            table = table.reset_index().set_index(table.index.names)
+        if normalize_as=='intensity':
+            table = self._normalize(table, converted_geography)
         
         if reset_index:
-            table.reset_index(inplace=True)
+            table = table.reset_index()
+
         if not eliminate_zeros:
-            index=pd.MultiIndex.from_product([self.geographies[subsection[0]],self.geographies[supersection]],names=[subsection[0],supersection])
+            index = pd.MultiIndex.from_product(table.index.levels, names=table.index.names)
             table = table.reorder_levels(index.names)
             table = table.reindex(index, fill_value=0.0)
+            
         return table
-
+        
+    def filter_extra_geos_from_df(self, df):
+        # we have a subset geography and should remove the data that is completely outside of the breakout
+        if cfg.primary_subset_id:
+            levels = [n for n in df.index.names if n in self.geographies]
+            elements = [self.geographies[n] for n in levels]
+            indexer = util.level_specific_indexer(df, levels=levels, elements=elements)
+            df = df.loc[indexer, :]
+            return df.reset_index().set_index(df.index.names).sort()
+        else:
+            return df

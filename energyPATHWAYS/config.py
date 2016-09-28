@@ -165,20 +165,24 @@ def init_geo():
     #Geography conversions
     global geo, primary_geography, primary_geography_id, geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id
     global primary_subset_id, breakout_geography_id, dispatch_breakout_geography_id
-    geo = geomapper.GeoMapper()
     
+    # from config file
     primary_geography_id = int(cfgfile.get('case', 'primary_geography_id'))
-    primary_geography = geo.id_to_geography[primary_geography_id]
     primary_subset_id = [int(g) for g in cfgfile.get('case', 'primary_subset_id').split(',') if len(g)]
     breakout_geography_id = [int(g) for g in cfgfile.get('case', 'breakout_geography_id').split(',') if len(g)]
-    
     dispatch_geography_id = int(cfgfile.get('case', 'dispatch_geography_id'))
-    dispatch_geography = geo.id_to_geography[dispatch_geography_id]
     dispatch_breakout_geography_id = [int(g) for g in cfgfile.get('case', 'dispatch_breakout_geography_id').split(',') if len(g)]
     
+    # geography conversion object
+    geo = geomapper.GeoMapper()
+    
+    # derived from inputs and geomapper object
+    dispatch_geography = geo.id_to_geography[dispatch_geography_id]
+    primary_geography = geo.id_to_geography[primary_geography_id]
     dispatch_geographies = geo.geographies[dispatch_geography]    
     geographies = geo.geographies[primary_geography]
-
+    
+    
 def init_date_lookup():
     global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id
     class DateTimeLookup:

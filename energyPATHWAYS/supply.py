@@ -1029,8 +1029,8 @@ class Supply(object):
                     capacity_factor = copy.deepcopy(node.stock.capacity_factor.loc[:,year].to_frame())
                     if cfg.dispatch_geography != cfg.primary_geography:
                         geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
-                        int_map_df = cfg.geo.map_df(cfg.primary_geography, cfg.dispatch_geography, column=geography_map_key, eliminate_zeros=False)
-                        tot_map_df = cfg.geo.map_df(cfg.dispatch_geography,cfg.primary_geography, column=geography_map_key, eliminate_zeros=False)
+                        int_map_df = cfg.geo.map_df(cfg.primary_geography, cfg.dispatch_geography, map_key=geography_map_key, eliminate_zeros=False)
+                        tot_map_df = cfg.geo.map_df(cfg.dispatch_geography, cfg.primary_geography, map_key=geography_map_key, eliminate_zeros=False)
                         active_dispatch_costs = util.remove_df_levels(util.DfOper.mult([int_map_df,active_dispatch_costs],fill_value=0.0),cfg.primary_geography).swaplevel(0,cfg.dispatch_geography)
                         active_dispatch_costs = active_dispatch_costs.replace([np.nan,np.inf],0)
                         stock_values = util.DfOper.mult([stock_values, tot_map_df],fill_value=0.0).swaplevel(0,cfg.dispatch_geography)
@@ -1380,7 +1380,7 @@ class Supply(object):
                         efficiency = pd.concat([efficiency]*len(keys),keys=keys,names=name)
                     if cfg.dispatch_geography != cfg.primary_geography:
                         geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
-                        map_df = cfg.geo.map_df(cfg.dispatch_geography,cfg.primary_geography, column=geography_map_key, eliminate_zeros=False)
+                        map_df = cfg.geo.map_df(cfg.dispatch_geography, cfg.primary_geography, map_key=geography_map_key, eliminate_zeros=False)
                         capacity = DfOper.mult([capacity, map_df],fill_value=0.0)                
                         efficiency = DfOper.divi([util.remove_df_levels(DfOper.mult([efficiency, capacity]), cfg.primary_geography),util.remove_df_levels(capacity,cfg.primary_geography)]).fillna(0)
                         capacity = util.remove_df_levels(capacity, cfg.primary_geography)
