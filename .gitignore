@@ -1,0 +1,95 @@
+/us_model_example/pathways_us.sql
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# C extensions
+*.so
+
+
+# Distribution / packaging
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# IDE
+.idea/
+
+# Database
+/us_model_example/pathways.db
+/.idea/misc.xml
+/.idea/vcs.xml
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/encodings.xml
+/.idea/energyPATHWAYS.iml
+/.gitignore
+
+# Cache
+/us_model_example/*.p
+/california_model_example/*.p
+
+# Results
+/us_model_example/dispatch_outputs
+/us_model_example/combined_outputs/
+/us_model_example/demand_outputs/
+/us_model_example/supply_outputs/
+/us_model_example/outputs/
+/california_model_example/combined_outputs/
+/california_model_example/demand_outputs/
+/california_model_example/supply_outputs/
+/model building tools/create geography tables/inputs/*.csv
+/model building tools/create geography tables/outputs/*.csv
+
+/model building tools/aggregate results/inputs/*
+/model building tools/aggregate results/outputs/*
+
+# profiler
+/us_model_example/*.profile
+/us_model_example/*.log

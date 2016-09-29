@@ -1,0 +1,14 @@
+,Distribution,Bulk transmission,Wind,Generation (coal),Generation (gas),petrodiesel,biodiesel,diesel blend,biomass primary,coal primary,natural gas primary,wind primary,biodiesel conversion
+Distribution,0,0,0,0,0,0,0,0,0,0,0,0,0
+Bulk transmission,1.03,0,0,0.02,0.02,0.05,0.01,0,0,0,0,0,0.02
+Wind,0,0.1,0,0,0,0,0,0,0,0,0,0,0
+Generation (coal),0,0.4,0,0,0,0,0,0,0,0,0,0,0
+Generation (gas),0,0.49,0,0,0,0,0,0,0,0,0,0,0
+petrodiesel,0,0,0,0,0,0,0,0.6,0,0,0,0,0
+biodiesel,0,0,0,0,0,0,0,0.4,0,0,0,0,0
+diesel blend,0,0.01,0,0,0,0,0,0,0,0,0,0,0
+biomass primary,0,0,0,0,0,0,0,0,0,0,0,0,1.3
+coal primary,0,0,0,2,0,0,0,0,0,0,0,0,0
+natural gas primary,0,0,0,0,2,0,0,0,0,0,0,0,0
+wind primary,0,0,1,0,0,0,0,0,0,0,0,0,0
+biodiesel conversion,0,0,0,0,0,0,1,0,0,0,0,0,0

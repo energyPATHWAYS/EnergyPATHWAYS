@@ -1,0 +1,8 @@
+,Biomass Primary,Biodiesel,Petrodiesel,Biodiesel processing,Wood pellets,Wood pellet processing,Diesel Blend
+Biomass Primary,0,0,0,1.2,0,1.1,0
+Biodiesel,0,0,0,0,0,0,0.3
+Petrodiesel,0,0,0,0,0,0,0.7
+Biodiesel processing,0,1.05,0,0,0,0,0
+Wood pellets,0,0,0,0,0,0,0
+Wood pellet processing,0,0,0,0,1,0,0
+Diesel Blend,0,0,0,0,0,0.1,0

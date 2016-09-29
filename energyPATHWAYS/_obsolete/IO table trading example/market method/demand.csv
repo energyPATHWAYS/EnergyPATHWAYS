@@ -1,0 +1,12 @@
+Node,Region,Demand
+Biomass Primary,A,0
+Biodiesel processing,A,0
+diesel refining,A,0
+diesel blend,A,100
+Biomass Primary,B,0
+Biodiesel processing,B,0
+diesel refining,B,0
+diesel blend,B,50
+Biodiesel market,Trade,0
+Petrodiesel market,Trade,0
+Crude Oil,Trade,0
