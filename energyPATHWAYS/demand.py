@@ -207,9 +207,9 @@ class Demand(object):
             if not base_driver.mapped:
                 # If a driver hasn't been mapped, recursion is uesd to map it first (this can go multiple layers)
                 self.remap_driver(base_driver)
-            driver.remap(drivers=base_driver.values)
+            driver.remap(drivers=base_driver.values,filter_geo=False)
         else:
-            driver.remap()
+            driver.remap(filter_geo=False)
         # Now that it has been mapped, set indicator to true
         driver.mapped = True
         driver.values.data_type = 'total'
@@ -240,7 +240,7 @@ class Driver(object, DataMapFunctions):
             setattr(self, col, att)
         # creates the index_levels dictionary
         DataMapFunctions.__init__(self, data_id_key='parent_id')
-        self.read_timeseries_data()
+        self.read_timeseries_data(filter_geo=False)
 
 
 class Sector(object):
@@ -2326,7 +2326,7 @@ class Subsector(DataMapFunctions):
             initial_stock = self.stock.technology.loc[elements+(min_technology_year,),:].values/np.nansum(self.stock.technology.loc[elements+(min_technology_year,),:].values) * initial_total 
             rerun_sales_shares = False
         else:
-            raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the technology composition of the initial stock')
+            raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the technology composition of the initial stock in subsectpr %s' %self.id)
         return initial_stock, rerun_sales_shares
         
 

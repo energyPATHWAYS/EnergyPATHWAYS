@@ -130,7 +130,8 @@ class GeoMapper:
     def create_composite_geography_levels(self):
         pass
 
-    def map_df(self, current_geography, converted_geography, normalize_as='total', map_key=None, reset_index=False, eliminate_zeros=True, primary_subset_id='from config', geomap_data='from self'):
+    def map_df(self, current_geography, converted_geography, normalize_as='total', map_key=None, reset_index=False,
+               eliminate_zeros=True, primary_subset_id='from config', geomap_data='from self',filter_geo=True):
         """ main function that maps geographies to one another
         Two options for two overlapping areas
             (A u B) / A     (A is supersection)
@@ -145,8 +146,10 @@ class GeoMapper:
         """
         assert normalize_as=='total' or normalize_as=='intensity'
         geomap_data = self.values if geomap_data=='from self' else geomap_data
-        if primary_subset_id=='from config':
+        if primary_subset_id=='from config' and filter_geo:
             primary_subset_id = cfg.primary_subset_id
+        elif  primary_subset_id=='from config' and not filter_geo:
+            primary_subset_id = []
         elif primary_subset_id is None or primary_subset_id is False:
             primary_subset_id = []
         

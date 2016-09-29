@@ -40,15 +40,23 @@ class Output(object):
             cleaned_output.columns = [x.upper() if isinstance(x, basestring) else x for x in cleaned_output.columns]        
         return cleaned_output
 
-    def clean_df(self, df):
+    @staticmethod
+    def clean_df(df,stack_years=False):
         if type(df) is not pd.core.frame.DataFrame:
             raise ValueError('output_type must be a pandas dataframe')
+        if stack_years and 'year' not in df.index.names:
+            df = df.stack()
+            util.replace_index_name(df,'year')
+            df.columns = ['value']
         if 'year' in df.index.names:
             df = df[df.index.get_level_values('year')>=int(cfg.cfgfile.get('case','current_year'))]
         dct = cfg.outputs_id_map
         index = df.index
-        index.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(index.names, index.levels)], inplace=True)
-        index.names = [x.upper() if isinstance(x, basestring) else x for x in index.names]
+        try:
+            index.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(index.names, index.levels)], inplace=True)
+            index.names = [x.upper() if isinstance(x, basestring) else x for x in index.names]
+        except:
+            pass
         if isinstance(df.columns,pd.MultiIndex):
             columns = df.columns
             columns.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(columns.names, columns.levels)], inplace=True)
@@ -83,7 +91,7 @@ class Output(object):
                 tries += 1
 
     @staticmethod
-    def writeobj(obj, write_directory=None, name=None):
+    def writeobj(obj, write_directory=None, name=None, clean=False):
         if name is None:
             name = Output._format_name(obj)
 
@@ -100,6 +108,7 @@ class Output(object):
         elif type(obj) == list or type(obj) == tuple:
             Output._writelist(obj, write_directory, name)
         elif type(obj) == pd.core.frame.DataFrame:
+            obj = Output.clean_df(obj)
             obj.to_csv(os.path.join(write_directory, str(name)+'.csv'))
         elif type(obj) is pd.tseries.index.DatetimeIndex:
             pd.DataFrame(obj).to_csv(os.path.join(write_directory, str(name)+'.csv'))
