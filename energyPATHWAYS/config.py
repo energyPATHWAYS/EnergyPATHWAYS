@@ -177,11 +177,10 @@ def init_geo():
     geo = geomapper.GeoMapper()
     
     # derived from inputs and geomapper object
-    dispatch_geography = geo.id_to_geography[dispatch_geography_id]
-    primary_geography = geo.id_to_geography[primary_geography_id]
-    dispatch_geographies = geo.geographies[dispatch_geography]    
+    dispatch_geography = geo.get_dispatch_geography_name()
+    primary_geography = geo.get_primary_geography_name()
+    dispatch_geographies = geo.geographies[dispatch_geography] 
     geographies = geo.geographies[primary_geography]
-    
     
 def init_date_lookup():
     global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id

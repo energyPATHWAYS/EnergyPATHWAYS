@@ -78,6 +78,7 @@ class DataMapFunctions:
         if cfg.primary_subset_id and self.raw_values is not None and filter_geo:
             self.raw_values_unfiltered = self.raw_values.copy()
             self.raw_values = cfg.geo.filter_extra_geos_from_df(self.raw_values)
+            
 
     def clean_timeseries(self, attr='values', inplace=True, time_index_name='year', 
                          time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing'):
@@ -147,6 +148,7 @@ class DataMapFunctions:
         else:
             # we still need to do a geomap because mapping to a driver didn't give us our converted_geography
             self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type=current_data_type)
+        
         if filter_geo:
            setattr(self,map_to, cfg.geo.filter_extra_geos_from_df(getattr(self,map_to)))
 

@@ -16,6 +16,8 @@ import numpy as np
 import cPickle as pickle
 import os
 import logging
+from multiprocessing import Pool
+import helper_multiprocess
 
 #http://stackoverflow.com/questions/27491988/canonical-offset-from-utc-using-pytz
 
@@ -57,22 +59,32 @@ class Shapes(object):
         if self.start_date is self.end_date is None:
             self.start_date = DT.datetime(int(cfg.cfgfile.get('case', 'current_year')), 1, 1)
             self.end_date = DT.datetime(int(cfg.cfgfile.get('case', 'current_year')), 12, 31, 23)
-
-#        self.active_dates_index = pd.date_range(self.start_date - DT.timedelta(1), self.end_date + DT.timedelta(1), freq='H')
+        
         self.active_dates_index = pd.date_range(self.start_date, self.end_date, freq='H')
         self.time_slice_elements = self.create_time_slice_elements(self.active_dates_index)
+        
+        for id in self.active_shape_ids:
+            self.data[id].active_dates_index = self.active_dates_index
+            self.data[id].time_slice_elements = self.time_slice_elements
 
     def process_active_shapes(self):
         #run the weather date shapes first because they inform the daterange for dispatch
         logging.info(' mapping data for:')
-        for id in self.active_shape_ids:
-            shape = self.data[id]
-            logging.info('    shape: ' + shape.name)
-            shape.process_shape(self.active_dates_index, self.time_slice_elements)
+        
+        if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
+            pool = Pool(processes=cfg.available_cpus)
+            shapes = pool.map(helper_multiprocess.process_shapes, self.data.values())
+            pool.close()
+            pool.join()
+            self.data = dict(zip(self.data.keys(), shapes))
+        else:
+            for id in self.active_shape_ids:
+                self.data[id].process_shape()
+        
         dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))
         self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.timezone_names[dispatch_outputs_timezone_id])
         self.active_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H', tz=self.dispatch_outputs_timezone)
-        self.converted_geography_check = (cfg.primary_geography, tuple(sorted(cfg.primary_subset_id)))
+        self.geography_check = (cfg.primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
     
     @staticmethod
     def create_time_slice_elements(active_dates_index):
@@ -88,27 +100,20 @@ class Shapes(object):
         time_slice_elements['hour24'] = time_slice_elements['hour'] + 1
         return time_slice_elements
 
-class Shape(dmf.DataMapFunctions):
-#    data = {}
-#    @classmethod
-#    def something(cls):
-#        cls.data
-#        pass
-#
-#    @staticmethod
-#    def something():
-#        Shape.data
-#        pass
-    
-    def __init__(self, id=None):
-        if id is not None:
-            self.id = id
-            self.sql_id_table = 'Shapes'
-            self.sql_data_table = 'ShapesData'
-            for col, att in util.object_att_from_table(self.sql_id_table, id):
-                setattr(self, col, att)
-            # creates the index_levels dictionary
-            dmf.DataMapFunctions.__init__(self, data_id_key='parent_id')
+class Shape(dmf.DataMapFunctions):    
+    def __init__(self, id):
+        self.id = id
+        self.sql_id_table = 'Shapes'
+        self.sql_data_table = 'ShapesData'
+        for col, att in util.object_att_from_table(self.sql_id_table, id):
+            setattr(self, col, att)
+        # creates the index_levels dictionary
+        dmf.DataMapFunctions.__init__(self, data_id_key='parent_id')
+        # needed for parallel process
+        self.workingdir = cfg.workingdir
+        self.cfgfile_name = cfg.cfgfile_name
+        self.pint_definitions_file = cfg.pint_definitions_file
+        self.log_name = cfg.log_name
 
     def create_empty_shape_data(self):
         self._active_time_keys = [ind for ind in self.raw_values.index.names if ind in cfg.time_slice_col]
@@ -137,18 +142,12 @@ class Shape(dmf.DataMapFunctions):
         data.sort(inplace=True)
         return data
 
-    def process_shape(self, active_dates_index=None, time_slice_elements=None):
-        self.num_active_years = len(active_dates_index)/8766.
-        if active_dates_index is not None:
-            self.active_dates_index = active_dates_index
-
-        if active_dates_index is None:
-            raise ValueError('processing a shape requires an active date index')
-
-        self.time_slice_elements = Shapes.create_time_slice_elements(active_dates_index) if time_slice_elements is None else time_slice_elements
+    def process_shape(self):
+        logging.info('    shape: ' + self.name)
+        self.num_active_years = len(self.active_dates_index)/8766.
         
         if self.shape_type=='weather date':
-            self.values = util.reindex_df_level_with_new_elements(self.raw_values, 'weather_datetime', active_dates_index) # this step is slow, consider replacing
+            self.values = util.reindex_df_level_with_new_elements(self.raw_values, 'weather_datetime', self.active_dates_index) # this step is slow, consider replacing
             if self.values.isnull().values.any():
                 raise ValueError('Weather data did not give full coverage of the active dates')
 
@@ -226,7 +225,7 @@ class Shape(dmf.DataMapFunctions):
         else:
             return mapped_data.sort()
 
-    def geomap_to_primary_geography(self, attr='values', inplace=True, converted_geography=None):
+    def geomap_to_primary_geography(self, attr='values', inplace=True):
         """ maps the dataframe to primary geography
         """
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
@@ -242,7 +241,7 @@ class Shape(dmf.DataMapFunctions):
 
         if inplace:
             setattr(self, attr, mapped_data.sort())
-            self.converted_geography_check = (converted_geography, tuple(sorted(cfg.primary_subset_id)))
+            self.geography_check = (cfg.primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
         else:
             return mapped_data.sort()
 
@@ -377,7 +376,8 @@ def init_shapes():
         with open(os.path.join(cfg.workingdir, 'shapes.p'), 'rb') as infile:
             shapes = pickle.load(infile)
     
-    if (not hasattr(shapes, 'converted_geography_check')) or (shapes.converted_geography_check != (cfg.primary_geography, tuple(sorted(cfg.primary_subset_id)))) or force_rerun_shapes:
+    geography_check = (cfg.primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
+    if (not hasattr(shapes, 'geography_check')) or (shapes.geography_check != geography_check) or force_rerun_shapes:
         logging.info('Processing shapes')
         shapes.__init__()
         shapes.create_empty_shapes()

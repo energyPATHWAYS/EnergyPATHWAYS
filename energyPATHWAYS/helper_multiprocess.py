@@ -10,6 +10,12 @@ import config as cfg
 #import numpy as np
 #from dispatch_classes import Dispatch
 
+def process_shapes(shape):
+    cfg.initialize_config(shape.workingdir, shape.cfgfile_name, shape.pint_definitions_file, shape.log_name)
+    shape.process_shape()
+    cfg.cur.close()
+    return shape
+
 def node_calculate(node):
     cfg.initialize_config(node.workingdir, node.cfgfile_name, node.pint_definitions_file, node.log_name)
     node.calculate()
