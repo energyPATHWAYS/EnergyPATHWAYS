@@ -173,7 +173,11 @@ class SpecifiedStock(Abstract, DataMapFunctions):
         self.vintages = vintages
         self.years = years
         if self.raw_values is not None:
-            self.remap()
+            try:
+                self.remap()
+            except:
+                print self.raw_values
+                raise
         else:
             self.values = None
 

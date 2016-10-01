@@ -195,7 +195,12 @@ class SupplyTechInvestmentCost(SupplyTechCost):
         self.years = years
         if self.data and self.raw_values is not None:
             self.convert()
-            self.remap(map_from='values', map_to='values', time_index_name='vintage')
+            try:
+                self.remap(map_from='values', map_to='values', time_index_name='vintage')
+            except:
+                print self.id
+                print self.values
+                raise
             self.levelize_costs()
         if self.data is False:
             self.absolute = False

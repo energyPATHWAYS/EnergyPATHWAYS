@@ -46,7 +46,7 @@ class DataMapFunctions:
                 self.column_names[index_level] = column_name
 
 
-    def read_timeseries_data(self, data_column_names='value', hide_exceptions=False, filter_geo=True, **filters):  # This function needs to be sped up
+    def read_timeseries_data(self, data_column_names='value', hide_exceptions=False, **filters):  # This function needs to be sped up
         """reads timeseries data to dataframe from database. Stored in self.raw_values"""
         # rowmap is used in ordering the data when read from the sql table
         headers = util.sql_read_headers(self.sql_data_table)
@@ -72,12 +72,13 @@ class DataMapFunctions:
                         print (self.id, row, i)
             column_names = self.df_index_names + util.put_in_list(data_column_names)
             self.raw_values = pd.DataFrame(data, columns=column_names).set_index(keys=self.df_index_names).sort_index()
+            self.raw_values = self.raw_values.groupby(level=self.raw_values.index.names).first()       
         else:
             self.raw_values = None
         
-        if cfg.primary_subset_id and self.raw_values is not None and filter_geo:
-            self.raw_values_unfiltered = self.raw_values.copy()
-            self.raw_values = cfg.geo.filter_extra_geos_from_df(self.raw_values)
+#        if cfg.primary_subset_id and self.raw_values is not None and filter_geo:
+#            self.raw_values_unfiltered = self.raw_values.copy()
+#            self.raw_values = cfg.geo.filter_extra_geos_from_df(self.raw_values)
 
     def clean_timeseries(self, attr='values', inplace=True, time_index_name='year', 
                          time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing'):
@@ -175,6 +176,8 @@ class DataMapFunctions:
             raise ValueError('current geography does not match the geography of the dataframe in remap')
 #        else:
 #            current_geography_index_levels = mapf.index.levels[util.position_in_index(mapf, current_geography)] if mapf.index.nlevels > 1 else mapf.index.tolist()
+        if current_data_type == 'total' and len(cfg.geo.geographies_unfiltered[current_geography])!=len(util.get_elements_from_level(getattr(self,map_to),current_geography)):    
+            setattr(self, map_to, util.reindex_df_level_with_new_elements(getattr(self,map_to), current_geography, cfg.geo.geographies_unfiltered[current_geography], fill_value=fill_value))
         if (drivers is None) or (not len(drivers)):
             if fill_timeseries:     
                 self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, time_index_name=time_index_name, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method, lower=lower, upper=upper)
@@ -207,11 +210,11 @@ class DataMapFunctions:
             else:
                 setattr(self, map_to, DfOper.mult((getattr(self, map_to), self.total_driver), expandable=(True, False),
                                                   collapsible=(False, True),fill_value=fill_value))
-            self.ensure_correct_geography(map_to, converted_geography, current_geography, current_data_type,filter_geo=filter_geo)
+        self.ensure_correct_geography(map_to, converted_geography, current_geography, current_data_type,filter_geo=filter_geo)
 
 
     def project(self, map_from='raw_values', map_to='values', additional_drivers=None, interpolation_method='missing',extrapolation_method='missing',
-                time_index_name='year', fill_timeseries=True, converted_geography=None, current_geography=None, current_data_type=None, fill_value=0.,projected=False):
+                time_index_name='year', fill_timeseries=True, converted_geography=None, current_geography=None, current_data_type=None, fill_value=0.,projected=False,filter_geo=True):
         
         converted_geography = cfg.primary_geography if converted_geography is None else converted_geography
         current_data_type = self.input_type if current_data_type is None else current_data_type
@@ -245,7 +248,7 @@ class DataMapFunctions:
                    time_index_name=time_index_name, fill_timeseries=fill_timeseries, interpolation_method=interpolation_method,
                    extrapolation_method=extrapolation_method,
                    converted_geography=converted_geography, current_geography=current_geography,
-                   current_data_type=current_data_type, fill_value=fill_value)
+                   current_data_type=current_data_type, fill_value=fill_value,filter_geo=filter_geo)
 
 
 
