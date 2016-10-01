@@ -73,7 +73,9 @@ target/
 
 # Cache
 /us_model_example/*.p
-/california_model_example/*.p
+/california_model_example/
+/new_york_model_example/*.p
+
 
 # Results
 /us_model_example/dispatch_outputs
@@ -84,6 +86,11 @@ target/
 /california_model_example/combined_outputs/
 /california_model_example/demand_outputs/
 /california_model_example/supply_outputs/
+/new_york_model_example/dispatch_outputs
+/new_york_model_example/combined_outputs/
+/new_york_model_example/demand_outputs/
+/new_york_model_example/supply_outputs/
+
 /model building tools/create geography tables/inputs/*.csv
 /model building tools/create geography tables/outputs/*.csv
 
