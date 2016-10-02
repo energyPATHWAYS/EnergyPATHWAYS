@@ -29,7 +29,7 @@ class PathwaysModel(object):
         self.supply_case_id = util.sql_read_table('Scenarios', 'supply_case', id=self.scenario_id)
         self.outputs = Output()
         self.demand = Demand()
-        self.supply = Supply(self.scenario, demand_object=self.demand)
+        self.supply = None
         self.demand_solved, self.supply_solved = False, False
 
     def run(self, scenario_id, solve_demand, solve_supply, save_models, append_results):
@@ -43,6 +43,7 @@ class PathwaysModel(object):
                 self.export_result_to_csv('demand_outputs')
 
             if solve_supply:
+                self.supply = Supply(self.scenario, demand_object=self.demand)
                 self.calculate_supply(save_models)
 
             if hasattr(self, 'supply_solved') and self.supply_solved:

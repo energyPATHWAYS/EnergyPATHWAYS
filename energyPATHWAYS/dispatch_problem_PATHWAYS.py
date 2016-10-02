@@ -424,7 +424,7 @@ def dispatch_problem_formulation(dispatch, start_state_of_charge, end_state_of_c
         :return:
         """
 
-        return model.Energy_in_Storage[technology, timepoint] \
+        return 0<=model.Energy_in_Storage[technology, timepoint] \
             <= model.capacity[technology] * model.duration[technology]
 
     dispatch_model.Storage_Energy_Constraint = Constraint(dispatch_model.STORAGE_TECHNOLOGIES, dispatch_model.TIMEPOINTS,
@@ -472,7 +472,7 @@ def dispatch_problem_formulation(dispatch, start_state_of_charge, end_state_of_c
         if technology in model.VERY_LARGE_STORAGE_TECHNOLOGIES and timepoint == model.last_timepoint:
             return model.Energy_in_Storage[technology, timepoint] \
                    + model.Charge[technology, timepoint]* model.charging_efficiency[technology]\
-                   - model.Provide_Power[technology, timepoint]/model.discharging_efficiency[technology] == \
+                   - model.Provide_Power[technology, timepoint]/model.discharging_efficiency[technology] >= \
                    model.end_state_of_charge[technology]
         else:
             return Constraint.Skip
