@@ -27,6 +27,20 @@ import year_to_period_allocation
 import pdb
 import time
 
+
+#def test ():
+#    for var in vars(instance).keys():
+#        try:
+#            vars(instance)[var].deactivate()
+#            solution = solver.Solve(instance)
+#            if solution.solver.termination_condition == TerminationCondition.optimal:
+#                print var
+#                vars(instance)[var].activate()
+#        except:
+#            continue
+
+        
+
 def run_thermal_dispatch(params):
     dispatch_geography = params[0]
     thermal_dispatch_df = params[1]
@@ -73,9 +87,6 @@ def run_optimization(zipped_input):
     instance.solutions.load_from(solution)        
     timepoints_set = getattr(instance, "TIMEPOINTS")
     storage_tech_set = getattr(instance, "STORAGE_TECHNOLOGIES")
-#    pdb.set_trace()
-    #TODO Ryan List Comprehension
-    # this takes 11.5 seconds per execution
     for tech in storage_tech_set:
         feeder = instance.feeder[tech] 
         geography = instance.geography[tech]
@@ -95,8 +106,6 @@ def run_optimization(zipped_input):
     timepoints_set = getattr(instance, "TIMEPOINTS")
     geographies_set = getattr(instance, "GEOGRAPHIES")
     feeder_set = getattr(instance,"FEEDERS")
-    #TODO Ryan List Comprehension
-    # this takes 1.5 seconds per execution
     for geography in geographies_set:
         for feeder in feeder_set:
             if feeder != 0:
@@ -563,7 +572,7 @@ class Dispatch(object):
         clustered['must_run'] = np.array([round(group_wgtav(c, pmax, must_run)) for c in range(n_clusters)], dtype=int)[order]
         
         # check the result
-        np.testing.assert_almost_equal(sum(clustered['pmax'][np.where(clustered['must_run']==0)]), sum(pmax[np.where(must_run==0)]))
+#        np.testing.assert_almost_equal(sum(clustered['pmax'][np.where(clustered['must_run']==0)]), sum(pmax[np.where(must_run==0)]))
         
         # if we are padding the stack, increse the size of the last dispatchable generator
         if pad_stack:
@@ -885,7 +894,6 @@ class Dispatch(object):
             period_test = output_bulk_dfs[period]
             if np.any(np.isnan(period_test.values)):
                 zipped_input = zipped_inputs[period]
-                pdb.set_trace()
         self.flex_load_df = flex_test
         self.dist_storage_df = dist_test 
         self.bulk_storage_df = bulk_test

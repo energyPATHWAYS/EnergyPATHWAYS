@@ -175,8 +175,7 @@ class DataMapFunctions:
         mapf = getattr(self, map_from)
         if current_geography not in (mapf.index.names if mapf.index.nlevels > 1 else [mapf.index.name]):
             raise ValueError('current geography does not match the geography of the dataframe in remap')
-#        else:
-#            current_geography_index_levels = mapf.index.levels[util.position_in_index(mapf, current_geography)] if mapf.index.nlevels > 1 else mapf.index.tolist()
+            
         if current_data_type == 'total' and len(cfg.geo.geographies_unfiltered[current_geography])!=len(util.get_elements_from_level(getattr(self,map_to),current_geography)):
             setattr(self, map_to, util.reindex_df_level_with_new_elements(getattr(self,map_to), current_geography, cfg.geo.geographies_unfiltered[current_geography], fill_value=fill_value))
         if (drivers is None) or (not len(drivers)):
@@ -250,7 +249,6 @@ class DataMapFunctions:
                    extrapolation_method=extrapolation_method,
                    converted_geography=converted_geography, current_geography=current_geography,
                    current_data_type=current_data_type, fill_value=fill_value,filter_geo=filter_geo)
-
 
 
 class Abstract(DataMapFunctions):

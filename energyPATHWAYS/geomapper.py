@@ -120,7 +120,8 @@ class GeoMapper:
         filtered_geomap = self.values.iloc[self._get_iloc_geo_subset(self.values)]
         for key in self.geographies:
             self.geographies[key] = list(set(filtered_geomap.index.get_level_values(key)))
-
+            self.geographies[key].sort()
+    
     def _normalize(self, table, levels):
         if table.index.nlevels>1:
             table = table.groupby(level=levels).transform(lambda x: x / (x.sum()))
