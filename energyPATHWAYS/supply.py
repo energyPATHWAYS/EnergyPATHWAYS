@@ -2015,7 +2015,7 @@ class Supply(object):
                      output_node.reconciled = True
                      self.reconciled=True
                   else:
-                      if output_node.is_curtailable or  output_node.id in self.thermal_dispatch_nodes:
+                      if output_node.is_curtailable or  output_node.id in self.thermal_nodes:
                           #if the output sector is curtailable, then the excess supply feed-loop ends and the excess is curtailed within this node. If the node is flexible, excess supply
                           #will be reconciled in the dispatch loop
                           pass
@@ -2584,8 +2584,7 @@ class Node(DataMapFunctions):
         if hasattr(self,'potential') and self.potential.data is True:
             self.potential.remap_to_potential_and_normalize(throughput, year, self.tradable_geography)
             if self.coefficients.data is True:
-                indexer = util.level_specific_indexer(self.potential.active_supply_curve_normal,cfg.primary_geography,cfg.geographies)
-                filter_geo_potential_normal = self.potential.active_supply_curve_normal.loc[indexer,:]
+                filter_geo_potential_normal = util.remove_df_elements(self.potential.active_supply_curve_normal,cfg.primary_geography, [x for x in cfg.geo.geographies_unfiltered if x not in cfg.geographies])
                 filter_geo_potential_normal = filter_geo_potential_normal.reset_index().set_index(filter_geo_potential_normal.index.names)
                 self.active_coefficients = util.remove_df_levels(DfOper.mult([self.coefficients.values.groupby(level=[cfg.primary_geography,  'demand_sector', 'efficiency_type','supply_node']).sum().loc[:,year].to_frame(),
                                                     filter_geo_potential_normal]),'resource_bins')
@@ -2762,8 +2761,8 @@ class Node(DataMapFunctions):
                     raise
 
                 if hasattr(self,'potential') and self.potential.data is True:
-                     indexer = util.level_specific_indexer(self.potential.active_supply_curve,cfg.primary_geography,cfg.geographies)
-                     self.potential_geo = util.DfOper.mult([util.remove_df_levels(self.potential.active_supply_curve.loc[indexer,:],
+                     df = util.remove_df_elements(self.potential.active_supply_curve,cfg.primary_geography, [x for x in cfg.geo.geographies_unfiltered if x not in cfg.geographies])
+                     self.potential_geo = util.DfOper.mult([util.remove_df_levels(df,
                                                                                   [x for x in self.potential.active_supply_curve.index.names if x not in [cfg.primary_geography,'demand_sector']]),
                                                                                     cfg.geo.map_df(cfg.primary_geography,self.tradable_geography,normalize_as='total')])
                      util.replace_index_name(self.potential_geo,cfg.primary_geography + "from", cfg.primary_geography)
@@ -2834,8 +2833,7 @@ class Node(DataMapFunctions):
         "calculates the emissions rate of nodes with emissions"
         if hasattr(self,'emissions') and self.emissions.data is True:
             if hasattr(self,'potential') and self.potential.data is True:
-                indexer = util.level_specific_indexer(self.potential.active_supply_curve_normal,cfg.primary_geography,cfg.geographies)
-                filter_geo_potential_normal = self.potential.active_supply_curve_normal.loc[indexer,:]
+                filter_geo_potential_normal = util.remove_df_elements(self.potential.active_supply_curve_normal,cfg.primary_geography, [x for x in cfg.geo.geographies_unfiltered if x not in cfg.geographies])
                 filter_geo_potential_normal = filter_geo_potential_normal.reset_index().set_index(filter_geo_potential_normal.index.names)  
                 self.active_physical_emissions_rate = DfOper.mult([filter_geo_potential_normal,self.emissions.values_physical.loc[:,year].to_frame()])
                 levels = ['demand_sector',cfg.primary_geography,'ghg']
@@ -4705,8 +4703,8 @@ class SupplyStockNode(Node):
             total_residual = util.DfOper.subt([self.throughput, self.stock.act_total_energy],expandable=(False,False), collapsible=(True,True)) 
             total_residual[total_residual<0] = 0
             #calculates the residual amount of energy available in each bin
-            indexer = util.level_specific_indexer(self.potential.values,cfg.primary_geography, cfg.geographies)
-            bins = util.DfOper.subt([self.potential.values.loc[indexer,:][year].to_frame(), self.stock.act_total_energy],expandable=(False,False), collapsible=(True,True))
+            df = util.remove_df_elements(self.potential.values,cfg.primary_geography, [x for x in cfg.geo.geographies_unfiltered if x not in cfg.geographies])
+            bins = util.DfOper.subt([df[year].to_frame(), self.stock.act_total_energy],expandable=(False,False), collapsible=(True,True))
             bins = bins.reset_index().set_index(bins.index.names)            
             bins[bins<0] = 0
             #calculates the supply curve of remaining energy
@@ -5223,9 +5221,8 @@ class PrimaryNode(Node):
     def calculate_levelized_costs(self,year,loop):
         "calculates the embodied costs of nodes with emissions"
         if hasattr(self,'cost') and self.cost.data is True:
-            if hasattr(self,'potential') and self.potential.data is True:
-                indexer = util.level_specific_indexer(self.potential.active_supply_curve_normal,cfg.primary_geography,cfg.geographies)
-                filter_geo_potential_normal = self.potential.active_supply_curve_normal.loc[indexer,:]
+            if hasattr(self,'potential') and self.potential.data is True:    
+                filter_geo_potential_normal = util.remove_df_elements(self.potential.active_supply_curve_normal,cfg.primary_geography, [x for x in cfg.geo.geographies_unfiltered if x not in cfg.geographies])
                 filter_geo_potential_normal = filter_geo_potential_normal.reset_index().set_index(filter_geo_potential_normal.index.names)
                 supply_curve = filter_geo_potential_normal
                 supply_curve = supply_curve[supply_curve.values>0]

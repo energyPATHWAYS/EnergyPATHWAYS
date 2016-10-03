@@ -77,7 +77,6 @@ signal.signal(signal.SIGTERM, signal_handler)
 @click.option('-a', '--api_run/--no_api_run', default=False)
 @click.option('-d', '--debug/--no_debug', default=False, help='On error the model will exit into an ipython debugger.')
 @click.option('--clear_results/--no_clear_results', default=False, help='Should results be cleared or appended when starting a new model run')
-
 def click_run(path, config, pint, scenario, load_demand, solve_demand, load_supply, solve_supply, pickle_shapes, save_models, log_name, api_run, debug, clear_results):
     if debug:
         import ipdb
@@ -141,12 +140,12 @@ def load_model(load_demand, load_supply, scenario_id, api_run):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\users\ben\documents\PythonProjects\energyPATHWAYS\new_york_model_example'
+    workingdir = r'C:\Users\Ben\Documents\PythonProjects\energyPATHWAYS\new_york_model_example'
     os.chdir(workingdir)
     config = 'config.INI'
     pint = 'unit_defs.txt'
     scenario = [1]
-    run(workingdir, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=False, api_run=False, clear_results=False)
+    run(workingdir, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=False, pickle_shapes=True, save_models=False, api_run=False, clear_results=True)
     # note that when running the profiler, it is recommended to not run the model for more than 10 years due to memory use
     # cProfile.run('run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)', filename='full_run.profile')
     # Output.writeobj(model)

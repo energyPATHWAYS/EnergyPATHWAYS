@@ -72,13 +72,9 @@ class DataMapFunctions:
                         print (self.id, row, i)
             column_names = self.df_index_names + util.put_in_list(data_column_names)
             self.raw_values = pd.DataFrame(data, columns=column_names).set_index(keys=self.df_index_names).sort_index()
-            self.raw_values = self.raw_values.groupby(level=self.raw_values.index.names).first()       
+            self.raw_values = self.raw_values.groupby(level=self.raw_values.index.names).first()
         else:
             self.raw_values = None
-        
-#        if cfg.primary_subset_id and self.raw_values is not None and filter_geo:
-#            self.raw_values_unfiltered = self.raw_values.copy()
-#            self.raw_values = cfg.geo.filter_extra_geos_from_df(self.raw_values)
 
     def clean_timeseries(self, attr='values', inplace=True, time_index_name='year', 
                          time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing'):
@@ -148,6 +144,7 @@ class DataMapFunctions:
         else:
             # we still need to do a geomap because mapping to a driver didn't give us our converted_geography
             self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type=current_data_type)
+
         if filter_geo:
            setattr(self,map_to, cfg.geo.filter_extra_geos_from_df(getattr(self,map_to)))
 
@@ -176,7 +173,7 @@ class DataMapFunctions:
             raise ValueError('current geography does not match the geography of the dataframe in remap')
 #        else:
 #            current_geography_index_levels = mapf.index.levels[util.position_in_index(mapf, current_geography)] if mapf.index.nlevels > 1 else mapf.index.tolist()
-        if current_data_type == 'total' and len(cfg.geo.geographies_unfiltered[current_geography])!=len(util.get_elements_from_level(getattr(self,map_to),current_geography)):    
+        if current_data_type == 'total' and len(cfg.geo.geographies_unfiltered[current_geography])!=len(util.get_elements_from_level(getattr(self,map_to),current_geography)):
             setattr(self, map_to, util.reindex_df_level_with_new_elements(getattr(self,map_to), current_geography, cfg.geo.geographies_unfiltered[current_geography], fill_value=fill_value))
         if (drivers is None) or (not len(drivers)):
             if fill_timeseries:     
@@ -193,7 +190,7 @@ class DataMapFunctions:
                     self.geomapped_total_driver = self.geo_map(current_geography, attr='total_driver', inplace=False, current_geography=converted_geography,
                              current_data_type='total', fill_value=fill_value,filter_geo=False)
                 # Divide by drivers to turn a total to intensity. multindex_operation will aggregate to common levels.
-                df_intensity = DfOper.divi((getattr(self, map_to),  self.geomapped_total_driver if hasattr(self,'geomapped_total_driver') else self.total_driver), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf,np.nan,-np.nan],0)         
+                df_intensity = DfOper.divi((getattr(self, map_to),  self.geomapped_total_driver if hasattr(self,'geomapped_total_driver') else self.total_driver), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf,np.nan,-np.nan],0)
                 setattr(self, map_to, df_intensity)
                 if hasattr(self,'geomapped_total_driver'):
                     delattr(self,'geomapped_total_driver')

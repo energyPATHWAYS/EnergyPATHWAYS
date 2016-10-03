@@ -21,6 +21,7 @@ class GeoMapper:
         self.gau_to_geography = dict(util.flatten_list([(v, k) for v in vs] for k, vs in self.geographies.iteritems()))
         self.id_to_geography = dict((k, v) for k, v in util.sql_read_table('Geographies'))
         self.read_geography_data()
+        self._create_composite_geography_levels()
         self._update_geographies_after_subset()
 
     def read_geography_indicies(self):
@@ -119,7 +120,8 @@ class GeoMapper:
         filtered_geomap = self.values.iloc[self._get_iloc_geo_subset(self.values)]
         for key in self.geographies:
             self.geographies[key] = list(set(filtered_geomap.index.get_level_values(key)))
-
+            self.geographies[key].sort()
+    
     def _normalize(self, table, levels):
         if table.index.nlevels>1:
             table = table.groupby(level=levels).transform(lambda x: x / (x.sum()))
@@ -127,10 +129,30 @@ class GeoMapper:
             table[:] = 1
         return table
 
-    def create_composite_geography_levels(self):
-        pass
+    def _create_composite_geography_level(self, new_level_name, base_geography, breakout_geography_id):
+        base_gaus = np.array(self.values.index.get_level_values(base_geography), dtype=int)
+        
+        for id in breakout_geography_id:
+            index = np.nonzero(self.values.index.get_level_values(self.gau_to_geography[id])==id)[0]
+            base_gaus[index] = id
+        
+        self.values[new_level_name] = base_gaus
+        self.values = self.values.set_index(new_level_name, append=True)
+        # add to self.geographies
+        self.geographies[new_level_name] = list(set(self.values.index.get_level_values(new_level_name)))
 
-    def map_df(self, current_geography, converted_geography, normalize_as='total', map_key=None, reset_index=False, 
+    def _create_composite_geography_levels(self):
+        """
+        Potential to create one for primary geography and one for dispatch geography
+        """
+        if cfg.breakout_geography_id:
+            primary_geography_composite = self.get_primary_geography_name()
+            self._create_composite_geography_level(primary_geography_composite, self.id_to_geography[cfg.primary_geography_id], cfg.breakout_geography_id)
+        if cfg.dispatch_breakout_geography_id:
+            dispatch_geography_composite = self.get_dispatch_geography_name()
+            self._create_composite_geography_level(dispatch_geography_composite, self.id_to_geography[cfg.dispatch_geography_id], cfg.dispatch_breakout_geography_id)
+        
+    def map_df(self, current_geography, converted_geography, normalize_as='total', map_key=None, reset_index=False,
                eliminate_zeros=True, primary_subset_id='from config', geomap_data='from self',filter_geo=True):
         """ main function that maps geographies to one another
         Two options for two overlapping areas
@@ -148,9 +170,7 @@ class GeoMapper:
         geomap_data = self.values if geomap_data=='from self' else geomap_data
         if primary_subset_id=='from config' and filter_geo:
             primary_subset_id = cfg.primary_subset_id
-        elif  primary_subset_id=='from config' and not filter_geo:
-            primary_subset_id = []    
-        elif primary_subset_id is None or primary_subset_id is False:
+        elif (primary_subset_id is None) or (primary_subset_id is False) or (not filter_geo):
             primary_subset_id = []
         
         subset_geographies = set(cfg.geo.gau_to_geography[id] for id in primary_subset_id)
@@ -191,3 +211,15 @@ class GeoMapper:
             return df.reset_index().set_index(df.index.names).sort()
         else:
             return df
+
+    def get_primary_geography_name(self):
+        if cfg.breakout_geography_id:
+            return 'primary geography {} composite'.format(self.id_to_geography[cfg.primary_geography_id])
+        else:
+            return self.id_to_geography[cfg.primary_geography_id]
+
+    def get_dispatch_geography_name(self):
+        if cfg.dispatch_breakout_geography_id:
+            return 'dispatch geography {} composite'.format(self.id_to_geography[cfg.dispatch_geography_id])
+        else:
+            return self.id_to_geography[cfg.dispatch_geography_id]
