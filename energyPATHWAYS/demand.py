@@ -750,7 +750,7 @@ class Subsector(DataMapFunctions):
     def calculate_measures(self):
         """calculates measures for use in subsector calculations """
         for measure in self.energy_efficiency_measures.values():
-            measure.calculate(self.vintages, self.years, cfg.cfgfile.get('case', 'energy_unit'))
+            measure.calculate(self.vintages, self.years, cfg.calculation_energy_unit)
         for measure in self.service_demand_measures.values():
             if hasattr(self,'stock') and self.stock.demand_stock_unit_type == 'service demand' and hasattr(self,'service_demand'):
                 #service demand will be converted to stock unit, so measure must be converted to stock unit
@@ -762,7 +762,7 @@ class Subsector(DataMapFunctions):
             else:
                 raise ValueError("service demand measure has been created for a subsector which doesn't have an energy demand or service demand")
         for measure in self.fuel_switching_measures.values():
-            measure.calculate(self.vintages, self.years, cfg.cfgfile.get('case', 'energy_unit'))
+            measure.calculate(self.vintages, self.years, cfg.calculation_energy_unit)
 
     def calculate_energy(self):
         """ calculates energy demand for all subsector types"""
@@ -1230,13 +1230,13 @@ class Subsector(DataMapFunctions):
             self.project_energy_demand(service_dependent=True)
             self.energy_demand.values = util.unit_convert(self.energy_demand.values,
                                                           unit_from_num=self.energy_demand.unit,
-                                                          unit_to_num=cfg.cfgfile.get('case', 'energy_unit'))
+                                                          unit_to_num=cfg.calculation_energy_unit)
             self.energy_forecast = self.energy_demand.values
         elif self.sub_type == 'energy':
             self.project_energy_demand()
             self.energy_demand.values = util.unit_convert(self.energy_demand.values,
                                                           unit_from_num=self.energy_demand.unit,
-                                                          unit_to_num=cfg.cfgfile.get('case', 'energy_unit'))
+                                                          unit_to_num=cfg.calculation_energy_unit)
             self.energy_forecast = self.energy_demand.values 
         elif self.sub_type == 'link':
             self.calculate_technologies()
@@ -1632,7 +1632,7 @@ class Subsector(DataMapFunctions):
         eff = self.stack_and_reduce_years(eff, self.min_year,
                                           self.max_year)
         self.energy_demand.values = util.unit_convert(self.energy_demand.values, unit_from_num=self.energy_demand.unit,
-                                                      unit_to_num=cfg.cfgfile.get('case', 'energy_unit'))
+                                                      unit_to_num=cfg.calculation_energy_unit)
         # make a copy of energy demand for use as service demand        
         self.service_demand = self.energy_demand
         self.service_demand.raw_values = self.service_demand.values

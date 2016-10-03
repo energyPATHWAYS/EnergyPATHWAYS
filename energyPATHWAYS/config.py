@@ -39,6 +39,7 @@ storage_tech_classes = ['installation_cost_new','installation_cost_replacement',
 # Initiate pint for unit conversions
 ureg = None
 pint_definitions_file = None
+calculation_energy_unit = None
 
 # Geography
 geo = None
@@ -54,11 +55,6 @@ dispatch_subset_id = None
 dispatch_breakout_geography_id = None
 dispatch_geographies = None
 
-# output config
-currency_name = None
-output_levels = None
-output_currency = None
-
 # run years
 years = None
 supply_years = None
@@ -70,7 +66,9 @@ electricity_energy_type_id = None
 electricity_energy_type_shape_id = None
 
 # outputs
+output_levels = None
 currency_name = None
+output_energy_unit = None
 output_currency = None
 output_demand_levels = None
 output_supply_levels = None
@@ -96,7 +94,7 @@ def initialize_config(_path, _cfgfile_name, _pint_definitions_file, _log_name):
     setuplogging()
     
     init_db()
-    init_pint(os.path.join(workingdir, pint_definitions_file))
+    init_units(os.path.join(workingdir, pint_definitions_file))
     init_geo()
     init_date_lookup()
     init_output_parameters()
@@ -151,10 +149,13 @@ def init_db():
     logging.debug("Connection successful...")
     
 
-def init_pint(pint_definitions_path):
+def init_units(pint_definitions_path):
     # Initiate pint for unit conversions
-    global ureg
+    global ureg, output_energy_unit, calculation_energy_unit
     ureg = pint.UnitRegistry()
+    
+    output_energy_unit = cfgfile.get('case', 'output_energy_unit')
+    calculation_energy_unit = cfgfile.get('case', 'calculation_energy_unit')
     
     if pint_definitions_path is not None:
         if not os.path.isfile(pint_definitions_path):

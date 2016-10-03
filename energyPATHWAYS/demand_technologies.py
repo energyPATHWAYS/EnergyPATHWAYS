@@ -115,7 +115,7 @@ class ParasiticEnergy(Abstract):
                 self.time_unit = 'year'
             self.values = util.unit_convert(self.raw_values, unit_from_num=self.energy_unit,
                                             unit_from_den=self.time_unit,
-                                            unit_to_num=cfg.cfgfile.get('case', 'energy_unit'),
+                                            unit_to_num=cfg.calculation_energy_unit,
                                             unit_to_den='year')
             if self.demand_tech_unit_type == 'service demand':
                 self.values = util.unit_convert(self.values, unit_from_num=self.unit,
@@ -169,7 +169,7 @@ class DemandTechEfficiency(Abstract):
                 self.flipped = False
             self.values = util.unit_convert(self.values, unit_from_num=numerator_unit,
                                             unit_from_den=denominator_unit,
-                                            unit_to_num=cfg.cfgfile.get('case', 'energy_unit'),
+                                            unit_to_num=cfg.calculation_energy_unit,
                                             unit_to_den=self.service_demand_unit)
             self.absolute = True
         else:

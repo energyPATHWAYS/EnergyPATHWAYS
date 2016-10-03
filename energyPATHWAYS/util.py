@@ -182,12 +182,13 @@ def sql_read_table(table_name, column_names='*', return_unique=False, return_ite
     if len(filters):
         datatypes = sql_get_datatype(table_name, filters.keys())
         list_of_filters = ['"' + col + '"=' + fix_sql_query_type(fil, datatypes[col]) if fil is not None else '"' + col + '"is' + 'NULL' for col, fil in filters.items()]
-        if list_of_filters == []:
-            data = [None]
-        else:
+        if list_of_filters:
             query = query + " where " + " and ".join(list_of_filters)
             cfg.cur.execute(query)
             data = [tup[0] if len(tup) == 1 else tup for tup in cfg.cur.fetchall()]
+        else:
+            data = [None]
+
     else:
         cfg.cur.execute(query)
         data = [tup[0] if len(tup) == 1 else tup for tup in cfg.cur.fetchall()]
@@ -1197,7 +1198,7 @@ def determ_energy(unit):
     
     """
     # TODO check if static method appropriate
-    if cfg.ureg.Quantity(unit).dimensionality == cfg.ureg.Quantity(cfg.cfgfile.get('case', 'energy_unit')).dimensionality:
+    if cfg.ureg.Quantity(unit).dimensionality == cfg.ureg.Quantity(cfg.calculation_energy_unit).dimensionality:
         return True
 
 
