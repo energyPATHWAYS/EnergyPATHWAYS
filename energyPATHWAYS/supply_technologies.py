@@ -226,7 +226,7 @@ class SupplyTechInvestmentCost(SupplyTechCost):
         """
         convert raw_values to model currency and capacity (energy_unit/time_step)
         """
-        model_energy_unit = cfg.cfgfile.get('case', 'energy_unit')
+        model_energy_unit = cfg.calculation_energy_unit
         model_time_step = cfg.cfgfile.get('case', 'time_step')
         if hasattr(self,'time_unit') and self.time_unit is not None:
             # if a cost has a time_unit, then the unit is energy and must be converted to capacity
@@ -254,7 +254,7 @@ class StorageTechEnergyCost(SupplyTechInvestmentCost):
         """
         convert raw_values to model currency and capacity (energy_unit/time_step)
         """
-        model_energy_unit = cfg.cfgfile.get('case', 'energy_unit')
+        model_energy_unit = cfg.calculation_energy_unit
         self.values = util.unit_convert(self.raw_values, unit_from_num=self.energy_unit,unit_to_num=model_energy_unit)
         if self.definition == 'absolute':
             self.values = util.currency_convert(self.values, self.currency_id, self.currency_year_id)
@@ -271,7 +271,7 @@ class SupplyTechFixedOMCost(SupplyTechCost):
         """
         convert raw_values to model currency and capacity (energy_unit/time_step)
         """
-        model_energy_unit = cfg.cfgfile.get('case', 'energy_unit')
+        model_energy_unit = cfg.calculation_energy_unit
         model_time_step = cfg.cfgfile.get('case', 'time_step')
         if self.time_unit is not None:
             # if a cost has a time_unit, then the unit is energy and must be converted to capacity
@@ -299,7 +299,7 @@ class SupplyTechVariableOMCost(SupplyTechCost):
         """
         convert raw_values to model currency and capacity (energy_unit/time_step)
         """
-        model_energy_unit = cfg.cfgfile.get('case', 'energy_unit')
+        model_energy_unit = cfg.calculation_energy_unit
         self.values = util.unit_convert(self.raw_values, unit_from_den=self.energy_unit,unit_to_den=model_energy_unit)
         if self.definition == 'absolute':
             self.values = util.currency_convert(self.values, self.currency_id, self.currency_year_id)

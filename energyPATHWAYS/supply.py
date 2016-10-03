@@ -96,7 +96,7 @@ class Supply(object):
     def format_output_io_supply(self):
         energy = self.io_supply_df.stack().to_frame()  
         util.replace_index_name(energy,'year')
-        energy_unit = cfg.cfgfile.get('case','energy_unit')
+        energy_unit = cfg.calculation_energy_unit
         energy.columns = [energy_unit.upper()]
         return energy
 
@@ -383,13 +383,13 @@ class Supply(object):
         self.energy_demand_link = self.map_embodied_to_demand(self.inverse_dict['energy'],self.embodied_energy_link_dict)
         self.remove_blend_and_import()
 #        self.outputs.per_energy_costs = copy.deepcopy(self.cost_demand_link)
-#        unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')+ "/" + cfg.cfgfile.get('case','energy_unit')      
+#        unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')+ "/" + cfg.calculation_energy_unit
 #        self.outputs.per_energy_costs.columns  = [unit]
 #        self.outputs.per_energy_emissions = copy.deepcopy(self.emissions_demand_link)
-#        unit = cfg.cfgfile.get('case','mass_unit') + "/" + cfg.cfgfile.get('case','energy_unit')      
+#        unit = cfg.cfgfile.get('case','mass_unit') + "/" + cfg.calculation_energy_unit
 #        self.outputs.per_energy_emissions.columns  = [unit]
 #        self.outputs.per_energy_embodied = copy.deepcopy(self.energy_demand_link)
-#        unit = cfg.cfgfile.get('case','energy_unit') + "/" + cfg.cfgfile.get('case','energy_unit')      
+#        unit = cfg.calculation_energy_unit + "/" + cfg.calculation_energy_unit
 #        self.outputs.per_energy_embodied.columns  = [unit]  
         logging.info("calculate exported costs")
         self.calculate_export_result('export_costs', self.cost_dict)
@@ -610,14 +610,14 @@ class Supply(object):
             if 0 in util.elements_in_index_level(df,'dispatch_feeder'):
                 bulk_df = util.df_slice(df,0,'dispatch_feeder')
                 bulk_df = self.outputs.clean_df(bulk_df)
-                bulk_df.columns = [cfg.cfgfile.get('case','energy_unit').upper()]
+                bulk_df.columns = [cfg.calculation_energy_unit.upper()]
                 util.replace_index_name(bulk_df, 'DISPATCH_OUTPUT', 'SUPPLY_NODE')
                 self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,bulk_df])
             if len([x for x in  util.elements_in_index_level(df,'dispatch_feeder') if x in self.dispatch_feeders]):
                 distribution_df = util.df_slice(df,[x for x in  util.elements_in_index_level(df,'dispatch_feeder') if x in self.dispatch_feeders],self.dispatch_feeders)
                 df = util.DfOper.mult([distribution_df,self.distribution_losses])
                 distribution_df = self.outputs.clean_df(distribution_df)
-                distribution_df.columns = [cfg.cfgfile.get('case','energy_unit').upper()]
+                distribution_df.columns = [cfg.calculation_energy_unit.upper()]
                 util.replace_index_name(distribution_df, 'DISPATCH_OUTPUT', 'SUPPLY_NODE')
                 self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch_df,util.remove_df_levels(distribution_df,'DISPATCH_FEEDER')])
 
@@ -694,13 +694,13 @@ class Supply(object):
             distribution_df = util.remove_df_levels(util.DfOper.mult([self.dispatch.dist_storage_df,self.distribution_losses]),'dispatch_feeder')
             charge_df = util.df_slice(distribution_df,'charge','charge_discharge')
             index = pd.MultiIndex.from_product([[year],cfg.dispatch_geographies,shape.shapes.active_dates_index],names=['year',cfg.dispatch_geography,'weather_datetime'])
-            charge_df = pd.DataFrame(charge_df.values,index=index,columns =[cfg.cfgfile.get('case','energy_unit').upper()])
+            charge_df = pd.DataFrame(charge_df.values,index=index,columns =[cfg.calculation_energy_unit.upper()])
             charge_df = self.outputs.clean_df(charge_df)
             charge_df = pd.concat([charge_df],keys=['DISTRIBUTED STORAGE CHARGE'],names=['DISPATCH_OUTPUT'])
             self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,charge_df])
             discharge_df = util.df_slice(distribution_df,'discharge','charge_discharge')*-1
             index = pd.MultiIndex.from_product([[year],cfg.dispatch_geographies,shape.shapes.active_dates_index],names=['year',cfg.dispatch_geography,'weather_datetime'])
-            discharge_df = pd.DataFrame(discharge_df.values,index=index,columns =[cfg.cfgfile.get('case','energy_unit').upper()])
+            discharge_df = pd.DataFrame(discharge_df.values,index=index,columns =[cfg.calculation_energy_unit.upper()])
             discharge_df = self.outputs.clean_df(discharge_df)
             discharge_df = pd.concat([discharge_df],keys=['DISTRIBUTED STORAGE DISCHARGE'],names=['DISPATCH_OUTPUT'])
             self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,discharge_df])
@@ -710,13 +710,13 @@ class Supply(object):
             bulk_df = self.dispatch.bulk_storage_df
             charge_df = util.df_slice(bulk_df,'charge','charge_discharge')
             index = pd.MultiIndex.from_product([[year],cfg.dispatch_geographies,shape.shapes.active_dates_index],names=['year',cfg.dispatch_geography,'weather_datetime'])
-            charge_df = pd.DataFrame(charge_df.values,index=index,columns =[cfg.cfgfile.get('case','energy_unit').upper()])
+            charge_df = pd.DataFrame(charge_df.values,index=index,columns =[cfg.calculation_energy_unit.upper()])
             charge_df = self.outputs.clean_df(charge_df)
             charge_df = pd.concat([charge_df],keys=['BULK STORAGE CHARGE'],names=['DISPATCH_OUTPUT'])
             self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,charge_df])
             discharge_df = util.df_slice(bulk_df,'discharge','charge_discharge')*-1
             index = pd.MultiIndex.from_product([[year],cfg.dispatch_geographies,shape.shapes.active_dates_index],names=['year',cfg.dispatch_geography,'weather_datetime'])
-            discharge_df = pd.DataFrame(discharge_df.values,index=index,columns =[cfg.cfgfile.get('case','energy_unit').upper()])
+            discharge_df = pd.DataFrame(discharge_df.values,index=index,columns =[cfg.calculation_energy_unit.upper()])
             discharge_df = self.outputs.clean_df(discharge_df)
             discharge_df = pd.concat([discharge_df],keys=['BULK STORAGE DISCHARGE'],names=['DISPATCH_OUTPUT'])
             self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,discharge_df])
@@ -725,7 +725,7 @@ class Supply(object):
         if year in self.dispatch_write_years:
             flex_load_df = util.DfOper.mult([self.dispatch.flex_load_df,self.distribution_losses])
             index = pd.MultiIndex.from_product([cfg.dispatch_geographies,self.dispatch_feeders,shape.shapes.active_dates_index,year],names=[cfg.dispatch_geography,'dispatch_feeder','weather_datetime','year'])
-            flex_load_df = pd.DataFrame(flex_load_df.values,index=index,columns =[cfg.cfgfile.get('case','energy_unit').upper()])
+            flex_load_df = pd.DataFrame(flex_load_df.values,index=index,columns =[cfg.calculation_energy_unit.upper()])
             flex_load_df= self.outputs.clean_df(flex_load_df)
             label_replace_dict = dict(zip(util.elements_in_index_level(flex_load_df,'DISPATCH_FEEDER'),[x+' FLEXIBLE LOAD' for x in util.elements_in_index_level(flex_load_df,'DISPATCH_FEEDER')]))
             util.replace_index_label(flex_load_df,label_replace_dict,'DISPATCH_FEEDER')
@@ -1164,7 +1164,7 @@ class Supply(object):
             names = ['year']
             self.outputs.curtailment = pd.concat(self.curtailment_list,keys=keys, names=names)
             util.replace_index_name(self.outputs.curtailment,'sector','demand_sector')
-            self.outputs.curtailment.columns = [cfg.cfgfile.get('case','energy_unit')]
+            self.outputs.curtailment.columns = [cfg.calculation_energy_unit]
    
     def update_coefficients_from_dispatch(self,year):
         self.update_thermal_coefficients(year)
@@ -1471,7 +1471,7 @@ class Supply(object):
             df_output = df_output.set_index('NEW_DISPATCH_OUTPUT',append=True)
             df_output = df_output[year].to_frame()
             util.replace_index_name(df_output,'DISPATCH_OUTPUT','NEW_DISPATCH_OUTPUT')
-            df_output.columns = [cfg.cfgfile.get('case','energy_unit').upper()]
+            df_output.columns = [cfg.calculation_energy_unit.upper()]
             if generation:
                 df_output*=-1
                 self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,df_output])
@@ -1497,7 +1497,7 @@ class Supply(object):
             df_output = pd.concat([df_geo],keys=[year],names=['year'])
             df_output =  self.outputs.clean_df(util.df_slice(df_output,2,'timeshift_type'))
             util.replace_index_name(df_output,'DISPATCH_OUTPUT','SUPPLY_NODE')
-            df_output.columns = [cfg.cfgfile.get('case','energy_unit').upper()]
+            df_output.columns = [cfg.calculation_energy_unit.upper()]
             if generation:
                 df_output*=-1
             df_output = util.reorder_b_to_match_a(df_output,self.bulk_dispatch)
@@ -1518,7 +1518,7 @@ class Supply(object):
         df_output = util.DfOper.mult([util.df_slice(final_demand,2,'timeshift_type'),self.distribution_losses])
         df_output = self.outputs.clean_df(df_output)
         util.replace_index_name(df_output,'DISPATCH_OUTPUT','DISPATCH_FEEDER')
-        df_output.columns = [cfg.cfgfile.get('case','energy_unit').upper()]
+        df_output.columns = [cfg.calculation_energy_unit.upper()]
         self.bulk_dispatch = df_output
 
 
@@ -2350,7 +2350,7 @@ class Node(DataMapFunctions):
         # stock starts with vintage as an index and year as a column, but we need to stack it for export
         df = df.stack().to_frame()
         util.replace_index_name(df, 'year')
-        stock_unit = cfg.cfgfile.get('case','energy_unit') + "/" + cfg.cfgfile.get('case','time_step')
+        stock_unit = cfg.calculation_energy_unit + "/" + cfg.cfgfile.get('case','time_step')
         df.columns =  [stock_unit.upper()]
         return df
         
@@ -2400,7 +2400,7 @@ class Node(DataMapFunctions):
         adds a dataframe used to convert input values that are not in energy terms, to energy terms
         ex. Biomass input as 'tons' must be converted to energy units using a conversion factor data table
         """
-        energy_unit = cfg.cfgfile.get('case', "energy_unit")
+        energy_unit = cfg.calculation_energy_unit
         potential_unit = util.sql_read_table('SupplyPotential', 'unit', supply_node_id=self.id)
             # check to see if unit is in energy terms, if so, no conversion necessary
         if potential_unit is not None:
@@ -2667,7 +2667,7 @@ class Node(DataMapFunctions):
             self.export = Export(self.id)
                 
     def convert_stock(self, stock_name='stock', attr='total'):
-        model_energy_unit = cfg.cfgfile.get('case', 'energy_unit')
+        model_energy_unit = cfg.calculation_energy_unit
         model_time_step = cfg.cfgfile.get('case', 'time_step')
         stock = getattr(self,stock_name)
         if stock.time_unit is not None:
@@ -2984,7 +2984,7 @@ class Export(Abstract):
     def convert(self):        
        self.values = self.values.unstack(level='year')    
        self.values.columns = self.values.columns.droplevel()
-       self.values = util.unit_convert(self.values, unit_from_num=self.unit, unit_to_num=cfg.cfgfile.get('case','energy_unit'))
+       self.values = util.unit_convert(self.values, unit_from_num=self.unit, unit_to_num=cfg.calculation_energy_unit)
 
     def set_export_df(self):
         """sets an empty df with a fill value of 0"""
@@ -3213,7 +3213,7 @@ class SupplyNode(Node,StockItem):
         """add stock instance to node"""
         self.stock = Stock(id=self.id, drivers=None, sql_id_table='SupplyStock', sql_data_table='SupplyStockData', primary_key='supply_node_id')
         self.stock.input_type = 'total'
-        self.stock.unit = cfg.cfgfile.get('case','energy_unit') + "/" + cfg.cfgfile.get('case','time_step')
+        self.stock.unit = cfg.calculation_energy_unit + "/" + cfg.cfgfile.get('case','time_step')
            
     def add_case_stock(self):
        self.case_stock = StockItem()
@@ -3715,7 +3715,7 @@ class SupplyPotential(Abstract):
             self.supply_curve = self.values.groupby(level=[x for x in self.values.index.names if x not in 'resource_bins']).cumsum()
         else:
             if util.determ_energy(self.unit):
-                self.values = util.unit_convert(self.values, unit_from_num=self.unit, unit_from_den=self.time_unit, unit_to_num=cfg.cfgfile.get('case', 'energy_unit'), unit_to_den='year')
+                self.values = util.unit_convert(self.values, unit_from_num=self.unit, unit_from_den=self.time_unit, unit_to_num=cfg.calculation_energy_unit, unit_to_den='year')
             else:
                 raise ValueError('unit is not an energy unit and no resource conversion has been entered in node %s' %self.id)
             self.supply_curve = self.values.groupby(level=[x for x in self.values.index.names if x not in 'resource_bins']).cumsum()
@@ -3803,7 +3803,7 @@ class SupplyCost(Abstract):
         convert raw_values to model currency and capacity (energy_unit/time_step)
         """
         self.values = util.currency_convert(self.values, self.currency_id, self.currency_year_id)
-        model_energy_unit = cfg.cfgfile.get('case', 'energy_unit')
+        model_energy_unit = cfg.calculation_energy_unit
         model_time_step = cfg.cfgfile.get('case', 'time_step')
         if self.input_type == 'intensity':
             if self.time_unit is not None:
@@ -5176,7 +5176,7 @@ class ImportCost(Abstract):
         """
         self.values = util.currency_convert(self.values, self.currency_id, self.currency_year_id)
         self.values = util.unit_convert(self.values, unit_from_den=self.denominator_unit,
-                                        unit_to_den=cfg.cfgfile.get('case', 'energy_unit'))
+                                        unit_to_den=cfg.calculation_energy_unit)
         self.values = self.values.unstack(level='year')    
         self.values.columns = self.values.columns.droplevel()
 
@@ -5260,7 +5260,7 @@ class PrimaryCost(Abstract):
                 # (ex. $/ton of biomass) are a result of using conversion dataframe mutliplied by values
                 self.values = util.currency_convert(self.values, self.currency_id, self.currency_year_id)
                 self.values = util.unit_convert(self.values, unit_from_den=self.denominator_unit,
-                                                unit_to_den=cfg.cfgfile.get('case', 'energy_unit'))
+                                                unit_to_den=cfg.calculation_energy_unit)
 #                self.resource_values = DfOper.mult([self.values, self.conversion.values])
             else:
                 # if input values for costs are not in energy terms, cost values must be converted to model currency
@@ -5277,7 +5277,7 @@ class PrimaryCost(Abstract):
             # energy units is effected
             self.values = util.currency_convert(self.values, self.currency_id, self.currency_year_id)
             self.values = util.unit_convert(self.values, unit_from_den=self.denominator_unit,
-                                            unit_to_den=cfg.cfgfile.get('case', "energy_unit"))
+                                            unit_to_den=cfg.calculation_energy_unit)
 
 
 class SupplyEmissions(Abstract):
@@ -5310,7 +5310,7 @@ class SupplyEmissions(Abstract):
                 self.values = util.unit_convert(self.values, unit_from_num=self.mass_unit,
                                                 unit_from_den=self.denominator_unit,
                                                 unit_to_num=cfg.cfgfile.get('case', "mass_unit"),
-                                                unit_to_den=cfg.cfgfile.get('case', "energy_unit"))
+                                                unit_to_den=cfg.calculation_energy_unit)
 #                    self.resource_values = DfOper.mult([self.values, self.conversion.values])
             else:
                 # if the input values are in resource terms, values are converted from input mass and resource units
@@ -5327,7 +5327,7 @@ class SupplyEmissions(Abstract):
             self.values = util.unit_convert(self.values, unit_from_num=self.mass_unit,
                                             unit_from_den=self.denominator_unit,
                                             unit_to_num=cfg.cfgfile.get('case', "mass_unit"),
-                                            unit_to_den=cfg.cfgfile.get('case', "energy_unit"))
+                                            unit_to_den=cfg.calculation_energy_unit)
         self.ghgs = util.sql_read_table('GreenhouseGases','id')
         self.values = util.reindex_df_level_with_new_elements(self.values,'ghg',self.ghgs,fill_value=0.).sort()
       
@@ -5360,7 +5360,7 @@ class SupplyEnergyConversion(Abstract):
             self.remap()
             self.values = util.unit_convert(self.values, unit_from_num=self.energy_unit_numerator,
                                         unit_from_den=self.resource_unit_denominator,
-                                        unit_to_num=cfg.cfgfile.get('case', 'energy_unit'),
+                                        unit_to_num=cfg.calculation_energy_unit,
                                         unit_to_den=self.resource_unit)
             self.values = self.values.unstack(level='year')    
             self.values.columns = self.values.columns.droplevel()
