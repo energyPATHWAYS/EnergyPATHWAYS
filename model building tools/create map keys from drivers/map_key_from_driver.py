@@ -29,7 +29,7 @@ config = 'config.INI'
 pint = 'unit_defs.txt'
 scenario_id = 1
 
-cfg.initialize_config(path, config, pint, _log_name='log.txt')
+cfg.initialize_config(path, config, pint, _log_name='log.log')
 cfg.primary_geography = 'intersection_id'
     
 model = PathwaysModel(scenario_id, api_run=False)
