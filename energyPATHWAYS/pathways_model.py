@@ -263,7 +263,7 @@ class PathwaysModel(object):
          self.final_energy = self.final_energy.reorder_levels(self.embodied_energy.index.names)
          self.outputs.energy = pd.concat([self.embodied_energy,self.final_energy])
          self.outputs.energy= self.outputs.energy[self.outputs.energy['VALUE']!=0]
-         energy_unit = cfg.cfgfile.get('case','energy_unit')
+         energy_unit = cfg.calculation_energy_unit
          self.outputs.energy.columns = [energy_unit.upper()]
 
     def return_io(self):

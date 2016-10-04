@@ -66,6 +66,7 @@ class GeoMapper:
                 JOIN "GeographiesData"
                      ON "GeographyIntersectionData".gau_id = "GeographiesData".id
                 GROUP BY "GeographyIntersection".id
+                ORDER BY "GeographyIntersection".id
             ) AS intersections
 
             JOIN "GeographyMap" ON "GeographyMap".intersection_id = intersections.id
@@ -92,8 +93,10 @@ class GeoMapper:
         names = self.geographies.keys()
         # values is the actual container for the data
         self.values = pd.DataFrame(data, index=pd.MultiIndex.from_tuples(index, names=names), columns=self.map_keys)
+        self.values['intersection_id'] = sorted(util.sql_read_table('GeographyIntersection'))
+        self.values = self.values.set_index('intersection_id', append=True)
         # sortlevel sorts all of the indicies so that we can slice the dataframe
-        self.values.sortlevel(0, inplace=True)
+        self.values = self.values.sort()
 
     def log_geo_subset(self, primary_subset_id=None):
         """

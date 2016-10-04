@@ -48,7 +48,7 @@ class SupplySales(Abstract, DataMapFunctions):
         self.convert()
 
     def convert(self):
-        model_energy_unit = cfg.cfgfile.get('case', 'energy_unit')
+        model_energy_unit = cfg.calculation_energy_unit
         model_time_step = cfg.cfgfile.get('case', 'time_step')
         if self.time_unit is not None:
             # if sales has a time_unit, then the unit is energy and must be converted to capacity
@@ -165,7 +165,7 @@ class SupplySpecifiedStock(SpecifiedStock):
         convert values to model currency and capacity (energy_unit/time_step)
         """
         if self.values is not None:
-            model_energy_unit = cfg.cfgfile.get('case', 'energy_unit')
+            model_energy_unit = cfg.calculation_energy_unit
             model_time_step = cfg.cfgfile.get('case', 'time_step')
             if self.time_unit is not None:
                 self.values = util.unit_convert(self.values, unit_from_num=self.capacity_or_energy_unit,

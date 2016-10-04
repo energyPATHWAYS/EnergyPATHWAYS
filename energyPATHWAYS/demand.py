@@ -29,7 +29,7 @@ class Demand(object):
         self.drivers = {}
         self.sectors = {}
         self.outputs = Output()
-        self.default_electricity_shape = shape.shapes.data[cfg.electricity_energy_type_shape_id]
+        self.default_electricity_shape = shape.shapes.data[cfg.electricity_energy_type_shape_id] if shape.shapes.data else None
 
     def add_subsectors(self):
         """Read in and initialize data"""
@@ -207,9 +207,9 @@ class Demand(object):
             if not base_driver.mapped:
                 # If a driver hasn't been mapped, recursion is uesd to map it first (this can go multiple layers)
                 self.remap_driver(base_driver)
-            driver.remap(drivers=base_driver.values,filter_geo=False)
+            driver.remap(drivers=base_driver.values)
         else:
-            driver.remap(filter_geo=False)
+            driver.remap()
         # Now that it has been mapped, set indicator to true
         driver.mapped = True
         driver.values.data_type = 'total'
@@ -750,7 +750,7 @@ class Subsector(DataMapFunctions):
     def calculate_measures(self):
         """calculates measures for use in subsector calculations """
         for measure in self.energy_efficiency_measures.values():
-            measure.calculate(self.vintages, self.years, cfg.cfgfile.get('case', 'energy_unit'))
+            measure.calculate(self.vintages, self.years, cfg.calculation_energy_unit)
         for measure in self.service_demand_measures.values():
             if hasattr(self,'stock') and self.stock.demand_stock_unit_type == 'service demand' and hasattr(self,'service_demand'):
                 #service demand will be converted to stock unit, so measure must be converted to stock unit
@@ -762,7 +762,7 @@ class Subsector(DataMapFunctions):
             else:
                 raise ValueError("service demand measure has been created for a subsector which doesn't have an energy demand or service demand")
         for measure in self.fuel_switching_measures.values():
-            measure.calculate(self.vintages, self.years, cfg.cfgfile.get('case', 'energy_unit'))
+            measure.calculate(self.vintages, self.years, cfg.calculation_energy_unit)
 
     def calculate_energy(self):
         """ calculates energy demand for all subsector types"""
@@ -1226,17 +1226,17 @@ class Subsector(DataMapFunctions):
             self.service_efficiency.calculate(self.vintages, self.years)
             self.energy_forecast = DfOper.mult([self.service_demand.values, self.service_efficiency.values])
         elif self.sub_type == 'service and energy':
-            self.project_service_demand(service_dependent=True)
+            self.project_service_demand()
             self.project_energy_demand(service_dependent=True)
             self.energy_demand.values = util.unit_convert(self.energy_demand.values,
                                                           unit_from_num=self.energy_demand.unit,
-                                                          unit_to_num=cfg.cfgfile.get('case', 'energy_unit'))
+                                                          unit_to_num=cfg.calculation_energy_unit)
             self.energy_forecast = self.energy_demand.values
         elif self.sub_type == 'energy':
             self.project_energy_demand()
             self.energy_demand.values = util.unit_convert(self.energy_demand.values,
                                                           unit_from_num=self.energy_demand.unit,
-                                                          unit_to_num=cfg.cfgfile.get('case', 'energy_unit'))
+                                                          unit_to_num=cfg.calculation_energy_unit)
             self.energy_forecast = self.energy_demand.values 
         elif self.sub_type == 'link':
             self.calculate_technologies()
@@ -1255,7 +1255,7 @@ class Subsector(DataMapFunctions):
                     # project the stock and prepare a subset for use in calculating
                     # the efficiency of the stock during the years in which we have
                     # energy demand inputs
-                    self.project_stock(stock_dependent=self.energy_demand.is_stock_dependent)
+                    self.project_stock()
                     self.stock_subset_prep()
                     self.energy_demand.project(map_from='raw_values', fill_timeseries=False)
                     # divide by the efficiency of the stock to return service demand values
@@ -1270,7 +1270,7 @@ class Subsector(DataMapFunctions):
                     self.min_year = self.min_cal_year(self.service_demand)
                     self.max_year = self.max_cal_year(self.service_demand)
                     # project the service demand
-                    self.service_demand.project(map_from='raw_values', fill_timeseries=False, service_dependent=self.stock.is_service_demand_depedent)
+                    self.service_demand.project(map_from='raw_values', fill_timeseries=False)
                     # service demand is projected, so change map from to values
                     self.service_demand.map_from = 'values'
                     # change the service demand to a per stock_time_unit service demand
@@ -1340,7 +1340,7 @@ class Subsector(DataMapFunctions):
                     self.service_demand.map_from = 'int_values'                    
                     self.min_year = self.min_cal_year(self.service_demand)
                     self.max_year = self.max_cal_year(self.service_demand)
-                    self.project_stock(stock_dependent=self.service_demand.is_stock_dependent)
+                    self.project_stock()
                     self.stock_subset_prep()
                 if self.sub_type == 'stock and energy':
                     # used when we don't have service demand, just energy demand
@@ -1349,7 +1349,7 @@ class Subsector(DataMapFunctions):
                     self.max_year = self.max_cal_year(self.energy_demand)
                     self.energy_demand.project(map_from='raw_values', fill_timeseries=False)
                     self.energy_demand.map_from = 'values'
-                    self.project_stock(stock_dependent = self.energy_demand.is_stock_dependent)
+                    self.project_stock()
                     self.stock_subset_prep()
                     # remove stock efficiency from energy demand to- return service demand
                     self.efficiency_removal()
@@ -1367,11 +1367,11 @@ class Subsector(DataMapFunctions):
                 self.project_service_demand(map_from=self.service_demand.map_from)
                 self.sd_modifier_full()
             elif self.stock.is_service_demand_dependent == 1 and self.service_demand.is_stock_dependent == 0:
-                self.project_service_demand(map_from=self.service_demand.map_from,service_dependent=True)
+                self.project_service_demand(map_from=self.service_demand.map_from)
                 self.project_stock(map_from=self.stock.map_from, service_dependent=True)
                 self.sd_modifier_full()
             elif self.stock.is_service_demand_dependent == 0 and self.service_demand.is_stock_dependent == 1:
-                self.project_stock(map_from=self.stock.map_from,stock_dependent=True)
+                self.project_stock(map_from=self.stock.map_from)
                 self.project_service_demand(map_from=self.service_demand.map_from, stock_dependent=True)
                 self.sd_modifier_full()
             else:
@@ -1632,7 +1632,7 @@ class Subsector(DataMapFunctions):
         eff = self.stack_and_reduce_years(eff, self.min_year,
                                           self.max_year)
         self.energy_demand.values = util.unit_convert(self.energy_demand.values, unit_from_num=self.energy_demand.unit,
-                                                      unit_to_num=cfg.cfgfile.get('case', 'energy_unit'))
+                                                      unit_to_num=cfg.calculation_energy_unit)
         # make a copy of energy demand for use as service demand        
         self.service_demand = self.energy_demand
         self.service_demand.raw_values = self.service_demand.values
@@ -1679,7 +1679,7 @@ class Subsector(DataMapFunctions):
             df.columns = df.columns.droplevel()
         return df
 
-    def project_stock(self, map_from='raw_values', service_dependent=False,stock_dependent=False, override=False):
+    def project_stock(self, map_from='raw_values', service_dependent=False, override=False):
         """
         project stock moving forward includes projecting total and technology stock as well as initiating stock rollover
         If stock has already been projected, it gets reprojected if override is specified.
@@ -1687,7 +1687,7 @@ class Subsector(DataMapFunctions):
         self.stock.vintages = self.vintages
         self.stock.years = self.years
         if not self.stock.projected or override:
-            self.project_total_stock(map_from, service_dependent,stock_dependent)
+            self.project_total_stock(map_from, service_dependent)
             self.calculate_specified_stocks()
             self.project_technology_stock(map_from, service_dependent)
             self.stock.set_rollover_groups()
@@ -1698,7 +1698,7 @@ class Subsector(DataMapFunctions):
             self.stock_rollover()
             self.stock.projected = True
 
-    def project_total_stock(self, map_from, service_dependent=False, stock_dependent = False):
+    def project_total_stock(self, map_from, service_dependent=False):
         if map_from == 'values':
             current_geography = cfg.primary_geography
             current_data_type = 'total'
@@ -1718,12 +1718,6 @@ class Subsector(DataMapFunctions):
                            current_data_type=current_data_type, projected=projected)
         self.stock.total = util.remove_df_levels(self.stock.total, ['technology', 'final_energy'])
         self.stock.total = self.stock.total.swaplevel('year',-1)
-        if stock_dependent:
-            self.stock.project(map_from=map_from, map_to='total_unfiltered', current_geography=current_geography,
-                           additional_drivers=self.service_demand.values if service_dependent else None,
-                           current_data_type=current_data_type, projected=projected,filter_geo=False)
-            self.stock.total = util.remove_df_levels(self.stock.total, ['technology', 'final_energy'])
-            self.stock.total = self.stock.total.swaplevel('year',-1)
 
     def project_technology_stock(self, map_from, service_dependent):
         if map_from == 'values' or map_from == 'int_values':
@@ -2048,19 +2042,19 @@ class Subsector(DataMapFunctions):
             additional_drivers.append(linked_driver)
         if stock_dependent:
             if len(additional_drivers):
-                additional_drivers.append(self.stock.total_unfiltered)
+                additional_drivers.append(self.stock.total)
             else:
-                additional_drivers = self.stock.total_unfiltered
+                additional_drivers = self.stock.total
         if service_dependent:
             if len(additional_drivers):
-                additional_drivers.append(self.service_demand.values_unfiltered)
+                additional_drivers.append(self.service_demand.values)
             else:
-                additional_drivers = self.service_demand.values_unfiltered
+                additional_drivers = self.service_demand.values
         if len(additional_drivers) == 0:
             additional_drivers = None
         return additional_drivers
 
-    def project_service_demand(self, map_from='raw_values', stock_dependent=False, service_dependent=False):
+    def project_service_demand(self, map_from='raw_values', stock_dependent=False):
         self.service_demand.vintages = self.vintages
         self.service_demand.years = self.years
         if map_from == 'raw_values':
@@ -2077,10 +2071,6 @@ class Subsector(DataMapFunctions):
             projected =  True
         self.service_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
                                     additional_drivers=self.additional_drivers(stock_dependent),current_data_type=current_data_type,projected=projected)
-        if service_dependent:
-            self.service_demand.project(map_from=map_from, map_to='values_unfiltered', current_geography=current_geography,
-                                    additional_drivers=self.additional_drivers(stock_dependent),current_data_type=current_data_type,projected=projected,filter_geo=False)
-        
         
         self.service_demand_forecast = self.service_demand.values
         # calculates the service demand change from service demand measures
@@ -2337,7 +2327,7 @@ class Subsector(DataMapFunctions):
             initial_stock = self.stock.technology.loc[elements+(min_technology_year,),:].values/np.nansum(self.stock.technology.loc[elements+(min_technology_year,),:].values) * initial_total 
             rerun_sales_shares = False
         else:
-            raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the technology composition of the initial stock in subsectpr %s' %self.id)
+            raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the technology composition of the initial stock in subsector %s' %self.id)
         return initial_stock, rerun_sales_shares
         
 

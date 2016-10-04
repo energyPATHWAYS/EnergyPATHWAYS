@@ -46,7 +46,7 @@ class DataMapFunctions:
                 self.column_names[index_level] = column_name
 
 
-    def read_timeseries_data(self, data_column_names='value', hide_exceptions=False, **filters):  # This function needs to be sped up
+    def read_timeseries_data(self, data_column_names='value', **filters):  # This function needs to be sped up
         """reads timeseries data to dataframe from database. Stored in self.raw_values"""
         # rowmap is used in ordering the data when read from the sql table
         headers = util.sql_read_headers(self.sql_data_table)
@@ -55,24 +55,28 @@ class DataMapFunctions:
         for data_col in util.put_in_list(data_column_names):
             data_col_ind.append(headers.index(data_col))
         # read each line of the data_table matching an id and assign the value to self.raw_values
-        data = []
         if len(filters):
             merged_dict = dict({self.data_id_key: self.id}, **filters)
             read_data = util.sql_read_table(self.sql_data_table, return_iterable=True, **merged_dict)
         else:
-            read_data = util.sql_read_table(self.sql_data_table, return_iterable=True,
-                                            **dict([(self.data_id_key, self.id)]))
+            read_data = util.sql_read_table(self.sql_data_table, return_iterable=True, **dict([(self.data_id_key, self.id)]))
+
+        data = []
         if read_data:
             for row in read_data:
                 try:
-                    data.append([row[i] for i in rowmap] +
-                                [row[i] * (self.unit_prefix if hasattr(self, 'unit_prefix') else 1) for i in data_col_ind])
+                    data.append([row[i] for i in rowmap] + [row[i] * (self.unit_prefix if hasattr(self, 'unit_prefix') else 1) for i in data_col_ind])
                 except:
-                    if hide_exceptions == False:
-                        print (self.id, row, i)
+                    logging.warning('error reading table: {}, row: {}'.format(self.sql_data_table, row))
+                    raise
             column_names = self.df_index_names + util.put_in_list(data_column_names)
-            self.raw_values = pd.DataFrame(data, columns=column_names).set_index(keys=self.df_index_names).sort_index()
-            self.raw_values = self.raw_values.groupby(level=self.raw_values.index.names).first()
+            self.raw_values = pd.DataFrame(data, columns=column_names).set_index(keys=self.df_index_names).sort()
+            # print the duplicate values
+            duplicate_index = self.raw_values.index.duplicated(keep=False) #keep = False keeps all of the duplicate indices
+            if any(duplicate_index):
+                logging.warning('Duplicate indices in table: {}, parent id: {}, by default the first index will be kept.'.format(self.sql_data_table, self.id))
+                logging.warning(self.raw_values[duplicate_index])
+                self.raw_values = self.raw_values.groupby(level=self.raw_values.index.names).first()
         else:
             self.raw_values = None
 
@@ -171,8 +175,7 @@ class DataMapFunctions:
         mapf = getattr(self, map_from)
         if current_geography not in (mapf.index.names if mapf.index.nlevels > 1 else [mapf.index.name]):
             raise ValueError('current geography does not match the geography of the dataframe in remap')
-#        else:
-#            current_geography_index_levels = mapf.index.levels[util.position_in_index(mapf, current_geography)] if mapf.index.nlevels > 1 else mapf.index.tolist()
+
         if current_data_type == 'total' and len(cfg.geo.geographies_unfiltered[current_geography])!=len(util.get_elements_from_level(getattr(self,map_to),current_geography)):
             setattr(self, map_to, util.reindex_df_level_with_new_elements(getattr(self,map_to), current_geography, cfg.geo.geographies_unfiltered[current_geography], fill_value=fill_value))
         if (drivers is None) or (not len(drivers)):
@@ -185,16 +188,11 @@ class DataMapFunctions:
         else:
             self.total_driver = DfOper.mult(util.put_in_list(drivers))
             if current_data_type == 'total':
-                if current_geography != converted_geography and len(drivers)<=1:
+                if current_geography != converted_geography:
                     # While not on primary geography, geography does have some information we would like to preserve
                     self.geomapped_total_driver = self.geo_map(current_geography, attr='total_driver', inplace=False, current_geography=converted_geography,
                              current_data_type='total', fill_value=fill_value,filter_geo=False)
                 # Divide by drivers to turn a total to intensity. multindex_operation will aggregate to common levels.
-                elif current_geography != converted_geography:
-                    # While not on primary geography, geography does have some information we would like to preserve
-                    self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
-                                 current_data_type=current_data_type, fill_value=fill_value)
-                current_geography = converted_geography
                 df_intensity = DfOper.divi((getattr(self, map_to),  self.geomapped_total_driver if hasattr(self,'geomapped_total_driver') else self.total_driver), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf,np.nan,-np.nan],0)
                 setattr(self, map_to, df_intensity)
                 if hasattr(self,'geomapped_total_driver'):
@@ -207,10 +205,11 @@ class DataMapFunctions:
                 # print getattr(self,map_to)
                 # print time_index
                 self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method)
+
             if current_data_type == 'total':
-                setattr(self, map_to, DfOper.mult((getattr(self, map_to), self.total_driver),fill_value=fill_value))
+                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver),fill_value=fill_value))
             else:
-                setattr(self, map_to, DfOper.mult((getattr(self, map_to), self.total_driver), expandable=(True, False),
+                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver), expandable=(True, False),
                                                   collapsible=(False, True),fill_value=fill_value))
         self.ensure_correct_geography(map_to, converted_geography, current_geography, current_data_type,filter_geo=filter_geo)
 
@@ -251,7 +250,6 @@ class DataMapFunctions:
                    extrapolation_method=extrapolation_method,
                    converted_geography=converted_geography, current_geography=current_geography,
                    current_data_type=current_data_type, fill_value=fill_value,filter_geo=filter_geo)
-
 
 
 class Abstract(DataMapFunctions):

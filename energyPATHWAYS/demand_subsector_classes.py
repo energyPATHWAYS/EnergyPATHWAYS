@@ -84,7 +84,7 @@ class ServiceEfficiency(Abstract):
         """converts energy units to model energy units and service units to subsector service demand units"""
         self.values = util.unit_convert(self.raw_values, unit_from_num=self.energy_unit,
                                         unit_from_den=self.denominator_unit,
-                                        unit_to_num=cfg.cfgfile.get('case', 'energy_unit'),
+                                        unit_to_num=cfg.calculation_energy_unit,
                                         unit_to_den=self.service_demand_unit)
 
 class ServiceLink(object):
