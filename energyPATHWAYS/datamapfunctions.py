@@ -185,11 +185,16 @@ class DataMapFunctions:
         else:
             self.total_driver = DfOper.mult(util.put_in_list(drivers))
             if current_data_type == 'total':
-                if current_geography != converted_geography:
+                if current_geography != converted_geography and len(drivers)<=1:
                     # While not on primary geography, geography does have some information we would like to preserve
                     self.geomapped_total_driver = self.geo_map(current_geography, attr='total_driver', inplace=False, current_geography=converted_geography,
                              current_data_type='total', fill_value=fill_value,filter_geo=False)
                 # Divide by drivers to turn a total to intensity. multindex_operation will aggregate to common levels.
+                elif current_geography != converted_geography:
+                    # While not on primary geography, geography does have some information we would like to preserve
+                    self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
+                                 current_data_type=current_data_type, fill_value=fill_value)
+                current_geography = converted_geography
                 df_intensity = DfOper.divi((getattr(self, map_to),  self.geomapped_total_driver if hasattr(self,'geomapped_total_driver') else self.total_driver), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf,np.nan,-np.nan],0)
                 setattr(self, map_to, df_intensity)
                 if hasattr(self,'geomapped_total_driver'):
