@@ -29,7 +29,7 @@ class Demand(object):
         self.drivers = {}
         self.sectors = {}
         self.outputs = Output()
-        self.default_electricity_shape = shape.shapes.data[cfg.electricity_energy_type_shape_id]
+        self.default_electricity_shape = shape.shapes.data[cfg.electricity_energy_type_shape_id] if shape.shapes.data else None
 
     def add_subsectors(self):
         """Read in and initialize data"""

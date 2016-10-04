@@ -1,0 +1,134 @@
+INFO:root:Processing shapes
+INFO:root: reading data for:
+INFO:root:    shape: clothes washing
+INFO:root:    shape: Commercial Cooking
+INFO:root:    shape: Commercial OfficeEquipment
+INFO:root:    shape: Industrial
+INFO:root:    shape: csp trough_e_net
+INFO:root:    shape: other appliances
+INFO:root:    shape: residential refrigeration
+INFO:root:    shape: Streetlights
+INFO:root:    shape: system load
+INFO:root:    shape: clothes drying (electric)
+INFO:root:    shape: space heating (gas)
+INFO:root:    shape: Commercial Ventilation
+INFO:root:    shape: Residential Space Cooling
+INFO:root:    shape: pv Rooftop
+INFO:root:    shape: residential freezing
+INFO:root:    shape: Agriculture
+INFO:root:    shape: dishwashing
+INFO:root:    shape: pv Transmission-Sited
+INFO:root:    shape: residential cooking
+INFO:root:    shape: EV
+WARNING:root:Duplicate indices in table: ShapesData, parent id: 29, by default the first index will be kept.
+WARNING:root:                                        value
+us hour day_type_id dispatch_feeder          
+65 1    1           1                0.000536
+                    1                0.000138
+                    1                0.000337
+                    2                0.000317
+                    2                0.000113
+                    2                0.000215
+                    3                0.000317
+                    3                0.000113
+                    3                0.000215
+        2           1                0.000536
+                    1                0.000138
+                    1                0.000337
+                    2                0.000317
+                    2                0.000113
+                    2                0.000215
+                    3                0.000317
+                    3                0.000113
+                    3                0.000215
+   2    1           1                0.000389
+                    1                0.000391
+                    1                0.000390
+                    2                0.000232
+                    2                0.000179
+                    2                0.000206
+                    3                0.000232
+                    3                0.000179
+                    3                0.000206
+        2           1                0.000435
+                    1                0.000197
+                    1                0.000316
+...                                       ...
+   23   1           3                0.000603
+                    3                0.000342
+                    3                0.000082
+        2           1                0.000777
+                    1                0.000429
+                    1                0.000082
+                    2                0.000714
+                    2                0.000101
+                    2                0.000407
+                    3                0.000714
+                    3                0.000101
+                    3                0.000407
+   24   1           1                0.000710
+                    1                0.000170
+                    1                0.000440
+                    2                0.000462
+                    2                0.000269
+                    2                0.000076
+                    3                0.000462
+                    3                0.000269
+                    3                0.000076
+        2           1                0.000703
+                    1                0.000111
+                    1                0.000407
+                    2                0.000636
+                    2                0.000366
+                    2                0.000095
+                    3                0.000636
+                    3                0.000366
+                    3                0.000095
+
+[432 rows x 1 columns]
+INFO:root:    shape: onshore
+INFO:root:    shape: Commercial Space Heating
+INFO:root:    shape: offshore
+INFO:root:    shape: Commercial LightingInternal
+INFO:root:    shape: Industrial MachineDrives
+INFO:root:    shape: Commercial WaterHeating
+INFO:root:    shape: pv Distribution-Sited
+INFO:root:    shape: lighting
+INFO:root:    shape: Commercial Space Cooling
+INFO:root:    shape: water heating (gas)
+INFO:root:    shape: hydro
+INFO:root:    shape: Commercial Refrigeration
+INFO:root: mapping data for:
+INFO:root:    shape: clothes washing
+INFO:root:    shape: Commercial Cooking
+INFO:root:    shape: Commercial OfficeEquipment
+INFO:root:    shape: Industrial
+INFO:root:    shape: csp trough_e_net
+INFO:root:    shape: other appliances
+INFO:root:    shape: residential refrigeration
+INFO:root:    shape: Streetlights
+INFO:root:    shape: system load
+INFO:root:    shape: clothes drying (electric)
+INFO:root:    shape: space heating (gas)
+INFO:root:    shape: Commercial Ventilation
+INFO:root:    shape: Residential Space Cooling
+INFO:root:    shape: pv Rooftop
+INFO:root:    shape: residential freezing
+INFO:root:    shape: Agriculture
+INFO:root:    shape: dishwashing
+INFO:root:    shape: pv Transmission-Sited
+INFO:root:    shape: residential cooking
+INFO:root:    shape: EV
+INFO:root:    shape: onshore
+INFO:root:    shape: Commercial Space Heating
+INFO:root:    shape: offshore
+INFO:root:    shape: Commercial LightingInternal
+INFO:root:    shape: Industrial MachineDrives
+INFO:root:    shape: Commercial WaterHeating
+INFO:root:    shape: pv Distribution-Sited
+INFO:root:    shape: lighting
+INFO:root:    shape: Commercial Space Cooling
+INFO:root:    shape: water heating (gas)
+INFO:root:    shape: hydro
+INFO:root:    shape: Commercial Refrigeration
+INFO:root:Pickling shapes
