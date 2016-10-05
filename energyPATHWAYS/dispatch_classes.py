@@ -952,8 +952,8 @@ class Dispatch(object):
                                              )]
                                            )
 
-                Dispatch.nested_dict(start_soc, [p, t], np.floor(instance.Energy_in_Storage[t, p].value*1E10)/1E10)
-                Dispatch.nested_dict(end_soc, [p, t], np.floor((instance.Energy_in_Storage[t, p].value - (instance.Discharge[t, p].value-instance.Charge[t, p].value))*1E10)/1E10)
+                Dispatch.nested_dict(start_soc, [p, t], np.floor(instance.Energy_in_Storage[t, p].value*1E7)/1E7)
+                Dispatch.nested_dict(end_soc, [p, t], np.floor((instance.Energy_in_Storage[t, p].value - (instance.Discharge[t, p].value-instance.Charge[t, p].value))*1E7)/1E77)
                 
         state_of_charge = [start_soc, end_soc]
         return state_of_charge

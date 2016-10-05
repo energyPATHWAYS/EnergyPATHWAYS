@@ -603,7 +603,7 @@ class Supply(object):
                         feeder_list.append(dispatch)
                     self.update_net_load_signal()
                     geography_list.append(pd.concat(feeder_list))
-            node_list.append(pd.concat(geography_list, keys=cfg.dispatch_geographies, names=[cfg.dispatch_geography]))
+            node_list.append(pd.concat(geography_list, keys=lookup[node_id].keys(), names=[cfg.dispatch_geography]))
             df = pd.concat(node_list,keys=[x for x in self.dispatch.dispatch_order if x in self.nodes.keys()],names=['supply_node'])
         df = pd.concat([df],keys=[year],names=['year'])
         if year in self.dispatch_write_years:
@@ -1023,16 +1023,17 @@ class Supply(object):
                 if hasattr(node,'active_dispatch_costs'):
                     active_dispatch_costs = node.active_dispatch_costs
                     #TODO Remove 1 is the Reference Case
-                    if self.case_id == 1:
-                        co2_price = 40
-                    else:
-                        co2_price = 500
+#                    if self.case_id == 1:
+                    co2_price = 10
+#                    else:
+#                        co2_price = 500
                     if hasattr(node,'active_physical_emissions_coefficients') and hasattr(node,'active_co2_capture_rate'):    
                         total_physical =node.active_physical_emissions_coefficients.groupby(level='supply_node').sum().stack().stack().to_frame()
                         emissions_rate = util.DfOper.mult([node.stock.dispatch_coefficients.loc[:,year].to_frame(), util.DfOper.divi([total_physical,node.active_coefficients_untraded]).replace([np.inf,np.nan],0)])
                         emissions_rate = util.remove_df_levels(emissions_rate,'supply_node')
                         emissions_rate = util.remove_df_levels(emissions_rate,[x for x in emissions_rate.index.names if x not in node.stock.values.index.names],agg_function='mean')
-                        co2_cost = util.DfOper.mult([emissions_rate, 1-node.rollover_output(tech_class = 'co2_capture', stock_att='exist',year=year)]) * co2_price * max((year-2015),0)/(max(self.years)-2015) * util.unit_conversion(unit_from_den='ton',unit_to_den=cfg.cfgfile.get('case','mass_unit'))[0]
+                        co2_cost = util.DfOper.mult([emissions_rate, 1-node.rollover_output(tech_class = 'co2_capture', stock_att='exist',year=year)]) * co2_price * util.unit_conversion(unit_from_den='ton',unit_to_den=cfg.cfgfile.get('case','mass_unit'))[0]
+#                        * max((year-2015),0)/(max(self.years)-2015) 
                         active_dispatch_costs = util.DfOper.add([node.active_dispatch_costs ,co2_cost])
                     stock_values = node.stock.values.loc[:,year].to_frame()
                     stock_values = stock_values[((stock_values.index.get_level_values('vintage')==year) == True) | ((stock_values[year]>0) == True)]
@@ -3304,8 +3305,11 @@ class SupplyNode(Node,StockItem):
         if len(names)>1:
             self.rollover_groups = self.stock.total.groupby(level=names).groups
         else:
-            groups_list =  [util.ensure_tuple(x[0]) for x in levels]
-            self.rollover_groups= dict(zip(groups_list,groups_list))
+            #TODO Ryan List Comprehension
+            item_list = levels[0]
+            self.rollover_groups = dict()
+            for x in item_list:
+                self.rollover_groups[(x,)] = (x,)
         full_levels = self.rollover_group_levels + [[self.vintages[0] - 1] + self.vintages]
         full_names = self.rollover_group_names + ['vintage']
         index = pd.MultiIndex.from_product(full_levels, names=full_names)
@@ -4969,7 +4973,8 @@ class SupplyStockNode(Node):
                         self.technologies.values() if
                             hasattr(getattr(tech, tech_class), tech_att) and getattr(getattr(tech, tech_class),tech_att) is not None])
         if len(tech_dfs):
-            tech_df = pd.concat(tech_dfs)
+            first_tech_order = tech_dfs[0].index.names
+            tech_df = pd.concat([x.reorder_levels(first_tech_order) for x in tech_dfs])
             tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names]+ [x for x in tech_df.index.names if x not in stock_df.index.names])
             tech_df = tech_df.sort()            
             if year in stock_df.columns.values:

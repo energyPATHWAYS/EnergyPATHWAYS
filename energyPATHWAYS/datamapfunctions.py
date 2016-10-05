@@ -175,7 +175,6 @@ class DataMapFunctions:
         mapf = getattr(self, map_from)
         if current_geography not in (mapf.index.names if mapf.index.nlevels > 1 else [mapf.index.name]):
             raise ValueError('current geography does not match the geography of the dataframe in remap')
-
         if current_data_type == 'total' and len(cfg.geo.geographies_unfiltered[current_geography])!=len(util.get_elements_from_level(getattr(self,map_to),current_geography)):
             setattr(self, map_to, util.reindex_df_level_with_new_elements(getattr(self,map_to), current_geography, cfg.geo.geographies_unfiltered[current_geography], fill_value=fill_value))
         if (drivers is None) or (not len(drivers)):
@@ -187,19 +186,23 @@ class DataMapFunctions:
                 current_geography = converted_geography
         else:
             self.total_driver = DfOper.mult(util.put_in_list(drivers))
-            if current_data_type == 'total':
-                if current_geography != converted_geography:
-                    # While not on primary geography, geography does have some information we would like to preserve
-                    self.geomapped_total_driver = self.geo_map(current_geography, attr='total_driver', inplace=False, current_geography=converted_geography,
-                             current_data_type='total', fill_value=fill_value,filter_geo=False)
-                # Divide by drivers to turn a total to intensity. multindex_operation will aggregate to common levels.
+            if current_geography != converted_geography and len(drivers)<=1:
+                # While not on primary geography, geography does have some information we would like to preserve
+                self.geomapped_total_driver = self.geo_map(current_geography, attr='total_driver', inplace=False, current_geography=converted_geography,
+                         current_data_type='total', fill_value=fill_value,filter_geo=False)
+            elif current_geography!=converted_geography:
+                self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
+                         current_data_type=current_data_type, fill_value=fill_value)
+                current_geography = converted_geography
+            # Divide by drivers to turn a total to intensity. multindex_operation will aggregate to common levels.
+            if current_data_type == 'total' :
                 df_intensity = DfOper.divi((getattr(self, map_to),  self.geomapped_total_driver if hasattr(self,'geomapped_total_driver') else self.total_driver), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf,np.nan,-np.nan],0)
                 setattr(self, map_to, df_intensity)
+                self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
+                         current_data_type='intensity', fill_value=fill_value,filter_geo=filter_geo)
                 if hasattr(self,'geomapped_total_driver'):
                     delattr(self,'geomapped_total_driver')
-            self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
-                             current_data_type='intensity', fill_value=fill_value,filter_geo=filter_geo)
-            current_geography = converted_geography
+                current_geography = converted_geography
             # Clean the timeseries as an intensity
             if fill_timeseries:
                 # print getattr(self,map_to)
@@ -207,9 +210,9 @@ class DataMapFunctions:
                 self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method)
 
             if current_data_type == 'total':
-                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver),fill_value=fill_value))
+                setattr(self, map_to, DfOper.mult((getattr(self, map_to), self.total_driver),fill_value=fill_value))
             else:
-                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver), expandable=(True, False),
+                setattr(self, map_to, DfOper.mult((getattr(self, map_to), self.total_driver), expandable=(True, False),
                                                   collapsible=(False, True),fill_value=fill_value))
         self.ensure_correct_geography(map_to, converted_geography, current_geography, current_data_type,filter_geo=filter_geo)
 

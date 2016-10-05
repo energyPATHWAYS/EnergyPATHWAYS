@@ -194,7 +194,10 @@ class SupplyTechInvestmentCost(SupplyTechCost):
         self.vintages = vintages
         self.years = years
         if self.data and self.raw_values is not None:
-            self.convert()
+            if self.definition == 'absolute': 
+                self.convert()
+            else:
+                self.values = copy.deepcopy(self.raw_values)
             try:
                 self.remap(map_from='values', map_to='values', time_index_name='vintage')
             except:
