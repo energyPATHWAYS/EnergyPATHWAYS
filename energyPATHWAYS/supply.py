@@ -1024,7 +1024,7 @@ class Supply(object):
                     active_dispatch_costs = node.active_dispatch_costs
                     #TODO Remove 1 is the Reference Case
 #                    if self.case_id == 1:
-                    co2_price = 10
+                    co2_price = 20
 #                    else:
 #                        co2_price = 500
                     if hasattr(node,'active_physical_emissions_coefficients') and hasattr(node,'active_co2_capture_rate'):    
@@ -4061,7 +4061,7 @@ class SupplyStockNode(Node):
             levels = self.stock.rollover_group_levels + [self.years]
             names = self.stock.rollover_group_names + ['year'] 
             index = pd.MultiIndex.from_product(levels,names=names)
-            self.stock.remap(map_from='raw_values', map_to='total',fill_timeseries=True, fill_value=np.nan)  
+            self.stock.remap(map_from='raw_values', map_to='total', time_index = self.years,fill_timeseries=True, fill_value=np.nan)  
             #TODO add to clean timeseries. Don't allow filling of timseries before raw values.
             self.stock.total[self.stock.total.index.get_level_values('year')<min(self.stock.raw_values.index.get_level_values('year'))] = np.nan
             self.convert_stock('stock', 'total')

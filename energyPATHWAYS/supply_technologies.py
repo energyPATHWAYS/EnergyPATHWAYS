@@ -161,7 +161,6 @@ class StorageTechnology(SupplyTechnology):
 class SupplyTechCost(Abstract):
     def __init__(self, id, sql_id_table, sql_data_table, book_life=None, **kwargs):
         self.id = id
-        self.name = sql_data_table
         self.input_type = 'intensity'
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
