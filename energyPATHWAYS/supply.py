@@ -4109,6 +4109,7 @@ class SupplyStockNode(Node):
     def max_total(self):
         tech_sum = util.remove_df_levels(self.stock.technology,'supply_technology')
 #        self.stock.total = self.stock.total.fillna(tech_sum)
+        pdb.set_trace()
         self.stock.total[self.stock.total<tech_sum] = tech_sum
                 
     def format_rollover_stocks(self):

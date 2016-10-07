@@ -222,7 +222,7 @@ def init_output_levels():
 def init_outputs_id_map():
     global outputs_id_map
     outputs_id_map[primary_geography] = util.upper_dict(geo.geography_names.items())
-    outputs_id_map[primary_geography+"_supply"] =  outputs_id_map[primary_geography]       
+    outputs_id_map[primary_geography+"_supply"] =  outputs_id_map[primary_geography]     
     outputs_id_map['technology'] = util.upper_dict(util.sql_read_table('DemandTechs', ['id', 'name']))
     outputs_id_map['supply_technology'] = util.upper_dict(util.sql_read_table('SupplyTechs', ['id', 'name']))
     outputs_id_map['final_energy'] = util.upper_dict(util.sql_read_table('FinalEnergy', ['id', 'name']))

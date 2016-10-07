@@ -150,7 +150,7 @@ class DataMapFunctions:
             self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type=current_data_type)
 
         if filter_geo:
-           setattr(self,map_to, cfg.geo.filter_extra_geos_from_df(getattr(self,map_to)))
+           setattr(self, map_to, cfg.geo.filter_extra_geos_from_df(getattr(self, map_to)))
 
 
     def remap(self, map_from='raw_values', map_to='values', drivers=None, time_index_name='year',

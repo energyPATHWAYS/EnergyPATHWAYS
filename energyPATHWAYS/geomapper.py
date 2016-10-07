@@ -98,16 +98,22 @@ class GeoMapper:
         # sortlevel sorts all of the indicies so that we can slice the dataframe
         self.values = self.values.sort()
 
-    def log_geo_subset(self, primary_subset_id=None):
+    def log_geo_subset(self):
         """
         get a positional index in self.values (geomap table) that describes the primary_subset geography
         """
-        primary_subset_id = cfg.primary_subset_id if primary_subset_id is None else primary_subset_id
-        if primary_subset_id:
-            logging.info('Filtering geomapping table')
-            for id in primary_subset_id:
+        logging.info('Primary geography is {}'.format(self.id_to_geography[cfg.primary_geography_id]))
+        logging.info('Dispatch geography is {}'.format(self.id_to_geography[cfg.dispatch_geography_id]))
+        if cfg.primary_subset_id:
+            logging.info('Geomap table will be filtered')
+            for id in cfg.primary_subset_id:
                 logging.info(' analysis will include the {} {}'.format(self.gau_to_geography[id], self.geography_names[id]))
-
+        
+        if cfg.breakout_geography_id:
+            logging.info('Breakout geographies will be used')
+            for id in cfg.breakout_geography_id:
+                logging.info(' analysis will include the {} {}'.format(self.gau_to_geography[id], self.geography_names[id]))
+    
     def _get_iloc_geo_subset(self, df, primary_subset_id=None):
         """
         get a positional index in self.values (geomap table) that describes the primary_subset geography
@@ -148,12 +154,13 @@ class GeoMapper:
         """
         Potential to create one for primary geography and one for dispatch geography
         """
-        if cfg.breakout_geography_id:
-            primary_geography_composite = self.get_primary_geography_name()
-            self._create_composite_geography_level(primary_geography_composite, self.id_to_geography[cfg.primary_geography_id], cfg.breakout_geography_id)
-        if cfg.dispatch_breakout_geography_id:
-            dispatch_geography_composite = self.get_dispatch_geography_name()
-            self._create_composite_geography_level(dispatch_geography_composite, self.id_to_geography[cfg.dispatch_geography_id], cfg.dispatch_breakout_geography_id)
+        primary_geography_name = self.get_primary_geography_name()
+        if cfg.breakout_geography_id and (primary_geography_name not in self.values.index.names):
+            self._create_composite_geography_level(primary_geography_name, self.id_to_geography[cfg.primary_geography_id], cfg.breakout_geography_id)
+        
+        dispatch_geography_name = self.get_dispatch_geography_name()
+        if cfg.dispatch_breakout_geography_id and (dispatch_geography_name not in self.values.index.names):
+            self._create_composite_geography_level(dispatch_geography_name, self.id_to_geography[cfg.dispatch_geography_id], cfg.dispatch_breakout_geography_id)
         
     def map_df(self, current_geography, converted_geography, normalize_as='total', map_key=None, reset_index=False,
                eliminate_zeros=True, primary_subset_id='from config', geomap_data='from self',filter_geo=True):
@@ -216,13 +223,17 @@ class GeoMapper:
             return df
 
     def get_primary_geography_name(self):
+        name = self.id_to_geography[cfg.primary_geography_id]
         if cfg.breakout_geography_id:
-            return 'primary geography {} composite'.format(self.id_to_geography[cfg.primary_geography_id])
-        else:
-            return self.id_to_geography[cfg.primary_geography_id]
+            name +=' with breakout ids {}'.format(cfg.breakout_geography_id)
+#        if cfg.primary_subset_id:
+#            name += ' with subset ids {}'.format(cfg.primary_subset_id)
+        return name
 
     def get_dispatch_geography_name(self):
+        name = self.id_to_geography[cfg.dispatch_geography_id]
         if cfg.dispatch_breakout_geography_id:
-            return 'dispatch geography {} composite'.format(self.id_to_geography[cfg.dispatch_geography_id])
-        else:
-            return self.id_to_geography[cfg.dispatch_geography_id]
+            name +=' with breakout ids {}'.format(cfg.dispatch_breakout_geography_id)
+#        if cfg.primary_subset_id:
+#            name += ' with subset ids {}'.format(cfg.primary_subset_id)
+        return name

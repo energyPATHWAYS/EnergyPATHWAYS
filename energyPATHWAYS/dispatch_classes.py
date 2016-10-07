@@ -122,7 +122,6 @@ class DispatchNodeConfig(DataMapFunctions):
     def __init__(self, id, **kwargs):
         self.id = id
         self.sql_id_table = 'DispatchNodeConfig'
-#        self.sql_data_table = 'DispatchNodeData'
         for col, att in util.object_att_from_table(self.sql_id_table, id, primary_key='supply_node_id'):
             setattr(self, col, att)
 

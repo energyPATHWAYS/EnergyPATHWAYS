@@ -176,7 +176,7 @@ class Shape(dmf.DataMapFunctions):
             # reindex to remove the helper columns
             self.values.index = self.values.index.droplevel(self._active_time_keys)
         
-        self.values = self.values.swaplevel('weather_datetime', -1).sort_index()
+        self.values = cfg.geo.filter_extra_geos_from_df(self.values.swaplevel('weather_datetime', -1).sort())
         self.geomap_to_time_zone()
         self.localize_shapes()
         self.standardize_time_across_timezones()
