@@ -9,11 +9,12 @@ import util
 from collections import OrderedDict, defaultdict
 import textwrap
 import logging
+import pdb
 
 class GeoMapper:
     def __init__(self):
         self.geographies = OrderedDict()
-        self.geography_names = dict(util.sql_read_table('GeographiesData', ['id', 'name'], return_unique=True, return_iterable=True))
+        self.geography_names = dict(util.sql_read_table('GeographiesData', ['id', 'name'], return_unique=True, return_iterable=True)) # this is used for outputs
         self.timezone_names = {}
         self.map_keys = []
 
@@ -98,7 +99,7 @@ class GeoMapper:
         # sortlevel sorts all of the indicies so that we can slice the dataframe
         self.values = self.values.sort()
 
-    def log_geo_subset(self):
+    def log_geo(self):
         """
         get a positional index in self.values (geomap table) that describes the primary_subset geography
         """
@@ -140,15 +141,18 @@ class GeoMapper:
 
     def _create_composite_geography_level(self, new_level_name, base_geography, breakout_geography_id):
         base_gaus = np.array(self.values.index.get_level_values(base_geography), dtype=int)
-        
+        impacted_gaus = set()
         for id in breakout_geography_id:
             index = np.nonzero(self.values.index.get_level_values(self.gau_to_geography[id])==id)[0]
+            impacted_gaus = impacted_gaus | set(base_gaus[index])
             base_gaus[index] = id
         
         self.values[new_level_name] = base_gaus
         self.values = self.values.set_index(new_level_name, append=True)
         # add to self.geographies
         self.geographies[new_level_name] = list(set(self.values.index.get_level_values(new_level_name)))
+        # update geography names for outputs
+        self.geography_names.update(dict(zip(impacted_gaus, ['other ' + self.geography_names[impacted_gau] for impacted_gau in impacted_gaus])))
 
     def _create_composite_geography_levels(self):
         """
@@ -237,3 +241,60 @@ class GeoMapper:
 #        if cfg.primary_subset_id:
 #            name += ' with subset ids {}'.format(cfg.primary_subset_id)
         return name
+
+    def get_native_current_foreign_gaus(self, df, current_geography):
+        native_gaus = set(self.geographies_unfiltered[current_geography])
+        current_gaus = set(df.index.get_level_values(current_geography))
+        foreign_gaus = current_gaus - native_gaus
+        return native_gaus, current_gaus, foreign_gaus
+
+    def incorporate_foreign_gaus(self, df, current_geography, data_type, map_key):
+        native_gaus, current_gaus, foreign_gaus = self.get_native_current_foreign_gaus(df, current_geography)
+        
+        # we don't have any foreign gaus
+        if not foreign_gaus or not cfg.include_foreign_gaus:
+            return df, current_geography
+        
+        index_with_nans = [df.index.names[i] for i in set(np.nonzero([np.isnan(row) for row in df.index.get_values()])[1])]
+        if index_with_nans and (cfg.keep_oth_index_over_oth_gau or data_type=='intensity'):
+            return self.filter_foreign_gaus(df, current_geography), current_geography
+        else:
+            assert ('year' not in index_with_nans) and ('vintage' not in index_with_nans) and (current_geography not in index_with_nans)
+            # we need to eliminate levels with nan before moving on
+            df = util.remove_df_levels(df, index_with_nans)
+        
+        base_gaus = np.array(self.values.index.get_level_values(current_geography), dtype=int)
+        for id in foreign_gaus:
+            foreign_geography = self.gau_to_geography[id]
+            index = np.nonzero(self.values.index.get_level_values(self.gau_to_geography[id])==id)[0]
+            impacted_gaus = list(set(base_gaus[index]))
+            
+            # if the data_type is a total, we need to net out the total from the neighboring
+            if data_type=='total':
+                
+                allocation = self.map_df(foreign_geography, current_geography, normalize_as=data_type, map_key=map_key, primary_subset_id=[id])
+            
+            base_gaus[index] = id
+
+#        self.values[new_level_name] = base_gaus
+#        self.values = self.values.set_index(new_level_name, append=True)
+#        # add to self.geographies
+#        self.geographies[new_level_name] = list(set(self.values.index.get_level_values(new_level_name)))
+
+    def filter_foreign_gaus(self, df, current_geography):
+        """ Remove foreign gaus from the dataframe
+        """
+        native_gaus, current_gaus, foreign_gaus = self.get_native_current_foreign_gaus(df, current_geography)
+        if foreign_gaus:
+            # if the index has nans, we need to be careful about data types
+            index_with_nans = [df.index.names[i] for i in set(np.nonzero([np.isnan(row) for row in df.index.get_values()])[1])]
+            indexer = util.level_specific_indexer(df, current_geography, [list(current_gaus-foreign_gaus)])
+            index_names = df.index.names
+            df = df.loc[indexer].reset_index()
+            df[index_with_nans] = df[index_with_nans].values.astype(int)
+            df = df.set_index(index_names)
+            # we shouldn't have any nans (or anything but integers in the index)
+            assert not any([any(np.isnan(row)) for row in df.index.get_values()])
+        return df
+        
+        

@@ -207,7 +207,7 @@ class Demand(object):
             if not base_driver.mapped:
                 # If a driver hasn't been mapped, recursion is uesd to map it first (this can go multiple layers)
                 self.remap_driver(base_driver)
-            driver.remap(drivers=base_driver.values,filter_geo=False)
+            driver.remap(drivers=base_driver.values, filter_geo=False)
         else:
             driver.remap(filter_geo=False)
         # Now that it has been mapped, set indicator to true
@@ -2186,12 +2186,10 @@ class Subsector(DataMapFunctions):
                         None)
                     # TODO address the discrepancy when a demand tech is specified
                     try:
-                        ss_array[:, repl_index, reti_index] += util.df_slice(sales_share.values, elements,
-                                                                             levels).values
+                        ss_array[:, repl_index, reti_index] += util.df_slice(sales_share.values, elements, levels).values
                     except:
-                        ss_array[:, repl_index, reti_index] += util.df_slice(sales_share.values, elements,
-                                                                             levels).values.flatten()
-
+                        ss_array[:, repl_index, reti_index] += util.df_slice(sales_share.values, elements, levels).values.flatten()
+                        
             ss_array = SalesShare.cap_array_at_1(ss_array)
         return ss_array
 

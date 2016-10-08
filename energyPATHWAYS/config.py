@@ -48,7 +48,7 @@ primary_geography_id = None
 primary_subset_id = None
 breakout_geography_id = None
 geographies = None
-
+include_foreign_gaus = None
 dispatch_geography = None
 dispatch_geography_id = None
 dispatch_subset_id = None
@@ -165,7 +165,7 @@ def init_units(pint_definitions_path):
 def init_geo():
     #Geography conversions
     global geo, primary_geography, primary_geography_id, geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id
-    global primary_subset_id, breakout_geography_id, dispatch_breakout_geography_id
+    global primary_subset_id, breakout_geography_id, dispatch_breakout_geography_id, include_foreign_gaus
     
     # from config file
     primary_geography_id = int(cfgfile.get('case', 'primary_geography_id'))
@@ -173,6 +173,8 @@ def init_geo():
     breakout_geography_id = [int(g) for g in cfgfile.get('case', 'breakout_geography_id').split(',') if len(g)]
     dispatch_geography_id = int(cfgfile.get('case', 'dispatch_geography_id'))
     dispatch_breakout_geography_id = [int(g) for g in cfgfile.get('case', 'dispatch_breakout_geography_id').split(',') if len(g)]
+    include_foreign_gaus = True if cfgfile.get('case', 'include_foreign_gaus').lower()=='true' else False
+    keep_oth_index_over_oth_gau = True if cfgfile.get('case', 'keep_oth_index_over_oth_gau').lower()=='true' else False
     
     # geography conversion object
     geo = geomapper.GeoMapper()
@@ -231,8 +233,6 @@ def init_outputs_id_map():
     outputs_id_map['subsector'] = util.upper_dict(util.sql_read_table('DemandSubsectors', ['id', 'name']))           
     outputs_id_map['sector'] = util.upper_dict(util.sql_read_table('DemandSectors', ['id', 'name']))
     outputs_id_map['ghg'] = util.upper_dict(util.sql_read_table('GreenhouseGases', ['id', 'name']))
-    outputs_id_map['driver'] = util.upper_dict(util.sql_read_table('DemandDrivers', ['id', 'name']))
-
     outputs_id_map['driver'] = util.upper_dict(util.sql_read_table('DemandDrivers', ['id', 'name']))
     outputs_id_map[dispatch_geography] = util.upper_dict(util.sql_read_table('GeographiesData', ['id', 'name'], geography_id=dispatch_geography_id, return_unique=True, return_iterable=True))
     outputs_id_map['dispatch_feeder'] = util.upper_dict(util.sql_read_table('DispatchFeeders', ['id', 'name']))
