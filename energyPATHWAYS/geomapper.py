@@ -146,6 +146,9 @@ class GeoMapper:
             index = np.nonzero(self.values.index.get_level_values(self.gau_to_geography[id])==id)[0]
             impacted_gaus = impacted_gaus | set(base_gaus[index])
             base_gaus[index] = id
+
+        if any(impacted in breakout_geography_id for impacted in impacted_gaus):
+            raise ValueError('breakout geographies in config cannot overlap geographically')
         
         self.values[new_level_name] = base_gaus
         self.values = self.values.set_index(new_level_name, append=True)
@@ -226,21 +229,18 @@ class GeoMapper:
         else:
             return df
 
+    def make_new_geography_name(self, base_geography, breakout_ids=None):
+        if breakout_ids:
+            base_geography +=' with breakout ids {}'.format(sorted(util.ensure_iterable_and_not_string(breakout_ids)))
+        return base_geography
+
     def get_primary_geography_name(self):
-        name = self.id_to_geography[cfg.primary_geography_id]
-        if cfg.breakout_geography_id:
-            name +=' with breakout ids {}'.format(cfg.breakout_geography_id)
-#        if cfg.primary_subset_id:
-#            name += ' with subset ids {}'.format(cfg.primary_subset_id)
-        return name
+        return self.make_new_geography_name(self.id_to_geography[cfg.primary_geography_id],
+                                            cfg.breakout_geography_id)
 
     def get_dispatch_geography_name(self):
-        name = self.id_to_geography[cfg.dispatch_geography_id]
-        if cfg.dispatch_breakout_geography_id:
-            name +=' with breakout ids {}'.format(cfg.dispatch_breakout_geography_id)
-#        if cfg.primary_subset_id:
-#            name += ' with subset ids {}'.format(cfg.primary_subset_id)
-        return name
+        return self.make_new_geography_name(self.id_to_geography[cfg.dispatch_geography_id],
+                                            cfg.dispatch_breakout_geography_id)
 
     def get_native_current_foreign_gaus(self, df, current_geography):
         native_gaus = set(self.geographies_unfiltered[current_geography])
@@ -268,32 +268,51 @@ class GeoMapper:
             foreign_geography = self.gau_to_geography[id]
             index = np.nonzero(self.values.index.get_level_values(self.gau_to_geography[id])==id)[0]
             impacted_gaus = list(set(base_gaus[index]))
+            base_gaus[index] = id
+            if any(impacted in foreign_gaus for impacted in impacted_gaus):
+                raise ValueError('foreign gaus in the database cannot overlap geographically')
             
             # if the data_type is a total, we need to net out the total from the neighboring
             if data_type=='total':
-                
+                pdb.set_trace()
+                # we first need to do a clean time series
+                # then we need to allocate out and subtract
                 allocation = self.map_df(foreign_geography, current_geography, normalize_as=data_type, map_key=map_key, primary_subset_id=[id])
+                # take the df slice for id, multiply by allocation then pull out the impacted gaus and subtract. if we don't have all they years, we will have nans for some of the values
             
-            base_gaus[index] = id
+        
+        assert not any([any(np.isnan(row)) for row in df.index.get_values()])
+        new_geography_name = self.make_new_geography_name(current_geography, list(foreign_gaus))
 
-#        self.values[new_level_name] = base_gaus
-#        self.values = self.values.set_index(new_level_name, append=True)
-#        # add to self.geographies
-#        self.geographies[new_level_name] = list(set(self.values.index.get_level_values(new_level_name)))
+        self.values[new_geography_name] = base_gaus
+        self.values = self.values.set_index(new_geography_name, append=True)
+        # add to self.geographies
+        self.geographies[new_geography_name] = list(set(self.values.index.get_level_values(new_level_name)))
+        return df, new_geography_name
 
-    def filter_foreign_gaus(self, df, current_geography):
+    def filter_foreign_gaus(self, df, current_geography, foreign_gaus=None):
         """ Remove foreign gaus from the dataframe
         """
-        native_gaus, current_gaus, foreign_gaus = self.get_native_current_foreign_gaus(df, current_geography)
-        if foreign_gaus:
-            # if the index has nans, we need to be careful about data types
-            index_with_nans = [df.index.names[i] for i in set(np.nonzero([np.isnan(row) for row in df.index.get_values()])[1])]
-            indexer = util.level_specific_indexer(df, current_geography, [list(current_gaus-foreign_gaus)])
-            index_names = df.index.names
-            df = df.loc[indexer].reset_index()
-            df[index_with_nans] = df[index_with_nans].values.astype(int)
-            df = df.set_index(index_names)
-            # we shouldn't have any nans (or anything but integers in the index)
+        ncf = self.get_native_current_foreign_gaus(df, current_geography)
+        foreign_gaus = ncf[2] if foreign_gaus is None else foreign_gaus
+        current_gaus = ncf[1]
+        assert len(foreign_gaus - current_gaus) == 0
+        
+        if not foreign_gaus:
+            return df
+        
+        # if the index has nans, we need to be careful about data types
+        index_with_nans_before = [df.index.names[i] for i in set(np.nonzero([np.isnan(row) for row in df.index.get_values()])[1])]
+        indexer = util.level_specific_indexer(df, current_geography, [list(current_gaus-foreign_gaus)])
+        index_names = df.index.names
+        df = df.loc[indexer]
+        index_with_nans_after = [df.index.names[i] for i in set(np.nonzero([np.isnan(row) for row in df.index.get_values()])[1])]
+        df = df.reset_index()
+        index_without_nans_anymore = list(set(index_with_nans_before) - set(index_with_nans_after))
+        df[index_without_nans_anymore] = df[index_without_nans_anymore].values.astype(int)
+        df = df.set_index(index_names)
+        # we shouldn't have any nans (or anything but integers in the index)
+        if tuple(sorted(foreign_gaus)) == tuple(sorted(ncf[2])):
             assert not any([any(np.isnan(row)) for row in df.index.get_values()])
         return df
         

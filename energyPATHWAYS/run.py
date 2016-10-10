@@ -161,7 +161,7 @@ if __name__ == "__main__":
     # Output.writeobj(model)
 
 
-self = model.demand.drivers[1]
+#self = model.demand.drivers[1]
 
 #self = cfg.geo
 #current_geography = 'census division'

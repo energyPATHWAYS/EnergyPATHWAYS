@@ -563,6 +563,8 @@ class Subsector(DataMapFunctions):
                 """
 
         cfg.cur.execute(query, (self.id, case_id))
+        if cfg.cur.rowcount > 1:
+            pdb.set_trace()
         assert cfg.cur.rowcount <= 1,\
             "More than one DemandCasesData row found for subsector %i, case %i." % (self.id, case_id)
         result = cfg.cur.fetchone()
@@ -2715,9 +2717,6 @@ class Subsector(DataMapFunctions):
                 tech_df['final_energy'] = final_energy_id
                 tech_df.set_index('final_energy', append=True, inplace=True)
             return tech_df
-
-
-
 
     def calculate_energy_stock(self):
         """
