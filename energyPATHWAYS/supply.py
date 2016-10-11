@@ -751,7 +751,7 @@ class Supply(object):
             self.transmission_losses =  util.remove_df_levels(DfOper.mult([coefficients,map_df]),cfg.primary_geography)
         else:
             self.transmission_losses = coefficients
-        coefficients = util.remove_df_levels(coefficients,'demand_sector',agg_function='mean')
+        self.transmission_losses = util.remove_df_levels(self.transmission_losses,'demand_sector',agg_function='mean')
     
     def set_net_load_thresholds(self, year):
         distribution_grid_node = self.nodes[self.distribution_grid_node_id]
@@ -965,6 +965,7 @@ class Supply(object):
         self.prepare_thermal_dispatch_nodes(year,loop)
         self.prepare_electricity_storage_nodes(year,loop)
         self.set_distribution_losses(year)
+        self.set_transmission_losses(year)
         self.set_shapes(year)
         self.set_initial_net_load_signals(year)
         
@@ -1550,7 +1551,7 @@ class Supply(object):
         self.dist_only_net_load =  DfOper.subt([self.distribution_load,self.distribution_gen])
         self.bulk_only_net_load = DfOper.subt([DfOper.mult([self.bulk_load,self.transmission_losses]),self.bulk_gen])
         self.bulk_net_load = DfOper.add([DfOper.mult([util.remove_df_levels(DfOper.mult([self.dist_only_net_load,self.distribution_losses]),'dispatch_feeder'),self.transmission_losses]),self.bulk_only_net_load])                      
-        self.dist_net_load_no_feeders = DfOper.add([DfOper.div([DfOper.divi([self.bulk_only_net_load,util.remove_df_levels(self.distribution_losses,'dispatch_feeder',agg_function='mean')]),self.transmission_losses]), util.remove_df_levels(self.dist_only_net_load,'dispatch_feeder')])
+        self.dist_net_load_no_feeders = DfOper.add([DfOper.divi([DfOper.divi([self.bulk_only_net_load,util.remove_df_levels(self.distribution_losses,'dispatch_feeder',agg_function='mean')]),self.transmission_losses]), util.remove_df_levels(self.dist_only_net_load,'dispatch_feeder')])
             
     def calculate_embodied_costs(self, year, loop):
         """Calculates the embodied emissions for all supply nodes by multiplying each node's
