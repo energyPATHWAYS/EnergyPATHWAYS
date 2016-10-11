@@ -175,7 +175,6 @@ def init_geo():
     dispatch_geography_id = int(cfgfile.get('case', 'dispatch_geography_id'))
     dispatch_breakout_geography_id = [int(g) for g in cfgfile.get('case', 'dispatch_breakout_geography_id').split(',') if len(g)]
     include_foreign_gaus = True if cfgfile.get('case', 'include_foreign_gaus').lower()=='true' else False
-    keep_oth_index_over_oth_gau = True if cfgfile.get('case', 'keep_oth_index_over_oth_gau').lower()=='true' else False
     
     # geography conversion object
     geo = geomapper.GeoMapper()

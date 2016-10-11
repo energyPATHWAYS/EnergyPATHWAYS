@@ -11,9 +11,9 @@ from collections import OrderedDict
 import os
 import copy
 import time
-from pprint import pprint
 from util import DfOper
 import logging
+import pdb
 
 
 class DataMapFunctions:
@@ -224,8 +224,10 @@ class DataMapFunctions:
             if current_data_type == 'total':
                 setattr(self, map_to, DfOper.mult((getattr(self, map_to), self.total_driver),fill_value=fill_value))
             else:
-                setattr(self, map_to, DfOper.mult((getattr(self, map_to), self.total_driver), expandable=(True, False),
-                                                  collapsible=(False, True),fill_value=fill_value))
+                try:
+                    setattr(self, map_to, DfOper.mult((getattr(self, map_to), self.total_driver), expandable=(True, False), collapsible=(False, True), fill_value=fill_value))
+                except:
+                    pdb.set_trace()
         self.ensure_correct_geography(map_to, converted_geography, current_geography, current_data_type,filter_geo=filter_geo)
 
 
