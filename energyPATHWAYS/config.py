@@ -222,9 +222,7 @@ def init_output_levels():
         output_combined_levels.remove(primary_geography + "_supply")
 
 def init_outputs_id_map():
-    global outputs_id_map
-    outputs_id_map[primary_geography] = util.upper_dict(geo.geography_names.items())
-    outputs_id_map[primary_geography+"_supply"] =  outputs_id_map[primary_geography]     
+    global outputs_id_map    
     outputs_id_map['technology'] = util.upper_dict(util.sql_read_table('DemandTechs', ['id', 'name']))
     outputs_id_map['supply_technology'] = util.upper_dict(util.sql_read_table('SupplyTechs', ['id', 'name']))
     outputs_id_map['final_energy'] = util.upper_dict(util.sql_read_table('FinalEnergy', ['id', 'name']))
@@ -234,7 +232,7 @@ def init_outputs_id_map():
     outputs_id_map['sector'] = util.upper_dict(util.sql_read_table('DemandSectors', ['id', 'name']))
     outputs_id_map['ghg'] = util.upper_dict(util.sql_read_table('GreenhouseGases', ['id', 'name']))
     outputs_id_map['driver'] = util.upper_dict(util.sql_read_table('DemandDrivers', ['id', 'name']))
-    outputs_id_map[dispatch_geography] = util.upper_dict(util.sql_read_table('GeographiesData', ['id', 'name'], geography_id=dispatch_geography_id, return_unique=True, return_iterable=True))
+#    outputs_id_map[dispatch_geography] = util.upper_dict(util.sql_read_table('GeographiesData', ['id', 'name'], geography_id=dispatch_geography_id, return_unique=True, return_iterable=True))
     outputs_id_map['dispatch_feeder'] = util.upper_dict(util.sql_read_table('DispatchFeeders', ['id', 'name']))
     outputs_id_map['dispatch_feeder'][0] = 'BULK'
 

@@ -17,7 +17,6 @@ class GeoMapper:
         self.geography_names = dict(util.sql_read_table('GeographiesData', ['id', 'name'], return_unique=True, return_iterable=True)) # this is used for outputs
         self.timezone_names = {}
         self.map_keys = []
-
         self.read_geography_indicies()
         self.gau_to_geography = dict(util.flatten_list([(v, k) for v in vs] for k, vs in self.geographies.iteritems()))
         self.id_to_geography = dict((k, v) for k, v in util.sql_read_table('Geographies'))
@@ -156,6 +155,11 @@ class GeoMapper:
         self.geographies[new_level_name] = list(set(self.values.index.get_level_values(new_level_name)))
         # update geography names for outputs
         self.geography_names.update(dict(zip(impacted_gaus, ['other ' + self.geography_names[impacted_gau] for impacted_gau in impacted_gaus])))
+        primary_geography_name = self.get_primary_geography_name()        
+        dispatch_geography_name = self.get_dispatch_geography_name()
+        cfg.outputs_id_map[primary_geography_name] =  util.upper_dict(self.geography_names.items())
+        cfg.outputs_id_map[primary_geography_name +"_supply"] =  cfg.outputs_id_map[primary_geography_name ] 
+        cfg.outputs_id_map[dispatch_geography_name] =  cfg.outputs_id_map[primary_geography_name] 
 
     def _create_composite_geography_levels(self):
         """
@@ -231,7 +235,9 @@ class GeoMapper:
 
     def make_new_geography_name(self, base_geography, breakout_ids=None):
         if breakout_ids:
-            base_geography +=' with breakout ids {}'.format(sorted(util.ensure_iterable_and_not_string(breakout_ids)))
+            dct = dict(util.sql_read_table('GeographiesData', ['id', 'name'],return_unique=True, return_iterable=True))   
+            base_geography += " and " + ", ".join([dct[id] for id in breakout_ids])
+#            base_geography +=' with breakout ids {}'.format(sorted(util.ensure_iterable_and_not_string(breakout_ids)))
         return base_geography
 
     def get_primary_geography_name(self):

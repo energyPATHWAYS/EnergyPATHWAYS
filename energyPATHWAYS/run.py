@@ -149,7 +149,7 @@ if __name__ == "__main__":
     run(workingdir, config, pint, scenario,
         load_demand   = True,
         solve_demand  = True,
-        load_supply   = False,
+        load_supply   = True,
         solve_supply  = True,
         pickle_shapes = True,
         save_models   = True,

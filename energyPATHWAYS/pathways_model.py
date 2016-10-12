@@ -16,6 +16,8 @@ from datetime import datetime
 # from supply import Supply
 import smtplib
 from profilehooks import timecall
+import pdb
+
 
 class PathwaysModel(object):
     """
@@ -226,7 +228,8 @@ class PathwaysModel(object):
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND",cfg.primary_geography.upper() +'_EMITTED']
         for key,name in zip(keys,names):
             self.direct_emissions_df = pd.concat([self.direct_emissions_df],keys=[key],names=[name])   
-        if 'supply_geography' in cfg.output_combined_levels:
+        pdb.set_trace()
+        if cfg.primary_geography+'_supply' in cfg.output_combined_levels:
             keys = self.direct_emissions_df.index.get_level_values(cfg.primary_geography.upper()).values
             names = cfg.primary_geography.upper() +'_SUPPLY'
             self.direct_emissions_df[names] = keys

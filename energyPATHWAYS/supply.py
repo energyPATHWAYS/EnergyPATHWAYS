@@ -324,7 +324,6 @@ class Supply(object):
                         self.initialize_year(year, loop)
                     self._recalculate_stocks_and_io(year, loop)
                     self.calculate_coefficients(year, loop)
-                    print self.nodes[20].active_supply.groupby(level=0).sum()
                 # reconciliation loop
                 elif loop == 2:
                     logging.info("   loop {}: supply reconciliation".format(loop))
@@ -347,9 +346,7 @@ class Supply(object):
                     self.calculate_embodied_costs(year, loop-1) # necessary here because of the dispatch
                     self.prepare_dispatch_inputs(year, loop)
                     self.solve_electricity_dispatch(year)
-                    pdb.set_trace()
                     self._recalculate_stocks_and_io(year, loop)
-                    pdb.set_trace()
             self.calculate_embodied_costs(year, loop=3)
             self.calculate_embodied_emissions(year)
             self.calculate_annual_costs(year)
@@ -1091,15 +1088,23 @@ class Supply(object):
         if cfg.dispatch_geography != cfg.primary_geography:
             map_df = cfg.geo.map_df(cfg.primary_geography,cfg.dispatch_geography, normalize_as='intensity', eliminate_zeros=False)
             weights = util.DfOper.mult([map_df,weights]).swaplevel(0,cfg.dispatch_geography)
-        for dispatch_geography in cfg.dispatch_geographies:
-            for node_id in self.thermal_nodes:
-                node = self.nodes[node_id]
-                resources = list(set(util.df_slice(self.active_thermal_dispatch_df, [dispatch_geography, node_id], [cfg.dispatch_geography, 'supply_node']).index.get_level_values('thermal_generators')))
-                for resource in resources:
-                    resource = eval(resource)
-                    if resource[-1] == year:                 
-                        self.active_thermal_dispatch_df.loc[(dispatch_geography,node.id, str(resource), 'capacity_weights'),year]= (util.df_slice(weights,[dispatch_geography, resource[0], node_id],[cfg.dispatch_geography,cfg.primary_geography,'supply_node']).values * node.active_weighted_sales.loc[resource[0:-1:1],:].values)[0][0]
-    
+            for dispatch_geography in cfg.dispatch_geographies:
+                for node_id in self.thermal_nodes:
+                    node = self.nodes[node_id]
+                    resources = list(set(util.df_slice(self.active_thermal_dispatch_df, [dispatch_geography, node_id], [cfg.dispatch_geography, 'supply_node']).index.get_level_values('thermal_generators')))
+                    for resource in resources:
+                        resource = eval(resource)
+                        if resource[-1] == year:                 
+                            self.active_thermal_dispatch_df.loc[(dispatch_geography,node.id, str(resource), 'capacity_weights'),year]= (util.df_slice(weights,[dispatch_geography, resource[0], node_id],[cfg.dispatch_geography,cfg.primary_geography,'supply_node']).values * node.active_weighted_sales.loc[resource[0:-1:1],:].values)[0][0]
+        else:
+            for dispatch_geography in cfg.dispatch_geographies:
+                for node_id in self.thermal_nodes:
+                    node = self.nodes[node_id]
+                    resources = list(set(util.df_slice(self.active_thermal_dispatch_df, [dispatch_geography, node_id], [cfg.dispatch_geography, 'supply_node']).index.get_level_values('thermal_generators')))
+                    for resource in resources:
+                        resource = eval(resource)
+                        if resource[-1] == year:                 
+                            self.active_thermal_dispatch_df.loc[(dispatch_geography,node.id, str(resource), 'capacity_weights'),year]= (util.df_slice(weights,[dispatch_geography, node_id],[cfg.dispatch_geography,'supply_node']).values * node.active_weighted_sales.loc[resource[0:-1:1],:].values)[0][0]
     def calculate_weighted_sales(self,year):
         """sets the anticipated share of sales by technology for capacity additions added in the thermal dispatch. 
         Thermal dispatch inputs determines share by supply_node, so we have to determine the share of technologies for 
