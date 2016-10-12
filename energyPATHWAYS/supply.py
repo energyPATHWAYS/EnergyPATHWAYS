@@ -791,29 +791,33 @@ class Supply(object):
                     energy_demand = DfOper.mult([energy_demand, node.active_supply.groupby(level=[cfg.primary_geography,'demand_sector']).transform(lambda x: x/x.sum())])
                     capacity = DfOper.mult([capacity, node.active_supply.groupby(level=[cfg.primary_geography,'demand_sector']).transform(lambda x: x/x.sum())])
                 #geomap to dispatch geography
+                remove_levels = []
                 if cfg.dispatch_geography != cfg.primary_geography:
                     geography_map_key = node.geography_map_key if hasattr(node, 'geography_map_key') and node.geography_map_key is not None else cfg.cfgfile.get('case','default_geography_map_key')
                     map_df = cfg.geo.map_df(cfg.primary_geography,cfg.dispatch_geography,normalize_as='total',map_key=geography_map_key, eliminate_zeros=False)
                     energy_demand = DfOper.mult([energy_demand,map_df])
                     capacity = DfOper.mult([capacity,map_df])
+                    remove_levels.append(cfg.dispatch_geography)
                 if zone == self.distribution_node_id:
                     #specific for distribution node because of feeder allocation requirement
                     indexer = util.level_specific_indexer(self.dispatch_feeder_allocation.values, 'year', year)
                     energy_demand = util.remove_df_levels(util.DfOper.mult([energy_demand, self.dispatch_feeder_allocation.values.loc[indexer, ]]), 'demand_sector')
                     capacity = util.remove_df_levels(util.DfOper.mult([capacity, self.dispatch_feeder_allocation.values.loc[indexer, ]]), 'demand_sector')
+                    remove_levels.append('dispatch_feeder')
                     for geography in cfg.dispatch_geographies:
                         for dispatch_feeder in self.dispatch_feeders:
                             indexer = util.level_specific_indexer(energy_demand, [cfg.dispatch_geography, 'supply_node', 'dispatch_feeder'],[geography,zone,dispatch_feeder])
-                            self.flexible_load[node.id][geography][zone][dispatch_feeder]['energy']= util.remove_df_levels(energy_demand.loc[indexer,:],[cfg.dispatch_geography,'dispatch_feeder'])
+                            self.flexible_load[node.id][geography][zone][dispatch_feeder]['energy']= util.remove_df_levels(energy_demand.loc[indexer,:],remove_levels)
                             indexer = util.level_specific_indexer(capacity, [cfg.dispatch_geography, 'supply_node', 'dispatch_feeder'],[geography,zone,dispatch_feeder])
-                            self.flexible_load[node.id][geography][zone][dispatch_feeder]['capacity']= util.remove_df_levels(capacity.loc[indexer,:],[cfg.dispatch_geography,'dispatch_feeder'])
+                            self.flexible_load[node.id][geography][zone][dispatch_feeder]['capacity']= util.remove_df_levels(capacity.loc[indexer,:],remove_levels)
                 else:
+                    remove_levels.append('demand_sector')
                     for geography in cfg.dispatch_geographies:
                         #feeder is set to 0 for flexible load not on the distribution system
                         indexer = util.level_specific_indexer(energy_demand, [cfg.dispatch_geography, 'supply_node'],[geography,zone])
-                        self.flexible_load[node.id][geography][zone][0]['energy']= util.remove_df_levels(energy_demand.loc[indexer,:],[cfg.dispatch_geography,'demand_sector'])
+                        self.flexible_load[node.id][geography][zone][0]['energy']= util.remove_df_levels(energy_demand.loc[indexer,:],remove_levels)
                         indexer = util.level_specific_indexer(capacity,[cfg.dispatch_geography, 'supply_node'],[geography,zone])
-                        self.flexible_load[node.id][geography][zone][0]['capacity']= util.remove_df_levels(capacity.loc[indexer,:],[cfg.dispatch_geography,'demand_sector'])
+                        self.flexible_load[node.id][geography][zone][0]['capacity']= util.remove_df_levels(capacity.loc[indexer,:],remove_levels)
         self.flexible_load = util.freeze_recursivedict(self.flexible_load)
 
     def prepare_flexible_gen(self,year,loop):

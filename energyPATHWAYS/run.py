@@ -89,7 +89,7 @@ def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load
         solve_supply=True, pickle_shapes=True, save_models=True, log_name=None, api_run=False, clear_results=False):
     global model
     cfg.initialize_config(path, config, pint, log_name)
-    cfg.geo.log_geo_subset()
+    cfg.geo.log_geo()
     shape.init_shapes()
     
     scenario_ids = parse_scenario_ids(scenario)
@@ -140,7 +140,7 @@ def load_model(load_demand, load_supply, scenario_id, api_run):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Users\Ben\Documents\PythonProjects\energyPATHWAYS\new_york_model_example'
+    workingdir = r'c:\Users\Ben\Documents\PythonProjects\energyPATHWAYS\new_york_model_example'
     os.chdir(workingdir)
     config = 'config.INI'
     pint = 'unit_defs.txt'
@@ -159,6 +159,9 @@ if __name__ == "__main__":
     # note that when running the profiler, it is recommended to not run the model for more than 10 years due to memory use
     # cProfile.run('run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)', filename='full_run.profile')
     # Output.writeobj(model)
+
+
+#self = model.demand.drivers[1]
 
 #self = cfg.geo
 #current_geography = 'census division'

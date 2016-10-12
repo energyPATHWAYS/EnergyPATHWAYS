@@ -223,7 +223,7 @@ class PathwaysModel(object):
         self.direct_emissions_df= self.demand.outputs.return_cleaned_output('demand_direct_emissions')  
 #        del self.demand.outputs.demand_direct_emissions
         keys = ["DOMESTIC","DEMAND"]
-        names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
+        names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND",cfg.primary_geography.upper() +'_EMITTED']
         for key,name in zip(keys,names):
             self.direct_emissions_df = pd.concat([self.direct_emissions_df],keys=[key],names=[name])   
         if 'supply_geography' in cfg.output_combined_levels:

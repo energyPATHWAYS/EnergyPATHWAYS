@@ -483,7 +483,7 @@ def ensure_tuple(obj):
         return (obj,)
 
 
-def df_slice(df, elements, levels, drop_level=True):
+def df_slice(df, elements, levels, drop_level=True, reset_index=False):
     elements, levels = ensure_iterable_and_not_string(elements), ensure_iterable_and_not_string(levels)
     if len(elements) != len(levels):
         raise ValueError(
@@ -491,7 +491,8 @@ def df_slice(df, elements, levels, drop_level=True):
     # remove elements if they are not in the df
     elements, levels = zip(*[(e, l) for e, l in zip(elements, levels) if l in df.index.names])
     if len(levels):
-        return df.xs(elements, level=levels, drop_level=drop_level)
+        result = df.xs(elements, level=levels, drop_level=drop_level)
+        return result.reset_index().set_index(result.index.names) if reset_index else result
     else:
         return None
 
