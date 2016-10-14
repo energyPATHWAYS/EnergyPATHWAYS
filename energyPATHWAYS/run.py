@@ -17,6 +17,9 @@ import energyPATHWAYS.shape as shape
 import time
 import datetime
 import logging
+import smtplib
+from email.MIMEMultipart import MIMEMultipart
+from email.MIMEText import MIMEText
 import cProfile
 import traceback
 
@@ -97,6 +100,14 @@ def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load
         logging.info('Starting scenario_id {}'.format(scenario_id))
         if api_run:
             util.update_status(scenario_id, 2)
+            scenario_name = util.scenario_name(scenario_id)
+            subject = 'Now running: EnergyPathways scenario "%s"' % (scenario_name,)
+            body = 'EnergyPathways is now running your scenario titled "%s". A scenario run generally ' \
+                   'finishes within a few hours, and you will receive another email when your run is complete. ' \
+                   'If more than 24 hours pass without you receiving a confirmation email, please log in to ' \
+                   'https://energypathways.com to check the status of the run. ' \
+                   'If the run is not complete, please reply to this email and we will investigate.' % (scenario_name,)
+            send_gmail(scenario_id, subject, body)
         
         model = load_model(load_demand, load_supply, scenario_id, api_run)
         model.run(scenario_id,
@@ -107,6 +118,11 @@ def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load
     
         if api_run:
             util.update_status(scenario_id, 3)
+            subject = 'Completed: EnergyPathways scenario "%s"' % (scenario_name,)
+            body = 'EnergyPathways has completed running your scenario titled "%s". ' \
+                   'Please return to https://energypathways.com to view your results.' % (scenario_name,)
+            send_gmail(scenario_id, subject, body)
+
         logging.info('EnergyPATHWAYS run for scenario_id {} successful!'.format(scenario_id))
         logging.info('Scenario calculation time {} seconds'.format(time.time() - scenario_start_time))
     logging.info('Total calculation time {} seconds'.format(time.time() - run_start_time))
@@ -135,6 +151,29 @@ def load_model(load_demand, load_supply, scenario_id, api_run):
     else:
         model = PathwaysModel(scenario_id, api_run)
     return model
+
+
+def send_gmail(scenario_id, subject, body):
+    toaddr = util.active_user_email(scenario_id)
+    if not toaddr:
+        logging.warning('Unable to find a user email for scenario %s; skipping sending email with subject "%s".' %\
+                        (scenario_id, subject))
+        return
+
+    fromaddr = cfg.cfgfile.get('email', 'email_address')
+    msg = MIMEMultipart()
+    msg['From'] = fromaddr
+    msg['To'] = toaddr
+    msg['Subject'] = subject
+
+    msg.attach(MIMEText(body, 'plain'))
+
+    server = smtplib.SMTP('smtp.gmail.com', 587)
+    server.starttls()
+    server.login(fromaddr, cfg.cfgfile.get('email', 'email_password'))
+    text = msg.as_string()
+    server.sendmail(fromaddr, toaddr, text)
+    server.quit()
 
 
 if __name__ == "__main__":

@@ -273,6 +273,27 @@ def active_scenario_run_id(scenario_id):
     return cfg.cur.fetchone()[0]
 
 
+def active_user_email(scenario_id):
+    query = """
+                SELECT email
+                FROM shared.users
+                JOIN "Scenarios" ON "Scenarios".user_id = shared.users.id
+                WHERE "Scenarios".id = %s
+            """
+
+    cfg.cur.execute(query, (scenario_id,))
+    if cfg.cur.rowcount == 0:
+        return None
+    else:
+        return cfg.cur.fetchone()[0]
+
+
+def scenario_name(scenario_id):
+    query = 'SELECT name FROM "Scenarios" WHERE id = %s'
+    cfg.cur.execute(query, (scenario_id,))
+    return cfg.cur.fetchone()[0]
+
+
 def update_status(scenario_id, status_id):
     """Update the status of the active run for the current scenario in the database"""
     # FIXME: See api/models.py ScenarioRunStatus for the valid status_ids. I'm reluctant to import those constants here
