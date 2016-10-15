@@ -156,7 +156,11 @@ class DataMapFunctions:
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
         df = getattr(self, attr).copy()
         if cfg.include_foreign_gaus:
-            df, current_geography = cfg.geo.incorporate_foreign_gaus(df, current_geography, current_data_type, geography_map_key)
+            native_gaus, current_gaus, foreign_gaus = cfg.geo.get_native_current_foreign_gaus(df, current_geography)
+            if foreign_gaus:
+                name = '{} {}'.format(self.sql_id_table, self.name if hasattr(self, 'name') else 'id '+str(self.id))
+                logging.info('      Detected foreign gaus for {}: {}'.format(name, ', '.join([cfg.geo.geography_names[f] for f in foreign_gaus])))
+                df, current_geography = cfg.geo.incorporate_foreign_gaus(df, current_geography, current_data_type, geography_map_key)
         else:
             df = cfg.geo.filter_foreign_gaus(df, current_geography)
         return df, current_geography
