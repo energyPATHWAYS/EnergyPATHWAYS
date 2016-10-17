@@ -133,23 +133,59 @@ class PathwaysModel(object):
 
     def export_results_to_db(self):
         scenario_run_id = util.active_scenario_run_id(self.scenario_id)
+        # Levelized costs
+        costs = self.outputs.costs.groupby(level=['SUPPLY/DEMAND', 'YEAR']).sum()
+        util.write_output_to_db(scenario_run_id, 1, costs)
+        
+        #Energy        
+        energy = self.outputs.energy.xs('FINAL', level='ENERGY ACCOUNTING')\
+            .groupby(level=['SECTOR', 'FINAL_ENERGY', 'YEAR']).sum()            
+        # Energy demand by sector
+        util.write_output_to_db(scenario_run_id, 2, energy.groupby(level=['SECTOR', 'YEAR']).sum())
+        # Residential Energy by Fuel Type
+        util.write_output_to_db(scenario_run_id, 6, energy.xs('RESIDENTIAL', level='SECTOR'))
+        # Commercial Energy by Fuel Type
+        util.write_output_to_db(scenario_run_id, 8, energy.xs('COMMERCIAL', level='SECTOR'))
+        # Transportation Energy by Fuel Type
+        util.write_output_to_db(scenario_run_id, 10, energy.xs('TRANSPORTATION', level='SECTOR'))
+        # Productive Energy by Fuel Type
+        util.write_output_to_db(scenario_run_id, 12, energy.xs('PRODUCTIVE', level='SECTOR'))
 
-        # Energy demand
-        df = self.outputs.energy.groupby(level=['FINAL_ENERGY', 'YEAR']).sum()
-        util.write_output_to_db(scenario_run_id, 3, df)
+        #Emissions
+        emissions = self.outputs.emissions.xs('DOMESTIC', level='EXPORT/DOMESTIC')\
+            .groupby(level=['SECTOR', 'FINAL_ENERGY', 'YEAR']).sum()
+        emissions = util.DfOper.mult((emissions, 1-(emissions.abs()<1E-10).groupby(level='FINAL_ENERGY').all())) # get rid of noise
+        # Annual emissions by sector
+        util.write_output_to_db(scenario_run_id, 3, emissions.groupby(level=['SECTOR', 'YEAR']).sum())
+        # Residential Emissions by Fuel Type
+        util.write_output_to_db(scenario_run_id, 7, emissions.xs('RESIDENTIAL', level='SECTOR'))
+        # Commercial Emissions by Fuel Type
+        util.write_output_to_db(scenario_run_id, 9, emissions.xs('COMMERCIAL', level='SECTOR'))
+        # Transportation Emissions by Fuel Type
+        util.write_output_to_db(scenario_run_id, 11, emissions.xs('TRANSPORTATION', level='SECTOR'))
+        # Productive Emissions by Fuel Type
+        util.write_output_to_db(scenario_run_id, 13, emissions.xs('PRODUCTIVE', level='SECTOR'))
 
-        # Annual costs
-        df = self.outputs.costs.groupby(level=['SECTOR', 'YEAR']).sum()
+        # Domestic emissions per capita
+        annual_emissions = self.outputs.emissions.xs('DOMESTIC', level='EXPORT/DOMESTIC').groupby(level=['YEAR']).sum()
+        population_driver = self.demand.drivers[2].values.groupby(level='year').sum().loc[annual_emissions.index]
+        population_driver.index.name = 'YEAR'
+        factor = 1E6
+        df = util.DfOper.divi((annual_emissions, population_driver)) * factor
+        df.columns = ['TONNE PER CAPITA']
         util.write_output_to_db(scenario_run_id, 4, df)
 
-        # Annual emissions
-        df = self.outputs.emissions.groupby(level=['SECTOR', 'YEAR']).sum()
-        util.write_output_to_db(scenario_run_id, 5, df)
-
         # Electricity supply
+        node_list = []
+        for key in self.supply.electricity_gen_nodes.keys():
+            for sub_key in self.supply.electricity_gen_nodes[key].keys():
+                node_list += self.supply.electricity_gen_nodes[key][sub_key]
+        electricity_node_ids = set(node_list) | set(self.supply.thermal_dispatch_nodes)
+        electricity_node_names = [getattr(self.supply.nodes[id], 'name').upper() for id in electricity_node_ids]
         df = self.outputs.energy.xs('ELECTRICITY', level='FINAL_ENERGY')\
+            .xs('EMBODIED', level='ENERGY ACCOUNTING')\
             .groupby(level=['SUPPLY_NODE', 'YEAR']).sum()
-        util.write_output_to_db(scenario_run_id, 13, df)
+        util.write_output_to_db(scenario_run_id, 5, df.loc[electricity_node_names])        
 
     def calculate_combined_cost_results(self):
         #calculate and format export costs

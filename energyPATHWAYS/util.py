@@ -31,9 +31,10 @@ import itertools
 import decimal
 import psycopg2
 import logging
-
-
-        
+from psycopg2.extensions import register_adapter, AsIs
+def addapt_numpy_float64(numpy_float64):
+  return AsIs(numpy_float64)
+register_adapter(np.int64, addapt_numpy_float64)
 
 def percent_larger(a, b):
     return (a - b) / a
@@ -313,18 +314,32 @@ def write_output_to_db(scenario_run_id, output_type_id, output_df):
     # For output_type_ids, see api/models.py. I am reluctant to import that file here because I don't want its
     # dependencies (e.g. SQLAlchemy) to become dependencies of the main model yet.
     df = output_df.reset_index()
-    assert len(df.columns) == 3 and df.columns[1].lower() == 'year', \
+    
+    if len(df.columns)==3:
+        assert df.columns[1].lower() == 'year', \
         "Output data frame is expected to have three columns (or columns and indexes)" \
         "corresponding to (series, year, value) in the output_data table."
+    elif len(df.columns)==2:
+        df.columns[0].lower() == 'year', \
+        "Output data frame is expected to have two columns (or columns and indexes)" \
+        "corresponding to (year, value) in the output_data table."
+    else:
+        raise ValueError('Output data frame is expected to have either two or three columns')
 
-    unit = df.columns[2]
+    unit = df.columns[-1]
     cfg.cur.execute("""INSERT INTO public_runs.outputs (scenario_run_id, output_type_id, unit)
                        VALUES (%s, %s, %s) RETURNING id""", (scenario_run_id, output_type_id, unit))
     output_id = cfg.cur.fetchone()[0]
 
-    values_str = ','.join(cfg.cur.mogrify("(%s,%s,%s,%s)", (output_id, row[0], row[1], row[2]))
-                          for row in df.itertuples(index=False))
-    cfg.cur.execute("INSERT INTO public_runs.output_data (parent_id, series, year, value) VALUES " + values_str)
+    if len(df.columns)==3:
+        values_str = ','.join(cfg.cur.mogrify("(%s,%s,%s,%s)", (output_id, row[0], row[1], row[2]))
+                              for row in df.itertuples(index=False))
+        cfg.cur.execute("INSERT INTO public_runs.output_data (parent_id, series, year, value) VALUES " + values_str)
+    elif len(df.columns)==2:
+        values_str = ','.join(cfg.cur.mogrify("(%s,%s,%s)", (output_id, row[0], row[1]))
+                              for row in df.itertuples(index=False))
+        cfg.cur.execute("INSERT INTO public_runs.output_data (parent_id, year, value) VALUES " + values_str)
+        
     cfg.con.commit()
 
 
