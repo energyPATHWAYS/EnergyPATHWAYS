@@ -39,7 +39,7 @@ class Supply(object):
     """This module calculates all supply nodes in an IO loop to calculate energy, 
     emissions, and cost flows through the energy economy
     """    
-    def __init__(self, scenario, demand_object=None):
+    def __init__(self, scenario, demand_object=None, api_run=False):
         """Initializes supply instance"""
         self.all_nodes, self.blend_nodes, self.non_storage_nodes = [], [], []
         self.nodes = {}
@@ -60,6 +60,7 @@ class Supply(object):
         self.outputs = Output()
         self.active_thermal_dispatch_df_list = []
         self.map_dict = dict(util.sql_read_table('SupplyNodes', ['final_energy_link', 'id']))
+        self.api_run = api_run
         if self.map_dict.has_key(None):
             del self.map_dict[None]
      
@@ -964,7 +965,7 @@ class Supply(object):
         for key, name in zip(keys,names):
             self.bulk_dispatch = pd.concat([self.bulk_dispatch],keys=[key],names=[name])
         
-        if year in self.dispatch_write_years:
+        if year in self.dispatch_write_years and not self.api_run:
             Output.write(self.bulk_dispatch, 'hourly_dispatch_results.csv', os.path.join(cfg.workingdir,'dispatch_outputs'))
 
         self.set_grid_capacity_factors(year)
