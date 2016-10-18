@@ -69,8 +69,6 @@ class PathwaysModel(object):
         self.demand.add_subsectors()
         self.demand.add_measures(self.demand_case_id)
         self.demand.calculate_demand()
-        logging.info("Aggregating demand results")
-        self.demand.aggregate_results()
         self.demand_solved = True
         if save_models:
             with open(os.path.join(cfg.workingdir, str(self.scenario_id) + '_model.p'), 'wb') as outfile:

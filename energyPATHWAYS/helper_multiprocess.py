@@ -36,24 +36,18 @@ def subsector_populate(subsector):
     return subsector
 
 
-def aggregate_electricity_shapes(params):
+def aggregate_subsector_shapes(params):
     subsector = params[0]
-    year = params[1]
-    active_shape = params[2]
-    feeder_allocation = params[3]
-    default_max_lead_hours = params[4]
-    default_max_lag_hours = params[5]
-    
+    year = params[1]    
     cfg.initialize_config(subsector.workingdir, subsector.cfgfile_name, subsector.pint_definitions_file, subsector.log_name)
-    aggregate_electricity_shape = subsector.aggregate_electricity_shapes(year, active_shape, feeder_allocation, default_max_lead_hours, default_max_lag_hours)
-    cfg.cur.close()
-    
+    aggregate_electricity_shape = subsector.aggregate_electricity_shapes(year)
+    cfg.cur.close()    
     return aggregate_electricity_shape
 
-#def rollover_subset_run(key_value_pair):
-#    elements = key_value_pair.keys()[0]
-#    rollover = key_value_pair.values()[0]
-#    rollover.run()
-#    stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = rollover.return_formatted_outputs()
-#    return stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement, elements
-
+def aggregate_sector_shapes(params):
+    sector = params[0]
+    year = params[1]    
+    cfg.initialize_config(sector.workingdir, sector.cfgfile_name, sector.pint_definitions_file, sector.log_name)
+    aggregate_electricity_shape = sector.aggregate_inflexible_electricity_shape(year)
+    cfg.cur.close()
+    return aggregate_electricity_shape

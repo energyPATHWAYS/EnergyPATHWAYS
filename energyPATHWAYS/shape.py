@@ -245,25 +245,6 @@ class Shape(dmf.DataMapFunctions):
         else:
             return mapped_data.sort()
 
-    @staticmethod
-    def geomap_to_dispatch_geography(df):
-        """ maps a dataframe to another geography using relational GeographyMapdatabase table
-        """
-
-        if cfg.primary_geography==cfg.dispatch_geography:
-            return df
-        geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key')
-        
-        # create dataframe with map from one geography to another
-        map_df = cfg.geo.map_df(cfg.primary_geography,cfg.dispatch_geography, normalize_as='total',map_key=geography_map_key)
-        mapped_data = util.DfOper.mult([df, map_df])
-        
-        levels = [ind for ind in mapped_data.index.names if ind!=cfg.primary_geography]
-        mapped_data = mapped_data.groupby(level=levels).sum()
-        mapped_data.sort(inplace=True)
-        
-        return mapped_data
-
     def sum_over_time_zone(self, attr='values', inplace=True):
         converted_geography = cfg.primary_geography
         
