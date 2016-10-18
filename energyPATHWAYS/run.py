@@ -139,7 +139,7 @@ def load_model(load_demand, load_supply, scenario_id, api_run):
 
 
 if __name__ == "__main__":
-    workingdir = r'c:\Users\Ben\Documents\PythonProjects\energyPATHWAYS\new_york_model_example'
+    workingdir = r'c:\github\energyPATHWAYS\us_model_example'
     os.chdir(workingdir)
     config = 'config.INI'
     pint = 'unit_defs.txt'
