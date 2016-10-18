@@ -228,7 +228,6 @@ class PathwaysModel(object):
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND",cfg.primary_geography.upper() +'_EMITTED']
         for key,name in zip(keys,names):
             self.direct_emissions_df = pd.concat([self.direct_emissions_df],keys=[key],names=[name])   
-        pdb.set_trace()
         if cfg.primary_geography+'_supply' in cfg.output_combined_levels:
             keys = self.direct_emissions_df.index.get_level_values(cfg.primary_geography.upper()).values
             names = cfg.primary_geography.upper() +'_SUPPLY'
@@ -241,8 +240,8 @@ class PathwaysModel(object):
         names = ['EMISSIONS TYPE']
         self.outputs.emissions = util.df_list_concatenate([self.export_emissions_df, self.embodied_emissions_df, self.direct_emissions_df],keys=keys,new_names = names)
 #        util.replace_index_name(self.outputs.emissions, "ENERGY","FINAL_ENERGY")
-        util.replace_index_name(self.outputs.emissions, cfg.primary_geography.upper() +'_EMITTED', cfg.primary_geography.upper() +'_SUPPLY')
-        util.replace_index_name(self.outputs.emissions, cfg.primary_geography.upper() +'_CONSUMED', cfg.primary_geography.upper())
+        util.replace_index_name(self.outputs.emissions, cfg.primary_geography.upper() +'-EMITTED', cfg.primary_geography.upper() +'_SUPPLY')
+        util.replace_index_name(self.outputs.emissions, cfg.primary_geography.upper() +'-CONSUMED', cfg.primary_geography.upper())
         self.outputs.emissions= self.outputs.emissions[self.outputs.emissions['VALUE']!=0]
         emissions_unit = cfg.cfgfile.get('case','mass_unit')
         self.outputs.emissions.columns = [emissions_unit.upper()]
@@ -250,23 +249,43 @@ class PathwaysModel(object):
 #        self.outputs.emissions.sort(inplace=True)        
             
     def calculate_combined_energy_results(self):
+         energy_unit = cfg.calculation_energy_unit        
+         if self.supply.export_costs is not None:
+            setattr(self.outputs,'export_energy',self.supply.export_energy)
+            self.export_energy = self.outputs.return_cleaned_output('export_energy')
+            del self.outputs.export_energy
+            util.replace_index_name(self.export_energy, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
+            keys = ["EXPORT","EMBODIED"]
+            names = ['EXPORT/DOMESTIC', 'ENERGY ACCOUNTING']
+            for key,name in zip(keys,names):
+                self.export_energy = pd.concat([self.export_energy],keys=[key],names=[name])
+         else:
+            self.export_energy = None
          self.embodied_energy = self.demand.outputs.return_cleaned_output('demand_embodied_energy')
          self.embodied_energy = self.embodied_energy[self.embodied_energy ['VALUE']!=0]
+         keys = ['DOMESTIC','EMBODIED']
+         names = ['EXPORT/DOMESTIC', 'ENERGY ACCOUNTING']
+         for key,name in zip(keys,names):
+             self.embodied_energy = pd.concat([self.embodied_energy],keys=[key],names=[name])
          self.final_energy = self.demand.outputs.return_cleaned_output('energy')
-         self.final_energy = self.final_energy[self.final_energy.index.get_level_values('YEAR')>=int(cfg.cfgfile.get('case','current_year'))]  
-         self.embodied_energy['ENERGY ACCOUNTING'] = 'EMBODIED'
-         self.final_energy['ENERGY ACCOUNTING'] = 'FINAL'
-         self.embodied_energy.set_index('ENERGY ACCOUNTING',append=True,inplace=True)
-         self.final_energy.set_index('ENERGY ACCOUNTING',append=True,inplace=True)
+         self.final_energy = self.final_energy[self.final_energy.index.get_level_values('YEAR')>=int(cfg.cfgfile.get('case','current_year'))]          
+         keys = ['DOMESTIC','FINAL']
+         names = ['EXPORT/DOMESTIC', 'ENERGY ACCOUNTING']
+         for key,name in zip(keys,names):
+             self.final_energy = pd.concat([self.final_energy],keys=[key],names=[name])
     #         self.outputs.energy = pd.concat([self.embodied_energy, self.final_energy],keys=['DROP'],names=['DROP'])
          for name in [x for x in self.embodied_energy.index.names if x not in self.final_energy.index.names]:
              self.final_energy[name] = "N/A"
              self.final_energy.set_index(name,append=True,inplace=True)
+         for name in [x for x in self.embodied_energy.index.names if x not in self.export_energy.index.names]:
+             self.export_energy[name] = "N/A"
+             self.export_energy.set_index(name,append=True,inplace=True)  
          self.final_energy = self.final_energy.groupby(level=self.embodied_energy.index.names).sum()
          self.final_energy = self.final_energy.reorder_levels(self.embodied_energy.index.names)
-         self.outputs.energy = pd.concat([self.embodied_energy,self.final_energy])
+         self.export_energy = self.export_energy.groupby(level=self.embodied_energy.index.names).sum()
+         self.export_energy = self.export_energy.reorder_levels(self.embodied_energy.index.names)
+         self.outputs.energy = pd.concat([self.embodied_energy,self.final_energy,self.export_energy])
          self.outputs.energy= self.outputs.energy[self.outputs.energy['VALUE']!=0]
-         energy_unit = cfg.calculation_energy_unit
          self.outputs.energy.columns = [energy_unit.upper()]
 
     def return_io(self):

@@ -639,6 +639,7 @@ class Dispatch(object):
             gen_maintenance[np.nonzero(pmaxs==0)] = np.outer(energy_allocation_normed, annual_maintenance_rates[np.nonzero(pmaxs==0)])
 
         if np.any(np.isnan(gen_maintenance)):
+            pdb.set_trace()
             raise ValueError("Calculation has returned maintenance rates of nan")
 #        gen_maintenance[:] = 0
         return gen_maintenance

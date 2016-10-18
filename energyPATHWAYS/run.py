@@ -22,7 +22,6 @@ import cProfile
 import traceback
 import pandas as pd
 
-
 model = None
 run_start_time = time.time()
 
@@ -144,17 +143,16 @@ if __name__ == "__main__":
     os.chdir(workingdir)
     config = 'config.INI'
     pint = 'unit_defs.txt'
-    scenario = [1]
-    
+    scenario = [12]
     run(workingdir, config, pint, scenario,
-        load_demand   = True,
-        solve_demand  = True,
-        load_supply   = True,
-        solve_supply  = True,
-        pickle_shapes = True,
-        save_models   = True,
-        api_run       = False,
-        clear_results = True)
+    load_demand   = False,
+    solve_demand  = True,
+    load_supply   = False,
+    solve_supply  = True,
+    pickle_shapes = True,
+    save_models   = True,
+    api_run       = False,
+    clear_results = True)
 
     # note that when running the profiler, it is recommended to not run the model for more than 10 years due to memory use
     # cProfile.run('run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)', filename='full_run.profile')

@@ -29,7 +29,7 @@ class DemandTechCost(Abstract):
         self.input_type = 'intensity'
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
-        Abstract.__init__(self, self.id, 'demand_tech_id')
+        Abstract.__init__(self, self.id, 'demand_technology_id')
 
 
     def calculate(self, vintages, years):
@@ -90,7 +90,7 @@ class ParasiticEnergy(Abstract):
         self.tech_unit = tech.unit
         self.demand_tech_unit_type = tech.demand_tech_unit_type
         self.service_demand_unit = tech.service_demand_unit
-        Abstract.__init__(self, self.id, 'demand_tech_id')
+        Abstract.__init__(self, self.id, 'demand_technology_id')
 
 
     def calculate(self, vintages, years):
@@ -135,7 +135,7 @@ class DemandTechEfficiency(Abstract):
         self.input_type = 'intensity'
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
-        Abstract.__init__(self, self.id, 'demand_tech_id')
+        Abstract.__init__(self, self.id, 'demand_technology_id')
 
 
     def calculate(self, vintages, years):
@@ -213,7 +213,7 @@ class ServiceDemandModifier(Abstract):
         self.input_type = 'intensity'
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
-        Abstract.__init__(self, self.id, 'demand_tech_id')
+        Abstract.__init__(self, self.id, 'demand_technology_id')
 
     def calculate(self, vintages, years):
         self.vintages = vintages
@@ -246,10 +246,10 @@ class DemandTechnology(StockItem):
         # we can have multiple sales shares because sales share may be specific
         # to the transition between two technolog)
         self.reference_sales_shares = {}
-        if self.id in util.sql_read_table('DemandSalesData', 'technology', return_unique=True, return_iterable=True):
+        if self.id in util.sql_read_table('DemandSalesData', 'demand_technology_id', return_unique=True, return_iterable=True):
             self.reference_sales_shares[1] = SalesShare(id=self.id, subsector_id=self.subsector_id, reference=True,
                                                         sql_id_table='DemandSales', sql_data_table='DemandSalesData',
-                                                        primary_key='subsector_id', data_id_key='technology')
+                                                        primary_key='subsector_id', data_id_key='demand_technology_id')
         self.book_life()
         self.add_class()
         self.min_year()
@@ -264,7 +264,7 @@ class DemandTechnology(StockItem):
         measure_ids = util.sql_read_table('DemandSalesMeasurePackagesData', 'measure_id', package_id=package_id,
                                           return_iterable=True)
         for measure_id in measure_ids:
-            sales_share_ids = util.sql_read_table('DemandSalesMeasures', 'id', demand_tech_id=self.id, id=measure_id,
+            sales_share_ids = util.sql_read_table('DemandSalesMeasures', 'id', demand_technology_id=self.id, id=measure_id,
                                                   return_iterable=True)
             for sales_share_id in sales_share_ids:
                 self.sales_shares[sales_share_id] = SalesShare(id=sales_share_id, subsector_id=self.subsector_id,
@@ -277,7 +277,7 @@ class DemandTechnology(StockItem):
         measure_ids = util.sql_read_table('DemandStockMeasurePackagesData', 'measure_id', package_id=package_id,
                                           return_iterable=True)
         for measure_id in measure_ids:
-            specified_stocks = util.sql_read_table('DemandStockMeasures', 'id', demand_tech_id=self.id,
+            specified_stocks = util.sql_read_table('DemandStockMeasures', 'id', demand_technology_id=self.id,
                                                    subsector_id=self.subsector_id,
                                                    return_iterable=True)
             for specified_stock in specified_stocks:
@@ -289,11 +289,11 @@ class DemandTechnology(StockItem):
         """adds all technology service links"""
         self.service_links = {}
         service_links = util.sql_read_table('DemandTechsServiceLink', 'service_link_id', return_unique=True,
-                                            demand_tech_id=self.id)
+                                            demand_technology_id=self.id)
         if service_links is not None:
             service_links = util.ensure_iterable_and_not_string(service_links)
             for service_link in service_links:
-                id = util.sql_read_table('DemandTechsServiceLink', 'id', return_unique=True, demand_tech_id=self.id,
+                id = util.sql_read_table('DemandTechsServiceLink', 'id', return_unique=True, demand_technology_id=self.id,
                                          service_link_id=service_link)
                 self.service_links[service_link] = DemandTechServiceLink(self, id, 'DemandTechsServiceLink',
                                                                          'DemandTechsServiceLinkData')

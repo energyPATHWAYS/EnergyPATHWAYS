@@ -284,7 +284,7 @@ class Rollover(object):
     def pick_allocation_option(self, _solvable, i):
         i = min(i, self.i)
         allocation = np.zeros(self.num_techs)
-        prior_year_stock = self.initial_stock if i == 0 else np.sum(self.stock[:, :i + 1, i - 1], axis=1)
+        prior_year_stock = self.initial_stock if (i == 0 or np.sum(self.stock[:, :i + 1, i - 1], axis=1).sum()==0)  else np.sum(self.stock[:, :i + 1, i - 1], axis=1)
         rolloff = np.nanmax((self.rolloff, self.defined_sales), axis=0) if i==self.i else self.natural_rolloff[i]
         if np.sum(rolloff[_solvable]):
             # max between the stock that is rolling off and any specified stocks that we have is used for the allocation

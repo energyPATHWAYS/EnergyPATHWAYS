@@ -62,7 +62,10 @@ class StockItem(object):
             return np.exp(-(np.arange(periods) / self.weibull_alpha_parameter) ** self.weibull_beta_parameter)
         elif self.stock_decay_function == 'linear':
             start = [1] * int(round(self.min_lifetime*self.spy))
-            middle = np.linspace(1, 0, int(round((self.max_lifetime - self.min_lifetime)*self.spy)) + 1)
+            if self.max_lifetime ==1 and self.min_lifetime ==1:
+                middle = np.linspace(1, 0, int(round((self.max_lifetime - self.min_lifetime)*self.spy)))
+            else:
+                middle = np.linspace(1, 0, int(round((self.max_lifetime - self.min_lifetime)*self.spy)) + 1)
             end = [0] * int(max(periods - (len(start) + len(middle)), 0))
             return np.concatenate((start, middle, end))[:periods]
         elif self.stock_decay_function == 'exponential':
