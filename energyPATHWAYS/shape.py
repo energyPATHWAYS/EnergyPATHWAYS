@@ -93,8 +93,8 @@ class Shapes(object):
         
         time_slice_elements = {}
         for ti in cfg.time_slice_col:
-            if ti=='day_type_id':
-                time_slice_elements['day_type_id'] = np.array([biz_map['workday'] if s.date() in business_days else biz_map['non-workday'] for s in active_dates_index], dtype=int)
+            if ti=='day_type':
+                time_slice_elements['day_type'] = np.array([biz_map['workday'] if s.date() in business_days else biz_map['non-workday'] for s in active_dates_index], dtype=int)
             else:
                 time_slice_elements[ti] = getattr(active_dates_index, ti)
         time_slice_elements['hour24'] = time_slice_elements['hour'] + 1

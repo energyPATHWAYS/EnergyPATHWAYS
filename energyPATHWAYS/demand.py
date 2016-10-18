@@ -90,16 +90,22 @@ class Demand(object):
 #        t = util.time_stamp(t)
         a = [self.shape_from_subsectors_with_no_shape(year)]
 #        t = util.time_stamp(t)
-        agg_load = util.DfOper.add(a+b, expandable=False, collapsible=False)
+        inflex_load = util.DfOper.add(a+b, expandable=False, collapsible=False)
 #        t = util.time_stamp(t)
-        agg_load = util.DfOper.mult((agg_load, self.electricity_reconciliation))
+        inflex_load = util.DfOper.mult((inflex_load, self.electricity_reconciliation))
 #        t = util.time_stamp(t)
-        agg_load = pd.concat([agg_load]*3, keys=[1,2,3], names=['timeshift_type'])
+        flex_load = util.DfOper.add([sector.aggregate_flexible_electricity_shape(year) for sector in self.sectors.values()], expandable=False, collapsible=False)
 #        t = util.time_stamp(t)
-        agg_load = util.DfOper.add([sector.aggregate_flexible_electricity_shape(year) for sector in self.sectors.values()]+[agg_load], expandable=False, collapsible=False)
+        if flex_load is None:
+            agg_load = pd.concat([inflex_load], keys=[2], names=['timeshift_type'])
+        else:
+            inflex_load = pd.concat([inflex_load]*3, keys=[1,2,3], names=['timeshift_type'])
+#           t = util.time_stamp(t)
+            agg_load = util.DfOper.add((flex_load, inflex_load), expandable=False, collapsible=False)
 #        t = util.time_stamp(t)
         df = self.geomap_to_dispatch_geography(agg_load) if geomap_to_dispatch_geography else agg_load
 #        t = util.time_stamp(t)
+        df *= self.energy_demand.xs([cfg.electricity_energy_type_id, year], level=['final_energy', 'year']).sum().sum() / df.xs(2, level='timeshift_type').sum().sum()
         return df
 
     def electricity_energy_slice(self, year, subsector_slice):

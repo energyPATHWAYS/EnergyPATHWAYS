@@ -29,11 +29,11 @@ class SupplyTechnology(StockItem):
         self.capacity_factor = SupplyTechCapacityFactor(id)
         self.co2_capture = SupplyTechCO2Capture(id)
         self.reference_sales_shares = {}
-        if self.id in util.sql_read_table('SupplySalesShareData', 'supply_technology', return_unique=True, return_iterable=True):
-            self.reference_sales_shares[1] = SupplySalesShare(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySalesShare', sql_data_table='SupplySalesShareData', primary_key='supply_node_id', data_id_key='supply_technology')
+        if self.id in util.sql_read_table('SupplySalesShareData', 'supply_technology_id', return_unique=True, return_iterable=True):
+            self.reference_sales_shares[1] = SupplySalesShare(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySalesShare', sql_data_table='SupplySalesShareData', primary_key='supply_node_id', data_id_key='supply_technology_id')
         self.reference_sales = {}
-        if self.id in util.sql_read_table('SupplySalesData','supply_technology', return_unique=True, return_iterable=True):
-            self.reference_sales[1] = SupplySales(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySales', sql_data_table='SupplySalesData', primary_key='supply_node_id', data_id_key='supply_technology')
+        if self.id in util.sql_read_table('SupplySalesData','supply_technology_id', return_unique=True, return_iterable=True):
+            self.reference_sales[1] = SupplySales(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySales', sql_data_table='SupplySalesData', primary_key='supply_node_id', data_id_key='supply_technology_id')
         StockItem.__init__(self)
         
         if self.shape_id is not None:

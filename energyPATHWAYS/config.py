@@ -203,7 +203,7 @@ def init_date_lookup():
             ## Shapes
     
     date_lookup = DateTimeLookup()
-    time_slice_col = ['year', 'month', 'week', 'hour', 'day_type_id']
+    time_slice_col = ['year', 'month', 'week', 'hour', 'day_type']
     electricity_energy_type_id, electricity_energy_type_shape_id = util.sql_read_table('FinalEnergy', column_names=['id', 'shape_id'], name='electricity')
 
 def init_output_levels():

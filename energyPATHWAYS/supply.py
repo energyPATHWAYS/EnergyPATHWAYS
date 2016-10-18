@@ -1540,14 +1540,22 @@ class Supply(object):
         return util.remove_df_levels(df_geo,['supply_node','timeshift_type'])
             
     def set_initial_net_load_signals(self,year):
+        t = util.time.time()
         final_demand = self.demand_object.aggregate_electricity_shapes(year)
+        t = util.time_stamp(t)
         if year in self.dispatch_write_years:
             self.output_final_demand_for_bulk_dispatch_outputs(final_demand)
+        t = util.time_stamp(t)
         self.distribution_load = util.DfOper.add([final_demand,self.shaped_dist(year, self.non_flexible_load,generation=False)])
+        t = util.time_stamp(t)        
         self.distribution_gen = self.shaped_dist(year, self.non_flexible_gen,generation=True)
+        t = util.time_stamp(t)        
         self.bulk_gen = self.shaped_bulk(year, self.non_flexible_gen,generation=True)
+        t = util.time_stamp(t)        
         self.bulk_load = self.shaped_bulk(year, self.non_flexible_load,generation=False)
-        self.update_net_load_signal()            
+        t = util.time_stamp(t)
+        self.update_net_load_signal()    
+        t = util.time_stamp(t)        
         
     def output_final_demand_for_bulk_dispatch_outputs(self,final_demand):
         df_output = util.DfOper.mult([util.df_slice(final_demand,2,'timeshift_type'),self.distribution_losses])
