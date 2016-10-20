@@ -289,7 +289,7 @@ class Demand(object):
             self.sectors[id] = Sector(id, self.drivers)
             self.sectors[id].add_subsectors()
 
-    def calculate_demand(self):
+    def calculate_demand(self, solve_supply=True):
         logging.info('Calculating demand')
         for sector in self.sectors.values():
             logging.info('  {} sector'.format(sector.name))
@@ -297,7 +297,8 @@ class Demand(object):
         logging.info("Aggregating demand results")
         self.aggregate_results()
         logging.info('Creating electricity shape reconciliation')
-        self.create_electricity_reconciliation()
+        if solve_supply:
+           self.create_electricity_reconciliation()
 
 
 class Driver(object, DataMapFunctions):
@@ -579,7 +580,7 @@ class Subsector(DataMapFunctions):
             raise ValueError("demand_technology shapes are not fully implemented")
             energy_slice = energy_slice.groupby(level=[cfg.primary_geography, 'demand_technology']).sum()
             
-            demand_technology_shapes = pd.concat([tech.get_shape(default_shape=active_shape) for tech in self.technologies.values()],
+            technology_shapes = pd.concat([tech.get_shape(default_shape=active_shape) for tech in self.technologies.values()],
                                            keys=self.technologies.keys(), names=['demand_technology'])
             # here we might have a problem because some of the demand_technology shapes had flex load others didn't, this could lead to NaN
             # it might be possible to simply fill with 2, which would be the native shape

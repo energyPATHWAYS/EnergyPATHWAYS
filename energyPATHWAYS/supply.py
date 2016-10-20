@@ -1734,14 +1734,10 @@ class Supply(object):
                sector_df_list.append(df)     
             year_df = pd.concat(sector_df_list, keys=keys,names=name)
             df_list.append(year_df)
-#        self.sector_df_list  = sector_df_list     
-#        self.df_list = df_list
         keys = self.years
         name = ['year']
         df = pd.concat(df_list,keys=keys,names=name)
-        df.columns = ['value']
-#        levels = [x for x in ['supply_node','supply_node_export',cfg.primary_geography +'_supply',cfg.primary_geography +'_export',  'ghg'] if x in df.index.names]
-#        df = df.groupby(level=levels).filter(lambda x: x.sum()!=0)                 
+        df.columns = ['value']         
         return df
 
     def calculate_export_result(self, export_result_name, io_dict):
@@ -4142,13 +4138,13 @@ class SupplyStockNode(Node):
                    stock.values.set_index('supply_technology', append=True, inplace=True) 
                    tech_stocks.append(stock.values)
        if len(tech_stocks):
-            self.case_stock.date = True
+            self.case_stock.data = True
             self.case_stock.technology = DfOper.add(tech_stocks, expandable=False)
             self.case_stock.technology[self.case_stock.technology.index.get_level_values('year')<int(cfg.cfgfile.get('case','current_year'))] = np.nan
        total_stocks = []
        for stock in self.total_stocks.values():
             if stock.values is not None:
-                self.case_stock.date = True
+                self.case_stock.data = True
                 total_stocks.append(stock.values)
        if len(total_stocks):    
            self.case_stock.total = DfOper.add(total_stocks, expandable=False)

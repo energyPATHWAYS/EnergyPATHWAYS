@@ -37,7 +37,7 @@ class PathwaysModel(object):
     def run(self, scenario_id, solve_demand, solve_supply, save_models, append_results):
         try:
             if solve_demand:
-                self.calculate_demand(save_models)
+                self.calculate_demand(save_models, solve_supply)
             
             if not append_results:
                 self.remove_old_results()
@@ -63,12 +63,12 @@ class PathwaysModel(object):
                 pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
             raise
 
-    def calculate_demand(self, save_models):
+    def calculate_demand(self, save_models, solve_supply):
         logging.info('Configuring energy system demand')
 
         self.demand.add_subsectors()
         self.demand.add_measures(self.demand_case_id)
-        self.demand.calculate_demand()
+        self.demand.calculate_demand(solve_supply)
         self.demand_solved = True
         if save_models:
             with open(os.path.join(cfg.workingdir, str(self.scenario_id) + '_model.p'), 'wb') as outfile:

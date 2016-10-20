@@ -191,7 +191,7 @@ class DataMapFunctions:
         setattr(self, map_to, df)
 
         if current_data_type == 'total' and len(cfg.geo.geographies_unfiltered[current_geography])!=len(util.get_elements_from_level(getattr(self,map_to),current_geography)):
-            setattr(self, map_to, util.reindex_df_level_with_new_elements(getattr(self,map_to), current_geography, cfg.geo.geographies_unfiltered[current_geography], fill_value=fill_value))
+            setattr(self, map_to, util.reindex_df_level_with_new_elements(getattr(self,map_to), current_geography, cfg.geo.geographies_unfiltered[current_geography], fill_value=np.nan))
 
         if (drivers is None) or (not len(drivers)):
             if fill_timeseries:     
