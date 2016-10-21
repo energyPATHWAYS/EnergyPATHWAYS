@@ -275,20 +275,14 @@ class ScenarioRunner(Resource):
         scenario = fetch_owned_scenario(scenario_id)
         if scenario.is_running():
             return {'message': 'Scenario is already running (or queued to run)'}, 400
+
+        # Create a new scenario run entry for the requested scenario. The queue_monitor will later find the queued
+        # scenario and actually run it.
         run = models.ScenarioRun(scenario_id=scenario.id)
         models.db.session.add(run)
         models.db.session.commit()
 
-        # Actually run the scenario
-        proc = subprocess.Popen(['energyPATHWAYS', '-a',
-                                 '-p', '../../us_model_example',
-                                 '-s', str(scenario_id)])
-
-        # Store the pid of the model process in the database
-        run.pid = proc.pid
-        models.db.session.commit()
-
-        return {'message': 'Scenario run initiated'}, 200,\
+        return {'message': 'Scenario queued for running'}, 200,\
                {'Location': api.url_for(ScenarioRunner, scenario_id=scenario.id)}
 
     @auth.login_required
@@ -330,6 +324,8 @@ if __name__ == '__main__':
     # Logging recipe from http://flask.pocoo.org/docs/0.11/errorhandling/#logging-to-a-file
     # There's also a bunch of guidance there about sending emails on error, etc., when we're ready for that
     if not app.debug:
-        logging.basicConfig(filename='../../us_model_example/api %s.log' % (str(datetime.datetime.now())),
-                            level=logging.DEBUG)
-
+        logging.basicConfig(filename='../../us_model_example/api_%s.log' %
+                                     datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f%z'),
+                            level=logging.DEBUG,
+                            format='%(asctime)s %(levelname)-8s %(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S')

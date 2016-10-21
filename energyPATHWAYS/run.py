@@ -47,7 +47,7 @@ def myexcepthook(exctype, value, tb):
     # It is possible that we arrived here due to a database exception, and if so the database will be in a state
     # where it is not accepting commands. To be safe, we do a rollback before attempting to write the run status.
     cfg.con.rollback()
-    update_api_run_status(4)
+    update_api_run_status(5)
     sys.__excepthook__(exctype, value, tb)
 sys.excepthook = myexcepthook
 
@@ -59,7 +59,7 @@ def signal_handler(signal, frame):
     # was in the middle of performing some work. Therefore, we re-initialize the connection so that we can use it to
     # write the cancelation status to the db.
     cfg.init_db()
-    update_api_run_status(5)
+    update_api_run_status(6)
     sys.exit(0)
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
@@ -99,7 +99,7 @@ def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load
         scenario_start_time = time.time()
         logging.info('Starting scenario_id {}'.format(scenario_id))
         if api_run:
-            util.update_status(scenario_id, 2)
+            util.update_status(scenario_id, 3)
             scenario_name = util.scenario_name(scenario_id)
             subject = 'Now running: EnergyPathways scenario "%s"' % (scenario_name,)
             body = 'EnergyPathways is now running your scenario titled "%s". A scenario run generally ' \
@@ -117,7 +117,7 @@ def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load
                   append_results=False if (scenario_id==scenario_ids[0] and clear_results) else True)
     
         if api_run:
-            util.update_status(scenario_id, 3)
+            util.update_status(scenario_id, 4)
             subject = 'Completed: EnergyPathways scenario "%s"' % (scenario_name,)
             body = 'EnergyPathways has completed running your scenario titled "%s". ' \
                    'Please return to https://energypathways.com to view your results.' % (scenario_name,)

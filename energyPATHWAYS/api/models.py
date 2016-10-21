@@ -207,11 +207,12 @@ class ScenarioRunStatus(db.Model):
 
     NEVER_RUN_ID = 0
     QUEUED_ID = 1
-    RUNNING_ID = 2
-    SUCCESS_ID = 3
-    ERROR_ID = 4
-    CANCELED_ID = 5
-    LOST_ID = 6
+    LAUNCHED_ID = 2
+    RUNNING_ID = 3
+    SUCCESS_ID = 4
+    ERROR_ID = 5
+    CANCELED_ID = 6
+    LOST_ID = 7
 
     @property
     def successful(self):
@@ -223,6 +224,7 @@ class ScenarioRunStatus(db.Model):
     def contents(cls):
         return [
             cls(id=cls.QUEUED_ID, name='Queued', description='Scenario is awaiting its turn to run', finished=False),
+            cls(id=cls.LAUNCHED_ID, name='Launched', description='Scenario run has been initiated', finished=False),
             cls(id=cls.RUNNING_ID, name='Running', description='Scenario is currently running', finished=False),
             cls(id=cls.SUCCESS_ID, name='Success', description='Run finished successfully', finished=True),
             cls(id=cls.ERROR_ID, name='Error', description='Run terminated due to an error', finished=True),

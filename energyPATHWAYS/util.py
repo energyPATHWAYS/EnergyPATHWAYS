@@ -302,11 +302,11 @@ def update_status(scenario_id, status_id):
     # of the main model yet.
     scenario_run_id = active_scenario_run_id(scenario_id)
 
-    assert 2 <= status_id <= 5, "update_status() only understands status_ids between 2 and 5, inclusive."
-    time_field = 'start_time' if status_id == 2 else 'end_time'
+    assert 3 <= status_id <= 6, "update_status() only understands status_ids between 3 and 6, inclusive."
+    end_time_update = ', end_time = now()' if status_id >= 4 else ''
 
-    cfg.cur.execute("UPDATE public_runs.scenario_runs SET status_id = %s, %s = now(), pid = %s WHERE id = %s",
-                    (status_id, psycopg2.extensions.AsIs(time_field), os.getpid(), scenario_run_id))
+    cfg.cur.execute("UPDATE public_runs.scenario_runs SET status_id = %s%s WHERE id = %s",
+                    (status_id, psycopg2.extensions.AsIs(end_time_update), scenario_run_id))
     cfg.con.commit()
 
 

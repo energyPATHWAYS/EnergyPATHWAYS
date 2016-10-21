@@ -1,10 +1,8 @@
 import unittest
-import mock
 import json
 import api
 import base64
 import sqlalchemy.schema as schema
-from collections import namedtuple
 from sqlalchemy.sql.expression import func
 import models
 
@@ -14,10 +12,6 @@ class TestAPI(unittest.TestCase):
     TEST_PID = 12345
     TEST_OUTPUT_TYPE_ID = 3
     TEST_OUTPUT_UNIT = 'moonbeams'
-
-    # We use this to generate return values for our mock subprocess.Popen() below. The return value needs to have a
-    # pid property because the scenario runner will want to read it and store it in the database.
-    MockProcess = namedtuple('MockProcess', ['pid'])
 
     @classmethod
     def setUpClass(cls):
@@ -153,17 +147,11 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(rv.status_code, 200)
         return [s for s in json.loads(rv.data) if not s['is_built_in']][0]
 
-    @mock.patch('subprocess.Popen', return_value=MockProcess(pid=TEST_PID))
-    def run_scenario(self, scenario_id, credentials, mock_popen):
+    def run_scenario(self, scenario_id, credentials):
         """
-        Posts to the scenario run route but with the subprocess starter mocked so we don't actually get
-        models running while running unit tests. Always use this when kicking off scenario runs within a unit test!
+        Posts to the scenario run route.
         """
-        rv = self.post('/scenarios/%i/run' % (scenario_id,), credentials)
-        # If a success status was returned, we expect that a model run subprocess was started
-        # Conversely, if any other code was returned, we expect that a model run subprocess was *not* started!
-        self.assertEqual(rv.status_code == 200, mock_popen.called)
-        return rv
+        return self.post('/scenarios/%i/run' % (scenario_id,), credentials)
 
     def _fake_run_completion(self, scenario_id):
         """Mark the scenario's latest run as complete and add some fake outputs"""
@@ -441,7 +429,8 @@ class TestAPI(unittest.TestCase):
 
         # Run Jane's scenario and fake completion of the run so we can then make sure everything that might possibly
         # be attached to a scenario really gets deleted
-        self.run_scenario(self.jane_scenario_id, self.jane_doe_credentials)
+        rv = self.run_scenario(self.jane_scenario_id, self.jane_doe_credentials)
+        self.assertEqual(rv.status_code, 200)
         self._fake_run_completion(self.jane_scenario_id)
 
         # Verify that all the data that we expect to be associated with a Scenario and a completed run are present
@@ -500,11 +489,6 @@ class TestAPI(unittest.TestCase):
         rv = self.get(rv.headers['Location'], self.jane_doe_credentials)
         self.assertEqual(rv.status_code, 200)
         self.assertEqual(json.loads(rv.data)['name'], 'Queued')
-
-        # The id of the process running the scenario has been stored correctly
-        with api.app.app_context():
-            run = models.Scenario.query.get(self.jane_scenario_id).latest_run
-        self.assertEqual(run.pid, self.TEST_PID)
 
         # An attempt to run the same scenario again after it's queued is rejected
         rv = self.run_scenario(self.jane_scenario_id, self.jane_doe_credentials)
