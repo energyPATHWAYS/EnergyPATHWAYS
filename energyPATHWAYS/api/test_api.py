@@ -546,7 +546,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(rv.status_code, 200)
         resp = json.loads(rv.data)
         self.assertEqual(resp['output_type_id'], self.TEST_OUTPUT_TYPE_ID)
-        self.assertEqual(resp['output_type_name'], 'Energy demand')
+        self.assertEqual(resp['output_type_name'], 'Emissions by sector')
         self.assertEqual(resp['unit'], self.TEST_OUTPUT_UNIT)
         self.assertEqual(len(resp['data']), 6)
         # Data should come back sorted, so we'll test some specific expectations for the first row

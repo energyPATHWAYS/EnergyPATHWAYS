@@ -342,26 +342,21 @@ class OutputType(db.Model):
     @classmethod
     def contents(cls):
         return [
-            cls(id=1, name='Sankey - energy'),
-            cls(id=2, name='Sankey - emissions'),
-            cls(id=3, name='Energy demand'),
-            cls(id=4, name='Annual cost'),
-            cls(id=5, name='Emissions'),
-            cls(id=6, name='Liquid fuels sectoral demand'),
-            cls(id=7, name='Liquid fuels energy supply'),
-            cls(id=8, name='Liquid fuels emissions intensity'),
-            cls(id=9, name='Gaseous fuels sectoral demand'),
-            cls(id=10, name='Gaseous fuels energy supply'),
-            cls(id=11, name='Gaseous fuels emissions intensity'),
-            cls(id=12, name='Electricity sectoral demand'),
-            cls(id=13, name='Electricity energy supply'),
-            cls(id=14, name='Electricity emissions intensity'),
-            cls(id=15, name='Sales'),
-            cls(id=16, name='Stocks'),
-            cls(id=17, name='Service demand by tech'),
-            cls(id=18, name='Energy by tech'),
-            cls(id=19, name='Emissions by tech')
+                cls(id=1, name='Levelized cost'),
+                cls(id=2, name='Energy demand by sector'),
+                cls(id=3, name='Emissions by sector'),
+                cls(id=4, name='Emissions per capita'),
+                cls(id=5, name='Electricity supply by type'),
+                cls(id=6, name='Residential energy by fuel type'),
+                cls(id=7, name='Residential emissions by fuel type'),
+                cls(id=8, name='Commercial energy by fuel type'),
+                cls(id=9, name='Commercial emissions by fuel type'),
+                cls(id=10, name='Transportation energy by fuel type'),
+                cls(id=11, name='Transportation emissions by fuel type'),
+                cls(id=12, name='Industrial energy by fuel type'),
+                cls(id=13, name='Industrial emissions by fuel type')
         ]
+
 
 
 class Output(db.Model):
