@@ -21,6 +21,22 @@ import helper_multiprocess
 
 #http://stackoverflow.com/questions/27491988/canonical-offset-from-utc-using-pytz
 
+def is_leap_year(year):
+    # https://support.microsoft.com/en-us/kb/214019
+    if year % 4:
+        if year % 100 and year % 400:
+            return False
+        else:
+            return True
+    else:
+        return True
+
+def num_active_years(active_dates_index):
+    unique_years = sorted(list(set(active_dates_index.year)))
+    year_counts = [sum(active_dates_index.year==y) for y in unique_years]
+    years = sum([yc/(8784. if is_leap_year(y) else 8760.) for y, yc in zip(unique_years, year_counts)])
+    return min(1., years) # we normalize up to one year
+    
 class Shapes(object):
     def __init__(self):
         self.data = {}
@@ -84,6 +100,7 @@ class Shapes(object):
         dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))
         self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.timezone_names[dispatch_outputs_timezone_id])
         self.active_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H', tz=self.dispatch_outputs_timezone)
+        self.num_active_years = num_active_years(self.active_dates_index)
         self.geography_check = (cfg.primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
     
     @staticmethod
@@ -99,6 +116,13 @@ class Shapes(object):
                 time_slice_elements[ti] = getattr(active_dates_index, ti)
         time_slice_elements['hour24'] = time_slice_elements['hour'] + 1
         return time_slice_elements
+
+    def make_flat_load_shape(self, index, columns='value'):
+        assert 'weather_datetime' in index.names
+        flat_shape = util.empty_df(fill_value=1., index=index, columns=columns)
+        group_to_normalize = [n for n in flat_shape.index.names if n!='weather_datetime']
+        flat_shape = flat_shape.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
+        return flat_shape
 
 class Shape(dmf.DataMapFunctions):    
     def __init__(self, id):
@@ -144,7 +168,7 @@ class Shape(dmf.DataMapFunctions):
 
     def process_shape(self):
         logging.info('    shape: ' + self.name)
-        self.num_active_years = len(self.active_dates_index)/8766.
+        self.num_active_years = num_active_years(self.active_dates_index)
         
         if self.shape_type=='weather date':
             self.values = util.reindex_df_level_with_new_elements(self.raw_values, 'weather_datetime', self.active_dates_index) # this step is slow, consider replacing
@@ -207,8 +231,7 @@ class Shape(dmf.DataMapFunctions):
             
             self.values = temp
         else:
-            self.values = self.values.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
-
+            self.values = self.values.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years        
 
     def geomap_to_time_zone(self, attr='values', inplace=True):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table
