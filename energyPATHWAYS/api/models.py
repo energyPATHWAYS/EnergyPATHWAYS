@@ -211,6 +211,7 @@ class ScenarioRunStatus(db.Model):
     SUCCESS_ID = 3
     ERROR_ID = 4
     CANCELED_ID = 5
+    LOST_ID = 6
 
     @property
     def successful(self):
@@ -225,7 +226,8 @@ class ScenarioRunStatus(db.Model):
             cls(id=cls.RUNNING_ID, name='Running', description='Scenario is currently running', finished=False),
             cls(id=cls.SUCCESS_ID, name='Success', description='Run finished successfully', finished=True),
             cls(id=cls.ERROR_ID, name='Error', description='Run terminated due to an error', finished=True),
-            cls(id=cls.CANCELED_ID, name='Canceled', description='Run was canceled by user', finished=True)
+            cls(id=cls.CANCELED_ID, name='Canceled', description='Run was canceled by user', finished=True),
+            cls(id=cls.LOST_ID, name='Lost', description='Run terminated for an unknown reason', finished=True)
         ]
 
 
