@@ -336,7 +336,7 @@ class OutputType(db.Model):
 
     # These are the ids of the "basic" ouptut type ids; that is, those we want to show on the list of scenarios page.
     # See contents() below for which types these refer to.
-    BASIC_OUTPUT_TYPE_IDS = [4, 5]
+    BASIC_OUTPUT_TYPE_IDS = [1, 3]
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.Text, nullable=False, unique=True)
