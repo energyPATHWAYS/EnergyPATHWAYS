@@ -387,12 +387,8 @@ class OutputData(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     parent_id = db.Column(db.ForeignKey(Output.id))
-    subsector = db.Column(db.ForeignKey(DemandSubsector.id))
     series = db.Column(db.Text())
     year = db.Column(db.Integer())
     value = db.Column(db.Float())
 
-    output = db.relationship(Output, backref=db.backref('data', order_by=[subsector, series, year],
-                                                        cascade="all, delete-orphan"))
-
-
+    output = db.relationship(Output, backref=db.backref('data', order_by=[series, year], cascade="all, delete-orphan"))
