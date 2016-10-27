@@ -44,6 +44,7 @@ class Shapes(object):
         self.active_shape_ids = []
         self.start_date = None
         self.end_date = None
+        self._version = version
 
     def create_empty_shapes(self):
         """ This should be called first as it creates a record of all of the shapes that are in the database."""
@@ -117,9 +118,9 @@ class Shapes(object):
         time_slice_elements['hour24'] = time_slice_elements['hour'] + 1
         return time_slice_elements
 
-    def make_flat_load_shape(self, index, columns='value'):
+    def make_flat_load_shape(self, index, column='value'):
         assert 'weather_datetime' in index.names
-        flat_shape = util.empty_df(fill_value=1., index=index, columns=columns)
+        flat_shape = util.empty_df(fill_value=1., index=index, columns=[column])
         group_to_normalize = [n for n in flat_shape.index.names if n!='weather_datetime']
         flat_shape = flat_shape.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
         return flat_shape
@@ -368,8 +369,8 @@ class Shape(dmf.DataMapFunctions):
 # electricity shapes
 force_rerun_shapes = False
 pickle_shape = True
+version = 1 #change this when you need to force users to rerun shapes
 shapes = Shapes()
-
 
 def init_shapes():
     global shapes
@@ -379,7 +380,7 @@ def init_shapes():
             shapes = pickle.load(infile)
     
     geography_check = (cfg.primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
-    if (not hasattr(shapes, 'geography_check')) or (shapes.geography_check != geography_check) or force_rerun_shapes:
+    if (not hasattr(shapes, 'geography_check')) or (not hasattr(shapes, '_version')) or (shapes._version != version) or (shapes.geography_check != geography_check) or force_rerun_shapes:
         logging.info('Processing shapes')
         shapes.__init__()
         shapes.create_empty_shapes()

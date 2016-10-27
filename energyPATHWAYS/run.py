@@ -146,10 +146,10 @@ if __name__ == "__main__":
     scenario = [12]
     
     run(workingdir, config, pint, scenario,
-        load_demand   = True,
-        solve_demand  = False,
+        load_demand   = False,
+        solve_demand  = True,
         load_supply   = False,
-        solve_supply  = False,
+        solve_supply  = True,
         pickle_shapes = True,
         save_models   = True,
         api_run       = False,

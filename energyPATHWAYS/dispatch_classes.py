@@ -237,17 +237,17 @@ class Dispatch(object):
         self.bulk_load = util.recursivedict()
         self.dispatched_bulk_load = util.recursivedict()
         self.bulk_gen = util.recursivedict()
-        print 'set_opt_distribution_net_loads'
+#        print 'set_opt_distribution_net_loads'
         self.set_opt_distribution_net_loads(distribution_load,distribution_gen)
-        print 'set_opt_bulk_net_loads'
-        t = util.time.time()
+#        print 'set_opt_bulk_net_loads'
+#        t = util.time.time()
         self.set_opt_bulk_net_loads(bulk_load,bulk_gen,dispatched_bulk_load)
-        t = util.time_stamp(t)
+#        t = util.time_stamp(t)
         
     def set_opt_distribution_net_loads(self, distribution_load, distribution_gen):
-        t = util.time.time()
+#        t = util.time.time()
         self.set_max_min_flex_loads(distribution_load)
-        t = util.time_stamp(t)
+#        t = util.time_stamp(t)
         active_timeshift_types = list(set(distribution_load.index.get_level_values('timeshift_type')))
         for geography in self.dispatch_geographies:
             for feeder in self.feeders:
@@ -293,8 +293,8 @@ class Dispatch(object):
                             self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = 0.0
                             self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = 0.0
                             self.cumulative_distribution_load[period][(geography,timepoint,feeder)] = 0.0
-        t = util.time_stamp(t)
-        pdb.set_trace()
+#        t = util.time_stamp(t)
+#        pdb.set_trace()
                                 
                                 
     def set_opt_bulk_net_loads(self, bulk_load, bulk_gen, dispatched_bulk_load):
