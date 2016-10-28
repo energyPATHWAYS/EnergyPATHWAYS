@@ -5,6 +5,7 @@ import numpy as np
 from scipy import optimize, interpolate, stats
 import util
 import logging
+import pylab
 
 pd.options.mode.chained_assignment = None
 
@@ -29,14 +30,31 @@ class TimeSeries:
             y (ndarray)
         """
         return A + ((K - A) / (1 + np.exp(-B * (x - M))))
+    
+    @staticmethod
+    def _approx_M(A, K, B, x, y):
+        return (np.log(((K - A) / (y - A)) - 1) + B * x) / B
+
+    @staticmethod
+    def _logistic_end_point_error(B, A, K, x, y, slope, t=.005):
+        M = TimeSeries._approx_M(A, K, B, x[1], y[1])
+        y_est = TimeSeries.generalized_logistic(np.array([x[0], x[-1]]), A, K, M, B)
+        y_tar = np.array([y[0], y[-1]]) + np.array([t, -t])*slope/abs(slope)
+        return sum((y_tar - y_est)**2)
 
     @staticmethod
     def logistic_default_param(x, y):
         slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
         A = min(y) if slope > 0 else max(y)
         K = max(y) if slope > 0 else min(y)
-        M = min(x) + (max(x) - min(x)) / 2.
-        B = 10 / float(max(x) - min(x))
+        if len(x) == 3:
+            assert y[0] != y[1] != y[2]
+            B0 = (10 / float(max(x) - min(x)))
+            B = optimize.root(TimeSeries._logistic_end_point_error, x0=B0, args=(A, K, x, y, slope))['x'][0]
+            M = TimeSeries._approx_M(A, K, B, x[1], y[1])
+        else:
+            B = 10 / float(max(x) - min(x))
+            M = min(x) + (max(x) - min(x)) / 2.
         return A, K, M, B
 
     @staticmethod
@@ -52,10 +70,10 @@ class TimeSeries:
         if len(x) < 4:
             return TimeSeries.default_logistic(x, y, newindex)
             # TODO: print to log file here
-
+        
         A, K, M, B = TimeSeries.logistic_default_param(x, y)
         popt = TimeSeries.leastsq_curve_fit(x, y, f=TimeSeries.generalized_logistic, p0=(A, K, M, B))
-
+        
         if popt is None:
             # Raise an error if no fit is found
             logging.debug("leastsq_curve_fit failed to find a solution - data does not support logistic fit")
@@ -359,6 +377,32 @@ class TimeSeries:
             yhat[goody] = y
         
         return yhat
+
+
+
+#x = np.array([2015, 2040, 2050])
+#y = np.array([0, .05, .7])
+
+#B = .5
+
+#M2 = approx_M(A, K, B, x[1], y[1])
+#B2 = approx_B(A, K, M2, x[0], .01)
+#M2 = approx_M(A, K, B2, x[1], y[1])
+
+#y = A + ((K - A) / (1 + e^(-B * (x - M))))
+
+#newindex = np.arange(2015, 2051)
+#
+#y_hat = TimeSeries.fit_generalized_logistic(x, y, newindex)
+#
+#pylab.plot(newindex, y_hat)
+#pylab.plot(x, y, '*')
+
+#x = np.array([2016, 2023, 2030, 2040, 2050])
+#y = np.array([0, .16, .48, .7, .72])
+
+#x = np.array([2015, 2030, 2033, 2050])
+#y = np.array([0, .48, .6, .72])
 
 
 

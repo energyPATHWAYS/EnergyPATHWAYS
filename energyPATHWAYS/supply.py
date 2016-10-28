@@ -625,7 +625,7 @@ class Supply(object):
 
     def prepare_optimization_inputs(self,year):
         logging.info("      preparing optimization inputs")
-        self.dispatch.set_timeperiods(shape.shapes.active_dates_index)
+        self.dispatch.set_timeperiods()
         self.dispatch.set_losses(self.distribution_losses)
         self.set_net_load_thresholds(year)
         self.dispatch.set_opt_loads(self.distribution_load,self.distribution_gen,self.bulk_load,self.bulk_gen,self.dispatched_bulk_load)
@@ -2437,16 +2437,17 @@ class Node(DataMapFunctions):
         if not hasattr(self,'stock'):
             if self.shape_id is None:
                 index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.primary_geography],[2],shape.shapes.active_dates_index], names=[cfg.primary_geography,'timeshift_type','weather_datetime'])
-                energy_shape = util.empty_df(fill_value=1/float(len(shape.shapes.active_dates_index)),index=index, columns=['value'])
+                energy_shape = shape.shapes.make_flat_load_shape(index)
             else:
                 energy_shape = self.shape.values
         elif 'demand_sector' in self.stock.values_energy:
             values_energy = util.remove_df_levels(DfOper.mult([self.stock.values_energy[year],dispatch_feeder_allocation]),'demand_sector')                    
         else:
             values_energy = self.stock.values_energy[year]
+        
         if self.shape_id is None:
             index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.primary_geography],[2],shape.shapes.active_dates_index], names=[cfg.primary_geography,'timeshift_type','weather_datetime'])
-            energy_shape = util.empty_df(fill_value=1/float(len(shape.shapes.active_dates_index)),index=index, columns=['value'])
+            energy_shape = shape.shapes.make_flat_load_shape(index)
         # we don't have technologies or none of the technologies have specific shapes
         elif not hasattr(self, 'technologies') or np.all([tech.shape_id is None for tech in self.technologies.values()]):
             if 'resource_bin' in self.shape.values.index.names and 'resource_bin' not in self.stock.stock.values.index.names:
