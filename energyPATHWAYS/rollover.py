@@ -8,6 +8,7 @@ Created on Thu Oct 01 09:26:56 2015
 import numpy as np
 import util
 import logging
+import pdb
 
 class Rollover(object):
     def __init__(self, vintaged_markov_matrix, initial_markov_matrix, num_years, num_vintages, num_techs,

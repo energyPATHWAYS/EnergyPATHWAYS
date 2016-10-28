@@ -75,7 +75,7 @@ class Demand(object):
         levels = ['timeshift_type', cfg.dispatch_geography, 'dispatch_feeder', 'weather_datetime']
         return util.DfOper.mult([df, map_df]).groupby(level=levels).sum()
 
-    def aggregate_electricity_shapes(self, year, geomap_to_dispatch_geography=True):
+    def aggregate_electricity_shapes(self, year, geomap_to_dispatch_geography=True, reconciliation_step=False):
         """ Final levels that will always return from this function
         ['timeshift_type', 'gau', 'dispatch_feeder', 'weather_datetime']
         """
@@ -86,6 +86,8 @@ class Demand(object):
 #            pool.close()
 #            pool.join()
 #        else:
+        if reconciliation_step==False and self.electricity_reconciliation is None:
+            self.create_electricity_reconciliation()
         b = [sector.aggregate_inflexible_electricity_shape(year) for sector in self.sectors.values()]
 #        t = util.time_stamp(t)
         a = [self.shape_from_subsectors_with_no_shape(year)]
@@ -141,7 +143,7 @@ class Demand(object):
         top_down_shape = top_down_energy * util.df_slice(self.default_electricity_shape.values, 2, 'timeshift_type')
         
         # this calls the functions that create the bottom up load shape for the weather_year
-        bottom_up_shape = self.aggregate_electricity_shapes(weather_year, geomap_to_dispatch_geography=False)
+        bottom_up_shape = self.aggregate_electricity_shapes(weather_year, geomap_to_dispatch_geography=False,reconciliation_step=True)
         bottom_up_shape = util.df_slice(bottom_up_shape, 2, 'timeshift_type')
         bottom_up_shape = util.remove_df_levels(bottom_up_shape, 'dispatch_feeder')
         
@@ -297,8 +299,7 @@ class Demand(object):
         logging.info("Aggregating demand results")
         self.aggregate_results()
         logging.info('Creating electricity shape reconciliation')
-        if solve_supply:
-           self.create_electricity_reconciliation()
+        
 
 
 class Driver(object, DataMapFunctions):
@@ -472,7 +473,7 @@ class Sector(object):
         """ Final levels that will always return from this function
         ['timeshift_type', 'gau', 'dispatch_feeder', 'weather_datetime']
         """
-        subsectors_with_flex = [sub for sub in self.subsectors.values() if (sub.has_electricity_consumption(year) and sub.has_flexible_load(year))]
+        subsectors_with_flex = [sub.id for sub in self.subsectors.values() if (sub.has_electricity_consumption(year) and sub.has_flexible_load(year))]
         if len(subsectors_with_flex):
             return self.aggregate_electricity_shape(year, ids=subsectors_with_flex).reorder_levels(['timeshift_type', cfg.primary_geography, 'dispatch_feeder', 'weather_datetime'])
         else:
@@ -538,7 +539,7 @@ class Subsector(DataMapFunctions):
             return False
 
     def has_flexible_load(self, year):
-        return True if (hasattr(self, 'flexible_load_measure') and self.flexible_load_measure.values.xs(year, level='year')>0) else False
+        return True if (hasattr(self, 'flexible_load_measure') and self.flexible_load_measure.values.xs(year, level='year').sum().sum()>0) else False
 
     def has_electricity_consumption(self, year):
         return hasattr(self,'energy_forecast') and cfg.electricity_energy_type_id in util.get_elements_from_level(self.energy_forecast, 'final_energy')
@@ -565,8 +566,7 @@ class Subsector(DataMapFunctions):
             energy_slice = self.get_electricity_consumption(year)
             if energy_slice is None:
                 return None
-            
-            if hasattr(self, 'flexible_load_measure'):
+            if hasattr(self, 'flexible_load_measure') and self.flexible_load_measure.values.xs(year, level='year').sum().sum()>0:
                 percent_flexible = self.flexible_load_measure.values.xs(year, level='year')
                 # first step is to make the three shifted profiles
                 flex = shape.Shape.produce_flexible_load(util.DfOper.mult((active_shape.values, self.electricity_reconciliation)),
@@ -2231,9 +2231,22 @@ class Subsector(DataMapFunctions):
         space_for_reference = 1 - np.sum(ss_measure, axis=1)
         ss_reference = self.helper_calc_sales_share(elements, levels, reference=True,
                                                     space_for_reference=space_for_reference)
-        
+                                            
         if np.sum(ss_reference)==0:
-            ss_reference = SalesShare.scale_reference_array_to_gap( np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1)), space_for_reference)        
+            ref_array = np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1))
+            if np.nansum(util.df_slice(self.stock.technology, elements, levels).values[0]) >= np.nansum(util.df_slice(self.stock.total, elements, levels).values[0]):
+                initial_stock = util.df_slice(self.stock.technology, elements, levels).values[0]
+                tech_lifetimes = np.array([x.book_life for x in self.technologies.values()])
+                x = initial_stock/tech_lifetimes
+                x /= sum(x)
+                for i, tech_id in enumerate(self.tech_ids): 
+                    for sales_share in self.technologies[tech_id].sales_shares.values():
+                        if sales_share.replaced_demand_tech_id is None:
+                            ref_array[:,:,i] = x/(sum(x))
+                            ref_array[:,i,i] = 0
+                            
+            
+            ss_reference = SalesShare.scale_reference_array_to_gap(ref_array, space_for_reference)        
             #sales shares are always 1 with only one demand_technology so the default can be used as a reference
             if len(self.tech_ids)>1 and np.sum(ss_measure)<1:
                 reference_sales_shares = False
@@ -2247,10 +2260,19 @@ class Subsector(DataMapFunctions):
         return SalesShare.normalize_array(ss_reference + ss_measure, retiring_must_have_replacement=False),reference_sales_shares
 
 
-    def calculate_total_sales_share_after_initial(self, elements, levels):
+    def calculate_total_sales_share_after_initial(self, elements, levels, initial_stock):
         ss_measure = self.helper_calc_sales_share(elements, levels, reference=False)
         space_for_reference = 1 - np.sum(ss_measure, axis=1)
-        ss_reference = SalesShare.scale_reference_array_to_gap( np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1)), space_for_reference)        
+        ref_array = np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1))
+        tech_lifetimes = np.array([x.book_life for x in self.technologies.values()])
+        x = initial_stock/tech_lifetimes
+        x /= sum(x)
+        for i, tech_id in enumerate(self.tech_ids): 
+            for sales_share in self.technologies[tech_id].sales_shares.values():
+                if sales_share.replaced_demand_tech_id is None:
+                    ref_array[:,:,i] = x/(sum(x))
+                    ref_array[:,i,i] = 0
+        ss_reference = SalesShare.scale_reference_array_to_gap(ref_array, space_for_reference)        
            #sales shares are always 1 with only one demand_technology so the default can be used as a reference
         return SalesShare.normalize_array(ss_reference + ss_measure, retiring_must_have_replacement=False)
 
@@ -2377,7 +2399,7 @@ class Subsector(DataMapFunctions):
             initial_stock, rerun_sales_shares = self.calculate_initial_stock(elements,sales_share,initial_sales_share)
             
             if rerun_sales_shares:
-               sales_share =  self.calculate_total_sales_share_after_initial(elements, self.stock.rollover_group_names)
+               sales_share =  self.calculate_total_sales_share_after_initial(elements, self.stock.rollover_group_names, initial_stock)
                
             if self.stock.is_service_demand_dependent and self.stock.demand_stock_unit_type == 'equipment':
                 sales_share = self.calculate_service_modified_sales(elements,self.stock.rollover_group_names,sales_share)
@@ -2385,14 +2407,13 @@ class Subsector(DataMapFunctions):
             demand_technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names)
 
             annual_stock_change = util.df_slice(self.stock.annual_stock_changes, elements, self.stock.rollover_group_names)
-
             self.rollover = Rollover(vintaged_markov_matrix=self.stock.vintaged_markov_matrix,
-                                     initial_markov_matrix=self.stock.initial_markov_matrix,
-                                     num_years=len(self.years), num_vintages=len(self.vintages),
-                                     num_techs=len(self.tech_ids), initial_stock=initial_stock,
-                                     sales_share=sales_share, stock_changes=annual_stock_change.values,
-                                     specified_stock=demand_technology_stock.values, specified_retirements=None,
-                                     steps_per_year=self.stock.spy)                        
+                                         initial_markov_matrix=self.stock.initial_markov_matrix,
+                                         num_years=len(self.years), num_vintages=len(self.vintages),
+                                         num_techs=len(self.tech_ids), initial_stock=initial_stock,
+                                         sales_share=sales_share, stock_changes=annual_stock_change.values,
+                                         specified_stock=demand_technology_stock.values, specified_retirements=None,
+                                         steps_per_year=self.stock.spy)                        
             self.rollover.run()
             stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
             self.stock.values.loc[elements], self.stock.values_new.loc[elements], self.stock.values_replacement.loc[

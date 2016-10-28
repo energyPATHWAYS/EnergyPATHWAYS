@@ -216,7 +216,7 @@ def dispatch_problem_formulation(dispatch, start_state_of_charge, end_state_of_c
                                          within=Reals, initialize=dispatch.max_flex_load[period])
     dispatch_model.min_flex_load = Param(dispatch_model.GEOGRAPHIES,dispatch_model.FEEDERS,
                                          within=Reals, initialize=dispatch.min_flex_load[period])
-
+#    dispatch_model.precision_adjust = Param(dispatch_model.GEOGRAPHIES,initialize=dispatch.precision_adjust, within=Reals)
     # T&D
 
 #    dispatch_model.TRANSMISSION_LINES = Set(initialize=dispatch.transmission_lines)
@@ -552,7 +552,7 @@ def dispatch_problem_formulation(dispatch, start_state_of_charge, end_state_of_c
         :return:
         """
         if feeder !=0:
-            return model.min_flex_load[geography, feeder] <= model.Flexible_Load[geography, timepoint, feeder] + model.distribution_load[geography,timepoint,feeder] <= model.max_flex_load[geography, feeder]
+            return model.min_flex_load[geography, feeder]  <= model.Flexible_Load[geography, timepoint, feeder] + model.distribution_load[geography,timepoint,feeder] <= model.max_flex_load[geography, feeder]
         else:
             return Constraint.Skip
 

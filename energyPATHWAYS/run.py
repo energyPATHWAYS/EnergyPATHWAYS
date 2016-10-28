@@ -101,8 +101,10 @@ def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load
         
         model = load_model(load_demand, load_supply, scenario_id, api_run)
         model.run(scenario_id,
-                  solve_demand=solve_demand and not (load_demand or load_supply),
-                  solve_supply=solve_supply and not load_supply,
+                  solve_demand=solve_demand,
+                  solve_supply=solve_supply,
+                  load_demand = load_demand,
+                  load_supply = load_supply,
                   save_models=save_models,
                   append_results=False if (scenario_id==scenario_ids[0] and clear_results) else True)
     
@@ -139,16 +141,16 @@ def load_model(load_demand, load_supply, scenario_id, api_run):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Users\Ben\Documents\PythonProjects\energyPATHWAYS\new_york_model_example'
+    workingdir = r'C:\Users\Ben\Documents\PythonProjects\energyPATHWAYS\washington_model_example'
     os.chdir(workingdir)
     config = 'config.INI'
     pint = 'unit_defs.txt'
-    scenario = [12]
+    scenario = [11]
     run(workingdir, config, pint, scenario,
-    load_demand   = True,
-    solve_demand  = True,
-    load_supply   = True,
-    solve_supply  = False,
+    load_demand   = False,
+    solve_demand  = True, 
+    load_supply   = False,
+    solve_supply  = True,
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,

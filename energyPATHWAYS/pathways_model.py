@@ -34,21 +34,21 @@ class PathwaysModel(object):
         self.supply = None
         self.demand_solved, self.supply_solved = False, False
 
-    def run(self, scenario_id, solve_demand, solve_supply, save_models, append_results):
+    def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, save_models, append_results):
         try:
-            if solve_demand:
-                self.calculate_demand(save_models, solve_supply)
+            if solve_demand and not (load_demand or load_supply):
+                self.calculate_demand(save_models)
             
             if not append_results:
                 self.remove_old_results()
             if hasattr(self, 'demand_solved') and self.demand_solved and not self.api_run:
                 self.export_result_to_csv('demand_outputs')
 
-            if solve_supply:
+            if solve_supply and not load_supply:
                 self.supply = Supply(self.scenario, demand_object=self.demand)
                 self.calculate_supply(save_models)
 
-            if hasattr(self, 'supply_solved') and self.supply_solved:
+            if hasattr(self, 'supply_solved') and self.supply_solved and solve_supply:
                 self.supply.calculate_supply_outputs()
                 self.pass_supply_results_back_to_demand()
                 self.calculate_combined_results()
@@ -63,26 +63,27 @@ class PathwaysModel(object):
                 pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
             raise
 
-    def calculate_demand(self, save_models, solve_supply):
+    def calculate_demand(self, save_models):
         logging.info('Configuring energy system demand')
 
         self.demand.add_subsectors()
         self.demand.add_measures(self.demand_case_id)
-        self.demand.calculate_demand(solve_supply)
+        self.demand.calculate_demand()
         self.demand_solved = True
         if save_models:
             with open(os.path.join(cfg.workingdir, str(self.scenario_id) + '_model.p'), 'wb') as outfile:
                 pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
 
-    def calculate_supply(self, save_models):
+    def calculate_supply(self, save_models, resume=False):
         if not self.demand_solved:
             raise ValueError('demand must be solved first before supply')
         logging.info('Configuring energy system supply')
-
-        self.supply.add_nodes()
-        self.supply.add_measures(self.supply_case_id)
-        self.supply.initial_calculate()
-        self.supply.calculate_loop()
+        if not resume:
+            self.supply.add_nodes()
+            self.supply.add_measures(self.supply_case_id)
+            self.supply.initial_calculate()
+            self.supply.calculated_years = []
+        self.supply.calculate_loop(self.supply.years, self.supply.calculated_years)
         self.supply.final_calculate()
         self.supply.concatenate_annual_costs()
         self.supply.calculate_capacity_utilization()

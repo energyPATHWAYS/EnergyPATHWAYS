@@ -75,7 +75,7 @@ target/
 /us_model_example/*.p
 /california_model_example/
 /new_york_model_example/*.p
-
+/washington_model_example/*.p
 
 # Results
 /us_model_example/dispatch_outputs
@@ -90,6 +90,10 @@ target/
 /new_york_model_example/combined_outputs/
 /new_york_model_example/demand_outputs/
 /new_york_model_example/supply_outputs/
+/washington_model_example/dispatch_outputs
+/washington_model_example/combined_outputs/
+/washington_model_example/demand_outputs/
+/washington_model_example/supply_outputs/
 
 /model building tools/create geography tables/inputs/*.csv
 /model building tools/create geography tables/outputs/*.csv
