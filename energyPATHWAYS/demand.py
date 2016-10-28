@@ -1906,7 +1906,7 @@ class Subsector(DataMapFunctions):
                        measure_att='savings', id=measure.id) for measure in self.energy_efficiency_measures.values()]
         if len(measure_dfs):
             self.ee_stock = AggregateStock()
-            measure_df = pd.concat(measure_dfs)
+            measure_df = DfOper.add(measure_dfs)
             self.ee_stock.specified = measure_df.unstack('measure')
             self.ee_stock.total = measure_df.groupby(level=util.ix_excl(measure_df, 'measure')).sum()
             self.ee_stock.set_rollover_groups()
@@ -1923,7 +1923,7 @@ class Subsector(DataMapFunctions):
                        self.fuel_switching_measures.values()]
         if len(measure_dfs):
             self.fs_stock = AggregateStock()
-            measure_df = pd.concat(measure_dfs)
+            measure_df = DfOper.add(measure_dfs)
             self.fs_stock.specified = measure_df.unstack('measure')
             self.fs_stock.total = measure_df.groupby(level=util.ix_excl(measure_df, 'measure')).sum()
             self.fs_stock.set_rollover_groups()
@@ -1942,7 +1942,7 @@ class Subsector(DataMapFunctions):
                        self.service_demand_measures.values()]
         if len(measure_dfs):
             self.sd_stock = AggregateStock()
-            measure_df = pd.concat(measure_dfs)
+            measure_df = DfOper.add(measure_dfs)
             self.sd_stock.specified = measure_df.unstack('measure')
             self.sd_stock.total = measure_df.groupby(level=util.ix_excl(measure_df, 'measure')).sum()
             self.sd_stock.set_rollover_groups()

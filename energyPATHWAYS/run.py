@@ -145,7 +145,7 @@ if __name__ == "__main__":
     os.chdir(workingdir)
     config = 'config.INI'
     pint = 'unit_defs.txt'
-    scenario = [12]
+    scenario = [11]
     
     run(workingdir, config, pint, scenario,
     load_demand   = False,

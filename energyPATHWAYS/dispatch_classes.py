@@ -245,8 +245,7 @@ class Dispatch(object):
 #        t = util.time.time()
         self.set_opt_bulk_net_loads(bulk_load,bulk_gen,dispatched_bulk_load)
 #        t = util.time_stamp(t)
-       
-        
+           
     def set_opt_distribution_net_loads(self, distribution_load, distribution_gen):
 #        t = util.time.time()
         self.set_max_min_flex_loads(distribution_load)
@@ -259,11 +258,12 @@ class Dispatch(object):
                        for timeshift in [2,1,3]:      
                            load_df = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type'])
                            gen_df = util.df_slice(distribution_gen, [geography, feeder], [self.dispatch_geography, 'dispatch_feeder'])
+                           cum_df = load_df.cumsum()                           
                            if timeshift == 2:
                               for timepoint in self.period_timepoints[period]:
                                   time_index =  timepoint-1
                                   self.distribution_load[period][(geography,timepoint,feeder)] = load_df.iloc[time_index].values[0]
-                                  self.cumulative_distribution_load[period][(geography,timepoint,feeder)] = load_df.cumsum().iloc[time_index].values[0]
+                                  self.cumulative_distribution_load[period][(geography,timepoint,feeder)] = cum_df.iloc[time_index].values[0]
                                   self.distribution_gen[period][(geography,timepoint,feeder)] = gen_df.iloc[time_index].values[0] 
                            elif timeshift == 1:
                                if timeshift in active_timeshift_types:
@@ -271,22 +271,27 @@ class Dispatch(object):
                                    for timepoint in self.period_timepoints[period]:
                                        time_index = timepoint-1
                                        self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0]
-                               else:
-                                   df = load_df.cumsum()
-                                   for timepoint in self.period_timepoints[period]:
-                                       time_index = timepoint-1
-                                       self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0] 
+#                               else:
+#                                   for timepoint in self.period_timepoints[period]:
+#                                       time_index = timepoint-1
+#                                       self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = self.cumulative_distribution_load[period][(geography,timepoint,feeder)]
                            elif timeshift == 3:
                                 if timeshift in active_timeshift_types:
                                    df = util.df_slice(distribution_load, [geography, feeder, timeshift], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).cumsum()
                                    for timepoint in self.period_timepoints[period]:
                                        time_index = timepoint -1
                                        self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0]
-                                else:
-                                    df = load_df.cumsum()
-                                    for timepoint in self.period_timepoints[period]:
-                                        time_index = timepoint -1
-                                        self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0]
+#                                else:
+#                                    for timepoint in self.period_timepoints[period]:
+#                                        time_index = timepoint -1
+#                                        self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = self.cumulative_distribution_load[period][(geography,timepoint,feeder)]
+                           if 1 in active_timeshift_types:
+                               for timepoint in self.period_timepoints[period]:
+                                   self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = min(self.max_cumulative_flex_load[period][(geography,timepoint,feeder)],self.cumulative_distribution_load[period][(geography,timepoint,feeder)],self.min_cumulative_flex_load[period][(geography,timepoint,feeder)])
+                                   self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = max(self.max_cumulative_flex_load[period][(geography,timepoint,feeder)],self.cumulative_distribution_load[period][(geography,timepoint,feeder)],self.min_cumulative_flex_load[period][(geography,timepoint,feeder)])
+                           else:
+                                self.min_cumulative_flex_load[period] = self.cumulative_distribution_load[period]
+                                self.max_cumulative_flex_load[period] = self.cumulative_distribution_load[period]
                    else:
                         for timepoint in self.period_timepoints[period]:
                             self.distribution_load[period][(geography,timepoint,feeder)] = 0.0
@@ -904,6 +909,7 @@ class Dispatch(object):
             if np.any(np.isnan(period_test.values)):
                 zipped_input = zipped_inputs[period]
                 pdb.set_trace()
+                raise ValueError('nans from the optimization')
         self.flex_load_df = flex_test
         self.dist_storage_df = dist_test 
         self.bulk_storage_df = bulk_test
