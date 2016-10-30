@@ -28,8 +28,8 @@ logging.basicConfig(filename='../../us_model_example/queue_monitor_%s.log' %
               help="Number of seconds to wait between queue checks. Note that the actual interval between the start "
                    "of one check and the next will be slightly longer than this because of the time taken to actually "
                    "check the queue. Default 60.")
-@click.option('-w', '--max-workers', default=multiprocessing.cpu_count(),
-              help="Maximum number of simultaneous scenario runs. Defaults to the number of cores available.")
+@click.option('-w', '--max-workers', default=1,
+              help="Maximum number of simultaneous scenario runs. Defaults to one.")
 def start_queue_monitor(poll_frequency, max_workers):
     qm = QueueMonitor(poll_frequency, max_workers)
     qm.start()
