@@ -313,7 +313,8 @@ def update_status(scenario_id, status_id):
 def write_output_to_db(scenario_run_id, output_type_id, output_df):
     # For output_type_ids, see api/models.py. I am reluctant to import that file here because I don't want its
     # dependencies (e.g. SQLAlchemy) to become dependencies of the main model yet.
-    df = output_df.reset_index()
+    index = pd.MultiIndex.from_product(output_df.index.levels, names=output_df.index.names)
+    df = output_df.reindex(index, fill_value=0).reset_index()
     
     if len(df.columns)==3:
         assert df.columns[1].lower() == 'year', \
