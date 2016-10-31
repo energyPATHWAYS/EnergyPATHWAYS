@@ -28,7 +28,7 @@ logging.basicConfig(filename='../../us_model_example/queue_monitor_%s.log' %
               help="Number of seconds to wait between queue checks. Note that the actual interval between the start "
                    "of one check and the next will be slightly longer than this because of the time taken to actually "
                    "check the queue. Default 60.")
-@click.option('-w', '--max-workers', default=1,
+@click.option('-w', '--max-workers', default=4,
               help="Maximum number of simultaneous scenario runs. Defaults to one.")
 def start_queue_monitor(poll_frequency, max_workers):
     qm = QueueMonitor(poll_frequency, max_workers)
@@ -83,7 +83,7 @@ class QueueMonitor:
         # update. This was necessary to work around an error and is fine because the session is immediately
         # committed which expires the memory contents anyway.
         if lost_run_ids:
-            logger.warning("Cleaning up lost run(s): " + ', '.join(lost_run_ids))
+            logger.warning("Cleaning up lost run(s): " + ', '.join(str(i) for i in lost_run_ids))
             models.db.session.query(models.ScenarioRun).filter(sqlalchemy.and_(
                 models.ScenarioRun.status_id.in_(self.ACTIVE_STATUS_IDS),
                 models.ScenarioRun.id.in_(lost_run_ids)
