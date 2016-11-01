@@ -315,8 +315,8 @@ def write_output_to_db(scenario_run_id, output_type_id, output_df):
     # dependencies (e.g. SQLAlchemy) to become dependencies of the main model yet.
     if output_df.index.nlevels > 1:
         index = pd.MultiIndex.from_product(output_df.index.levels, names=output_df.index.names)
-        df = output_df.reindex(index, fill_value=0)    
-    df = df.reset_index()
+        output_df = output_df.reindex(index, fill_value=0)
+    df = output_df.reset_index()
     if len(df.columns)==3:
         assert df.columns[1].lower() == 'year', \
         "Output data frame is expected to have three columns (or columns and indexes)" \
