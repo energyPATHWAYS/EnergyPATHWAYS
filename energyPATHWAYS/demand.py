@@ -79,35 +79,21 @@ class Demand(object):
         """ Final levels that will always return from this function
         ['timeshift_type', 'gau', 'dispatch_feeder', 'weather_datetime']
         """
-#        t = util.time.time()
-#        if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-#            pool = Pool(processes=cfg.cpu_count())
-#            b = pool.map(helper_multiprocess.aggregate_sector_shapes, [(sector, year) for sector in self.sectors.values()])
-#            pool.close()
-#            pool.join()
-#        else:
         if reconciliation_step==False and self.electricity_reconciliation is None:
             self.create_electricity_reconciliation()
-        b = [sector.aggregate_inflexible_electricity_shape(year) for sector in self.sectors.values()]
-#        t = util.time_stamp(t)
-        a = [self.shape_from_subsectors_with_no_shape(year)]
-#        t = util.time_stamp(t)
-        inflex_load = util.DfOper.add(a+b, expandable=False, collapsible=False)
-#        t = util.time_stamp(t)
+        inflexible = [sector.aggregate_inflexible_electricity_shape(year) for sector in self.sectors.values()]
+        no_shape = [self.shape_from_subsectors_with_no_shape(year)]
+        inflex_load = util.DfOper.add(no_shape+inflexible, expandable=False, collapsible=False)
         inflex_load = util.DfOper.mult((inflex_load, self.electricity_reconciliation))
-#        t = util.time_stamp(t)
         flex_load = util.DfOper.add([sector.aggregate_flexible_electricity_shape(year) for sector in self.sectors.values()], expandable=False, collapsible=False)
-#        t = util.time_stamp(t)
         if flex_load is None:
             agg_load = pd.concat([inflex_load], keys=[2], names=['timeshift_type'])
         else:
             inflex_load = pd.concat([inflex_load]*3, keys=[1,2,3], names=['timeshift_type'])
-#           t = util.time_stamp(t)
             agg_load = util.DfOper.add((flex_load, inflex_load), expandable=False, collapsible=False)
-#        t = util.time_stamp(t)
         df = self.geomap_to_dispatch_geography(agg_load) if geomap_to_dispatch_geography else agg_load
-#        t = util.time_stamp(t)
         df *= self.energy_demand.xs([cfg.electricity_energy_type_id, year], level=['final_energy', 'year']).sum().sum() / df.xs(2, level='timeshift_type').sum().sum()
+        df = df.rename(columns={'value':year})
         return df
 
     def electricity_energy_slice(self, year, subsector_slice):

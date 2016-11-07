@@ -485,16 +485,19 @@ def ensure_tuple(obj):
 
 def df_slice(df, elements, levels, drop_level=True, reset_index=False):
     elements, levels = ensure_iterable_and_not_string(elements), ensure_iterable_and_not_string(levels)
-    if len(elements) != len(levels):
-        raise ValueError(
-            'Number of elements ' + str(len(elements)) + ' must match the number of levels ' + str(len(levels)))
-    # remove elements if they are not in the df
-    elements, levels = zip(*[(e, l) for e, l in zip(elements, levels) if l in df.index.names])
-    if len(levels):
+    if not len(levels):
+        return None
+    if len(elements) != len(levels) and len(levels) > 1:
+        raise ValueError('Number of elements ' + str(len(elements)) + ' must match the number of levels ' + str(len(levels)))
+    
+    # special case where we use a different method to handle multiple elements
+    if len(levels) == 1 and len(elements) > 1:
+        return df.reset_index().loc[df.reset_index()[levels[0]].isin(elements)].set_index(df.index.names)
+    else:
+        # remove levels if they are not in the df
+        elements, levels = zip(*[(e, l) for e, l in zip(elements, levels) if l in df.index.names])
         result = df.xs(elements, level=levels, drop_level=drop_level)
         return result.reset_index().set_index(result.index.names) if reset_index else result
-    else:
-        return None
 
 
 def intersect(a, b):
@@ -624,7 +627,6 @@ def expand_multi(a, levels_list, levels_names, how='outer', incremental=False, d
     creates an additional layer in a mutlilevel index, repeating values from all other previous
     indexes
     """
-    
     drop_index = ensure_iterable_and_not_string(drop_index)
     if incremental:
         levels_list = [ensure_iterable_and_not_string(levels_list)]
@@ -1185,13 +1187,12 @@ def find_weibul_beta(mean_lifetime, lifetime_variance):
         return cfg.weibul_coeff_of_var['beta'][nearest_index(cfg.weibul_coeff_of_var['mean/std'], mean_to_std)]
 
 
-def add_and_set_index(df, index, value, index_location=None):
-    df[index] = value
-    df = df.set_index(index, append=True).sort_index()
+def add_and_set_index(df, name, elements, index_location=None):
+    name, elements = ensure_iterable_and_not_string(name), ensure_iterable_and_not_string(elements)    
+    return_df = pd.concat([df]*len(elements), keys=elements, names=name).sort_index()
     if index_location:
-        df = df.swaplevel(-1, index_location).sort_index()
-    return df
-    
+        return_df = return_df.swaplevel(-1, index_location).sort_index()
+    return return_df
 
 def determ_energy(unit):
     """

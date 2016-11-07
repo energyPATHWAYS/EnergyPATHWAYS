@@ -21,6 +21,7 @@ import logging
 import cProfile
 import traceback
 import pandas as pd
+from energyPATHWAYS.dispatch_classes import Dispatch
 
 model = None
 run_start_time = time.time()
@@ -89,7 +90,8 @@ def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load
     global model
     cfg.initialize_config(path, config, pint, log_name)
     cfg.geo.log_geo()
-    shape.init_shapes()
+    if solve_demand or solve_supply:
+        shape.init_shapes()
     
     scenario_ids = parse_scenario_ids(scenario)
     logging.info('Scenario_ids run list = {}'.format(scenario_ids))
@@ -149,13 +151,15 @@ if __name__ == "__main__":
     
     run(workingdir, config, pint, scenario,
     load_demand   = False,
-    solve_demand  = True, 
+    solve_demand  = False, 
     load_supply   = False,
-    solve_supply  = True,
+    solve_supply  = False,
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,
     clear_results = True)
+    
+    dispatch = Dispatch.load_from_pickle()
 
     # note that when running the profiler, it is recommended to not run the model for more than 10 years due to memory use
     # cProfile.run('run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)', filename='full_run.profile')

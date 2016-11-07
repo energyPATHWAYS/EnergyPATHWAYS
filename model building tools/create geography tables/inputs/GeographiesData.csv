@@ -68,13 +68,13 @@ id,name,geography_id
 67,midwest,5
 68,south,5
 69,west,5
-71,East,6
-72,Gulf Coast,6
+71,east,6
+72,gulf coast,6
 73,mid-continent,6
-74,Southwest,6
-75,Rocky Mountains,6
-76,West Coast,6
-77,Alaska,6
+74,southwest,6
+75,rocky mountains,6
+76,west coast,6
+77,alaska,6
 78,PADD 3 (Gulf Coast),7
 79,PADD 5 (West Coast),7
 80,PADD 4 (Rocky Mountain),7
@@ -127,3 +127,1905 @@ id,name,geography_id
 127,US/Hawaii,10
 128,US/Mountain,10
 129,US/Pacific,10
+130,"autauga, alabama",11
+131,"barbour, alabama",11
+132,"calhoun, alabama",11
+133,"chambers, alabama",11
+134,"cherokee, alabama",11
+135,"chilton, alabama",11
+136,"choctaw, alabama",11
+137,"clarke, alabama",11
+138,"colbert, alabama",11
+139,"coosa, alabama",11
+140,"covington, alabama",11
+141,"dallas, alabama",11
+142,"dekalb, alabama",11
+143,"elmore, alabama",11
+144,"escambia, alabama",11
+145,"etowah, alabama",11
+146,"greene, alabama",11
+147,"hale, alabama",11
+148,"houston, alabama",11
+149,"jackson, alabama",11
+150,"jefferson, alabama",11
+151,"lauderdale, alabama",11
+152,"lawrence, alabama",11
+153,"lee, alabama",11
+154,"limestone, alabama",11
+155,"lowndes, alabama",11
+156,"marengo, alabama",11
+157,"marshall, alabama",11
+158,"mobile, alabama",11
+159,"monroe, alabama",11
+160,"morgan, alabama",11
+161,"randolph, alabama",11
+162,"russell, alabama",11
+163,"shelby, alabama",11
+164,"talladega, alabama",11
+165,"tallapoosa, alabama",11
+166,"tuscaloosa, alabama",11
+167,"walker, alabama",11
+168,"washington, alabama",11
+169,"wilcox, alabama",11
+170,"aleutians east, alaska",11
+171,"aleutians west, alaska",11
+172,"anchorage, alaska",11
+173,"bethel, alaska",11
+174,"bristol bay, alaska",11
+175,"denali, alaska",11
+176,"dillingham, alaska",11
+177,"fairbanks north star, alaska",11
+178,"haines, alaska",11
+179,"juneau, alaska",11
+180,"kenai peninsula, alaska",11
+181,"ketchikan gateway, alaska",11
+182,"kodiak island, alaska",11
+183,"lake and peninsula, alaska",11
+184,"matanuska-susitna, alaska",11
+185,"nome, alaska",11
+186,"north slope, alaska",11
+187,"northwest arctic, alaska",11
+188,"prince of wales-hyder, alaska",11
+189,"sitka, alaska",11
+190,"skagway, alaska",11
+191,"southeast fairbanks, alaska",11
+192,"valdez-cordova, alaska",11
+193,"wrangell, alaska",11
+194,"yakutat, alaska",11
+195,"yukon-koyukuk, alaska",11
+196,"apache, arizona",11
+197,"cochise, arizona",11
+198,"coconino, arizona",11
+199,"gila, arizona",11
+200,"la paz, arizona",11
+201,"maricopa, arizona",11
+202,"mohave, arizona",11
+203,"navajo, arizona",11
+204,"pima, arizona",11
+205,"pinal, arizona",11
+206,"santa cruz, arizona",11
+207,"yavapai, arizona",11
+208,"yuma, arizona",11
+209,"arkansas, arkansas",11
+210,"ashley, arkansas",11
+211,"baxter, arkansas",11
+212,"benton, arkansas",11
+213,"bradley, arkansas",11
+214,"carroll, arkansas",11
+215,"clark, arkansas",11
+216,"clay, arkansas",11
+217,"cleburne, arkansas",11
+218,"conway, arkansas",11
+219,"craighead, arkansas",11
+220,"crawford, arkansas",11
+221,"desha, arkansas",11
+222,"franklin, arkansas",11
+223,"garland, arkansas",11
+224,"greene, arkansas",11
+225,"hempstead, arkansas",11
+226,"hot spring, arkansas",11
+227,"independence, arkansas",11
+228,"izard, arkansas",11
+229,"jefferson, arkansas",11
+230,"little river, arkansas",11
+231,"marion, arkansas",11
+232,"mississippi, arkansas",11
+233,"ouachita, arkansas",11
+234,"pike, arkansas",11
+235,"pope, arkansas",11
+236,"pulaski, arkansas",11
+237,"stone, arkansas",11
+238,"union, arkansas",11
+239,"washington, arkansas",11
+240,"woodruff, arkansas",11
+241,"alameda, california",11
+242,"amador, california",11
+243,"butte, california",11
+244,"calaveras, california",11
+245,"colusa, california",11
+246,"contra costa, california",11
+247,"el dorado, california",11
+248,"fresno, california",11
+249,"glenn, california",11
+250,"humboldt, california",11
+251,"imperial, california",11
+252,"inyo, california",11
+253,"kern, california",11
+254,"kings, california",11
+255,"lake, california",11
+256,"lassen, california",11
+257,"los angeles, california",11
+258,"madera, california",11
+259,"marin, california",11
+260,"mariposa, california",11
+261,"mendocino, california",11
+262,"merced, california",11
+263,"mono, california",11
+264,"monterey, california",11
+265,"napa, california",11
+266,"nevada, california",11
+267,"orange, california",11
+268,"placer, california",11
+269,"plumas, california",11
+270,"riverside, california",11
+271,"sacramento, california",11
+272,"san benito, california",11
+273,"san bernardino, california",11
+274,"san diego, california",11
+275,"san francisco, california",11
+276,"san joaquin, california",11
+277,"san luis obispo, california",11
+278,"san mateo, california",11
+279,"santa barbara, california",11
+280,"santa clara, california",11
+281,"santa cruz, california",11
+282,"shasta, california",11
+283,"sierra, california",11
+284,"siskiyou, california",11
+285,"solano, california",11
+286,"sonoma, california",11
+287,"stanislaus, california",11
+288,"sutter, california",11
+289,"tehama, california",11
+290,"trinity, california",11
+291,"tulare, california",11
+292,"tuolumne, california",11
+293,"ventura, california",11
+294,"yolo, california",11
+295,"yuba, california",11
+296,"adams, colorado",11
+297,"alamosa, colorado",11
+298,"arapahoe, colorado",11
+299,"baca, colorado",11
+300,"bent, colorado",11
+301,"boulder, colorado",11
+302,"chaffee, colorado",11
+303,"clear creek, colorado",11
+304,"denver, colorado",11
+305,"douglas, colorado",11
+306,"eagle, colorado",11
+307,"el paso, colorado",11
+308,"garfield, colorado",11
+309,"grand, colorado",11
+310,"gunnison, colorado",11
+311,"huerfano, colorado",11
+312,"jefferson, colorado",11
+313,"kit carson, colorado",11
+314,"la plata, colorado",11
+315,"lake, colorado",11
+316,"larimer, colorado",11
+317,"las animas, colorado",11
+318,"lincoln, colorado",11
+319,"logan, colorado",11
+320,"mesa, colorado",11
+321,"moffat, colorado",11
+322,"montezuma, colorado",11
+323,"montrose, colorado",11
+324,"morgan, colorado",11
+325,"otero, colorado",11
+326,"ouray, colorado",11
+327,"park, colorado",11
+328,"prowers, colorado",11
+329,"pueblo, colorado",11
+330,"rio blanco, colorado",11
+331,"routt, colorado",11
+332,"saguache, colorado",11
+333,"san miguel, colorado",11
+334,"sedgwick, colorado",11
+335,"summit, colorado",11
+336,"weld, colorado",11
+337,"fairfield, connecticut",11
+338,"hartford, connecticut",11
+339,"litchfield, connecticut",11
+340,"middlesex, connecticut",11
+341,"new haven, connecticut",11
+342,"new london, connecticut",11
+343,"tolland, connecticut",11
+344,"windham, connecticut",11
+345,"kent, delaware",11
+346,"new castle, delaware",11
+347,"sussex, delaware",11
+348,"district of columbia, district of columbia",11
+349,"alachua, florida",11
+350,"bay, florida",11
+351,"brevard, florida",11
+352,"broward, florida",11
+353,"charlotte, florida",11
+354,"citrus, florida",11
+355,"collier, florida",11
+356,"desoto, florida",11
+357,"duval, florida",11
+358,"escambia, florida",11
+359,"gadsden, florida",11
+360,"hardee, florida",11
+361,"hendry, florida",11
+362,"hernando, florida",11
+363,"highlands, florida",11
+364,"hillsborough, florida",11
+365,"indian river, florida",11
+366,"jackson, florida",11
+367,"lake, florida",11
+368,"lee, florida",11
+369,"leon, florida",11
+370,"liberty, florida",11
+371,"manatee, florida",11
+372,"marion, florida",11
+373,"martin, florida",11
+374,"miami-dade, florida",11
+375,"monroe, florida",11
+376,"nassau, florida",11
+377,"orange, florida",11
+378,"osceola, florida",11
+379,"palm beach, florida",11
+380,"pasco, florida",11
+381,"pinellas, florida",11
+382,"polk, florida",11
+383,"putnam, florida",11
+384,"santa rosa, florida",11
+385,"sarasota, florida",11
+386,"seminole, florida",11
+387,"st. lucie, florida",11
+388,"suwannee, florida",11
+389,"taylor, florida",11
+390,"volusia, florida",11
+391,"wakulla, florida",11
+392,"appling, georgia",11
+393,"baldwin, georgia",11
+394,"bartow, georgia",11
+395,"bibb, georgia",11
+396,"burke, georgia",11
+397,"camden, georgia",11
+398,"chatham, georgia",11
+399,"clarke, georgia",11
+400,"cobb, georgia",11
+401,"columbia, georgia",11
+402,"coweta, georgia",11
+403,"decatur, georgia",11
+404,"dekalb, georgia",11
+405,"dougherty, georgia",11
+406,"early, georgia",11
+407,"effingham, georgia",11
+408,"elbert, georgia",11
+409,"fannin, georgia",11
+410,"fayette, georgia",11
+411,"floyd, georgia",11
+412,"forsyth, georgia",11
+413,"fulton, georgia",11
+414,"glascock, georgia",11
+415,"glynn, georgia",11
+416,"gwinnett, georgia",11
+417,"habersham, georgia",11
+418,"hancock, georgia",11
+419,"hart, georgia",11
+420,"heard, georgia",11
+421,"houston, georgia",11
+422,"jackson, georgia",11
+423,"jasper, georgia",11
+424,"jefferson, georgia",11
+425,"lamar, georgia",11
+426,"lanier, georgia",11
+427,"laurens, georgia",11
+428,"liberty, georgia",11
+429,"lowndes, georgia",11
+430,"macon, georgia",11
+431,"meriwether, georgia",11
+432,"mitchell, georgia",11
+433,"monroe, georgia",11
+434,"morgan, georgia",11
+435,"murray, georgia",11
+436,"muscogee, georgia",11
+437,"newton, georgia",11
+438,"oconee, georgia",11
+439,"polk, georgia",11
+440,"rabun, georgia",11
+441,"richmond, georgia",11
+442,"rockdale, georgia",11
+443,"stephens, georgia",11
+444,"talbot, georgia",11
+445,"taylor, georgia",11
+446,"troup, georgia",11
+447,"union, georgia",11
+448,"upson, georgia",11
+449,"walton, georgia",11
+450,"washington, georgia",11
+451,"wayne, georgia",11
+452,"worth, georgia",11
+453,"hawaii, hawaii",11
+454,"honolulu, hawaii",11
+455,"kauai, hawaii",11
+456,"maui, hawaii",11
+457,"ada, idaho",11
+458,"adams, idaho",11
+459,"bannock, idaho",11
+460,"benewah, idaho",11
+461,"blaine, idaho",11
+462,"boise, idaho",11
+463,"bonner, idaho",11
+464,"bonneville, idaho",11
+465,"boundary, idaho",11
+466,"butte, idaho",11
+467,"canyon, idaho",11
+468,"caribou, idaho",11
+469,"cassia, idaho",11
+470,"clark, idaho",11
+471,"clearwater, idaho",11
+472,"elmore, idaho",11
+473,"franklin, idaho",11
+474,"fremont, idaho",11
+475,"gem, idaho",11
+476,"gooding, idaho",11
+477,"idaho, idaho",11
+478,"jefferson, idaho",11
+479,"jerome, idaho",11
+480,"kootenai, idaho",11
+481,"lemhi, idaho",11
+482,"lincoln, idaho",11
+483,"madison, idaho",11
+484,"minidoka, idaho",11
+485,"nez perce, idaho",11
+486,"owyhee, idaho",11
+487,"payette, idaho",11
+488,"power, idaho",11
+489,"teton, idaho",11
+490,"twin falls, idaho",11
+491,"valley, idaho",11
+492,"washington, idaho",11
+493,"brown, illinois",11
+494,"bureau, illinois",11
+495,"champaign, illinois",11
+496,"christian, illinois",11
+497,"clark, illinois",11
+498,"clay, illinois",11
+499,"clinton, illinois",11
+500,"cook, illinois",11
+501,"de witt, illinois",11
+502,"dekalb, illinois",11
+503,"douglas, illinois",11
+504,"dupage, illinois",11
+505,"effingham, illinois",11
+506,"fayette, illinois",11
+507,"ford, illinois",11
+508,"fulton, illinois",11
+509,"grundy, illinois",11
+510,"hamilton, illinois",11
+511,"henry, illinois",11
+512,"iroquois, illinois",11
+513,"jackson, illinois",11
+514,"jasper, illinois",11
+515,"kane, illinois",11
+516,"kankakee, illinois",11
+517,"kendall, illinois",11
+518,"lake, illinois",11
+519,"lasalle, illinois",11
+520,"lee, illinois",11
+521,"livingston, illinois",11
+522,"macon, illinois",11
+523,"madison, illinois",11
+524,"marion, illinois",11
+525,"mason, illinois",11
+526,"massac, illinois",11
+527,"mcdonough, illinois",11
+528,"mchenry, illinois",11
+529,"mclean, illinois",11
+530,"monroe, illinois",11
+531,"montgomery, illinois",11
+532,"moultrie, illinois",11
+533,"ogle, illinois",11
+534,"peoria, illinois",11
+535,"perry, illinois",11
+536,"piatt, illinois",11
+537,"pike, illinois",11
+538,"putnam, illinois",11
+539,"randolph, illinois",11
+540,"rock island, illinois",11
+541,"sangamon, illinois",11
+542,"scott, illinois",11
+543,"shelby, illinois",11
+544,"st. clair, illinois",11
+545,"stark, illinois",11
+546,"stephenson, illinois",11
+547,"tazewell, illinois",11
+548,"vermilion, illinois",11
+549,"wayne, illinois",11
+550,"white, illinois",11
+551,"whiteside, illinois",11
+552,"will, illinois",11
+553,"williamson, illinois",11
+554,"winnebago, illinois",11
+555,"woodford, illinois",11
+556,"adams, indiana",11
+557,"benton, indiana",11
+558,"carroll, indiana",11
+559,"cass, indiana",11
+560,"clark, indiana",11
+561,"dearborn, indiana",11
+562,"dekalb, indiana",11
+563,"dubois, indiana",11
+564,"elkhart, indiana",11
+565,"fayette, indiana",11
+566,"floyd, indiana",11
+567,"gibson, indiana",11
+568,"greene, indiana",11
+569,"hamilton, indiana",11
+570,"hendricks, indiana",11
+571,"henry, indiana",11
+572,"jasper, indiana",11
+573,"jay, indiana",11
+574,"jefferson, indiana",11
+575,"knox, indiana",11
+576,"lake, indiana",11
+577,"laporte, indiana",11
+578,"lawrence, indiana",11
+579,"madison, indiana",11
+580,"marion, indiana",11
+581,"marshall, indiana",11
+582,"miami, indiana",11
+583,"montgomery, indiana",11
+584,"morgan, indiana",11
+585,"pike, indiana",11
+586,"porter, indiana",11
+587,"posey, indiana",11
+588,"randolph, indiana",11
+589,"spencer, indiana",11
+590,"st. joseph, indiana",11
+591,"sullivan, indiana",11
+592,"switzerland, indiana",11
+593,"tippecanoe, indiana",11
+594,"tipton, indiana",11
+595,"vanderburgh, indiana",11
+596,"vermillion, indiana",11
+597,"vigo, indiana",11
+598,"wabash, indiana",11
+599,"warrick, indiana",11
+600,"wayne, indiana",11
+601,"wells, indiana",11
+602,"white, indiana",11
+603,"adair, iowa",11
+604,"adams, iowa",11
+605,"allamakee, iowa",11
+606,"appanoose, iowa",11
+607,"audubon, iowa",11
+608,"benton, iowa",11
+609,"black hawk, iowa",11
+610,"boone, iowa",11
+611,"bremer, iowa",11
+612,"buchanan, iowa",11
+613,"buena vista, iowa",11
+614,"carroll, iowa",11
+615,"cass, iowa",11
+616,"cedar, iowa",11
+617,"cerro gordo, iowa",11
+618,"chickasaw, iowa",11
+619,"clay, iowa",11
+620,"clayton, iowa",11
+621,"clinton, iowa",11
+622,"crawford, iowa",11
+623,"davis, iowa",11
+624,"decatur, iowa",11
+625,"delaware, iowa",11
+626,"des moines, iowa",11
+627,"dickinson, iowa",11
+628,"dubuque, iowa",11
+629,"emmet, iowa",11
+630,"floyd, iowa",11
+631,"franklin, iowa",11
+632,"greene, iowa",11
+633,"grundy, iowa",11
+634,"guthrie, iowa",11
+635,"hamilton, iowa",11
+636,"hancock, iowa",11
+637,"hardin, iowa",11
+638,"henry, iowa",11
+639,"howard, iowa",11
+640,"iowa, iowa",11
+641,"jackson, iowa",11
+642,"johnson, iowa",11
+643,"jones, iowa",11
+644,"kossuth, iowa",11
+645,"lee, iowa",11
+646,"linn, iowa",11
+647,"louisa, iowa",11
+648,"lyon, iowa",11
+649,"madison, iowa",11
+650,"marion, iowa",11
+651,"marshall, iowa",11
+652,"mitchell, iowa",11
+653,"monroe, iowa",11
+654,"montgomery, iowa",11
+655,"muscatine, iowa",11
+656,"o'brien, iowa",11
+657,"osceola, iowa",11
+658,"page, iowa",11
+659,"palo alto, iowa",11
+660,"pocahontas, iowa",11
+661,"polk, iowa",11
+662,"pottawattamie, iowa",11
+663,"poweshiek, iowa",11
+664,"scott, iowa",11
+665,"shelby, iowa",11
+666,"story, iowa",11
+667,"tama, iowa",11
+668,"taylor, iowa",11
+669,"union, iowa",11
+670,"wapello, iowa",11
+671,"warren, iowa",11
+672,"webster, iowa",11
+673,"winnebago, iowa",11
+674,"winneshiek, iowa",11
+675,"woodbury, iowa",11
+676,"worth, iowa",11
+677,"wright, iowa",11
+678,"allen, kansas",11
+679,"anderson, kansas",11
+680,"barber, kansas",11
+681,"barton, kansas",11
+682,"butler, kansas",11
+683,"cherokee, kansas",11
+684,"cheyenne, kansas",11
+685,"clark, kansas",11
+686,"clay, kansas",11
+687,"cloud, kansas",11
+688,"coffey, kansas",11
+689,"cowley, kansas",11
+690,"crawford, kansas",11
+691,"decatur, kansas",11
+692,"dickinson, kansas",11
+693,"douglas, kansas",11
+694,"elk, kansas",11
+695,"ellis, kansas",11
+696,"ellsworth, kansas",11
+697,"finney, kansas",11
+698,"ford, kansas",11
+699,"franklin, kansas",11
+700,"graham, kansas",11
+701,"grant, kansas",11
+702,"gray, kansas",11
+703,"harper, kansas",11
+704,"haskell, kansas",11
+705,"jackson, kansas",11
+706,"johnson, kansas",11
+707,"kearny, kansas",11
+708,"kingman, kansas",11
+709,"kiowa, kansas",11
+710,"lincoln, kansas",11
+711,"linn, kansas",11
+712,"lyon, kansas",11
+713,"mcpherson, kansas",11
+714,"meade, kansas",11
+715,"miami, kansas",11
+716,"mitchell, kansas",11
+717,"montgomery, kansas",11
+718,"nemaha, kansas",11
+719,"neosho, kansas",11
+720,"osage, kansas",11
+721,"osborne, kansas",11
+722,"ottawa, kansas",11
+723,"pawnee, kansas",11
+724,"phillips, kansas",11
+725,"pottawatomie, kansas",11
+726,"pratt, kansas",11
+727,"reno, kansas",11
+728,"republic, kansas",11
+729,"rice, kansas",11
+730,"rooks, kansas",11
+731,"rush, kansas",11
+732,"russell, kansas",11
+733,"sedgwick, kansas",11
+734,"seward, kansas",11
+735,"shawnee, kansas",11
+736,"sherman, kansas",11
+737,"stafford, kansas",11
+738,"stanton, kansas",11
+739,"stevens, kansas",11
+740,"sumner, kansas",11
+741,"thomas, kansas",11
+742,"wallace, kansas",11
+743,"washington, kansas",11
+744,"wichita, kansas",11
+745,"wyandotte, kansas",11
+746,"boone, kentucky",11
+747,"bourbon, kentucky",11
+748,"carroll, kentucky",11
+749,"clark, kentucky",11
+750,"daviess, kentucky",11
+751,"estill, kentucky",11
+752,"fayette, kentucky",11
+753,"greenup, kentucky",11
+754,"hancock, kentucky",11
+755,"hardin, kentucky",11
+756,"henderson, kentucky",11
+757,"jefferson, kentucky",11
+758,"laurel, kentucky",11
+759,"lawrence, kentucky",11
+760,"lyon, kentucky",11
+761,"marshall, kentucky",11
+762,"mason, kentucky",11
+763,"mccracken, kentucky",11
+764,"mercer, kentucky",11
+765,"muhlenberg, kentucky",11
+766,"ohio, kentucky",11
+767,"oldham, kentucky",11
+768,"pendleton, kentucky",11
+769,"pulaski, kentucky",11
+770,"russell, kentucky",11
+771,"taylor, kentucky",11
+772,"trimble, kentucky",11
+773,"webster, kentucky",11
+774,"acadia, louisiana",11
+775,"ascension, louisiana",11
+776,"beauregard, louisiana",11
+777,"caddo, louisiana",11
+778,"calcasieu, louisiana",11
+779,"cameron, louisiana",11
+780,"concordia, louisiana",11
+781,"de soto, louisiana",11
+782,"east baton rouge, louisiana",11
+783,"evangeline, louisiana",11
+784,"iberia, louisiana",11
+785,"iberville, louisiana",11
+786,"jackson, louisiana",11
+787,"jefferson, louisiana",11
+788,"lafayette, louisiana",11
+789,"lincoln, louisiana",11
+790,"natchitoches, louisiana",11
+791,"orleans, louisiana",11
+792,"ouachita, louisiana",11
+793,"plaquemines, louisiana",11
+794,"pointe coupee, louisiana",11
+795,"rapides, louisiana",11
+796,"st. bernard, louisiana",11
+797,"st. charles, louisiana",11
+798,"st. james, louisiana",11
+799,"st. mary, louisiana",11
+800,"terrebonne, louisiana",11
+801,"washington, louisiana",11
+802,"webster, louisiana",11
+803,"west baton rouge, louisiana",11
+804,"west feliciana, louisiana",11
+805,"androscoggin, maine",11
+806,"aroostook, maine",11
+807,"cumberland, maine",11
+808,"franklin, maine",11
+809,"hancock, maine",11
+810,"kennebec, maine",11
+811,"knox, maine",11
+812,"oxford, maine",11
+813,"penobscot, maine",11
+814,"piscataquis, maine",11
+815,"sagadahoc, maine",11
+816,"somerset, maine",11
+817,"waldo, maine",11
+818,"washington, maine",11
+819,"york, maine",11
+820,"allegany, maryland",11
+821,"anne arundel, maryland",11
+822,"baltimore, maryland",11
+823,"calvert, maryland",11
+824,"cecil, maryland",11
+825,"charles, maryland",11
+826,"dorchester, maryland",11
+827,"frederick, maryland",11
+828,"garrett, maryland",11
+829,"harford, maryland",11
+830,"howard, maryland",11
+831,"kent, maryland",11
+832,"montgomery, maryland",11
+833,"prince george's, maryland",11
+834,"queen anne's, maryland",11
+835,"somerset, maryland",11
+836,"talbot, maryland",11
+837,"washington, maryland",11
+838,"wicomico, maryland",11
+839,"worcester, maryland",11
+840,"barnstable, massachusetts",11
+841,"berkshire, massachusetts",11
+842,"bristol, massachusetts",11
+843,"dukes, massachusetts",11
+844,"essex, massachusetts",11
+845,"franklin, massachusetts",11
+846,"hampden, massachusetts",11
+847,"hampshire, massachusetts",11
+848,"middlesex, massachusetts",11
+849,"nantucket, massachusetts",11
+850,"norfolk, massachusetts",11
+851,"plymouth, massachusetts",11
+852,"suffolk, massachusetts",11
+853,"worcester, massachusetts",11
+854,"alcona, michigan",11
+855,"alger, michigan",11
+856,"allegan, michigan",11
+857,"alpena, michigan",11
+858,"baraga, michigan",11
+859,"bay, michigan",11
+860,"berrien, michigan",11
+861,"calhoun, michigan",11
+862,"charlevoix, michigan",11
+863,"cheboygan, michigan",11
+864,"chippewa, michigan",11
+865,"clare, michigan",11
+866,"clinton, michigan",11
+867,"crawford, michigan",11
+868,"delta, michigan",11
+869,"dickinson, michigan",11
+870,"eaton, michigan",11
+871,"emmet, michigan",11
+872,"genesee, michigan",11
+873,"gladwin, michigan",11
+874,"gogebic, michigan",11
+875,"gratiot, michigan",11
+876,"hillsdale, michigan",11
+877,"houghton, michigan",11
+878,"huron, michigan",11
+879,"ingham, michigan",11
+880,"ionia, michigan",11
+881,"iosco, michigan",11
+882,"iron, michigan",11
+883,"isabella, michigan",11
+884,"jackson, michigan",11
+885,"kalamazoo, michigan",11
+886,"kalkaska, michigan",11
+887,"kent, michigan",11
+888,"lenawee, michigan",11
+889,"livingston, michigan",11
+890,"luce, michigan",11
+891,"macomb, michigan",11
+892,"manistee, michigan",11
+893,"marquette, michigan",11
+894,"mason, michigan",11
+895,"mecosta, michigan",11
+896,"menominee, michigan",11
+897,"midland, michigan",11
+898,"missaukee, michigan",11
+899,"monroe, michigan",11
+900,"montcalm, michigan",11
+901,"montmorency, michigan",11
+902,"muskegon, michigan",11
+903,"newaygo, michigan",11
+904,"oakland, michigan",11
+905,"oceana, michigan",11
+906,"ontonagon, michigan",11
+907,"osceola, michigan",11
+908,"oscoda, michigan",11
+909,"otsego, michigan",11
+910,"ottawa, michigan",11
+911,"saginaw, michigan",11
+912,"sanilac, michigan",11
+913,"schoolcraft, michigan",11
+914,"shiawassee, michigan",11
+915,"st. clair, michigan",11
+916,"st. joseph, michigan",11
+917,"tuscola, michigan",11
+918,"van buren, michigan",11
+919,"washtenaw, michigan",11
+920,"wayne, michigan",11
+921,"wexford, michigan",11
+922,"becker, minnesota",11
+923,"beltrami, minnesota",11
+924,"benton, minnesota",11
+925,"blue earth, minnesota",11
+926,"brown, minnesota",11
+927,"carlton, minnesota",11
+928,"carver, minnesota",11
+929,"cass, minnesota",11
+930,"chippewa, minnesota",11
+931,"chisago, minnesota",11
+932,"clay, minnesota",11
+933,"cook, minnesota",11
+934,"cottonwood, minnesota",11
+935,"crow wing, minnesota",11
+936,"dakota, minnesota",11
+937,"dodge, minnesota",11
+938,"douglas, minnesota",11
+939,"faribault, minnesota",11
+940,"fillmore, minnesota",11
+941,"freeborn, minnesota",11
+942,"goodhue, minnesota",11
+943,"grant, minnesota",11
+944,"hennepin, minnesota",11
+945,"isanti, minnesota",11
+946,"itasca, minnesota",11
+947,"jackson, minnesota",11
+948,"kanabec, minnesota",11
+949,"kandiyohi, minnesota",11
+950,"koochiching, minnesota",11
+951,"lake, minnesota",11
+952,"le sueur, minnesota",11
+953,"lincoln, minnesota",11
+954,"lyon, minnesota",11
+955,"martin, minnesota",11
+956,"mcleod, minnesota",11
+957,"meeker, minnesota",11
+958,"mille lacs, minnesota",11
+959,"morrison, minnesota",11
+960,"mower, minnesota",11
+961,"murray, minnesota",11
+962,"nobles, minnesota",11
+963,"norman, minnesota",11
+964,"olmsted, minnesota",11
+965,"otter tail, minnesota",11
+966,"pennington, minnesota",11
+967,"pine, minnesota",11
+968,"pipestone, minnesota",11
+969,"polk, minnesota",11
+970,"ramsey, minnesota",11
+971,"redwood, minnesota",11
+972,"renville, minnesota",11
+973,"rice, minnesota",11
+974,"rock, minnesota",11
+975,"scott, minnesota",11
+976,"sherburne, minnesota",11
+977,"st. louis, minnesota",11
+978,"stearns, minnesota",11
+979,"steele, minnesota",11
+980,"stevens, minnesota",11
+981,"swift, minnesota",11
+982,"wabasha, minnesota",11
+983,"waseca, minnesota",11
+984,"washington, minnesota",11
+985,"watonwan, minnesota",11
+986,"winona, minnesota",11
+987,"wright, minnesota",11
+988,"yellow medicine, minnesota",11
+989,"attala, mississippi",11
+990,"benton, mississippi",11
+991,"chickasaw, mississippi",11
+992,"choctaw, mississippi",11
+993,"claiborne, mississippi",11
+994,"coahoma, mississippi",11
+995,"desoto, mississippi",11
+996,"george, mississippi",11
+997,"harrison, mississippi",11
+998,"hinds, mississippi",11
+999,"jackson, mississippi",11
+1000,"jasper, mississippi",11
+1001,"jefferson davis, mississippi",11
+1002,"jones, mississippi",11
+1003,"kemper, mississippi",11
+1004,"lamar, mississippi",11
+1005,"lauderdale, mississippi",11
+1006,"lawrence, mississippi",11
+1007,"leflore, mississippi",11
+1008,"lowndes, mississippi",11
+1009,"panola, mississippi",11
+1010,"perry, mississippi",11
+1011,"smith, mississippi",11
+1012,"union, mississippi",11
+1013,"warren, mississippi",11
+1014,"washington, mississippi",11
+1015,"yazoo, mississippi",11
+1016,"adair, missouri",11
+1017,"atchison, missouri",11
+1018,"audrain, missouri",11
+1019,"bates, missouri",11
+1020,"benton, missouri",11
+1021,"boone, missouri",11
+1022,"buchanan, missouri",11
+1023,"butler, missouri",11
+1024,"callaway, missouri",11
+1025,"camden, missouri",11
+1026,"cape girardeau, missouri",11
+1027,"carroll, missouri",11
+1028,"cass, missouri",11
+1029,"cedar, missouri",11
+1030,"chariton, missouri",11
+1031,"clark, missouri",11
+1032,"clay, missouri",11
+1033,"cole, missouri",11
+1034,"daviess, missouri",11
+1035,"dekalb, missouri",11
+1036,"dunklin, missouri",11
+1037,"franklin, missouri",11
+1038,"gentry, missouri",11
+1039,"greene, missouri",11
+1040,"grundy, missouri",11
+1041,"henry, missouri",11
+1042,"howard, missouri",11
+1043,"howell, missouri",11
+1044,"jackson, missouri",11
+1045,"jasper, missouri",11
+1046,"jefferson, missouri",11
+1047,"johnson, missouri",11
+1048,"lafayette, missouri",11
+1049,"linn, missouri",11
+1050,"livingston, missouri",11
+1051,"macon, missouri",11
+1052,"madison, missouri",11
+1053,"marion, missouri",11
+1054,"miller, missouri",11
+1055,"monroe, missouri",11
+1056,"new madrid, missouri",11
+1057,"nodaway, missouri",11
+1058,"osage, missouri",11
+1059,"pettis, missouri",11
+1060,"phelps, missouri",11
+1061,"pike, missouri",11
+1062,"platte, missouri",11
+1063,"putnam, missouri",11
+1064,"ralls, missouri",11
+1065,"randolph, missouri",11
+1066,"reynolds, missouri",11
+1067,"saline, missouri",11
+1068,"scotland, missouri",11
+1069,"scott, missouri",11
+1070,"shelby, missouri",11
+1071,"st. charles, missouri",11
+1072,"st. francois, missouri",11
+1073,"st. louis, missouri",11
+1074,"stoddard, missouri",11
+1075,"taney, missouri",11
+1076,"vernon, missouri",11
+1077,"wright, missouri",11
+1078,"big horn, montana",11
+1079,"broadwater, montana",11
+1080,"carbon, montana",11
+1081,"cascade, montana",11
+1082,"custer, montana",11
+1083,"dawson, montana",11
+1084,"deer lodge, montana",11
+1085,"fallon, montana",11
+1086,"flathead, montana",11
+1087,"granite, montana",11
+1088,"judith basin, montana",11
+1089,"lake, montana",11
+1090,"lewis and clark, montana",11
+1091,"liberty, montana",11
+1092,"lincoln, montana",11
+1093,"madison, montana",11
+1094,"mccone, montana",11
+1095,"meagher, montana",11
+1096,"missoula, montana",11
+1097,"richland, montana",11
+1098,"roosevelt, montana",11
+1099,"rosebud, montana",11
+1100,"sanders, montana",11
+1101,"silver bow, montana",11
+1102,"stillwater, montana",11
+1103,"teton, montana",11
+1104,"toole, montana",11
+1105,"wheatland, montana",11
+1106,"yellowstone, montana",11
+1107,"adams, nebraska",11
+1108,"antelope, nebraska",11
+1109,"boone, nebraska",11
+1110,"boyd, nebraska",11
+1111,"brown, nebraska",11
+1112,"buffalo, nebraska",11
+1113,"burt, nebraska",11
+1114,"butler, nebraska",11
+1115,"cass, nebraska",11
+1116,"cedar, nebraska",11
+1117,"cherry, nebraska",11
+1118,"cheyenne, nebraska",11
+1119,"cuming, nebraska",11
+1120,"custer, nebraska",11
+1121,"deuel, nebraska",11
+1122,"dixon, nebraska",11
+1123,"dodge, nebraska",11
+1124,"douglas, nebraska",11
+1125,"franklin, nebraska",11
+1126,"frontier, nebraska",11
+1127,"furnas, nebraska",11
+1128,"gage, nebraska",11
+1129,"garfield, nebraska",11
+1130,"gosper, nebraska",11
+1131,"greeley, nebraska",11
+1132,"hall, nebraska",11
+1133,"holt, nebraska",11
+1134,"jefferson, nebraska",11
+1135,"johnson, nebraska",11
+1136,"keith, nebraska",11
+1137,"keya paha, nebraska",11
+1138,"kimball, nebraska",11
+1139,"knox, nebraska",11
+1140,"lancaster, nebraska",11
+1141,"lincoln, nebraska",11
+1142,"madison, nebraska",11
+1143,"nemaha, nebraska",11
+1144,"otoe, nebraska",11
+1145,"pierce, nebraska",11
+1146,"platte, nebraska",11
+1147,"red willow, nebraska",11
+1148,"richardson, nebraska",11
+1149,"saline, nebraska",11
+1150,"sarpy, nebraska",11
+1151,"saunders, nebraska",11
+1152,"scotts bluff, nebraska",11
+1153,"thayer, nebraska",11
+1154,"thurston, nebraska",11
+1155,"valley, nebraska",11
+1156,"washington, nebraska",11
+1157,"wayne, nebraska",11
+1158,"webster, nebraska",11
+1159,"york, nebraska",11
+1160,"carson city, nevada",11
+1161,"churchill, nevada",11
+1162,"clark, nevada",11
+1163,"elko, nevada",11
+1164,"eureka, nevada",11
+1165,"humboldt, nevada",11
+1166,"lander, nevada",11
+1167,"lyon, nevada",11
+1168,"mineral, nevada",11
+1169,"pershing, nevada",11
+1170,"storey, nevada",11
+1171,"washoe, nevada",11
+1172,"white pine, nevada",11
+1173,"belknap, new hampshire",11
+1174,"carroll, new hampshire",11
+1175,"coos, new hampshire",11
+1176,"grafton, new hampshire",11
+1177,"hillsborough, new hampshire",11
+1178,"merrimack, new hampshire",11
+1179,"rockingham, new hampshire",11
+1180,"strafford, new hampshire",11
+1181,"sullivan, new hampshire",11
+1182,"atlantic, new jersey",11
+1183,"bergen, new jersey",11
+1184,"burlington, new jersey",11
+1185,"camden, new jersey",11
+1186,"cape may, new jersey",11
+1187,"cumberland, new jersey",11
+1188,"essex, new jersey",11
+1189,"gloucester, new jersey",11
+1190,"hudson, new jersey",11
+1191,"hunterdon, new jersey",11
+1192,"mercer, new jersey",11
+1193,"middlesex, new jersey",11
+1194,"monmouth, new jersey",11
+1195,"morris, new jersey",11
+1196,"ocean, new jersey",11
+1197,"passaic, new jersey",11
+1198,"salem, new jersey",11
+1199,"somerset, new jersey",11
+1200,"sussex, new jersey",11
+1201,"union, new jersey",11
+1202,"warren, new jersey",11
+1203,"bernalillo, new mexico",11
+1204,"chaves, new mexico",11
+1205,"cibola, new mexico",11
+1206,"colfax, new mexico",11
+1207,"curry, new mexico",11
+1208,"eddy, new mexico",11
+1209,"grant, new mexico",11
+1210,"guadalupe, new mexico",11
+1211,"hidalgo, new mexico",11
+1212,"lea, new mexico",11
+1213,"los alamos, new mexico",11
+1214,"luna, new mexico",11
+1215,"mckinley, new mexico",11
+1216,"otero, new mexico",11
+1217,"quay, new mexico",11
+1218,"rio arriba, new mexico",11
+1219,"roosevelt, new mexico",11
+1220,"san juan, new mexico",11
+1221,"san miguel, new mexico",11
+1222,"sandoval, new mexico",11
+1223,"sierra, new mexico",11
+1224,"taos, new mexico",11
+1225,"torrance, new mexico",11
+1226,"valencia, new mexico",11
+1227,"albany, new york",11
+1228,"allegany, new york",11
+1229,"bronx, new york",11
+1230,"broome, new york",11
+1231,"cattaraugus, new york",11
+1232,"cayuga, new york",11
+1233,"chautauqua, new york",11
+1234,"clinton, new york",11
+1235,"columbia, new york",11
+1236,"dutchess, new york",11
+1237,"erie, new york",11
+1238,"essex, new york",11
+1239,"franklin, new york",11
+1240,"fulton, new york",11
+1241,"genesee, new york",11
+1242,"greene, new york",11
+1243,"herkimer, new york",11
+1244,"jefferson, new york",11
+1245,"kings, new york",11
+1246,"lewis, new york",11
+1247,"madison, new york",11
+1248,"monroe, new york",11
+1249,"nassau, new york",11
+1250,"new york, new york",11
+1251,"niagara, new york",11
+1252,"oneida, new york",11
+1253,"onondaga, new york",11
+1254,"ontario, new york",11
+1255,"orange, new york",11
+1256,"orleans, new york",11
+1257,"oswego, new york",11
+1258,"otsego, new york",11
+1259,"putnam, new york",11
+1260,"queens, new york",11
+1261,"rensselaer, new york",11
+1262,"richmond, new york",11
+1263,"rockland, new york",11
+1264,"saratoga, new york",11
+1265,"schoharie, new york",11
+1266,"seneca, new york",11
+1267,"st. lawrence, new york",11
+1268,"steuben, new york",11
+1269,"suffolk, new york",11
+1270,"sullivan, new york",11
+1271,"tompkins, new york",11
+1272,"ulster, new york",11
+1273,"warren, new york",11
+1274,"washington, new york",11
+1275,"wayne, new york",11
+1276,"westchester, new york",11
+1277,"wyoming, new york",11
+1278,"yates, new york",11
+1279,"alamance, north carolina",11
+1280,"alexander, north carolina",11
+1281,"anson, north carolina",11
+1282,"beaufort, north carolina",11
+1283,"bertie, north carolina",11
+1284,"bladen, north carolina",11
+1285,"brunswick, north carolina",11
+1286,"buncombe, north carolina",11
+1287,"burke, north carolina",11
+1288,"cabarrus, north carolina",11
+1289,"caldwell, north carolina",11
+1290,"caswell, north carolina",11
+1291,"catawba, north carolina",11
+1292,"chatham, north carolina",11
+1293,"cherokee, north carolina",11
+1294,"chowan, north carolina",11
+1295,"clay, north carolina",11
+1296,"cleveland, north carolina",11
+1297,"columbus, north carolina",11
+1298,"craven, north carolina",11
+1299,"cumberland, north carolina",11
+1300,"dare, north carolina",11
+1301,"davidson, north carolina",11
+1302,"davie, north carolina",11
+1303,"duplin, north carolina",11
+1304,"durham, north carolina",11
+1305,"edgecombe, north carolina",11
+1306,"forsyth, north carolina",11
+1307,"franklin, north carolina",11
+1308,"gaston, north carolina",11
+1309,"graham, north carolina",11
+1310,"granville, north carolina",11
+1311,"greene, north carolina",11
+1312,"guilford, north carolina",11
+1313,"halifax, north carolina",11
+1314,"harnett, north carolina",11
+1315,"haywood, north carolina",11
+1316,"henderson, north carolina",11
+1317,"hertford, north carolina",11
+1318,"hoke, north carolina",11
+1319,"hyde, north carolina",11
+1320,"iredell, north carolina",11
+1321,"jackson, north carolina",11
+1322,"johnston, north carolina",11
+1323,"lenoir, north carolina",11
+1324,"lincoln, north carolina",11
+1325,"macon, north carolina",11
+1326,"madison, north carolina",11
+1327,"martin, north carolina",11
+1328,"mecklenburg, north carolina",11
+1329,"montgomery, north carolina",11
+1330,"moore, north carolina",11
+1331,"nash, north carolina",11
+1332,"new hanover, north carolina",11
+1333,"northampton, north carolina",11
+1334,"onslow, north carolina",11
+1335,"orange, north carolina",11
+1336,"pasquotank, north carolina",11
+1337,"perquimans, north carolina",11
+1338,"person, north carolina",11
+1339,"pitt, north carolina",11
+1340,"polk, north carolina",11
+1341,"richmond, north carolina",11
+1342,"robeson, north carolina",11
+1343,"rockingham, north carolina",11
+1344,"rowan, north carolina",11
+1345,"rutherford, north carolina",11
+1346,"sampson, north carolina",11
+1347,"scotland, north carolina",11
+1348,"stanly, north carolina",11
+1349,"stokes, north carolina",11
+1350,"surry, north carolina",11
+1351,"swain, north carolina",11
+1352,"union, north carolina",11
+1353,"vance, north carolina",11
+1354,"wake, north carolina",11
+1355,"warren, north carolina",11
+1356,"washington, north carolina",11
+1357,"wayne, north carolina",11
+1358,"wilson, north carolina",11
+1359,"barnes, north dakota",11
+1360,"bowman, north dakota",11
+1361,"burleigh, north dakota",11
+1362,"cass, north dakota",11
+1363,"cavalier, north dakota",11
+1364,"dickey, north dakota",11
+1365,"lamoure, north dakota",11
+1366,"mchenry, north dakota",11
+1367,"mckenzie, north dakota",11
+1368,"mclean, north dakota",11
+1369,"mercer, north dakota",11
+1370,"morton, north dakota",11
+1371,"oliver, north dakota",11
+1372,"pembina, north dakota",11
+1373,"pierce, north dakota",11
+1374,"ransom, north dakota",11
+1375,"richland, north dakota",11
+1376,"steele, north dakota",11
+1377,"stutsman, north dakota",11
+1378,"traill, north dakota",11
+1379,"walsh, north dakota",11
+1380,"ward, north dakota",11
+1381,"williams, north dakota",11
+1382,"adams, ohio",11
+1383,"ashtabula, ohio",11
+1384,"auglaize, ohio",11
+1385,"belmont, ohio",11
+1386,"butler, ohio",11
+1387,"clark, ohio",11
+1388,"clermont, ohio",11
+1389,"coshocton, ohio",11
+1390,"crawford, ohio",11
+1391,"cuyahoga, ohio",11
+1392,"darke, ohio",11
+1393,"defiance, ohio",11
+1394,"delaware, ohio",11
+1395,"erie, ohio",11
+1396,"franklin, ohio",11
+1397,"fulton, ohio",11
+1398,"gallia, ohio",11
+1399,"greene, ohio",11
+1400,"hamilton, ohio",11
+1401,"henry, ohio",11
+1402,"jackson, ohio",11
+1403,"jefferson, ohio",11
+1404,"lake, ohio",11
+1405,"lawrence, ohio",11
+1406,"logan, ohio",11
+1407,"lorain, ohio",11
+1408,"lucas, ohio",11
+1409,"mahoning, ohio",11
+1410,"marion, ohio",11
+1411,"medina, ohio",11
+1412,"meigs, ohio",11
+1413,"mercer, ohio",11
+1414,"miami, ohio",11
+1415,"monroe, ohio",11
+1416,"montgomery, ohio",11
+1417,"muskingum, ohio",11
+1418,"ottawa, ohio",11
+1419,"paulding, ohio",11
+1420,"perry, ohio",11
+1421,"pickaway, ohio",11
+1422,"portage, ohio",11
+1423,"richland, ohio",11
+1424,"ross, ohio",11
+1425,"sandusky, ohio",11
+1426,"scioto, ohio",11
+1427,"shelby, ohio",11
+1428,"summit, ohio",11
+1429,"trumbull, ohio",11
+1430,"tuscarawas, ohio",11
+1431,"van wert, ohio",11
+1432,"vinton, ohio",11
+1433,"warren, ohio",11
+1434,"washington, ohio",11
+1435,"wayne, ohio",11
+1436,"williams, ohio",11
+1437,"wood, ohio",11
+1438,"wyandot, ohio",11
+1439,"caddo, oklahoma",11
+1440,"canadian, oklahoma",11
+1441,"cherokee, oklahoma",11
+1442,"choctaw, oklahoma",11
+1443,"cleveland, oklahoma",11
+1444,"comanche, oklahoma",11
+1445,"custer, oklahoma",11
+1446,"dewey, oklahoma",11
+1447,"garfield, oklahoma",11
+1448,"grady, oklahoma",11
+1449,"greer, oklahoma",11
+1450,"harper, oklahoma",11
+1451,"haskell, oklahoma",11
+1452,"kay, oklahoma",11
+1453,"kingfisher, oklahoma",11
+1454,"kiowa, oklahoma",11
+1455,"le flore, oklahoma",11
+1456,"logan, oklahoma",11
+1457,"mayes, oklahoma",11
+1458,"mcclain, oklahoma",11
+1459,"mccurtain, oklahoma",11
+1460,"murray, oklahoma",11
+1461,"muskogee, oklahoma",11
+1462,"noble, oklahoma",11
+1463,"okfuskee, oklahoma",11
+1464,"oklahoma, oklahoma",11
+1465,"osage, oklahoma",11
+1466,"payne, oklahoma",11
+1467,"pittsburg, oklahoma",11
+1468,"roger mills, oklahoma",11
+1469,"rogers, oklahoma",11
+1470,"seminole, oklahoma",11
+1471,"sequoyah, oklahoma",11
+1472,"texas, oklahoma",11
+1473,"tulsa, oklahoma",11
+1474,"wagoner, oklahoma",11
+1475,"woods, oklahoma",11
+1476,"woodward, oklahoma",11
+1477,"baker, oregon",11
+1478,"benton, oregon",11
+1479,"clackamas, oregon",11
+1480,"clatsop, oregon",11
+1481,"columbia, oregon",11
+1482,"deschutes, oregon",11
+1483,"douglas, oregon",11
+1484,"gilliam, oregon",11
+1485,"grant, oregon",11
+1486,"hood river, oregon",11
+1487,"jackson, oregon",11
+1488,"jefferson, oregon",11
+1489,"josephine, oregon",11
+1490,"klamath, oregon",11
+1491,"lake, oregon",11
+1492,"lane, oregon",11
+1493,"lincoln, oregon",11
+1494,"linn, oregon",11
+1495,"malheur, oregon",11
+1496,"marion, oregon",11
+1497,"morrow, oregon",11
+1498,"multnomah, oregon",11
+1499,"sherman, oregon",11
+1500,"tillamook, oregon",11
+1501,"umatilla, oregon",11
+1502,"union, oregon",11
+1503,"wallowa, oregon",11
+1504,"wasco, oregon",11
+1505,"yamhill, oregon",11
+1506,"adams, pennsylvania",11
+1507,"allegheny, pennsylvania",11
+1508,"armstrong, pennsylvania",11
+1509,"beaver, pennsylvania",11
+1510,"berks, pennsylvania",11
+1511,"blair, pennsylvania",11
+1512,"bradford, pennsylvania",11
+1513,"bucks, pennsylvania",11
+1514,"cambria, pennsylvania",11
+1515,"carbon, pennsylvania",11
+1516,"centre, pennsylvania",11
+1517,"chester, pennsylvania",11
+1518,"clarion, pennsylvania",11
+1519,"clearfield, pennsylvania",11
+1520,"cumberland, pennsylvania",11
+1521,"dauphin, pennsylvania",11
+1522,"delaware, pennsylvania",11
+1523,"elk, pennsylvania",11
+1524,"erie, pennsylvania",11
+1525,"fayette, pennsylvania",11
+1526,"franklin, pennsylvania",11
+1527,"huntingdon, pennsylvania",11
+1528,"indiana, pennsylvania",11
+1529,"lackawanna, pennsylvania",11
+1530,"lancaster, pennsylvania",11
+1531,"lawrence, pennsylvania",11
+1532,"lebanon, pennsylvania",11
+1533,"lehigh, pennsylvania",11
+1534,"luzerne, pennsylvania",11
+1535,"lycoming, pennsylvania",11
+1536,"mercer, pennsylvania",11
+1537,"monroe, pennsylvania",11
+1538,"montgomery, pennsylvania",11
+1539,"montour, pennsylvania",11
+1540,"northampton, pennsylvania",11
+1541,"northumberland, pennsylvania",11
+1542,"philadelphia, pennsylvania",11
+1543,"schuylkill, pennsylvania",11
+1544,"snyder, pennsylvania",11
+1545,"somerset, pennsylvania",11
+1546,"tioga, pennsylvania",11
+1547,"union, pennsylvania",11
+1548,"venango, pennsylvania",11
+1549,"warren, pennsylvania",11
+1550,"washington, pennsylvania",11
+1551,"wayne, pennsylvania",11
+1552,"westmoreland, pennsylvania",11
+1553,"wyoming, pennsylvania",11
+1554,"york, pennsylvania",11
+1555,"puerto rico, puerto rico",11
+1556,"kent, rhode island",11
+1557,"newport, rhode island",11
+1558,"providence, rhode island",11
+1559,"washington, rhode island",11
+1560,"abbeville, south carolina",11
+1561,"aiken, south carolina",11
+1562,"allendale, south carolina",11
+1563,"anderson, south carolina",11
+1564,"beaufort, south carolina",11
+1565,"berkeley, south carolina",11
+1566,"calhoun, south carolina",11
+1567,"charleston, south carolina",11
+1568,"cherokee, south carolina",11
+1569,"chester, south carolina",11
+1570,"colleton, south carolina",11
+1571,"darlington, south carolina",11
+1572,"dorchester, south carolina",11
+1573,"fairfield, south carolina",11
+1574,"florence, south carolina",11
+1575,"georgetown, south carolina",11
+1576,"greenville, south carolina",11
+1577,"greenwood, south carolina",11
+1578,"horry, south carolina",11
+1579,"jasper, south carolina",11
+1580,"kershaw, south carolina",11
+1581,"lancaster, south carolina",11
+1582,"laurens, south carolina",11
+1583,"lee, south carolina",11
+1584,"lexington, south carolina",11
+1585,"marlboro, south carolina",11
+1586,"mccormick, south carolina",11
+1587,"oconee, south carolina",11
+1588,"orangeburg, south carolina",11
+1589,"pickens, south carolina",11
+1590,"richland, south carolina",11
+1591,"spartanburg, south carolina",11
+1592,"union, south carolina",11
+1593,"york, south carolina",11
+1594,"beadle, south dakota",11
+1595,"bon homme, south dakota",11
+1596,"brookings, south dakota",11
+1597,"brown, south dakota",11
+1598,"brule, south dakota",11
+1599,"buffalo, south dakota",11
+1600,"charles mix, south dakota",11
+1601,"clark, south dakota",11
+1602,"clay, south dakota",11
+1603,"codington, south dakota",11
+1604,"day, south dakota",11
+1605,"faulk, south dakota",11
+1606,"grant, south dakota",11
+1607,"hand, south dakota",11
+1608,"hughes, south dakota",11
+1609,"hyde, south dakota",11
+1610,"jerauld, south dakota",11
+1611,"kingsbury, south dakota",11
+1612,"lawrence, south dakota",11
+1613,"minnehaha, south dakota",11
+1614,"pennington, south dakota",11
+1615,"stanley, south dakota",11
+1616,"yankton, south dakota",11
+1617,"anderson, tennessee",11
+1618,"benton, tennessee",11
+1619,"blount, tennessee",11
+1620,"carter, tennessee",11
+1621,"clay, tennessee",11
+1622,"davidson, tennessee",11
+1623,"dekalb, tennessee",11
+1624,"dickson, tennessee",11
+1625,"franklin, tennessee",11
+1626,"hamilton, tennessee",11
+1627,"hancock, tennessee",11
+1628,"hardin, tennessee",11
+1629,"hawkins, tennessee",11
+1630,"haywood, tennessee",11
+1631,"humphreys, tennessee",11
+1632,"jefferson, tennessee",11
+1633,"knox, tennessee",11
+1634,"loudon, tennessee",11
+1635,"marion, tennessee",11
+1636,"mcminn, tennessee",11
+1637,"mcnairy, tennessee",11
+1638,"montgomery, tennessee",11
+1639,"polk, tennessee",11
+1640,"rhea, tennessee",11
+1641,"roane, tennessee",11
+1642,"rutherford, tennessee",11
+1643,"sevier, tennessee",11
+1644,"shelby, tennessee",11
+1645,"smith, tennessee",11
+1646,"stewart, tennessee",11
+1647,"sullivan, tennessee",11
+1648,"sumner, tennessee",11
+1649,"warren, tennessee",11
+1650,"washington, tennessee",11
+1651,"weakley, tennessee",11
+1652,"angelina, texas",11
+1653,"archer, texas",11
+1654,"atascosa, texas",11
+1655,"bastrop, texas",11
+1656,"baylor, texas",11
+1657,"bell, texas",11
+1658,"bexar, texas",11
+1659,"borden, texas",11
+1660,"bosque, texas",11
+1661,"brazoria, texas",11
+1662,"brazos, texas",11
+1663,"briscoe, texas",11
+1664,"burnet, texas",11
+1665,"calhoun, texas",11
+1666,"cameron, texas",11
+1667,"carson, texas",11
+1668,"cass, texas",11
+1669,"chambers, texas",11
+1670,"cherokee, texas",11
+1671,"coke, texas",11
+1672,"collin, texas",11
+1673,"comal, texas",11
+1674,"cooke, texas",11
+1675,"crosby, texas",11
+1676,"culberson, texas",11
+1677,"dallas, texas",11
+1678,"dawson, texas",11
+1679,"deaf smith, texas",11
+1680,"denton, texas",11
+1681,"dewitt, texas",11
+1682,"dickens, texas",11
+1683,"ector, texas",11
+1684,"el paso, texas",11
+1685,"ellis, texas",11
+1686,"erath, texas",11
+1687,"fayette, texas",11
+1688,"fisher, texas",11
+1689,"floyd, texas",11
+1690,"fort bend, texas",11
+1691,"freestone, texas",11
+1692,"frio, texas",11
+1693,"galveston, texas",11
+1694,"glasscock, texas",11
+1695,"goliad, texas",11
+1696,"gonzales, texas",11
+1697,"grayson, texas",11
+1698,"gregg, texas",11
+1699,"grimes, texas",11
+1700,"guadalupe, texas",11
+1701,"hale, texas",11
+1702,"hansford, texas",11
+1703,"hardin, texas",11
+1704,"harris, texas",11
+1705,"harrison, texas",11
+1706,"hartley, texas",11
+1707,"hays, texas",11
+1708,"hemphill, texas",11
+1709,"henderson, texas",11
+1710,"hidalgo, texas",11
+1711,"hood, texas",11
+1712,"howard, texas",11
+1713,"hudspeth, texas",11
+1714,"hunt, texas",11
+1715,"hutchinson, texas",11
+1716,"jack, texas",11
+1717,"jasper, texas",11
+1718,"jefferson, texas",11
+1719,"johnson, texas",11
+1720,"kaufman, texas",11
+1721,"kenedy, texas",11
+1722,"kent, texas",11
+1723,"kinney, texas",11
+1724,"lamar, texas",11
+1725,"lamb, texas",11
+1726,"limestone, texas",11
+1727,"llano, texas",11
+1728,"lubbock, texas",11
+1729,"lynn, texas",11
+1730,"marion, texas",11
+1731,"martin, texas",11
+1732,"matagorda, texas",11
+1733,"maverick, texas",11
+1734,"mclennan, texas",11
+1735,"milam, texas",11
+1736,"mills, texas",11
+1737,"mitchell, texas",11
+1738,"montgomery, texas",11
+1739,"moore, texas",11
+1740,"morris, texas",11
+1741,"nacogdoches, texas",11
+1742,"newton, texas",11
+1743,"nolan, texas",11
+1744,"nueces, texas",11
+1745,"ochiltree, texas",11
+1746,"oldham, texas",11
+1747,"orange, texas",11
+1748,"palo pinto, texas",11
+1749,"parker, texas",11
+1750,"pecos, texas",11
+1751,"potter, texas",11
+1752,"presidio, texas",11
+1753,"roberts, texas",11
+1754,"robertson, texas",11
+1755,"rusk, texas",11
+1756,"san jacinto, texas",11
+1757,"san patricio, texas",11
+1758,"scurry, texas",11
+1759,"shackelford, texas",11
+1760,"sherman, texas",11
+1761,"somervell, texas",11
+1762,"starr, texas",11
+1763,"sterling, texas",11
+1764,"tarrant, texas",11
+1765,"taylor, texas",11
+1766,"titus, texas",11
+1767,"tom green, texas",11
+1768,"travis, texas",11
+1769,"tyler, texas",11
+1770,"upton, texas",11
+1771,"val verde, texas",11
+1772,"victoria, texas",11
+1773,"ward, texas",11
+1774,"webb, texas",11
+1775,"wharton, texas",11
+1776,"wichita, texas",11
+1777,"wilbarger, texas",11
+1778,"willacy, texas",11
+1779,"williamson, texas",11
+1780,"wise, texas",11
+1781,"yoakum, texas",11
+1782,"young, texas",11
+1783,"beaver, utah",11
+1784,"box elder, utah",11
+1785,"cache, utah",11
+1786,"carbon, utah",11
+1787,"daggett, utah",11
+1788,"davis, utah",11
+1789,"duchesne, utah",11
+1790,"emery, utah",11
+1791,"garfield, utah",11
+1792,"juab, utah",11
+1793,"millard, utah",11
+1794,"morgan, utah",11
+1795,"salt lake, utah",11
+1796,"sanpete, utah",11
+1797,"summit, utah",11
+1798,"tooele, utah",11
+1799,"uintah, utah",11
+1800,"utah, utah",11
+1801,"wasatch, utah",11
+1802,"washington, utah",11
+1803,"weber, utah",11
+1804,"addison, vermont",11
+1805,"bennington, vermont",11
+1806,"caledonia, vermont",11
+1807,"chittenden, vermont",11
+1808,"essex, vermont",11
+1809,"franklin, vermont",11
+1810,"lamoille, vermont",11
+1811,"orange, vermont",11
+1812,"orleans, vermont",11
+1813,"rutland, vermont",11
+1814,"washington, vermont",11
+1815,"windham, vermont",11
+1816,"windsor, vermont",11
+1817,"accomack, virginia",11
+1818,"alexandria, virginia",11
+1819,"alleghany, virginia",11
+1820,"amelia, virginia",11
+1821,"amherst, virginia",11
+1822,"bath, virginia",11
+1823,"bedford, virginia",11
+1824,"brunswick, virginia",11
+1825,"buchanan, virginia",11
+1826,"buckingham, virginia",11
+1827,"campbell, virginia",11
+1828,"caroline, virginia",11
+1829,"carroll, virginia",11
+1830,"charles city, virginia",11
+1831,"chesapeake, virginia",11
+1832,"chesterfield, virginia",11
+1833,"covington, virginia",11
+1834,"culpeper, virginia",11
+1835,"fairfax, virginia",11
+1836,"fauquier, virginia",11
+1837,"fluvanna, virginia",11
+1838,"frederick, virginia",11
+1839,"giles, virginia",11
+1840,"goochland, virginia",11
+1841,"grayson, virginia",11
+1842,"greensville, virginia",11
+1843,"halifax, virginia",11
+1844,"hampton, virginia",11
+1845,"hanover, virginia",11
+1846,"harrisonburg, virginia",11
+1847,"henrico, virginia",11
+1848,"henry, virginia",11
+1849,"hopewell, virginia",11
+1850,"isle of wight, virginia",11
+1851,"king and queen, virginia",11
+1852,"king george, virginia",11
+1853,"king william, virginia",11
+1854,"louisa, virginia",11
+1855,"lynchburg, virginia",11
+1856,"manassas, virginia",11
+1857,"mecklenburg, virginia",11
+1858,"middlesex, virginia",11
+1859,"montgomery, virginia",11
+1860,"northampton, virginia",11
+1861,"page, virginia",11
+1862,"patrick, virginia",11
+1863,"pittsylvania, virginia",11
+1864,"portsmouth, virginia",11
+1865,"prince george, virginia",11
+1866,"prince william, virginia",11
+1867,"pulaski, virginia",11
+1868,"richmond, virginia",11
+1869,"roanoke, virginia",11
+1870,"rockingham, virginia",11
+1871,"russell, virginia",11
+1872,"salem, virginia",11
+1873,"southampton, virginia",11
+1874,"stafford, virginia",11
+1875,"suffolk, virginia",11
+1876,"surry, virginia",11
+1877,"virginia beach, virginia",11
+1878,"warren, virginia",11
+1879,"washington, virginia",11
+1880,"wise, virginia",11
+1881,"york, virginia",11
+1882,"adams, washington",11
+1883,"benton, washington",11
+1884,"chelan, washington",11
+1885,"clallam, washington",11
+1886,"clark, washington",11
+1887,"columbia, washington",11
+1888,"cowlitz, washington",11
+1889,"douglas, washington",11
+1890,"franklin, washington",11
+1891,"garfield, washington",11
+1892,"grant, washington",11
+1893,"grays harbor, washington",11
+1894,"jefferson, washington",11
+1895,"king, washington",11
+1896,"kittitas, washington",11
+1897,"klickitat, washington",11
+1898,"lewis, washington",11
+1899,"lincoln, washington",11
+1900,"mason, washington",11
+1901,"okanogan, washington",11
+1902,"pend oreille, washington",11
+1903,"pierce, washington",11
+1904,"skagit, washington",11
+1905,"skamania, washington",11
+1906,"snohomish, washington",11
+1907,"spokane, washington",11
+1908,"stevens, washington",11
+1909,"thurston, washington",11
+1910,"walla walla, washington",11
+1911,"whatcom, washington",11
+1912,"whitman, washington",11
+1913,"yakima, washington",11
+1914,"barbour, west virginia",11
+1915,"berkeley, west virginia",11
+1916,"cabell, west virginia",11
+1917,"fayette, west virginia",11
+1918,"grant, west virginia",11
+1919,"greenbrier, west virginia",11
+1920,"harrison, west virginia",11
+1921,"jefferson, west virginia",11
+1922,"kanawha, west virginia",11
+1923,"marion, west virginia",11
+1924,"marshall, west virginia",11
+1925,"mason, west virginia",11
+1926,"mineral, west virginia",11
+1927,"monongalia, west virginia",11
+1928,"nicholas, west virginia",11
+1929,"pleasants, west virginia",11
+1930,"putnam, west virginia",11
+1931,"tucker, west virginia",11
+1932,"wayne, west virginia",11
+1933,"wetzel, west virginia",11
+1934,"wood, west virginia",11
+1935,"adams, wisconsin",11
+1936,"ashland, wisconsin",11
+1937,"barron, wisconsin",11
+1938,"brown, wisconsin",11
+1939,"buffalo, wisconsin",11
+1940,"burnett, wisconsin",11
+1941,"calumet, wisconsin",11
+1942,"chippewa, wisconsin",11
+1943,"columbia, wisconsin",11
+1944,"dane, wisconsin",11
+1945,"dodge, wisconsin",11
+1946,"door, wisconsin",11
+1947,"douglas, wisconsin",11
+1948,"dunn, wisconsin",11
+1949,"eau claire, wisconsin",11
+1950,"florence, wisconsin",11
+1951,"fond du lac, wisconsin",11
+1952,"grant, wisconsin",11
+1953,"green lake, wisconsin",11
+1954,"iowa, wisconsin",11
+1955,"iron, wisconsin",11
+1956,"jefferson, wisconsin",11
+1957,"juneau, wisconsin",11
+1958,"kenosha, wisconsin",11
+1959,"kewaunee, wisconsin",11
+1960,"la crosse, wisconsin",11
+1961,"lafayette, wisconsin",11
+1962,"lincoln, wisconsin",11
+1963,"manitowoc, wisconsin",11
+1964,"marathon, wisconsin",11
+1965,"marinette, wisconsin",11
+1966,"milwaukee, wisconsin",11
+1967,"monroe, wisconsin",11
+1968,"oconto, wisconsin",11
+1969,"oneida, wisconsin",11
+1970,"outagamie, wisconsin",11
+1971,"ozaukee, wisconsin",11
+1972,"polk, wisconsin",11
+1973,"portage, wisconsin",11
+1974,"price, wisconsin",11
+1975,"racine, wisconsin",11
+1976,"richland, wisconsin",11
+1977,"rock, wisconsin",11
+1978,"rusk, wisconsin",11
+1979,"sauk, wisconsin",11
+1980,"sawyer, wisconsin",11
+1981,"sheboygan, wisconsin",11
+1982,"st. croix, wisconsin",11
+1983,"trempealeau, wisconsin",11
+1984,"vernon, wisconsin",11
+1985,"washburn, wisconsin",11
+1986,"washington, wisconsin",11
+1987,"winnebago, wisconsin",11
+1988,"wood, wisconsin",11
+1989,"albany, wyoming",11
+1990,"campbell, wyoming",11
+1991,"carbon, wyoming",11
+1992,"converse, wyoming",11
+1993,"fremont, wyoming",11
+1994,"goshen, wyoming",11
+1995,"laramie, wyoming",11
+1996,"lincoln, wyoming",11
+1997,"natrona, wyoming",11
+1998,"park, wyoming",11
+1999,"platte, wyoming",11
+2000,"sheridan, wyoming",11
+2001,"sweetwater, wyoming",11
+2002,"teton, wyoming",11
+2003,"uinta, wyoming",11
+2004,AKGD,12
+2005,AKMS,12
+2006,AZ-NM-NV,12
+2007,BASN,12
+2008,CALN,12
+2009,CALS,12
+2010,ERCT,12
+2011,FRCC,12
+2012,HIMS,12
+2013,HIOA,12
+2014,MROE,12
+2015,MROW,12
+2016,NEWE,12
+2017,NWPP,12
+2018,NYCW,12
+2019,NYLI,12
+2020,NYUP,12
+2021,RFCE,12
+2022,RFCM,12
+2023,RFCW,12
+2024,RMPA,12
+2025,SPNO,12
+2026,SPSO,12
+2027,SRMV,12
+2028,SRMW,12
+2029,SRSO,12
+2030,SRTV,12
+2031,SRVC,12
