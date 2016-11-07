@@ -12,16 +12,14 @@ import pandas as pd
 from scipy import optimize
 import math
 import config as cfg
-from collections import defaultdict
 import os
 from pyomo.opt import SolverFactory, SolverStatus
 import csv
 import logging
 from sklearn.cluster import KMeans
-#import multiprocessing
-from pathos.multiprocessing import Pool, cpu_count
-#from multiprocessing import Pool, cpu_count
-# Dispatch modules
+import matplotlib.pyplot as plt
+from energyPATHWAYS.outputs import Output
+from multiprocessing import Pool
 import dispatch_formulation
 import pdb
 import shape
@@ -182,7 +180,7 @@ class Dispatch(object):
         return dict(zip(self.periods, [df.xs(p, level='period').to_dict() for p in self.periods]))
 
     def _ensure_feasible_flexible_load(self, cum_df):
-        # we don't have any flexible load
+        # if we don't have any flexible load
         if tuple(sorted(cum_df.index.levels[0])) == (2,):
             self.has_flexible_load = False
             return cum_df
@@ -538,7 +536,6 @@ class Dispatch(object):
         if np.any(np.isnan(gen_maintenance)):
             pdb.set_trace()
             raise ValueError("Calculation has returned maintenance rates of nan")
-#        gen_maintenance[:] = 0
         return gen_maintenance
 
     @staticmethod
@@ -800,14 +797,41 @@ class Dispatch(object):
         instance.solutions.load_from(solution)
         return instance
 
-    def solve_period_and_plot(self, period):
-        instance = self.solve_optimization_period(period)
-        charge = self.parse_storage_result(instance.Charge, period)
-        discharge = self.parse_storage_result(instance.Provide_Power, period)
-        flex_load = self.parse_flexible_load_result(instance.Flexible_Load, period)
-        pdb.set_trace()
+    @staticmethod
+    def get_empty_plot(num_rows, num_columns):
+        fig, axes = plt.subplots(num_rows, num_columns, figsize=(24, 12))
+        plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        return fig, axes
 
-    def parallelize_opt(self):
+    def solve_and_plot(self):
+        self.solve_optimization()
+        
+        fig, axes = self.get_empty_plot(num_rows=len(self.dispatch_geographies), num_columns=len(self.dispatch_feeders))
+        flex_load = util.df_slice(self.flex_load_df, self.dispatch_feeders, 'dispatch_feeder')
+        flex_load = Output.clean_df(flex_load.squeeze().unstack(self.dispatch_geography).unstack('dispatch_feeder'))
+        flex_load.plot(subplots=True, ax=axes, title='FLEXIBLE LOAD')
+        
+        fig, axes = self.get_empty_plot(num_rows=len(self.dispatch_geographies), num_columns=len(self.dispatch_feeders))
+        datetime = flex_load.index.get_level_values('weather_datetime')
+        hour = flex_load.groupby((datetime.hour+1)).mean()
+        hour.plot(subplots=True, ax=axes, title='AVERAGE FLEXIBLE LOAD BY HOUR')
+        
+        fig, axes = self.get_empty_plot(num_rows=len(self.dispatch_geographies), num_columns=len(self.dispatch_feeders)+1)
+        charge = -self.storage_df.xs('charge', level='charge_discharge')
+        discharge = self.storage_df.xs('discharge', level='charge_discharge')
+        charge = Output.clean_df(charge.squeeze().unstack(self.dispatch_geography).unstack('dispatch_feeder'))
+        discharge = Output.clean_df(discharge.squeeze().unstack(self.dispatch_geography).unstack('dispatch_feeder'))
+        charge.plot(subplots=True, ax=axes)
+        discharge.plot(subplots=True, ax=axes, title='STORAGE CHARGE (-) AND DISCHARGE (+)')
+        
+        fig, axes = self.get_empty_plot(num_rows=len(self.dispatch_geographies), num_columns=len(self.dispatch_feeders)+1)
+        datetime = charge.index.get_level_values('weather_datetime')
+        hour_charge = charge.groupby((datetime.hour+1)).mean()
+        hour_discharge = discharge.groupby((datetime.hour+1)).mean()
+        hour_charge.plot(subplots=True, ax=axes)
+        hour_discharge.plot(subplots=True, ax=axes, title='AVERAGE STORAGE CHARGE (-) AND DISCHARGE (+) BY HOUR')
+
+    def solve_optimization(self):
         state_of_charge = self.run_year_to_month_allocation()
         self.start_soc_large_storage, self.end_soc_large_storage = state_of_charge[0], state_of_charge[1]
         try:

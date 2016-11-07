@@ -18,7 +18,6 @@ from util import DfOper
 from outputs import Output
 import dispatch_classes
 import energyPATHWAYS.helper_multiprocess as helper_multiprocess
-#from pathos.multiprocessing import Pool, cpu_count
 from multiprocessing import Pool, cpu_count
 import pdb
 import logging

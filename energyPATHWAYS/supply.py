@@ -23,7 +23,6 @@ import operator
 import shape
 from outputs import Output
 from multiprocessing import Pool, cpu_count
-#from pathos.multiprocessing import Pool, cpu_count
 import energyPATHWAYS.helper_multiprocess as helper_multiprocess
 import pdb
 import os
@@ -667,7 +666,7 @@ class Supply(object):
         self.prepare_optimization_inputs(year)
         logging.info("      solving dispatch for storage and dispatchable load")
         self.dispatch.set_year(year)
-        self.dispatch.parallelize_opt()
+        self.dispatch.solve_optimization()
         
         storage_charge = self.dispatch.storage_df.xs('charge', level='charge_discharge')
         storage_discharge = self.dispatch.storage_df.xs('discharge', level='charge_discharge')
