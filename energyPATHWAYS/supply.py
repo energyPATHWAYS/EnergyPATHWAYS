@@ -663,10 +663,13 @@ class Supply(object):
     
     def solve_storage_and_flex_load_optimization(self,year):
         """prepares, solves, and updates the net load with results from the storage and flexible load optimization""" 
+        t = util.time.time()
         self.prepare_optimization_inputs(year)
         logging.info("      solving dispatch for storage and dispatchable load")
         self.dispatch.set_year(year)
+        t = util.time_stamp(t)
         self.dispatch.solve_optimization()
+        t = util.time_stamp(t)
         
         storage_charge = self.dispatch.storage_df.xs('charge', level='charge_discharge')
         storage_discharge = self.dispatch.storage_df.xs('discharge', level='charge_discharge')
@@ -677,6 +680,8 @@ class Supply(object):
         self.distribution_gen = util.DfOper.add((self.distribution_gen, util.df_slice(storage_discharge, self.dispatch_feeders, 'dispatch_feeder')))
         self.bulk_load = util.DfOper.add((self.bulk_load, storage_charge.xs(0, level='dispatch_feeder')))
         self.bulk_gen = util.DfOper.add((self.bulk_gen, storage_discharge.xs(0, level='dispatch_feeder')))
+        
+        t = util.time_stamp(t)
         
         self.update_net_load_signal()
         self.produce_distributed_storage_outputs(year)

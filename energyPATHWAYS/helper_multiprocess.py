@@ -9,7 +9,7 @@ import config as cfg
 from pyomo.opt import SolverFactory
 #import util
 #import numpy as np
-#from dispatch_classes import Dispatch
+import dispatch_classes
 
 def process_shapes(shape):
     cfg.initialize_config(shape.workingdir, shape.cfgfile_name, shape.pint_definitions_file, shape.log_name)
@@ -51,11 +51,11 @@ def aggregate_sector_shapes(params):
     aggregate_electricity_shape = sector.aggregate_inflexible_electricity_shape(year)
     cfg.cur.close()
     return aggregate_electricity_shape
-
-def run_optimization(params):
+    
+def run_optimization(params, return_model_instance=False):
     model, solver_name = params
     instance = model.create_instance()
     solver = SolverFactory(solver_name)
     solution = solver.solve(instance)
     instance.solutions.load_from(solution)
-    return instance
+    return instance if return_model_instance else dispatch_classes.all_results_to_list(instance)

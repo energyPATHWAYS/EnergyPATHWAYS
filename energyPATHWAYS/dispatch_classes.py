@@ -26,6 +26,20 @@ import shape
 import helper_multiprocess
 import cPickle as pickle
 
+def all_results_to_list(instance):
+    return {'Charge':storage_result_to_list(instance.Charge),
+            'Provide_Power':storage_result_to_list(instance.Provide_Power),
+            'Flexible_Load':flexible_load_result_to_list(instance.Flexible_Load)}
+
+def storage_result_to_list(charge_or_discharge):
+    items = charge_or_discharge.iteritems()
+    lists = [[int(i) for i in key[0].replace(')','').replace('(','').split(', ')] + [key[1]] + [value.value] for key, value in items]
+    return lists
+
+def flexible_load_result_to_list(flexible_load):
+    items = flexible_load.iteritems()
+    lists = [key + (value.value,) for key, value in items]
+    return lists
 
 def run_thermal_dispatch(params):
     dispatch_geography = params[0]
@@ -750,9 +764,7 @@ class Dispatch(object):
         shape.shapes.set_active_dates()
         return dispatch
 
-    def parse_storage_result(self, charge_or_discharge, period):
-        items = charge_or_discharge.iteritems()
-        lists = [[int(i) for i in key[0].replace(')','').replace('(','').split(', ')] + [key[1]] + [value.value] for key, value in items]
+    def parse_storage_result(self, lists, period):
         charge_columns = [self.dispatch_geography, 'supply_node', 'dispatch_feeder', 'tech', 'hour', self.year]
         df = pd.DataFrame(lists, columns=charge_columns)
         df = df.set_index(charge_columns[:-1])
@@ -762,9 +774,7 @@ class Dispatch(object):
             raise ValueError('NaNs in storage dispatch outputs in dispatch period {}'.format(period))
         return df
 
-    def parse_flexible_load_result(self, flexible_load, period):
-        items = flexible_load.iteritems()
-        lists = [key + (value.value,) for key, value in items]
+    def parse_flexible_load_result(self, lists, period):
         charge_columns = [self.dispatch_geography, 'hour', 'dispatch_feeder', self.year]
         df = pd.DataFrame(lists, columns=charge_columns)
         df = df.set_index([self.dispatch_geography, 'dispatch_feeder', 'hour']).sort_index()
@@ -780,22 +790,25 @@ class Dispatch(object):
         return df
 
     def parse_optimization_results(self, results):
-        charge = pd.concat([self.parse_storage_result(instance.Charge, period) for period, instance in enumerate(results)])
-        discharge = pd.concat([self.parse_storage_result(instance.Provide_Power, period) for period, instance in enumerate(results)])
+        # we still have model instances and need to unzip the result
+        if type(results[0]) is not dict:
+            results = [all_results_to_list(instance) for instance in results]
+        charge = pd.concat([self.parse_storage_result(result['Charge'], period) for period, result in enumerate(results)])
+        discharge = pd.concat([self.parse_storage_result(result['Provide_Power'], period) for period, result in enumerate(results)])
+        flex_load_df = pd.concat([self.parse_flexible_load_result(result['Flexible_Load'], period) for period, result in enumerate(results)])
         storage_df = pd.concat([charge, discharge], keys=['charge','discharge'], names=['charge_discharge'])
         storage_df = self._replace_hour_with_weather_datetime(storage_df)
-        storage_df = storage_df.reorder_levels([self.dispatch_geography, 'dispatch_feeder', 'charge_discharge', 'weather_datetime']).sort_index()
-        flex_load_df = pd.concat([self.parse_flexible_load_result(instance.Flexible_Load, period) for period, instance in enumerate(results)])
+        storage_df = storage_df.reorder_levels([self.dispatch_geography, 'dispatch_feeder', 'charge_discharge', 'weather_datetime']).sort_index()        
         flex_load_df = self._replace_hour_with_weather_datetime(flex_load_df)
         return storage_df, flex_load_df
 
-    def solve_optimization_period(self, period):
+    def solve_optimization_period(self, period, return_model_instance=False):
         model = dispatch_formulation.create_dispatch_model(self, period)
         instance = model.create_instance(report_timing=False) # report_timing=True used to try to make this step faster
         solver = SolverFactory(self.solver_name)
         solution = solver.solve(instance)
         instance.solutions.load_from(solution)
-        return instance
+        return instance if return_model_instance else all_results_to_list(instance)
 
     @staticmethod
     def get_empty_plot(num_rows, num_columns):
