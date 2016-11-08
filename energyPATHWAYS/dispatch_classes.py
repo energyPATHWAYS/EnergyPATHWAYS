@@ -12,34 +12,34 @@ import pandas as pd
 from scipy import optimize
 import math
 import config as cfg
-from collections import defaultdict
 import os
 from pyomo.opt import SolverFactory, SolverStatus
 import csv
 import logging
 from sklearn.cluster import KMeans
-#import multiprocessing
-from pathos.multiprocessing import Pool, cpu_count
-#from multiprocessing import Pool, cpu_count
-# Dispatch modules
-import dispatch_problem_PATHWAYS
-import year_to_period_allocation
+import matplotlib.pyplot as plt
+from energyPATHWAYS.outputs import Output
+from multiprocessing import Pool
+import dispatch_formulation
 import pdb
 import shape
+import helper_multiprocess
+import cPickle as pickle
 
+def all_results_to_list(instance):
+    return {'Charge':storage_result_to_list(instance.Charge),
+            'Provide_Power':storage_result_to_list(instance.Provide_Power),
+            'Flexible_Load':flexible_load_result_to_list(instance.Flexible_Load)}
 
-#def test ():
-#    for var in vars(instance).keys():
-#        try:
-#            vars(instance)[var].deactivate()
-#            solution = solver.Solve(instance)
-#            if solution.solver.termination_condition == TerminationCondition.optimal:
-#                print var
-#                vars(instance)[var].activate()
-#        except:
-#            continue
+def storage_result_to_list(charge_or_discharge):
+    items = charge_or_discharge.iteritems()
+    lists = [[int(i) for i in key[0].replace(')','').replace('(','').split(', ')] + [key[1]] + [value.value] for key, value in items]
+    return lists
 
-        
+def flexible_load_result_to_list(flexible_load):
+    items = flexible_load.iteritems()
+    lists = [key + (value.value,) for key, value in items]
+    return lists
 
 def run_thermal_dispatch(params):
     dispatch_geography = params[0]
@@ -63,61 +63,6 @@ def run_thermal_dispatch(params):
 
     return thermal_dispatch_df
 
-def run_optimization(zipped_input):
-    period = zipped_input[0]
-    model = zipped_input[1]
-    bulk_storage_df = zipped_input[2]
-    dist_storage_df = zipped_input[3]
-    flex_load_df = zipped_input[4]
-    opt_hours = zipped_input[5]
-    period_hours = zipped_input[6]
-    hours = list(period * opt_hours + np.asarray(period_hours))
-    solver_name = zipped_input[7]      
-    stdout_detail = zipped_input[8]
-    dispatch_geography = zipped_input[9]
-    logging.debug("Optimizing dispatch for period " + str(period))
-    logging.debug("Getting problem formulation...")
-    logging.debug("Creating model instance...")
-    instance = model.create_instance(None)
-    logging.debug("Getting solver...")
-    solver = SolverFactory(solver_name)
-    logging.debug("Solving...")
-    solution = solver.solve(instance)
-    logging.debug("Loading solution...")
-    instance.solutions.load_from(solution)        
-    timepoints_set = getattr(instance, "TIMEPOINTS")
-    storage_tech_set = getattr(instance, "STORAGE_TECHNOLOGIES")
-    for tech in storage_tech_set:
-        feeder = instance.feeder[tech] 
-        geography = instance.geography[tech]
-        charge = [instance.Charge[tech, timepoint].value for timepoint in timepoints_set]
-        discharge = [instance.Provide_Power[tech, timepoint].value for timepoint in timepoints_set]
-        if feeder == 0:
-            charge_indexer = util.level_specific_indexer(bulk_storage_df, [dispatch_geography, 'charge_discharge', 'hour'], [geography, 'charge',(hours)])
-            discharge_indexer = util.level_specific_indexer(bulk_storage_df, [dispatch_geography, 'charge_discharge', 'hour'], [geography, 'discharge',(hours)])
-            bulk_storage_df.loc[charge_indexer,:] += np.column_stack(np.asarray(charge)).T
-            bulk_storage_df.loc[discharge_indexer,:] += np.column_stack(np.asarray(discharge)).T
-        else:
-            charge_indexer = util.level_specific_indexer(dist_storage_df, [dispatch_geography,'dispatch_feeder','charge_discharge','hour'], [geography, feeder, 'charge', (hours)])
-            discharge_indexer = util.level_specific_indexer(dist_storage_df, [dispatch_geography,'dispatch_feeder','charge_discharge','hour'], [geography, feeder, 'discharge', (hours)])
-            dist_storage_df.loc[charge_indexer,:] += np.column_stack(np.asarray(charge)).T
-            dist_storage_df.loc[discharge_indexer,:] += np.column_stack(np.asarray(discharge)).T
-
-    timepoints_set = getattr(instance, "TIMEPOINTS")
-    geographies_set = getattr(instance, "GEOGRAPHIES")
-    feeder_set = getattr(instance,"FEEDERS")
-    for geography in geographies_set:
-        for feeder in feeder_set:
-            if feeder != 0:
-                flex_load = [instance.Flexible_Load[geography, timepoint, feeder].value for timepoint in timepoints_set]
-                indexer = util.level_specific_indexer(flex_load_df, [dispatch_geography,'dispatch_feeder','hour'], [geography, feeder,(hours)])
-                flex_load_df.loc[indexer,:] = np.asarray(flex_load)
-    return [bulk_storage_df, dist_storage_df, flex_load_df]
-
-
-
-
-
 class DispatchNodeConfig(DataMapFunctions):
     def __init__(self, id, **kwargs):
         self.id = id
@@ -125,14 +70,11 @@ class DispatchNodeConfig(DataMapFunctions):
         for col, att in util.object_att_from_table(self.sql_id_table, id, primary_key='supply_node_id'):
             setattr(self, col, att)
 
-        
-
 class Dispatch(object):
     def __init__(self, dispatch_feeders, dispatch_geography, dispatch_geographies):
         #TODO replace 1 with a config parameter
         for col, att in util.object_att_from_table('DispatchConfig', 1):
             setattr(self, col, att)
-        self.opt_hours = util.sql_read_table('OptPeriods','hours', id=self.opt_hours)
         self.node_config_dict = dict()
         for supply_node in util.sql_read_table('DispatchNodeConfig','supply_node_id'):
             self.node_config_dict[supply_node] = DispatchNodeConfig(supply_node)
@@ -155,10 +97,7 @@ class Dispatch(object):
         else:
             self.stdout_detail = True
         self.solve_kwargs = {"keepfiles": False, "tee": False}
-        
 
-  
-  
     def find_solver(self):
         requested_solvers = cfg.cfgfile.get('opt', 'dispatch_solver').replace(' ', '').split(',')
         solver_name = None
@@ -183,31 +122,31 @@ class Dispatch(object):
         order = [x.dispatch_order for x in self.node_config_dict.values()]
         order_index = np.argsort(order)
         self.dispatch_order = [self.node_config_dict.keys()[i] for i in order_index]
-      
+
+    def set_year(self, year):
+        self.year = year
+
     def set_timeperiods(self):
-          """sets optimization periods based on selection of optimization hours
-          in the dispatch configuration
-          sets:
-            period_hours = range from 1 to the number of opt_hours
-            periods = range from 1 to the maximum number of periods (i.e. 8760/period_hours)
-            period_timepoints = dictionary with keys of period and values of period hours
-            period_flex_load_timepoints = dictionary with keys of period and values of a nested dictionary with the keys of period_hours and the values of those period hours offset
-            by the flexible_load_constraint_offset configuration parameter
-          """
-          time_index = shape.shapes.active_dates_index
-          if hasattr(self,'hours'):
-              return
-          self.hours = np.arange(1,len(time_index)+1)
-          self.period_hours = range(1,self.opt_hours+1)
-          self.periods = range(0,len(time_index)/(self.opt_hours-1))
-          self.period_timepoints = dict()
-          self.period_flex_load_timepoints = dict()
-          self.period_previous_timepoints = dict()
-          for period in self.periods:
-              hours = [int(x) for x in list(period * self.opt_hours + np.asarray(self.period_hours,dtype=int))]
-              self.period_timepoints[period] = hours
-              self.period_flex_load_timepoints[period] = dict(zip(hours,util.rotate(hours,self.flex_load_constraints_offset)))     
-              self.period_previous_timepoints[period] = dict(zip(hours,util.rotate(hours,1)))
+        """sets optimization periods based on selection of optimization hours
+        in the dispatch configuration
+        sets:
+          period_hours = range from 1 to the number of opt_hours
+          periods = range from 1 to the maximum number of periods (i.e. 8760/period_hours)
+          period_timepoints = dictionary with keys of period and values of period hours
+          period_flex_load_timepoints = dictionary with keys of period and values of a nested dictionary with the keys of period_hours and the values of those period hours offset
+          by the flexible_load_constraint_offset configuration parameter
+        """
+        if hasattr(self,'hours'):
+            return
+        self.num_hours = len(shape.shapes.active_dates_index)
+        self.hours = range(self.num_hours)
+        num_periods = int(round(self.num_hours / float(cfg.opt_period_length)))
+        self.periods = range(num_periods)
+        split_hours = [list(a) for a in np.array_split(self.hours, num_periods)] # splits into roughly equal lengths
+        self.period_lengths = dict(zip(self.periods, [len(a) for a in split_hours]))
+        self.period_timepoints = dict(zip(self.periods, split_hours))
+        self.period_previous_timepoints = dict(zip(self.periods, [dict(zip(*(a, util.rotate(a,1)))) for a in split_hours]))
+        self.period_repeated = util.flatten_list([[p]*self.period_lengths[p] for p in self.periods])
 
     def set_losses(self,distribution_losses):
         self.t_and_d_losses = dict()
@@ -230,118 +169,77 @@ class Dispatch(object):
                     self.dist_net_load_thresholds[(geography,feeder)] =  util.df_slice(distribution_stock,[geography, feeder],[self.dispatch_geography, 'dispatch_feeder']).values[0][0]
 
     def set_opt_loads(self, distribution_load, distribution_gen, bulk_load, bulk_gen, dispatched_bulk_load):
+        self.distribution_load_input, self.distribution_gen_input, self.bulk_load_input, self.bulk_gen_input, self.dispatched_bulk_load_input = distribution_load, distribution_gen, bulk_load, bulk_gen, dispatched_bulk_load
         self.precision_adjust = dict(zip(self.dispatch_geographies,[x[0] for x in distribution_load.groupby(level=self.dispatch_geography).max().values/1E6]))
-        self.distribution_load = util.recursivedict()
-        self.distribution_gen = util.recursivedict()
-        self.min_cumulative_flex_load = util.recursivedict()
-        self.max_cumulative_flex_load = util.recursivedict()
-        self.cumulative_distribution_load = util.recursivedict()
-        self.bulk_load = util.recursivedict()
-        self.dispatched_bulk_load = util.recursivedict()
-        self.bulk_gen = util.recursivedict()
-#        print 'set_opt_distribution_net_loads'
-        self.set_opt_distribution_net_loads(distribution_load,distribution_gen)
-#        print 'set_opt_bulk_net_loads'
-#        t = util.time.time()
-        self.set_opt_bulk_net_loads(bulk_load,bulk_gen,dispatched_bulk_load)
-#        t = util.time_stamp(t)
-           
+        self.set_opt_distribution_net_loads(distribution_load, distribution_gen)
+        self.set_opt_bulk_net_loads(bulk_load, bulk_gen, dispatched_bulk_load)
+
+    def _convert_weather_datetime_to_hour(self, input_df):
+        df = input_df.copy() # necessary to avoid pass by reference errors
+        repeats = int(df.size / self.num_hours)
+        df['hour'] = self.hours * repeats
+        df['period'] = self.period_repeated * repeats
+        df = df.set_index(['period', 'hour'], append=True)
+        df = df.reset_index(level='weather_datetime', drop=True)
+        level_order = ['timeshift_type', 'period', self.dispatch_geography, 'hour', 'dispatch_feeder']
+        df = df.reorder_levels([l for l in level_order if l in df.index.names])
+        return df.sort_index().squeeze() # squeeze turns it into a series, which is better when using the to_dict method
+
+    def _add_dispatch_feeder_level_zero(self, df):
+        levels = [list(l) if n != 'dispatch_feeder' else [0] for l, n in zip(df.index.levels, df.index.names)]
+        index = pd.MultiIndex.from_product(levels, names=df.index.names)
+        return pd.concat((df, pd.DataFrame(0.0, columns=df.columns, index=index))).sort_index()
+
+    def _timeseries_to_dict(self, df):
+        return dict(zip(self.periods, [df.xs(p, level='period').to_dict() for p in self.periods]))
+
+    def _ensure_feasible_flexible_load(self, cum_df):
+        # if we don't have any flexible load
+        if tuple(sorted(cum_df.index.levels[0])) == (2,):
+            self.has_flexible_load = False
+            return cum_df
+        else:
+            self.has_flexible_load = True
+            cum_df = cum_df.unstack(level='timeshift_type')
+            cum_df[1] = cum_df[[1,2]].min(axis=1)
+            cum_df[3] = cum_df[[2,3]].max(axis=1)
+            cum_df = cum_df.stack().reorder_levels(['timeshift_type', 'period', self.dispatch_geography, 'hour', 'dispatch_feeder'])
+            return cum_df.sort_index()
+
     def set_opt_distribution_net_loads(self, distribution_load, distribution_gen):
-#        t = util.time.time()
+        #[period][(geography,timepoint,feeder)]
+        distribution_load = self._add_dispatch_feeder_level_zero(distribution_load)
+        distribution_load = self._convert_weather_datetime_to_hour(distribution_load)
+        cum_distribution_load = distribution_load.groupby(level=['timeshift_type', self.dispatch_geography, 'dispatch_feeder']).cumsum()
+        cum_distribution_load = self._ensure_feasible_flexible_load(cum_distribution_load)
         self.set_max_min_flex_loads(distribution_load)
-#        t = util.time_stamp(t)
-        active_timeshift_types = list(set(distribution_load.index.get_level_values('timeshift_type')))
-        for geography in self.dispatch_geographies:
-            for feeder in self.feeders:
-                for period in self.periods:
-                   if feeder != 0:
-                       for timeshift in [2,1,3]:      
-                           load_df = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type'])
-                           gen_df = util.df_slice(distribution_gen, [geography, feeder], [self.dispatch_geography, 'dispatch_feeder'])
-                           cum_df = load_df.cumsum()                           
-                           if timeshift == 2:
-                              for timepoint in self.period_timepoints[period]:
-                                  time_index =  timepoint-1
-                                  self.distribution_load[period][(geography,timepoint,feeder)] = load_df.iloc[time_index].values[0]
-                                  self.cumulative_distribution_load[period][(geography,timepoint,feeder)] = cum_df.iloc[time_index].values[0]
-                                  self.distribution_gen[period][(geography,timepoint,feeder)] = gen_df.iloc[time_index].values[0] 
-                           elif timeshift == 1:
-                               if timeshift in active_timeshift_types:
-                                   df = util.df_slice(distribution_load, [geography, feeder, timeshift], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).cumsum()
-                                   for timepoint in self.period_timepoints[period]:
-                                       time_index = timepoint-1
-                                       self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0]
-#                               else:
-#                                   for timepoint in self.period_timepoints[period]:
-#                                       time_index = timepoint-1
-#                                       self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = self.cumulative_distribution_load[period][(geography,timepoint,feeder)]
-                           elif timeshift == 3:
-                                if timeshift in active_timeshift_types:
-                                   df = util.df_slice(distribution_load, [geography, feeder, timeshift], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).cumsum()
-                                   for timepoint in self.period_timepoints[period]:
-                                       time_index = timepoint -1
-                                       self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = df.iloc[time_index].values[0]
-#                                else:
-#                                    for timepoint in self.period_timepoints[period]:
-#                                        time_index = timepoint -1
-#                                        self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = self.cumulative_distribution_load[period][(geography,timepoint,feeder)]
-                           if 1 in active_timeshift_types:
-                               for timepoint in self.period_timepoints[period]:
-                                   self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = min(self.max_cumulative_flex_load[period][(geography,timepoint,feeder)],self.cumulative_distribution_load[period][(geography,timepoint,feeder)],self.min_cumulative_flex_load[period][(geography,timepoint,feeder)])
-                                   self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = max(self.max_cumulative_flex_load[period][(geography,timepoint,feeder)],self.cumulative_distribution_load[period][(geography,timepoint,feeder)],self.min_cumulative_flex_load[period][(geography,timepoint,feeder)])
-                           else:
-                                self.min_cumulative_flex_load[period] = self.cumulative_distribution_load[period]
-                                self.max_cumulative_flex_load[period] = self.cumulative_distribution_load[period]
-                   else:
-                        for timepoint in self.period_timepoints[period]:
-                            self.distribution_load[period][(geography,timepoint,feeder)] = 0.0
-                            self.distribution_gen[period][(geography,timepoint,feeder)] = 0.0
-                            self.max_cumulative_flex_load[period][(geography,timepoint,feeder)] = 0.0
-                            self.min_cumulative_flex_load[period][(geography,timepoint,feeder)] = 0.0
-                            self.cumulative_distribution_load[period][(geography,timepoint,feeder)] = 0.0
-#        t = util.time_stamp(t)
-#        pdb.set_trace()
-                                
-                                
-    def set_opt_bulk_net_loads(self, bulk_load, bulk_gen, dispatched_bulk_load):
-        for geography in self.dispatch_geographies:
-            for period in self.periods:
-                bulk_load_df = util.df_slice(bulk_load, [geography, 2], [self.dispatch_geography, 'timeshift_type'])
-                dispatched_bulk_load_df = util.df_slice(dispatched_bulk_load, [geography, 2], [self.dispatch_geography, 'timeshift_type'])
-                gen_df = util.df_slice(bulk_gen, [geography, 2], [self.dispatch_geography, 'timeshift_type'])
-                for timepoint in self.period_timepoints[period]:
-                   time_index = timepoint -1
-                   self.bulk_load[period][(geography,timepoint)] = bulk_load_df.iloc[time_index].values[0]
-                   self.dispatched_bulk_load[period][(geography,timepoint)] = dispatched_bulk_load_df.iloc[time_index].values[0]
-                   self.bulk_gen[period][(geography,timepoint)] = gen_df.iloc[time_index].values[0]
-                   
+        distribution_gen = self._add_dispatch_feeder_level_zero(distribution_gen)
+        distribution_gen = self._convert_weather_datetime_to_hour(distribution_gen)
+        self.distribution_gen = self._timeseries_to_dict(distribution_gen)
+        self.distribution_load = self._timeseries_to_dict(distribution_load.xs(2, level='timeshift_type'))
+        self.cumulative_distribution_load = self._timeseries_to_dict(cum_distribution_load.xs(2, level='timeshift_type'))
+        self.min_cumulative_flex_load = self._timeseries_to_dict(cum_distribution_load.xs(1, level='timeshift_type')) if 1 in cum_distribution_load.index.names else self.cumulative_distribution_load
+        self.max_cumulative_flex_load = self._timeseries_to_dict(cum_distribution_load.xs(3, level='timeshift_type')) if 3 in cum_distribution_load.index.names else self.cumulative_distribution_load
+
     def set_max_min_flex_loads(self, distribution_load):
-        self.flex_load_penalty = util.unit_convert(5,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.max_flex_load = defaultdict(dict)
-        self.min_flex_load = defaultdict(dict)
-        for geography in self.dispatch_geographies:
-            for feeder in self.feeders:
-                for period in self.periods:
-                    start = period * self.opt_hours
-                    stop = (period+1) * self.opt_hours
-                    if feeder !=0:
-                        self.max_flex_load[period][(geography,feeder)] = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).iloc[start:stop].max().values[0] + self.precision_adjust[geography]
-                        self.min_flex_load[period][(geography,feeder)] = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).iloc[start:stop].min().values[0] - self.precision_adjust[geography]
-                    else:
-                        self.max_flex_load[period][(geography,feeder)] = 0.0
-                        self.min_flex_load[period][(geography,feeder)] = 0.0
+        self.flex_load_penalty = util.unit_convert(5, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        native_slice = distribution_load.xs(2, level='timeshift_type')
+        groups = native_slice.groupby(level=['period', self.dispatch_geography, 'dispatch_feeder'])
+        self.max_flex_load = self._timeseries_to_dict(groups.max())
+        self.min_flex_load = self._timeseries_to_dict(groups.min())
 
-    def set_average_net_loads(self,total_net_load):
-        self.period_net_load = defaultdict(dict)
-        self.average_net_load = dict()
-        for geography in self.dispatch_geographies:
-            df = util.df_slice(total_net_load, [geography, 2], [self.dispatch_geography,'timeshift_type'])
-            self.average_net_load[geography] =  (df).mean().values[0]
-            for period in self.periods:
-                start = period * self.opt_hours
-                stop = (period+1) * self.opt_hours- 1
-                self.period_net_load[(geography, period)] = df.iloc[start:stop].mean().values[0]
+    def set_opt_bulk_net_loads(self, bulk_load, bulk_gen, dispatched_bulk_load):
+        bulk_load = self._convert_weather_datetime_to_hour(bulk_load)
+        bulk_gen = self._convert_weather_datetime_to_hour(bulk_gen)
+        dispatched_bulk_load = self._convert_weather_datetime_to_hour(dispatched_bulk_load)
+        self.bulk_load = self._timeseries_to_dict(bulk_load)
+        self.dispatched_bulk_load = self._timeseries_to_dict(dispatched_bulk_load)
+        self.bulk_gen = self._timeseries_to_dict(bulk_gen)
 
+    def set_average_net_loads(self, total_net_load):
+        df = self._convert_weather_datetime_to_hour(total_net_load.xs(2, level='timeshift_type').reset_index(level='year', drop=True))
+        self.period_net_load = df.groupby(level=[self.dispatch_geography, 'period']).mean().to_dict()
+        self.average_net_load = df.groupby(level=[self.dispatch_geography]).mean().to_dict()
     
     def set_technologies(self,storage_capacity_dict, storage_efficiency_dict, thermal_dispatch_df):
       """prepares storage technologies for dispatch optimization
@@ -409,8 +307,6 @@ class Dispatch(object):
       self.energy = self.convert_to_period(self.energy)
       self.feeder = self.convert_to_period(self.feeder)
       self.geography = self.convert_to_period(self.geography)
-            
-            
     
     def set_gen_technologies(self, geography, thermal_dispatch_df):
         pmax = np.array(util.df_slice(thermal_dispatch_df,['capacity',geography],['IO',self.dispatch_geography]).values).T[0]
@@ -429,7 +325,6 @@ class Dispatch(object):
             self.feeder[generator] = 0
             self.capacity[generator] = clustered_dict['derated_pmax'][number]
             self.variable_costs[generator] = clustered_dict['marginal_cost'][number]
-
 
     def convert_to_period(self, dictionary):
         """repeats a dictionary's values of all periods in the optimization
@@ -655,7 +550,6 @@ class Dispatch(object):
         if np.any(np.isnan(gen_maintenance)):
             pdb.set_trace()
             raise ValueError("Calculation has returned maintenance rates of nan")
-#        gen_maintenance[:] = 0
         return gen_maintenance
 
     @staticmethod
@@ -844,16 +738,10 @@ class Dispatch(object):
         
         return dispatch_results
 
-    def run_pyomo(self, model, data, **kwargs):
+    def run_pyomo_year_to_month(self, model, data, **kwargs):
         """
         Pyomo optimization steps: create model instance from model formulation and data,
         get solver, solve instance, and load solution.
-        :param model:
-        :param data:
-        :param solver_name:
-        :param stdout_detail:
-        :param kwargs:
-        :return: instance
         """
         logging.debug("Creating model instance...")
         instance = model.create_instance(data)
@@ -865,59 +753,117 @@ class Dispatch(object):
         instance.solutions.load_from(solution)
         return instance
 
-    def parallelize_opt(self, year):
+    def pickle_for_debugging(self):
+        with open(os.path.join(cfg.workingdir, 'dispatch_class.p'), 'wb') as outfile:
+            pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
+
+    @staticmethod
+    def load_from_pickle():
+        with open(os.path.join(cfg.workingdir, 'dispatch_class.p'), 'rb') as infile:
+            dispatch = pickle.load(infile)
+        shape.shapes.set_active_dates()
+        return dispatch
+
+    def parse_storage_result(self, lists, period):
+        charge_columns = [self.dispatch_geography, 'supply_node', 'dispatch_feeder', 'tech', 'hour', self.year]
+        df = pd.DataFrame(lists, columns=charge_columns)
+        df = df.set_index(charge_columns[:-1])
+        df = df.groupby(level=[self.dispatch_geography, 'dispatch_feeder', 'hour']).sum()
+        if df.squeeze().isnull().any():
+            self.pickle_for_debugging()
+            raise ValueError('NaNs in storage dispatch outputs in dispatch period {}'.format(period))
+        return df
+
+    def parse_flexible_load_result(self, lists, period):
+        charge_columns = [self.dispatch_geography, 'hour', 'dispatch_feeder', self.year]
+        df = pd.DataFrame(lists, columns=charge_columns)
+        df = df.set_index([self.dispatch_geography, 'dispatch_feeder', 'hour']).sort_index()
+        if df.squeeze().isnull().any():
+            self.pickle_for_debugging()
+            raise ValueError('NaNs in flexible load outputs in dispatch period {}'.format(period))
+        return df
+
+    def _replace_hour_with_weather_datetime(self, df):
+        i_h = df.index.names.index('hour')
+        df.index.levels = [level if i != i_h else shape.shapes.active_dates_index for i, level in enumerate(df.index.levels)]
+        df.index.names = [name if i != i_h else 'weather_datetime' for i, name in enumerate(df.index.names)]
+        return df
+
+    def parse_optimization_results(self, results):
+        # we still have model instances and need to unzip the result
+        if type(results[0]) is not dict:
+            results = [all_results_to_list(instance) for instance in results]
+        charge = pd.concat([self.parse_storage_result(result['Charge'], period) for period, result in enumerate(results)])
+        discharge = pd.concat([self.parse_storage_result(result['Provide_Power'], period) for period, result in enumerate(results)])
+        flex_load_df = pd.concat([self.parse_flexible_load_result(result['Flexible_Load'], period) for period, result in enumerate(results)])
+        storage_df = pd.concat([charge, discharge], keys=['charge','discharge'], names=['charge_discharge'])
+        storage_df = self._replace_hour_with_weather_datetime(storage_df)
+        storage_df = storage_df.reorder_levels([self.dispatch_geography, 'dispatch_feeder', 'charge_discharge', 'weather_datetime']).sort_index()
+        flex_load_df = self._replace_hour_with_weather_datetime(flex_load_df)
+        return storage_df, flex_load_df
+
+    def solve_optimization_period(self, period, return_model_instance=False):
+        model = dispatch_formulation.create_dispatch_model(self, period)
+        instance = model.create_instance(report_timing=False) # report_timing=True used to try to make this step faster
+        solver = SolverFactory(self.solver_name)
+        solution = solver.solve(instance)
+        instance.solutions.load_from(solution)
+        return instance if return_model_instance else all_results_to_list(instance)
+
+    @staticmethod
+    def get_empty_plot(num_rows, num_columns):
+        fig, axes = plt.subplots(num_rows, num_columns, figsize=(24, 12))
+        plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        return fig, axes
+
+    def solve_and_plot(self):
+        self.solve_optimization()
+
+        fig, axes = self.get_empty_plot(num_rows=len(self.dispatch_geographies), num_columns=len(self.dispatch_feeders))
+        flex_load = util.df_slice(self.flex_load_df, self.dispatch_feeders, 'dispatch_feeder')
+        flex_load = Output.clean_df(flex_load.squeeze().unstack(self.dispatch_geography).unstack('dispatch_feeder'))
+        flex_load.plot(subplots=True, ax=axes, title='FLEXIBLE LOAD')
+
+        fig, axes = self.get_empty_plot(num_rows=len(self.dispatch_geographies), num_columns=len(self.dispatch_feeders))
+        datetime = flex_load.index.get_level_values('weather_datetime')
+        hour = flex_load.groupby((datetime.hour+1)).mean()
+        hour.plot(subplots=True, ax=axes, title='AVERAGE FLEXIBLE LOAD BY HOUR')
+
+        fig, axes = self.get_empty_plot(num_rows=len(self.dispatch_geographies), num_columns=len(self.dispatch_feeders)+1)
+        charge = -self.storage_df.xs('charge', level='charge_discharge')
+        discharge = self.storage_df.xs('discharge', level='charge_discharge')
+        charge = Output.clean_df(charge.squeeze().unstack(self.dispatch_geography).unstack('dispatch_feeder'))
+        discharge = Output.clean_df(discharge.squeeze().unstack(self.dispatch_geography).unstack('dispatch_feeder'))
+        charge.plot(subplots=True, ax=axes)
+        discharge.plot(subplots=True, ax=axes, title='STORAGE CHARGE (-) AND DISCHARGE (+)')
+
+        fig, axes = self.get_empty_plot(num_rows=len(self.dispatch_geographies), num_columns=len(self.dispatch_feeders)+1)
+        datetime = charge.index.get_level_values('weather_datetime')
+        hour_charge = charge.groupby((datetime.hour+1)).mean()
+        hour_discharge = discharge.groupby((datetime.hour+1)).mean()
+        hour_charge.plot(subplots=True, ax=axes)
+        hour_discharge.plot(subplots=True, ax=axes, title='AVERAGE STORAGE CHARGE (-) AND DISCHARGE (+) BY HOUR')
+
+    def solve_optimization(self):
         state_of_charge = self.run_year_to_month_allocation()
-        start_state_of_charge, end_state_of_charge = state_of_charge[0], state_of_charge[1]
-        model_list = []
-        periods = copy.deepcopy(self.periods)
-        opt_hours = [self.opt_hours]* len(periods)
-        period_hours = [copy.deepcopy(self.period_hours)] * len(periods)
-        bulk_storage_index = pd.MultiIndex.from_product([self.dispatch_geographies, ['charge','discharge'],self.hours], names=[self.dispatch_geography,'charge_discharge','hour'])
-        dist_storage_index = pd.MultiIndex.from_product([self.dispatch_geographies, self.dispatch_feeders,['charge','discharge'], self.hours], names=[self.dispatch_geography,'dispatch_feeder','charge_discharge','hour'])
-        input_bulk_dfs = [copy.deepcopy(util.empty_df(index=bulk_storage_index,columns=[year],fill_value=0.0))]*len(periods)  
-        input_dist_dfs = [copy.deepcopy(util.empty_df(index=dist_storage_index,columns=[year],fill_value=0.0))]*len(periods)     
-        flex_load_index =  pd.MultiIndex.from_product([self.dispatch_geographies, self.dispatch_feeders, self.hours], names=[self.dispatch_geography,'dispatch_feeder','hour'])
-        input_flex_dfs = [copy.deepcopy(util.empty_df(index=flex_load_index,columns=[year],fill_value=0.0))]*len(periods)   
-        solver_name = [self.solver_name] * len(periods)
-        stdout_detail = [self.stdout_detail] * len(periods)
-        dispatch_geography = [self.dispatch_geography] * len(periods)
-        for period in self.periods:
-             model_list.append(dispatch_problem_PATHWAYS.dispatch_problem_formulation(self, start_state_of_charge, end_state_of_charge, period))  
-        zipped_inputs = list(zip(periods, model_list,input_bulk_dfs, input_dist_dfs, 
-                                 input_flex_dfs,opt_hours, period_hours, solver_name,stdout_detail, dispatch_geography))
-
-        if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-            available_cpus = min(cpu_count(), int(cfg.cfgfile.get('case','num_cores')))
-            pool = Pool(processes=available_cpus)
-            results = pool.map(run_optimization, zipped_inputs)
-            pool.close()
-            pool.join()
-        else:
-            results = []
-            for zipped_input in zipped_inputs:
-                results.append(run_optimization(zipped_input))
-
-        output_bulk_dfs = [x[0] for x in results]
-        output_dist_dfs = [x[1] for x in results]
-        output_flex_dfs = [x[2] for x in results]
-#        self.optimization_instance = [x[3] for x in results]
-        bulk_test = util.DfOper.add(output_bulk_dfs)
-        dist_test = util.DfOper.add(output_dist_dfs)
-        flex_test = util.DfOper.add(output_flex_dfs)
-        for period in self.periods:
-            period_test = output_bulk_dfs[period]
-            if np.any(np.isnan(period_test.values)):
-                zipped_input = zipped_inputs[period]
-                pdb.set_trace()
-                raise ValueError('nans from the optimization')
-        self.flex_load_df = flex_test
-        self.dist_storage_df = dist_test 
-        self.bulk_storage_df = bulk_test
-        
+        self.start_soc_large_storage, self.end_soc_large_storage = state_of_charge[0], state_of_charge[1]
+        try:
+            if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
+                params = [(dispatch_formulation.create_dispatch_model(self, period), self.solver_name) for period in self.periods]
+                pool = Pool(processes=cfg.available_cpus)
+                results = pool.map(helper_multiprocess.run_optimization, params)
+                pool.close()
+                pool.join()
+            else:
+                results = [self.solve_optimization_period(period) for period in self.periods]
+            self.storage_df, self.flex_load_df = self.parse_optimization_results(results)
+        except:
+            self.pickle_for_debugging()
+            raise
                 
     def run_year_to_month_allocation(self):
-        model = year_to_period_allocation.year_to_period_allocation_formulation(self)
-        results = self.run_pyomo(model, None)
+        model = dispatch_formulation.year_to_period_allocation_formulation(self)
+        results = self.run_pyomo_year_to_month(model, None)
         state_of_charge = self.export_allocation_results(results)
         return state_of_charge
 

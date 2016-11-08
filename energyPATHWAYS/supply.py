@@ -23,7 +23,6 @@ import operator
 import shape
 from outputs import Output
 from multiprocessing import Pool, cpu_count
-#from pathos.multiprocessing import Pool, cpu_count
 import energyPATHWAYS.helper_multiprocess as helper_multiprocess
 import pdb
 import os
@@ -660,79 +659,67 @@ class Supply(object):
         for i in range(1,int(cfg.cfgfile.get('case','dispatch_step'))+1):
             transmission_grid_node.capacity_factor.values.loc[:,min(year+i,max_year)] = bulk_cap_factor.values
         if hasattr(transmission_grid_node, 'stock'):
-            transmission_grid_node.update_stock(year,3) 
-
-        
-        
-#    @timecall(immediate=True)   
+            transmission_grid_node.update_stock(year,3)
+    
     def solve_storage_and_flex_load_optimization(self,year):
         """prepares, solves, and updates the net load with results from the storage and flexible load optimization""" 
         self.prepare_optimization_inputs(year)
         logging.info("      solving dispatch for storage and dispatchable load")
-        self.dispatch.parallelize_opt(year)
-
-        for geography in cfg.dispatch_geographies:
-            for feeder in self.dispatch_feeders:
-                for timeshift_type in list(set(self.distribution_load.index.get_level_values('timeshift_type'))):
-                    load_indexer = util.level_specific_indexer(self.distribution_load, [cfg.dispatch_geography, 'dispatch_feeder','timeshift_type'], [geography, feeder, timeshift_type])
-                    self.distribution_load.loc[load_indexer,:] += util.df_slice(self.dispatch.dist_storage_df,[geography, feeder, 'charge'], [cfg.dispatch_geography, 'dispatch_feeder', 'charge_discharge']).values
-                    self.distribution_load.loc[load_indexer,:] += util.df_slice(self.dispatch.flex_load_df,[geography, feeder], [cfg.dispatch_geography, 'dispatch_feeder']).values
-                gen_indexer = util.level_specific_indexer(self.distribution_gen,[cfg.dispatch_geography, 'dispatch_feeder'], [geography, feeder])
-                self.distribution_gen.loc[gen_indexer,: ] += util.df_slice(self.dispatch.dist_storage_df,[geography, feeder, 'discharge'], [cfg.dispatch_geography, 'dispatch_feeder', 'charge_discharge']).values
-        for geography in cfg.dispatch_geographies:
-            load_indexer = util.level_specific_indexer(self.bulk_load, [cfg.dispatch_geography], [geography])
-            self.bulk_load.loc[load_indexer,: ] += util.df_slice(self.dispatch.bulk_storage_df,[geography,'charge'], [cfg.dispatch_geography, 'charge_discharge']).values
-            gen_indexer = util.level_specific_indexer(self.bulk_gen, [cfg.dispatch_geography], [geography])
-            self.bulk_gen.loc[gen_indexer,: ] += util.df_slice(self.dispatch.bulk_storage_df,[geography,'discharge'], [cfg.dispatch_geography, 'charge_discharge']).values
-        self.update_net_load_signal()  
+        self.dispatch.set_year(year)
+        self.dispatch.solve_optimization()
+        
+        storage_charge = self.dispatch.storage_df.xs('charge', level='charge_discharge')
+        storage_discharge = self.dispatch.storage_df.xs('discharge', level='charge_discharge')
+        timeshift_types = list(set(self.distribution_load.index.get_level_values('timeshift_type')))
+        dist_storage_charge = util.add_and_set_index(util.df_slice(storage_charge, self.dispatch_feeders, 'dispatch_feeder'), 'timeshift_type', timeshift_types)
+        dist_flex_load = util.add_and_set_index(util.df_slice(self.dispatch.flex_load_df, self.dispatch_feeders, 'dispatch_feeder'), 'timeshift_type', timeshift_types)
+        self.distribution_load = util.DfOper.add((self.distribution_load, dist_storage_charge, dist_flex_load))
+        self.distribution_gen = util.DfOper.add((self.distribution_gen, util.df_slice(storage_discharge, self.dispatch_feeders, 'dispatch_feeder')))
+        self.bulk_load = util.DfOper.add((self.bulk_load, storage_charge.xs(0, level='dispatch_feeder')))
+        self.bulk_gen = util.DfOper.add((self.bulk_gen, storage_discharge.xs(0, level='dispatch_feeder')))
+        
+        self.update_net_load_signal()
         self.produce_distributed_storage_outputs(year)
         self.produce_bulk_storage_outputs(year)
         self.produce_flex_load_outputs(year)
 
-
-
-    def produce_distributed_storage_outputs(self,year):
+    def produce_distributed_storage_outputs(self, year):
         if year in self.dispatch_write_years:
-            distribution_df = util.remove_df_levels(util.DfOper.mult([self.dispatch.dist_storage_df,self.distribution_losses]),'dispatch_feeder')
+            dist_storage_df = util.df_slice(self.dispatch.storage_df, self.dispatch_feeders, 'dispatch_feeder')
+            distribution_df = util.remove_df_levels(util.DfOper.mult([dist_storage_df, self.distribution_losses]), 'dispatch_feeder')
+            distribution_df.columns = [cfg.calculation_energy_unit.upper()]
             charge_df = util.df_slice(distribution_df,'charge','charge_discharge')
-            index = pd.MultiIndex.from_product([[year],cfg.dispatch_geographies,shape.shapes.active_dates_index],names=['year',cfg.dispatch_geography,'weather_datetime'])
-            charge_df = pd.DataFrame(charge_df.values,index=index,columns =[cfg.calculation_energy_unit.upper()])
             charge_df = self.outputs.clean_df(charge_df)
             charge_df = pd.concat([charge_df],keys=['DISTRIBUTED STORAGE CHARGE'],names=['DISPATCH_OUTPUT'])
-            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,charge_df])
+            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, charge_df])
             discharge_df = util.df_slice(distribution_df,'discharge','charge_discharge')*-1
-            index = pd.MultiIndex.from_product([[year],cfg.dispatch_geographies,shape.shapes.active_dates_index],names=['year',cfg.dispatch_geography,'weather_datetime'])
-            discharge_df = pd.DataFrame(discharge_df.values,index=index,columns =[cfg.calculation_energy_unit.upper()])
             discharge_df = self.outputs.clean_df(discharge_df)
             discharge_df = pd.concat([discharge_df],keys=['DISTRIBUTED STORAGE DISCHARGE'],names=['DISPATCH_OUTPUT'])
-            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,discharge_df])
+            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, discharge_df])
 
-    def produce_bulk_storage_outputs(self,year):
+    def produce_bulk_storage_outputs(self, year):
         if year in self.dispatch_write_years:
-            bulk_df = self.dispatch.bulk_storage_df
+            bulk_df = self.dispatch.storage_df.xs(0, level='dispatch_feeder')
+            bulk_df = util.add_and_set_index(bulk_df, 'year', year)
+            bulk_df.columns = [cfg.calculation_energy_unit.upper()]
             charge_df = util.df_slice(bulk_df,'charge','charge_discharge')
-            index = pd.MultiIndex.from_product([[year],cfg.dispatch_geographies,shape.shapes.active_dates_index],names=['year',cfg.dispatch_geography,'weather_datetime'])
-            charge_df = pd.DataFrame(charge_df.values,index=index,columns =[cfg.calculation_energy_unit.upper()])
             charge_df = self.outputs.clean_df(charge_df)
             charge_df = pd.concat([charge_df],keys=['BULK STORAGE CHARGE'],names=['DISPATCH_OUTPUT'])
-            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,charge_df])
+            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, charge_df])
             discharge_df = util.df_slice(bulk_df,'discharge','charge_discharge')*-1
-            index = pd.MultiIndex.from_product([[year],cfg.dispatch_geographies,shape.shapes.active_dates_index],names=['year',cfg.dispatch_geography,'weather_datetime'])
-            discharge_df = pd.DataFrame(discharge_df.values,index=index,columns =[cfg.calculation_energy_unit.upper()])
             discharge_df = self.outputs.clean_df(discharge_df)
-            discharge_df = pd.concat([discharge_df],keys=['BULK STORAGE DISCHARGE'],names=['DISPATCH_OUTPUT'])
-            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,discharge_df])
+            discharge_df = pd.concat([discharge_df], keys=['BULK STORAGE DISCHARGE'], names=['DISPATCH_OUTPUT'])
+            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, discharge_df])
 
     def produce_flex_load_outputs(self,year):
         if year in self.dispatch_write_years:
-            flex_load_df = util.DfOper.mult([self.dispatch.flex_load_df,self.distribution_losses])
-            index = pd.MultiIndex.from_product([cfg.dispatch_geographies,self.dispatch_feeders,shape.shapes.active_dates_index,year],names=[cfg.dispatch_geography,'dispatch_feeder','weather_datetime','year'])
-            flex_load_df = pd.DataFrame(flex_load_df.values,index=index,columns =[cfg.calculation_energy_unit.upper()])
+            flex_load_df = util.DfOper.mult([util.df_slice(self.dispatch.flex_load_df, self.dispatch_feeders, 'dispatch_feeder'), self.distribution_losses])
+            flex_load_df.columns = [cfg.calculation_energy_unit.upper()]
             flex_load_df= self.outputs.clean_df(flex_load_df)
             label_replace_dict = dict(zip(util.elements_in_index_level(flex_load_df,'DISPATCH_FEEDER'),[x+' FLEXIBLE LOAD' for x in util.elements_in_index_level(flex_load_df,'DISPATCH_FEEDER')]))
             util.replace_index_label(flex_load_df,label_replace_dict,'DISPATCH_FEEDER')
             util.replace_index_name(flex_load_df,'DISPATCH_OUTPUT','DISPATCH_FEEDER')
-            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,flex_load_df])
+            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, flex_load_df])
 
     def set_distribution_losses(self,year):
         distribution_grid_node =self.nodes[self.distribution_grid_node_id] 
@@ -1525,6 +1512,7 @@ class Supply(object):
             self.output_final_demand_for_bulk_dispatch_outputs(final_demand)
 #        t = util.time_stamp(t)
         self.distribution_load = util.DfOper.add([final_demand, self.shaped_dist(year, self.non_flexible_load, generation=False)])
+        self.distribution_load
 #        t = util.time_stamp(t)    
         self.distribution_gen = self.shaped_dist(year, self.non_flexible_gen, generation=True)
 #        t = util.time_stamp(t)        

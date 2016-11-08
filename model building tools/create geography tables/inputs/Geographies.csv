@@ -4,8 +4,10 @@ id,name
 3,census division
 4,us
 5,census region
-6,o&g producing regions
+6,o&g producing region
 7,PADD
 8,egrid
 9,nerc
 10,time zone
+11,county
+12,egrid with wecc detail

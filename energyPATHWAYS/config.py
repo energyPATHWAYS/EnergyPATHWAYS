@@ -65,6 +65,7 @@ date_lookup = None
 time_slice_col = None
 electricity_energy_type_id = None
 electricity_energy_type_shape_id = None
+opt_period_length = None
 
 # outputs
 output_levels = None
@@ -186,7 +187,7 @@ def init_geo():
     geographies = geo.geographies[primary_geography]
     
 def init_date_lookup():
-    global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id
+    global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id, opt_period_length
     class DateTimeLookup:
         def __init__(self):
             self.dates = {}
@@ -205,6 +206,7 @@ def init_date_lookup():
     date_lookup = DateTimeLookup()
     time_slice_col = ['year', 'month', 'week', 'hour', 'day_type']
     electricity_energy_type_id, electricity_energy_type_shape_id = util.sql_read_table('FinalEnergy', column_names=['id', 'shape_id'], name='electricity')
+    opt_period_length = int(cfgfile.get('opt', 'period_length'))
 
 def init_output_levels():
     global output_demand_levels, output_supply_levels, output_combined_levels
@@ -222,7 +224,7 @@ def init_output_levels():
         output_combined_levels.remove(primary_geography + "_supply")
 
 def init_outputs_id_map():
-    global outputs_id_map    
+    global outputs_id_map
     outputs_id_map['demand_technology'] = util.upper_dict(util.sql_read_table('DemandTechs', ['id', 'name']))
     outputs_id_map['supply_technology'] = util.upper_dict(util.sql_read_table('SupplyTechs', ['id', 'name']))
     outputs_id_map['final_energy'] = util.upper_dict(util.sql_read_table('FinalEnergy', ['id', 'name']))
@@ -247,4 +249,3 @@ def init_output_parameters():
     output_currency = cfgfile.get('case', 'currency_year_id') + ' ' + currency_name
     init_output_levels()
     init_outputs_id_map()
-

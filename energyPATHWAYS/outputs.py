@@ -41,7 +41,7 @@ class Output(object):
         return cleaned_output
 
     @staticmethod
-    def clean_df(df,stack_years=False):
+    def clean_df(df, stack_years=False):
         if type(df) is not pd.core.frame.DataFrame:
             raise ValueError('output_type must be a pandas dataframe')
         if stack_years and 'year' not in df.index.names:
