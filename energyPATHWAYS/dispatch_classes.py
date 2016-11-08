@@ -323,7 +323,7 @@ class Dispatch(object):
             for feeder in self.feeders:
                 for period in self.periods:
                     start = period * self.opt_hours
-                    stop = (period+1) * self.opt_hours - 1
+                    stop = (period+1) * self.opt_hours
                     if feeder !=0:
                         self.max_flex_load[period][(geography,feeder)] = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).iloc[start:stop].max().values[0] + self.precision_adjust[geography]
                         self.min_flex_load[period][(geography,feeder)] = util.df_slice(distribution_load, [geography, feeder, 2], [self.dispatch_geography, 'dispatch_feeder', 'timeshift_type']).iloc[start:stop].min().values[0] - self.precision_adjust[geography]

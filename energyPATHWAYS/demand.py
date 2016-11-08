@@ -617,6 +617,7 @@ class Subsector(DataMapFunctions):
                 self.add_technologies(self.stock.unit, self.stock.time_unit)
             self.sub_type = 'stock and energy'
         elif self.has_service_demand is True and self.has_service_efficiency is True:
+            print self.id
             self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', drivers=self.drivers)
             self.service_efficiency = ServiceEfficiency(self.id, self.service_demand.unit)
             self.sub_type = 'service and efficiency'
@@ -792,6 +793,8 @@ class Subsector(DataMapFunctions):
                 else:
                     util.replace_index_name(df, 'year','vintage')
                     df = df[df.values>0]
+                if 'final_energy' in df.index.names:
+                    df = util.remove_df_levels(df, 'final_energy')
                 df_list.append(df)
             if len(df_list):
                 keys = measure_types
@@ -1474,8 +1477,9 @@ class Subsector(DataMapFunctions):
             else:
                 raise ValueError(
                     "stock and service demands both specified as dependent on each other in subsector %s" % self.id)
+            levels = [level for level in self.stock.rollover_group_names if level in self.service_demand.values.index.names] + ['year']
             self.service_demand.values = self.service_demand.values.groupby(
-                level=self.stock.rollover_group_names + ['year']).sum()
+                level=levels).sum()
 
 
     def determine_service_subset(self):
@@ -1999,39 +2003,39 @@ class Subsector(DataMapFunctions):
             self.ee_stock.levelized_costs['unspecified'] = self.rollover_measure_output(
                 measures='energy_efficiency_measures', measure_class='cost', measure_att='values_level',
                 stock_class='ee_stock',
-                stock_att='values')
+                stock_att='values',non_expandable_levels=['final_energy'] )
             self.ee_stock.annual_costs = defaultdict(dict)
             self.ee_stock.annual_costs['unspecified']= self.rollover_measure_output(
                 measures='energy_efficiency_measures', measure_class='cost', measure_att='values',
                 stock_class='ee_stock',
-                stock_att='sales')
+                stock_att='sales', non_expandable_levels=['final_energy'])
         if hasattr(self, 'fs_stock'):
             self.fs_stock.levelized_costs = defaultdict(dict)
             self.fs_stock.levelized_costs['unspecified']= self.rollover_measure_output(
                 measures='fuel_switching_measures', measure_class='cost', measure_att='values_level',
                 stock_class='fs_stock',
-                stock_att='values')
+                stock_att='values',non_expandable_levels=['final_energy'])
 
             self.fs_stock.annual_costs = defaultdict(dict)
             self.fs_stock.annual_costs['unspecified'] = self.rollover_measure_output(
                 measures='fuel_switching_measures', measure_class='cost', measure_att='values', stock_class='fs_stock',
-                stock_att='sales')
+                stock_att='sales',non_expandable_levels=['final_energy'])
 
         if hasattr(self, 'sd_stock'):
             self.sd_stock.levelized_costs = defaultdict(dict)
             self.sd_stock.levelized_costs['unspecified']= self.rollover_measure_output(
                 measures='service_demand_measures', measure_class='cost', measure_att='values_level',
                 stock_class='sd_stock',
-                stock_att='values')
+                stock_att='values',non_expandable_levels=['final_energy'])
 
             self.sd_stock.annual_costs = defaultdict(dict)
             self.sd_stock.annual_costs['unspecified']= self.rollover_measure_output(
                 measures='service_demand_measures', measure_class='cost', measure_att='values', stock_class='sd_stock',
-                stock_att='sales')
+                stock_att='sales',non_expandable_levels=['final_energy'])
 
     def rollover_measure_output(self, measures, measure_class=None, measure_att='values', stock_class=None,
                                 stock_att='values',
-                                stack_label=None, other_aggregate_levels=None):
+                                stack_label=None, other_aggregate_levels=None, non_expandable_levels=None):
         """ Produces rollover outputs for a subsector measure stock
         """
 
@@ -2046,7 +2050,7 @@ class Subsector(DataMapFunctions):
                                                                    'raw_values') is not None]
         if len(measure_dfs):
             measure_df = pd.concat(measure_dfs)
-            c = DfOper.mult([measure_df, stock_df])
+            c = DfOper.mult([measure_df, stock_df],expandable=(True, False), collapsible=(False, True),non_expandable_levels=non_expandable_levels)
         if stack_label is not None:
             c = c.stack()
             util.replace_index_name(c, stack_label)

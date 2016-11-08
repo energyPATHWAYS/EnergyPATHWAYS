@@ -1044,12 +1044,11 @@ class Supply(object):
                         tot_map_df = cfg.geo.map_df(cfg.primary_geography, cfg.dispatch_geography, normalize_as='total', map_key=geography_map_key, eliminate_zeros=False).swaplevel(0,1)
                         active_dispatch_costs = util.remove_df_levels(util.DfOper.mult([int_map_df,active_dispatch_costs],fill_value=0.0),cfg.primary_geography).swaplevel(0,cfg.dispatch_geography)
                         active_dispatch_costs = active_dispatch_costs.replace([np.nan,np.inf],0)
-                        stock_values = util.DfOper.mult([stock_values, tot_map_df],fill_value=0.0).swaplevel(0,cfg.dispatch_geography)
+                        stock_values = util.DfOper.mult([tot_map_df,stock_values],fill_value=0.0).swaplevel(0,cfg.dispatch_geography).swaplevel(1,cfg.primary_geography)
                         capacity_factor = util.remove_df_levels(util.DfOper.mult([int_map_df, capacity_factor,],fill_value=0.0),cfg.primary_geography).swaplevel(0,cfg.dispatch_geography)
                     groups = [x[0]for x in stock_values.groupby(level=stock_values.index.names).groups.values()]
                     for group in groups:
                         dispatch_geography = group[0]
-
                         if cfg.primary_geography == cfg.dispatch_geography:
                             geomapped_resource = group
                             resource = group
@@ -3374,7 +3373,8 @@ class SupplyNode(Node,StockItem):
         for elements in self.rollover_groups.keys():    
             elements = util.ensure_tuple(elements)
             try:
-                self.rollover_dict[elements].run(1, stock_changes.loc[elements])
+                self.rollover_dict[elements].use_stock_changes = True 
+                self.rollover_dict[elements].run(1, stock_changes.loc[elements],np.array(self.stock.total_rollover.loc[elements+(year,)]))
             except:
                 logging.error('error encountered in rollover for node ' + str(self.id) + ' in elements '+ str(elements) + ' year ' + str(year))
                 raise
@@ -3716,13 +3716,14 @@ class SupplyPotential(Abstract):
 #            self.resource_supply_curve = self.resource_values.groupby(level=[cfg.primary_geography]).cumsum()
             self.values = DfOper.mult([self.values, self.conversion.values],fill_value=self.conversion.values.mean().mean())
 #            self.supply_curve = util.remove_df_levels(self.values, [x for x in self.values.index.names if x not in [cfg.primary_geography,'resource_bin']])
+            
             self.supply_curve = self.values.groupby(level=[x for x in self.values.index.names if x not in 'resource_bin']).cumsum()
         else:
             if util.determ_energy(self.unit):
                 self.values = util.unit_convert(self.values, unit_from_num=self.unit, unit_from_den=self.time_unit, unit_to_num=cfg.calculation_energy_unit, unit_to_den='year')
             else:
                 raise ValueError('unit is not an energy unit and no resource conversion has been entered in node %s' %self.id)
-            self.supply_curve = self.values.groupby(level=[x for x in self.values.index.names if x not in 'resource_bin']).cumsum()
+            self.supply_curve = self.values.groupby(level=[cfg.primary_geography]).cumsum()
 
     def remap_to_potential(self, active_throughput, year, tradable_geography=None):
         """remaps throughput to potential bins"""    
@@ -3732,7 +3733,7 @@ class SupplyPotential(Abstract):
         self.active_throughput[self.active_throughput<=0] = 1E-25
         original_supply_curve = self.supply_curve.loc[:,year].to_frame()  
         self.full_supply_curve = copy.deepcopy(original_supply_curve)
-        self.active_supply_curve = self.full_supply_curve.groupby(level=util.ix_incl(self.supply_curve,[primary_geography, 'resource_bin', 'demand_sector'])).sum()          
+        self.active_supply_curve = self.full_supply_curve.groupby(level=util.ix_incl(self.supply_curve,[primary_geography, 'resource_bin', 'demand_sector'])).max()          
         if tradable_geography is not None and tradable_geography!=primary_geography:
                 map_df = cfg.geo.map_df(primary_geography,tradable_geography,normalize_as='total',eliminate_zeros=False,filter_geo=False)
                 original_supply_curve = util.DfOper.mult([map_df,original_supply_curve])
@@ -4401,20 +4402,21 @@ class SupplyStockNode(Node):
             initial_stock, rerun_sales_shares = self.calculate_initial_stock(elements, initial_total, sales_share,initial_sales_share)
             if rerun_sales_shares:
                  sales_share = self.calculate_total_sales_share_after_initial(elements,self.stock.rollover_group_names)
-            technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names,'technology_rollover')
+            technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names,'technology_rollover').values
             self.rollover_dict[elements] = Rollover(vintaged_markov_matrix=self.stock.vintaged_markov_matrix,
                                      initial_markov_matrix=self.stock.initial_markov_matrix,
                                      num_years=len(years), num_vintages=len(years),
                                      num_techs=len(self.tech_ids), initial_stock=initial_stock,
                                      sales_share=sales_share, stock_changes=None, specified_sales=sales,
-                                     specified_stock=technology_stock.values, specified_retirements=None,stock_changes_as_min=True)
+                                     specified_stock=technology_stock, specified_retirements=None,stock_changes_as_min=True)
 #            if self.id == 115:
 #                print self.rollover_dict[(64,)].i
 #                print self.rollover_dict[(64,)].sales_share[0]
 #                print self.rollover_dict[(64,)].initial_stock, self.rollover_dict[(64,)].stock.sum()
+
         for year in [x for x in self.years if x<int(cfg.cfgfile.get('case', 'current_year'))]:
-            for elements in self.rollover_groups.keys():
-                elements = util.ensure_tuple(elements)
+            for elements in self.rollover_groups.keys():    
+                elements = util.ensure_tuple(elements)                
                 try:
                     self.rollover_dict[elements].run(1)
                 except:
@@ -4429,7 +4431,7 @@ class SupplyStockNode(Node):
                 self.stock.retirements.loc[elements_indexer, 'value'], self.stock.retirements_natural.loc[elements_indexer, 'value'], \
                 self.stock.retirements_early.loc[elements_indexer, 'value'] = retirements, retirements_natural, retirements_early
                 self.stock.sales.loc[elements_indexer, 'value'], self.stock.sales_new.loc[elements_indexer, 'value'], \
-                self.stock.sales_replacement.loc[elements_indexer, 'value'] = sales_record, sales_new, sales_replacement                      
+                self.stock.sales_replacement.loc[elements_indexer, 'value'] = sales_record, sales_new, sales_replacement  
             self.stock_normalize(year)
             self.financial_stock(year, 1)
             self.calculate_actual_stock(year, 1)
@@ -4489,7 +4491,8 @@ class SupplyStockNode(Node):
         for elements in self.rollover_groups.keys():    
             elements = util.ensure_tuple(elements)
             try:
-                self.rollover_dict[elements].run(1, stock_changes.loc[elements])
+                self.rollover_dict[elements].use_stock_changes = True  
+                self.rollover_dict[elements].run(1, stock_changes.loc[elements],self.stock.return_stock_slice(elements + (year,), self.stock.rollover_group_names+['year'],'technology_rollover').values)
             except:
                 logging.error('error encountered in rollover for node ' + str(self.id) + ' in elements '+ str(elements) + ' year ' + str(year))
                 raise

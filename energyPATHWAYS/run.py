@@ -141,11 +141,11 @@ def load_model(load_demand, load_supply, scenario_id, api_run):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Users\Ben\Documents\PythonProjects\energyPATHWAYS\new_york_model_example'
+    workingdir = r'C:\Users\Ben\Documents\PythonProjects\energyPATHWAYS\washington_model_example'
     os.chdir(workingdir)
     config = 'config.INI'
     pint = 'unit_defs.txt'
-    scenario = [11, 12 , 13]
+    scenario = [14]
     run(workingdir, config, pint, scenario,
     load_demand   = False,
     solve_demand  = True, 
@@ -167,7 +167,7 @@ if __name__ == "__main__":
 #current_geography = 'census division'
 #converted_geography = 'us'
 #normalize_as='total'
-#
+#,1
 #subset_geographies = set(cfg.geo.gau_to_geography[id] for id in cfg.primary_subset_id)
 #current_geography = util.ensure_iterable_and_not_string(current_geography)
 #converted_geography = util.ensure_iterable_and_not_string(converted_geography)

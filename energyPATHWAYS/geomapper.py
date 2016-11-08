@@ -98,6 +98,7 @@ class GeoMapper:
         self.values = self.values.set_index('intersection_id', append=True)
         # sortlevel sorts all of the indicies so that we can slice the dataframe
         self.values = self.values.sort()
+        self.values.replace(0,1e-10,inplace=True)
 
     def log_geo(self):
         """
@@ -146,8 +147,8 @@ class GeoMapper:
             impacted_gaus = impacted_gaus | set(base_gaus[index])
             base_gaus[index] = id
 
-        if any(impacted in breakout_geography_id for impacted in impacted_gaus):
-            raise ValueError('breakout geographies in config cannot overlap geographically')
+#        if any(impacted in breakout_geography_id for impacted in impacted_gaus):
+#            raise ValueError('breakout geographies in config cannot overlap geographically')
         
         self.values[new_level_name] = base_gaus
         self.values = self.values.set_index(new_level_name, append=True)
@@ -228,6 +229,7 @@ class GeoMapper:
             levels = [n for n in df.index.names if n in self.geographies]
             elements = [self.geographies[n] for n in levels]
             indexer = util.level_specific_indexer(df, levels=levels, elements=elements)
+            df = df.sort_index()
             df = df.loc[indexer, :]
             return df.reset_index().set_index(df.index.names).sort()
         else:
@@ -254,7 +256,7 @@ class GeoMapper:
         foreign_gaus = current_gaus - native_gaus
         return native_gaus, current_gaus, foreign_gaus
 
-    def incorporate_foreign_gaus(self, df, current_geography, data_type, map_key, keep_oth_index_over_oth_gau=False):
+    def incorporate_foreign_gaus(self, df, current_geography, data_type, map_key, keep_oth_index_over_oth_gau=False,zero_out_negatives=True):
         native_gaus, current_gaus, foreign_gaus = self.get_native_current_foreign_gaus(df, current_geography)
         
         # we don't have any foreign gaus
@@ -296,13 +298,18 @@ class GeoMapper:
                 foreign_gau_slice.index = foreign_gau_slice.index.rename(foreign_geography, level=current_geography)
                 allocated_foreign_gau_slice = util.DfOper.mult((foreign_gau_slice, allocation))
                 allocated_foreign_gau_slice = util.remove_df_levels(allocated_foreign_gau_slice, foreign_geography)
-                impacted_gaus_slice = util.df_slice(df, impacted_gaus, current_geography, drop_level=False, reset_index=True)
+                indexer = util.level_specific_indexer(df,current_geography,[impacted_gaus])
+                impacted_gaus_slice = df.loc[indexer,:].reset_index().set_index(df.index.names)
                 impacted_gau_years = list(impacted_gaus_slice.index.get_level_values(y_or_v).values)
                 new_impacted_gaus = util.DfOper.subt((impacted_gaus_slice, allocated_foreign_gau_slice), fill_value=np.nan, non_expandable_levels=[])
                 new_impacted_gaus = new_impacted_gaus.reorder_levels(df.index.names).sort()
                 if new_impacted_gaus.min().min() < 0:
-                    raise ValueError('Negative values resulted from subtracting the foreign gau from the base gaus. This is the resulting dataframe: {}'.format(new_impacted_gaus))
+                    if not zero_out_negatives:
+                        raise ValueError('Negative values resulted from subtracting the foreign gau from the base gaus. This is the resulting dataframe: {}'.format(new_impacted_gaus))
+                    else:
+                        new_impacted_gaus[new_impacted_gaus<0] = 0
                 if new_impacted_gaus.isnull().all().value:
+                    pdb.set_trace()
                     raise ValueError('Year or vitages did not overlap between the foreign gaus and impacted gaus')
                 indexer = util.level_specific_indexer(df, [current_geography, y_or_v], [impacted_gaus, impacted_gau_years])
                 df.loc[indexer, :] = new_impacted_gaus.loc[indexer, :]

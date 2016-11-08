@@ -78,6 +78,7 @@ class Rollover(object):
         shape = self.num_years*self.spy
         if stock_changes is None:
             self.stock_changes = np.zeros(shape)
+            self.use_stock_changes = False
         else:
             self.stock_changes = np.reshape(np.repeat(stock_changes/self.spy, self.spy, axis=0), shape)
 
@@ -211,7 +212,10 @@ class Rollover(object):
 #            raise RuntimeError('Missmatch between specified sales and specified stock with no existing stock')
 #        
         # if you have specified stock, it implies sales that supersede natural sales
-        self.defined_sales = self.specified_stock[i] - (self.prior_year_stock - self.rolloff) # may result in a negative
+#        if self.stock_changes_as_min and self.use_stock_changes:
+#            self.defined_sales = np.maximum(self.specified_stock[i] - (self.prior_year_stock - self.rolloff),np.array(range(1))) # may result in a negative
+#        else:
+        self.defined_sales = self.specified_stock[i] - (self.prior_year_stock - self.rolloff)
         self.defined_sales[self.sales_specified] = self.specified_sales[i, self.sales_specified]
         
         # a negative specified sale means you need to do early retirement
@@ -240,7 +244,7 @@ class Rollover(object):
                 # Because of the retirements, we have a new natural rolloff number
                 self.update_rolloff()
 
-            # if specified sales are negative, we need to accelerate retirement for that technology
+            # if specified sales are negativ/e, we need to accelerate retirement for that technology
             if np.any(self.defined_sales[self.specified] < 0):
                 for neg_index in np.nonzero(self.defined_sales < 0)[0]:
                     retireable = np.array([neg_index], dtype=int)
@@ -252,9 +256,13 @@ class Rollover(object):
                 self.update_rolloff()
 
             # Here, if stock changes as min, gross up stock changes
-            if self.stock_changes_as_min:
-                self.stock_changes[i] = max(self.stock_changes[i], self.sum_defined_sales - self.rolloff_summed)
-
+            if self.stock_changes_as_min and self.use_stock_changes:
+                if self.stock_changes[i]>0 and self.sum_defined_sales<>0:
+                    self.stock_changes[i] = max(self.stock_changes[i], self.sum_defined_sales - self.rolloff_summed)
+                elif self.stock_changes[i]<0 and self.sum_defined_sales<>0:
+                    self.stock_changes[i] = min(self.stock_changes[i], self.sum_defined_sales - self.rolloff_summed)
+            elif self.stock_changes_as_min and not self.use_stock_changes:
+                self.stock_changes[i] = self.sum_defined_sales - self.rolloff_summed
             # We need additional early retirement to make room for defined_sales
             if round(self.sum_defined_sales, 6) > round(self.rolloff_summed + self.stock_changes[i], 6):
                 incremental_retirement = self.sum_defined_sales - (self.rolloff_summed + self.stock_changes[i])
@@ -419,7 +427,13 @@ class Rollover(object):
             self.specified_stock[list_steps] = np.array(util.flatten_list([[[np.nan]*self.num_techs]*(self.spy-1) + [list(util.ensure_iterable_and_not_string(ss))] for ss in np.round(introduced_specified_stock, decimals)]))
             if np.any(self.specified_stock[list_steps]<0):
                 raise ValueError("introduced specified stock cannot be negative")
-            
+            i = self.i
+            self.prior_year_stock = self.initial_stock if i == 0 else np.sum(self.stock[:, :i + 1, i - 1], axis=1)
+            if np.sum(self.prior_year_stock) + np.sum(self.stock_changes[list_steps])>np.nansum(self.specified_stock[list_steps]) and not np.all(np.isnan(self.specified_stock[list_steps])) and self.stock_changes_as_min and self.use_stock_changes:
+                self.specified_stock[list_steps] *= (np.sum(self.prior_year_stock) + np.sum(self.stock_changes[list_steps]))/np.nansum(self.specified_stock[list_steps])
+                self.stock_changes[list_steps] = np.reshape(np.repeat(0/self.spy, self.spy, axis=0), len(list_steps))
+
+
 #            self.specified_stock[list_steps] = np.reshape(np.repeat(introduced_specified_stock, self.spy, axis=0), len(list_steps))
 
         if introduced_specified_sales is not None:
