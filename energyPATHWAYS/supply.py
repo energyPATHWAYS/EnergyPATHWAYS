@@ -571,6 +571,8 @@ class Supply(object):
                                 self.energy_budgets = energy_budgets
                                 self.p_min = p_min
                                 self.p_max = p_max
+                                if node_id == 21:
+                                    pdb.set_trace()
                                 dispatch = np.transpose([Dispatch.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
                                 self.dispatch_result = dispatch            
                                 indexer = util.level_specific_indexer(self.bulk_load,[cfg.dispatch_geography], [geography])

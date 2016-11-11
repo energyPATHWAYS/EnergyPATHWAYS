@@ -141,11 +141,11 @@ def load_model(load_demand, load_supply, scenario_id, api_run):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Users\Ben\Documents\PythonProjects\energyPATHWAYS\washington_model_example'
+    workingdir = r'C:\Users\Ben\Documents\PythonProjects\energyPATHWAYS\new_york_model_example'
     os.chdir(workingdir)
     config = 'config.INI'
     pint = 'unit_defs.txt'
-    scenario = [14]
+    scenario = [11,12,13]
     run(workingdir, config, pint, scenario,
     load_demand   = False,
     solve_demand  = True, 

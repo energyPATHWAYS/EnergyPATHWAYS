@@ -2224,14 +2224,14 @@ class Subsector(DataMapFunctions):
         if np.sum(ss_reference)==0:
             ref_array = np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1))
             if np.nansum(util.df_slice(self.stock.technology, elements, levels).values[0]) >= np.nansum(util.df_slice(self.stock.total, elements, levels).values[0]):
-                initial_stock = util.df_slice(self.stock.technology, elements, levels).values[0]
+                initial_stock = util.df_slice(self.stock.technology, elements, levels).replace(np.nan,0).values[0]
                 tech_lifetimes = np.array([x.book_life for x in self.technologies.values()])
                 x = initial_stock/tech_lifetimes
                 x /= sum(x)
                 for i, tech_id in enumerate(self.tech_ids): 
                     for sales_share in self.technologies[tech_id].sales_shares.values():
                         if sales_share.replaced_demand_tech_id is None:
-                            ref_array[:,:,i] = x/(sum(x))
+                            ref_array[:,:,i] = x
                             ref_array[:,i,i] = 0
                             
             
