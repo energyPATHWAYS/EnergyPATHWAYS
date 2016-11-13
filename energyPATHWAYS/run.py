@@ -15,6 +15,7 @@ import energyPATHWAYS.util as util
 from energyPATHWAYS.pathways_model import PathwaysModel
 import energyPATHWAYS.shape as shape
 from energyPATHWAYS.outputs import Output
+from energyPATHWAYS.dispatch_classes import Dispatch
 import time
 import datetime
 import logging
@@ -141,21 +142,49 @@ def load_model(load_demand, load_supply, scenario_id, api_run):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Users\Ben\Documents\PythonProjects\energyPATHWAYS\new_york_model_example'
+    workingdir = r'C:\github\energyPATHWAYS\new_york_model_example'
     os.chdir(workingdir)
     config = 'config.INI'
     pint = 'unit_defs.txt'
-    scenario = [11,12,13]
+    scenario = [11]
+    
     run(workingdir, config, pint, scenario,
     load_demand   = False,
-    solve_demand  = True, 
+    solve_demand  = False, 
     load_supply   = False,
-    solve_supply  = True,
+    solve_supply  = False,
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,
     clear_results = True)
-
+    
+##    test = model.demand.aggregate_electricity_shapes(2020)
+#    model.demand.create_electricity_reconciliation()
+#    self = model.demand.sectors[3].subsectors[72]
+##    active_shape = self.shape
+##    shape_df = util.DfOper.mult((active_shape.values, self.electricity_reconciliation))
+##    percent_flexible = self.flexible_load_measure.values.xs(2020, level='year')
+##    percent_flexible[:] = 1
+##    test = shape.Shape.produce_flexible_load(shape_df, percent_flexible)
+#    test = self.aggregate_electricity_shapes(2050)
+#    test.xs([36, 1], level=['us and new york', 'dispatch_feeder']).unstack('timeshift_type').cumsum().plot()
+    
+#    dispatch = Dispatch.load_from_pickle()
+#    self = dispatch
+#    self.set_opt_distribution_net_loads(self.distribution_load_input, self.distribution_gen_input)
+#    instance = dispatch.solve_optimization_period(5, return_model_instance=True)
+#    results = dispatch.solve_optimization_period(5, return_model_instance=False)
+#    flex = pd.DataFrame(results['Flexible_Load'], columns=[dispatch.dispatch_geography, 'hour', 'dispatch_feeder', 'value'])
+#    flex = flex.set_index([dispatch.dispatch_geography, 'dispatch_feeder', 'hour']).sort_index()
+#    flex.xs([36, 1], level=[self.dispatch_geography, 'dispatch_feeder']).cumsum().plot()
+##    
+##    dispatch.distribution_load_input.xs([36, 1], level=[dispatch.dispatch_geography, 'dispatch_feeder']).unstack('timeshift_type').cumsum().plot()
+#    dispatch.solve_and_plot()
+    
+#    
+#    cum = util.remove_df_levels(cum_distribution_load.xs([36, 1], level=['us and new york', 'dispatch_feeder']), 'period').unstack('timeshift_type')
+#    cum
+    
     # note that when running the profiler, it is recommended to not run the model for more than 10 years due to memory use
     # cProfile.run('run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)', filename='full_run.profile')
     # Output.writeobj(model)

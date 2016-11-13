@@ -194,23 +194,24 @@ class Dispatch(object):
         return dict(zip(self.periods, [df.xs(p, level='period').to_dict() for p in self.periods]))
 
     def _ensure_feasible_flexible_load(self, cum_df):
-        # if we don't have any flexible load
-        if tuple(sorted(cum_df.index.levels[0])) == (2,):
-            self.has_flexible_load = False
-            return cum_df
-        else:
-            self.has_flexible_load = True
-            cum_df = cum_df.unstack(level='timeshift_type')
-            cum_df[1] = cum_df[[1,2]].min(axis=1)
-            cum_df[3] = cum_df[[2,3]].max(axis=1)
-            cum_df = cum_df.stack().reorder_levels(['timeshift_type', 'period', self.dispatch_geography, 'hour', 'dispatch_feeder'])
+        # we have flexible load
+        active_timeshift_types = tuple(sorted(set(cum_df.index.get_level_values('timeshift_type'))))
+        if active_timeshift_types == (1,2,3):
+            unstacked = cum_df.unstack(level='timeshift_type')
+            unstacked[1] = unstacked[[1,2]].min(axis=1)
+            unstacked[3] = unstacked[[2,3]].max(axis=1)
+            cum_df = unstacked.stack().reorder_levels(['timeshift_type', 'period', self.dispatch_geography, 'hour', 'dispatch_feeder'])
             return cum_df.sort_index()
+        else:
+            return cum_df
 
     def set_opt_distribution_net_loads(self, distribution_load, distribution_gen):
         #[period][(geography,timepoint,feeder)]
+        active_timeshift_types = tuple(sorted(set(distribution_load.index.get_level_values('timeshift_type'))))
         distribution_load = self._add_dispatch_feeder_level_zero(distribution_load)
         distribution_load = self._convert_weather_datetime_to_hour(distribution_load)
         cum_distribution_load = distribution_load.groupby(level=['timeshift_type', self.dispatch_geography, 'dispatch_feeder']).cumsum()
+        self.has_flexible_load = False if active_timeshift_types == (2,) else True
         cum_distribution_load = self._ensure_feasible_flexible_load(cum_distribution_load)
         self.set_max_min_flex_loads(distribution_load)
         distribution_gen = self._add_dispatch_feeder_level_zero(distribution_gen)
@@ -218,8 +219,8 @@ class Dispatch(object):
         self.distribution_gen = self._timeseries_to_dict(distribution_gen)
         self.distribution_load = self._timeseries_to_dict(distribution_load.xs(2, level='timeshift_type'))
         self.cumulative_distribution_load = self._timeseries_to_dict(cum_distribution_load.xs(2, level='timeshift_type'))
-        self.min_cumulative_flex_load = self._timeseries_to_dict(cum_distribution_load.xs(1, level='timeshift_type')) if 1 in cum_distribution_load.index.names else self.cumulative_distribution_load
-        self.max_cumulative_flex_load = self._timeseries_to_dict(cum_distribution_load.xs(3, level='timeshift_type')) if 3 in cum_distribution_load.index.names else self.cumulative_distribution_load
+        self.min_cumulative_flex_load = self._timeseries_to_dict(cum_distribution_load.xs(1, level='timeshift_type')) if 1 in active_timeshift_types else self.cumulative_distribution_load
+        self.max_cumulative_flex_load = self._timeseries_to_dict(cum_distribution_load.xs(3, level='timeshift_type')) if 3 in active_timeshift_types else self.cumulative_distribution_load
 
     def set_max_min_flex_loads(self, distribution_load):
         self.flex_load_penalty = util.unit_convert(5, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)

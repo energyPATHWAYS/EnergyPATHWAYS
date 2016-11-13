@@ -553,9 +553,10 @@ class Subsector(DataMapFunctions):
                 return None
             if hasattr(self, 'flexible_load_measure') and self.flexible_load_measure.values.xs(year, level='year').sum().sum()>0:
                 percent_flexible = self.flexible_load_measure.values.xs(year, level='year')
-                # first step is to make the three shifted profiles
-                flex = shape.Shape.produce_flexible_load(util.DfOper.mult((active_shape.values, self.electricity_reconciliation)),
-                                                         percent_flexible=percent_flexible, hr_delay=active_max_lag_hours, hr_advance=active_max_lead_hours)
+                timeshift_levels = sorted(list(util.get_elements_from_level(active_shape.values, 'timeshift_type')))
+                # using electricity reconcilliation with a profile with a timeshift type can cause big problems, so it is avoided
+                shape_df = active_shape.values if timeshift_levels==[1, 2, 3] else util.DfOper.mult((active_shape.values, self.electricity_reconciliation))
+                flex = shape.Shape.produce_flexible_load(shape_df, percent_flexible=percent_flexible, hr_delay=active_max_lag_hours, hr_advance=active_max_lead_hours)
                 return util.DfOper.mult((flex, energy_slice))
             else:
                 return util.DfOper.mult((active_shape.values.xs(2, level='timeshift_type'), energy_slice))

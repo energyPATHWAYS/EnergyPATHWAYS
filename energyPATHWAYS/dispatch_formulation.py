@@ -118,11 +118,8 @@ def large_storage_end_state_of_charge_rule(model, technology, timepoint):
 def cumulative_flex_load_tracking_rule(model, geography, timepoint, feeder):
     if feeder == 0:
         return Constraint.Skip
-        
-    if timepoint == model.first_timepoint.value:
-        return model.Cumulative_Flexible_Load[geography, timepoint, feeder] == model.Flexible_Load[geography, timepoint, feeder]
-    else:
-        return model.Cumulative_Flexible_Load[geography, model.previous[timepoint], feeder] + model.Flexible_Load[geography, timepoint, feeder] == model.Cumulative_Flexible_Load[geography, timepoint, feeder]
+    
+    return model.Cumulative_Flexible_Load[geography, timepoint, feeder] == model.Cumulative_Flexible_Load[geography, model.previous[timepoint], feeder] + model.Flexible_Load[geography, timepoint, feeder]
 
 def cumulative_flexible_load_rule(model, geography, timepoint, feeder):
     """
@@ -135,19 +132,21 @@ def cumulative_flexible_load_rule(model, geography, timepoint, feeder):
     if timepoint == model.last_timepoint.value:
         return model.Cumulative_Flexible_Load[geography, timepoint, feeder] == 0
     else:
-        return model.min_cumulative_flex_load[geography, timepoint, feeder] <= model.cumulative_distribution_load[geography, timepoint, feeder] + model.Cumulative_Flexible_Load[geography, timepoint, feeder] <= model.max_cumulative_flex_load[geography, timepoint, feeder]
+        return model.min_cumulative_flex_load[geography, timepoint, feeder] \
+        <= model.cumulative_distribution_load[geography, timepoint, feeder] + model.Cumulative_Flexible_Load[geography, timepoint, feeder] \
+        <= model.max_cumulative_flex_load[geography, timepoint, feeder]
 
 def flex_load_capacity_rule(model, geography, timepoint, feeder):
     """
     Maximum flexible load that can be shifted to a given timepoint.
     """
     if feeder == 0:
-        return Constraint.Skip
-    
-    return model.min_flex_load[geography, feeder] <= model.Flexible_Load[geography, timepoint, feeder] + model.distribution_load[geography,timepoint,feeder] <= model.max_flex_load[geography, feeder]
+        return model.Flexible_Load[geography, timepoint, feeder] == 0
+    else:
+        return model.min_flex_load[geography, feeder] <= model.Flexible_Load[geography, timepoint, feeder] + model.distribution_load[geography, timepoint, feeder] <= model.max_flex_load[geography, feeder]
 
 def zero_flexible_load(model, geography, timepoint, feeder):
-    return model.Flexible_Load[geography, timepoint, feeder] == 0 if feeder != 0 else Constraint.Skip
+    return model.Flexible_Load[geography, timepoint, feeder] == 0
 
 def transmission_rule(model, line, timepoint):
     """
@@ -286,7 +285,6 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     model.dist_penalty = Param(within=NonNegativeReals, initialize= dispatch.dist_net_load_penalty)
     model.bulk_penalty = Param(within=NonNegativeReals, initialize= dispatch.bulk_net_load_penalty)
     model.flex_penalty = Param(within=NonNegativeReals, initialize= dispatch.flex_load_penalty)
-
     #####################
     # ### Variables ### #
     #####################
@@ -331,7 +329,10 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     # Flex loads
     model.Cumulative_Flex_Load_Tracking_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=cumulative_flex_load_tracking_rule)
     model.Cumulative_Flexible_Load_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=cumulative_flexible_load_rule)
-    model.Flex_Load_Capacity_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=(flex_load_capacity_rule if dispatch.has_flexible_load else zero_flexible_load))
+    if dispatch.has_flexible_load:
+        model.Flex_Load_Capacity_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=flex_load_capacity_rule)
+    else:
+        model.Flex_Load_Capacity_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=zero_flexible_load)
     
     # Transmission
 #    model.Transmission_Constraint = Constraint(model.TRANSMISSION_LINES, model.TIMEPOINTS, rule=transmission_rule)

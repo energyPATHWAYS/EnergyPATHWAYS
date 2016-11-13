@@ -18,6 +18,8 @@ import os
 import logging
 from multiprocessing import Pool
 import helper_multiprocess
+import pdb
+import numpy as np
 
 #http://stackoverflow.com/questions/27491988/canonical-offset-from-utc-using-pytz
 
@@ -327,7 +329,43 @@ class Shape(dmf.DataMapFunctions):
         df['weather_datetime'].freq = 'H'
         df.set_index(names, inplace=True)
         df.sort_index(inplace=True)
-    
+
+    @staticmethod
+    def ensure_feasible_flexible_load(df):
+        names = [n for n in df.index.names if n != 'weather_datetime']
+        cum_df = df.groupby(level=names).cumsum()
+        
+        add_to_1 = min(0, (cum_df[2] - cum_df[1]).min())*1.001
+        subtract_from_3 = min(0, (cum_df[3] - cum_df[2]).min())*1.001
+        
+        if add_to_1 < 0:
+            df.iloc[0,0] += add_to_1
+            cum_df = df[1].groupby(level=names).cumsum()
+            make_zero = np.nonzero(cum_df.values<0)[0]
+            if len(make_zero):
+                replace = make_zero[-1] + 1
+                df.iloc[make_zero, 0] = 0
+                df.iloc[replace, 0] = cum_df.iloc[replace]
+            df.iloc[-1, 0] += (df[2].sum() - df[1].sum())
+        
+        if subtract_from_3 < 0:
+            df.iloc[0,2] -= subtract_from_3
+            cum_df = df[3].groupby(level=names).cumsum()
+            cum_diff = df[2].sum() - cum_df
+            make_zero = np.nonzero(cum_diff.values<0)[0][1:]
+            if len(make_zero):
+                replace = make_zero[0] - 1
+                df.iloc[make_zero, 2] = 0
+                df.iloc[replace, 2] += cum_diff.iloc[replace]
+            else:
+                df.iloc[-1, 2] += cum_diff.iloc[-1]
+        
+        cum_df = df.groupby(level=names).cumsum()
+        assert not (cum_df[1] > cum_df[2]).any()
+        assert not (cum_df[2] > cum_df[3]).any()
+        
+        return df
+
     @staticmethod
     def produce_flexible_load(shape_df, percent_flexible=None, hr_delay=None, hr_advance=None):
         hr_delay = 0 if hr_delay is None else hr_delay
@@ -335,16 +373,18 @@ class Shape(dmf.DataMapFunctions):
         
         native_slice = util.df_slice(shape_df, elements=2, levels='timeshift_type')
         native_slice_stacked = pd.concat([native_slice]*3, keys=[1,2,3], names=['timeshift_type'])
-        
-#        if percent_flexible.sum().sum()==0:
-#            return native_slice
 
         pflex_stacked = pd.concat([percent_flexible]*3, keys=[1,2,3], names=['timeshift_type'])
 
         timeshift_levels = sorted(list(util.get_elements_from_level(shape_df, 'timeshift_type')))
         if timeshift_levels==[1, 2, 3]:
             # here, we have flexible load profiles already specified by the user
-            full_load = shape_df
+            names = shape_df.index.names
+            full_load = shape_df.squeeze().unstack('timeshift_type')
+            group_by_names = [n for n in full_load.index.names if n != 'weather_datetime']
+            full_load = full_load.groupby(level=group_by_names).apply(Shape.ensure_feasible_flexible_load)
+            full_load = full_load.stack('timeshift_type').reorder_levels(names).sort_index().to_frame()
+            full_load.columns = ['value']
         elif timeshift_levels==[2]:
             # positive hours is a shift forward, negative hours a shift back
             shift = lambda df, hr: df.shift(hr).ffill().fillna(value=0)
@@ -369,7 +409,7 @@ class Shape(dmf.DataMapFunctions):
 # electricity shapes
 force_rerun_shapes = False
 pickle_shape = True
-version = 1 #change this when you need to force users to rerun shapes
+version = 2 #change this when you need to force users to rerun shapes
 shapes = Shapes()
 
 def init_shapes():

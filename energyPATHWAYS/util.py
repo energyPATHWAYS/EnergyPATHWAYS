@@ -30,6 +30,7 @@ import itertools
 import decimal
 import psycopg2
 import logging
+import pdb
 
 
 def percent_larger(a, b):
