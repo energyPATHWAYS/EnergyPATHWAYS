@@ -351,7 +351,7 @@ class Dispatch(object):
         """
         dct = (1 if energy_budget>0 else -1)
         return np.sum(np.clip(dct*load[dct*load>dct*(load_cutoff + pmin)] - dct*load_cutoff, a_min=pmin, a_max=pmax) - pmin) + len(load)*pmin - dct*energy_budget
-    
+
     @staticmethod
     def dispatch_shape(load, load_cutoff, dct, pmin=0, pmax=None):
         """
@@ -364,10 +364,24 @@ class Dispatch(object):
     
     @staticmethod
     def solve_for_load_cutoff(load, energy_budget, pmin=0, pmax=None):
-        return optimize.root(Dispatch.residual_energy, x0=np.mean(load), args=(load, energy_budget, pmin, pmax))['x']
+        x0 = np.mean(load) - energy_budget/float(len(load))
+        root = optimize.root(Dispatch.residual_energy, x0=x0, args=(load, energy_budget, pmin, pmax))
+        if root['status']==1:
+            return root['x']
+        else:
+            logging.info('Dispatch to energy budget failed to converge')
+            pdb.set_trace()
     
     @staticmethod
     def solve_for_dispatch_shape(load, energy_budget, pmin=0, pmax=None):
+        if abs(energy_budget) < pmin*len(load):
+            logging.warning('During dispatch to energy budget, the pmin is too large for the given energy budget')
+            return np.ones_like(load) * energy_budget / len(load)
+        
+        if pmax is not None and abs(energy_budget) > pmax*len(load):
+            logging.warning('During dispatch to energy budget, the pmax is too small for the given energy budget')
+            return np.ones_like(load) * pmax
+        
         load_cutoff = Dispatch.solve_for_load_cutoff(load, energy_budget, pmin, pmax)
         return Dispatch.dispatch_shape(load, load_cutoff, (1 if energy_budget>0 else -1), pmin, pmax)
     
