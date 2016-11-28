@@ -99,6 +99,7 @@ class GeoMapper:
         # sortlevel sorts all of the indicies so that we can slice the dataframe
         self.values = self.values.sort()
         self.values.replace(0,1e-10,inplace=True)
+        self.values = self.values.groupby(level=[x for x in self.values.index.names if x not in ['intersection_id']]).first()
 
     def log_geo(self):
         """
@@ -201,7 +202,6 @@ class GeoMapper:
         union_geo = list(subset_geographies | set(current_geography) | set(converted_geography))
         level_to_remove = list(subset_geographies - set(current_geography) - set(converted_geography))
         map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if map_key is None else map_key
-        
         table = geomap_data[map_key].groupby(level=union_geo).sum().to_frame()
         if normalize_as=='total':
             table = self._normalize(table, current_geography)
@@ -238,7 +238,7 @@ class GeoMapper:
     def make_new_geography_name(self, base_geography, breakout_ids=None):
         if breakout_ids:
             dct = dict(util.sql_read_table('GeographiesData', ['id', 'name'],return_unique=True, return_iterable=True))   
-            base_geography += " and " + ", ".join([dct[id] for id in breakout_ids])
+            base_geography += " and " + "| ".join([dct[id] for id in breakout_ids])
 #            base_geography +=' with breakout ids {}'.format(sorted(util.ensure_iterable_and_not_string(breakout_ids)))
         return base_geography
 

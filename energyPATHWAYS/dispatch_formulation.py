@@ -44,9 +44,10 @@ def meet_load_rule(model, geography, timepoint):
 #                pass
     #TODO add back imports/exports
 
+    
     return (feeder_provide_power(model, geography, timepoint, feeder=0) +
             model.bulk_gen[geography, timepoint] -
-            model.bulk_load[geography, timepoint] -
+            model.bulk_load[geography, timepoint] - model.dispatched_bulk_load[geography, timepoint] -
             feeder_charge(model, geography, timepoint, feeder=0) -
             model.Curtailment[geography, timepoint]) \
             == \
@@ -56,7 +57,7 @@ def meet_load_rule(model, geography, timepoint):
             feeder_provide_power(model, geography, timepoint, feeder) +
             feeder_charge(model, geography, timepoint, feeder) +
             model.Flexible_Load[geography, timepoint,feeder])
-            for feeder in model.FEEDERS) - \
+            for feeder in model.FEEDERS if feeder!=0) - \
             model.Unserved_Energy[geography, timepoint]
 
 def gas_and_storage_power_rule(model, technology, timepoint):
@@ -158,7 +159,10 @@ def dist_system_capacity_need_rule(model, geography, timepoint, feeder):
     """
     Apply a penalty whenever distribution net load exceeds a pre-specified threshold
     """    
-    return (model.DistSysCapacityNeed[geography, timepoint, feeder] +
+    if feeder ==0:
+        return Constraint.Skip
+    else:
+        return (model.DistSysCapacityNeed[geography, timepoint, feeder] +
            model.dist_net_load_threshold[geography,feeder]) \
            >= \
            (model.distribution_load[geography, timepoint, feeder] -
@@ -186,7 +190,7 @@ def bulk_system_capacity_need_rule(model, geography, timepoint):
            feeder_provide_power(model, geography, timepoint, feeder) +
            feeder_charge(model, geography, timepoint, feeder) +
            model.Flexible_Load[geography, timepoint,feeder]) \
-           for feeder in model.FEEDERS) - \
+           for feeder in model.FEEDERS if feeder!=0) - \
            model.Unserved_Energy[geography, timepoint] + \
            model.bulk_load[geography, timepoint] - \
            model.dispatched_bulk_load[geography, timepoint] * .5

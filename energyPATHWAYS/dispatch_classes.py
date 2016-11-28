@@ -60,8 +60,10 @@ def run_thermal_dispatch(params):
     for output in ['gen_cf', 'generation','stock_changes']:
         indexer = util.level_specific_indexer(thermal_dispatch_df,'IO',output)
         thermal_dispatch_df.loc[indexer,:] = dispatch_results[output]
+        
+    
 
-    return thermal_dispatch_df
+    return [thermal_dispatch_df, dispatch_results['gen_dispatch_shape']]
 
 class DispatchNodeConfig(DataMapFunctions):
     def __init__(self, id, **kwargs):
@@ -80,7 +82,7 @@ class Dispatch(object):
             self.node_config_dict[supply_node] = DispatchNodeConfig(supply_node)
         self.set_dispatch_order()
         self.dispatch_window_dict = dict(util.sql_read_table('DispatchWindows'))  
-        self.curtailment_cost = util.unit_convert(10**2,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.curtailment_cost = util.unit_convert(0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.unserved_energy_cost = util.unit_convert(10**5,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.dist_net_load_penalty = util.unit_convert(10**3,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.bulk_net_load_penalty = util.unit_convert(10**3,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
@@ -366,11 +368,11 @@ class Dispatch(object):
     def solve_for_load_cutoff(load, energy_budget, pmin=0, pmax=None):
         x0 = np.mean(load) - energy_budget/float(len(load))
         root = optimize.root(Dispatch.residual_energy, x0=x0, args=(load, energy_budget, pmin, pmax))
-        if root['status']==1:
-            return root['x']
-        else:
-            logging.info('Dispatch to energy budget failed to converge')
-            pdb.set_trace()
+#        if root['status']==1:
+        return root['x']
+#        else:
+#            logging.info('Dispatch to energy budget failed to converge')
+#            pdb.set_trace()
     
     @staticmethod
     def solve_for_dispatch_shape(load, energy_budget, pmin=0, pmax=None):
@@ -506,7 +508,7 @@ class Dispatch(object):
         return clustered
 
     @staticmethod
-    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.2, load_ptile=99.5, individual_plant_maintenance=False):
+    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.8, load_ptile=99.5, individual_plant_maintenance=True):
         # gives the index for the change between dispatch_periods
         group_cuts = list(np.where(np.diff(dispatch_periods)!=0)[0]+1) if dispatch_periods is not None else None
         group_lengths = np.array([group_cuts[0]] + list(np.diff(group_cuts)) + [len(load)-group_cuts[-1]])
@@ -530,12 +532,12 @@ class Dispatch(object):
         # make a new version of load where months when maintenance is not allowed is given an artificially high load
         load_for_maint = np.copy(load)
         set_load_index = np.intersect1d(np.nonzero(not_okay_for_maint)[0], np.nonzero(load<load_cut)[0])
-        load_for_maint[set_load_index] = load_cut
-        load_for_maint = np.max(np.reshape(load_for_maint, (len(load_for_maint)/24, 24)), axis=1)
-        load_for_maint *= (sum(load)/sum(load_for_maint))
+        load_for_maint[set_load_index] = load_cut * 10
+#        load_for_maint = np.max(np.reshape(load_for_maint, (len(load_for_maint)/24, 24)), axis=1)
+#        load_for_maint *= (sum(load)/sum(load_for_maint))
 
-        energy_allocation = Dispatch.dispatch_to_energy_budget(load_for_maint, -maintenance_energy, pmins=sum_capacity*min_maint, pmaxs=sum_capacity*max_maint*24)
-        energy_allocation_by_group = np.array([np.sum(ge) for ge in np.array_split(energy_allocation, np.array(group_cuts)/24)])
+        energy_allocation = Dispatch.dispatch_to_energy_budget(load_for_maint, -maintenance_energy, pmins=sum_capacity*min_maint, pmaxs=sum_capacity*max_maint)
+        energy_allocation_by_group = np.array([np.sum(ge) for ge in np.array_split(energy_allocation, np.array(group_cuts))])
         energy_allocation_normed = energy_allocation_by_group/sum(energy_allocation_by_group)
         
         if not individual_plant_maintenance:
@@ -558,9 +560,9 @@ class Dispatch(object):
                     cycle+=1
                     if cycle>=num_groups:
                         break
-                gen_maintenance[:,i] = plant_energy_allocation/group_lengths/pmaxs[:,i]
-
-            gen_maintenance[np.nonzero(pmaxs==0)] = np.outer(energy_allocation_normed, annual_maintenance_rates[np.nonzero(pmaxs==0)])
+                gen_maintenance[:,i] = np.nan_to_num(plant_energy_allocation/group_lengths/pmaxs[:,i])
+             
+#            gen_maintenance[np.nonzero(pmaxs==0)] = np.outer(energy_allocation_normed, annual_maintenance_rates[np.nonzero(pmaxs==0)])
 
         if np.any(np.isnan(gen_maintenance)):
             pdb.set_trace()
@@ -682,7 +684,7 @@ class Dispatch(object):
                 normed_capacity_weights /= sum(normed_capacity_weights)
                 ncwi = np.nonzero(normed_capacity_weights)[0]
             # we need more capacity
-                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - combined_rate[ncwi]
+                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - FOR[i][ncwi]
                 )
                 
         return stock_changes

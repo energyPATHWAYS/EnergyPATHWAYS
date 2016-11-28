@@ -1811,8 +1811,8 @@ class Subsector(DataMapFunctions):
             self.stock.project(map_from=map_from, map_to='total_unfiltered', current_geography=current_geography,
                            additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent),
                            current_data_type=current_data_type, projected=projected,filter_geo=False)
-            self.stock.total = util.remove_df_levels(self.stock.total, ['demand_technology', 'final_energy'])
-            self.stock.total = self.stock.total.swaplevel('year',-1)
+            self.stock.total_unfiltered = util.remove_df_levels(self.stock.total_unfiltered, ['demand_technology', 'final_energy'])
+            self.stock.total_unfiltered = self.stock.total_unfiltered.swaplevel('year',-1)
 
     def project_demand_technology_stock(self, map_from, service_dependent):
         if map_from == 'values' or map_from == 'int_values':
@@ -1826,7 +1826,7 @@ class Subsector(DataMapFunctions):
             
         if 'demand_technology' in getattr(self.stock, map_from).index.names:
             self.stock.project(map_from=map_from, map_to='technology', current_geography=current_geography,
-                               additional_drivers=self.service_demand.values if service_dependent else None, interpolation_method=None,extrapolation_method=None,
+                               additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent), interpolation_method=None,extrapolation_method=None,
                                fill_timeseries=True,fill_value=np.nan,current_data_type=current_data_type,projected=projected)
             self.stock.technology = self.stock.technology.swaplevel('year',-1)
             self.stock.technology = util.reindex_df_level_with_new_elements(self.stock.technology,'demand_technology',self.tech_ids,fill_value=np.nan)
@@ -1989,35 +1989,35 @@ class Subsector(DataMapFunctions):
             self.ee_stock.levelized_costs['unspecified'] = self.rollover_measure_output(
                 measures='energy_efficiency_measures', measure_class='cost', measure_att='values_level',
                 stock_class='ee_stock',
-                stock_att='values',non_expandable_levels=['final_energy'] )
+                stock_att='values')
             self.ee_stock.annual_costs = defaultdict(dict)
             self.ee_stock.annual_costs['unspecified']= self.rollover_measure_output(
                 measures='energy_efficiency_measures', measure_class='cost', measure_att='values',
                 stock_class='ee_stock',
-                stock_att='sales', non_expandable_levels=['final_energy'])
+                stock_att='sales')
         if hasattr(self, 'fs_stock'):
             self.fs_stock.levelized_costs = defaultdict(dict)
             self.fs_stock.levelized_costs['unspecified']= self.rollover_measure_output(
                 measures='fuel_switching_measures', measure_class='cost', measure_att='values_level',
                 stock_class='fs_stock',
-                stock_att='values',non_expandable_levels=['final_energy'])
+                stock_att='values')
 
             self.fs_stock.annual_costs = defaultdict(dict)
             self.fs_stock.annual_costs['unspecified'] = self.rollover_measure_output(
                 measures='fuel_switching_measures', measure_class='cost', measure_att='values', stock_class='fs_stock',
-                stock_att='sales',non_expandable_levels=['final_energy'])
+                stock_att='sales')
 
         if hasattr(self, 'sd_stock'):
             self.sd_stock.levelized_costs = defaultdict(dict)
             self.sd_stock.levelized_costs['unspecified']= self.rollover_measure_output(
                 measures='service_demand_measures', measure_class='cost', measure_att='values_level',
                 stock_class='sd_stock',
-                stock_att='values',non_expandable_levels=['final_energy'])
+                stock_att='values')
 
             self.sd_stock.annual_costs = defaultdict(dict)
             self.sd_stock.annual_costs['unspecified']= self.rollover_measure_output(
                 measures='service_demand_measures', measure_class='cost', measure_att='values', stock_class='sd_stock',
-                stock_att='sales',non_expandable_levels=['final_energy'])
+                stock_att='sales')
 
     def rollover_measure_output(self, measures, measure_class=None, measure_att='values', stock_class=None,
                                 stock_att='values',
@@ -2171,7 +2171,7 @@ class Subsector(DataMapFunctions):
                                     additional_drivers=self.additional_drivers(stock_or_service='service',stock_dependent=stock_dependent),current_data_type=current_data_type,projected=projected)
         if service_dependent:
             self.service_demand.project(map_from=map_from, map_to='values_unfiltered', current_geography=current_geography,
-                                    additional_drivers=self.additional_drivers(stock_or_service='stock',stock_dependent=stock_dependent),current_data_type=current_data_type,projected=projected,filter_geo=False)
+                                    additional_drivers=self.additional_drivers(stock_or_service='service',stock_dependent=stock_dependent),current_data_type=current_data_type,projected=projected,filter_geo=False)
 
 
         self.service_demand_forecast = self.service_demand.values
@@ -2193,10 +2193,10 @@ class Subsector(DataMapFunctions):
             current_geography = cfg.primary_geography
             current_data_type =  'total'
             projected =  True
-
         self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
-                                   additional_drivers=self.additional_drivers(stock_or_service='service',stock_dependent=stock_dependent,
+                                   additional_drivers=self.additional_drivers(stock_or_service='service',
                                                                                             service_dependent=service_dependent),current_data_type=current_data_type, projected=projected)
+                                                                            
 
     def calculate_sales_shares(self):
         for tech in self.tech_ids:
@@ -2228,12 +2228,13 @@ class Subsector(DataMapFunctions):
                 initial_stock = util.df_slice(self.stock.technology, elements, levels).replace(np.nan,0).values[0]
                 tech_lifetimes = np.array([x.book_life for x in self.technologies.values()])
                 x = initial_stock/tech_lifetimes
+                x = np.nan_to_num(x)
                 x /= sum(x)
+                x = np.nan_to_num(x)
                 for i, tech_id in enumerate(self.tech_ids): 
                     for sales_share in self.technologies[tech_id].sales_shares.values():
                         if sales_share.replaced_demand_tech_id is None:
                             ref_array[:,:,i] = x
-                            ref_array[:,i,i] = 0
                             
             
             ss_reference = SalesShare.scale_reference_array_to_gap(ref_array, space_for_reference)        
@@ -2256,12 +2257,12 @@ class Subsector(DataMapFunctions):
         ref_array = np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1))
         tech_lifetimes = np.array([x.book_life for x in self.technologies.values()])
         x = initial_stock/tech_lifetimes
+        x = np.nan_to_num(x)
         x /= sum(x)
         for i, tech_id in enumerate(self.tech_ids): 
             for sales_share in self.technologies[tech_id].sales_shares.values():
                 if sales_share.replaced_demand_tech_id is None:
-                    ref_array[:,:,i] = x/(sum(x))
-                    ref_array[:,i,i] = 0
+                    ref_array[:,:,i] = x
         ss_reference = SalesShare.scale_reference_array_to_gap(ref_array, space_for_reference)        
            #sales shares are always 1 with only one demand_technology so the default can be used as a reference
         return SalesShare.normalize_array(ss_reference + ss_measure, retiring_must_have_replacement=False)
@@ -2699,8 +2700,13 @@ class Subsector(DataMapFunctions):
         """
         for id in self.service_links:
             link = self.service_links[id]
-            link.values = self.rollover_output_dict(tech_dict='service_links',tech_dict_key=id, tech_att='values', stock_att='values_normal')
+            try:
+                link.values = self.rollover_output_dict(tech_dict='service_links',tech_dict_key=id, tech_att='values', stock_att='values_normal')
+            except:
+                pdb.set_trace()
+
 #            # sum over demand_technology and vintage to get a total stock service efficiency
+
             link.values = util.remove_df_levels(link.values,['demand_technology', 'vintage'])
             # normalize stock service efficiency to calibration year
             values = link.values.as_matrix()
