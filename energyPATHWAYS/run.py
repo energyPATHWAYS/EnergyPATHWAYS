@@ -146,8 +146,12 @@ if __name__ == "__main__":
     os.chdir(workingdir)
     config = 'config.INI'
     pint = 'unit_defs.txt'
+<<<<<<< Updated upstream
     scenario = [14]
     
+=======
+    scenario = [14,15,16]
+>>>>>>> Stashed changes
     run(workingdir, config, pint, scenario,
     load_demand   = True,
     solve_demand  = True,
