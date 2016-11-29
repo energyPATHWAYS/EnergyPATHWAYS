@@ -63,6 +63,7 @@ FOR = generator_params['FOR'].values
 MOR = generator_params['MOR'].values
 must_runs = generator_params['must_runs'].values
 capacity_weights = generator_params['capacity_weights'].values
+categories = generator_params['categories'].values
 
 #dispatch = dispatch_to_energy_budget(load, [-5000*8760/12]*12, dispatch_periods=dispatch_periods, pmins=0, pmaxs=10000)
 #pylab.plot(load)
@@ -77,43 +78,42 @@ capacity_weights = generator_params['capacity_weights'].values
 capacity_reserves = 0.03
 operating_reserves = 0.01
 
-t = time.time()
 MOR = schedule_generator_maintenance(load, pmaxs, MOR, dispatch_periods=dispatch_periods)
-print time.time() - t
-pd.DataFrame(MOR).to_clipboard()
+dispatch_results = generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods, FOR=FOR, MOR=MOR, must_runs=must_runs, capacity_weights=capacity_weights, gen_categories=categories, return_dispatch_by_category=True)
 
-dispatch_results = generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods, FOR=FOR, MOR=MOR, must_runs=must_runs, capacity_weights=capacity_weights, operating_reserves=operating_reserves, capacity_reserves=capacity_reserves)
+dispatch_by_category = dispatch_results['dispatch_by_category']
 
 
-count = lambda x: len(x.T) if x.ndim>1 else len(x)
-if count(pmaxs) != count(marginal_costs):
-    raise ValueError('Number of generator pmaxs must equal number of marginal_costs')
 
-if capacity_weights is not None and capacity_weights.ndim>1:
-    raise ValueError('capacity weights should not vary across dispatch periods')
-
-load[load<0] = 0
-decimals = 6 - int(math.log10(max(np.abs(load))))
-
-load_groups = (load,) if dispatch_periods is None else np.array_split(load, np.where(np.diff(dispatch_periods)!=0)[0]+1)
-num_groups = len(load_groups)
-
-marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights = Dispatch._format_gen_dispatch_inputs(num_groups, pmaxs, marginal_costs, dispatch_periods, FOR, MOR, must_runs, capacity_weights)
-
-market_prices, production_costs, gen_dispatch_shape = [], [], []
-gen_energies = np.zeros(pmaxs.shape[1])
-
-stock_changes = Dispatch._get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals, reserves=capacity_reserves)
-
-stock_changes_2 = Dispatch._get_stock_changes(load_groups, pmaxs+stock_changes, FOR, MOR, capacity_weights, decimals, reserves=capacity_reserves)
+#count = lambda x: len(x.T) if x.ndim>1 else len(x)
+#if count(pmaxs) != count(marginal_costs):
+#    raise ValueError('Number of generator pmaxs must equal number of marginal_costs')
+#
+#if capacity_weights is not None and capacity_weights.ndim>1:
+#    raise ValueError('capacity weights should not vary across dispatch periods')
+#
+#load[load<0] = 0
+#decimals = 6 - int(math.log10(max(np.abs(load))))
+#
+#load_groups = (load,) if dispatch_periods is None else np.array_split(load, np.where(np.diff(dispatch_periods)!=0)[0]+1)
+#num_groups = len(load_groups)
+#
+#marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights = Dispatch._format_gen_dispatch_inputs(num_groups, pmaxs, marginal_costs, dispatch_periods, FOR, MOR, must_runs, capacity_weights)
+#
+#market_prices, production_costs, gen_dispatch_shape = [], [], []
+#gen_energies = np.zeros(pmaxs.shape[1])
+#
+#stock_changes = Dispatch._get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals, reserves=capacity_reserves)
+#
+#stock_changes_2 = Dispatch._get_stock_changes(load_groups, pmaxs+stock_changes, FOR, MOR, capacity_weights, decimals, reserves=capacity_reserves)
 
 #combined_rate = Dispatch._get_combined_outage_rate(FOR[i], MOR[i])
 
-pylab.plot(load)
-pylab.plot(np.array([sum(pmaxs[0]+stock_changes)]*len(load)))
-pylab.plot(np.array([sum(pmaxs[0])]*len(load)))
-
-pylab.plot(np.sum(pmaxs * MOR, axis=1))
+#pylab.plot(load)
+#pylab.plot(np.array([sum(pmaxs[0]+stock_changes)]*len(load)))
+#pylab.plot(np.array([sum(pmaxs[0])]*len(load)))
+#
+#pylab.plot(np.sum(pmaxs * MOR, axis=1))
 
 #pylab.plot(marginal_costs, dispatch_results['gen_cf'], '*')
 #pylab.plot(dispatch_results['market_price'])

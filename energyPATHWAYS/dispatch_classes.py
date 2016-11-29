@@ -44,26 +44,38 @@ def flexible_load_result_to_list(flexible_load):
 def run_thermal_dispatch(params):
     dispatch_geography = params[0]
     thermal_dispatch_df = params[1]
+    columns = params[1].columns #save for later since we are doing a squeeze
+    thermal_dispatch_df = thermal_dispatch_df.squeeze().unstack('IO')
     dispatch_geography_index = params[2]
-    load = util.df_slice(params[3],dispatch_geography, dispatch_geography_index)
+    load = util.df_slice(params[3], dispatch_geography, dispatch_geography_index)
+    return_dispatch_by_category = params[4]
     months = load.index.get_level_values('weather_datetime').month
     load = load.values.flatten()
-    pmaxs = np.array(util.df_slice(thermal_dispatch_df,'capacity','IO').values).T[0]
-    marginal_costs = np.array(util.df_slice(thermal_dispatch_df,'cost','IO').values).T[0]
-    MOR = np.array(util.df_slice(thermal_dispatch_df,'maintenance_outage_rate','IO').values).T[0]
-    FOR = np.array(util.df_slice(thermal_dispatch_df,'forced_outage_rate','IO').values).T[0]
-    must_runs = np.array(util.df_slice(thermal_dispatch_df,'must_run','IO').values).T[0]
-    capacity_weights = np.array(util.df_slice(thermal_dispatch_df,'capacity_weights','IO').values).T[0]
+    
+    pmaxs = thermal_dispatch_df['capacity'].values
+    marginal_costs = thermal_dispatch_df['cost'].values
+    MOR = thermal_dispatch_df['maintenance_outage_rate'].values
+    FOR = thermal_dispatch_df['forced_outage_rate'].values
+    must_runs = thermal_dispatch_df['must_run'].values
+    capacity_weights = thermal_dispatch_df['capacity_weights'].values
+    # grabs the technology from the label
+    gen_categories = [int(s.split(', ')[1].rstrip('L')) for s in thermal_dispatch_df.index.get_level_values('thermal_generators')]
+    
+    
     maintenance_rates = Dispatch.schedule_generator_maintenance(load=load,pmaxs=pmaxs,annual_maintenance_rates=MOR, dispatch_periods=months)
     dispatch_results = Dispatch.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
-                                                         FOR=FOR, must_runs=must_runs, dispatch_periods=months, capacity_weights=capacity_weights)
-    for output in ['gen_cf', 'generation','stock_changes']:
-        indexer = util.level_specific_indexer(thermal_dispatch_df,'IO',output)
-        thermal_dispatch_df.loc[indexer,:] = dispatch_results[output]
-        
+                                                         FOR=FOR, must_runs=must_runs, dispatch_periods=months, capacity_weights=capacity_weights,
+                                                         gen_categories=gen_categories, return_dispatch_by_category=return_dispatch_by_category)
     
+    for output in ['gen_cf', 'generation', 'stock_changes']:
+        thermal_dispatch_df[output] = dispatch_results[output]
+    
+    thermal_dispatch_df = thermal_dispatch_df.stack('IO').to_frame()
+    thermal_dispatch_df.columns = columns
+    
+    pdb.set_trace()
 
-    return [thermal_dispatch_df, dispatch_results['gen_dispatch_shape']]
+    return [thermal_dispatch_df, dispatch_results['gen_dispatch_shape'], dispatch_results['dispatch_by_category']]
 
 class DispatchNodeConfig(DataMapFunctions):
     def __init__(self, id, **kwargs):
@@ -363,16 +375,13 @@ class Dispatch(object):
         dispatch = np.zeros_like(load) - dct*pmin
         dispatch[dct*load>dct*(load_cutoff + pmin)] -= dct*(np.clip(dct*load[dct*load>dct*(load_cutoff + pmin)] - dct*load_cutoff, a_min=pmin, a_max=pmax) - pmin)
         return dispatch * -dct #always positive
-    
+
     @staticmethod
     def solve_for_load_cutoff(load, energy_budget, pmin=0, pmax=None):
-        x0 = np.mean(load) - energy_budget/float(len(load))
-        root = optimize.root(Dispatch.residual_energy, x0=x0, args=(load, energy_budget, pmin, pmax))
-#        if root['status']==1:
-        return root['x']
-#        else:
-#            logging.info('Dispatch to energy budget failed to converge')
-#            pdb.set_trace()
+        lowest = min(load) - pmax - 1
+        highest = max(load) + pmax + 1
+        load_cutoff = optimize.bisect(Dispatch.residual_energy, lowest, highest, args=(load, energy_budget, pmin, pmax))
+        return load_cutoff
     
     @staticmethod
     def solve_for_dispatch_shape(load, energy_budget, pmin=0, pmax=None):
@@ -620,6 +629,7 @@ class Dispatch(object):
     def _get_energy_by_generator(lookup, derated_capacity, marginal_cost, must_run, pmax, combined_rate, decimals=0):
         marginal_cost_order = Dispatch._get_marginal_cost_order(marginal_cost, must_run)
         derated_sum = sum(derated_capacity)
+        # this next line is magic, written in the fall of 2015 and not understood since then
         hist = np.array_split(np.cumsum(np.histogram(lookup, bins=derated_sum, range=(0, derated_sum))[0][-1:0:-1])[-1:0:-1],
                               np.cumsum(derated_capacity[marginal_cost_order])[:-1])
         energy = np.array([np.sum(group) for group in hist], dtype=float)[np.argsort(marginal_cost_order)] / 10**decimals
@@ -629,7 +639,25 @@ class Dispatch(object):
         return energy
 
     @staticmethod
-    def solve_gen_dispatch(load, pmax, marginal_cost, FORs, MORs, must_run, decimals=0, operating_reserves=0.03):
+    def _get_dispatch_by_category(load, derated_capacity, marginal_cost, must_run, pmax, combined_rate, gen_categories, decimals=0):
+        marginal_cost_order = Dispatch._get_marginal_cost_order(marginal_cost, must_run)
+        
+        sorted_pmax = (pmax * (1 - combined_rate))[marginal_cost_order]
+        cum_pmax = np.cumsum(sorted_pmax)
+        
+        dispatch = np.zeros((len(derated_capacity), len(load)))
+        for h, look in enumerate(load):
+            height = np.where(cum_pmax < look)[0]
+            dispatch[height, h] = sorted_pmax[height]
+            marg = height[-1]+1
+            dispatch[marg, h] = look - cum_pmax[height[-1]]
+        
+        dispatch = dispatch[np.argsort(marginal_cost_order)]
+        dispatch_by_category = pd.DataFrame(dispatch, index=gen_categories).groupby(level=0).sum().T
+        return dispatch_by_category
+
+    @staticmethod
+    def solve_gen_dispatch(load, pmax, marginal_cost, FORs, MORs, must_run, decimals=0, operating_reserves=0.03, gen_categories=None, return_dispatch_by_category=False):
         combined_rate = Dispatch._get_combined_outage_rate(FORs, MORs)
         derated_capacity = Dispatch._get_derated_capacity(pmax, combined_rate, decimals)
         
@@ -645,8 +673,11 @@ class Dispatch(object):
         production_cost = full_pc[lookup]
         
         energy = Dispatch._get_energy_by_generator(lookup, derated_capacity, marginal_cost, must_run, pmax, combined_rate, decimals)
-
-        return market_price, production_cost, energy, np.array(lookup, dtype=float) / 10**decimals
+        if return_dispatch_by_category:
+            dispatch_by_category = Dispatch._get_dispatch_by_category(load, derated_capacity, marginal_cost, must_run, pmax, combined_rate, gen_categories, decimals)
+        else:
+            dispatch_by_category = None
+        return market_price, production_cost, energy, np.array(lookup, dtype=float) / 10**decimals, dispatch_by_category
 
     @staticmethod
     def _format_gen_dispatch_inputs(num_groups, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None):
@@ -690,7 +721,7 @@ class Dispatch(object):
         return stock_changes
     
     @staticmethod
-    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, operating_reserves=0.05, capacity_reserves=0.1):
+    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, operating_reserves=0.05, capacity_reserves=0.1, gen_categories=None, return_dispatch_by_category=False):
         """ Dispatch generators to a net load signal
         
         Args:
@@ -723,17 +754,23 @@ class Dispatch(object):
         
         marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights = Dispatch._format_gen_dispatch_inputs(num_groups, pmaxs, marginal_costs, dispatch_periods, FOR, MOR, must_runs, capacity_weights)
         
-        market_prices, production_costs, gen_dispatch_shape = [], [], []
+        market_prices, production_costs, gen_dispatch_shape, dispatch_by_category_df = [], [], [], []
         gen_energies = np.zeros(pmaxs.shape[1])
         
         stock_changes = Dispatch._get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals, reserves=capacity_reserves)
         
         for i, load_group in enumerate(load_groups):
-            market_price, production_cost, gen_energy, shape = Dispatch.solve_gen_dispatch(load_group, pmaxs[i]+stock_changes, marginal_costs[i], FOR[i], MOR[i], must_runs[i], decimals, operating_reserves)
+            market_price, production_cost, gen_energy, shape, dispatch_by_category = Dispatch.solve_gen_dispatch(load_group, pmaxs[i]+stock_changes, marginal_costs[i], FOR[i], MOR[i], must_runs[i], decimals, operating_reserves, gen_categories, return_dispatch_by_category)
             market_prices += list(market_price)
             production_costs += list(production_cost)
             gen_dispatch_shape += list(shape)
             gen_energies += gen_energy
+            dispatch_by_category_df.append(dispatch_by_category)
+        
+        if return_dispatch_by_category:
+            dispatch_by_category_df = pd.concat(dispatch_by_category_df).reset_index(drop=True)
+        else:
+            dispatch_by_category_df = None
         
         #fix up rounding
         combined_rate = Dispatch._get_combined_outage_rate(FOR, MOR)
@@ -746,8 +783,8 @@ class Dispatch(object):
         
         gen_cf = gen_energies/np.max((pmaxs+stock_changes), axis=0)/float(len(load))
         gen_cf[np.nonzero(np.max((pmaxs+stock_changes), axis=0)==0)] = 0
-        dispatch_results = dict(zip(['market_price', 'production_cost', 'generation', 'gen_cf', 'gen_dispatch_shape', 'stock_changes'],
-                                    [market_prices,    production_costs,   gen_energies,   gen_cf,   gen_dispatch_shape, stock_changes]))
+        dispatch_results = dict(zip(['market_price', 'production_cost', 'generation', 'gen_cf', 'gen_dispatch_shape', 'stock_changes', 'dispatch_by_category'],
+                                    [market_prices,    production_costs,   gen_energies,   gen_cf,   gen_dispatch_shape, stock_changes, dispatch_by_category_df]))
         
         for key, value in dispatch_results.items():
             if np.any(~np.isfinite(value)):
