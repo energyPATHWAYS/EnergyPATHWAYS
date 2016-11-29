@@ -73,8 +73,8 @@ def run_thermal_dispatch(params):
     thermal_dispatch_df = thermal_dispatch_df.stack('IO').to_frame()
     thermal_dispatch_df.columns = columns
     
-
-
+    dispatch_results['dispatch_by_category'].index = shape.shapes.active_dates_index
+    
     return [thermal_dispatch_df, dispatch_results['gen_dispatch_shape'], dispatch_results['dispatch_by_category']]
 
 class DispatchNodeConfig(DataMapFunctions):
@@ -645,19 +645,19 @@ class Dispatch(object):
         sorted_pmax = (pmax * (1 - combined_rate))[marginal_cost_order]
         cum_pmax = np.cumsum(sorted_pmax)
         
+        must_run_sum = sum((pmax * (1 - combined_rate))[np.nonzero(must_run)])
+        load_w_must_run = np.clip(load, a_min=must_run_sum, a_max=None)
+        
         dispatch = np.zeros((len(derated_capacity), len(load)))
-        for h, look in enumerate(load):
+        for h, look in enumerate(load_w_must_run):
             height = np.where(cum_pmax < look)[0]
             dispatch[height, h] = sorted_pmax[height]
             if len(height):
-               marg = height[-1]+1
-               dispatch[marg, h] = look - cum_pmax[height[-1]]
+                marg = height[-1]+1
+                dispatch[marg, h] = look - cum_pmax[height[-1]]
             else:
-               marg = height[-1]+1
-               dispatch[marg, h] = look
-#            
-#            dispatch[marg, h] = look - cum_pmax[height[-1]]
-#        
+                dispatch[0, h] = look
+                
         dispatch = dispatch[np.argsort(marginal_cost_order)]
         dispatch_by_category = pd.DataFrame(dispatch, index=gen_categories).groupby(level=0).sum().T
         return dispatch_by_category

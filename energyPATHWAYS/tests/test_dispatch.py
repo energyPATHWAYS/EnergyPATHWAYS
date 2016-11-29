@@ -78,6 +78,9 @@ categories = generator_params['categories'].values
 capacity_reserves = 0.03
 operating_reserves = 0.01
 
+load[:5] = -1000
+load[0] = 0
+
 MOR = schedule_generator_maintenance(load, pmaxs, MOR, dispatch_periods=dispatch_periods)
 dispatch_results = generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods, FOR=FOR, MOR=MOR, must_runs=must_runs, capacity_weights=capacity_weights, gen_categories=categories, return_dispatch_by_category=True)
 
