@@ -73,7 +73,7 @@ def run_thermal_dispatch(params):
     thermal_dispatch_df = thermal_dispatch_df.stack('IO').to_frame()
     thermal_dispatch_df.columns = columns
     
-    pdb.set_trace()
+
 
     return [thermal_dispatch_df, dispatch_results['gen_dispatch_shape'], dispatch_results['dispatch_by_category']]
 
@@ -649,9 +649,15 @@ class Dispatch(object):
         for h, look in enumerate(load):
             height = np.where(cum_pmax < look)[0]
             dispatch[height, h] = sorted_pmax[height]
-            marg = height[-1]+1
-            dispatch[marg, h] = look - cum_pmax[height[-1]]
-        
+            if len(height):
+               marg = height[-1]+1
+               dispatch[marg, h] = look - cum_pmax[height[-1]]
+            else:
+               marg = height[-1]+1
+               dispatch[marg, h] = look
+#            
+#            dispatch[marg, h] = look - cum_pmax[height[-1]]
+#        
         dispatch = dispatch[np.argsort(marginal_cost_order)]
         dispatch_by_category = pd.DataFrame(dispatch, index=gen_categories).groupby(level=0).sum().T
         return dispatch_by_category

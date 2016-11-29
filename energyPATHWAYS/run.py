@@ -142,17 +142,17 @@ def load_model(load_demand, load_supply, scenario_id, api_run):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\energyPATHWAYS\new_york_model_example'
+    workingdir = r'C:\Users\Ben\Documents\PythonProjects\energyPATHWAYS\washington_model_example'
     os.chdir(workingdir)
     config = 'config.INI'
     pint = 'unit_defs.txt'
-    scenario = [11]
+    scenario = [14]
     
     run(workingdir, config, pint, scenario,
-    load_demand   = False,
-    solve_demand  = False,
-    load_supply   = True,
-    solve_supply  = False,
+    load_demand   = True,
+    solve_demand  = True,
+    load_supply   = False,
+    solve_supply  = True,
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,

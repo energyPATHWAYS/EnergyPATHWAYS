@@ -1125,6 +1125,7 @@ class Supply(object):
                 dispatch_results.append(dispatch_classes.run_thermal_dispatch(params))
         if year in self.dispatch_write_years:
             # this is the generator dispatch by category [x[2] for x in dispatch_results]
+            pdb.set_trace()
             thermal_shape =np.concatenate([x[1] for x in dispatch_results])
             index = pd.MultiIndex.from_product([cfg.dispatch_geographies, 'THERMAL GENERATION',shape.shapes.active_dates_index,year], names=[cfg.dispatch_geography,'DISPATCH_OUTPUT','WEATHER_DATETIME','YEAR'])    
             cols = [cfg.output_energy_unit.upper()]
@@ -1216,7 +1217,9 @@ class Supply(object):
             excess_thermal = excess_supply
             excess_thermal_coefficients = util.DfOper.divi([excess_thermal.sum(axis=1).to_frame(),self.nodes[self.thermal_dispatch_node_id].active_supply.groupby(level=cfg.primary_geography).sum()]).fillna(0)
             residual_supply.loc[:,:] = remaining_supply.values * np.column_stack(residual_share.values)
-            residual_supply_share = residual_supply/residual_supply.sum() 
+            undersupply_adjustment = (residual_supply.sum()/residual_demand.sum())
+            undersupply_adjustment[undersupply_adjustment>1]=1
+            residual_supply_share = residual_supply/residual_supply.sum() * undersupply_adjustment 
             residual_supply_share = residual_supply_share.fillna(0)
             util.replace_index_name(residual_supply_share,cfg.primary_geography + "from",cfg.primary_geography)
             residual_supply_share = residual_supply_share.stack().to_frame()
@@ -1258,8 +1261,8 @@ class Supply(object):
                         row_indexer = util.level_specific_indexer(df,'demand_sector',row_sector,axis=0)
                         col_indexer = util.level_specific_indexer(df,'demand_sector',col_sector,axis=1)
                         df.loc[row_indexer,col_indexer] = 0
-        if year == 2050:
-            pdb.set_trace()
+#        if year == 2050:
+#            pdb.set_trace()
         normalized = df.groupby(level=['demand_sector']).transform(lambda x: x/x.sum())
 #        df[df<normalized] = normalized
         bulk_multiplier = df.sum()
