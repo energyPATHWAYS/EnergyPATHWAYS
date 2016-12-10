@@ -1,18 +1,25 @@
 import multiprocessing
 import os
 
-LOG_PATH = "../../../log"
-SSL_PATH = "../../../ssl"
+LOG_PATH = "/var/log/gunicorn"
+SSL_PATH = "/etc/ssl"
 
 # General
 bind = "0.0.0.0:8000"
 workers = multiprocessing.cpu_count() * 2 + 1
+
+# Permissions
+user = "www-data"
+group = "ssl-cert"
 
 # Logging
 accesslog = os.path.join(LOG_PATH, "gunicorn_access.log")
 errorlog = os.path.join(LOG_PATH, "gunicorn_error.log")
 
 # SSL
-keyfile = os.path.join(SSL_PATH, "ssl.key")
-certfile = os.path.join(SSL_PATH, "ssl.cert")
+keyfile = os.path.join(SSL_PATH, "private/energypathways.key")
+certfile = os.path.join(SSL_PATH, "certs/energypathways.pem")
 
+# daemonizing
+daemon = True
+pidfile = "/var/run/gunicorn.pid"
