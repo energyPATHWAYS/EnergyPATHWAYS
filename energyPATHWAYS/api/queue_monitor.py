@@ -15,9 +15,9 @@ import daemon.pidfile
 import models
 
 # set up logging
+start_time = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f%z')
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename='/var/log/queue_monitor/queue_monitor_%s.log' %
-                             datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f%z'),
+logging.basicConfig(filename='/var/log/queue_monitor/queue_monitor_%s.log' % start_time,
                     level=logging.INFO,
                     format='%(asctime)s %(levelname)-8s %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
@@ -52,15 +52,21 @@ models.db.init_app(app)
               help="Group to run queue_monitor as. Defaults to the group of the selected user.")
 @click.option('-d', '--directory', default='/var/www/energyPATHWAYS/us_model_example',
               help="Working directory for the monitor; should be the working directory for the energyPATHWAYS model.")
-def start_queue_monitor(poll_frequency, max_workers, user, group):
+def start_queue_monitor(poll_frequency, max_workers, user, group, directory):
     pw = pwd.getpwnam(user)
     gid = pw.pw_gid if group is None else grp.getgrnam(group).gr_gid
+    # This will capture stderr from this process as well as all child
+    # energyPATHWAYS processes. Normally it will be empty, but it can
+    # help capture model startup problems that would otherwise be hard to see.
+    err = open('/var/log/queue_monitor/qm_stderr_%s.log' % start_time, 'w+')
 
     with daemon.DaemonContext(
         files_preserve=[logging.root.handlers[0].stream.fileno()],
-        pidfile=daemon.pidfile.PIDLockFile('/var/run/queue_monitor.pid'),
+        pidfile=daemon.pidfile.PIDLockFile('/var/run/queue_monitor/queue_monitor.pid'),
         uid=pw.pw_uid,
-        gid=gid
+        gid=gid,
+        working_directory=directory,
+        stderr=err
     ):
         logger.info('My process id is %i' % os.getpid())
         qm = QueueMonitor(poll_frequency, max_workers)

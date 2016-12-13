@@ -29,6 +29,7 @@ setup(name='energyPATHWAYS',
                               'itsdangerous',
                               'marshmallow',
                               'mock',
+                              'python-daemon',
                               'sqlalchemy'
                               ]
                       },
