@@ -30,9 +30,9 @@ sys.path.insert(0, os.path.abspath('../../energyPATHWAYS'))
 # ones.
 extensions = [
     'sphinx.ext.autodoc',     # http://www.sphinx-doc.org/en/stable/ext/autodoc.html
-    'sphinx.ext.githubpages', # add .nojekyll file so docs are compatible with GitHub
+    #'sphinx.ext.githubpages', # add .nojekyll file so docs are compatible with GitHub
     'sphinx.ext.ifconfig',    # http://www.sphinx-doc.org/en/stable/ext/ifconfig.html
-    'sphinx.ext.imgmath',     # http://www.sphinx-doc.org/en/stable/ext/math.html#module-sphinx.ext.imgmath
+    #'sphinx.ext.imgmath',     # http://www.sphinx-doc.org/en/stable/ext/math.html#module-sphinx.ext.imgmath
     #'sphinx.ext.todo',       # http://www.sphinx-doc.org/en/stable/ext/todo.html
     #'sphinx.ext.viewcode',   # http://www.sphinx-doc.org/en/stable/ext/viewcode.html
     #'sphinx.ext.graphviz',   # http://www.sphinx-doc.org/en/stable/ext/graphviz.html

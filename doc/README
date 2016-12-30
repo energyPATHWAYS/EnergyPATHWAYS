@@ -13,7 +13,9 @@ $ pip install Sphinx
 To setup Sphinx, run the quickstart and 
 http://www.sphinx-doc.org/en/stable/invocation.html
 
-(1) From energyPATHWAYS/doc run initial config, with the following interactive config choices:
+(1) From energyPATHWAYS/doc run initial config, with the following interactive config choices.
+Note that you do **not** need to do this if you are using the conf.py that is already set up in the source/ directory.
+
 doc$ sphinx-quickstart
 
 > Root path for the documentation [.]:
@@ -32,11 +34,11 @@ doc$ sphinx-quickstart
 > intersphinx: link between Sphinx documentation of different projects (y/n) [n]: n
 > todo: write "todo" entries that can be shown or hidden on build (y/n) [n]: y
 > coverage: checks for documentation coverage (y/n) [n]:
-> imgmath: include math, rendered as PNG or SVG images (y/n) [n]: y
+> imgmath: include math, rendered as PNG or SVG images (y/n) [n]:
 > mathjax: include math, rendered in the browser by MathJax (y/n) [n]:
 > ifconfig: conditional inclusion of content based on config values (y/n) [n]: y
 > viewcode: include links to the source code of documented Python objects (y/n) [n]:
-> githubpages: create .nojekyll file to publish the document on GitHub pages (y/n) [n]: y
+> githubpages: create .nojekyll file to publish the document on GitHub pages (y/n) [n]:
 > Create Makefile? (y/n) [y]:
 > Create Windows command file? (y/n) [y]:
 
