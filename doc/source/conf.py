@@ -56,8 +56,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'energyPATHWAYS'
-copyright = u'2016, Author'
-author = u'Author'
+copyright = u'2016, Evolved Energy Research'
+author = u'Evolved Energy Research'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

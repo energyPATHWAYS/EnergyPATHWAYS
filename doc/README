@@ -22,7 +22,7 @@ doc$ sphinx-quickstart
 > Separate source and build directories (y/n) [n]: y
 > Name prefix for templates and static dir [_]:
 > Project name: energyPATHWAYS
-> Author name(s): Ben Haley, Ryan Jones
+> Author name(s): Evolved Energy Research
 > Project version: 0.0.1
 > Project release [0.0.1]:
 > Project language [en]:
@@ -42,19 +42,15 @@ doc$ sphinx-quickstart
 > Create Makefile? (y/n) [y]:
 > Create Windows command file? (y/n) [y]:
 
-(2) The auto=generate the Sphinx *.rst files based on the contents of energyPATHWAYS (module dir)
-doc$ sphinx-apidoc -o . ../energyPATHWAYS
+(2) Then auto=generate the Sphinx *.rst files based on the contents of energyPATHWAYS (module dir)
+doc$ sphinx-apidoc -o source ../energyPATHWAYS
 
 (3) Render these docs into html
 (a) With a make target
 doc$ make html
-(b) With a direct command
+(b) Or with a direct command
 doc$ sphinx-build -b html -d build/doctrees source build/html
 
 See results in web browser from: doc/build/html/index.html
 
-(4) to update docs, repeat steps 2 and 3:
-doc$ sphinx-apidoc -o . ../energyPATHWAYS
-doc$ make html
-
-(5) For convienience, the commands form 4 can also be found in update.sh and update.bat
+(4) to update the automatically generated docs, repeat steps 2 and 3. For convenience, this can be accomplished by running update.sh or update.bat.

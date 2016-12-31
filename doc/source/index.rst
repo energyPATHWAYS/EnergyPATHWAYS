@@ -3,15 +3,17 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to energyPATHWAYS's documentation!
-==========================================
+EenergyPATHWAYS
+===============
 
 Contents:
 
 .. toctree::
    :maxdepth: 2
 
-
+   introduction
+   methodology_overview
+   outputs
 
 Indices and tables
 ==================
