@@ -22,7 +22,7 @@ PATHWAYS was first developed by the San Francisco consulting company `Energy and
 Modeling Approach
 =================
 
-Top-down versus Bottom-up
+Top-down Versus Bottom-up
 -------------------------
 
 Whole economy energy models generally follow one of two types of modeling approaches: “top-down” or “bottom-up”. Top-down energy models focus on the macro-economy and balance supply and demand across all economic sectors. These models use a stylistic representation of technologies, which change over time due to elasticity (responsiveness to price) assumptions. By contrast, bottom-up energy models contain richer characterizations of technology cost and performance, and technology change depends on the availability and ability of technologies to substitute for each other. These engineering-economic models do not typically include a supply-demand feedback.
@@ -31,7 +31,7 @@ Among bottom-up models, the EnergyPATHWAYS can be further contrasted against sec
 
 One approach is not necessarily superior to the other but depends on the type of research question being asked. But, we believe that bottom-up energy models, which track physical flows of energy and their infrastructure, are the best suited to answer the question “How do we deeply decarbonize the energy system?”
 
-Exploration versus Optimization
+Exploration Versus Optimization
 -------------------------------
 
 Many bottom-up energy models, such as the Energy Information Administration’s National Energy Modeling System (NEMS), are optimization-based. By contrast, energyPATHWAYS incorporates an advanced accounting framework that allows users to construct economy-wide energy infrastructure scenarios by specifying decisions along with other inputs. In other words, EnergyPATHWAYS is a scenario planning tool which allows users to “simulate” the consequences of specific decisions as energy infrastructure evolves over time. While portions of the model do use linear programming techniques (electricity dispatch), the model itself is not optimization-based and embeds few decision dynamics. We explain our rationale for this “exploration” approach below.
@@ -42,7 +42,7 @@ Second, since EnergyPATHWAYS is not an optimization, it can be designed to repre
 
 Finally, we believe that an enormous amount of the value from modeling deep decarbonization pathways comes from learning through experimenting, which is only possible when decisions are put in the hands of the modeler. It is a truism to say that all models are wrong. Economy-wide energy models are also complex, with energyPATHWAYS being no exception, and therefore become a black box to most users. Black box optimization models give a provisional “answer”, but make the underlying dynamics difficult to see, obscuring their most valuable insights. It is our hope that users find energyPATHWAYS to be a refreshingly transparent way of exploring deep decarbonization pathways, and that the model helps you uncover the breakthrough solutions our world needs.
 
-What makes EnergyPATHWAYS different?
+What Makes EnergyPATHWAYS Different?
 ====================================
 
 Electricity Sector
@@ -96,7 +96,7 @@ IO Supply – Side Framework
 - Intelligent geo-locating of energy infrastructure assets
 - Supply curve functionality
 
-How can I use energyPATHWAYS?
+How Can I Use EnergyPATHWAYS?
 =============================
 
 The core model will be open source in perpetuity while the representations of energy systems created with the model are the IP of those authors and should be contacted directly.

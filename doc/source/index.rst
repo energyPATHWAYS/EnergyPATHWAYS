@@ -12,6 +12,7 @@ Contents:
    :maxdepth: 2
 
    introduction
+   setup
    methodology_overview
    outputs
 
