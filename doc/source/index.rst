@@ -16,10 +16,11 @@ Contents:
    methodology_overview
    outputs
 
-Indices and tables
-==================
+..
+   Indices and tables
+   ==================
+   * :ref:`genindex`
+   * :ref:`modindex`
 
-* :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`
 
