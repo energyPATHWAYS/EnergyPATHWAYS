@@ -431,7 +431,7 @@ class Rollover(object):
             self.prior_year_stock = self.initial_stock if i == 0 else np.sum(self.stock[:, :i + 1, i - 1], axis=1)
             if np.sum(self.prior_year_stock) + np.sum(self.stock_changes[list_steps])>np.nansum(self.specified_stock[list_steps]) and not np.all(np.isnan(self.specified_stock[list_steps])) and self.stock_changes_as_min and self.use_stock_changes:
                 self.specified_stock[list_steps] *= (np.sum(self.prior_year_stock) + np.sum(self.stock_changes[list_steps]))/np.nansum(self.specified_stock[list_steps])
-                self.stock_changes[list_steps] = np.reshape(np.repeat(0/self.spy, self.spy, axis=0), len(list_steps))
+#                self.stock_changes[list_steps] = np.reshape(np.repeat(0/self.spy, self.spy, axis=0), len(list_steps))
 
 
 #            self.specified_stock[list_steps] = np.reshape(np.repeat(introduced_specified_stock, self.spy, axis=0), len(list_steps))
@@ -460,7 +460,7 @@ class Rollover(object):
         stock_changes: annual increase (positive) or decrease (negative) in total stock
         """
         list_steps = range(self.i, self.num_years*self.spy) if num is None else range(self.i, min(self.i+num*self.spy, self.num_years*self.spy))
-        self.introduce_inputs_override(num, introduced_stock_changes, introduced_specified_stock, introduced_specified_sales)
+        self.introduce_inputs_override(num, introduced_stock_changes, introduced_specified_stock, introduced_specified_sales)    
         for i in list_steps:
             self.i = i
             self.prinxy = np.zeros(self.num_techs)  # probability of retiring in next x years
@@ -475,13 +475,10 @@ class Rollover(object):
 
             # Get natural retirements
             self.natural_rolloff[i] = self.calc_stock_rolloff(self.prinxy)
-
             # specified early retirements are done first
             self.account_for_specified_retirements()
-
             # We have specified stock
             self.account_for_specified_stock()
-
             # if stock change is less than specified sales minus rolloff, we need additional retirements
             self.account_for_stock_shrinkage()
 

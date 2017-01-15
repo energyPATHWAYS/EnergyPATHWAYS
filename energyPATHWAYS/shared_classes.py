@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from datamapfunctions import Abstract, DataMapFunctions
 import config as cfg
+import pdb
 
 class StockItem(object):
     def __init__(self):

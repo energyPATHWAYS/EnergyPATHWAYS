@@ -108,6 +108,8 @@ def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load
                   load_supply = load_supply,
                   save_models=save_models,
                   append_results=False if (scenario_id==scenario_ids[0] and clear_results) else True)
+        
+        model.return_io()
     
         if api_run:
             util.update_status(scenario_id, 3)
@@ -142,26 +144,24 @@ def load_model(load_demand, load_supply, scenario_id, api_run):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Users\Ben\Documents\PythonProjects\energyPATHWAYS\washington_model_example'
+    workingdir = r'C:\Users\Ben\Documents\PythonProjects\energyPATHWAYS\us_model_example'
     os.chdir(workingdir)
     config = 'config.INI'
     pint = 'unit_defs.txt'
-<<<<<<< Updated upstream
-    scenario = [14]
-    
-=======
-    scenario = [14,15,16]
->>>>>>> Stashed changes
+    scenario = [2]
     run(workingdir, config, pint, scenario,
     load_demand   = True,
     solve_demand  = True,
-    load_supply   = False,
+    load_supply   = True,
     solve_supply  = True,
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,
-    clear_results = True)
+    clear_results = False)
 
+
+#for geography in cfg.geo.geographies.keys():
+#    cfg.outputs_id_map[geography] = util.upper_dict(self.geography_names.items())
 ##    test = model.demand.aggregate_electricity_shapes(2020)
 #    model.demand.create_electricity_reconciliation()
 #    self = model.demand.sectors[3].subsectors[72]

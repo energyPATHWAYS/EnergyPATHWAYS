@@ -137,19 +137,19 @@ class PathwaysModel(object):
         scenario_run_id = util.active_scenario_run_id(self.scenario_id)
 
         # Energy demand
-        df = self.outputs.energy.groupby(level=['FINAL_ENERGY', 'YEAR']).sum()
+        df = self.outputs.c_energy.groupby(level=['FINAL_ENERGY', 'YEAR']).sum()
         util.write_output_to_db(scenario_run_id, 3, df)
 
         # Annual costs
-        df = self.outputs.costs.groupby(level=['SECTOR', 'YEAR']).sum()
+        df = self.outputs.c_costs.groupby(level=['SECTOR', 'YEAR']).sum()
         util.write_output_to_db(scenario_run_id, 4, df)
 
         # Annual emissions
-        df = self.outputs.emissions.groupby(level=['SECTOR', 'YEAR']).sum()
+        df = self.outputs.c_emissions.groupby(level=['SECTOR', 'YEAR']).sum()
         util.write_output_to_db(scenario_run_id, 5, df)
 
         # Electricity supply
-        df = self.outputs.energy.xs('ELECTRICITY', level='FINAL_ENERGY')\
+        df = self.outputs.c_energy.xs('ELECTRICITY', level='FINAL_ENERGY')\
             .groupby(level=['SUPPLY_NODE', 'YEAR']).sum()
         util.write_output_to_db(scenario_run_id, 13, df)
 
@@ -191,12 +191,12 @@ class PathwaysModel(object):
 #        levels_to_keep += names + [cfg.primary_geography.upper() +'_SUPPLY', 'SUPPLY_NODE']
         keys = ['EXPORTED', 'SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['COST TYPE']
-        self.outputs.costs = util.df_list_concatenate([self.export_costs_df, self.embodied_energy_costs_df, self.demand_costs_df],keys=keys,new_names=names)
-#        util.replace_index_name(self.outputs.costs, cfg.primary_geography.upper() +'_EARNED', cfg.primary_geography.upper() +'_SUPPLY')
-#        util.replace_index_name(self.outputs.costs, cfg.primary_geography.upper() +'_CONSUMED', cfg.primary_geography.upper())
-        self.outputs.costs[self.outputs.costs<0]=0
-        self.outputs.costs= self.outputs.costs[self.outputs.costs[cost_unit.upper()]!=0]
-#        self.outputs.costs.sort(inplace=True)
+        self.outputs.c_costs = util.df_list_concatenate([self.export_costs_df, self.embodied_energy_costs_df, self.demand_costs_df],keys=keys,new_names=names)
+#        util.replace_index_name(self.outputs.c_costs, cfg.primary_geography.upper() +'_EARNED', cfg.primary_geography.upper() +'_SUPPLY')
+#        util.replace_index_name(self.outputs.c_costs, cfg.primary_geography.upper() +'_CONSUMED', cfg.primary_geography.upper())
+        self.outputs.c_costs[self.outputs.c_costs<0]=0
+        self.outputs.c_costs= self.outputs.c_costs[self.outputs.c_costs[cost_unit.upper()]!=0]
+#        self.outputs.c_costs.sort(inplace=True)
         
     def calculate_combined_emissions_results(self):
         #calculate and format export emissions
@@ -237,15 +237,15 @@ class PathwaysModel(object):
 #        levels_to_keep += names + [cfg.primary_geography.upper() +'_SUPPLY', 'SUPPLY_NODE']
         keys = ['EXPORTED', 'SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['EMISSIONS TYPE']
-        self.outputs.emissions = util.df_list_concatenate([self.export_emissions_df, self.embodied_emissions_df, self.direct_emissions_df],keys=keys,new_names = names)
-#        util.replace_index_name(self.outputs.emissions, "ENERGY","FINAL_ENERGY")
-        util.replace_index_name(self.outputs.emissions, cfg.primary_geography.upper() +'-EMITTED', cfg.primary_geography.upper() +'_SUPPLY')
-        util.replace_index_name(self.outputs.emissions, cfg.primary_geography.upper() +'-CONSUMED', cfg.primary_geography.upper())
-        self.outputs.emissions= self.outputs.emissions[self.outputs.emissions['VALUE']!=0]
+        self.outputs.c_emissions = util.df_list_concatenate([self.export_emissions_df, self.embodied_emissions_df, self.direct_emissions_df],keys=keys,new_names = names)
+#        util.replace_index_name(self.outputs.c_emissions, "ENERGY","FINAL_ENERGY")
+        util.replace_index_name(self.outputs.c_emissions, cfg.primary_geography.upper() +'-EMITTED', cfg.primary_geography.upper() +'_SUPPLY')
+        util.replace_index_name(self.outputs.c_emissions, cfg.primary_geography.upper() +'-CONSUMED', cfg.primary_geography.upper())
+        self.outputs.c_emissions= self.outputs.c_emissions[self.outputs.c_emissions['VALUE']!=0]
         emissions_unit = cfg.cfgfile.get('case','mass_unit')
-        self.outputs.emissions.columns = [emissions_unit.upper()]
+        self.outputs.c_emissions.columns = [emissions_unit.upper()]
         
-#        self.outputs.emissions.sort(inplace=True)        
+#        self.outputs.c_emissions.sort(inplace=True)        
             
     def calculate_combined_energy_results(self):
          energy_unit = cfg.calculation_energy_unit        
@@ -272,7 +272,7 @@ class PathwaysModel(object):
          names = ['EXPORT/DOMESTIC', 'ENERGY ACCOUNTING']
          for key,name in zip(keys,names):
              self.final_energy = pd.concat([self.final_energy],keys=[key],names=[name])
-    #         self.outputs.energy = pd.concat([self.embodied_energy, self.final_energy],keys=['DROP'],names=['DROP'])
+    #         self.outputs.c_energy = pd.concat([self.embodied_energy, self.final_energy],keys=['DROP'],names=['DROP'])
          for name in [x for x in self.embodied_energy.index.names if x not in self.final_energy.index.names]:
              self.final_energy[name] = "N/A"
              self.final_energy.set_index(name,append=True,inplace=True)
@@ -283,22 +283,29 @@ class PathwaysModel(object):
          self.final_energy = self.final_energy.reorder_levels(self.embodied_energy.index.names)
          self.export_energy = self.export_energy.groupby(level=self.embodied_energy.index.names).sum()
          self.export_energy = self.export_energy.reorder_levels(self.embodied_energy.index.names)
-         self.outputs.energy = pd.concat([self.embodied_energy,self.final_energy,self.export_energy])
-         self.outputs.energy= self.outputs.energy[self.outputs.energy['VALUE']!=0]
-         self.outputs.energy.columns = [energy_unit.upper()]
+         self.outputs.c_energy = pd.concat([self.embodied_energy,self.final_energy,self.export_energy])
+         self.outputs.c_energy= self.outputs.c_energy[self.outputs.c_energy['VALUE']!=0]
+         self.outputs.c_energy.columns = [energy_unit.upper()]
 
     def return_io(self):
-        dfs = []
-        keys = self.supply.demand_sectors
-        names = ['demand_sector']
-        for sector in self.supply.demand_sectors:
-            dfs.append(self.supply.io_dict[2050][sector])
-        df = pd.concat(dfs,keys=keys,names=names)
-        df = pd.concat([df]*len(keys),keys=keys,names=names,axis=1)
+        df_list = []
+        years = [2030,2040,2050]
+        for year in years:
+            sector_df_list = []
+            keys = self.supply.demand_sectors
+            name = ['sector']
+            for sector in self.supply.demand_sectors:
+                sector_df_list.append(self.supply.io_dict[2050][sector])  
+            year_df = pd.concat(sector_df_list, keys=keys,names=name)
+            year_df = pd.concat([year_df]*len(keys),keys=keys,names=name,axis=1)
+            df_list.append(year_df)
+        keys = years
+        name = ['year']
+        df = pd.concat(df_list,keys=keys,names=name)
         for row_sector in self.supply.demand_sectors:
             for col_sector in self.supply.demand_sectors:
                 if row_sector != col_sector:
-                    df.loc[util.level_specific_indexer(df,'demand_sector',row_sector),util.level_specific_indexer(df,'demand_sector',col_sector,axis=1)] = 0
+                    df.loc[util.level_specific_indexer(df,'sector',row_sector),util.level_specific_indexer(df,'sector',col_sector,axis=1)] = 0
         self.supply.outputs.io = df
         result_df = self.supply.outputs.return_cleaned_output('io')
         keys = [self.scenario.upper(),str(datetime.now().replace(second=0,microsecond=0))]

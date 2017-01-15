@@ -222,7 +222,7 @@ class SupplyTechInvestmentCost(SupplyTechCost):
                 util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values_level', attr_to='values_level', reverse=False)
                 self.values = np.pv(rate, self.book_life, -1, 0, 'end') * self.values
         else:
-            util.convert_age(self, vintages=self.vintages, years=self.years, reverse=False)
+            raise ValueError('Supply Technology id %s needs to indicate whether costs are levelized ' %self.id)
             
     def convert(self):
         """

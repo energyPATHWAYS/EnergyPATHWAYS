@@ -25,6 +25,7 @@ class GeoMapper:
         self.geographies_unfiltered = copy.copy(self.geographies) # keep a record
         self._update_geographies_after_subset()
 
+            
     def read_geography_indicies(self):
         cfg.cur.execute(textwrap.dedent("""\
             SELECT "Geographies".name, ARRAY_AGG("GeographiesData".id) AS geography_data_ids
@@ -162,7 +163,10 @@ class GeoMapper:
         cfg.outputs_id_map[primary_geography_name] =  util.upper_dict(self.geography_names.items())
         cfg.outputs_id_map[primary_geography_name +"_supply"] =  cfg.outputs_id_map[primary_geography_name ] 
         cfg.outputs_id_map[dispatch_geography_name] =  cfg.outputs_id_map[primary_geography_name] 
+        cfg.outputs_id_map[primary_geography_name +"_input"] =  cfg.outputs_id_map[primary_geography_name] 
+        cfg.outputs_id_map[primary_geography_name +"_output"] =  cfg.outputs_id_map[primary_geography_name]
 
+        
     def _create_composite_geography_levels(self):
         """
         Potential to create one for primary geography and one for dispatch geography
