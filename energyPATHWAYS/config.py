@@ -39,7 +39,6 @@ storage_tech_classes = ['installation_cost_new','installation_cost_replacement',
 
 # Initiate pint for unit conversions
 ureg = None
-pint_definitions_file = None
 calculation_energy_unit = None
 
 # Geography
@@ -84,19 +83,37 @@ available_cpus = None
 #logging
 log_name = None
 
+unit_defs = ['US_gge = 120,500 * BTU',
+            'US_gde = 138,490 * BTU',
+            'US_gee = 80337.35 * BTU',
+            'lng_gallon = 82,644 * BTU',
+            'mmBtu = 1,000,000 * BTU',
+            'mmbtu = 1,000,000 * BTU',
+            'lumen = candela * steradian',
+            'lumen_hour = candela * steradian * hour',
+            'quad = 1,000,000,000,000,000 * BTU',
+            'cubic_foot = 28316.8 * cubic_centimeter',
+            'cubic_meter = 1000000 * cubic_centimeter',
+            'cubic_foot_hour = cubic_foot * hour',
+            'TBtu  = 1,000,000,000,000 * BTU',
+            'ton_mile = ton * mile',
+            'h2_kilogram = 39.5 * kilowatt_hour',
+            'jet_fuel_gallon = 125800 * Btu',
+            'pipeline_gas_cubic_meter = 9000 * kilocalorie',
+            'boe = 5,800,000 * Btu',
+            'bee = 3,559,000 * Btu']
 
-def initialize_config(_path, _cfgfile_name, _pint_definitions_file, _log_name):
-    global weibul_coeff_of_var, scenario_dict, available_cpus, workingdir, cfgfile_name, pint_definitions_file, log_name, log_initialized
+def initialize_config(_path, _cfgfile_name, _log_name):
+    global weibul_coeff_of_var, scenario_dict, available_cpus, workingdir, cfgfile_name, log_name, log_initialized
     workingdir = os.getcwd() if _path is None else _path
-    cfgfile_name = _cfgfile_name
-    pint_definitions_file = _pint_definitions_file    
+    cfgfile_name = _cfgfile_name 
     init_cfgfile(os.path.join(workingdir, cfgfile_name))
     
     log_name = '{} energyPATHWAYS log.log'.format(str(datetime.datetime.now())[:-4].replace(':', '.')) if _log_name is None else _log_name
     setuplogging()
     
     init_db()
-    init_units(os.path.join(workingdir, pint_definitions_file))
+    init_units()
     init_geo()
     init_date_lookup()
     init_output_parameters()
@@ -106,7 +123,9 @@ def initialize_config(_path, _cfgfile_name, _pint_definitions_file, _log_name):
     weibul_coeff_of_var = util.create_weibul_coefficient_of_variation()
 
 def setuplogging():
-    log_path = os.path.join(workingdir, log_name)
+    if not os.path.exists(os.path.join(workingdir, 'logs')):
+        os.makedirs(os.path.join(workingdir, 'logs'))
+    log_path = os.path.join(workingdir, 'logs', log_name)
     log_level = cfgfile.get('log', 'log_level').upper()
     logging.basicConfig(filename=log_path, level=log_level)
     logger = logging.getLogger()
@@ -151,7 +170,7 @@ def init_db():
     logging.debug("Connection successful...")
     
 
-def init_units(pint_definitions_path):
+def init_units():
     # Initiate pint for unit conversions
     global ureg, output_energy_unit, calculation_energy_unit
     ureg = pint.UnitRegistry()
@@ -159,10 +178,12 @@ def init_units(pint_definitions_path):
     output_energy_unit = cfgfile.get('case', 'output_energy_unit')
     calculation_energy_unit = cfgfile.get('case', 'calculation_energy_unit')
     
-    if pint_definitions_path is not None:
-        if not os.path.isfile(pint_definitions_path):
-            raise OSError('pint definitions file not found: ' + str(pint_definitions_path))
-        ureg.load_definitions(pint_definitions_path)
+    for unit_def in unit_defs:
+        unit_name = unit_def.split(' = ')[0]
+        if hasattr(ureg, unit_name):
+            logging.debug('pint already has unit {}, unit is not being redefined'.format(unit_name))
+            continue
+        ureg.define(unit_def)
         
 def init_geo():
     #Geography conversions
@@ -225,16 +246,26 @@ def init_output_levels():
 
 def init_outputs_id_map():
     global outputs_id_map
+    primary_geography_name = geo.get_primary_geography_name()
+    dispatch_geography_name = geo.get_dispatch_geography_name()
+    outputs_id_map[primary_geography_name] = util.upper_dict(geo.geography_names.items())
+    outputs_id_map[primary_geography_name + "_supply"] = outputs_id_map[primary_geography_name]
+    outputs_id_map[primary_geography_name + "_input"] = outputs_id_map[primary_geography_name]
+    outputs_id_map[primary_geography_name + "_output"] = outputs_id_map[primary_geography_name]
+    outputs_id_map[dispatch_geography_name] = outputs_id_map[primary_geography_name]
+
     outputs_id_map['demand_technology'] = util.upper_dict(util.sql_read_table('DemandTechs', ['id', 'name']))
     outputs_id_map['supply_technology'] = util.upper_dict(util.sql_read_table('SupplyTechs', ['id', 'name']))
     outputs_id_map['final_energy'] = util.upper_dict(util.sql_read_table('FinalEnergy', ['id', 'name']))
-    outputs_id_map['supply_node'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name']))       
+    outputs_id_map['supply_node'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name']))     
+    outputs_id_map['supply_node_output'] = outputs_id_map['supply_node']
+    outputs_id_map['supply_node_input'] = outputs_id_map['supply_node']
     outputs_id_map['supply_node_export'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name'])," EXPORT")
     outputs_id_map['subsector'] = util.upper_dict(util.sql_read_table('DemandSubsectors', ['id', 'name']))           
-    outputs_id_map['sector'] = util.upper_dict(util.sql_read_table('DemandSectors', ['id', 'name']))
+    outputs_id_map['demand_sector'] = util.upper_dict(util.sql_read_table('DemandSectors', ['id', 'name']))
+    outputs_id_map['sector'] = outputs_id_map['demand_sector']
     outputs_id_map['ghg'] = util.upper_dict(util.sql_read_table('GreenhouseGases', ['id', 'name']))
     outputs_id_map['driver'] = util.upper_dict(util.sql_read_table('DemandDrivers', ['id', 'name']))
-#    outputs_id_map[dispatch_geography] = util.upper_dict(util.sql_read_table('GeographiesData', ['id', 'name'], geography_id=dispatch_geography_id, return_unique=True, return_iterable=True))
     outputs_id_map['dispatch_feeder'] = util.upper_dict(util.sql_read_table('DispatchFeeders', ['id', 'name']))
     outputs_id_map['dispatch_feeder'][0] = 'BULK'
 

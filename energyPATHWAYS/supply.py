@@ -89,8 +89,8 @@ class Supply(object):
         for output_name in output_list:
             df = self.group_output(output_name)
             df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
-            setattr(self.outputs, output_name, df)   
-        setattr(self.outputs,'energy',self.format_output_io_supply())            
+            setattr(self.outputs, "s_"+output_name, df)   
+        setattr(self.outputs,'s_energy',self.format_output_io_supply())            
             
     def format_output_io_supply(self):
         energy = self.io_supply_df.stack().to_frame()  
@@ -375,12 +375,14 @@ class Supply(object):
             del self.map_dict[None]
         logging.info("calculating supply-side outputs")
         self.aggregate_results()
+        
         logging.info("calculating supply cost link")
         self.cost_demand_link = self.map_embodied_to_demand(self.cost_dict, self.embodied_cost_link_dict)
         logging.info("calculating supply emissions link")
         self.emissions_demand_link = self.map_embodied_to_demand(self.emissions_dict, self.embodied_emissions_link_dict)
         logging.info("calculating supply energy link")
         self.energy_demand_link = self.map_embodied_to_demand(self.inverse_dict['energy'],self.embodied_energy_link_dict)
+#        self.calculate_embodied_supply_outputs()
         self.remove_blend_and_import()
 #        self.outputs.per_energy_costs = copy.deepcopy(self.cost_demand_link)
 #        unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')+ "/" + cfg.calculation_energy_unit
@@ -399,6 +401,14 @@ class Supply(object):
         self.calculate_export_result('export_energy', self.inverse_dict['energy'])
         logging.info("calculate emissions rates for demand side")
         self.calculate_demand_emissions_rates()
+        
+    def calculate_embodied_supply_outputs(self):
+        supply_embodied_cost = self.convert_io_matrix_dict_to_df(self.cost_dict)
+        supply_embodied_cost.columns = [cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')]
+        self.outputs.supply_embodied_cost = supply_embodied_cost       
+        supply_embodied_emissions = self.convert_io_matrix_dict_to_df(self.emissions_dict)
+        supply_embodied_emissions.columns = [cfg.cfgfile.get('case', 'mass_unit')]
+        self.outputs.supply_embodied_emissions = supply_embodied_emissions
         
     def calculate_annual_costs(self, year):
         for node in self.nodes.values():
@@ -610,6 +620,8 @@ class Supply(object):
         if year in self.dispatch_write_years:
             if 0 in util.elements_in_index_level(df,'dispatch_feeder'):
                 bulk_df = util.df_slice(df,0,'dispatch_feeder')
+                if load:
+                    bulk_df = DfOper.mult([bulk_df, self.transmission_losses])
                 bulk_df = self.outputs.clean_df(bulk_df)
                 bulk_df.columns = [cfg.calculation_energy_unit.upper()]
                 util.replace_index_name(bulk_df, 'DISPATCH_OUTPUT', 'SUPPLY_NODE')
@@ -619,6 +631,7 @@ class Supply(object):
                 df = util.DfOper.mult([distribution_df,self.distribution_losses])
                 distribution_df = self.outputs.clean_df(distribution_df)
                 distribution_df.columns = [cfg.calculation_energy_unit.upper()]
+                distribution_df = DfOper.mult([distribution_df, self.distribution_losses,self.transmission_losses])
                 util.replace_index_name(distribution_df, 'DISPATCH_OUTPUT', 'SUPPLY_NODE')
                 self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch_df,util.remove_df_levels(distribution_df,'DISPATCH_FEEDER')])
 
@@ -686,7 +699,7 @@ class Supply(object):
     def produce_distributed_storage_outputs(self, year):
         if year in self.dispatch_write_years:
             dist_storage_df = util.df_slice(self.dispatch.storage_df, self.dispatch_feeders, 'dispatch_feeder')
-            distribution_df = util.remove_df_levels(util.DfOper.mult([dist_storage_df, self.distribution_losses]), 'dispatch_feeder')
+            distribution_df = util.remove_df_levels(util.DfOper.mult([dist_storage_df, self.distribution_losses,self.transmission_losses]), 'dispatch_feeder')
             distribution_df.columns = [cfg.calculation_energy_unit.upper()]
             charge_df = util.df_slice(distribution_df,'charge','charge_discharge')
             charge_df = self.outputs.clean_df(charge_df)
@@ -715,6 +728,7 @@ class Supply(object):
         if year in self.dispatch_write_years:
             flex_load_df = util.DfOper.mult([util.df_slice(self.dispatch.flex_load_df, self.dispatch_feeders, 'dispatch_feeder'), self.distribution_losses])
             flex_load_df.columns = [cfg.calculation_energy_unit.upper()]
+            flex_load_df = DfOper.mult([flex_load_df, self.distribution_losses,self.transmission_losses])
             flex_load_df= self.outputs.clean_df(flex_load_df)
             label_replace_dict = dict(zip(util.elements_in_index_level(flex_load_df,'DISPATCH_FEEDER'),[x+' FLEXIBLE LOAD' for x in util.elements_in_index_level(flex_load_df,'DISPATCH_FEEDER')]))
             util.replace_index_label(flex_load_df,label_replace_dict,'DISPATCH_FEEDER')
@@ -1125,12 +1139,16 @@ class Supply(object):
                 dispatch_results.append(dispatch_classes.run_thermal_dispatch(params))
         if year in self.dispatch_write_years:
             # this is the generator dispatch by category [x[2] for x in dispatch_results]
-            pdb.set_trace()
-            thermal_shape =np.concatenate([x[1] for x in dispatch_results])
-            index = pd.MultiIndex.from_product([cfg.dispatch_geographies, 'THERMAL GENERATION',shape.shapes.active_dates_index,year], names=[cfg.dispatch_geography,'DISPATCH_OUTPUT','WEATHER_DATETIME','YEAR'])    
-            cols = [cfg.output_energy_unit.upper()]
-            thermal_shape_dataframe = self.outputs.clean_df(pd.DataFrame(-thermal_shape,index=index,columns=cols))           
-            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,thermal_shape_dataframe])
+            thermal_shape_list = [x[2] for x in dispatch_results]
+            for x in thermal_shape_list:
+                x.index = shape.shapes.active_dates_index
+            thermal_shape =pd.concat(thermal_shape_list,axis=0,keys=cfg.dispatch_geographies)
+            thermal_shape = thermal_shape.stack().to_frame()
+            thermal_shape.index.names = [cfg.dispatch_geography, 'weather_datetime','supply_technology']
+            thermal_shape.columns = [cfg.output_energy_unit.upper()]
+            thermal_shape_dataframe = self.outputs.clean_df(thermal_shape)
+            util.replace_index_name(thermal_shape_dataframe,'DISPATCH_OUTPUT','SUPPLY_TECHNOLOGY')
+            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,-thermal_shape_dataframe])
         dispatch_results = pd.concat([x[0] for x in dispatch_results])
         dispatch_results.sort(inplace=True)
         self.active_thermal_dispatch_df = dispatch_results
@@ -1183,9 +1201,9 @@ class Supply(object):
         if year == max(self.dispatch_years):
             keys = self.dispatch_years
             names = ['year']
-            self.outputs.curtailment = pd.concat(self.curtailment_list,keys=keys, names=names)
-            util.replace_index_name(self.outputs.curtailment,'sector','demand_sector')
-            self.outputs.curtailment.columns = [cfg.calculation_energy_unit]
+            self.outputs.s_curtailment = pd.concat(self.curtailment_list,keys=keys, names=names)
+            util.replace_index_name(self.outputs.s_curtailment,'sector','demand_sector')
+            self.outputs.s_curtailment.columns = [cfg.calculation_energy_unit]
    
     def update_coefficients_from_dispatch(self,year):
         self.update_thermal_coefficients(year)
@@ -1486,7 +1504,9 @@ class Supply(object):
         df = self._helper_shaped_bulk_and_dist(year, dist_slice)
         
         if year in self.dispatch_write_years:
-            df_output =  self.outputs.clean_df(df.copy())
+            df_output = df.copy()
+            df_output = DfOper.mult([df_output, self.distribution_losses,self.transmission_losses])
+            df_output =  self.outputs.clean_df(df_output)
             util.replace_index_name(df_output,'DISPATCH_OUTPUT','SUPPLY_NODE')
             df_output = df_output.reset_index(level=['DISPATCH_OUTPUT','DISPATCH_FEEDER'])
             df_output['NEW_DISPATCH_OUTPUT'] = df_output['DISPATCH_FEEDER'] + " " + df_output['DISPATCH_OUTPUT']
@@ -1505,14 +1525,15 @@ class Supply(object):
         node_ids = list(set(bulk_slice.index.get_level_values('supply_node')))
         assert not any(['dispatch_feeder' in self.nodes[node_id].active_shape.index.names for node_id in node_ids])        
         df = self._helper_shaped_bulk_and_dist(year, bulk_slice)
-        
         if year in self.dispatch_write_years:       
             df_output = pd.concat([df],keys=[year],names=['year'])
+            if generation:
+                df_output*=-1
+            else:
+                df_output = DfOper.mult([df_output,self.transmission_losses])
             df_output =  self.outputs.clean_df(df_output)
             util.replace_index_name(df_output,'DISPATCH_OUTPUT','SUPPLY_NODE')
             df_output.columns = [cfg.calculation_energy_unit.upper()]
-            if generation:
-                df_output*=-1
             df_output = util.reorder_b_to_match_a(df_output, self.bulk_dispatch)
             self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, df_output])
             df = util.remove_df_levels(df, 'supply_node') # only necessary when we origionally kept supply node as a level
@@ -1539,6 +1560,7 @@ class Supply(object):
         
     def output_final_demand_for_bulk_dispatch_outputs(self,final_demand):
         df_output = util.DfOper.mult([util.df_slice(final_demand,2,'timeshift_type'),self.distribution_losses])
+        df_output = DfOper.mult([df_output, self.distribution_losses,self.transmission_losses])
         df_output = self.outputs.clean_df(df_output)
         util.replace_index_name(df_output,'DISPATCH_OUTPUT','DISPATCH_FEEDER')
         df_output.columns = [cfg.calculation_energy_unit.upper()]
@@ -1635,6 +1657,39 @@ class Supply(object):
         df = pd.concat(df_list,keys=keys,names=name)
         df.columns = ['value']
 #       levels = [x for x in ['supply_node',cfg.primary_geography +'_supply', 'ghg',cfg.primary_geography,'final_energy'] if x in df.index.names]
+        return df
+        
+    def convert_io_matrix_dict_to_df(self, adict):
+        """Converts an io dictionary to a dataframe 
+        Args: 
+            adict = dictionary containing sliced datafrmes
+            
+        Returns:
+            df (DataFrame)
+            Dtype: Float
+            Row Index: [geography, supply_node_input, supply_node_output, year]
+            Cols: ['value']
+        """
+        df_list = []
+        for year in self.years:
+            sector_df_list = []
+            keys = self.demand_sectors
+            name = ['sector']
+            for sector in self.demand_sectors:
+                df = adict[year][sector]
+                levels_to_keep = [x for x in df.index.names if x in cfg.output_combined_levels]
+                df = df.groupby(level=levels_to_keep).sum()
+                df = df.stack([cfg.primary_geography,'supply_node']).to_frame()
+                df.index.names = [cfg.primary_geography+'_input','supply_node_input',cfg.primary_geography,'supply_node']
+                sector_df_list.append(df)     
+            year_df = pd.concat(sector_df_list, keys=keys,names=name)
+            df_list.append(year_df)
+        self.sector_df_list  = sector_df_list     
+        self.df_list = df_list
+        keys = self.years
+        name = ['year']
+        df = pd.concat(df_list,keys=keys,names=name)
+        df.columns = ['value']
         return df
         
         
@@ -2306,7 +2361,6 @@ class Node(DataMapFunctions):
         self.shape = self.determine_shape()
         self.workingdir = cfg.workingdir
         self.cfgfile_name = cfg.cfgfile_name
-        self.pint_definitions_file = cfg.pint_definitions_file
         self.log_name = cfg.log_name
 
     def determine_shape(self):
@@ -3378,6 +3432,7 @@ class SupplyNode(Node,StockItem):
                 self.rollover_dict[elements].use_stock_changes = True 
                 self.rollover_dict[elements].run(1, stock_changes.loc[elements],np.array(self.stock.total_rollover.loc[elements+(year,)]))
             except:
+                pdb.set_trace()
                 logging.error('error encountered in rollover for node ' + str(self.id) + ' in elements '+ str(elements) + ' year ' + str(year))
                 raise
             stock_total, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover_dict[(elements)].return_formatted_outputs(year_offset=0)
@@ -4493,10 +4548,6 @@ class SupplyStockNode(Node):
                     sales_share = self.calculate_total_sales_share_after_initial(elements,self.stock.rollover_group_names)
                 self.rollover_dict[elements].initial_stock = initial_stock
                 self.rollover_dict[elements].sales_share = sales_share
-#        if self.id == 115:
-#            print loop, year, self.rollover_dict[(64,)].i
-#            print self.rollover_dict[(64,)].sales_share[0]
-#            print self.rollover_dict[(64,)].initial_stock, self.rollover_dict[(64,)].stock.sum()
         for elements in self.rollover_groups.keys():    
             elements = util.ensure_tuple(elements)
             try:

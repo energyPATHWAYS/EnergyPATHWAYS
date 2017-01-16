@@ -3,20 +3,24 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to energyPATHWAYS's documentation!
-==========================================
+EnergyPATHWAYS
+===============
 
 Contents:
 
 .. toctree::
    :maxdepth: 2
 
+   introduction
+   setup
+   methodology_overview
+   outputs
 
+..
+   Indices and tables
+   ==================
+   * :ref:`genindex`
+   * :ref:`modindex`
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`
 

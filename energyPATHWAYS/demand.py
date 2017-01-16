@@ -97,8 +97,8 @@ class Demand(object):
 
     def electricity_energy_slice(self, year, subsector_slice):
         if not hasattr(self, 'ele_energy_helper'):
-            indexer = util.level_specific_indexer(self.outputs.energy, levels=['year', 'final_energy'], elements=[[year], [cfg.electricity_energy_type_id]])
-            self.ele_energy_helper = self.outputs.energy.loc[indexer].groupby(level=('subsector', 'sector', cfg.primary_geography)).sum()
+            indexer = util.level_specific_indexer(self.outputs.d_energy, levels=['year', 'final_energy'], elements=[[year], [cfg.electricity_energy_type_id]])
+            self.ele_energy_helper = self.outputs.d_energy.loc[indexer].groupby(level=('subsector', 'sector', cfg.primary_geography)).sum()
         feeder_allocation = self.feeder_allocation_class.values.xs(year, level='year')
         return util.remove_df_levels(util.DfOper.mult((feeder_allocation,
                                                        self.ele_energy_helper.loc[subsector_slice].groupby(level=('sector', cfg.primary_geography)).sum())), 'sector')
@@ -166,7 +166,7 @@ class Demand(object):
         df=util.df_list_concatenate(df_list,
                                      keys=[x.id for x in self.drivers.values()],new_names='driver',levels_to_keep=['driver','unit']+cfg.output_demand_levels)
         df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
-        setattr(self.outputs, 'driver', df)
+        setattr(self.outputs, 'd_driver', df)
     
     def aggregate_results(self):
         def remove_na_levels(df):
@@ -179,7 +179,7 @@ class Demand(object):
         for output_name, include_unit in zip(output_list,unit_flag):
             df = self.group_output(output_name, include_unit=include_unit)
             df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
-            setattr(self.outputs, output_name, df)
+            setattr(self.outputs,"d_"+ output_name, df)
         self.aggregate_drivers()
 
         # this may be redundant with the above code
@@ -209,8 +209,8 @@ class Demand(object):
 
     def group_linked_output(self, supply_link, levels_to_keep=None):
         levels_to_keep = cfg.output_combined_levels if levels_to_keep is None else levels_to_keep
-        levels_to_keep = [x for x in levels_to_keep if x in self.outputs.energy.index.names]
-        demand_df = self.outputs.energy.groupby(level=levels_to_keep).sum()
+        levels_to_keep = [x for x in levels_to_keep if x in self.outputs.d_energy.index.names]
+        demand_df = self.outputs.d_energy.groupby(level=levels_to_keep).sum()
         demand_df = demand_df[demand_df.index.get_level_values('year')>=int(cfg.cfgfile.get('case','current_year'))]
         geography_df_list = []
         for geography in cfg.geographies:
@@ -320,7 +320,6 @@ class Sector(object):
         self.electricity_reconciliation = None
         self.workingdir = cfg.workingdir
         self.cfgfile_name = cfg.cfgfile_name
-        self.pint_definitions_file = cfg.pint_definitions_file
         self.log_name = cfg.log_name
 
     def add_subsectors(self):
@@ -494,7 +493,6 @@ class Subsector(DataMapFunctions):
         self.drivers = drivers
         self.workingdir = cfg.workingdir
         self.cfgfile_name = cfg.cfgfile_name
-        self.pint_definitions_file = cfg.pint_definitions_file
         self.log_name = cfg.log_name
         # boolean check on data availability to determine calculation steps
         self.has_stock = stock
@@ -603,7 +601,6 @@ class Subsector(DataMapFunctions):
                 self.add_technologies(self.stock.unit, self.stock.time_unit)
             self.sub_type = 'stock and energy'
         elif self.has_service_demand is True and self.has_service_efficiency is True:
-            print self.id
             self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', drivers=self.drivers)
             self.service_efficiency = ServiceEfficiency(self.id, self.service_demand.unit)
             self.sub_type = 'service and efficiency'
