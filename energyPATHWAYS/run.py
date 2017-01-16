@@ -142,17 +142,17 @@ def load_model(load_demand, load_supply, scenario_id, api_run):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Users\Ben\Documents\PythonProjects\energyPATHWAYS\washington_model_example'
+    workingdir = r'C:\github\energyPATHWAYS\washington_model_example'
     os.chdir(workingdir)
     config = 'config.INI'
     pint = 'unit_defs.txt'
-    scenario = [14]
+    scenario = [15]
     
     run(workingdir, config, pint, scenario,
     load_demand   = True,
-    solve_demand  = True,
+    solve_demand  = False,
     load_supply   = False,
-    solve_supply  = True,
+    solve_supply  = False,
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,
@@ -222,3 +222,67 @@ if __name__ == "__main__":
 #hydro.process_shape(shapes.active_dates_index, shapes.time_slice_elements)
 
 
+
+from collections import defaultdict
+from energyPATHWAYS.shared_classes import StockItem
+from energyPATHWAYS.rollover import Rollover
+import numpy as np
+import matplotlib
+from matplotlib import cm
+
+start_year = 2000
+end_year = 2050
+years = range(start_year, end_year+1)
+num_years = end_year-start_year+1 # number of years to run in the stock rollover
+num_vintages = end_year-start_year+1 # it might be that this is unneeeded and should just be set to num_years
+
+num_techs = 1 # number of technologies in a subsector (can be 1 and often is)
+tech_ids = [0]
+steps_per_year = 1
+
+# start a record for a single technology
+tech = StockItem()
+tech.mean_lifetime = 50 # years
+tech.lifetime_variance = 20 # years
+# Other ways to define lifetime are min_lifetime and max_lifetime
+tech.stock_decay_function = 'weibull' # other options here ('linear' or 'exponential')
+tech.spy = steps_per_year
+tech.years = years
+        
+tech.set_survival_parameters()
+tech.set_survival_vintaged()
+tech.set_decay_vintaged()
+tech.set_survival_initial_stock()
+tech.set_decay_initial_stock()
+
+# wrap the technologies together
+technologies = dict(zip(tech_ids, [tech]))
+
+# at this point we have all the survival functions, but we don't yet have the markov matrix
+
+functions = defaultdict(list)
+for fun in ['survival_vintaged', 'survival_initial_stock', 'decay_vintaged', 'decay_initial_stock']:
+    for tech_id in tech_ids:
+        technology = technologies[tech_id]
+        functions[fun].append(getattr(technology, fun))
+    functions[fun] = pd.DataFrame(np.array(functions[fun]).T, columns=tech_ids)
+
+
+vintaged_markov = util.create_markov_vector(functions['decay_vintaged'].values, functions['survival_vintaged'].values)
+vintaged_markov_matrix = util.create_markov_matrix(vintaged_markov, num_techs, num_years, steps_per_year)
+
+initial_markov = util.create_markov_vector(functions['decay_initial_stock'].values, functions['survival_initial_stock'].values)
+initial_markov_matrix = util.create_markov_matrix(initial_markov, num_techs, num_years, steps_per_year)
+
+ext_stock = pd.DataFrame.from_csv('households.csv')
+initial_stock = ext_stock.iloc[0]
+stock_changes = ext_stock.diff().fillna(0).values.flatten()
+
+# now we have the markov matrix and we are ready to do stock rollover
+rollover = Rollover(vintaged_markov_matrix, initial_markov_matrix, num_years, num_vintages, num_techs, initial_stock=initial_stock, stock_changes=stock_changes)
+rollover.run()
+outputs = rollover.return_formatted_outputs()
+stock = outputs[0]/1E6
+
+df = pd.DataFrame(stock, index=[1999]+years, columns=years)
+df.transpose().plot(stacked=True, kind='area', colormap=matplotlib.cm.Set2, legend=False)

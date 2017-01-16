@@ -10,6 +10,7 @@ import os
 import csv
 import pandas as pd
 import numpy as np
+import shutil
 
 directory = os.getcwd()
 
@@ -77,3 +78,6 @@ def csv_write(path, data):
 csv_write(os.path.join(directory, 'outputs', 'GeographyIntersection.csv'), GeographyIntersection)
 csv_write(os.path.join(directory, 'outputs', 'GeographyIntersectionData.csv'), GeographyIntersectionData)
 csv_write(os.path.join(directory, 'outputs', 'GeographyMap.csv'), GeographyMap)
+shutil.copyfile(os.path.join(directory, 'inputs', 'Geographies.csv'), os.path.join(directory, 'outputs', 'Geographies.csv'))
+shutil.copyfile(os.path.join(directory, 'inputs', 'GeographiesData.csv'), os.path.join(directory, 'outputs', 'GeographiesData.csv'))
+shutil.copyfile(os.path.join(directory, 'inputs', 'GeographyMapKeys.csv'), os.path.join(directory, 'outputs', 'GeographyMapKeys.csv'))

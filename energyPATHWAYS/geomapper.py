@@ -160,7 +160,7 @@ class GeoMapper:
         primary_geography_name = self.get_primary_geography_name()        
         dispatch_geography_name = self.get_dispatch_geography_name()
         cfg.outputs_id_map[primary_geography_name] =  util.upper_dict(self.geography_names.items())
-        cfg.outputs_id_map[primary_geography_name +"_supply"] =  cfg.outputs_id_map[primary_geography_name ] 
+        cfg.outputs_id_map[primary_geography_name +"_supply"] =  cfg.outputs_id_map[primary_geography_name]
         cfg.outputs_id_map[dispatch_geography_name] =  cfg.outputs_id_map[primary_geography_name] 
 
     def _create_composite_geography_levels(self):

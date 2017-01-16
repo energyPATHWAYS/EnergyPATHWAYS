@@ -161,3 +161,4 @@ class TestRollover(unittest.TestCase):
 
         with self.assertRaises(RuntimeError):
             rollover.run()
+

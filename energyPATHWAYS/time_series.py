@@ -380,8 +380,26 @@ class TimeSeries:
 
 
 
-#x = np.array([2015, 2040, 2050])
-#y = np.array([0, .05, .7])
+#newindex = np.arange(2000, 2051)
+##x = np.array([2015, 2020, 2025, 2030, 2040, 2050])
+##y = np.array([0.01, 0.03, .1, 1, .8, .4])
+#x = np.array([2000, 2010, 2015])
+#y = np.array([0.6, 0.716194956, .725])
+#start = pd.DataFrame(y, index=x)
+#interpolation_method = 'linear_interpolation'
+#extrapolation_method = 'linear_interpolation'
+#filled = TimeSeries.clean(start, newindex, interpolation_method, extrapolation_method)
+#
+#pylab.plot(newindex, filled.values.flatten(), '-.')
+#pylab.plot(x, y, '*')
+#
+#'linear_interpolation'
+#'linear_regression'
+#'logistic'
+#'nearest'
+#'quadratic'
+#'cubic'
+#'exponential'
 
 #B = .5
 
@@ -395,8 +413,7 @@ class TimeSeries:
 #
 #y_hat = TimeSeries.fit_generalized_logistic(x, y, newindex)
 #
-#pylab.plot(newindex, y_hat)
-#pylab.plot(x, y, '*')
+
 
 #x = np.array([2016, 2023, 2030, 2040, 2050])
 #y = np.array([0, .16, .48, .7, .72])
@@ -442,7 +459,7 @@ class TimeSeries:
 
 #from collections import defaultdict
 #
-#newindex = np.arange(2000, 2051)
+
 #x = np.array([2010, 2018, 2025, 2040, 2050])
 #y = np.array([.8, .7, .4, .35, .34])
 #
