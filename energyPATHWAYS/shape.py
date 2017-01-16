@@ -139,7 +139,6 @@ class Shape(dmf.DataMapFunctions):
         # needed for parallel process
         self.workingdir = cfg.workingdir
         self.cfgfile_name = cfg.cfgfile_name
-        self.pint_definitions_file = cfg.pint_definitions_file
         self.log_name = cfg.log_name
 
     def create_empty_shape_data(self):
@@ -410,11 +409,10 @@ class Shape(dmf.DataMapFunctions):
 
 # electricity shapes
 force_rerun_shapes = False
-pickle_shape = True
 version = 2 #change this when you need to force users to rerun shapes
 shapes = Shapes()
 
-def init_shapes():
+def init_shapes(pickle_shapes):
     global shapes
     if os.path.isfile(os.path.join(cfg.workingdir, 'shapes.p')):
         logging.info('Loading shapes')
@@ -429,7 +427,7 @@ def init_shapes():
         shapes.initiate_active_shapes()
         shapes.process_active_shapes()
         
-        if pickle_shape:
+        if pickle_shapes:
             logging.info('Pickling shapes')
             with open(os.path.join(cfg.workingdir, 'shapes.p'), 'wb') as outfile:
                 pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)

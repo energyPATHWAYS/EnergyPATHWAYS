@@ -34,21 +34,22 @@ class PathwaysModel(object):
         self.supply = None
         self.demand_solved, self.supply_solved = False, False
 
-    def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, save_models, append_results):
+    def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, export_results, save_models, append_results):
         try:
             if solve_demand and not (load_demand or load_supply):
                 self.calculate_demand(save_models)
             
             if not append_results:
                 self.remove_old_results()
-            if hasattr(self, 'demand_solved') and self.demand_solved and not self.api_run:
+
+            if hasattr(self, 'demand_solved') and self.demand_solved and export_results and not self.api_run:
                 self.export_result_to_csv('demand_outputs')
 
             if solve_supply and not load_supply:
                 self.supply = Supply(self.scenario, demand_object=self.demand)
                 self.calculate_supply(save_models)
 
-            if hasattr(self, 'supply_solved') and self.supply_solved and solve_supply:
+            if hasattr(self, 'supply_solved') and self.supply_solved and export_results:
                 self.supply.calculate_supply_outputs()
                 self.pass_supply_results_back_to_demand()
                 self.calculate_combined_results()
@@ -57,6 +58,7 @@ class PathwaysModel(object):
                 else:
                     self.export_result_to_csv('supply_outputs')
                     self.export_result_to_csv('combined_outputs')
+                    self.export_io()
         except:
             # pickle the model in the event that it crashes
             with open(os.path.join(cfg.workingdir, str(scenario_id) + '_model_error.p'), 'wb') as outfile:
@@ -65,7 +67,6 @@ class PathwaysModel(object):
 
     def calculate_demand(self, save_models):
         logging.info('Configuring energy system demand')
-
         self.demand.add_subsectors()
         self.demand.add_measures(self.demand_case_id)
         self.demand.calculate_demand()
@@ -74,15 +75,14 @@ class PathwaysModel(object):
             with open(os.path.join(cfg.workingdir, str(self.scenario_id) + '_model.p'), 'wb') as outfile:
                 pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
 
-    def calculate_supply(self, save_models, resume=False):
+    def calculate_supply(self, save_models):
         if not self.demand_solved:
             raise ValueError('demand must be solved first before supply')
         logging.info('Configuring energy system supply')
-        if not resume:
-            self.supply.add_nodes()
-            self.supply.add_measures(self.supply_case_id)
-            self.supply.initial_calculate()
-            self.supply.calculated_years = []
+        self.supply.add_nodes()
+        self.supply.add_measures(self.supply_case_id)
+        self.supply.initial_calculate()
+        self.supply.calculated_years = []
         self.supply.calculate_loop(self.supply.years, self.supply.calculated_years)
         self.supply.final_calculate()
         self.supply.concatenate_annual_costs()
@@ -170,33 +170,25 @@ class PathwaysModel(object):
             self.export_costs_df = None
         #calculate and format emobodied supply costs
         self.embodied_energy_costs_df = self.demand.outputs.return_cleaned_output('demand_embodied_energy_costs')
-        self.embodied_energy_costs_df.columns = [cost_unit.upper()]  
-#        del self.demand.outputs.demand_embodied_energy_costs
+        self.embodied_energy_costs_df.columns = [cost_unit.upper()]
         keys = ["DOMESTIC","SUPPLY"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
            self.embodied_energy_costs_df = pd.concat([self.embodied_energy_costs_df],keys=[key],names=[name])       
-        #calculte and format direct demand costs      
-        self.demand_costs_df= self.demand.outputs.return_cleaned_output('levelized_costs') 
+        #calculte and format direct demand costs
+        self.demand_costs_df = self.demand.outputs.return_cleaned_output('d_levelized_costs')
         levels_to_keep = [x.upper() for x in cfg.output_combined_levels]
         levels_to_keep = [x for x in levels_to_keep if x in self.demand_costs_df.index.names]
         self.demand_costs_df= self.demand_costs_df.groupby(level=levels_to_keep).sum()
-#        del self.demand.outputs.levelized_costs
         keys = ["DOMESTIC","DEMAND"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
-            self.demand_costs_df = pd.concat([self.demand_costs_df],keys=[key],names=[name])      
-#        levels_to_keep = cfg.output_levels      
-#        levels_to_keep = [x.upper() for x in levels_to_keep]
-#        levels_to_keep += names + [cfg.primary_geography.upper() +'_SUPPLY', 'SUPPLY_NODE']
+            self.demand_costs_df = pd.concat([self.demand_costs_df],keys=[key],names=[name])
         keys = ['EXPORTED', 'SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['COST TYPE']
         self.outputs.c_costs = util.df_list_concatenate([self.export_costs_df, self.embodied_energy_costs_df, self.demand_costs_df],keys=keys,new_names=names)
-#        util.replace_index_name(self.outputs.c_costs, cfg.primary_geography.upper() +'_EARNED', cfg.primary_geography.upper() +'_SUPPLY')
-#        util.replace_index_name(self.outputs.c_costs, cfg.primary_geography.upper() +'_CONSUMED', cfg.primary_geography.upper())
         self.outputs.c_costs[self.outputs.c_costs<0]=0
         self.outputs.c_costs= self.outputs.c_costs[self.outputs.c_costs[cost_unit.upper()]!=0]
-#        self.outputs.c_costs.sort(inplace=True)
         
     def calculate_combined_emissions_results(self):
         #calculate and format export emissions
@@ -244,8 +236,6 @@ class PathwaysModel(object):
         self.outputs.c_emissions= self.outputs.c_emissions[self.outputs.c_emissions['VALUE']!=0]
         emissions_unit = cfg.cfgfile.get('case','mass_unit')
         self.outputs.c_emissions.columns = [emissions_unit.upper()]
-        
-#        self.outputs.c_emissions.sort(inplace=True)        
             
     def calculate_combined_energy_results(self):
          energy_unit = cfg.calculation_energy_unit        
@@ -266,7 +256,7 @@ class PathwaysModel(object):
          names = ['EXPORT/DOMESTIC', 'ENERGY ACCOUNTING']
          for key,name in zip(keys,names):
              self.embodied_energy = pd.concat([self.embodied_energy],keys=[key],names=[name])
-         self.final_energy = self.demand.outputs.return_cleaned_output('energy')
+         self.final_energy = self.demand.outputs.return_cleaned_output('d_energy')
          self.final_energy = self.final_energy[self.final_energy.index.get_level_values('YEAR')>=int(cfg.cfgfile.get('case','current_year'))]          
          keys = ['DOMESTIC','FINAL']
          names = ['EXPORT/DOMESTIC', 'ENERGY ACCOUNTING']
@@ -287,19 +277,20 @@ class PathwaysModel(object):
          self.outputs.c_energy= self.outputs.c_energy[self.outputs.c_energy['VALUE']!=0]
          self.outputs.c_energy.columns = [energy_unit.upper()]
 
-    def return_io(self):
+    def export_io(self):
+        io_table_write_step = int(cfg.cfgfile.get('output_detail','io_table_write_step'))
+        io_table_years = sorted([min(cfg.supply_years)] + range(max(cfg.supply_years), min(cfg.supply_years), -io_table_write_step))
         df_list = []
-        years = [2030,2040,2050]
-        for year in years:
+        for year in io_table_years:
             sector_df_list = []
             keys = self.supply.demand_sectors
             name = ['sector']
             for sector in self.supply.demand_sectors:
-                sector_df_list.append(self.supply.io_dict[2050][sector])  
+                sector_df_list.append(self.supply.io_dict[year][sector])
             year_df = pd.concat(sector_df_list, keys=keys,names=name)
             year_df = pd.concat([year_df]*len(keys),keys=keys,names=name,axis=1)
             df_list.append(year_df)
-        keys = years
+        keys = io_table_years
         name = ['year']
         df = pd.concat(df_list,keys=keys,names=name)
         for row_sector in self.supply.demand_sectors:
@@ -312,4 +303,4 @@ class PathwaysModel(object):
         names = ['SCENARIO','TIMESTAMP']
         for key, name in zip(keys,names):
             result_df = pd.concat([result_df], keys=[key],names=[name])
-        result_df.to_csv(os.path.join(cfg.workingdir,'supply_outputs', 'io.csv'), header=True, mode='ab')
+        result_df.to_csv(os.path.join(cfg.workingdir,'supply_outputs', 's_io.csv'), header=True, mode='ab')

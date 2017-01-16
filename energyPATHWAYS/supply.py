@@ -2361,7 +2361,6 @@ class Node(DataMapFunctions):
         self.shape = self.determine_shape()
         self.workingdir = cfg.workingdir
         self.cfgfile_name = cfg.cfgfile_name
-        self.pint_definitions_file = cfg.pint_definitions_file
         self.log_name = cfg.log_name
 
     def determine_shape(self):

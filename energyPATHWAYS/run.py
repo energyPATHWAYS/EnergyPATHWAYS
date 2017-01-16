@@ -65,56 +65,55 @@ signal.signal(signal.SIGTERM, signal_handler)
 @click.command()
 @click.option('-p', '--path', type=click.Path(exists=True), help='Working directory for energyPATHWAYS run.')
 @click.option('-c', '--config', default='config.INI', help='File name for the energyPATHWAYS configuration file.')
-@click.option('-u', '--pint', default='unit_defs.txt', help='File name for custom unit definitions for the library pint.')
 @click.option('-s', '--scenario', type=str, help='Scenario ids [example: 1,3,5]')
 @click.option('-ld', '--load_demand/--no_load_demand', default=False, help='Load a cached model with the demand side complete.')
 @click.option('--solve_demand/--no_solve_demand', default=True, help='Solve the demand side of the model.')
 @click.option('-ls', '--load_supply/--no_load_supply', default=False, help='Load a cached model with the demand and supply side complete.')
 @click.option('--solve_supply/--no_solve_supply', default=True, help='Solve the supply side of the model.')
+@click.option('--export_results/--no_export_results', default=True, help='Write results from the demand and supply sides of the model.')
 @click.option('--pickle_shapes/--no_pickle_shapes', default=True, help='Cache shapes after processing.')
 @click.option('--save_models/--no_save_models', default=True, help='Cashe models after running.')
 @click.option('--log_name', help='File name for the log file.')
 @click.option('-a', '--api_run/--no_api_run', default=False)
 @click.option('-d', '--debug/--no_debug', default=False, help='On error the model will exit into an ipython debugger.')
 @click.option('--clear_results/--no_clear_results', default=False, help='Should results be cleared or appended when starting a new model run')
-def click_run(path, config, pint, scenario, load_demand, solve_demand, load_supply, solve_supply, pickle_shapes, save_models, log_name, api_run, debug, clear_results):
+def click_run(path, config, scenario, load_demand, solve_demand, load_supply, solve_supply, export_results, pickle_shapes, save_models, log_name, api_run, debug, clear_results):
     if debug:
         import ipdb
         with ipdb.launch_ipdb_on_exception():
-            run(path, config, pint, scenario, load_demand, solve_demand, load_supply, solve_supply, pickle_shapes, save_models, log_name, api_run, clear_results)
+            run(path, config, scenario, load_demand, solve_demand, load_supply, solve_supply, export_results, pickle_shapes, save_models, log_name, api_run, clear_results)
     else:
-        run(path, config, pint, scenario, load_demand, solve_demand, load_supply, solve_supply, pickle_shapes, save_models, log_name, api_run, clear_results)
+        run(path, config, scenario, load_demand, solve_demand, load_supply, solve_supply, export_results, pickle_shapes, save_models, log_name, api_run, clear_results)
 
-def run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False,
-        solve_supply=True, pickle_shapes=True, save_models=True, log_name=None, api_run=False, clear_results=False):
+def run(path, config, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True,
+        export_results=True, pickle_shapes=True, save_models=True, log_name=None, api_run=False, clear_results=False):
     global model
-    cfg.initialize_config(path, config, pint, log_name)
+    cfg.initialize_config(path, config, log_name)
     cfg.geo.log_geo()
-    shape.init_shapes()
+    shape.init_shapes(pickle_shapes)
     
     scenario_ids = parse_scenario_ids(scenario)
     logging.info('Scenario_ids run list = {}'.format(scenario_ids))
     for scenario_id in scenario_ids:
-        scenario_start_time = time.time()
-        logging.info('Starting scenario_id {}'.format(scenario_id))
-        if api_run:
-            util.update_status(scenario_id, 2)
-        
-        model = load_model(load_demand, load_supply, scenario_id, api_run)
-        model.run(scenario_id,
-                  solve_demand=solve_demand,
-                  solve_supply=solve_supply,
-                  load_demand = load_demand,
-                  load_supply = load_supply,
-                  save_models=save_models,
-                  append_results=False if (scenario_id==scenario_ids[0] and clear_results) else True)
-        
-        model.return_io()
-    
-        if api_run:
-            util.update_status(scenario_id, 3)
-        logging.info('EnergyPATHWAYS run for scenario_id {} successful!'.format(scenario_id))
-        logging.info('Scenario calculation time {} seconds'.format(time.time() - scenario_start_time))
+       scenario_start_time = time.time()
+       logging.info('Starting scenario_id {}'.format(scenario_id))
+       if api_run:
+           util.update_status(scenario_id, 2)
+
+       model = load_model(load_demand, load_supply, scenario_id, api_run)
+       model.run(scenario_id,
+                 solve_demand=solve_demand,
+                 solve_supply=solve_supply,
+                 load_demand = load_demand,
+                 load_supply = load_supply,
+                 export_results = export_results,
+                 save_models = save_models,
+                 append_results=False if (scenario_id==scenario_ids[0] and clear_results) else True)
+
+       if api_run:
+           util.update_status(scenario_id, 3)
+       logging.info('EnergyPATHWAYS run for scenario_id {} successful!'.format(scenario_id))
+       logging.info('Scenario calculation time {} seconds'.format(time.time() - scenario_start_time))
     logging.info('Total calculation time {} seconds'.format(time.time() - run_start_time))
     logging.shutdown()
     logging.getLogger(None).handlers = [] # necessary to totally flush the logger
@@ -144,85 +143,18 @@ def load_model(load_demand, load_supply, scenario_id, api_run):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Users\Ben\Documents\PythonProjects\energyPATHWAYS\us_model_example'
+    workingdir = r'C:\github\EnergyPATHWAYS\model runs\us_model_example'
     os.chdir(workingdir)
     config = 'config.INI'
-    pint = 'unit_defs.txt'
-    scenario = [2]
-    run(workingdir, config, pint, scenario,
+    scenario = [5]
+    run(workingdir, config, scenario,
     load_demand   = True,
-    solve_demand  = True,
+    solve_demand  = False,
     load_supply   = True,
     solve_supply  = True,
-    pickle_shapes = True,
-    save_models   = True,
+    export_results= True,
+    pickle_shapes = False,
+    save_models   = False,
     api_run       = False,
-    clear_results = False)
-
-
-#for geography in cfg.geo.geographies.keys():
-#    cfg.outputs_id_map[geography] = util.upper_dict(self.geography_names.items())
-##    test = model.demand.aggregate_electricity_shapes(2020)
-#    model.demand.create_electricity_reconciliation()
-#    self = model.demand.sectors[3].subsectors[72]
-##    active_shape = self.shape
-##    shape_df = util.DfOper.mult((active_shape.values, self.electricity_reconciliation))
-##    percent_flexible = self.flexible_load_measure.values.xs(2020, level='year')
-##    percent_flexible[:] = 1
-##    test = shape.Shape.produce_flexible_load(shape_df, percent_flexible)
-#    test = self.aggregate_electricity_shapes(2050)
-#    test.xs([36, 1], level=['us and new york', 'dispatch_feeder']).unstack('timeshift_type').cumsum().plot()
-
-#    dispatch = Dispatch.load_from_pickle()
-#    self = dispatch
-#    self.set_opt_distribution_net_loads(self.distribution_load_input, self.distribution_gen_input)
-#     instance = dispatch.solve_optimization_period(1, return_model_instance=True)
-#    results = dispatch.solve_optimization_period(5, return_model_instance=False)
-#    flex = pd.DataFrame(results['Flexible_Load'], columns=[dispatch.dispatch_geography, 'hour', 'dispatch_feeder', 'value'])
-#    flex = flex.set_index([dispatch.dispatch_geography, 'dispatch_feeder', 'hour']).sort_index()
-#    flex.xs([36, 1], level=[self.dispatch_geography, 'dispatch_feeder']).cumsum().plot()
-##
-##    dispatch.distribution_load_input.xs([36, 1], level=[dispatch.dispatch_geography, 'dispatch_feeder']).unstack('timeshift_type').cumsum().plot()
-#    dispatch.solve_and_plot()
-
-#
-#    cum = util.remove_df_levels(cum_distribution_load.xs([36, 1], level=['us and new york', 'dispatch_feeder']), 'period').unstack('timeshift_type')
-#    cum
-
-    # note that when running the profiler, it is recommended to not run the model for more than 10 years due to memory use
-    # cProfile.run('run(path, config, pint, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, pickle_shapes=True, save_models=True, api_run=False)', filename='full_run.profile')
-    # Output.writeobj(model)
-
-
-#self = model.demand.drivers[1]
-
-#self = cfg.geo
-#current_geography = 'census division'
-#converted_geography = 'us'
-#normalize_as='total'
-#,1
-#subset_geographies = set(cfg.geo.gau_to_geography[id] for id in cfg.primary_subset_id)
-#current_geography = util.ensure_iterable_and_not_string(current_geography)
-#converted_geography = util.ensure_iterable_and_not_string(converted_geography)
-#union_geo = list(set(current_geography) | set(converted_geography) | subset_geographies)
-#level_to_remove = list(subset_geographies - set(current_geography) - set(converted_geography))
-#map_key = cfg.cfgfile.get('case', 'default_geography_map_key')
-#
-#self.map_df(current_geography, converted_geography, normalize_as='total')
-#self.map_df(current_geography, converted_geography, normalize_as='intensity')
-
-
-#shapes = shape.Shapes()
-#shapes.create_empty_shapes()
-#shapes.initiate_active_shapes()
-
-#self = shapes.data[8]
-#self.process_shape(shapes.active_dates_index, shapes.time_slice_elements)
-
-#self = shapes.data[1]
-#self.process_shape(shapes.active_dates_index, shapes.time_slice_elements)
-#
-#hydro = shapes.data[7]
-#hydro.process_shape(shapes.active_dates_index, shapes.time_slice_elements)
-
+    clear_results = True)
 

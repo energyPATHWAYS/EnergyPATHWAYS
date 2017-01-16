@@ -62,7 +62,6 @@ target/
 .idea/
 
 # Database
-/us_model_example/pathways.db
 /.idea/misc.xml
 /.idea/vcs.xml
 /.idea/modules.xml
@@ -72,37 +71,21 @@ target/
 /.gitignore
 
 # Cache
-/us_model_example/*.p
-/california_model_example/
-/new_york_model_example/*.p
-/washington_model_example/*.p
+*.p
 
 # Results
-/us_model_example/dispatch_outputs
-/us_model_example/combined_outputs/
-/us_model_example/demand_outputs/
-/us_model_example/supply_outputs/
-/us_model_example/outputs/
-/california_model_example/combined_outputs/
-/california_model_example/demand_outputs/
-/california_model_example/supply_outputs/
-/new_york_model_example/dispatch_outputs
-/new_york_model_example/combined_outputs/
-/new_york_model_example/demand_outputs/
-/new_york_model_example/supply_outputs/
-/washington_model_example/dispatch_outputs
-/washington_model_example/combined_outputs/
-/washington_model_example/demand_outputs/
-/washington_model_example/supply_outputs/
+**/dispatch_outputs/
+**/combined_outputs/
+**/demand_outputs/
+**/supply_outputs/
+**/logs/
 
 /model building tools/create geography tables/inputs/*.csv
 /model building tools/create geography tables/outputs/*.csv
 /model building tools/create map keys from drivers/outputs/*.csv
 /model building tools/create map keys from drivers/*.log
-
 /model building tools/aggregate results/inputs/*
 /model building tools/aggregate results/outputs/*
 
 # profiler
-/us_model_example/*.profile
-/us_model_example/*.log
+/model runs/*.profile

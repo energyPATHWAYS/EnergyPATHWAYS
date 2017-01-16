@@ -320,7 +320,6 @@ class Sector(object):
         self.electricity_reconciliation = None
         self.workingdir = cfg.workingdir
         self.cfgfile_name = cfg.cfgfile_name
-        self.pint_definitions_file = cfg.pint_definitions_file
         self.log_name = cfg.log_name
 
     def add_subsectors(self):
@@ -494,7 +493,6 @@ class Subsector(DataMapFunctions):
         self.drivers = drivers
         self.workingdir = cfg.workingdir
         self.cfgfile_name = cfg.cfgfile_name
-        self.pint_definitions_file = cfg.pint_definitions_file
         self.log_name = cfg.log_name
         # boolean check on data availability to determine calculation steps
         self.has_stock = stock
