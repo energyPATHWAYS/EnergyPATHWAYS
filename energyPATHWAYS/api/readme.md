@@ -55,7 +55,7 @@ This script takes an existing energyPATHWAYS database and performs the necessary
  
  You will be prompted for a password for an initial administrative user (with username "admin").
  
- The most notable edit made by the migration is to change the DemandCases->DemandCasesData and SupplyCases->SupplyCasesData relationships to be many-to-many rather than one-to-many to allow the *Data rows (which the API refers to as "package groups") to be reused across different cases/scenarios. Several schemas and tables are also added to store users, status information about individual model runs, and outputs. Note that the migration will gather its database access information from your production configuration (`config.py`) so you must set that up before running `migrate.py`.
+ The most notable edit made by the migration is to change the DemandCases->DemandStates and SupplyCases->SupplyStates relationships to be many-to-many rather than one-to-many to allow the *Data rows (which the API refers to as "package groups") to be reused across different cases/scenarios. Several schemas and tables are also added to store users, status information about individual model runs, and outputs. Note that the migration will gather its database access information from your production configuration (`config.py`) so you must set that up before running `migrate.py`.
 
 
 # models.py

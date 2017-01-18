@@ -2689,20 +2689,20 @@ class Node(DataMapFunctions):
             
     def filter_packages(self, case_id):
         """filters packages by case"""
-        col_names = util.sql_read_headers('SupplyCasesData')
+        col_names = util.sql_read_headers('SupplyStates')
 
         query = """
-                    SELECT "SupplyCasesData".*
-                    FROM "SupplyCasesData"
-                    JOIN "SupplyCasesSupplyCasesData"
-                      ON "SupplyCasesSupplyCasesData".supply_case_data_id = "SupplyCasesData".id
-                    WHERE "SupplyCasesData".supply_node_id = %s
-                      AND "SupplyCasesSupplyCasesData".supply_case_id = %s
+                    SELECT "SupplyStates".*
+                    FROM "SupplyStates"
+                    JOIN "SupplyCasesData"
+                      ON "SupplyCasesData".supply_state_id = "SupplyStates".id
+                    WHERE "SupplyStates".supply_node_id = %s
+                      AND "SupplyCasesData".supply_case_id = %s
                 """
 
         cfg.cur.execute(query, (self.id, case_id))
         assert cfg.cur.rowcount <= 1,\
-            "More than one SupplyCasesData row found for supply node %i, case %i." % (self.id, case_id)
+            "More than one SupplyStates row found for supply node %i, case %i." % (self.id, case_id)
         result = cfg.cur.fetchone()
 
         logging.info("    Loading packages for node " + str(self.name))

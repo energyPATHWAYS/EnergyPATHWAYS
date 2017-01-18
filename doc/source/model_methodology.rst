@@ -1,5 +1,5 @@
 ====================
-Methodology overview
+Model Methodology
 ====================
 
 Calculating Cost and Emissions for an Example System

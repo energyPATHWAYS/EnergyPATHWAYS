@@ -30,25 +30,25 @@ with app.app_context():
     models.db.engine.execute(schema.DDL('ALTER TABLE "Scenarios" ADD COLUMN user_id INTEGER REFERENCES %s.users (id)' %
                                         (models.GLOBAL_SCHEMA,)))
 
-    # Add join tables for DemandCases/DemandCasesData and SupplyCases/SupplyCasesData
+    # Add join tables for DemandCases/DemandStates and SupplyCases/SupplyStates
     models.demand_case_demand_case_data.create(bind=models.db.engine)
     models.supply_case_supply_case_data.create(bind=models.db.engine)
 
     # Move fks from original tables to join tables
-    models.db.engine.execute('INSERT INTO "DemandCasesDemandCasesData" (demand_case_id, demand_case_data_id)'
-                             'SELECT parent_id, id FROM "DemandCasesData"')
-    models.db.engine.execute('INSERT INTO "SupplyCasesSupplyCasesData" (supply_case_id, supply_case_data_id)'
-                             'SELECT parent_id, id FROM "SupplyCasesData"')
+    models.db.engine.execute('INSERT INTO "DemandCasesData" (demand_case_id, demand_state_id)'
+                             'SELECT parent_id, id FROM "DemandStates"')
+    models.db.engine.execute('INSERT INTO "SupplyCasesData" (supply_case_id, supply_state_id)'
+                             'SELECT parent_id, id FROM "SupplyStates"')
 
     # Remove original fk columns from case data tables
-    models.db.engine.execute(schema.DDL('ALTER TABLE "DemandCasesData" DROP COLUMN parent_id'))
-    models.db.engine.execute(schema.DDL('ALTER TABLE "SupplyCasesData" DROP COLUMN parent_id'))
+    models.db.engine.execute(schema.DDL('ALTER TABLE "DemandStates" DROP COLUMN parent_id'))
+    models.db.engine.execute(schema.DDL('ALTER TABLE "SupplyStates" DROP COLUMN parent_id'))
 
     # Add description columns to case data tables
-    models.db.engine.execute(schema.DDL('ALTER TABLE "DemandCasesData" ADD COLUMN description TEXT'))
-    models.db.engine.execute(schema.DDL('ALTER TABLE "SupplyCasesData" ADD COLUMN description TEXT'))
-    models.db.engine.execute('UPDATE "DemandCasesData" SET description = \'DemandCasesData description \' || id')
-    models.db.engine.execute('UPDATE "SupplyCasesData" SET description = \'SupplyCasesData description \' || id')
+    models.db.engine.execute(schema.DDL('ALTER TABLE "DemandStates" ADD COLUMN description TEXT'))
+    models.db.engine.execute(schema.DDL('ALTER TABLE "SupplyStates" ADD COLUMN description TEXT'))
+    models.db.engine.execute('UPDATE "DemandStates" SET description = \'DemandStates description \' || id')
+    models.db.engine.execute('UPDATE "SupplyStates" SET description = \'SupplyStates description \' || id')
 
     # Add schema for run info
     models.db.engine.execute(schema.DDL('CREATE SCHEMA IF NOT EXISTS ' + models.RUN_SCHEMA))

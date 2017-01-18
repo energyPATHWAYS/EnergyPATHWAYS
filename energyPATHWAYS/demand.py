@@ -630,22 +630,22 @@ class Subsector(DataMapFunctions):
 
     def filter_packages(self, case_id):
         """filters packages by case"""
-        col_names = util.sql_read_headers('DemandCasesData')
+        col_names = util.sql_read_headers('DemandStates')
 
         query = """
-                    SELECT "DemandCasesData".*
-                    FROM "DemandCasesData"
-                    JOIN "DemandCasesDemandCasesData"
-                      ON "DemandCasesDemandCasesData".demand_case_data_id = "DemandCasesData".id
-                    WHERE "DemandCasesData".subsector_id = %s
-                      AND "DemandCasesDemandCasesData".demand_case_id = %s
+                    SELECT "DemandStates".*
+                    FROM "DemandStates"
+                    JOIN "DemandCasesData"
+                      ON "DemandCasesData".demand_state_id = "DemandStates".id
+                    WHERE "DemandStates".subsector_id = %s
+                      AND "DemandCasesData".demand_case_id = %s
                 """
 
         cfg.cur.execute(query, (self.id, case_id))
         if cfg.cur.rowcount > 1:
             pdb.set_trace()
         assert cfg.cur.rowcount <= 1,\
-            "More than one DemandCasesData row found for subsector %i, case %i." % (self.id, case_id)
+            "More than one DemandStates row found for subsector %i, case %i." % (self.id, case_id)
         result = cfg.cur.fetchone()
         logging.info("    Loading packages for " + str(self.name))
         for idx, col_name in enumerate(col_names):

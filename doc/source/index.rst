@@ -13,8 +13,10 @@ Contents:
 
    introduction
    setup
-   methodology_overview
+   model_methodology
+   user_guide
    outputs
+   database_schema
 
 ..
    Indices and tables

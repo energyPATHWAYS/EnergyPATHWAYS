@@ -58,7 +58,7 @@ class SupplyNode(db.Model):
 
 
 class DemandCaseData(db.Model):
-    __tablename__ = 'DemandCasesData'
+    __tablename__ = 'DemandStates'
     id = db.Column(db.Integer, primary_key=True)
     subsector_id = db.Column(db.ForeignKey(DemandSubsector.id))
     description = db.Column(db.Text)
@@ -68,7 +68,7 @@ class DemandCaseData(db.Model):
 
 
 class SupplyCaseData(db.Model):
-    __tablename__ = 'SupplyCasesData'
+    __tablename__ = 'SupplyStates'
     id = db.Column(db.Integer, primary_key=True)
     supply_node_id = db.Column(db.ForeignKey(SupplyNode.id))
     description = db.Column(db.Text)
@@ -95,20 +95,20 @@ class SupplyCase(db.Model):
 
 # Join table for many-to-many relationship
 demand_case_demand_case_data = db.Table(
-    'DemandCasesDemandCasesData',
+    'DemandCasesData',
     db.Model.metadata,
     db.Column('demand_case_id', db.ForeignKey(DemandCase.id)),
-    db.Column('demand_case_data_id', db.ForeignKey(DemandCaseData.id)),
-    db.PrimaryKeyConstraint('demand_case_id', 'demand_case_data_id')
+    db.Column('demand_state_id', db.ForeignKey(DemandCaseData.id)),
+    db.PrimaryKeyConstraint('demand_case_id', 'demand_state_id')
 )
 
 # Join table for many-to-many relationship
 supply_case_supply_case_data = db.Table(
-    'SupplyCasesSupplyCasesData',
+    'SupplyCasesData',
     db.Model.metadata,
     db.Column('supply_case_id', db.ForeignKey(SupplyCase.id)),
-    db.Column('supply_case_data_id', db.ForeignKey(SupplyCaseData.id)),
-    db.PrimaryKeyConstraint('supply_case_id', 'supply_case_data_id')
+    db.Column('supply_state_id', db.ForeignKey(SupplyCaseData.id)),
+    db.PrimaryKeyConstraint('supply_case_id', 'supply_state_id')
 )
 
 
