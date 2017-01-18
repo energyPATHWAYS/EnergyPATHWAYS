@@ -62,16 +62,15 @@ EnergyPATHWAYS is now installed!
 .. Note::
    Setuptools will attempt to install any required packages that are not in your environment when you run ``setup.py``. However, we have found that this method does not reliably install all dependencies on all platforms. For example, users have encountered difficulty installing NumPy and SciPy on macOS this way. This is why we recommend using Anaconda to set up the environment before installing EnergyPATHWAYS, as described under `Packages`_, above.
 
-In addition to installation of the EnergyPATHWAYS package, a model cannot be created until a set of data is supplied. The input data contain three components:
+In addition to installation of the EnergyPATHWAYS package, a model cannot be created until a set of data is supplied. The input data contain two components:
 
 - A database describing your energy system (see below)
-- Configuration file (e.g. EnergyPATHWAYS/us\_model\_example/configurations.INI)
-- Custom unit definitions (e.g. EnergyPATHWAYS/us\_model\_example/unit_defs.txt)
+- Configuration file (e.g. EnergyPATHWAYS/model runs/us\_model\_example/config.INI)
 
 Database Setup
 ==============
 
-Pathways currently requires access to an energy system database in a particular format, stored in `PostgreSQL`_. (As noted in ``environment.yml``, the psycopg2 package is therefore also required so that python can connect to PostgreSQL.) Future versions of EnergyPATHWAYS may support a wider variety of databases and/or input formats. If you are unfamiliar with PostgreSQL, we recommend installing it in the following ways:
+Pathways currently requires access to an energy system database in a particular format, stored in `PostgreSQL`_. (As noted in ``setup.py``, the psycopg2 package is therefore also required so that python can connect to PostgreSQL.) Future versions of EnergyPATHWAYS may support a wider variety of databases and/or input formats. If you are unfamiliar with PostgreSQL, we recommend installing it in the following ways:
 
 .. _PostgreSQL: http://www.postgresql.org/
 
@@ -84,7 +83,7 @@ Pathways currently requires access to an energy system database in a particular 
 
 As of this writing, EnergyPATHWAYS is being developed and tested against PostgreSQL 9.5.1, but this is subject to change.
 
-Once you have your PostgreSQL server up and running, we recommend that you place the EnergyPATHWAYS U.S. example model .sql file at ``energyPATHWAYS/us_model_example/pathways_us.sql``. Then, using the command line client, you can issue the following commands from the ``energyPATHWAYS/us_model_example/`` directory. Depending on how your PostgreSQL installation is set up, you may need to provide a username to these commands using the ``-U`` option.
+Once you have your PostgreSQL server up and running, we recommend that you place the EnergyPATHWAYS U.S. example model .sql file at ``us_model_example/pathways_us.sql``. Then, using the command line client, you can issue the following commands from the ``energyPATHWAYS/model runs/us_model_example/`` directory. Depending on how your PostgreSQL installation is set up, you may need to provide a username to these commands using the ``-U`` option.
 
 .. code:: bash
 

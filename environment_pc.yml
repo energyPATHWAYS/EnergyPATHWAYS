@@ -1,0 +1,44 @@
+name: pathways
+channels:
+- !!python/unicode
+  'defaults'
+dependencies:
+- !!python/unicode
+  'mkl=2017.0.1=0'
+- !!python/unicode
+  'numpy=1.11.3=py27_0'
+- !!python/unicode
+  'pip=9.0.1=py27_1'
+- !!python/unicode
+  'python=2.7.13=0'
+- !!python/unicode
+  'scipy=0.18.1=np111py27_1'
+- !!python/unicode
+  'setuptools=27.2.0=py27_1'
+- !!python/unicode
+  'vs2008_runtime=9.00.30729.1=2'
+- !!python/unicode
+  'wheel=0.29.0=py27_0'
+- pip:
+  - appdirs==1.4.0
+  - click==6.7
+  - cycler==0.10.0
+  - datetime==4.1.1
+  - functools32==3.2.3.post2
+  - matplotlib==2.0.0
+  - nose==1.3.7
+  - pandas==0.17.1
+  - pint==0.7.2
+  - ply==3.9
+  - profilehooks==1.9.0
+  - psycopg2==2.6.2
+  - pyomo==5.1.1
+  - pyparsing==2.1.10
+  - python-dateutil==2.6.0
+  - pytz==2016.10
+  - pyutilib==5.4.1
+  - scikit-learn==0.18.1
+  - six==1.10.0
+  - zope.interface==4.3.3
+prefix: !!python/unicode 'C:\Anaconda2\envs\pathways'
+
