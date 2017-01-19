@@ -185,12 +185,16 @@ Assess the impact of hydrogen fuel cell and electric vehicles on costs, energy a
 
 Output files used: ``d_sales, d_stock, d_energy, d_annual_costs, d_levelized_costs, c_costs, c_emissions``
 
+`Link1`_ to Tableau Public workbook
+
+.. _Link1: https://10az.online.tableau.com/t/evolvedenergyresearchenergypathwaysresults/views/LightDutyVehiclesExample/LDVExample?:embed=y&:showShareOptions=true&:display_count=no&:showVizHome=no
+
 The figure below shows how the d_sales file is processed in Tableau to show annual sales of light-duty vehicles by technology and year for the High Nuclear Case. The remaining demand output are filtered in the same way, while the combined output files (i.e., c_costs and c_emissions) show results by final energy type rather than demand technology.
 
+   **d_sales.csv in Tableau**
+   
 .. figure::  images/sales.csv_in_tableau.png
    :align: center
-
-   d_sales.csv in Tableau
 
 Each CSV file is stored on a separate worksheet and then combined onto a single dashboard in Tableau, as shown below. From left to right:
 
@@ -202,28 +206,34 @@ Each CSV file is stored on a separate worksheet and then combined onto a single 
 - c_costs: annualized costs for the entire light-duty vehicle sub-sector shift from expenditures on gasoline to H2 and electricity. Note that the black portion (“N/A”) is equivalent to the levelized cost of demand-side equipment (i.e., vehicles), whereas the remaining levelized costs are related to supply-side. 
 - c_emissions: LDV emissions fall below 100 million metric tons CO2 by 2050, as gasoline consumption decreases and the carbon intensity of electricity generation and hydrogen production falls.
 
+   **LDV Transition, High Nuclear **
+
 .. figure::  images/LDV_transition_high_nuclear_case.png
    :align: center
 
-   LDV Transition, High Nuclear Case
 
-Light-Duty Vehicles Example
----------------------------
+   
+Economy-wide Emissions Example
+------------------------------
 
 Compare U.S. economy-wide, energy-related CO2 emissions between Reference Case and High Nuclear Case across multiple perspectives
 
 Output files used: ``c_emissions``
 
+`Link2`_ to Tableau Public workbook
+
+.. _Link2: https://10az.online.tableau.com/t/evolvedenergyresearchenergypathwaysresults/views/EmissionsExample/Emissions?:embed=y&:showShareOptions=true&:display_count=no&:showVizHome=no
+
 The figure below shows how to calculate annual emissions by scenario and year along three different dimensions: (a) final energy type; (b) end-use sector; and (c) supply node.
+
+   **c_emissions.csv in Tableau**
 
 .. figure::  images/emissions.csv_in_tableau.png
    :align: center
 
-   c_emissions.csv in Tableau
-
 The summary of emissions results is shown below.
+
+   **Energy-related CO2 emissions, Reference and Nuclear Cases**
 
 .. figure::  images/energy-related_CO2_emissions.png
    :align: center
-   
-   Energy-related CO2 emissions, Reference and Nuclear Cases

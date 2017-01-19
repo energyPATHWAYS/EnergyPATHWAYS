@@ -100,8 +100,12 @@ You will then need to edit the database connection parameters at the top of ``en
 Running the Model
 =================
 
-After installing EnergyPATHWAYS, it can be run from the command line::
+After installing EnergyPATHWAYS, it can be run from the command line:
 
     $ energyPATHWAYS [options]
 
 It is necessary to point EnergyPATHWAYS to a configuration file in the run directory. This file, along with general model setup, points the model the the correct database. An example (config.INI) is found in the ``us_model_example`` folder.
+
+To start the model running on scenario id one, for instance, use the following command:
+
+    $ energyPATHWAYS -s 1

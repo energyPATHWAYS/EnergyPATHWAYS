@@ -2,12 +2,17 @@
 Model Methodology
 ====================
 
-Calculating Cost and Emissions for an Example System
-====================================================
+Methodology overview
+====================
 
 This section walks through a simple case from beginning to end to illustrate how EnergyPATWHAYS determines costs, emissions and energy for an energy system. Links are given to the sections addressing each concept in more detail.
 
 In the figure below, the top left graph shows the demand drivers population and vehicle miles traveled (VMT) per capita across a long stretch of years. The base demand driver here would likely be population since it is common to find exogenous population projections across many geographies. With a long-term forecast for population and historical data on VMTs, VMTs per capita are projected for future years to create the second driver.
+
+   **Demand Side Light Duty Auto Example**
+
+.. figure::  images/model_flow_demand.png
+   :align: center
 
 Following the arrow and multiplying population by VMT per capita gives us our total service demand for the vehicles, which is our first intermediate output. Often this type of assumption, which is clearly critical for eventually projecting energy use for our subsector, is not explicitly calculated or not typically presented, hampering comparisons between carbon emissions trajectories.
 
@@ -23,17 +28,95 @@ When we have energy demand, we are ready to move to the supply side [#price_resp
 
 Electricity dispatch happens in a separate supply step, not explicitly shown, that both calculates how much fuel of different types is used and also whether additional capacity is needed for reliability. Knowing the emissions coefficients from electricity and how much gasoline is combusted on the demand side, we are able to calculate total emissions for this example, shown in the bottom middle. Finally, costs from the supply side are allocated among energy types and within demand sectors and become additive with fixed costs on the demand side. Note that the gasoline and electricity costs will include the capital equipment costs in addition to all operational costs allocated using the input-output supply framework.
 
-.. figure::  images/model_flow.png
+   **Supply Side Light Duty Auto Example**
+ 
+.. figure::  images/model_flow_supply.png
    :align: center
-
-   Model flow
-
-.. figure::  images/emissions_calculation_flow.png
-   :align: center
-
-   Emissions calculation flow chart
 
 .. rubric:: Footnotes
 
 .. [#price_response] Note that when the demand side is finished calculating, we have both energy demand and technology stocks (and therefore capital cost) for every modeled year before the supply side even starts calculating. Thus, even structurally, price responsiveness within demand sectors isn’t possible, both in terms of demand elasticity and technology adoption choices. This was an explicit choice on the part of the model designers discussed further in the section on exploration versus optimization. Demand elasticity, on the other hand, is highly uncertain and in most cases only has second order impacts. We feel it is better to deal with these as explicit adjustments to service demand, which is possible through the use of service demand packages.
 
+Demand Methodology
+==================
+In the methodology overview section we frequently reference subsectors, which are the basic organizing units on the demand side.
+
+Demand drivers
+--------------
+Demand driver are the natural place to start a discussion of the demand side because they are both simple in concept and form the basis for forecasting future energy demand.
+
+Subsector types
+---------------
+
+- **Stock and Energy**
+- **Stock and Service**
+- **Service and Energy**
+- **Service and Efficiency**
+- **Energy**
+
+Linking subsectors
+------------------
+
+Supply Methodology
+==================
+
+Calculation Steps
+-----------------
+
+Input-output calculations
+-------------------------
+
+Inputs reconciliation
+---------------------
+
+Electricity dispatch
+--------------------
+
+The electricity dispatch is used to update coefficients in the input output matrix that solves for embodied energy, emissions, & costs. These coefficients tell us, for example, how much gas is burned per unit of electricity consumed. As we change the mix of resources on our system (add renewables, storage, nuclear, CCS, add a carbon price, etc.) we impact the electricity dispatch, which gets reflected appropriately in the input output matrix.
+
+The other way that the electricity dispatch interacts with the rest of the model is in determining the need for new capacity to meet electricity reliability. We have a stock rollover that controls the mix of the fleet based on plant vintage and technology lifetime. If our electricity system has insufficient capacity, this signal is sent to the stock rollover where additional capacity is built. The same goes for transmission and distribution capacity.
+
+Types of Nodes
+--------------
+
+- **Blend:** Blend nodes control the relative throughput of supply-nodes to other supply-nodes. They are non-physical nodes -- i.e. you can’t go and look at a blend node. Our Pipeline Gas Blend node, for example, controls the share of natural gas, biogas, hydrogen, and synthetic methane into  the Gas Transmission Pipeline. 
+- **Conversion:** Conversion nodes convert energy products from one form to another. Gas combined-cycle steam turbines are an example of a conversion node. 
+- **Delivery:** Delivery nodes transfer energy products but don’t change the composition of the product itself. Gas transmission pipeline are an example of a delivery node. 
+- **Product:** Product nodes are used to specify the emissions and costs of energy at a specific point in the IO framework. This is used for products where we can’t or don’t want calculate these values endogenously in the analysis. As an example, we specify the cost and emissions intensity of many refined oil products because calculating these endogenously requires a more sophisticated representation of the petroleum refining sector. 
+- **Primary:** Primary Nodes are the source of primary energy to an energy system. Can be represented as pure accounting nodes (i.e. Solar Primary Energy) or as supply curves with constraints, resource costs, etc. (i.e. Biomass Primary Energy)
+- **Storage:** Storage nodes are nodes that store electric energy. They aren’t demanded as an energy product from the IO framework and so must be specified in terms of power (discharge capacity) and energy (storage energy).  They are used in the electricity dispatch optimization. Examples include distributed and bulk battery storage as well as pumped-hydro storage.
+
+Allocation of Costs and Emissions
+---------------------------------
+
+Creating Cases
+==============
+
+Cases are a combination of packages that change the baseline projected energy system. The base model can be run in the absence of any change case measures and functions like a “straight-line” projection of the energy system moving forward. It can contain some base expected changes, but it doesn’t have any specific packages applied to it. A change case takes the base model and applies packages to it -- for example, a light-duty vehicle electrification package would change the stock composition in light-duty vehicles and thus change the outcomes of the entire energy system.
+
+For a full discussion of creating cases, see the User Guide.
+
+Additional Model Components
+===========================
+
+Stock rollover
+--------------
+
+Projecting data for future years
+--------------------------------
+This simple example using the demand drivers population and number of households illustrates an important concept in EnergyPATHWAYS, which is how demand-side data is projected into future years. This same concept is used the project the future stock size and service demand of different demand subsectors.
+
+Electricity load shapes
+-----------------------
+
+Trading Between Geographies
+---------------------------
+
+Handling data on different geographies
+--------------------------------------
+
+Custom modeling indices
+-----------------------
+
+Financial Calculations
+----------------------
