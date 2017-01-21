@@ -83,7 +83,7 @@ orphan_checker_args = [
     ("SupplyExportMeasures", "id", "SupplyExportMeasurePackagesData", "measure_id"),
     ("SupplySalesMeasures", "id", "SupplySalesMeasurePackagesData", "measure_id"),
     ("SupplySalesShareMeasures", "id", "SupplySalesShareMeasurePackagesData", "measure_id"),
-    ("SupplyStockMeasures", "id", "SupplyStockMeasurePackagesData")
+    ("SupplyStockMeasures", "id", "SupplyStockMeasurePackagesData", "measure_id")
 ]
 
 
