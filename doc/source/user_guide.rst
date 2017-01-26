@@ -55,15 +55,34 @@ This is a user decision as to whether they would like to add an entire new techn
 2. Input efficiency parameters using **DemandTechsMainEfficiency**; **DemandTechsMainEfficiencyData**; **DemandTechsAuxEfficiency**; and **DemandTechsAuxEfficiencyData**; **DemandTechsParasiticEnergy**(Optional); **DemandTechsParasiticEnergyData**; These efficiency inputs can be in almost any unit combination that is consistent with the energy service demand specification. So, for example, if the service demand of light-duty vehicles is in vehicle miles traveled, then the efficiency parameters can be any permutation of distance and energy (ex. Miles/GGE, kilometer/GJ, etc.). **DemandTechsAuxEfficiency** is used for defining technologies that are dual-fuel. For example, plug-in hybrid electric vehicles have an efficiency entry for both the main energy type (electricity) and the auxiliary energy type (gasoline fuels). Parasitic energy is energy associated with the use of equipment unrelated to amount of service demand. So, for example, if there is standby electricity related to a furnace that exists regardless of heating demand, this would be parasitic energy. 
 3. Input cost parameters using **DemandTechsCapitalCosts**; **DemandTechsCapitalCostNewData**; **DemandTechsInstallationCost**; **DemandTechsInstallationCostNewData**; **DemandTechsInstallationCostReplacementData**; **DemandTechsFuelSwitchCost**; **DemandTechsFuelSwitchCostData**; **DemandTechsFixedMaintenanceCost**; **DemandTechsFixedMaintenanceCostData**. These inputs allow a user to flexibly define the cost parameters of both owning, installing, and operating demand-side equipment. Capital costs can be input for both new installation (i.e. a new gas furnace in a home) vs. replacement (replacing a gas furnace with a newer vintage on burnout). Installation costs can be input similarly.   Fuel-switching costs add additional flexibility. This cost is assessed when a technology changes from one energy type to another. For example, when a light-duty vehicle goes from a gasoline vehicle to an electric one, we can input the cost of a new home charger. As another example, when a gas water heater changes to a heat pump, we can include any additional wiring costs in this input. Fixed maintenance costs are associated with the ongoing annual operations of a piece of equipment. Tires and oil changes for light-duty vehicles would be examples of O&M costs.
 
+.. raw:: html
+
+    <div style>
+		<iframe width="560" height="315" src="https://www.youtube.com/embed/XUrZwRJWyw0" frameborder="0" allowfullscreen></iframe>
+    </div>
+	
+
 Changing an underlying driver to alter service demand growth
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This sensitivity is used to explore the impacts of certain underlying macroeconomic assumptions (i.e. population) that may be driving projections of energy service demand (i.e. VMTs) that eventually change projections of energy, costs, and emissions. Many service demand projections have underlying linkages with these macroeconomic factors that make these sensitivities interesting. It is important to understand model structure very intimately to ensure that the relationships a user may anticipate between service demand and macroeconomic drivers are being utilized in the database.
 
+.. raw:: html
+
+    <div style>
+		<iframe width="560" height="315" src="https://www.youtube.com/embed/hzHJ_ScjLzU" frameborder="0" allowfullscreen></iframe>
+    </div>
+
 Changing a projection of service demand
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 While it may be interesting for a user to see the impact of macroeconomic projections, many times it is better to directly change a projection of energy service demand. For example, if we are interested in the effect of VMTs on emissions, it’s likely better to change the VMT projection itself than to change population projections. There are a few ways to change projections of service demand.  The best way to accomplish this is to implement a service demand measure using the **DemandServiceDemandMeasures** and **DemandServiceDemandMeasuresData** table. A service demand measure can be used to alter a trajectory of service demand in any subsector. For example, if we wanted to reduce our VMT by 10% by 2030, we could input a measure that grows the service demand impact from 0% in 2016 to 10% in 2030.
+
+.. raw:: html
+
+    <div style>
+		<iframe width="560" height="315" src="https://www.youtube.com/embed/CqMA4BWGJOQ" frameborder="0" allowfullscreen></iframe>
+    </div>
 
 Changing demand technology deployment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
