@@ -119,7 +119,7 @@ def initialize_config(_path, _cfgfile_name, _log_name):
     init_output_parameters()
     
     scenario_dict = dict(util.sql_read_table('Scenarios',['id', 'name'], return_iterable=True))
-    available_cpus = min(cpu_count(), int(cfgfile.get('case','num_cores')))
+    available_cpus = int(cfgfile.get('case','num_cores'))
     weibul_coeff_of_var = util.create_weibul_coefficient_of_variation()
 
 def setuplogging():
