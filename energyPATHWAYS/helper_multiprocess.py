@@ -6,6 +6,7 @@ Created on Fri Jul 29 10:12:07 2016
 """
 
 import config as cfg
+from multiprocessing import Pool
 from pyomo.opt import SolverFactory
 #import util
 #import numpy as np
@@ -59,3 +60,16 @@ def run_optimization(params, return_model_instance=False):
     solution = solver.solve(instance)
     instance.solutions.load_from(solution)
     return instance if return_model_instance else dispatch_classes.all_results_to_list(instance)
+
+# Applies method to data using parallel processes and returns the result, but closes the main process's database
+# connection first, since otherwise the connection winds up in an unusable state on macOS.
+def safe_pool(method, data):
+    cfg.cur.close()
+
+    pool = Pool(processes=cfg.available_cpus)
+    result = pool.map(method, data)
+    pool.close()
+    pool.join()
+
+    cfg.init_db()
+    return result

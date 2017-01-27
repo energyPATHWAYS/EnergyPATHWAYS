@@ -163,10 +163,7 @@ class Supply(object):
     def calculate_nodes(self):
         """Performs an initial calculation for all import, conversion, delivery, and storage nodes"""
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-            pool = Pool(processes=cfg.available_cpus)
-            nodes = pool.map(helper_multiprocess.node_calculate, self.nodes.values())
-            pool.close()
-            pool.join()
+            nodes = helper_multiprocess.safe_pool(helper_multiprocess.node_calculate, self.nodes.values())
             self.nodes = dict(zip(self.nodes.keys(), nodes))
         else:
             for node in self.nodes.values():
@@ -1128,11 +1125,7 @@ class Supply(object):
                                     [year in self.dispatch_write_years]*len(cfg.dispatch_geographies)))
 
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-            available_cpus = min(cpu_count(), int(cfg.cfgfile.get('case','num_cores')), len(cfg.dispatch_geographies))
-            pool = Pool(processes=available_cpus)
-            dispatch_results = pool.map(dispatch_classes.run_thermal_dispatch, parallel_params)
-            pool.close()
-            pool.join()
+            dispatch_results = helper_multiprocess.safe_pool(dispatch_classes.run_thermal_dispatch, parallel_params)
         else:
             dispatch_results = []
             for params in parallel_params:

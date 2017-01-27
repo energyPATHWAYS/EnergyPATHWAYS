@@ -10,6 +10,7 @@ import signal
 import click
 import os
 import cPickle as pickle
+import psycopg2
 import energyPATHWAYS.config as cfg
 import energyPATHWAYS.util as util
 from energyPATHWAYS.pathways_model import PathwaysModel
@@ -44,7 +45,11 @@ def myexcepthook(exctype, value, tb):
     logging.error("Exception caught during model run.", exc_info=(exctype, value, tb))
     # It is possible that we arrived here due to a database exception, and if so the database will be in a state
     # where it is not accepting commands. To be safe, we do a rollback before attempting to write the run status.
-    cfg.con.rollback()
+    try:
+        cfg.con.rollback()
+    except psycopg2.InterfaceError:
+        logging.exception("Unable to rollback database connection while handling an exception, "
+                          "probably because the connection hasn't been opened yet or was already closed.")
     update_api_run_status(4)
     sys.__excepthook__(exctype, value, tb)
 sys.excepthook = myexcepthook
