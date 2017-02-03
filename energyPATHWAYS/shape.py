@@ -16,7 +16,6 @@ import numpy as np
 import cPickle as pickle
 import os
 import logging
-from multiprocessing import Pool
 import helper_multiprocess
 import pdb
 import numpy as np
@@ -91,10 +90,7 @@ class Shapes(object):
         logging.info(' mapping data for:')
         
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-            pool = Pool(processes=cfg.available_cpus)
-            shapes = pool.map(helper_multiprocess.process_shapes, self.data.values())
-            pool.close()
-            pool.join()
+            shapes = helper_multiprocess.safe_pool(helper_multiprocess.process_shapes, self.data.values())
             self.data = dict(zip(self.data.keys(), shapes))
         else:
             for id in self.active_shape_ids:

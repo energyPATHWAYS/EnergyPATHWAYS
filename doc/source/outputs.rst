@@ -16,28 +16,28 @@ General Terminology
 
 In addition to indices specific to each file, the following includes a list and description of common indices:
 
-Primary Geography (Ex. Census division for U.S. model run)
+**Primary Geography** (Ex. Census division for U.S. model run)
   Census division is  consistent with the EIA’s National Energy Modeling System (NEMS). Map available here: https://www2.census.gov/geo/pdfs/maps-data/maps/reference/us_regdiv.pdf
 
-Sector
+**Sector**
   Demand sectors that include residential, commercial, transportation, and productive (industrial and agricultural sectors excluding those that are part of the energy supply chain, Ex. refining)
 
-Subsector
+**Subsector**
   More detailed units of demand analysis. Associated with unique energy service demands. Ex. residential water heating.
 
-Supply node
+**Supply node**
   Upstream energy supply sectors associated with the production, conversion, delivery, or storage of energy.
 
-Final Energy
+**Final Energy**
   An energy type consumed to satisfy energy service demand. Differentiated from upstream energy use that is consumed to produce final energy.
 
-Scenario
+**Scenario**
   Scenario name (Mixed, High CCS, etc.)
 
-Year
+**Year**
   Corresponding year of outputs.
   
-Timestamp
+**Timestamp**
   Time of scenario run
 
 Demand-Side Outputs
@@ -176,18 +176,12 @@ Tableau Examples
 ================
 Many of the raw model output files are large (i.e., exceeding 1 GB), making them difficult to view and manipulate in a program such as Excel. Tableau or similar software provides easy data visualization and extraction of relevant data. To demonstrate how to process the raw outputs and understand the results, we provide instructions on how to develop standard results using Tableau. The examples below are not exhaustive and instead illustrate some of the model’s capabilities.
 
-Both examples reference tableau packaged workbooks found in the EnergyPATHWAYS github repository under ``energyPATHWAYS\model building tools\tableau examples``
-
 Light-Duty Vehicles Example
 ---------------------------
 
 Assess the impact of hydrogen fuel cell and electric vehicles on costs, energy and emissions (note: outputs are from the High Nuclear Case)
 
 Output files used: ``d_sales, d_stock, d_energy, d_annual_costs, d_levelized_costs, c_costs, c_emissions``
-
-`Link1`_ to Tableau Public workbook
-
-.. _Link1: https://10az.online.tableau.com/t/evolvedenergyresearchenergypathwaysresults/views/LightDutyVehiclesExample/LDVExample?:embed=y&:showShareOptions=true&:display_count=no&:showVizHome=no
 
 The figure below shows how the d_sales file is processed in Tableau to show annual sales of light-duty vehicles by technology and year for the High Nuclear Case. The remaining demand output are filtered in the same way, while the combined output files (i.e., c_costs and c_emissions) show results by final energy type rather than demand technology.
 
@@ -198,20 +192,23 @@ The figure below shows how the d_sales file is processed in Tableau to show annu
 
 Each CSV file is stored on a separate worksheet and then combined onto a single dashboard in Tableau, as shown below. From left to right:
 
-- d_sales: sales of hydrogen fuel cell and electric vehicles increase over time
-- d_stock: total LDV stock composition takes time to reflect vehicle sales
-- d_energy: final energy demand substantially decreases; gasoline is eliminated, while H2 and electricity constitute all demand by 2050
-- d_annual_costs: annual spending on new LDVs peaks in 2035
-- d_levelized_costs: annualized cost of vehicles increases by 60% between 2015 and 2050
-- c_costs: annualized costs for the entire light-duty vehicle sub-sector shift from expenditures on gasoline to H2 and electricity. Note that the black portion (“N/A”) is equivalent to the levelized cost of demand-side equipment (i.e., vehicles), whereas the remaining levelized costs are related to supply-side. 
-- c_emissions: LDV emissions fall below 100 million metric tons CO2 by 2050, as gasoline consumption decreases and the carbon intensity of electricity generation and hydrogen production falls.
+- **d_sales:** sales of hydrogen fuel cell and electric vehicles increase over time
+- **d_stock:** total LDV stock composition takes time to reflect vehicle sales
+- **d_energy:** final energy demand substantially decreases; gasoline is eliminated, while H2 and electricity constitute all demand by 2050
+- **d_annual_costs:** annual spending on new LDVs peaks in 2035
+- **d_levelized_costs:** annualized cost of vehicles increases by 60% between 2015 and 2050
+- **c_costs:** annualized costs for the entire light-duty vehicle sub-sector shift from expenditures on gasoline to H2 and electricity. Note that the black portion (“N/A”) is equivalent to the levelized cost of demand-side equipment (i.e., vehicles), whereas the remaining levelized costs are related to supply-side. 
+- **c_emissions:** LDV emissions fall below 100 million metric tons CO2 by 2050, as gasoline consumption decreases and the carbon intensity of electricity generation and hydrogen production falls.
 
-   **LDV Transition, High Nuclear **
+.. raw:: html
 
-.. figure::  images/LDV_transition_high_nuclear_case.png
-   :align: center
+    <div style>
+		<script type='text/javascript' src='https://10az.online.tableau.com/javascripts/api/viz_v1.js'></script><div class='tableauPlaceholder' style='width: 2404px; height: 636px;'><object class='tableauViz' width='2404' height='636' style='display:none;'><param name='host_url' value='https%3A%2F%2F10az.online.tableau.com%2F' /> <param name='site_root' value='&#47;t&#47;evolvedenergyresearchenergypathwaysresults' /><param name='name' value='LightDutyVehiclesExample&#47;LDVExample' /><param name='tabs' value='no' /><param name='toolbar' value='yes' /><param name='showShareOptions' value='true' /><param name='display_count' value='no' /></object></div>
+    </div>
 
+`Light-Duty Vehicles Example`_ in Tableau Public workbook
 
+.. _Light-Duty Vehicles Example: https://10az.online.tableau.com/t/evolvedenergyresearchenergypathwaysresults/views/LightDutyVehiclesExample/LDVExample?:embed=y&:showShareOptions=true&:display_count=no&:showVizHome=no
    
 Economy-wide Emissions Example
 ------------------------------
@@ -219,10 +216,6 @@ Economy-wide Emissions Example
 Compare U.S. economy-wide, energy-related CO2 emissions between Reference Case and High Nuclear Case across multiple perspectives
 
 Output files used: ``c_emissions``
-
-`Link2`_ to Tableau Public workbook
-
-.. _Link2: https://10az.online.tableau.com/t/evolvedenergyresearchenergypathwaysresults/views/EmissionsExample/Emissions?:embed=y&:showShareOptions=true&:display_count=no&:showVizHome=no
 
 The figure below shows how to calculate annual emissions by scenario and year along three different dimensions: (a) final energy type; (b) end-use sector; and (c) supply node.
 
@@ -233,7 +226,12 @@ The figure below shows how to calculate annual emissions by scenario and year al
 
 The summary of emissions results is shown below.
 
-   **Energy-related CO2 emissions, Reference and Nuclear Cases**
+.. raw:: html
 
-.. figure::  images/energy-related_CO2_emissions.png
-   :align: center
+    <div style>
+		<script type='text/javascript' src='https://10az.online.tableau.com/javascripts/api/viz_v1.js'></script><div class='tableauPlaceholder' style='width: 1004px; height: 1236px;'><object class='tableauViz' width='1004' height='1236' style='display:none;'><param name='host_url' value='https%3A%2F%2F10az.online.tableau.com%2F' /> <param name='site_root' value='&#47;t&#47;evolvedenergyresearchenergypathwaysresults' /><param name='name' value='EmissionsExample&#47;Emissions' /><param name='tabs' value='no' /><param name='toolbar' value='yes' /><param name='showShareOptions' value='true' /><param name='display_count' value='no' /></object></div>
+    </div>
+
+`Energy-related CO2 emissions, Reference and Nuclear Cases`_ in Tableau Public workbook
+
+.. _Energy-related CO2 emissions, Reference and Nuclear Cases: https://10az.online.tableau.com/t/evolvedenergyresearchenergypathwaysresults/views/EmissionsExample/Emissions?:embed=y&:showShareOptions=true&:display_count=no&:showVizHome=no

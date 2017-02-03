@@ -19,7 +19,6 @@ import logging
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 from energyPATHWAYS.outputs import Output
-from multiprocessing import Pool
 import dispatch_formulation
 import pdb
 import shape
@@ -910,10 +909,7 @@ class Dispatch(object):
         try:
             if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
                 params = [(dispatch_formulation.create_dispatch_model(self, period), self.solver_name) for period in self.periods]
-                pool = Pool(processes=cfg.available_cpus)
-                results = pool.map(helper_multiprocess.run_optimization, params)
-                pool.close()
-                pool.join()
+                results = helper_multiprocess.safe_pool(helper_multiprocess.run_optimization, params)
             else:
                 results = [self.solve_optimization_period(period) for period in self.periods]
             self.storage_df, self.flex_load_df = self.parse_optimization_results(results)

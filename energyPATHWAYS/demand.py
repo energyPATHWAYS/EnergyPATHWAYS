@@ -18,7 +18,6 @@ from util import DfOper
 from outputs import Output
 import dispatch_classes
 import energyPATHWAYS.helper_multiprocess as helper_multiprocess
-from multiprocessing import Pool, cpu_count
 import pdb
 import logging
 import time
@@ -46,10 +45,7 @@ class Demand(object):
         for sector in self.sectors.values():
             logging.info('  '+sector.name+' sector')
             if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-                pool = Pool(processes=cpu_count())
-                subsectors = pool.map(helper_multiprocess.subsector_populate, sector.subsectors.values())
-                pool.close()
-                pool.join()
+                subsectors = helper_multiprocess.safe_pool(helper_multiprocess.subsector_populate, sector.subsectors.values())
                 sector.subsectors = dict(zip(sector.subsectors.keys(), subsectors))
             else:
                 for subsector in sector.subsectors.values():
@@ -364,10 +360,7 @@ class Sector(object):
         self.calculate_links(self.subsectors.keys(), precursors)
         
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-            pool = Pool(processes=cfg.available_cpus)
-            subsectors = pool.map(helper_multiprocess.subsector_calculate, self.subsectors.values())
-            pool.close()
-            pool.join()
+            subsectors = helper_multiprocess.safe_pool(helper_multiprocess.subsector_calculate, self.subsectors.values())
             self.subsectors = dict(zip(self.subsectors.keys(), subsectors))
         else:
             for subsector in self.subsectors.values():
