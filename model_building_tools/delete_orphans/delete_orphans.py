@@ -54,12 +54,15 @@ class OrphanChecker:
         return "DELETE   " + self._query_tail()
 
 
-# Note that the order of this list matters; we need to delete Cases, then Packages, then Measures, otherwise we
-# might miss orphans that we create during the process.
+# Note that the order of this list matters; we need to delete Cases, then States, then Packages, then Measures,
+# otherwise we might miss orphans that we create during the process.
 orphan_checker_args = [
     # Cases
     ("DemandCases", "id", "Scenarios", "demand_case"),
     ("SupplyCases", "id", "Scenarios", "supply_case"),
+    # States
+    ("DemandStates", "id", "DemandCasesData", "demand_state_id"),
+    ("SupplyStates", "id", "SupplyCasesData", "supply_state_id"),
     # Packages
     ("BlendNodeBlendMeasurePackages", "id", "SupplyStates", "blend_package_id"),
     ("DemandFuelSwitchingMeasurePackages", "id", "DemandStates", "fuel_switching_package_id"),
