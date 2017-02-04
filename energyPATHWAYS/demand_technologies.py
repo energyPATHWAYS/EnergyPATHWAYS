@@ -347,12 +347,9 @@ class DemandTechnology(StockItem):
 
         """
         self.capital_cost_new = DemandTechCost(self, 'DemandTechsCapitalCost', 'DemandTechsCapitalCostNewData')
-        self.capital_cost_replacement = DemandTechCost(self, 'DemandTechsCapitalCost',
-                                                       'DemandTechsCapitalCostReplacementData')
-        self.installation_cost_new = DemandTechCost(self, 'DemandTechsInstallationCost',
-                                                    'DemandTechsInstallationCostNewData')
-        self.installation_cost_replacement = DemandTechCost(self, 'DemandTechsInstallationCost',
-                                                            'DemandTechsInstallationCostReplacementData')
+        self.capital_cost_replacement = DemandTechCost(self, 'DemandTechsCapitalCost', 'DemandTechsCapitalCostReplacementData')
+        self.installation_cost_new = DemandTechCost(self, 'DemandTechsInstallationCost', 'DemandTechsInstallationCostNewData')
+        self.installation_cost_replacement = DemandTechCost(self, 'DemandTechsInstallationCost', 'DemandTechsInstallationCostReplacementData')
         self.fuel_switch_cost = DemandTechCost(self, 'DemandTechsFuelSwitchCost', 'DemandTechsFuelSwitchCostData')
         self.fixed_om = DemandTechCost(self, 'DemandTechsFixedMaintenanceCost', 'DemandTechsFixedMaintenanceCostData')
 
@@ -360,8 +357,7 @@ class DemandTechnology(StockItem):
         self.efficiency_aux = DemandTechEfficiency(self, 'DemandTechsAuxEfficiency', 'DemandTechsAuxEfficiencyData')
         if hasattr(self.efficiency_main,'definition') and self.efficiency_main.definition == 'absolute':
             self.efficiency_aux.utility_factor = 1 - self.efficiency_main.utility_factor
-        self.service_demand_modifier = ServiceDemandModifier(self, 'DemandTechsServiceDemandModifier',
-                                                             'DemandTechsServiceDemandModifierData')
+        self.service_demand_modifier = ServiceDemandModifier(self, 'DemandTechsServiceDemandModifier', 'DemandTechsServiceDemandModifierData')
         self.parasitic_energy = ParasiticEnergy(self, 'DemandTechsParasiticEnergy', 'DemandTechsParasiticEnergyData')
         # add service links to service links dictionary
         self.add_service_links()
@@ -383,7 +379,7 @@ class DemandTechnology(StockItem):
         if class_b is None:
             class_a_instance = getattr(self, class_a)
             if class_a_instance.data is False and hasattr(class_a_instance, 'reference_tech_id') is False:
-                logging.debug("demand technology %s has no %s cost data" % (self.id, class_a))
+                logging.warning("demand technology %s has no %s cost data" % (self.id, class_a))
         else:
             class_a_instance = getattr(self, class_a)
             class_b_instance = getattr(self, class_b)
@@ -392,7 +388,7 @@ class DemandTechnology(StockItem):
             elif class_a_instance.data is False and class_b_instance.data is False and \
                             hasattr(class_a_instance, 'reference_tech_id') is False and \
                             hasattr(class_b_instance, 'reference_tech_id') is False:
-                logging.debug("demand technology %s has no input data for %s or %s" % (self.id, class_a, class_b))
+                logging.warning("demand technology %s has no input data for %s or %s" % (self.id, class_a, class_b))
             elif class_a_instance.data is True and class_a_instance.raw_values is not None and (class_b_instance.data is False or (class_b_instance.data is True and class_b_instance.raw_values is None)):
                 setattr(self, class_b, copy.deepcopy(class_a_instance))
             elif (class_a_instance.data is False or (class_a_instance.data is True and class_a_instance.raw_values is None))and class_b_instance.data is True and class_b_instance.raw_values is not None:

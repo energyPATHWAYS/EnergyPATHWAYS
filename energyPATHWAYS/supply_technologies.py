@@ -15,7 +15,7 @@ from shared_classes import StockItem
 from supply_classes import SupplySalesShare, SupplySales, SupplySpecifiedStock
 import pandas as pd
 import shape
-
+import logging
 
 class SupplyTechnology(StockItem):
     def __init__(self, id, cost_of_capital, **kwargs):
@@ -115,7 +115,7 @@ class SupplyTechnology(StockItem):
         if class_b is None:
             class_a_instance = getattr(self, class_a)
             if class_a_instance.data is False and hasattr(class_a_instance, 'reference_tech_id') is False and class_a is 'capital_cost_new':
-                logging.error("Conversion technology %s has no capital cost data" % (self.id))
+                logging.warning("Conversion technology %s has no capital cost data" % (self.id))
                 raise ValueError
         else:
             class_a_instance = getattr(self, class_a)
@@ -140,7 +140,6 @@ class StorageTechnology(SupplyTechnology):
         """
         Adds all conversion technology costs and uses replace_costs function on 
         equivalent costs.
-        
         """
         self.capital_cost_new_capacity = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost', 'StorageTechsCapacityCapitalCostNewData', self.book_life, self.cost_of_capital)
         self.capital_cost_replacement_capacity = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost', 'StorageTechsCapacityCapitalCostReplacementData', self.book_life, self.cost_of_capital)
