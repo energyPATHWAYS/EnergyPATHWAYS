@@ -14,9 +14,18 @@ import time
 from util import DfOper
 import logging
 import pdb
+import re
 
 
 class DataMapFunctions:
+    @staticmethod
+    def _other_indexes_dict():
+        this_method = DataMapFunctions._other_indexes_dict
+        if not hasattr(this_method, 'memoized_result'):
+            other_indexes_data = util.sql_read_table('OtherIndexesData', ('id', 'other_index_id'))
+            this_method.memoized_result = {row[0]: row[1] for row in other_indexes_data}
+        return this_method.memoized_result
+
     def __init__(self, data_id_key='id'):
         # ToDo remove from being an ordered dict, this shouldn't be necessary
         self.data_id_key = data_id_key
@@ -61,6 +70,8 @@ class DataMapFunctions:
         else:
             read_data = util.sql_read_table(self.sql_data_table, return_iterable=True, **dict([(self.data_id_key, self.id)]))
 
+        self._validate_other_indexes(headers, read_data)
+
         data = []
         if read_data:
             for row in read_data:
@@ -78,7 +89,43 @@ class DataMapFunctions:
                 logging.warning(self.raw_values[duplicate_index])
                 self.raw_values = self.raw_values.groupby(level=self.raw_values.index.names).first()
         else:
+            msg = 'No {} found for {} with id {}.'.format(self.sql_data_table, self.sql_id_table, self.id)
+            if re.search("Cost(New|Replacement)?Data$", self.sql_data_table) or \
+                self.sql_data_table in ['DemandTechsAuxEfficiencyData',
+                                        'DemandTechsParasiticEnergyData',
+                                        'DemandTechsServiceDemandModifierData']:
+                # The model can run fine without cost data as well as some kinds of supplementary data about demand
+                # technologies, and this is sometimes useful during model development so we just gently note if cost
+                # data is missing.
+                logging.debug(msg)
+            else:
+                # Any other missing data is potentially fatal so we complain
+                logging.critical(msg)
+
             self.raw_values = None
+
+    def _validate_other_indexes(self, headers, read_data):
+        other_indexes_dict = self._other_indexes_dict()
+        if 'oth_1_id' in headers:
+            oth_1_pos = headers.index('oth_1_id')
+            for row in read_data:
+                if row[oth_1_pos] is None:
+                    if hasattr(self, 'other_index_1_id') and self.other_index_1_id is not None:
+                        logging.critical("{} with id {} has {} that is missing an expected value for oth_1_id".format(
+                            self.sql_id_table, self.id, self.sql_data_table
+                        ))
+                elif (not hasattr(self, 'other_index_1_id')) or self.other_index_1_id is None:
+                    logging.critical("{} for {} id {} has at least one value in oth_1_id but the parent does not "
+                                     "specify an other_index_1_id".format(self.sql_data_table,
+                                                                          self.sql_id_table,
+                                                                          self.id))
+                elif other_indexes_dict[row[oth_1_pos]] != self.other_index_1_id:
+                    logging.critical("{} has an oth_1_id value of {}, which does not belong to {} id {}'s "
+                                     "other_index_1_id, {}".format(self.sql_data_table,
+                                                                   row[oth_1_pos],
+                                                                   self.sql_id_table,
+                                                                   self.id,
+                                                                   self.other_index_1_id))
 
     def clean_timeseries(self, attr='values', inplace=True, time_index_name='year', 
                          time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing'):
