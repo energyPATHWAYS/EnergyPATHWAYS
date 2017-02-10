@@ -100,32 +100,57 @@ class DataMapFunctions:
                 logging.debug(msg)
             else:
                 # Any other missing data is potentially fatal so we complain
-                logging.critical(msg)
+                # FIXME: but for now we're leaving this at debug level as well since we haven't fully defined
+                # what constitutes problematically missing data
+                logging.debug(msg)
 
             self.raw_values = None
 
     def _validate_other_indexes(self, headers, read_data):
-        other_indexes_dict = self._other_indexes_dict()
-        if 'oth_1_id' in headers:
-            oth_1_pos = headers.index('oth_1_id')
-            for row in read_data:
-                if row[oth_1_pos] is None:
-                    if hasattr(self, 'other_index_1_id') and self.other_index_1_id is not None:
-                        logging.critical("{} with id {} has {} that is missing an expected value for oth_1_id".format(
-                            self.sql_id_table, self.id, self.sql_data_table
+        """
+        This method checks the following for both other_index_1 and other_index_2:
+        1. If the parent object specifies an other index, all child data rows have a value for that index.
+        2. If any child data row has a value for an other index, the parent specifies an other index that it should
+           belong to.
+        3. All other index data values belong to the other index specified by the parent object.
+        """
+        other_indexes_dict = util.sql_read_dict('OtherIndexesData', 'id', 'other_index_id')
+        other_index_names = util.sql_read_dict('OtherIndexes', 'id', 'name')
+        other_index_data_names = util.sql_read_dict('OtherIndexesData', 'id', 'name')
+
+        for index_num in ('1', '2'):
+            index_col = 'oth_%s_id' % index_num
+
+            if index_col in headers:
+                col_pos = headers.index(index_col)
+                id_pos = headers.index('id')
+                index_attr = 'other_index_%s_id' % index_num
+                index_attr_value = getattr(self, index_attr, None)
+
+                for row in read_data:
+                    if row[col_pos] is None:
+                        if index_attr_value:
+                            logging.critical("{} with id {} is missing an expected value for {}. "
+                                             "Parent {} has id {} and its {} is {} ({}).".format(
+                                             self.sql_data_table, row[id_pos], index_col,
+                                             self.sql_id_table, self.id, index_attr, index_attr_value,
+                                             other_index_names[index_attr_value]
+                            ))
+                    elif index_attr_value is None:
+                        logging.critical("{} with id {} has an {} value of {} ({}) "
+                                         "but parent {} with id {} does not specify an {}.".format(
+                                         self.sql_data_table, row[id_pos], index_col, row[col_pos],
+                                         other_index_data_names[row[col_pos]],
+                                         self.sql_id_table, self.id, index_attr
                         ))
-                elif (not hasattr(self, 'other_index_1_id')) or self.other_index_1_id is None:
-                    logging.critical("{} for {} id {} has at least one value in oth_1_id but the parent does not "
-                                     "specify an other_index_1_id".format(self.sql_data_table,
-                                                                          self.sql_id_table,
-                                                                          self.id))
-                elif other_indexes_dict[row[oth_1_pos]] != self.other_index_1_id:
-                    logging.critical("{} has an oth_1_id value of {}, which does not belong to {} id {}'s "
-                                     "other_index_1_id, {}".format(self.sql_data_table,
-                                                                   row[oth_1_pos],
-                                                                   self.sql_id_table,
-                                                                   self.id,
-                                                                   self.other_index_1_id))
+                    elif other_indexes_dict[row[col_pos]] != index_attr_value:
+                        logging.critical("{} with id {} has an {} value of {} ({}) "
+                                         "which is not a member of parent {} with id {}'s {}, which is {} ({}).".format(
+                                         self.sql_data_table, row[id_pos], index_col, row[col_pos],
+                                         other_index_data_names[row[col_pos]],
+                                         self.sql_id_table, self.id, index_attr, index_attr_value,
+                                         other_index_names[index_attr_value]
+                        ))
 
     def clean_timeseries(self, attr='values', inplace=True, time_index_name='year', 
                          time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing'):
