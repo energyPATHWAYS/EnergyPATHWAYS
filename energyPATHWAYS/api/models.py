@@ -122,8 +122,13 @@ class Scenario(db.Model):
     supply_case_id = db.Column('supply_case', db.ForeignKey(SupplyCase.id))
     user_id = db.Column(db.ForeignKey(GLOBAL_SCHEMA + '.users.id'))
 
-    demand_case = db.relationship(DemandCase)
-    supply_case = db.relationship(SupplyCase)
+    # Note that the assumption of single_parent here will be true for any scenarios created via the API
+    # (because the API creates a new DemandCase and a new SupplyCase for each new scenario) but it may not be true
+    # for scenarios manually created in the database (multiple scenarios could share a demand case or supply case)
+    # Therefore, trying to use the API (or sqlalchemy in general) to delete a scenario that was created manually
+    # in the database could result in a foreign key constraint violation error rather than a successful deletion.
+    demand_case = db.relationship(DemandCase, cascade="all, delete-orphan", single_parent=True)
+    supply_case = db.relationship(SupplyCase, cascade="all, delete-orphan", single_parent=True)
 
     # Note that this relies on the runs backref being sorted with most recent first
     @property
@@ -140,6 +145,16 @@ class Scenario(db.Model):
                                      description='This scenario has never been run', finished=False)
         else:
             return self.latest_run.status
+
+    def outputs(self):
+        if self.successfully_run():
+            return self.latest_run.outputs
+        else:
+            return None
+
+    def basic_outputs(self):
+        o = self.outputs()
+        return o.filter(Output.output_type_id.in_(OutputType.BASIC_OUTPUT_TYPE_IDS)) if o else None
 
     # This makes the assumption that a Scenario will have at most one active run at a time, and if it has an active
     # run it will be the most recent run. The API enforces this, but it is possible to manually muck it up in the
@@ -192,10 +207,12 @@ class ScenarioRunStatus(db.Model):
 
     NEVER_RUN_ID = 0
     QUEUED_ID = 1
-    RUNNING_ID = 2
-    SUCCESS_ID = 3
-    ERROR_ID = 4
-    CANCELED_ID = 5
+    LAUNCHED_ID = 2
+    RUNNING_ID = 3
+    SUCCESS_ID = 4
+    ERROR_ID = 5
+    CANCELED_ID = 6
+    LOST_ID = 7
 
     @property
     def successful(self):
@@ -207,10 +224,12 @@ class ScenarioRunStatus(db.Model):
     def contents(cls):
         return [
             cls(id=cls.QUEUED_ID, name='Queued', description='Scenario is awaiting its turn to run', finished=False),
+            cls(id=cls.LAUNCHED_ID, name='Launched', description='Scenario run has been initiated', finished=False),
             cls(id=cls.RUNNING_ID, name='Running', description='Scenario is currently running', finished=False),
             cls(id=cls.SUCCESS_ID, name='Success', description='Run finished successfully', finished=True),
             cls(id=cls.ERROR_ID, name='Error', description='Run terminated due to an error', finished=True),
-            cls(id=cls.CANCELED_ID, name='Canceled', description='Run was canceled by user', finished=True)
+            cls(id=cls.CANCELED_ID, name='Canceled', description='Run was canceled by user', finished=True),
+            cls(id=cls.LOST_ID, name='Lost', description='Run terminated for an unknown reason', finished=True)
         ]
 
 
@@ -226,7 +245,8 @@ class ScenarioRun(db.Model):
     status_id = db.Column(db.ForeignKey(ScenarioRunStatus.id), server_default='1')
     pid = db.Column(db.Integer())
 
-    scenario = db.relationship(Scenario, backref=db.backref('runs', order_by=ready_time.desc()))
+    scenario = db.relationship(Scenario, backref=db.backref('runs', order_by=ready_time.desc(),
+                                                            cascade="all, delete-orphan"))
     status = db.relationship(ScenarioRunStatus)
 
 
@@ -314,6 +334,10 @@ class OutputType(db.Model):
     __tablename__ = 'output_types'
     __table_args__ = {'schema': RUN_SCHEMA}
 
+    # These are the ids of the "basic" ouptut type ids; that is, those we want to show on the list of scenarios page.
+    # See contents() below for which types these refer to.
+    BASIC_OUTPUT_TYPE_IDS = [1, 3]
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.Text, nullable=False, unique=True)
 
@@ -322,26 +346,21 @@ class OutputType(db.Model):
     @classmethod
     def contents(cls):
         return [
-            cls(id=1, name='Sankey - energy'),
-            cls(id=2, name='Sankey - emissions'),
-            cls(id=3, name='Energy demand'),
-            cls(id=4, name='Annual cost'),
-            cls(id=5, name='Emissions'),
-            cls(id=6, name='Liquid fuels sectoral demand'),
-            cls(id=7, name='Liquid fuels energy supply'),
-            cls(id=8, name='Liquid fuels emissions intensity'),
-            cls(id=9, name='Gaseous fuels sectoral demand'),
-            cls(id=10, name='Gaseous fuels energy supply'),
-            cls(id=11, name='Gaseous fuels emissions intensity'),
-            cls(id=12, name='Electricity sectoral demand'),
-            cls(id=13, name='Electricity energy supply'),
-            cls(id=14, name='Electricity emissions intensity'),
-            cls(id=15, name='Sales'),
-            cls(id=16, name='Stocks'),
-            cls(id=17, name='Service demand by tech'),
-            cls(id=18, name='Energy by tech'),
-            cls(id=19, name='Emissions by tech')
+                cls(id=1, name='Levelized cost'),
+                cls(id=2, name='Energy demand by sector'),
+                cls(id=3, name='Emissions by sector'),
+                cls(id=4, name='Emissions per capita'),
+                cls(id=5, name='Electricity supply by type'),
+                cls(id=6, name='Residential energy by fuel type'),
+                cls(id=7, name='Residential emissions by fuel type'),
+                cls(id=8, name='Commercial energy by fuel type'),
+                cls(id=9, name='Commercial emissions by fuel type'),
+                cls(id=10, name='Transportation energy by fuel type'),
+                cls(id=11, name='Transportation emissions by fuel type'),
+                cls(id=12, name='Industrial energy by fuel type'),
+                cls(id=13, name='Industrial emissions by fuel type')
         ]
+
 
 
 class Output(db.Model):
@@ -353,7 +372,8 @@ class Output(db.Model):
     output_type_id = db.Column(db.ForeignKey(OutputType.id))
     unit = db.Column(db.Text())
 
-    scenario_run = db.relationship(ScenarioRun, backref=db.backref('outputs', lazy='dynamic'))
+    scenario_run = db.relationship(ScenarioRun, backref=db.backref('outputs', lazy='dynamic',
+                                                                   cascade="all, delete-orphan"))
     output_type = db.relationship(OutputType)
 
     @property
@@ -367,11 +387,8 @@ class OutputData(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     parent_id = db.Column(db.ForeignKey(Output.id))
-    subsector = db.Column(db.ForeignKey(DemandSubsector.id))
     series = db.Column(db.Text())
     year = db.Column(db.Integer())
     value = db.Column(db.Float())
 
-    output = db.relationship(Output, backref=db.backref('data', order_by=[subsector, series, year]))
-
-
+    output = db.relationship(Output, backref=db.backref('data', order_by=[series, year], cascade="all, delete-orphan"))

@@ -135,23 +135,54 @@ class PathwaysModel(object):
 
     def export_results_to_db(self):
         scenario_run_id = util.active_scenario_run_id(self.scenario_id)
+        # Levelized costs
+        costs = self.outputs.c_costs.groupby(level=['SUPPLY/DEMAND', 'YEAR']).sum()
+        util.write_output_to_db(scenario_run_id, 1, costs)
 
-        # Energy demand
-        df = self.outputs.c_energy.groupby(level=['FINAL_ENERGY', 'YEAR']).sum()
-        util.write_output_to_db(scenario_run_id, 3, df)
+        #Energy
+        energy = self.outputs.c_energy.xs('FINAL', level='ENERGY ACCOUNTING')\
+            .groupby(level=['SECTOR', 'FINAL_ENERGY', 'YEAR']).sum()
+        # Energy demand by sector
+        util.write_output_to_db(scenario_run_id, 2, energy.groupby(level=['SECTOR', 'YEAR']).sum())
+        # Residential Energy by Fuel Type
+        util.write_output_to_db(scenario_run_id, 6, energy.xs('RESIDENTIAL', level='SECTOR'))
+        # Commercial Energy by Fuel Type
+        util.write_output_to_db(scenario_run_id, 8, energy.xs('COMMERCIAL', level='SECTOR'))
+        # Transportation Energy by Fuel Type
+        util.write_output_to_db(scenario_run_id, 10, energy.xs('TRANSPORTATION', level='SECTOR'))
+        # Productive Energy by Fuel Type
+        util.write_output_to_db(scenario_run_id, 12, energy.xs('PRODUCTIVE', level='SECTOR'))
 
-        # Annual costs
-        df = self.outputs.c_costs.groupby(level=['SECTOR', 'YEAR']).sum()
+        #Emissions
+        emissions = self.outputs.c_emissions.xs('DOMESTIC', level='EXPORT/DOMESTIC')\
+            .groupby(level=['SECTOR', 'FINAL_ENERGY', 'YEAR']).sum()
+        emissions = util.DfOper.mult((emissions, 1-(emissions.abs()<1E-10).groupby(level='FINAL_ENERGY').all())) # get rid of noise
+        # Annual emissions by sector
+        util.write_output_to_db(scenario_run_id, 3, emissions.groupby(level=['SECTOR', 'YEAR']).sum())
+        # Residential Emissions by Fuel Type
+        util.write_output_to_db(scenario_run_id, 7, emissions.xs('RESIDENTIAL', level='SECTOR'))
+        # Commercial Emissions by Fuel Type
+        util.write_output_to_db(scenario_run_id, 9, emissions.xs('COMMERCIAL', level='SECTOR'))
+        # Transportation Emissions by Fuel Type
+        util.write_output_to_db(scenario_run_id, 11, emissions.xs('TRANSPORTATION', level='SECTOR'))
+        # Productive Emissions by Fuel Type
+        util.write_output_to_db(scenario_run_id, 13, emissions.xs('PRODUCTIVE', level='SECTOR'))
+
+        # Domestic emissions per capita
+        annual_emissions = self.outputs.c_emissions.xs('DOMESTIC', level='EXPORT/DOMESTIC').groupby(level=['YEAR']).sum()
+        population_driver = self.demand.drivers[2].values.groupby(level='year').sum().loc[annual_emissions.index]
+        population_driver.index.name = 'YEAR'
+        factor = 1E6
+        df = util.DfOper.divi((annual_emissions, population_driver)) * factor
+        df.columns = ['TONNE PER CAPITA']
         util.write_output_to_db(scenario_run_id, 4, df)
 
-        # Annual emissions
-        df = self.outputs.c_emissions.groupby(level=['SECTOR', 'YEAR']).sum()
-        util.write_output_to_db(scenario_run_id, 5, df)
-
         # Electricity supply
+        electricity_node_names = [self.supply.nodes[nodeid].name.upper() for nodeid in util.flatten_list(self.supply.injection_nodes.values())]
         df = self.outputs.c_energy.xs('ELECTRICITY', level='FINAL_ENERGY')\
+            .xs('EMBODIED', level='ENERGY ACCOUNTING')\
             .groupby(level=['SUPPLY_NODE', 'YEAR']).sum()
-        util.write_output_to_db(scenario_run_id, 13, df)
+        util.write_output_to_db(scenario_run_id, 5, df.loc[electricity_node_names])
 
     def calculate_combined_cost_results(self):
         #calculate and format export costs
@@ -238,7 +269,7 @@ class PathwaysModel(object):
         self.outputs.c_emissions.columns = [emissions_unit.upper()]
             
     def calculate_combined_energy_results(self):
-         energy_unit = cfg.calculation_energy_unit        
+         energy_unit = cfg.calculation_energy_unit
          if self.supply.export_costs is not None:
             setattr(self.outputs,'export_energy',self.supply.export_energy)
             self.export_energy = self.outputs.return_cleaned_output('export_energy')
@@ -257,7 +288,7 @@ class PathwaysModel(object):
          for key,name in zip(keys,names):
              self.embodied_energy = pd.concat([self.embodied_energy],keys=[key],names=[name])
          self.final_energy = self.demand.outputs.return_cleaned_output('d_energy')
-         self.final_energy = self.final_energy[self.final_energy.index.get_level_values('YEAR')>=int(cfg.cfgfile.get('case','current_year'))]          
+         self.final_energy = self.final_energy[self.final_energy.index.get_level_values('YEAR')>=int(cfg.cfgfile.get('case','current_year'))]
          keys = ['DOMESTIC','FINAL']
          names = ['EXPORT/DOMESTIC', 'ENERGY ACCOUNTING']
          for key,name in zip(keys,names):
@@ -268,7 +299,7 @@ class PathwaysModel(object):
              self.final_energy.set_index(name,append=True,inplace=True)
          for name in [x for x in self.embodied_energy.index.names if x not in self.export_energy.index.names]:
              self.export_energy[name] = "N/A"
-             self.export_energy.set_index(name,append=True,inplace=True)  
+             self.export_energy.set_index(name,append=True,inplace=True)
          self.final_energy = self.final_energy.groupby(level=self.embodied_energy.index.names).sum()
          self.final_energy = self.final_energy.reorder_levels(self.embodied_energy.index.names)
          self.export_energy = self.export_energy.groupby(level=self.embodied_energy.index.names).sum()

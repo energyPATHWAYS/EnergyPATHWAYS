@@ -161,10 +161,19 @@ class Scenarios(Resource):
 
     @auth.login_required
     def get(self, scenario_id=None):
+        schema = schemas.ScenarioSchema()
+        outputs_requested = 'outputs' in request.args
+
         if scenario_id is None:
-            return schemas.ScenarioSchema().dump(g.user.readable_scenarios, many=True).data
+            # If outputs are requested with the scenario list, we send only the basic outputs
+            if outputs_requested:
+                schema = schemas.ScenarioWithBasicOutputSchema()
+            return schema.dump(g.user.readable_scenarios, many=True).data
         else:
-            return schemas.ScenarioSchema().dump(fetch_readable_scenario(scenario_id)).data
+            # If outputs are requested for an individual scenario, we send *all* the outputs
+            if outputs_requested:
+                schema = schemas.ScenarioWithOutputSchema()
+            return schema.dump(fetch_readable_scenario(scenario_id)).data
 
     @auth.login_required
     @guest_forbidden
@@ -223,6 +232,23 @@ class Scenarios(Resource):
 
         return {'message': 'Updated'}, 200, self._location_header(scenario)
 
+    @auth.login_required
+    @guest_forbidden
+    def delete(self, scenario_id=None):
+        if scenario_id is None:
+            return {'message': "Requests to delete a scenario must specify the id in the URI."}, 400
+
+        scenario = fetch_owned_scenario(scenario_id)
+        # We don't allow built-in scenarios to be deleted via the API (even by an admin) because it may be unsafe.
+        # See comment on demand_case and supply_case relationships for Scenario in models.py for discussion.
+        if scenario.is_built_in():
+            return {'message': "Built-in scenarios cannot be deleted via this API."}, 400
+
+        models.db.session.delete(scenario)
+        models.db.session.commit()
+
+        return {'message': 'Deleted'}, 200
+
 
 class PackageGroups(Resource):
     # The package group options are the same for everyone, but only authorized users are allowed to make scenarios and
@@ -249,25 +275,19 @@ class ScenarioRunner(Resource):
         scenario = fetch_owned_scenario(scenario_id)
         if scenario.is_running():
             return {'message': 'Scenario is already running (or queued to run)'}, 400
+
+        # Create a new scenario run entry for the requested scenario. The queue_monitor will later find the queued
+        # scenario and actually run it.
         run = models.ScenarioRun(scenario_id=scenario.id)
         models.db.session.add(run)
         models.db.session.commit()
 
-        # Actually run the scenario
-        proc = subprocess.Popen(['energyPATHWAYS', '-a',
-                                 '-p', '../../us_model_example',
-                                 '-s', str(scenario_id)])
-
-        # Store the pid of the model process in the database
-        run.pid = proc.pid
-        models.db.session.commit()
-
-        return {'message': 'Scenario run initiated'}, 200,\
+        return {'message': 'Scenario queued for running'}, 200,\
                {'Location': api.url_for(ScenarioRunner, scenario_id=scenario.id)}
 
     @auth.login_required
     def get(self, scenario_id):
-        return schemas.ScenarioRunStatusSchema().dump(fetch_owned_scenario(scenario_id).status).data
+        return schemas.ScenarioRunStatusSchema().dump(fetch_readable_scenario(scenario_id).status).data
 
 
 class Outputs(Resource):
@@ -304,6 +324,8 @@ if __name__ == '__main__':
     # Logging recipe from http://flask.pocoo.org/docs/0.11/errorhandling/#logging-to-a-file
     # There's also a bunch of guidance there about sending emails on error, etc., when we're ready for that
     if not app.debug:
-        logging.basicConfig(filename='../../us_model_example/api %s.log' % (str(datetime.datetime.now())),
-                            level=logging.DEBUG)
-
+        logging.basicConfig(filename='../../us_model_example/api_%s.log' %
+                                     datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f%z'),
+                            level=logging.DEBUG,
+                            format='%(asctime)s %(levelname)-8s %(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S')

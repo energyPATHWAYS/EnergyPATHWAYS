@@ -1,5 +1,12 @@
 from marshmallow import Schema, fields, pprint
 
+
+class ScenarioRunStatusSchema(Schema):
+    id = fields.Integer(required=True)
+    name = fields.Str(requried=True)
+    description = fields.Str(required=True)
+
+
 class ScenarioSchema(Schema):
     id = fields.Integer()
     name = fields.Str(required=True)
@@ -9,12 +16,8 @@ class ScenarioSchema(Schema):
     # this is ignored when writing but provided on reading since it may be useful for the web interface to group
     # built-in scenarios separately from user-created scenarios
     is_built_in = fields.Boolean()
-
-
-class ScenarioRunStatusSchema(Schema):
-    id = fields.Integer(required=True)
-    name = fields.Str(requried=True)
-    description = fields.Str(required=True)
+    # Only expected to be read, not written
+    status = fields.Nested(ScenarioRunStatusSchema)
 
 
 # Note that this works for both DemandCaseData and SupplyCaseData since we only expose the fields they have in common
@@ -51,3 +54,11 @@ class OutputSchema(Schema):
     output_type_name = fields.Str()
     unit = fields.Str()
     data = fields.Nested(OutputDataSchema, many=True)
+
+
+class ScenarioWithOutputSchema(ScenarioSchema):
+    outputs = fields.Nested(OutputSchema, many=True)
+
+
+class ScenarioWithBasicOutputSchema(ScenarioSchema):
+    outputs = fields.Nested(OutputSchema, attribute='basic_outputs', many=True)

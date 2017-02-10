@@ -32,6 +32,10 @@ import psycopg2
 import logging
 import pdb
 
+from psycopg2.extensions import register_adapter, AsIs
+def addapt_numpy_float64(numpy_float64):
+  return AsIs(numpy_float64)
+register_adapter(np.int64, addapt_numpy_float64)
 
 def percent_larger(a, b):
     return (a - b) / a
@@ -272,6 +276,27 @@ def active_scenario_run_id(scenario_id):
     return cfg.cur.fetchone()[0]
 
 
+def active_user_email(scenario_id):
+    query = """
+                SELECT email
+                FROM shared.users
+                JOIN "Scenarios" ON "Scenarios".user_id = shared.users.id
+                WHERE "Scenarios".id = %s
+            """
+
+    cfg.cur.execute(query, (scenario_id,))
+    if cfg.cur.rowcount == 0:
+        return None
+    else:
+        return cfg.cur.fetchone()[0]
+
+
+def scenario_name(scenario_id):
+    query = 'SELECT name FROM "Scenarios" WHERE id = %s'
+    cfg.cur.execute(query, (scenario_id,))
+    return cfg.cur.fetchone()[0]
+
+
 def update_status(scenario_id, status_id):
     """Update the status of the active run for the current scenario in the database"""
     # FIXME: See api/models.py ScenarioRunStatus for the valid status_ids. I'm reluctant to import those constants here
@@ -279,30 +304,52 @@ def update_status(scenario_id, status_id):
     # of the main model yet.
     scenario_run_id = active_scenario_run_id(scenario_id)
 
-    assert 2 <= status_id <= 5, "update_status() only understands status_ids between 2 and 5, inclusive."
-    time_field = 'start_time' if status_id == 2 else 'end_time'
+    assert 3 <= status_id <= 6, "update_status() only understands status_ids between 3 and 6, inclusive."
+    end_time_update = ', end_time = now()' if status_id >= 4 else ''
 
-    cfg.cur.execute("UPDATE public_runs.scenario_runs SET status_id = %s, %s = now() WHERE id = %s",
-                    (status_id, psycopg2.extensions.AsIs(time_field), scenario_run_id))
+    cfg.cur.execute("UPDATE public_runs.scenario_runs SET status_id = %s%s WHERE id = %s",
+                    (status_id, psycopg2.extensions.AsIs(end_time_update), scenario_run_id))
     cfg.con.commit()
 
 
-def write_output_to_db(scenario_run_id, output_type_id, output_df):
+def write_output_to_db(scenario_run_id, output_type_id, output_df, keep_cut_off=0.001):
     # For output_type_ids, see api/models.py. I am reluctant to import that file here because I don't want its
     # dependencies (e.g. SQLAlchemy) to become dependencies of the main model yet.
+    output_df = output_df.reset_index().set_index(output_df.index.names)
+    if output_df.index.nlevels > 1:
+        index = pd.MultiIndex.from_product(output_df.index.levels, names=output_df.index.names)
+        output_df = output_df.reindex(index, fill_value=0)
+        if 'YEAR' in output_df.index.names:
+            sums = output_df.groupby(level=[l for l in output_df.index.names if l!='YEAR']).sum()
+            keep = list(sums.index[np.nonzero((sums > keep_cut_off * sums.sum()).values.flatten())])
+            output_df = output_df.loc[keep]
+
     df = output_df.reset_index()
-    assert len(df.columns) == 3 and df.columns[1].lower() == 'year', \
+    if len(df.columns)==3:
+        assert df.columns[1].lower() == 'year', \
         "Output data frame is expected to have three columns (or columns and indexes)" \
         "corresponding to (series, year, value) in the output_data table."
+    elif len(df.columns)==2:
+        df.columns[0].lower() == 'year', \
+        "Output data frame is expected to have two columns (or columns and indexes)" \
+        "corresponding to (year, value) in the output_data table."
+    else:
+        raise ValueError('Output data frame is expected to have either two or three columns')
 
-    unit = df.columns[2]
+    unit = df.columns[-1]
     cfg.cur.execute("""INSERT INTO public_runs.outputs (scenario_run_id, output_type_id, unit)
                        VALUES (%s, %s, %s) RETURNING id""", (scenario_run_id, output_type_id, unit))
     output_id = cfg.cur.fetchone()[0]
 
-    values_str = ','.join(cfg.cur.mogrify("(%s,%s,%s,%s)", (output_id, row[0], row[1], row[2]))
-                          for row in df.itertuples(index=False))
-    cfg.cur.execute("INSERT INTO public_runs.output_data (parent_id, series, year, value) VALUES " + values_str)
+    if len(df.columns)==3:
+        values_str = ','.join(cfg.cur.mogrify("(%s,%s,%s,%s)", (output_id, row[0], row[1], row[2]))
+                              for row in df.itertuples(index=False))
+        cfg.cur.execute("INSERT INTO public_runs.output_data (parent_id, series, year, value) VALUES " + values_str)
+    elif len(df.columns)==2:
+        values_str = ','.join(cfg.cur.mogrify("(%s,%s,%s)", (output_id, row[0], row[1]))
+                              for row in df.itertuples(index=False))
+        cfg.cur.execute("INSERT INTO public_runs.output_data (parent_id, year, value) VALUES " + values_str)
+
     cfg.con.commit()
 
 
@@ -490,7 +537,7 @@ def df_slice(df, elements, levels, drop_level=True, reset_index=False):
         return None
     if len(elements) != len(levels) and len(levels) > 1:
         raise ValueError('Number of elements ' + str(len(elements)) + ' must match the number of levels ' + str(len(levels)))
-    
+
     # special case where we use a different method to handle multiple elements
     if len(levels) == 1 and len(elements) > 1:
         return df.reset_index().loc[df.reset_index()[levels[0]].isin(elements)].set_index(df.index.names)
@@ -1189,7 +1236,7 @@ def find_weibul_beta(mean_lifetime, lifetime_variance):
 
 
 def add_and_set_index(df, name, elements, index_location=None):
-    name, elements = ensure_iterable_and_not_string(name), ensure_iterable_and_not_string(elements)    
+    name, elements = ensure_iterable_and_not_string(name), ensure_iterable_and_not_string(elements)
     return_df = pd.concat([df]*len(elements), keys=elements, names=name).sort_index()
     if index_location:
         return_df = return_df.swaplevel(-1, index_location).sort_index()
