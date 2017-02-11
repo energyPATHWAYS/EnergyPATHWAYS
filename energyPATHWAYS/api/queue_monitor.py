@@ -50,7 +50,7 @@ models.db.init_app(app)
               help="User to run queue_monitor as. Defaults to 'www-data'. When testing on macOS, use 'daemon'.")
 @click.option('-g', '--group',
               help="Group to run queue_monitor as. Defaults to the group of the selected user.")
-@click.option('-d', '--directory', default='/var/www/energyPATHWAYS/us_model_example',
+@click.option('-d', '--directory', default='/var/www/energyPATHWAYS/model_runs/us_model_example/',
               help="Working directory for the monitor; should be the working directory for the energyPATHWAYS model.")
 def start_queue_monitor(poll_frequency, max_workers, user, group, directory):
     pw = pwd.getpwnam(user)
