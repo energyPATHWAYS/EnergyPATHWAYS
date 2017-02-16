@@ -19,8 +19,9 @@ def traverse_files(input_directory, output_directory):
     checkexistormakedir(output_directory)
     for f in os.listdir(input_directory):
         if f.endswith('csv'):
+            print f
             append_write(os.path.join(input_directory, f), os.path.join(output_directory, f))
-        else:
+        elif os.path.isdir(os.path.join(input_directory, f)):
             traverse_files(os.path.join(input_directory, f), os.path.join(output_directory, f))
 
 def append_write(write_from, write_to):
@@ -38,8 +39,8 @@ def append_write(write_from, write_to):
 
 starting_directory = os.getcwd()
 
-input_folder = 'inputs'
-output_folder = 'outputs'
+input_folder = 'separate'
+output_folder = 'combined'
 
 # remove old results
 if os.path.exists(os.path.join(starting_directory, output_folder)):
@@ -47,8 +48,9 @@ if os.path.exists(os.path.join(starting_directory, output_folder)):
 
 # aggregate new results
 for folder in os.listdir(os.path.join(starting_directory, input_folder)):
-    traverse_files(input_directory=os.path.join(starting_directory, input_folder, folder),
-                   output_directory=os.path.join(starting_directory, output_folder))
+    if os.path.isdir(os.path.join(starting_directory, input_folder, folder)):
+        traverse_files(input_directory=os.path.join(starting_directory, input_folder, folder),
+                       output_directory=os.path.join(starting_directory, output_folder))
 
 
 

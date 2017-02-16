@@ -175,7 +175,7 @@ def init_units():
     global ureg, output_energy_unit, calculation_energy_unit
     ureg = pint.UnitRegistry()
     
-    output_energy_unit = cfgfile.get('case', 'output_energy_unit')
+    # output_energy_unit = cfgfile.get('case', 'output_energy_unit')
     calculation_energy_unit = cfgfile.get('case', 'calculation_energy_unit')
     
     for unit_def in unit_defs:
@@ -231,13 +231,19 @@ def init_date_lookup():
 
 def init_output_levels():
     global output_demand_levels, output_supply_levels, output_combined_levels
-    output_demand_levels = ['year','demand_technology', primary_geography,'sector','subsector','final_energy']
-    output_supply_levels = ['year','vintage','supply_technology',primary_geography, primary_geography + "_supply", 'demand_sector','final_energy','supply_node','ghg','resource_bins']
+    output_demand_levels = ['year', 'vintage', 'demand_technology', primary_geography, 'sector', 'subsector', 'final_energy']
+    output_supply_levels = ['year', 'vintage', 'supply_technology', primary_geography, primary_geography + "_supply", 'demand_sector', 'final_energy', 'supply_node', 'ghg', 'resource_bins']
     output_combined_levels = list(set(output_supply_levels + output_demand_levels))
     
-    if cfgfile.get('output_detail','vintage').lower() != 'true':
+    if cfgfile.get('output_detail','demand_vintage').lower() != 'true':
+        output_demand_levels.remove('vintage')
+
+    if cfgfile.get('output_detail','supply_vintage').lower() != 'true':
+        output_supply_levels.remove('vintage')
+
+    if cfgfile.get('output_detail','combined_vintage').lower() != 'true':
         output_combined_levels.remove('vintage')
-        
+
     if cfgfile.get('output_detail','demand_technology').lower() != 'true':
         output_combined_levels.remove('demand_technology')
     

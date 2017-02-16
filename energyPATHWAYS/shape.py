@@ -331,9 +331,9 @@ class Shape(dmf.DataMapFunctions):
     def ensure_feasible_flexible_load(df):
         names = [n for n in df.index.names if n != 'weather_datetime']
         cum_df = df.groupby(level=names).cumsum()
-        
-        add_to_1 = min(0, (cum_df[2] - cum_df[1]).min())*1.001
-        subtract_from_3 = min(0, (cum_df[3] - cum_df[2]).min())*1.001
+
+        add_to_1 = min(0, (cum_df[2] - cum_df[1]).min())*1.01
+        subtract_from_3 = min(0, (cum_df[3] - cum_df[2]).min())*1.01
         
         if add_to_1 < 0:
             df.iloc[0,0] += add_to_1
@@ -356,10 +356,18 @@ class Shape(dmf.DataMapFunctions):
                 df.iloc[replace, 2] += cum_diff.iloc[replace]
             else:
                 df.iloc[-1, 2] += cum_diff.iloc[-1]
-        
+
         cum_df = df.groupby(level=names).cumsum()
-        assert not (cum_df[1] > cum_df[2]).any()
-        assert not (cum_df[2] > cum_df[3]).any()
+
+        if (cum_df[1] > cum_df[2]).any():
+            logging.error('Infeasible flexible load constraints were created where the delayed load shape is greater than the native load shape')
+            logging.error(cum_df[cum_df[1] > cum_df[2]])
+            pdb.set_trace()
+
+        if (cum_df[2] > cum_df[3]).any():
+            logging.error('Infeasible flexible load constraints were created where the advanced load shape is less than the native load shape')
+            logging.error(cum_df[cum_df[2] > cum_df[3]])
+            pdb.set_trace()
         
         return df
 

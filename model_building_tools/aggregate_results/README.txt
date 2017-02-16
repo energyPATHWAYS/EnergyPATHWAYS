@@ -1,9 +1,9 @@
 This script will combine CSV outputs from different EnergyPATHWAYS runs
 
 Instructions:
-(1) Put results from different runs in a folder called "inputs". Each set of results should be in a separate folder. For example:
-	/aggregate results/inputs/run1/**bunch of sub folders and CSVs**
-	/aggregate results/inputs/run2/**bunch of sub folders and CSVs**
+(1) Put results from different runs in a folder called "separate". Each set of results should be in a separate folder. For example:
+	/aggregate results/separate/run1/**bunch of sub folders and CSVs**
+	/aggregate results/separate/run2/**bunch of sub folders and CSVs**
 (2) Run the script
 
 Notes:

@@ -752,7 +752,10 @@ class Dispatch(object):
             raise ValueError('capacity weights should not vary across dispatch periods')
         
         load[load<0] = 0
-        decimals = 6 - int(math.log10(max(np.abs(load))))
+        if all(load==0):
+            decimals = 0
+        else:
+            decimals = 6 - int(math.log10(max(np.abs(load))))
         
         load_groups = (load,) if dispatch_periods is None else np.array_split(load, np.where(np.diff(dispatch_periods)!=0)[0]+1)
         num_groups = len(load_groups)

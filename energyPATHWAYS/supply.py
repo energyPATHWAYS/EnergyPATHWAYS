@@ -975,7 +975,7 @@ class Supply(object):
         if year in self.dispatch_write_years and not self.api_run:
             keys = [self.scenario.upper(),str(datetime.now().replace(second=0,microsecond=0))]
             names = ['SCENARIO','TIMESTAMP']
-            for key, name in zip(keys,names):
+            for key, name in zip(keys, names):
                 self.bulk_dispatch = pd.concat([self.bulk_dispatch],keys=[key],names=[name])
             Output.write(self.bulk_dispatch, 'hourly_dispatch_results.csv', os.path.join(cfg.workingdir,'dispatch_outputs'))
 
@@ -1139,7 +1139,7 @@ class Supply(object):
             thermal_shape =pd.concat(thermal_shape_list,axis=0,keys=cfg.dispatch_geographies)
             thermal_shape = thermal_shape.stack().to_frame()
             thermal_shape.index.names = [cfg.dispatch_geography, 'weather_datetime','supply_technology']
-            thermal_shape.columns = [cfg.output_energy_unit.upper()]
+            thermal_shape.columns = [cfg.calculation_energy_unit.upper()]
             thermal_shape_dataframe = self.outputs.clean_df(thermal_shape)
             util.replace_index_name(thermal_shape_dataframe,'DISPATCH_OUTPUT','SUPPLY_TECHNOLOGY')
             self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,-thermal_shape_dataframe])
@@ -1197,7 +1197,7 @@ class Supply(object):
             names = ['year']
             self.outputs.s_curtailment = pd.concat(self.curtailment_list,keys=keys, names=names)
             util.replace_index_name(self.outputs.s_curtailment,'sector','demand_sector')
-            self.outputs.s_curtailment.columns = [cfg.calculation_energy_unit]
+            self.outputs.s_curtailment.columns = [cfg.calculation_energy_unit.upper()]
    
     def update_coefficients_from_dispatch(self,year):
         self.update_thermal_coefficients(year)

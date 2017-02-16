@@ -730,7 +730,7 @@ class Subsector(DataMapFunctions):
     def format_output_sales(self, override_levels_to_keep):
         if not hasattr(self, 'stock'):
             return None
-        levels_to_keep = cfg.output_supply_levels if override_levels_to_keep is None else override_levels_to_keep
+        levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
         levels_to_eliminate = [l for l in self.stock.sales.index.names if l not in levels_to_keep]
         df = self.stock.sales
         util.replace_index_name(df, 'year','vintage')

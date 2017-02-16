@@ -74,6 +74,7 @@ signal.signal(signal.SIGTERM, signal_handler)
 @click.option('--solve_demand/--no_solve_demand', default=True, help='Solve the demand side of the model.')
 @click.option('-ls', '--load_supply/--no_load_supply', default=False, help='Load a cached model with the demand and supply side complete.')
 @click.option('--solve_supply/--no_solve_supply', default=True, help='Solve the supply side of the model.')
+@click.option('--load_error/--no_load_error', default=False, help='Load the error pickle of a previous model run that crashed.')
 @click.option('--export_results/--no_export_results', default=True, help='Write results from the demand and supply sides of the model.')
 @click.option('--pickle_shapes/--no_pickle_shapes', default=True, help='Cache shapes after processing.')
 @click.option('--save_models/--no_save_models', default=True, help='Cashe models after running.')
@@ -81,15 +82,15 @@ signal.signal(signal.SIGTERM, signal_handler)
 @click.option('-a', '--api_run/--no_api_run', default=False)
 @click.option('-d', '--debug/--no_debug', default=False, help='On error the model will exit into an ipython debugger.')
 @click.option('--clear_results/--no_clear_results', default=False, help='Should results be cleared or appended when starting a new model run')
-def click_run(path, config, scenario, load_demand, solve_demand, load_supply, solve_supply, export_results, pickle_shapes, save_models, log_name, api_run, debug, clear_results):
+def click_run(path, config, scenario, load_demand, solve_demand, load_supply, solve_supply, load_error, export_results, pickle_shapes, save_models, log_name, api_run, debug, clear_results):
     if debug:
         import ipdb
         with ipdb.launch_ipdb_on_exception():
-            run(path, config, scenario, load_demand, solve_demand, load_supply, solve_supply, export_results, pickle_shapes, save_models, log_name, api_run, clear_results)
+            run(path, config, scenario, load_demand, solve_demand, load_supply, solve_supply, load_error, export_results, pickle_shapes, save_models, log_name, api_run, clear_results)
     else:
-        run(path, config, scenario, load_demand, solve_demand, load_supply, solve_supply, export_results, pickle_shapes, save_models, log_name, api_run, clear_results)
+        run(path, config, scenario, load_demand, solve_demand, load_supply, solve_supply, load_error, export_results, pickle_shapes, save_models, log_name, api_run, clear_results)
 
-def run(path, config, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True,
+def run(path, config, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, load_error=False,
         export_results=True, pickle_shapes=True, save_models=True, log_name=None, api_run=False, clear_results=False):
     global model
     cfg.initialize_config(path, config, log_name)
@@ -112,15 +113,16 @@ def run(path, config, scenario, load_demand=False, solve_demand=True, load_suppl
                    'If the run is not complete, please reply to this email and we will investigate.' % (scenario_name,)
             send_gmail(scenario_id, subject, body)
 
-        model = load_model(load_demand, load_supply, scenario_id, api_run)
-        model.run(scenario_id,
-                  solve_demand=solve_demand,
-                  solve_supply=solve_supply,
-                  load_demand=load_demand,
-                  load_supply=load_supply,
-                  export_results=export_results,
-                  save_models=save_models,
-                  append_results=False if (scenario_id == scenario_ids[0] and clear_results) else True)
+        model = load_model(load_demand, load_supply, load_error, scenario_id, api_run)
+        if not load_error:
+            model.run(scenario_id,
+                      solve_demand=solve_demand,
+                      solve_supply=solve_supply,
+                      load_demand=load_demand,
+                      load_supply=load_supply,
+                      export_results=export_results,
+                      save_models=save_models,
+                      append_results=False if (scenario_id == scenario_ids[0] and clear_results) else True)
 
         if api_run:
             util.update_status(scenario_id, 4)
@@ -142,7 +144,7 @@ def parse_scenario_ids(scenario):
         scenario = str(scenario).split(',')
     return [int(str(s).rstrip().lstrip()) for s in scenario]
 
-def load_model(load_demand, load_supply, scenario_id, api_run):
+def load_model(load_demand, load_supply, load_error, scenario_id, api_run):
     # Note that the api_run parameter is effectively ignored if you are loading a previously pickled model
     # (with load_supply or load_demand); the model's api_run property will be set to whatever it was when the model
     # was pickled.
@@ -154,6 +156,10 @@ def load_model(load_demand, load_supply, scenario_id, api_run):
         with open(os.path.join(cfg.workingdir, str(scenario_id)+'_model.p'), 'rb') as infile:
             model = pickle.load(infile)
         logging.info('Loaded demand-side EnergyPATHWAYS model from pickle')
+    elif load_error:
+        with open(os.path.join(cfg.workingdir, str(scenario_id)+'_model_error.p'), 'rb') as infile:
+            model = pickle.load(infile)
+        logging.info('Loaded crashed EnergyPATHWAYS model from pickle')
     else:
         model = PathwaysModel(scenario_id, api_run)
     return model
@@ -182,17 +188,18 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\test_after_merge'
+    workingdir = r'C:\github\EP_runs\debug'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = [2]
+    scenario = [5]
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = False,
-    load_supply   = True,
+    load_supply   = False,
     solve_supply  = False,
-    export_results= True,
-    pickle_shapes = True,
+    load_error    = True,
+    export_results= False,
+    pickle_shapes = False,
     save_models   = False,
     api_run       = False,
     clear_results = True)
