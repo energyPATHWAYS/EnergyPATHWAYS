@@ -385,11 +385,11 @@ class Dispatch(object):
     @staticmethod
     def solve_for_dispatch_shape(load, energy_budget, pmin=0, pmax=None):
         if abs(energy_budget) < pmin*len(load):
-            logging.warning('During dispatch to energy budget, the pmin is too large for the given energy budget')
+            logging.debug('During dispatch to energy budget, the pmin is too large for the given energy budget')
             return np.ones_like(load) * energy_budget / len(load)
         
         if pmax is not None and abs(energy_budget) > pmax*len(load):
-            logging.warning('During dispatch to energy budget, the pmax is too small for the given energy budget')
+            logging.debug('During dispatch to energy budget, the pmax is too small for the given energy budget')
             return np.ones_like(load) * pmax
         
         load_cutoff = Dispatch.solve_for_load_cutoff(load, energy_budget, pmin, pmax)

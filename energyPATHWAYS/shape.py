@@ -359,12 +359,12 @@ class Shape(dmf.DataMapFunctions):
 
         cum_df = df.groupby(level=names).cumsum()
 
-        if (cum_df[1] > cum_df[2]).any():
+        if ((cum_df[1] - cum_df[2]) > 1E-12).any():
             logging.error('Infeasible flexible load constraints were created where the delayed load shape is greater than the native load shape')
             logging.error(cum_df[cum_df[1] > cum_df[2]])
             pdb.set_trace()
 
-        if (cum_df[2] > cum_df[3]).any():
+        if ((cum_df[2] - cum_df[3]) > 1E-12).any():
             logging.error('Infeasible flexible load constraints were created where the advanced load shape is less than the native load shape')
             logging.error(cum_df[cum_df[2] > cum_df[3]])
             pdb.set_trace()
