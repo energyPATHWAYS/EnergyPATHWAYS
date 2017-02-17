@@ -48,7 +48,11 @@ def myexcepthook(exctype, value, tb):
     logging.error("Exception caught during model run.", exc_info=(exctype, value, tb))
     # It is possible that we arrived here due to a database exception, and if so the database will be in a state
     # where it is not accepting commands. To be safe, we do a rollback before attempting to write the run status.
-    cfg.con.rollback()
+    try:
+        cfg.con.rollback()
+    except (psycopg2.InterfaceError, AttributeError):
+        logging.exception("Unable to rollback database connection while handling an exception, "
+                          "probably because the connection hasn't been opened yet or was already closed.")
     update_api_run_status(5)
     sys.__excepthook__(exctype, value, tb)
 sys.excepthook = myexcepthook
@@ -77,7 +81,7 @@ signal.signal(signal.SIGTERM, signal_handler)
 @click.option('--load_error/--no_load_error', default=False, help='Load the error pickle of a previous model run that crashed.')
 @click.option('--export_results/--no_export_results', default=True, help='Write results from the demand and supply sides of the model.')
 @click.option('--pickle_shapes/--no_pickle_shapes', default=True, help='Cache shapes after processing.')
-@click.option('--save_models/--no_save_models', default=True, help='Cashe models after running.')
+@click.option('--save_models/--no_save_models', default=True, help='Cache models after running.')
 @click.option('--log_name', help='File name for the log file.')
 @click.option('-a', '--api_run/--no_api_run', default=False)
 @click.option('-d', '--debug/--no_debug', default=False, help='On error the model will exit into an ipython debugger.')

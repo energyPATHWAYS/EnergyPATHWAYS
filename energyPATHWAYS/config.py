@@ -1,6 +1,7 @@
 __author__ = 'Ben Haley & Ryan Jones'
 
 import os
+import errno
 import ConfigParser
 import pint
 import geomapper
@@ -136,6 +137,12 @@ def setuplogging():
 
 def init_cfgfile(cfgfile_path):
     global cfgfile, years, supply_years
+
+    if not os.path.isfile(cfgfile_path):
+        raise IOError(errno.ENOENT, "Unable to load configuration file. "
+                                    "Please make sure your configuration file is located at {}, "
+                                    "or use the -p and -c command line options to specify a different location. "
+                                    "Type `energyPATHWAYS --help` for help on these options.".format(str(cfgfile_path)))
 
     cfgfile = ConfigParser.ConfigParser()
     cfgfile.read(cfgfile_path)
