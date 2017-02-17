@@ -2,31 +2,61 @@
 Getting Started
 ===============
 
+Overview
+========
+
+A working EnergyPATHWAYS installation consists of two main parts:
+
+1. The EnergyPATHWAYS python code, and the libraries that it depends upon, which are described under `Dependencies`_ below.
+2. Input data, consisting of a `Database`_ describing an energy system and a `Configuration File`_, also described below.
+
+It is possible to use one installation of the python code to run multiple models (e.g. for different states or nations) by creating multiple sets of input data. That is, you will only need to set up part (1) once, and then you can set up part (2) for each energy system that you would like to model.
+
+.. Important::
+   To date, no energy system database for EnergyPATHAWAYS has been released publicly, and it is therefore not yet possible to run the model without support from Evolved Energy Research even though the model code is open source. Evolved Energy Research has developed a U.S. energy system database that is available commercially, and is working to develop a freely-available example database to aid users in developing their own energy system models for other regions, but this effort is still in progress. Please direct any inquiries about EnergyPATHWAYS and related databases to `info@evolved.energy`_.
+
+.. _`info@evolved.energy`: mailto:info@evolved.energy
+
+Obtaining EnergyPATHWAYS
+========================
+
+To begin, please clone EnergyPATHWAYS from its `GitHub repository`_. If you are unfamiliar with cloning a repository, please see `GitHub's documentation`_ on this topic.
+
+.. _`GitHub repository`: https://github.com/energyPATHWAYS/energyPATHWAYS
+.. _`GitHub's documentation`: https://help.github.com/articles/cloning-a-repository/
+
 Dependencies
 ============
 
-EnergyPATHWAYS requires Python 2.7 to ensure compatibility with certain libraries that have not yet been ported to Python 3.
+We have now cloned the EnergyPATHWAYS code, but before completing the installation we need to set up an environment containing a Python interpreter and a number of supporting libraries.
+
+.. Note::
+   EnergyPATHWAYS requires Python 2.7 to ensure compatibility with certain libraries that have not yet been ported to Python 3. The instructions below will provide you with a python 2.7 environment.
 
 Packages
 --------
 
-We recommend setting up your environment for EnergyPATHWAYS using Anaconda, which is both a package manager and a virtual environment manager. To set up the virtual environment, first `download`_ and install Anaconda, open a command prompt and ``cd`` to the directory where you have cloned the EnergyPATHWAYS repository, and enter::
+We recommend setting up your environment for EnergyPATHWAYS using Anaconda, which is both a package manager and a virtual environment manager. To set up the virtual environment, first `download`_ and install Anaconda, open a command prompt and ``cd`` to the directory where you have cloned the EnergyPATHWAYS repository. If you are working on a windows PC enter::
 
-  $ conda env create --name pathways -f environment.yml
+  $ conda env create --name pathways -f environment_pc.yml
 
-(You are, of course, welcome to choose a name other than "pathways" for the environment if you prefer.) This only needs to be done once. Then, in the future, whenever you would like to run energyPATHWAYS, first activate the environment you just created by running::
+Or on a mac enter::
+
+  $ conda env create --name pathways -f environment_mac.yml
+
+(You are, of course, welcome to choose a name other than "pathways" for the environment if you prefer.) This only needs to be done once. Then, in the future, whenever you would like to run EnergyPATHWAYS, first activate the environment you just created by running::
 
    $ source activate pathways
 
 .. _download: https://www.continuum.io/downloads
 
-Note that you are not required to use Anaconda; you may use any method you like to create a Python environment with the packages from ``environment.yml`` installed. However, we have found Anaconda to be the most reliable way to do this across different platforms. In case you do decide to set up your own environment in a different way, please use the package versions specified in ``environment.yml``, and please especially be aware of the following warnings.
+Note that you are not required to use Anaconda; you may use any method you like to create a Python environment with the packages from the environment file (``environment_pc.yml`` or ``environment_mac.yml``) installed. However, we have found Anaconda to be the most reliable way to do this across different platforms. In case you do decide to set up your own environment in a different way, please use the package versions specified in the appropriate environment file, and please especially be aware of the following warnings.
 
 .. Warning::
    There is a `known bug`_ in numexpr 2.4.4 that will intermittently lead to incorrect calculations in EnergyPATHWAYS. numexpr is not required for running EnergyPATHWAYS, but is often installed alongside (and automatically used by) NumPy, e.g. in the Anaconda default environment. If you do have numexpr installed, please ensure that you have a version newer (or older) than 2.4.4 before using EnergyPATHWAYS.
 
 .. Warning::
-   Issues have been experienced with pandas version 0.18.0 and 0.18.1. it is recommended that users run the model with version 0.17.1
+   Issues have been experienced with pandas versions greater than 0.17.1. it is recommended that users run the model with version 0.17.1, as specified in the environment files.
 
 .. _`known bug`: https://github.com/pydata/numexpr/issues/185
 
@@ -42,18 +72,21 @@ To install Cbc, see the official `download and install instructions`_. Note that
 
 .. _`download and install instructions`: https://projects.coin-or.org/Cbc#DownloadandInstall
 
-Our experience with Cbc or GLPK is that each must be added to the system path manually on a Windows PC. For instructions on how to add the solvers to your system path, Google “adding a new application to system path windows” or similar and follow the instructions for your version of Windows.
+.. Note::
+   On Windows, our experience is that the path to Cbc or GLPK must be `added to your system path manually`_.
+
+.. _`added to your system path manually`: https://www.howtogeek.com/118594/how-to-edit-your-system-path-for-easy-command-line-access/
 
 Once you have a solver in your system path, EnergyPATHWAYS should detect and use it automatically. If you would like to customize the list of solvers that energyPATHAWAYS searches for, see the ``dispatch_solver`` option in the example ``config.INI`` file discussed below.
 
 Installation
 ============
 
-Once the dependencies are installed, EnergyPATHWAYS can be installed using python's setuptools. Don't forget to activate your virtual environment in the current session if you haven't already::
+Once the dependencies are installed, EnergyPATHWAYS can be installed using Python's setuptools. Don't forget to activate your virtual environment in the current session if you haven't already::
 
     $ source activate pathways
 
-Then from the root directory of your cloned repository::
+Then from the root directory of your cloned repository (e.g. ``energyPATHWAYS/``)::
 
     $ python setup.py develop
 
@@ -62,15 +95,20 @@ EnergyPATHWAYS is now installed!
 .. Note::
    Setuptools will attempt to install any required packages that are not in your environment when you run ``setup.py``. However, we have found that this method does not reliably install all dependencies on all platforms. For example, users have encountered difficulty installing NumPy and SciPy on macOS this way. This is why we recommend using Anaconda to set up the environment before installing EnergyPATHWAYS, as described under `Packages`_, above.
 
-In addition to installation of the EnergyPATHWAYS package, a model cannot be created until a set of data is supplied. The input data contain two components:
+Data Setup
+==========
 
-- A database describing your energy system (see below)
-- Configuration file (e.g. EnergyPATHWAYS/model runs/us\_model\_example/config.INI)
+In addition to installation of the EnergyPATHWAYS package described above, a model cannot be run until input data are provided. The input data consist of two components:
 
-Database Setup
-==============
+1. A database describing your energy system
+2. A configuration file (e.g. ``energyPATHWAYS/model\_runs/us\_model\_example/config.INI``)
 
-Pathways currently requires access to an energy system database in a particular format, stored in `PostgreSQL`_. (As noted in ``setup.py``, the psycopg2 package is therefore also required so that python can connect to PostgreSQL.) Future versions of EnergyPATHWAYS may support a wider variety of databases and/or input formats. If you are unfamiliar with PostgreSQL, we recommend installing it in the following ways:
+These are described in the following subsections.
+
+Database
+--------
+
+Pathways currently requires access to an energy system database in a particular format, stored in `PostgreSQL`_. Future versions of EnergyPATHWAYS may support a wider variety of databases and/or input formats. If you are unfamiliar with PostgreSQL, we recommend installing it in the following ways:
 
 .. _PostgreSQL: http://www.postgresql.org/
 
@@ -83,29 +121,56 @@ Pathways currently requires access to an energy system database in a particular 
 
 As of this writing, EnergyPATHWAYS is being developed and tested against PostgreSQL 9.5.1, but this is subject to change.
 
-Once you have your PostgreSQL server up and running, we recommend that you place the EnergyPATHWAYS U.S. example model .sql file at ``us_model_example/pathways_us.sql``. Then, using the command line client, you can issue the following commands from the ``energyPATHWAYS/model runs/us_model_example/`` directory. Depending on how your PostgreSQL installation is set up, you may need to provide a username to these commands using the ``-U`` option.
+As noted in the `Overview`_, you will need to contact Evolved Energy Research to obtain an EnergyPATHWAYS database dump for the nation or state you are interested in. Once you have your PostgreSQL server up and running, we recommend that you place the database dump file in a directory under ``energyPATHWAYS/model_runs`` named after the region you are modeling; for instance, for the U.S. you might save your database dump in ``energyPATHWAYS/model_runs/us_model_example/pathways_us.sql``. Then, using the command line postgres client, you can issue the following commands from the ``energyPATHWAYS/model_runs/us_model_example/`` directory.
 
 .. code:: bash
 
-   $ createdb pathways
+   $ createdb pathways_us
    $ psql pathways < pathways_us.sql
 
-You will then need to edit the database connection parameters at the top of ``energyPATHWAYS/us_model_example/configurations.INI`` so that EnergyPATHWAYS can find your database. Please note that EnergyPATHWAYS is under development and the database structure is subject to change; if you update to a new version of the code, you may need to update your database as well. Presently this requires either starting over with a new U.S. example database, or using a "diff" tool to examine the changes in the ``pathways_us.sql`` file and applying them manually to your database. We are investigating ways to make this process easier.
+If you attempt to run these commands and see error messages containing the phrase, ``FATAL:  role "[your username]" does not exist``, this means that postgres does not have a user matching your username. If you are experienced with postgres you may wish to create a user matching your username, but if you are just getting started and not using your postgres database for public-facing purposes, it should be fine just to use the postgres "root" user, which is usually named "postgres". In that case, you can re-enter the commands as follows:
 
-.. Note::
-   The U.S. database for EnergyPATHWAYS developed by Evolved Energy Research is not publicly posted. Inquiries should be directed to `info@evolved.energy`_.
+.. code:: bash
 
-.. _`info@evolved.energy`: mailto:info@evolved.energy
+   $ createdb -U postgres pathways_us
+   $ psql -U postgres pathways < pathways_us.sql
+
+Please note that EnergyPATHWAYS is under development and the database structure is subject to change; if you update to a new version of the code, you may need to update your database as well. Please contact `info@evolved.energy`_ if you have questions or need help with this.
+
+Configuration File
+------------------
+
+Finally, in order to run the model you will need to edit the configuration file to reflect the settings you would like to use. Assuming that you are running in the ``us_model_example`` directory, you can open up ``energyPATHWAYS/model_runs/us_model_example/config.INI`` in your favorite text editor.
+
+The most important settings that nearly everyone will need to change are in the ``[database]`` section at the top. These settings tell EnergyPATHWAYS where to find your database and how to connect to it. Update these settings as follows:
+
+  ``pg_host``
+    Leave this as "localhost" unless your PostgreSQL server is on a different computer than your Python code, in which case you will need to specify the network address of the database server.
+
+  ``pg_user``
+    This will be the username you put after ``-U`` when you ran the ``createdb`` and ``psql`` commands above. If you were able to run the commands without the ``-U``, then this will just be your operating system username.
+
+  ``pg_password``
+    The password for the user above. If the user has no password, just leave this line blank after the ``pg_password:``.
+
+  ``pg_database``
+    The name of the database you created with ``createdb`` above, e.g. "pathways_us".
+
+You may wish to change other configuration settings, particularly if you are using a model other than the U.S. model. The settings are briefly documented by comments within the example config.INI. If you have questions not answered by those comments, please contact `info@evolved.energy`_.
 
 Running the Model
 =================
 
-After installing EnergyPATHWAYS, it can be run from the command line:
+After installing EnergyPATHWAYS and setting up the necessary input data, the model can be run from the command line::
 
     $ energyPATHWAYS [options]
 
-It is necessary to point EnergyPATHWAYS to a configuration file in the run directory. This file, along with general model setup, points the model the the correct database. An example (config.INI) is found in the ``us_model_example`` folder.
+To get help on the various command line options, use::
 
-To start the model running on scenario id one, for instance, use the following command:
+    $ energyPATHWAYS --help
+
+As mentioned above, EnergyPATHWAYS will need access to your configuration file in order to load your database and begin running. By default, EnergyPATHWAYS will assume that the configuration file is called ``config.INI`` and is located in the current directory. If you need to change these assumptions, you can use the ``-c`` and/or ``-p`` command line options, as described in the ``energyPATHWAYS --help`` text.
+
+In most cases, you will at a minimum need to tell EnergyPATHWAYS which scenario to run from the database by using the ``-s`` option to specify its id number. So, for instance, the basic usage to run scenario number 1 would be::
 
     $ energyPATHWAYS -s 1
