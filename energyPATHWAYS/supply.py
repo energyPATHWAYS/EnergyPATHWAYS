@@ -1262,7 +1262,7 @@ class Supply(object):
                                 residual_coeff_col_indexer = util.level_specific_indexer(residual_thermal_coefficients,[cfg.primary_geography],[col_geo],axis=1)
                                 df.loc[df_row_indexer,df_col_indexer] = np.column_stack(df.loc[df_row_indexer,df_col_indexer].values).T + np.column_stack(residual_thermal_coefficients.loc[residual_coeff_row_indexer,residual_coeff_col_indexer].values).T
         else:     
-            df = self.thermal_totals.apply(lambda x: x/x.sum())
+            df = util.DfOper.divi([self.thermal_totals.apply(lambda x: x/x.sum()),self.nodes[self.thermal_dispatch_node_id].active_supply.sum()])
             df = pd.concat([df]*len(self.demand_sectors),keys=self.demand_sectors,names=['demand_sector'])
             df = pd.concat([df]*len(self.demand_sectors),keys=self.demand_sectors,names=['demand_sector'],axis=1)
             df = df.reorder_levels([cfg.primary_geography,'demand_sector','supply_node'])
@@ -1273,8 +1273,7 @@ class Supply(object):
                         row_indexer = util.level_specific_indexer(df,'demand_sector',row_sector,axis=0)
                         col_indexer = util.level_specific_indexer(df,'demand_sector',col_sector,axis=1)
                         df.loc[row_indexer,col_indexer] = 0
-#        if year == 2050:
-#            pdb.set_trace()
+
         normalized = df.groupby(level=['demand_sector']).transform(lambda x: x/x.sum())
 #        df[df<normalized] = normalized
         bulk_multiplier = df.sum()
@@ -1282,7 +1281,7 @@ class Supply(object):
         df.replace([np.inf,np.nan],0,inplace=True)
         self.nodes[self.thermal_dispatch_node_id].active_coefficients_total = df
         indexer = util.level_specific_indexer(self.nodes[self.bulk_id].values,'supply_node',self.thermal_dispatch_node_id)
-        self.nodes[self.bulk_id].values.loc[indexer, year] *=  bulk_multiplier.values
+        self.nodes[self.bulk_id].values.loc[indexer, year] *= bulk_multiplier.values
         thermal_df = copy.deepcopy(self.nodes[self.bulk_id].values.loc[indexer, year])
         thermal_df[thermal_df>1]=1
         self.nodes[self.bulk_id].values.loc[indexer, year] =0
@@ -2246,7 +2245,7 @@ class Supply(object):
         for node in self.nodes.values():
             indexer = util.level_specific_indexer(self.io_supply_df,levels=['supply_node'], elements = [node.id])
             node.active_supply = self.io_supply_df.loc[indexer,year].groupby(level=[cfg.primary_geography, 'demand_sector']).sum().to_frame()
-                
+                    
 
     
     def add_initial_demand_dfs(self, year):
