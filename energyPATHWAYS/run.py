@@ -197,13 +197,13 @@ if __name__ == "__main__":
     config = 'config.INI'
     scenario = [5]
     run(workingdir, config, scenario,
-    load_demand   = False,
+    load_demand   = True,
     solve_demand  = True,
-    load_supply   = False,
+    load_supply   = True,
     solve_supply  = True,
-    export_results= False,
+    export_results= True,
     pickle_shapes = True,
-    save_models   = False,
+    save_models   = True,
     api_run       = False,
-    clear_results = True)
+    clear_results = False)
 

@@ -274,7 +274,7 @@ class Supply(object):
         self.calculate_coefficients(year, loop)
         self.bulk_node_id = self.discover_bulk_id()
         self.discover_thermal_nodes()
-        self.update_io_df(year)
+        self.update_io_df(year, loop)
         self.calculate_io(year, loop)
 
     def _recalculate_stocks_and_io(self, year, loop):
@@ -284,7 +284,8 @@ class Supply(object):
         # we have just solved the dispatch, so coefficients need to be updated before updating the io
         if loop == 3 and year in self.dispatch_years:
             self.update_coefficients_from_dispatch(year)
-        self.update_io_df(year)
+        self.copy_io(year,loop)
+        self.update_io_df(year,loop)
         self.calculate_io(year, loop)
         self.calculate_stocks(year, loop)
 
@@ -296,6 +297,11 @@ class Supply(object):
                 self.update_demand(year,loop)
             self._recalculate_stocks_and_io(year, loop)
             self.reconciled = False
+
+    def copy_io(self,year,loop):
+        if year != min(self.years) and loop ==1:
+            for sector in self.demand_sectors:
+                self.io_dict[year][sector] = copy.deepcopy(self.io_dict[year-1][sector])
 
     def set_dispatch_years(self):
         dispatch_year_step = int(cfg.cfgfile.get('case','dispatch_step'))
@@ -1262,7 +1268,7 @@ class Supply(object):
                                 residual_coeff_col_indexer = util.level_specific_indexer(residual_thermal_coefficients,[cfg.primary_geography],[col_geo],axis=1)
                                 df.loc[df_row_indexer,df_col_indexer] = np.column_stack(df.loc[df_row_indexer,df_col_indexer].values).T + np.column_stack(residual_thermal_coefficients.loc[residual_coeff_row_indexer,residual_coeff_col_indexer].values).T
         else:     
-            df = util.DfOper.divi([self.thermal_totals.apply(lambda x: x/x.sum()),self.nodes[self.thermal_dispatch_node_id].active_supply.sum()])
+            df = util.DfOper.divi([self.thermal_totals,util.remove_df_levels(self.nodes[self.thermal_dispatch_node_id].active_supply,'demand_sector')])
             df = pd.concat([df]*len(self.demand_sectors),keys=self.demand_sectors,names=['demand_sector'])
             df = pd.concat([df]*len(self.demand_sectors),keys=self.demand_sectors,names=['demand_sector'],axis=1)
             df = df.reorder_levels([cfg.primary_geography,'demand_sector','supply_node'])
@@ -2086,7 +2092,7 @@ class Supply(object):
                           self.feed_oversupply(year, oversupply_node = output_node.id, oversupply_factor=oversupply_factor)
  
 
-    def update_io_df(self,year):
+    def update_io_df(self,year,loop):
         """Updates the io dictionary with the active coefficients of all nodes
         Args:
             year (int) = year of analysis 
@@ -2103,8 +2109,11 @@ class Supply(object):
                             normalized = col_node.active_coefficients_total.loc[:,col_indexer].groupby(level=['demand_sector']).transform(lambda x: x/x.sum())
                             normalized = normalized.replace([np.nan,np.inf],1E-7)
                             col_node.active_coefficients_total.loc[:,col_indexer] = normalized
+                            
         for col_node in self.nodes.values():
-            if col_node.active_coefficients_total is None:
+            if loop == 1 and col_node.id not in self.blend_nodes:
+                continue
+            elif col_node.active_coefficients_total is None:
                continue
             else:
                for sector in self.demand_sectors:
@@ -2241,7 +2250,6 @@ class Supply(object):
             idx = pd.IndexSlice
             self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:].round(7)
             self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:].round(7)
-        
         for node in self.nodes.values():
             indexer = util.level_specific_indexer(self.io_supply_df,levels=['supply_node'], elements = [node.id])
             node.active_supply = self.io_supply_df.loc[indexer,year].groupby(level=[cfg.primary_geography, 'demand_sector']).sum().to_frame()
