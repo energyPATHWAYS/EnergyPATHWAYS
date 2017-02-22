@@ -516,7 +516,7 @@ class Dispatch(object):
         return clustered
 
     @staticmethod
-    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.8, load_ptile=99.5, individual_plant_maintenance=True):
+    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.8, load_ptile=99.5, individual_plant_maintenance=False):
         # gives the index for the change between dispatch_periods
         group_cuts = list(np.where(np.diff(dispatch_periods)!=0)[0]+1) if dispatch_periods is not None else None
         group_lengths = np.array([group_cuts[0]] + list(np.diff(group_cuts)) + [len(load)-group_cuts[-1]])
@@ -541,8 +541,6 @@ class Dispatch(object):
         load_for_maint = np.copy(load)
         set_load_index = np.intersect1d(np.nonzero(not_okay_for_maint)[0], np.nonzero(load<load_cut)[0])
         load_for_maint[set_load_index] = load_cut * 10
-#        load_for_maint = np.max(np.reshape(load_for_maint, (len(load_for_maint)/24, 24)), axis=1)
-#        load_for_maint *= (sum(load)/sum(load_for_maint))
 
         energy_allocation = Dispatch.dispatch_to_energy_budget(load_for_maint, -maintenance_energy, pmins=sum_capacity*min_maint, pmaxs=sum_capacity*max_maint)
         energy_allocation_by_group = np.array([np.sum(ge) for ge in np.array_split(energy_allocation, np.array(group_cuts))])

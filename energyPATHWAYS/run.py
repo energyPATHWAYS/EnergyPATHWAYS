@@ -192,18 +192,18 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\energyPATHWAYS\model_runs\us_model_example'
+    workingdir = r'C:\github\EP_runs\us_model_example\separate\2'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = [5]
+    scenario = [2]
     run(workingdir, config, scenario,
-    load_demand   = True,
-    solve_demand  = True,
+    load_demand   = False,
+    solve_demand  = False,
     load_supply   = True,
-    solve_supply  = True,
-    export_results= True,
-    pickle_shapes = True,
-    save_models   = True,
+    solve_supply  = False,
+    export_results= False,
+    pickle_shapes = False,
+    save_models   = False,
     api_run       = False,
     clear_results = False)
 

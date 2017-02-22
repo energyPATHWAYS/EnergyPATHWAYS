@@ -1119,7 +1119,7 @@ class Supply(object):
             node.active_weighted_sales = weighted_sales
             node.active_weighted_sales = node.active_weighted_sales.fillna(1/float(len(node.tech_ids)))
 
-    def solve_thermal_dispatch(self,year):
+    def solve_thermal_dispatch(self, year):
         """solves the thermal dispatch, updating the capacity factor for each thermal dispatch technology
         and adding capacity to each node based on determination of need"""
         logging.info('      solving thermal dispatch')
@@ -1886,19 +1886,20 @@ class Supply(object):
         Args:
             year (int) = year of analysis 
             loop (int or str) = loop identifier 
-        """               
-        for node in self.nodes.values():         
-            if node.id not in self.blend_nodes:
-                #Checks whether a node has information (stocks or potential) that means that demand is not a good proxy for location of supply
-                node.calculate_internal_trades(year, loop)
-        for node in self.nodes.values():
-            #loops through all nodes checking for excess supply from nodes that are not curtailable, flexible, or exportable
-            trade_sub = node.id
-            if node.id not in self.blend_nodes:
-                #Checks whether a node has information that means that demand is not a good proxy for location of supply
-                if hasattr(node,'active_internal_trade_df') and node.internal_trades == "stop and feed":
-                    #enters a loop to feed that constraint forward in the supply node until it can be reconciled at a blend node or exported
-                    self.feed_internal_trades(year, trade_sub, node.active_internal_trade_df)     
+        """
+        if len(cfg.geographies) > 1:
+            for node in self.nodes.values():
+                if node.id not in self.blend_nodes:
+                    #Checks whether a node has information (stocks or potential) that means that demand is not a good proxy for location of supply
+                    node.calculate_internal_trades(year, loop)
+            for node in self.nodes.values():
+                #loops through all nodes checking for excess supply from nodes that are not curtailable, flexible, or exportable
+                trade_sub = node.id
+                if node.id not in self.blend_nodes:
+                    #Checks whether a node has information that means that demand is not a good proxy for location of supply
+                    if hasattr(node,'active_internal_trade_df') and node.internal_trades == "stop and feed":
+                        #enters a loop to feed that constraint forward in the supply node until it can be reconciled at a blend node or exported
+                        self.feed_internal_trades(year, trade_sub, node.active_internal_trade_df)
                     
       
       

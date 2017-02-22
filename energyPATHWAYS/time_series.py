@@ -6,6 +6,7 @@ from scipy import optimize, interpolate, stats
 import util
 import logging
 import pylab
+import pdb
 
 pd.options.mode.chained_assignment = None
 
@@ -192,7 +193,7 @@ class TimeSeries:
             elif interpolation_method=='logistic':
                 interpolation_method = 'nearest'
                 logging.debug('More than one x, y pair is needed for logistic regression')
-            elif interpolation_method is not None:
+            elif interpolation_method is not None and interpolation_method != 'none':
                 interpolation_method = 'nearest'
 
             if extrapolation_method=='exponential' and kwargs.get('exp_growth_rate', None) is None:
@@ -200,7 +201,7 @@ class TimeSeries:
             elif extrapolation_method=='logistic':
                 extrapolation_method = 'nearest'
                 logging.debug('More than one x, y pair is needed for logistic regression')
-            elif extrapolation_method is not None:
+            elif extrapolation_method is not None and extrapolation_method != 'none':
                 extrapolation_method = 'nearest'
 
         if interpolation_method == 'quadratic':
@@ -367,7 +368,7 @@ class TimeSeries:
         ##################
         # if given an extrapolation method and there are points to extrapolate to
         extrap_index = np.nonzero(np.any([newindex < min(x), newindex > max(x)], axis=0))[0]
-        if extrapolation_method is None or extrapolation_method  == 'none':
+        if extrapolation_method is None or extrapolation_method == 'none':
             yhat[extrap_index] = np.NaN
         elif len(extrap_index) and extrapolation_method != interpolation_method:
             yhat[extrap_index] = TimeSeries._run_cleaning_method(x, y, newindex, extrapolation_method, **kwargs)[extrap_index]
@@ -379,6 +380,15 @@ class TimeSeries:
         return yhat
 
 
+# newindex = np.arange(2000, 2051)
+# #x = np.array([2015, 2020, 2025, 2030, 2040, 2050])
+# #y = np.array([0.01, 0.03, .1, 1, .8, .4])
+# x = np.array([2020])
+# y = np.array([0.716194956])
+# start = pd.DataFrame(y, index=x)
+# interpolation_method = 'none'
+# extrapolation_method = 'none'
+# filled = TimeSeries.clean(start, newindex, interpolation_method, extrapolation_method)
 
 #newindex = np.arange(2000, 2051)
 ##x = np.array([2015, 2020, 2025, 2030, 2040, 2050])
