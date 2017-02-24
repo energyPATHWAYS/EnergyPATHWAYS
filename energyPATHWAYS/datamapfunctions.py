@@ -89,22 +89,26 @@ class DataMapFunctions:
                 logging.warning(self.raw_values[duplicate_index])
                 self.raw_values = self.raw_values.groupby(level=self.raw_values.index.names).first()
         else:
-            msg = 'No {} found for {} with id {}.'.format(self.sql_data_table, self.sql_id_table, self.id)
-            if re.search("Cost(New|Replacement)?Data$", self.sql_data_table) or \
-                self.sql_data_table in ['DemandTechsAuxEfficiencyData',
-                                        'DemandTechsParasiticEnergyData',
-                                        'DemandTechsServiceDemandModifierData']:
-                # The model can run fine without cost data as well as some kinds of supplementary data about demand
-                # technologies, and this is sometimes useful during model development so we just gently note if cost
-                # data is missing.
-                logging.debug(msg)
-            else:
-                # Any other missing data is potentially fatal so we complain
-                # FIXME: but for now we're leaving this at debug level as well since we haven't fully defined
-                # what constitutes problematically missing data
-                logging.debug(msg)
-
             self.raw_values = None
+            # We didn't find any timeseries data for this object, so now we want to let the user know if that
+            # might be a problem. We only expect to find timeseries data if self actually existed in the database
+            # (as opposed to being a placeholder). The existence of self in the database is flagged by self.data.
+            if self.data:
+                if getattr(self, 'reference_tech_id', None):
+                    logging.debug('No {} found for {} with id {}; using reference technology values instead.'.format(
+                        self.sql_data_table, self.sql_id_table, self.id
+                    ))
+                else:
+                    msg = 'No {} or reference technology found for {} with id {}.'.format(
+                        self.sql_data_table, self.sql_id_table, self.id
+                    )
+                    if re.search("Cost(New|Replacement)?Data$", self.sql_data_table):
+                        # The model can run fine without cost data and this is sometimes useful during model
+                        # development so we just gently note if cost data is missing.
+                        logging.debug(msg)
+                    else:
+                        # Any other missing data is likely to be a real problem so we complain
+                        logging.critical(msg)
 
     def _validate_other_indexes(self, headers, read_data):
         """
