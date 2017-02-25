@@ -259,6 +259,19 @@ def sql_read_headers(table_name):
     # return list of all column headers
     return [tup[0] for tup in table_info]
 
+def sql_read_dict(table_name, key_col, value_col):
+    """
+    Returns two columns of a table as a dictionary.
+    Memoizes the results so each dictionary is only loaded from the database once.
+    """
+    memo_key = (table_name, key_col, value_col)
+    try:
+        return sql_read_dict.memo[memo_key]
+    except KeyError:
+        data = sql_read_table(table_name, column_names=(key_col, value_col))
+        sql_read_dict.memo[memo_key] = {row[0]: row[1] for row in data}
+        return sql_read_dict.memo[memo_key]
+sql_read_dict.memo = {}
 
 def active_scenario_run_id(scenario_id):
     query = """

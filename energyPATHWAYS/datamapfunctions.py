@@ -14,9 +14,18 @@ import time
 from util import DfOper
 import logging
 import pdb
+import re
 
 
 class DataMapFunctions:
+    @staticmethod
+    def _other_indexes_dict():
+        this_method = DataMapFunctions._other_indexes_dict
+        if not hasattr(this_method, 'memoized_result'):
+            other_indexes_data = util.sql_read_table('OtherIndexesData', ('id', 'other_index_id'))
+            this_method.memoized_result = {row[0]: row[1] for row in other_indexes_data}
+        return this_method.memoized_result
+
     def __init__(self, data_id_key='id'):
         # ToDo remove from being an ordered dict, this shouldn't be necessary
         self.data_id_key = data_id_key
@@ -61,6 +70,8 @@ class DataMapFunctions:
         else:
             read_data = util.sql_read_table(self.sql_data_table, return_iterable=True, **dict([(self.data_id_key, self.id)]))
 
+        self._validate_other_indexes(headers, read_data)
+
         data = []
         if read_data:
             for row in read_data:
@@ -79,6 +90,71 @@ class DataMapFunctions:
                 self.raw_values = self.raw_values.groupby(level=self.raw_values.index.names).first()
         else:
             self.raw_values = None
+            # We didn't find any timeseries data for this object, so now we want to let the user know if that
+            # might be a problem. We only expect to find timeseries data if self actually existed in the database
+            # (as opposed to being a placeholder). The existence of self in the database is flagged by self.data.
+            if self.data:
+                if getattr(self, 'reference_tech_id', None):
+                    logging.debug('No {} found for {} with id {}; using reference technology values instead.'.format(
+                        self.sql_data_table, self.sql_id_table, self.id
+                    ))
+                else:
+                    msg = 'No {} or reference technology found for {} with id {}.'.format(
+                        self.sql_data_table, self.sql_id_table, self.id
+                    )
+                    if re.search("Cost(New|Replacement)?Data$", self.sql_data_table):
+                        # The model can run fine without cost data and this is sometimes useful during model
+                        # development so we just gently note if cost data is missing.
+                        logging.debug(msg)
+                    else:
+                        # Any other missing data is likely to be a real problem so we complain
+                        logging.critical(msg)
+
+    def _validate_other_indexes(self, headers, read_data):
+        """
+        This method checks the following for both other_index_1 and other_index_2:
+        1. If the parent object specifies an other index, all child data rows have a value for that index.
+        2. If any child data row has a value for an other index, the parent specifies an other index that it should
+           belong to.
+        3. All other index data values belong to the other index specified by the parent object.
+        """
+        other_indexes_dict = util.sql_read_dict('OtherIndexesData', 'id', 'other_index_id')
+        other_index_names = util.sql_read_dict('OtherIndexes', 'id', 'name')
+        other_index_data_names = util.sql_read_dict('OtherIndexesData', 'id', 'name')
+
+        for index_num in ('1', '2'):
+            index_col = 'oth_%s_id' % index_num
+
+            if index_col in headers:
+                col_pos = headers.index(index_col)
+                id_pos = headers.index('id')
+                index_attr = 'other_index_%s_id' % index_num
+                index_attr_value = getattr(self, index_attr, None)
+
+                for row in read_data:
+                    if row[col_pos] is None:
+                        if index_attr_value:
+                            logging.critical("{} with id {} is missing an expected value for {}. "
+                                             "Parent {} has id {} and its {} is {} ({}).".format(
+                                             self.sql_data_table, row[id_pos], index_col,
+                                             self.sql_id_table, self.id, index_attr, index_attr_value,
+                                             other_index_names[index_attr_value]
+                            ))
+                    elif index_attr_value is None:
+                        logging.critical("{} with id {} has an {} value of {} ({}) "
+                                         "but parent {} with id {} does not specify an {}.".format(
+                                         self.sql_data_table, row[id_pos], index_col, row[col_pos],
+                                         other_index_data_names[row[col_pos]],
+                                         self.sql_id_table, self.id, index_attr
+                        ))
+                    elif other_indexes_dict[row[col_pos]] != index_attr_value:
+                        logging.critical("{} with id {} has an {} value of {} ({}) "
+                                         "which is not a member of parent {} with id {}'s {}, which is {} ({}).".format(
+                                         self.sql_data_table, row[id_pos], index_col, row[col_pos],
+                                         other_index_data_names[row[col_pos]],
+                                         self.sql_id_table, self.id, index_attr, index_attr_value,
+                                         other_index_names[index_attr_value]
+                        ))
 
     def clean_timeseries(self, attr='values', inplace=True, time_index_name='year', 
                          time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing'):
