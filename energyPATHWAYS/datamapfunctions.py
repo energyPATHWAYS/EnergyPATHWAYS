@@ -173,7 +173,6 @@ class DataMapFunctions:
         else:
             return clean_data
 
-
     def geo_map(self, converted_geography, attr='values', inplace=True, current_geography=None, current_data_type=None, fill_value=0.,filter_geo=True):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table
         if input type is a total, then the subsection is the geography
@@ -204,13 +203,25 @@ class DataMapFunctions:
         if current_geography!=converted_geography:
             mapped_data = util.remove_df_levels(mapped_data, current_geography)
             
-        if hasattr(mapped_data.index,'swaplevel'):
-            mapped_data = mapped_data.swaplevel(converted_geography, 0)
+        if hasattr(mapped_data.index, 'swaplevel'):
+            mapped_data = DataMapFunctions.reorder_df_geo_left_year_right(mapped_data, converted_geography)
         
         if inplace:
             setattr(self, attr, mapped_data.sort())
         else:
             return mapped_data.sort()
+
+    @staticmethod
+    def reorder_df_geo_left_year_right(df, current_geography):
+        if 'year' in df.index.names:
+            y_or_v = ['year']
+        elif 'vintage' in df.index.names:
+            y_or_v = ['vintage']
+        else:
+            y_or_v = []
+        new_order = [current_geography] + [l for l in df.index.names if l not in [current_geography] + y_or_v] + y_or_v
+        mapped_data = df.reorder_levels(new_order)
+        return mapped_data
 
     def ensure_correct_geography(self, map_to, converted_geography, current_geography=None, current_data_type=None, filter_geo=True):
         current_data_type = copy.copy(self.input_type) if current_data_type is None else current_data_type
@@ -241,6 +252,22 @@ class DataMapFunctions:
             df = cfg.geo.filter_foreign_gaus(df, current_geography)
         return df, current_geography
 
+    def _add_missing_geographies(self, df, current_geography, current_data_type):
+        current_number_of_geographies = len(util.get_elements_from_level(df, current_geography))
+        propper_number_of_geographies = len(cfg.geo.geographies_unfiltered[current_geography])
+        if current_data_type == 'total' and current_number_of_geographies != propper_number_of_geographies:
+            # we only want to do it when we have a total, otherwise we can't just fill with zero
+            df = util.reindex_df_level_with_new_elements(df, current_geography, cfg.geo.geographies_unfiltered[current_geography], fill_value=np.nan)
+        return df
+
+    def _get_active_time_index(self, time_index, time_index_name):
+        if time_index is None:
+            time_index = getattr(self, time_index_name + "s") if hasattr(self, time_index_name + "s") else cfg.cfgfile.get('case', 'years')
+        return time_index # this is a list of years
+
+    def _get_df_index_names_in_a_list(self, df):
+        return df.index.names if df.index.nlevels > 1 else [df.index.name]
+
     def remap(self, map_from='raw_values', map_to='values', drivers=None, time_index_name='year',
               time_index=None, fill_timeseries=True, interpolation_method='missing', extrapolation_method='missing',
               converted_geography=None, current_geography=None, current_data_type=None, fill_value=0., lower=0, upper=None, filter_geo=True):
@@ -254,24 +281,23 @@ class DataMapFunctions:
         converted_geography = cfg.primary_geography if converted_geography is None else converted_geography
         current_data_type = self.input_type if current_data_type is None else current_data_type
         current_geography = self.geography if current_geography is None else current_geography
+        time_index = self._get_active_time_index(time_index, time_index_name)
 
-        if time_index is None:
-            time_index = getattr(self, time_index_name + "s") if hasattr(self, time_index_name + "s") else cfg.cfgfile.get('case', 'years')
-
-        mapf_index_names = getattr(self, map_from).index.names if getattr(self, map_from).index.nlevels > 1 else [getattr(self, map_from).index.name]
-        if current_geography not in mapf_index_names:
+        if current_geography not in self._get_df_index_names_in_a_list(getattr(self, map_from)):
             raise ValueError('Current geography does not match the geography of the dataframe in remap')
-        
+
         # deals with foreign gaus and updates the geography
         df, current_geography = self.account_for_foreign_gaus(map_from, current_data_type, current_geography)
         setattr(self, map_to, df)
 
-        if current_data_type == 'total' and len(cfg.geo.geographies_unfiltered[current_geography])!=len(util.get_elements_from_level(getattr(self,map_to),current_geography)):
-            setattr(self, map_to, util.reindex_df_level_with_new_elements(getattr(self,map_to), current_geography, cfg.geo.geographies_unfiltered[current_geography], fill_value=np.nan))
+        # This happens when we are on a geography level and some of the elements are missing. Such as no PR when we have all the other U.S. States.
+        setattr(self, map_to, self._add_missing_geographies(df, current_geography, current_data_type))
 
         if (drivers is None) or (not len(drivers)):
+            # we have no drivers, just need to do a clean timeseries and a geomap
             if fill_timeseries:     
-                self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, time_index_name=time_index_name, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method, lower=lower, upper=upper)
+                self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, time_index_name=time_index_name,
+                                      interpolation_method=interpolation_method, extrapolation_method=extrapolation_method, lower=lower, upper=upper)
             if current_geography != converted_geography:
                 self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
                              current_data_type=current_data_type, fill_value=fill_value,filter_geo=filter_geo)
@@ -280,34 +306,33 @@ class DataMapFunctions:
             self.total_driver = DfOper.mult(util.put_in_list(drivers))
             if current_geography != converted_geography and len(util.put_in_list(drivers))<=1:
                 # While not on primary geography, geography does have some information we would like to preserve
+                # we put the driver on the same geography as our data
                 self.geomapped_total_driver = self.geo_map(current_geography, attr='total_driver', inplace=False, current_geography=converted_geography,
-                         current_data_type='total', fill_value=fill_value,filter_geo=False)
-            elif current_geography!=converted_geography:
+                                                           current_data_type='total', fill_value=fill_value,filter_geo=False)
+            elif current_geography != converted_geography:
                 self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
-                         current_data_type=current_data_type, fill_value=fill_value)
+                             current_data_type=current_data_type, fill_value=fill_value)
                 current_geography = converted_geography
             # Divide by drivers to turn a total to intensity. multindex_operation will aggregate to common levels.
-            if current_data_type == 'total' :
-                df_intensity = DfOper.divi((getattr(self, map_to),  self.geomapped_total_driver if hasattr(self,'geomapped_total_driver') else self.total_driver), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf,np.nan,-np.nan],0)
+            if current_data_type == 'total':
+                df_intensity = DfOper.divi((getattr(self, map_to),  self.geomapped_total_driver if hasattr(self,'geomapped_total_driver') else self.total_driver),
+                                           expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf,np.nan,-np.nan],0)
                 setattr(self, map_to, df_intensity)
-            self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
-                     current_data_type='intensity', fill_value=fill_value,filter_geo=filter_geo)
-            if hasattr(self,'geomapped_total_driver'):
-                delattr(self,'geomapped_total_driver')
-            current_geography = converted_geography
             # Clean the timeseries as an intensity
             if fill_timeseries:
-                # print getattr(self,map_to)
-                # print time_index
                 self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method)
+
+            self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='intensity', fill_value=fill_value, filter_geo=filter_geo)
+            current_geography = converted_geography
+
+            if hasattr(self,'geomapped_total_driver'):
+                delattr(self,'geomapped_total_driver')
 
             if current_data_type == 'total':
                 setattr(self, map_to, DfOper.mult((getattr(self, map_to), self.total_driver),fill_value=fill_value))
             else:
-                try:
-                    setattr(self, map_to, DfOper.mult((getattr(self, map_to), self.total_driver), expandable=(True, False), collapsible=(False, True), fill_value=fill_value))
-                except:
-                    pdb.set_trace()
+                setattr(self, map_to, DfOper.mult((getattr(self, map_to), self.total_driver), expandable=(True, False), collapsible=(False, True), fill_value=fill_value))
+
         self.ensure_correct_geography(map_to, converted_geography, current_geography, current_data_type,filter_geo=filter_geo)
 
 

@@ -385,18 +385,8 @@ class Supply(object):
         logging.info("calculating supply emissions link")
         self.emissions_demand_link = self.map_embodied_to_demand(self.emissions_dict, self.embodied_emissions_link_dict)
         logging.info("calculating supply energy link")
-        self.energy_demand_link = self.map_embodied_to_demand(self.inverse_dict['energy'],self.embodied_energy_link_dict)
-#        self.calculate_embodied_supply_outputs()
+        self.energy_demand_link = self.map_embodied_to_demand(self.inverse_dict['energy'], self.embodied_energy_link_dict)
         self.remove_blend_and_import()
-#        self.outputs.per_energy_costs = copy.deepcopy(self.cost_demand_link)
-#        unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')+ "/" + cfg.calculation_energy_unit
-#        self.outputs.per_energy_costs.columns  = [unit]
-#        self.outputs.per_energy_emissions = copy.deepcopy(self.emissions_demand_link)
-#        unit = cfg.cfgfile.get('case','mass_unit') + "/" + cfg.calculation_energy_unit
-#        self.outputs.per_energy_emissions.columns  = [unit]
-#        self.outputs.per_energy_embodied = copy.deepcopy(self.energy_demand_link)
-#        unit = cfg.calculation_energy_unit + "/" + cfg.calculation_energy_unit
-#        self.outputs.per_energy_embodied.columns  = [unit]
         logging.info("calculate exported costs")
         self.calculate_export_result('export_costs', self.cost_dict)
         logging.info("calculate exported emissions")
@@ -439,6 +429,7 @@ class Supply(object):
         map_dict = self.map_dict
         index = pd.MultiIndex.from_product([cfg.geographies, self.demand_sectors, map_dict.keys(),self.years, self.ghgs], names=[cfg.primary_geography, 'sector', 'final_energy','year','ghg'])
         self.demand_emissions_rates = util.empty_df(index, ['value'])
+
         for final_energy, node_id in map_dict.iteritems():
             node = self.nodes[node_id]
             for year in self.years:
@@ -446,8 +437,9 @@ class Supply(object):
                 df = df.stack(level=[cfg.primary_geography,'demand_sector']).to_frame()
                 df = df.reorder_levels([cfg.primary_geography,'demand_sector','ghg'])
                 df.sort(inplace=True)
-                emissions_rate_indexer = util.level_specific_indexer(self.demand_emissions_rates,['final_energy','year'],[final_energy,year])
+                emissions_rate_indexer = util.level_specific_indexer(self.demand_emissions_rates, ['final_energy', 'year'], [final_energy, year])
                 self.demand_emissions_rates.loc[emissions_rate_indexer,:] = df.values
+
         for final_energy, node_id in map_dict.iteritems():
             node = self.nodes[node_id] 
             if hasattr(node,'emissions') and hasattr(node.emissions, 'values_physical'):
@@ -459,10 +451,9 @@ class Supply(object):
                 df = df.groupby(level=[cfg.primary_geography, 'demand_sector', 'year', 'ghg']).sum()
                 df = df.reorder_levels([cfg.primary_geography, 'demand_sector', 'year', 'ghg'])
                 idx = pd.IndexSlice
-                df = df.loc[idx[:, :, self.years,:],:]
-                emissions_rate_indexer = util.level_specific_indexer(self.demand_emissions_rates,['final_energy'],[final_energy])
+                df = df.loc[idx[:, :, self.years,:], :]
+                emissions_rate_indexer = util.level_specific_indexer(self.demand_emissions_rates, ['final_energy'], [final_energy])
                 self.demand_emissions_rates.loc[emissions_rate_indexer,:] += df.values
-    
                     
     def set_dispatchability(self):
         """Determines the dispatchability of electricity generation nodes and nodes that demand electricity
@@ -1643,7 +1634,6 @@ class Supply(object):
             for sector in self.demand_sectors:
                 link_dict[year][sector].loc[:,:] = embodied_dict[year][sector].loc[:,idx[:, self.map_dict.values()]].values
                 link_dict[year][sector]= link_dict[year][sector].stack([cfg.primary_geography,'final_energy']).to_frame()
-#                levels = [x for x in ['supply_node',cfg.primary_geography +'_supply', 'ghg',cfg.primary_geography,'final_energy'] if x in link_dict[year][sector].index.names]
                 link_dict[year][sector] = link_dict[year][sector][link_dict[year][sector][0]!=0]
                 levels_to_keep = [x for x in link_dict[year][sector].index.names if x in cfg.output_combined_levels]
                 sector_df_list.append(link_dict[year][sector].groupby(level=levels_to_keep).sum())     
@@ -1655,7 +1645,6 @@ class Supply(object):
         name = ['year']
         df = pd.concat(df_list,keys=keys,names=name)
         df.columns = ['value']
-#       levels = [x for x in ['supply_node',cfg.primary_geography +'_supply', 'ghg',cfg.primary_geography,'final_energy'] if x in df.index.names]
         return df
         
     def convert_io_matrix_dict_to_df(self, adict):

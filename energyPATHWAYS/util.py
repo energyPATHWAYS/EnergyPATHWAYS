@@ -1235,9 +1235,11 @@ def reindex_df_level_with_new_elements(df, level_name, new_elements, fill_value=
         const_labels = OrderedSet([tuple([z if i != index_i else -1 for i, z in enumerate(lab)]) for lab in zip(*df.index.labels)])
         new_labels = flatten_list([[tuple([z if i != index_i else n for i, z in enumerate(lab)]) for n in range(len(new_elements))] for lab in const_labels])
         full_elements = [new_elements if name == level_name else level for name, level in zip(df.index.names, df.index.levels)]
-        return df.reindex(index=pd.MultiIndex(levels=full_elements, labels=zip(*new_labels), names=df.index.names), fill_value=fill_value)
+        temp = df.reindex(index=pd.MultiIndex(levels=full_elements, labels=zip(*new_labels), names=df.index.names), fill_value=fill_value)
+        return temp.reset_index().set_index(temp.index.names).sort()
     else:
-        return df.reindex(index=pd.Index(new_elements, name=df.index.name), fill_value=fill_value)
+        temp = df.reindex(index=pd.Index(new_elements, name=df.index.name), fill_value=fill_value)
+        return temp.reset_index().set_index(temp.index.names).sort()
 
 def find_weibul_beta(mean_lifetime, lifetime_variance):
     """http://interstat.statjournals.net/YEAR/2000/articles/0010001.pdf"""

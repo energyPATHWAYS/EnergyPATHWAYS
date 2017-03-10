@@ -289,12 +289,19 @@ class Rollover(object):
         self.rolloff = self.calc_stock_rolloff(self.prinxy)
         self.rolloff_summed = np.sum(self.rolloff)
 
-    
+    def get_stock_from_last_nonzero_year(self, i):
+        # start with the last year and work back to the first year to find the first place we have stock to use to help inform a sales allocation
+        for iter_i in range(i-1, -1, -1):
+            prior_year_stock = np.sum(self.stock[:, :i + 1, iter_i], axis=1)
+            if prior_year_stock.sum() > 0:
+                return prior_year_stock
+        return self.initial_stock #last resort, even if it is zeros
+
     def pick_allocation_option(self, _solvable, i):
         i = min(i, self.i)
         allocation = np.zeros(self.num_techs)
-        prior_year_stock = self.initial_stock if (i == 0 or np.sum(self.stock[:, :i + 1, i - 1], axis=1).sum()==0)  else np.sum(self.stock[:, :i + 1, i - 1], axis=1)
-        rolloff = np.nanmax((self.rolloff, self.defined_sales), axis=0) if i==self.i else self.natural_rolloff[i]
+        prior_year_stock = self.get_stock_from_last_nonzero_year(i)
+        rolloff = np.nanmax((self.rolloff, self.defined_sales), axis=0) if i == self.i else self.natural_rolloff[i]
         if np.sum(rolloff[_solvable]):
             # max between the stock that is rolling off and any specified stocks that we have is used for the allocation
             allocation[_solvable] = rolloff[_solvable] / sum(rolloff[_solvable])

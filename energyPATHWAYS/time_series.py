@@ -269,14 +269,11 @@ class TimeSeries:
     def _clean_multindex(data, time_index_name, interpolation_method=None, extrapolation_method=None, newindex=None, **kwargs):
         if time_index_name not in data.index.names:
             raise ValueError('Time_index_name must match one of the index level names if cleaning a multi-index dataframe')
-        
-        # TODO: duplicate values should raise an error when doing data validation
-        # remove duplicates
-        data = data.groupby(level=data.index.names).first()
 
         if newindex is None:
             exist_index = data.index.get_level_values(time_index_name)
-            newindex = np.arange(min(exist_index), max(exist_index) + 1, dtype=int)
+            newindex = np.array(sorted(set(exist_index)), dtype=int)
+            # newindex = np.arange(min(exist_index), max(exist_index) + 1, dtype=int)
         elif not isinstance(newindex, np.ndarray):
             # We use newindex to calculate extrap_index using a method that takes an array
             newindex = np.array(newindex, dtype=int)
