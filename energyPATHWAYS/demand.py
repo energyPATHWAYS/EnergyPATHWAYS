@@ -205,24 +205,31 @@ class Demand(object):
 
     def group_linked_output(self, supply_link, levels_to_keep=None):
         demand_df = self.outputs.d_energy.copy()
-        if cfg.primary_geography not in cfg.output_combined_levels:
+        if cfg.primary_geography+ "_supply" in cfg.output_combined_levels:
             geo_label = cfg.primary_geography + '_supply'
-            demand_df.index = demand_df.index.rename(geo_label, level=cfg.primary_geography)
             # direct_emissions_link is not in supply geography
-            if geo_label not in supply_link.index.names:
-                supply_link.index = supply_link.index.rename(geo_label, level=cfg.primary_geography)
+            levels_to_keep = cfg.output_combined_levels if levels_to_keep is None else levels_to_keep
+            levels_to_keep = [x for x in levels_to_keep if x in demand_df.index.names]
+            demand_df = demand_df.groupby(level=levels_to_keep).sum()
+            demand_df = demand_df[demand_df.index.get_level_values('year') >= int(cfg.cfgfile.get('case','current_year'))]
+            geography_df_list = []
+            for geography in cfg.geographies:
+                    if geography in supply_link.index.get_level_values(geo_label):
+                        supply_indexer = util.level_specific_indexer(supply_link, [geo_label], [geography])
+                        supply_df = supply_link.loc[supply_indexer, :]
+                        geography_df = util.DfOper.mult([demand_df, supply_df])
+                        geography_df_list.append(geography_df)
+            df = pd.concat(geography_df_list)      
+        
         else:
             geo_label = cfg.primary_geography
-
-        levels_to_keep = cfg.output_combined_levels if levels_to_keep is None else levels_to_keep
-        levels_to_keep = [x for x in levels_to_keep if x in demand_df.index.names]
+            levels_to_keep = cfg.output_combined_levels if levels_to_keep is None else levels_to_keep
+            levels_to_keep = [x for x in levels_to_keep if x in demand_df.index.names]
         # if consumed_supply_geography = False, we have a geography mismatch here. To make it easier, we will rename the demand dataframe
         # this happens in the case that produced_supply_geography = True
-
-        demand_df = demand_df.groupby(level=levels_to_keep).sum()
-        demand_df = demand_df[demand_df.index.get_level_values('year') >= int(cfg.cfgfile.get('case','current_year'))]
-        geography_df_list = []
-        try:
+            demand_df = demand_df.groupby(level=levels_to_keep).sum()
+            demand_df = demand_df[demand_df.index.get_level_values('year') >= int(cfg.cfgfile.get('case','current_year'))]
+            geography_df_list = []
             for geography in cfg.geographies:
                 if geography in supply_link.index.get_level_values(geo_label):
                     supply_indexer = util.level_specific_indexer(supply_link, [geo_label], [geography])
@@ -230,9 +237,7 @@ class Demand(object):
                     supply_df = supply_link.loc[supply_indexer, :]
                     geography_df = util.DfOper.mult([demand_df.loc[demand_indexer, :], supply_df])
                     geography_df_list.append(geography_df)
-        except:
-            pdb.set_trace()
-        df = pd.concat(geography_df_list)      
+            df = pd.concat(geography_df_list)      
         return df
         
     def aggregate_sector_energy_for_supply_side(self):
