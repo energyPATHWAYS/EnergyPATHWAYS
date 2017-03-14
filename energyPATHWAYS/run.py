@@ -197,7 +197,7 @@ if __name__ == "__main__":
     config = 'config.INI'
     scenario = [2]
     run(workingdir, config, scenario,
-    load_demand   = True,
+    load_demand   = False,
     solve_demand  = True,
     load_supply   = True,
     solve_supply  = True,

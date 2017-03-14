@@ -3798,8 +3798,8 @@ class SupplyPotential(Abstract):
         primary_geography = cfg.primary_geography
         self.active_throughput = active_throughput    
         self.active_throughput[self.active_throughput<=0] = 1E-25
-        original_supply_curve = util.remove_df_levels(self.supply_curve.loc[:,year].to_frame().sort(),[x for x in self.full_supply_curve.index.names if x not in [primary_geography, 'resource_bin', 'demand_sector']])
-        self.active_supply_curve = util.remove_df_levels(original_supply_curve,[x for x in self.full_supply_curve.index.names if x not in [primary_geography, 'resource_bin', 'demand_sector']])
+        original_supply_curve = util.remove_df_levels(self.supply_curve.loc[:,year].to_frame().sort(),[x for x in self.supply_curve.loc[:,year].index.names if x not in [primary_geography, 'resource_bin', 'demand_sector']])
+        self.active_supply_curve = util.remove_df_levels(original_supply_curve,[x for x in self.supply_curve.loc[:,year].index.names if x not in [primary_geography, 'resource_bin', 'demand_sector']])
         if tradable_geography is not None and tradable_geography!=primary_geography:
                 map_df = cfg.geo.map_df(primary_geography,tradable_geography,normalize_as='total',eliminate_zeros=False,filter_geo=False)
                 original_supply_curve = util.DfOper.mult([map_df,original_supply_curve])

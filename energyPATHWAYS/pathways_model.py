@@ -98,12 +98,12 @@ class PathwaysModel(object):
         self.demand.link_to_supply(self.supply.emissions_demand_link, self.supply.demand_emissions_rates, self.supply.energy_demand_link, self.supply.cost_demand_link)
     
     def calculate_combined_results(self):
-#        logging.info("Calculating combined emissions results")
-#        self.calculate_combined_emissions_results()
+        logging.info("Calculating combined emissions results")
+        self.calculate_combined_emissions_results()
         logging.info("Calculating combined cost results")
         self.calculate_combined_cost_results()
-#        logging.info("Calculating combined energy results")
-#        self.calculate_combined_energy_results()
+        logging.info("Calculating combined energy results")
+        self.calculate_combined_energy_results()
 
     def remove_old_results(self):
         folder_names = ['combined_outputs', 'demand_outputs', 'supply_outputs', 'dispatch_outputs']

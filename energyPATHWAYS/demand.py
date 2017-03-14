@@ -205,7 +205,7 @@ class Demand(object):
 
     def group_linked_output(self, supply_link, levels_to_keep=None):
         demand_df = self.outputs.d_energy.copy()
-        if cfg.primary_geography+ "_supply" in cfg.output_combined_levels:
+        if cfg.primary_geography + '_supply' in supply_link:
             geo_label = cfg.primary_geography + '_supply'
             # direct_emissions_link is not in supply geography
             levels_to_keep = cfg.output_combined_levels if levels_to_keep is None else levels_to_keep
