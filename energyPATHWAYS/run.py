@@ -199,7 +199,7 @@ if __name__ == "__main__":
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
-    load_supply   = True,
+    load_supply   = False,
     solve_supply  = True,
     export_results= True,
     pickle_shapes = True,

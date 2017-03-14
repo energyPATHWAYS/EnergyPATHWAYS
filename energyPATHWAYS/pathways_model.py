@@ -248,14 +248,14 @@ class PathwaysModel(object):
         self.direct_emissions_df = self.demand.outputs.return_cleaned_output('demand_direct_emissions')
 #        del self.demand.outputs.demand_direct_emissions
         keys = ["DOMESTIC","DEMAND"]
-        names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND", cfg.primary_geography.upper() +'_EMITTED']
+        names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key, name in zip(keys, names):
             self.direct_emissions_df = pd.concat([self.direct_emissions_df], keys=[key], names=[name])
-        # if cfg.primary_geography+'_supply' in cfg.output_combined_levels:
-        #     keys = self.direct_emissions_df.index.get_level_values(cfg.primary_geography.upper()).values
-        #     names = cfg.primary_geography.upper() +'_SUPPLY'
-        #     self.direct_emissions_df[names] = keys
-        #     self.direct_emissions_df.set_index(names,append=True,inplace=True)
+        if cfg.primary_geography+'_supply' in cfg.output_combined_levels:
+             keys = self.direct_emissions_df.index.get_level_values(cfg.primary_geography.upper()).values
+             names = cfg.primary_geography.upper() +'_SUPPLY'
+             self.direct_emissions_df[names] = keys
+             self.direct_emissions_df.set_index(names,append=True,inplace=True)
         keys = ['EXPORTED', 'SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['EMISSIONS TYPE']
         self.outputs.c_emissions = util.df_list_concatenate([self.export_emissions_df, self.embodied_emissions_df, self.direct_emissions_df],keys=keys,new_names = names)
