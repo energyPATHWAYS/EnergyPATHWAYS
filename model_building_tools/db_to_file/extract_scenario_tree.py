@@ -1,6 +1,6 @@
 import psycopg2.extras
 import json
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 import energyPATHWAYS.config as cfg
 
 cfg.init_cfgfile('../../model_runs/us_model_example/config.INI')
@@ -29,7 +29,7 @@ package_data_tables = {DEMAND: {
 }
 
 # Prepare a nested lookup for which measure_ids go with which packages
-packages = {DEMAND: defaultdict(lambda: defaultdict(dict)), SUPPLY: defaultdict(lambda: defaultdict(dict))}
+packages = {DEMAND: defaultdict(lambda: defaultdict(list)), SUPPLY: defaultdict(lambda: defaultdict(list))}
 for side in SIDES:
     for table in package_data_tables[side].values():
         cur.execute("""
@@ -38,9 +38,7 @@ for side in SIDES:
           GROUP BY "{0}".id, "{0}".name
         """.format(table,))
         for row in cur.fetchall():
-            leaf = packages[side][table][row['id']]
-            leaf['contents'] = row['measure_ids']
-            leaf['name'] = row['name']
+            leaf = packages[side][table][row['id']] = row['measure_ids']
 
 # Queries
 queries = {DEMAND: """
@@ -64,14 +62,16 @@ for side in SIDES:
     cur.execute(queries[side])
     case_name_col = "{}_case_name".format(side.lower(),)
     for row in cur.fetchall():
-        state = {}
+        state = OrderedDict({'description': row['description']})
         for id_col, table_name in package_data_tables[side].iteritems():
             if row[id_col] is not None:
-                package = packages[side][table_name][row[id_col]]
-                label = ((package['name'] + ' ') if package['name'] else '') + table_name.replace("Packages", "s")
-                state[label] = package['contents']
+                state[table_name.replace('Packages', 's')] = packages[side][table_name][row[id_col]]
         case_key = "{} Case: {}".format(side, row[case_name_col])
         scenarios[row['scenario_name']][case_key][row['sector_or_node_name']] = state
 
 # Output to json
-print json.dumps(scenarios, sort_keys=True, indent=4, separators=(',', ': '))
+for name, content in scenarios.iteritems():
+    file_name = name.replace(' ', '_') + '.json'
+    print "Writing {}".format(file_name,)
+    with open(file_name, 'w') as outfile:
+        json.dump({name: content}, outfile, indent=4, separators=(',', ': ')) # sort_keys=True,
