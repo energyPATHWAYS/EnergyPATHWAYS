@@ -16,7 +16,7 @@ package_data_tables = {DEMAND: {
                             "flexible_load_package_id": "DemandFlexibleLoadMeasurePackages",
                             "fuel_switching_package_id": "DemandFuelSwitchingMeasurePackages",
                             "service_demand_package_id": "DemandServiceDemandMeasurePackages",
-                            "sales_package_id": "DemandSalesMeasurePackages",
+                            "sales_package_id": "DemandSalesShareMeasurePackages",
                             "stock_package_id": "DemandStockMeasurePackages"
                        },
                        SUPPLY: {

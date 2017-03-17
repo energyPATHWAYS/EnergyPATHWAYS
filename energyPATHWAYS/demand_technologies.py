@@ -261,15 +261,15 @@ class DemandTechnology(StockItem):
 
     def add_sales_share_measures(self, package_id):
         self.sales_shares = {}
-        measure_ids = util.sql_read_table('DemandSalesMeasurePackagesData', 'measure_id', package_id=package_id,
+        measure_ids = util.sql_read_table('DemandSalesShareMeasurePackagesData', 'measure_id', package_id=package_id,
                                           return_iterable=True)
         for measure_id in measure_ids:
-            sales_share_ids = util.sql_read_table('DemandSalesMeasures', 'id', demand_technology_id=self.id, id=measure_id,
+            sales_share_ids = util.sql_read_table('DemandSalesShareMeasures', 'id', demand_technology_id=self.id, id=measure_id,
                                                   return_iterable=True)
             for sales_share_id in sales_share_ids:
                 self.sales_shares[sales_share_id] = SalesShare(id=sales_share_id, subsector_id=self.subsector_id,
-                                                               reference=False, sql_id_table='DemandSalesMeasures',
-                                                               sql_data_table='DemandSalesMeasuresData',
+                                                               reference=False, sql_id_table='DemandSalesShareMeasures',
+                                                               sql_data_table='DemandSalesShareMeasuresData',
                                                                primary_key='id', data_id_key='parent_id')
 
     def add_specified_stock_measures(self, package_id):
