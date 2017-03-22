@@ -52,11 +52,11 @@ class Demand(object):
                     subsector.add_energy_system_data()
             sector.make_precursor_dict()
 
-    def add_measures(self, demand_case_id):
+    def add_measures(self, scenario):
         logging.info('Adding demand measures')
         for sector in self.sectors.values():
             for subsector in sector.subsectors.values():
-                subsector.add_measures(demand_case_id)
+                subsector.add_measures(scenario)
 
     @staticmethod
     def geomap_to_dispatch_geography(df):
@@ -621,48 +621,21 @@ class Subsector(DataMapFunctions):
         self.add_service_links()
         self.calculate_years()
 
-    def filter_packages(self, case_id):
-        """filters packages by case"""
-        col_names = util.sql_read_headers('DemandStates')
+    def add_measures(self, scenario):
+        """ add measures to subsector based on scenario inputs """
+        self.add_service_demand_measures(scenario)
+        self.add_energy_efficiency_measures(scenario)
+        self.add_fuel_switching_measures(scenario)
+        self.add_stock_measures(scenario)
+        self.add_flexible_load_measures(scenario)
 
-        query = """
-                    SELECT "DemandStates".*
-                    FROM "DemandStates"
-                    JOIN "DemandCasesData"
-                      ON "DemandCasesData".demand_state_id = "DemandStates".id
-                    WHERE "DemandStates".subsector_id = %s
-                      AND "DemandCasesData".demand_case_id = %s
-                """
-
-        cfg.cur.execute(query, (self.id, case_id))
-        if cfg.cur.rowcount > 1:
-            pdb.set_trace()
-        assert cfg.cur.rowcount <= 1,\
-            "More than one DemandStates row found for subsector %i, case %i." % (self.id, case_id)
-        result = cfg.cur.fetchone()
-        logging.info("    Loading packages for " + str(self.name))
-        for idx, col_name in enumerate(col_names):
-            if col_name.endswith('package_id'):
-                val = result[idx] if result else None
-                logging.debug('  Setting %s to %s' % (col_name, "None" if val is None else str(val)))
-                setattr(self, col_name, val)
-
-    def add_measures(self, case_id):
-        """ add measures to subsector based on case and package inputs """
-        self.filter_packages(case_id)
-        self.add_service_demand_measures()
-        self.add_energy_efficiency_measures()
-        self.add_fuel_switching_measures()
-        self.add_stock_measures()
-        self.add_flexible_load_measures()
-
-    def add_stock_measures(self):
+    def add_stock_measures(self, scenario):
         """ add specified stock and sales measures to model if the subsector
         is populated with stock data """
         if self.has_stock:
             for tech in self.technologies:
-                self.technologies[tech].add_specified_stock_measures(self.stock_package_id)
-                self.technologies[tech].add_sales_share_measures(self.sales_package_id)
+                self.technologies[tech].add_specified_stock_measures(scenario)
+                self.technologies[tech].add_sales_share_measures(scenario)
 
     def calculate(self):
         logging.info("    calculating" + " " +  self.name)
@@ -1005,21 +978,12 @@ class Subsector(DataMapFunctions):
             self.remap_tech_attrs(tech_classes)
 
 
-    def add_energy_efficiency_measures(self):
+    def add_energy_efficiency_measures(self, scenario):
         """
-        add all energy efficiency measures in a selected package to a dictionary
+        add all energy efficiency measures for this subsector to a dictionary
         """
-        self.energy_efficiency_measures = {}
-        ids = util.sql_read_table("DemandEnergyEfficiencyMeasurePackagesData",column_names='measure_id',package_id=self.energy_efficiency_package_id,return_iterable=True)
-        for id in ids:
-            self.add_energy_efficiency_measure(id, self.cost_of_capital)
-
-    def add_energy_efficiency_measure(self, id, cost_of_capital, **kwargs):
-        """Adds measure class instance to subsector"""
-        if id in self.energy_efficiency_measures:
-            # ToDo note that a demand_technology was added twice
-            return
-        self.energy_efficiency_measures[id] = EnergyEfficiencyMeasure(id, cost_of_capital)
+        measure_ids = scenario.get_measures('DemandEnergyEfficiencyMeasures', self.id)
+        self.energy_efficiency_measures = {id: EnergyEfficiencyMeasure(id, self.cost_of_capital) for id in measure_ids}
 
     def energy_efficiency_measure_savings(self):
         """
@@ -1059,20 +1023,12 @@ class Subsector(DataMapFunctions):
                 measure.savings = DfOper.mult([measure.savings, impact_adjustment])
         self.energy_forecast = DfOper.subt([self.energy_forecast, self.energy_efficiency_savings])
 
-    def add_service_demand_measures(self):
+    def add_service_demand_measures(self, scenario):
         """
-        add all service demand measures in a selected package to a dictionary
+        add all service demand measures for this subsector to a dictionary
         """
-        self.service_demand_measures = {}
-        ids = util.sql_read_table("DemandServiceDemandMeasurePackagesData",column_names='measure_id',package_id=self.service_demand_package_id,return_iterable=True)
-        for id in ids:
-            self.add_service_demand_measure(id, self.cost_of_capital)
-
-    def add_service_demand_measure(self, id, cost_of_capital, **kwargs):
-        """Adds measure instances to subsector"""
-        if id in self.service_demand_measures:
-            return
-        self.service_demand_measures[id] = ServiceDemandMeasure(id, cost_of_capital)
+        measure_ids = scenario.get_measures('DemandServiceDemandMeasures', self.id)
+        self.service_demand_measures = {id: ServiceDemandMeasure(id, self.cost_of_capital) for id in measure_ids}
 
     def service_demand_measure_savings(self):
         """
@@ -1114,29 +1070,21 @@ class Subsector(DataMapFunctions):
         self.service_demand.values = DfOper.subt([self.service_demand.values,
                                                     self.service_demand_savings])
 
-    def add_flexible_load_measures(self):
+    def add_flexible_load_measures(self, scenario):
         """
-        add all flexible load measures in a selected package to a dictionary
+        load this subsector's flexible load measure, if it has one
         """
-        if self.flexible_load_package_id is not None:
-            id = util.sql_read_table("DemandFlexibleLoadMeasurePackagesData",column_names='measure_id',package_id=self.flexible_load_package_id,return_iterable=False)
-            self.flexible_load_measure = FlexibleLoadMeasure(id)
+        measure_ids = scenario.get_measures('DemandFlexibleLoadMeasures', self.id)
+        if measure_ids:
+            assert len(measure_ids) == 1, "Found more than one flexible load measure for subsector {}".format(self.id,)
+            self.flexible_load_measure = FlexibleLoadMeasure(measure_ids[0])
 
-    def add_fuel_switching_measures(self):
+    def add_fuel_switching_measures(self, scenario):
         """
-        add all fuel switching measures in a selected package to a dictionary
+        add all fuel switching measures for this subsector to a dictionary
         """
-        self.fuel_switching_measures = {}
-        ids = util.sql_read_table("DemandFuelSwitchingMeasurePackagesData",column_names='measure_id',package_id=self.fuel_switching_package_id,return_iterable=True)
-        for id in ids:
-            self.add_fuel_switching_measure(id, self.cost_of_capital)
-
-    def add_fuel_switching_measure(self, id, cost_of_capital):
-        """Adds measure instances to subsector"""
-        if id in self.fuel_switching_measures:
-            # ToDo note that a demand_technology was added twice
-            return
-        self.fuel_switching_measures[id] = FuelSwitchingMeasure(id, cost_of_capital)
+        measure_ids = scenario.get_measures('DemandFuelSwitchingMeasures', self.id)
+        self.fuel_switching_measures = {id: FuelSwitchingMeasure(id, self.cost_of_capital) for id in measure_ids}
 
     def fuel_switching_measure_impacts(self):
         """

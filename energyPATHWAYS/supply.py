@@ -239,26 +239,25 @@ class Supply(object):
         if supply_type != "Storage":
             self.non_storage_nodes.append(id)
 
-    def add_measures(self, case_id):
-        """ Adds measures to supply nodes based on case and package inputs"""
+    def add_measures(self, scenario):
+        """ Adds measures to supply nodes based on scenario inputs"""
         logging.info('Adding supply measures')
-        self.case_id = case_id
-        for node in self.nodes.values():  
-            node.filter_packages(case_id)
+        self.scenario = scenario
+        for node in self.nodes.values():
             #all nodes have export measures
-            node.add_export_measures()  
+            node.add_export_measures(scenario)
             #once measures are loaded, export classes can be initiated
             node.add_exports()
             if node.supply_type == 'Blend':
-                node.add_blend_measures()     
+                node.add_blend_measures(scenario)
             elif isinstance(node, SupplyStockNode) or isinstance(node, StorageNode): 
-                node.add_total_stock_measures(node.stock_package_id)
+                node.add_total_stock_measures(scenario)
                 for technology in node.technologies.values():                                                        
-                    technology.add_sales_measures(node.sales_package_id)
-                    technology.add_sales_share_measures(node.sales_share_package_id)
-                    technology.add_specified_stock_measures(node.stock_package_id)
+                    technology.add_sales_measures(scenario)
+                    technology.add_sales_share_measures(scenario)
+                    technology.add_specified_stock_measures(scenario)
             elif isinstance(node, SupplyNode):
-                node.add_total_stock_measures(node.stock_package_id)
+                node.add_total_stock_measures(scenario)
 
     def _calculate_initial_loop(self):
         """
@@ -979,7 +978,7 @@ class Supply(object):
         #solves dispatch (stack model) for thermal resource connected to thermal dispatch node
         self.solve_thermal_dispatch(year)
         if year in self.dispatch_write_years and not self.api_run:
-            keys = [self.scenario.upper(),str(datetime.now().replace(second=0,microsecond=0))]
+            keys = [self.scenario.name.upper(),str(datetime.now().replace(second=0,microsecond=0))]
             names = ['SCENARIO','TIMESTAMP']
             for key, name in zip(keys, names):
                 self.bulk_dispatch = pd.concat([self.bulk_dispatch],keys=[key],names=[name])
@@ -2384,17 +2383,13 @@ class Node(DataMapFunctions):
         if hasattr(self,'cost'):
             self.cost.calculate(self.conversion, self.resource_unit)
 
-    def add_total_stock_measures(self, package_id):
+    def add_total_stock_measures(self, scenario):
         self.total_stocks = {}
-        measure_ids = util.sql_read_table('SupplyStockMeasurePackagesData', 'measure_id', package_id=package_id,
-                                          return_iterable=True)
-        for measure_id in measure_ids:
-            total_stocks = util.sql_read_table('SupplyStockMeasures', 'id',id=measure_id, supply_technology_id=None, 
-                                                   supply_node_id=self.id, return_iterable=True)
-            for total_stock in total_stocks:
-                self.total_stocks[total_stock] = SupplySpecifiedStock(id=total_stock,
-                                                                        sql_id_table='SupplyStockMeasures',
-                                                                        sql_data_table='SupplyStockMeasuresData')
+        measure_ids = scenario.get_measures('SupplyStockMeasures', self.id)
+        for total_stock in measure_ids:
+            self.total_stocks[total_stock] = SupplySpecifiedStock(id=total_stock,
+                                                                    sql_id_table='SupplyStockMeasures',
+                                                                    sql_data_table='SupplyStockMeasuresData')
         
     def set_cost_dataframes(self):
         index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.primary_geography], self.demand_sectors], names=[cfg.primary_geography, 'demand_sector'])
@@ -2688,39 +2683,14 @@ class Node(DataMapFunctions):
              data  = pd.concat([data]*len(key), axis=1, keys=key, names=[name])
          data.columns = data.columns.droplevel(-1)
          return data
-            
-    def filter_packages(self, case_id):
-        """filters packages by case"""
-        col_names = util.sql_read_headers('SupplyStates')
 
-        query = """
-                    SELECT "SupplyStates".*
-                    FROM "SupplyStates"
-                    JOIN "SupplyCasesData"
-                      ON "SupplyCasesData".supply_state_id = "SupplyStates".id
-                    WHERE "SupplyStates".supply_node_id = %s
-                      AND "SupplyCasesData".supply_case_id = %s
-                """
-
-        cfg.cur.execute(query, (self.id, case_id))
-        assert cfg.cur.rowcount <= 1,\
-            "More than one SupplyStates row found for supply node %i, case %i." % (self.id, case_id)
-        result = cfg.cur.fetchone()
-
-        logging.info("    Loading packages for node " + str(self.name))
-        for idx, col_name in enumerate(col_names):
-            if col_name.endswith('package_id'):
-                val = result[idx] if result else None
-                logging.debug('  Setting %s to %s' % (col_name, "None" if val is None else str(val)))
-                setattr(self, col_name, val)
-
-    def add_export_measures(self):
+    def add_export_measures(self, scenario):
         """
-        add all export measures in a selected package to a dictionary
+        add all export measures from the scenario to a dictionary
         """
         self.export_measures = []
-        ids = util.sql_read_table("SupplyExportMeasurePackagesData",column_names='measure_id',package_id=self.export_package_id,return_iterable=True)
-        if len(ids)>1:
+        ids = scenario.get_measures('SupplyExportMeasures', self.id)
+        if len(ids) > 1:
             raise ValueError('model does not currently support multiple active export measures from a single supply node. Turn off an export measure in supply node %s' %self.name)
         for id in ids:
             self.export_measures.append(id)
@@ -3101,20 +3071,12 @@ class BlendNode(Node):
             self.active_emissions_coefficients = self.active_emissions_coefficients.reorder_levels([cfg.primary_geography, 'demand_sector', 'supply_node', 'efficiency_type', 'ghg'])
             self.active_emissions_coefficients.sort(inplace=True)
             
-    def add_blend_measures(self):
+    def add_blend_measures(self, scenario):
             """
-            add all blend measures in a selected package to a dictionary
+            add all blend measures in a selected scenario to a dictionary
             """
-            self.blend_measures = {}
-            ids = util.sql_read_table("BlendNodeBlendMeasurePackagesData",column_names='measure_id',package_id=self.blend_package_id,return_iterable=True)
-            for id in ids:
-                self.add_blend_measure(id)     
-            
-    def add_blend_measure(self, id, **kwargs):
-        """Adds measure instances to node"""
-        if id in self.blend_measures:
-            return
-        self.blend_measures[id] = BlendMeasure(id)
+            self.blend_measures = {id: BlendMeasure(id)
+                                   for id in scenario.get_measures('BlendNodeBlendMeasures', self.id)}
             
     def calculate(self):
         #all nodes can have potential conversions. Set to None if no data. 
@@ -3262,10 +3224,6 @@ class SupplyNode(Node,StockItem):
             self.rollover_group_names.append('demand_sector')
         self.rollover_group_names = [cfg.primary_geography] + self.rollover_group_names
         self.rollover_group_levels = [cfg.geo.geographies[cfg.primary_geography]] + self.rollover_group_levels
-
-#    def add_stock_measure(self, package_id):
-#        measure_id = util.sql_read_table('SupplyStockMeasurePackagesData', 'measure_id', package_id=package_id, return_iterable=False)
-#        self.case_stock = Stock(id=measure_id, drivers=None, sql_id_table='SupplyStockMeasures', sql_data_table='SupplyStockMeasuresData', primary_key='id', data_id_key='parent_id')
         
     def add_stock(self):
         """add stock instance to node"""

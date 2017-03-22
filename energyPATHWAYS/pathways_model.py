@@ -17,6 +17,7 @@ from datetime import datetime
 import smtplib
 from profilehooks import timecall
 import pdb
+from scenario_loader import Scenario
 
 
 class PathwaysModel(object):
@@ -25,10 +26,8 @@ class PathwaysModel(object):
     """
     def __init__(self, scenario_id, api_run=False):
         self.scenario_id = scenario_id
+        self.scenario = Scenario(self.scenario_id)
         self.api_run = api_run
-        self.scenario = cfg.scenario_dict[self.scenario_id]
-        self.demand_case_id = util.sql_read_table('Scenarios', 'demand_case', id=self.scenario_id)
-        self.supply_case_id = util.sql_read_table('Scenarios', 'supply_case', id=self.scenario_id)
         self.outputs = Output()
         self.demand = Demand()
         self.supply = None
@@ -68,7 +67,7 @@ class PathwaysModel(object):
     def calculate_demand(self, save_models):
         logging.info('Configuring energy system demand')
         self.demand.add_subsectors()
-        self.demand.add_measures(self.demand_case_id)
+        self.demand.add_measures(self.scenario)
         self.demand.calculate_demand()
         self.demand_solved = True
         if save_models:
@@ -80,7 +79,7 @@ class PathwaysModel(object):
             raise ValueError('demand must be solved first before supply')
         logging.info('Configuring energy system supply')
         self.supply.add_nodes()
-        self.supply.add_measures(self.supply_case_id)
+        self.supply.add_measures(self.scenario)
         self.supply.initial_calculate()
         self.supply.calculated_years = []
         self.supply.calculate_loop(self.supply.years, self.supply.calculated_years)
@@ -126,7 +125,7 @@ class PathwaysModel(object):
                 continue
 
             result_df = getattr(res_obj, 'return_cleaned_output')(attribute)
-            keys = [self.scenario.upper(),str(datetime.now().replace(second=0, microsecond=0))]
+            keys = [self.scenario.name.upper(),str(datetime.now().replace(second=0, microsecond=0))]
             names = ['SCENARIO','TIMESTAMP']
             for key, name in zip(keys, names):
                 result_df = pd.concat([result_df], keys=[key], names=[name])
@@ -330,7 +329,7 @@ class PathwaysModel(object):
                     df.loc[util.level_specific_indexer(df,'sector',row_sector),util.level_specific_indexer(df,'sector',col_sector,axis=1)] = 0
         self.supply.outputs.io = df
         result_df = self.supply.outputs.return_cleaned_output('io')
-        keys = [self.scenario.upper(),str(datetime.now().replace(second=0,microsecond=0))]
+        keys = [self.scenario.name.upper(),str(datetime.now().replace(second=0,microsecond=0))]
         names = ['SCENARIO','TIMESTAMP']
         for key, name in zip(keys,names):
             result_df = pd.concat([result_df], keys=[key],names=[name])

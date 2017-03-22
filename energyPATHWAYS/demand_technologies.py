@@ -259,31 +259,22 @@ class DemandTechnology(StockItem):
     def get_shape(default_shape):
         pass
 
-    def add_sales_share_measures(self, package_id):
+    def add_sales_share_measures(self, scenario):
         self.sales_shares = {}
-        measure_ids = util.sql_read_table('DemandSalesShareMeasurePackagesData', 'measure_id', package_id=package_id,
-                                          return_iterable=True)
-        for measure_id in measure_ids:
-            sales_share_ids = util.sql_read_table('DemandSalesShareMeasures', 'id', demand_technology_id=self.id, id=measure_id,
-                                                  return_iterable=True)
-            for sales_share_id in sales_share_ids:
-                self.sales_shares[sales_share_id] = SalesShare(id=sales_share_id, subsector_id=self.subsector_id,
-                                                               reference=False, sql_id_table='DemandSalesShareMeasures',
-                                                               sql_data_table='DemandSalesShareMeasuresData',
-                                                               primary_key='id', data_id_key='parent_id')
+        sales_share_ids = scenario.get_measures('DemandSalesShareMeasures', self.subsector_id, self.id)
+        for sales_share_id in sales_share_ids:
+            self.sales_shares[sales_share_id] = SalesShare(id=sales_share_id, subsector_id=self.subsector_id,
+                                                           reference=False, sql_id_table='DemandSalesShareMeasures',
+                                                           sql_data_table='DemandSalesShareMeasuresData',
+                                                           primary_key='id', data_id_key='parent_id')
 
-    def add_specified_stock_measures(self, package_id):
+    def add_specified_stock_measures(self, scenario):
         self.specified_stocks = {}
-        measure_ids = util.sql_read_table('DemandStockMeasurePackagesData', 'measure_id', package_id=package_id,
-                                          return_iterable=True)
-        for measure_id in measure_ids:
-            specified_stocks = util.sql_read_table('DemandStockMeasures', 'id', demand_technology_id=self.id,
-                                                   subsector_id=self.subsector_id,
-                                                   return_iterable=True)
-            for specified_stock in specified_stocks:
-                self.specified_stocks[specified_stock] = SpecifiedStock(id=specified_stock,
-                                                                        sql_id_table='DemandStockMeasures',
-                                                                        sql_data_table='DemandStockMeasuresData')
+        specified_stock_ids = scenario.get_measures('DemandStockMeasures', self.subsector_id, self.id)
+        for specified_stock_id in specified_stock_ids:
+            self.specified_stocks[specified_stock_id] = SpecifiedStock(id=specified_stock_id,
+                                                                    sql_id_table='DemandStockMeasures',
+                                                                    sql_data_table='DemandStockMeasuresData')
 
     def add_service_links(self):
         """adds all technology service links"""
