@@ -101,7 +101,7 @@ class GeoMapper:
         # sortlevel sorts all of the indicies so that we can slice the dataframe
         self.values = self.values.sort()
         self.values.replace(0,1e-10,inplace=True)
-        self.values = self.values.groupby(level=[x for x in self.values.index.names if x not in ['intersection_id']]).first()
+        # self.values = self.values.groupby(level=[x for x in self.values.index.names if x not in ['intersection_id']]).first()
 
     def log_geo(self):
         """

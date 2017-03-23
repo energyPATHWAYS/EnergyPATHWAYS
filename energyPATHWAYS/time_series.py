@@ -12,6 +12,29 @@ pd.options.mode.chained_assignment = None
 
 class TimeSeries:
     @staticmethod
+    def decay_towards_linear_regression_fill(x, y, newindex, decay_speed=0.2):
+        """Use known x, y values and assuming a linear relationship to map a new index"""
+        slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+        linear_regression = newindex * slope + intercept
+
+        # top part
+        max_x, y_at_max_x = max(x), y[np.argmax(x)]
+        regressed_y_at_max_x = linear_regression[np.argmax(x)]
+        regressed_y_at_max_x = max_x * slope + intercept
+        extrapolated_index = np.nonzero(newindex >= max_x)[0]
+        decay = (y_at_max_x - regressed_y_at_max_x) * np.exp(-decay_speed*(newindex[extrapolated_index] - max_x))
+        linear_regression[extrapolated_index] += decay
+
+        # bottom part
+        min_x, y_at_min_x = min(x), y[np.argmin(x)]
+        regressed_y_at_min_x = min_x * slope + intercept
+        extrapolated_index = np.nonzero(newindex <= min_x)[0]
+        decay = (y_at_min_x - regressed_y_at_min_x) * np.exp(-decay_speed*extrapolated_index)
+        linear_regression[extrapolated_index] += decay[-1::-1]
+
+        return linear_regression
+
+    @staticmethod
     def linear_regression_fill(x, y, newindex):
         """Use known x, y values and assuming a linear relationship to map a new index"""
         slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
@@ -182,6 +205,8 @@ class TimeSeries:
             return TimeSeries.fill_with_exponential(x, y, newindex, kwargs.get('exp_growth_rate'))
         elif method == 'average' or method == 'mean':
             return TimeSeries.fill_with_average(x, y, newindex)
+        elif method == 'decay_towards_linear_regression':
+            return TimeSeries.decay_towards_linear_regression_fill(x, y, newindex)
         else:
             raise ValueError("{} is not a known cleaning method type".format(method))
 
@@ -221,6 +246,9 @@ class TimeSeries:
             if len(x) < 4:
                 # TODO: print to log file here
                 extrapolation_method = 'linear_interpolation'
+
+        if interpolation_method == 'decay_towards_linear_regression':
+            raise ValueError('decay_towards_linear_regression is only supported for extrapolation, not interpolation')
 
         return interpolation_method, extrapolation_method, kwargs
 
@@ -317,7 +345,7 @@ class TimeSeries:
         # drop duplicates
         data.groupby(data.index).first()
 
-        data.sort(inplace=True)
+        data = data.sort_index()
 
         if newindex is None:
             newindex = np.arange(min(data.index), max(data.index) + 1, dtype=int)
@@ -378,14 +406,30 @@ class TimeSeries:
 
 
 # newindex = np.arange(2000, 2051)
-# #x = np.array([2015, 2020, 2025, 2030, 2040, 2050])
-# #y = np.array([0.01, 0.03, .1, 1, .8, .4])
-# x = np.array([2020])
-# y = np.array([0.716194956])
+# x = np.array([2015, 2020, 2025, 2030, 2040])
+# y = np.array([.2, -0.03, .1, 6, 4])
 # start = pd.DataFrame(y, index=x)
-# interpolation_method = 'none'
-# extrapolation_method = 'none'
+# interpolation_method = 'linear_regression'
+# extrapolation_method = 'decay_towards_linear_regression'
 # filled = TimeSeries.clean(start, newindex, interpolation_method, extrapolation_method)
+#
+# pylab.plot(newindex, filled.values.flatten(), '.')
+# pylab.plot(x, y, '*')
+
+# decay_towards_linear_regression
+
+# newindex = np.arange(2000, 2051)
+# x = np.array([2015, 2020, 2025, 2030, 2040, 2050])
+# y = np.array([0.01, 0.03, .1, 1, .8, .4])
+# # x = np.array([2020])
+# # y = np.array([0.716194956])
+# start = pd.DataFrame(y, index=x)
+# interpolation_method = 'exponential'
+# extrapolation_method = 'exponential'
+# filled = TimeSeries.clean(start, newindex, interpolation_method, extrapolation_method)
+#
+# pylab.plot(newindex, filled.values.flatten(), '.')
+# pylab.plot(x, y, '*')
 
 #newindex = np.arange(2000, 2051)
 ##x = np.array([2015, 2020, 2025, 2030, 2040, 2050])

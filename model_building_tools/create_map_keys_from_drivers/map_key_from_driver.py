@@ -26,14 +26,13 @@ import pandas as pd
 # set up a dummy model
 path = os.getcwd()
 config = 'config.INI'
-pint = 'unit_defs.txt'
 scenario_id = 1
 
-cfg.initialize_config(path, config, pint, _log_name='log.log')
+cfg.initialize_config(path, config, _log_name='log.log')
 cfg.primary_geography = 'intersection_id'
-    
+
 model = PathwaysModel(scenario_id, api_run=False)
-model.run(scenario_id, solve_demand=False, solve_supply=False, save_models=False, append_results=False)
+# model.run(scenario_id, solve_demand=False, solve_supply=False, save_models=False, append_results=False)
 
 demand = model.demand
 demand.add_drivers()
@@ -44,7 +43,31 @@ next_geo_map_id = max(util.sql_read_table('GeographyMap', 'id'))+1
 
 ###############################################
 # user inputs
-driver_ids_to_make_map_keys = [38, 39, 40, 41, 42, 43, 44, 45]
+driver_ids_to_make_map_keys = [
+38,
+39,
+40,
+41,
+42,
+43,
+44,
+45,
+46,
+47,
+48,
+49,
+50,
+51,
+52,
+53,
+54,
+55,
+56,
+57,
+58,
+59,
+60,
+61]
 basis_year_for_map_key = int(cfg.cfgfile.get('case', 'current_year'))
 
 ###############################################
@@ -57,21 +80,21 @@ for driver_id in driver_ids_to_make_map_keys:
     driver = demand.drivers[driver_id]
     demand.remap_driver(driver) # remaps to our new super detailed geography
     values = util.df_slice(driver.values, basis_year_for_map_key, 'year')
-    
+
     if values.index.nlevels>1:
         levels_to_remove = [n for n in values.index.names if n!='intersection_id']
         values = util.remove_df_levels(values, levels_to_remove)
-    
+
     new_key_name = driver.name
     if new_key_name in existing_geo_map_key_names:
         raise ValueError('driver name {} is already in the existing map keys, please rename driver id {}'.format(driver.name, driver.id))
-    
+
     GeographyMapKeys.append([next_map_key_id, new_key_name])
-    
+
     values = values.reset_index()
     values['id'] = range(next_geo_map_id, next_geo_map_id+len(values))
     values['geography_map_key_id'] = next_map_key_id
-    
+
     GeographyMap.append(values)
     next_geo_map_id += len(values)
     next_map_key_id+=1

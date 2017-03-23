@@ -225,8 +225,6 @@ class Demand(object):
             geo_label = cfg.primary_geography
             levels_to_keep = cfg.output_combined_levels if levels_to_keep is None else levels_to_keep
             levels_to_keep = [x for x in levels_to_keep if x in demand_df.index.names]
-        # if consumed_supply_geography = False, we have a geography mismatch here. To make it easier, we will rename the demand dataframe
-        # this happens in the case that produced_supply_geography = True
             demand_df = demand_df.groupby(level=levels_to_keep).sum()
             demand_df = demand_df[demand_df.index.get_level_values('year') >= int(cfg.cfgfile.get('case','current_year'))]
             geography_df_list = []
@@ -2415,7 +2413,7 @@ class Subsector(DataMapFunctions):
                                          num_techs=len(self.tech_ids), initial_stock=initial_stock,
                                          sales_share=sales_share, stock_changes=annual_stock_change.values,
                                          specified_stock=demand_technology_stock.values, specified_retirements=None,
-                                         steps_per_year=self.stock.spy)                        
+                                         steps_per_year=self.stock.spy)
             self.rollover.run()
             stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
             self.stock.values.loc[elements], self.stock.values_new.loc[elements], self.stock.values_replacement.loc[

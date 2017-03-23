@@ -1,0 +1,82 @@
+id,name
+1,Households 2010 (complete count)
+2,SqMi
+3,Resident population (April 1 - complete count) 2010
+4,Total housing units 2010 (complete count)
+5,Owner-occupied housing units 2010 (complete count)
+6,Renter-occupied housing units 2010 (complete count)
+7,Vacant housing units 2010 (complete count)
+10,"Earnings in agriculture, forestry, fishing, and hunting (NAICS 11) 2007"
+11,Earnings in mining (NAICS 21) 2007
+12,Earnings in construction (NAICS 23) 2007
+13,Earnings in manufacturing (NAICS 31-33) 2007
+14,Earnings in wholesale trade (NAICS 42) 2007
+15,Earnings in retail trade (NAICS 44-45) 2007
+16,Earnings in transportation and warehousing (NAICS 48-49) 2007
+17,Earnings in utilities (NAICS 22) 2007
+18,"Farm earnings (NAICS, no code) 2007"
+19,Employment in mining (NAICS 21) 2006
+20,"Employment in farming (NAICS, no code) 2007"
+21,Employment in utilities (NAICS 22) 2007
+49,Employment in construction (NAICS 23) 2007
+51,Employment in manufacturing (NAICS 31-33) 2007
+52,Employment in transportation and warehousing (NAICS 48-49) 2007
+63,"Employment in all industries (NAICS, no code) 2007"
+64,Cropland - harvested cropland (NAICS) 2007 (acres) (adjusted)
+65,"Public supply water use: population served, total 2005"
+66,Irrigation water use: total withdrawals 2005
+67,Thermoelectric power water use: total self-supplied withdrawals 2005
+77,Urban Utility-scale PV (GWh)
+78,Rural Utility-scale PV (GWh)
+79,Sum Utility-scale PV (GWh)
+80,Rooftop PV (GWh)
+81,CSP (GWh)
+82,Onshore Wind (GWh)
+83,Offshore Wind (GWh)
+84,Biopower-Solid (GWh)
+85,Biopower-Solid (BDT)
+86,Biopower-Gaseous (GWh)
+87,Biopower-Gaseous (Tonnes-CH4)
+88,Geothermal Hydrothermal (GWh)
+89,EGS Geothermal (GWh)
+90,Hydropower (GWh)
+91,Hydropower (Count of Sites)
+92,2015 Capacity Biomass Power Plants
+93,2015 Capacity Bulk Electricity Storage
+94,2015 Capacity Coal Power Plants
+95,2015 Capacity Combined Heat and Power
+96,2015 Capacity Combined-Cycle Gas Turbines
+97,2015 Capacity Combustion Turbines
+98,2015 Capacity Dispatchable Hydroelectric Power Plants
+99,2015 Capacity Fossil Steam Turbines
+100,2015 Capacity Fuel Cell Power Plants
+101,2015 Capacity Geothermal Power Plants
+102,2015 Capacity Nuclear Power Plants
+103,2015 Capacity Onshore Wind
+104,2015 Capacity Run of River Hydroelectric Power Plants
+105,2015 Capacity Solar Thermal Power Plants
+106,2015 Capacity Transmission-Sited Solar PV
+107,SEDS Industrial Data (Allocation)
+108,Rail Fuel Use 
+109,Aviation Fuel Use
+110,Marine Fuel Use
+111,BUSES VMT Share
+112,HDV VMT Share
+113,LDV VMT Share
+114,MDV VMT Share
+115,BOM VOS
+116,Bulk Chemicals VOS
+117,Computer and Electronic Products VOS
+118,Electrical Equipment VOS
+119,Fabricated Metal Products VOS
+120,Food and Kindred Products VOS
+121,Glass and Cement VOS
+122,Iron and Steel and Aluminum Manufacturing VOS
+123,Machinery VOS
+124,Paper and Allied Products VOS
+125,Plastic and Rubber Products VOS
+126,Transportation Equipment VOS
+127,Wood Products VOS
+128,Military Fuel Sales - Diesel Fule
+129,Steel Production Facility GHGs
+130,Domestic Shipping Ton-Miles Allocation

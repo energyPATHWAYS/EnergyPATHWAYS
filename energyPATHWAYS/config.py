@@ -257,8 +257,8 @@ def init_output_levels():
     if cfgfile.get('output_detail', 'produced_supply_geography').lower() != 'true':
         output_combined_levels.remove(primary_geography + "_supply")
 
-    if cfgfile.get('output_detail', 'consumed_supply_geography').lower() != 'true':
-        output_combined_levels.remove(primary_geography)
+    # if cfgfile.get('output_detail', 'consumed_supply_geography').lower() != 'true':
+    #     output_combined_levels.remove(primary_geography)
 
 def init_outputs_id_map():
     global outputs_id_map

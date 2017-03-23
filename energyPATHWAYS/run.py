@@ -192,18 +192,19 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'E:\Dropbox\Evolved Energy Research\Pathways\passing_results\RE-AMP high renewables pickle'
+    workingdir = r'C:\github\EP_runs\US'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = [2]
+    scenario = [1]
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
-    solve_supply  = True,
-    export_results= True,
-    pickle_shapes = True,
-    save_models   = True,
+    solve_supply  = False,
+    load_error    = False,
+    export_results= False,
+    pickle_shapes = False,
+    save_models   = False,
     api_run       = False,
-    clear_results = True)
+    clear_results = False)
 
