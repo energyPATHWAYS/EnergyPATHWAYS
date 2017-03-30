@@ -60,8 +60,9 @@ class PathwaysModel(object):
                     self.export_io()
         except:
             # pickle the model in the event that it crashes
-            with open(os.path.join(cfg.workingdir, str(scenario_id) + '_model_error.p'), 'wb') as outfile:
-                pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
+            if save_models:
+                with open(os.path.join(cfg.workingdir, str(scenario_id) + '_model_error.p'), 'wb') as outfile:
+                    pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
             raise
 
     def calculate_demand(self, save_models):
@@ -225,7 +226,7 @@ class PathwaysModel(object):
         if self.supply.export_emissions is not None:
             setattr(self.outputs,'export_emissions',self.supply.export_emissions)
             if 'supply_geography' not in cfg.output_combined_levels:
-                util.remove_df_levels(self.outputs.export_emissions,cfg.primary_geography +'_supply')
+                util.remove_df_levels(self.outputs.export_emissions, cfg.primary_geography +'_supply')
             self.export_emissions_df = self.outputs.return_cleaned_output('export_emissions')
             del self.outputs.export_emissions
             util.replace_index_name(self.export_emissions_df, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
@@ -243,20 +244,17 @@ class PathwaysModel(object):
         for key,name in zip(keys,names):
            self.embodied_emissions_df = pd.concat([self.embodied_emissions_df],keys=[key],names=[name])       
         #calculte and format direct demand emissions        
-        self.direct_emissions_df= self.demand.outputs.return_cleaned_output('demand_direct_emissions')  
+        self.direct_emissions_df = self.demand.outputs.return_cleaned_output('demand_direct_emissions')
 #        del self.demand.outputs.demand_direct_emissions
         keys = ["DOMESTIC","DEMAND"]
-        names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND",cfg.primary_geography.upper() +'_EMITTED']
-        for key,name in zip(keys,names):
-            self.direct_emissions_df = pd.concat([self.direct_emissions_df],keys=[key],names=[name])   
+        names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
+        for key, name in zip(keys, names):
+            self.direct_emissions_df = pd.concat([self.direct_emissions_df], keys=[key], names=[name])
         if cfg.primary_geography+'_supply' in cfg.output_combined_levels:
-            keys = self.direct_emissions_df.index.get_level_values(cfg.primary_geography.upper()).values
-            names = cfg.primary_geography.upper() +'_SUPPLY'
-            self.direct_emissions_df[names] = keys
-            self.direct_emissions_df.set_index(names,append=True,inplace=True)
-#        levels_to_keep = cfg.output_levels      
-#        levels_to_keep = [x.upper() for x in levels_to_keep]
-#        levels_to_keep += names + [cfg.primary_geography.upper() +'_SUPPLY', 'SUPPLY_NODE']
+             keys = self.direct_emissions_df.index.get_level_values(cfg.primary_geography.upper()).values
+             names = cfg.primary_geography.upper() +'_SUPPLY'
+             self.direct_emissions_df[names] = keys
+             self.direct_emissions_df.set_index(names,append=True,inplace=True)
         keys = ['EXPORTED', 'SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['EMISSIONS TYPE']
         self.outputs.c_emissions = util.df_list_concatenate([self.export_emissions_df, self.embodied_emissions_df, self.direct_emissions_df],keys=keys,new_names = names)

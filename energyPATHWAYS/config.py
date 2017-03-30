@@ -240,20 +240,23 @@ def init_output_levels():
     output_supply_levels = ['year', 'vintage', 'supply_technology', primary_geography, primary_geography + "_supply", 'demand_sector', 'final_energy', 'supply_node', 'ghg', 'resource_bins']
     output_combined_levels = list(set(output_supply_levels + output_demand_levels))
     
-    if cfgfile.get('output_detail','demand_vintage').lower() != 'true':
+    if cfgfile.get('output_detail', 'demand_vintage').lower() != 'true':
         output_demand_levels.remove('vintage')
 
-    if cfgfile.get('output_detail','supply_vintage').lower() != 'true':
+    if cfgfile.get('output_detail', 'supply_vintage').lower() != 'true':
         output_supply_levels.remove('vintage')
 
-    if cfgfile.get('output_detail','combined_vintage').lower() != 'true':
+    if cfgfile.get('output_detail', 'combined_vintage').lower() != 'true':
         output_combined_levels.remove('vintage')
 
-    if cfgfile.get('output_detail','demand_technology').lower() != 'true':
+    if cfgfile.get('output_detail', 'demand_technology').lower() != 'true':
         output_combined_levels.remove('demand_technology')
     
-    if cfgfile.get('output_detail','supply_geography').lower() != 'true':
+    if cfgfile.get('output_detail', 'produced_supply_geography').lower() != 'true':
         output_combined_levels.remove(primary_geography + "_supply")
+
+    # if cfgfile.get('output_detail', 'consumed_supply_geography').lower() != 'true':
+    #     output_combined_levels.remove(primary_geography)
 
 def init_outputs_id_map():
     global outputs_id_map

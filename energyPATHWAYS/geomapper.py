@@ -10,6 +10,7 @@ from collections import OrderedDict, defaultdict
 import textwrap
 import logging
 import pdb
+from energyPATHWAYS.time_series import TimeSeries
 
 class GeoMapper:
     def __init__(self):
@@ -100,7 +101,7 @@ class GeoMapper:
         # sortlevel sorts all of the indicies so that we can slice the dataframe
         self.values = self.values.sort()
         self.values.replace(0,1e-10,inplace=True)
-        self.values = self.values.groupby(level=[x for x in self.values.index.names if x not in ['intersection_id']]).first()
+        # self.values = self.values.groupby(level=[x for x in self.values.index.names if x not in ['intersection_id']]).first()
 
     def log_geo(self):
         """
@@ -234,9 +235,7 @@ class GeoMapper:
 
     def make_new_geography_name(self, base_geography, breakout_ids=None):
         if breakout_ids:
-            dct = dict(util.sql_read_table('GeographiesData', ['id', 'name'],return_unique=True, return_iterable=True))   
-            base_geography += " and " + "| ".join([dct[id] for id in breakout_ids])
-#            base_geography +=' with breakout ids {}'.format(sorted(util.ensure_iterable_and_not_string(breakout_ids)))
+            base_geography += " breaking out " + ", ".join([self.geography_names[id] for id in breakout_ids])
         return base_geography
 
     def get_primary_geography_name(self):
@@ -253,70 +252,129 @@ class GeoMapper:
         foreign_gaus = current_gaus - native_gaus
         return native_gaus, current_gaus, foreign_gaus
 
-    def incorporate_foreign_gaus(self, df, current_geography, data_type, map_key, keep_oth_index_over_oth_gau=False,zero_out_negatives=True):
+    def _update_dataframe_totals_after_foreign_gau(self, df, current_geography, foreign_geography, impacted_gaus, foreign_gau, map_key, zero_out_negatives):
+        y_or_v = GeoMapper._get_df_time_index_name(df)
+        # we first need to do a clean time series
+        # then we need to allocate out and subtract
+        indexer = util.level_specific_indexer(df, current_geography, [impacted_gaus])
+        impacted_gaus_slice = df.loc[indexer, :].reset_index().set_index(df.index.names)
+
+        foreign_gau_slice = util.df_slice(df, foreign_gau, current_geography, drop_level=False, reset_index=True)
+        foreign_gau_slice.index = foreign_gau_slice.index.rename(foreign_geography, level=current_geography)
+
+        # do the allocation, take the ratio of foreign to native, do a clean timeseries, then reconstitute the foreign gau data over all years
+        allocation = self.map_df(foreign_geography, current_geography, map_key=map_key, primary_subset_id=[foreign_gau])
+        allocated_foreign_gau_slice = util.DfOper.mult((foreign_gau_slice, allocation), fill_value=np.nan)
+        allocated_foreign_gau_slice = allocated_foreign_gau_slice.reorder_levels([-1]+range(df.index.nlevels))
+        ratio_allocated_to_impacted = util.DfOper.divi((allocated_foreign_gau_slice, impacted_gaus_slice), fill_value=np.nan, non_expandable_levels=[])
+        clean_ratio = TimeSeries.clean(data=ratio_allocated_to_impacted, time_index_name=y_or_v, interpolation_method='linear_interpolation', extrapolation_method='nearest')
+        allocated_foreign_gau_slice_all_years = util.DfOper.mult((clean_ratio, impacted_gaus_slice), fill_value=np.nan, non_expandable_levels=[])
+
+        allocated_foreign_gau_slice_new_geo = util.remove_df_levels(allocated_foreign_gau_slice_all_years, foreign_geography)
+        allocated_foreign_gau_slice_foreign_geo = util.remove_df_levels(allocated_foreign_gau_slice_all_years, current_geography)
+        allocated_foreign_gau_slice_foreign_geo.index = allocated_foreign_gau_slice_foreign_geo.index.rename(current_geography, level=foreign_geography)
+
+        # update foreign GAUs after clean timeseries
+        allocated_gau_years = list(allocated_foreign_gau_slice_foreign_geo.index.get_level_values(y_or_v).values)
+        indexer = util.level_specific_indexer(allocated_foreign_gau_slice_foreign_geo, [current_geography, y_or_v], [foreign_gau, allocated_gau_years])
+        try:
+            df.loc[indexer, :] = allocated_foreign_gau_slice_foreign_geo.loc[indexer, :]
+        except:
+            pdb.set_trace()
+
+        new_impacted_gaus = util.DfOper.subt((impacted_gaus_slice, allocated_foreign_gau_slice_new_geo), fill_value=np.nan, non_expandable_levels=[])
+        new_impacted_gaus = new_impacted_gaus.reorder_levels(df.index.names).sort()
+        if new_impacted_gaus.min().min() < 0:
+            if not zero_out_negatives:
+                raise ValueError(
+                    'Negative values resulted from subtracting the foreign gau from the base gaus. This is the resulting dataframe: {}'.format(new_impacted_gaus))
+            else:
+                new_impacted_gaus[new_impacted_gaus < 0] = 0
+        if new_impacted_gaus.isnull().all().value:
+            pdb.set_trace()
+            raise ValueError('Year or vitages did not overlap between the foreign gaus and impacted gaus')
+
+        # update native GAUs after netting out foreign gaus
+        impacted_gau_years = list(impacted_gaus_slice.index.get_level_values(y_or_v).values)
+        indexer = util.level_specific_indexer(df, [current_geography, y_or_v], [impacted_gaus, impacted_gau_years])
+        df.loc[indexer, :] = new_impacted_gaus.loc[indexer, :]
+
+        return df
+
+    @staticmethod
+    def _get_df_time_index_name(df):
+        if 'year' in df.index.names:
+            return 'year'
+        elif 'vintage' in df.index.names:
+            return 'vintage'
+        else:
+            raise ValueError('df must either have year or vintage to incorporate foreign gaus')
+
+    @staticmethod
+    def _add_missing_level_elements_to_foreign_gaus(df, current_geography):
+        y_or_v = GeoMapper._get_df_time_index_name(df)
+        for index_name in df.index.names:
+            if index_name == current_geography or index_name == y_or_v:
+                continue
+            needed_elements = list(set(df.index.get_level_values(index_name)))
+            df = util.reindex_df_level_with_new_elements(df, index_name, needed_elements)
+        df = df.fillna(0).sort()
+        return df
+
+    def incorporate_foreign_gaus(self, df, current_geography, data_type, map_key, keep_oth_index_over_oth_gau=False, zero_out_negatives=True):
         native_gaus, current_gaus, foreign_gaus = self.get_native_current_foreign_gaus(df, current_geography)
-        
         # we don't have any foreign gaus
         if not foreign_gaus or not cfg.include_foreign_gaus:
             return df, current_geography
-        
-        if 'year' in df.index.names:
-            y_or_v = 'year' 
-        elif 'vintage' in df.index.names:
-            y_or_v = 'vintage'
-        else:
-            raise ValueError('df must either have year or vintage to incorporate foreign gaus')
+
+        y_or_v = GeoMapper._get_df_time_index_name(df)
             
         index_with_nans = [df.index.names[i] for i in set(np.nonzero([np.isnan(row) for row in df.index.get_values()])[1])]
         # if we have an index with nan, that typically indicates that one of the foreign gaus didn't have all the index levels
-        # if this is the case, we have two options (1) get rid of the other index (2) ignore the foreign gau
+        # if this is the case, we have two options (1) ignore the foreign gau (2) get rid of the other index
         if index_with_nans and (keep_oth_index_over_oth_gau or data_type=='intensity'):
             return self.filter_foreign_gaus(df, current_geography), current_geography
         else:
             assert (y_or_v not in index_with_nans) and (current_geography not in index_with_nans)
             # we need to eliminate levels with nan before moving on
             df = util.remove_df_levels(df, index_with_nans)
-        
+
+        # add missing level indicies for foreign gaus, this must be done before we fill in years because we use a fill value of zero
+        df = self._add_missing_level_elements_to_foreign_gaus(df, current_geography)
+
+        # we need all the index level combinations to have all years for this to work correctly
+        df_no_foreign_gaus = self.filter_foreign_gaus(df, current_geography)
+        df_years = sorted(list(set(df_no_foreign_gaus.index.get_level_values(y_or_v).values)))
+        df = util.reindex_df_level_with_new_elements(df, y_or_v, df_years)
+
         base_gaus = np.array(self.values.index.get_level_values(current_geography), dtype=int)
-        for id in foreign_gaus:
-            foreign_geography = self.gau_to_geography[id]
-            index = np.nonzero(self.values.index.get_level_values(self.gau_to_geography[id])==id)[0]
+        for foreign_gau in foreign_gaus:
+            foreign_geography = self.gau_to_geography[foreign_gau]
+            index = np.nonzero(self.values.index.get_level_values(self.gau_to_geography[foreign_gau])==foreign_gau)[0]
             impacted_gaus = list(set(base_gaus[index]))
-            base_gaus[index] = id
+            base_gaus[index] = foreign_gau
             if any(impacted in foreign_gaus for impacted in impacted_gaus):
                 raise ValueError('foreign gaus in the database cannot overlap geographically')
             
-            # if the data_type is a total, we need to net out the total from the neighboring
+            # if the data_type is a total, we need to net out the total
             if data_type=='total':
-                # we first need to do a clean time series
-                # then we need to allocate out and subtract
-                allocation = self.map_df(foreign_geography, current_geography, map_key=map_key, primary_subset_id=[id])
-                foreign_gau_slice = util.df_slice(df, id, current_geography, drop_level=False, reset_index=True)
-                foreign_gau_slice.index = foreign_gau_slice.index.rename(foreign_geography, level=current_geography)
-                allocated_foreign_gau_slice = util.DfOper.mult((foreign_gau_slice, allocation))
-                allocated_foreign_gau_slice = util.remove_df_levels(allocated_foreign_gau_slice, foreign_geography)
-                indexer = util.level_specific_indexer(df,current_geography,[impacted_gaus])
-                impacted_gaus_slice = df.loc[indexer,:].reset_index().set_index(df.index.names)
-                impacted_gau_years = list(impacted_gaus_slice.index.get_level_values(y_or_v).values)
-                new_impacted_gaus = util.DfOper.subt((impacted_gaus_slice, allocated_foreign_gau_slice), fill_value=np.nan, non_expandable_levels=[])
-                new_impacted_gaus = new_impacted_gaus.reorder_levels(df.index.names).sort()
-                if new_impacted_gaus.min().min() < 0:
-                    if not zero_out_negatives:
-                        raise ValueError('Negative values resulted from subtracting the foreign gau from the base gaus. This is the resulting dataframe: {}'.format(new_impacted_gaus))
-                    else:
-                        new_impacted_gaus[new_impacted_gaus<0] = 0
-                if new_impacted_gaus.isnull().all().value:
-                    pdb.set_trace()
-                    raise ValueError('Year or vitages did not overlap between the foreign gaus and impacted gaus')
-                indexer = util.level_specific_indexer(df, [current_geography, y_or_v], [impacted_gaus, impacted_gau_years])
-                df.loc[indexer, :] = new_impacted_gaus.loc[indexer, :]
+                df = self._update_dataframe_totals_after_foreign_gau(df, current_geography, foreign_geography, impacted_gaus, foreign_gau, map_key, zero_out_negatives)
+            elif data_type == 'intensity':
+                logging.warning('Foreign GAUs with intensities is not yet implemented, totals will not be conserved')
         
         assert not any([any(np.isnan(row)) for row in df.index.get_values()])
         new_geography_name = self.make_new_geography_name(current_geography, list(foreign_gaus))
         df.index = df.index.rename(new_geography_name, level=current_geography)
         if new_geography_name not in self.geographies:
             self.add_new_geography(new_geography_name, base_gaus)
+        # df = GeoMapper.reorder_level_names_after_incorporating_foreign_gaus(df, new_geography_name, y_or_v)
         return df, new_geography_name
+
+    # @staticmethod (didn't fix the problem)
+    # def reorder_level_names_after_incorporating_foreign_gaus(df, geography, y_or_v):
+    #     # seems to be necessary sometimes to make sure that years are on the right and gau on the left
+    #     new_order = [geography] + [l for l in df.index.names if l not in [geography, y_or_v]] + [y_or_v]
+    #     return df.reorder_levels(new_order).sort()
 
     def add_new_geography(self, new_geography_name, base_gaus):
         self.values[new_geography_name] = base_gaus

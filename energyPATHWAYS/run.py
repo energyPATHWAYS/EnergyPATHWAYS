@@ -197,15 +197,16 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\us_model_example\separate\2'
+    workingdir = r'C:\github\EP_runs\US'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = [2]
+    scenario = [1]
     run(workingdir, config, scenario,
     load_demand   = False,
-    solve_demand  = False,
-    load_supply   = True,
+    solve_demand  = True,
+    load_supply   = False,
     solve_supply  = False,
+    load_error    = False,
     export_results= False,
     pickle_shapes = False,
     save_models   = False,

@@ -547,7 +547,7 @@ class Dispatch(object):
         energy_allocation_normed = energy_allocation_by_group/sum(energy_allocation_by_group)
         
         if not individual_plant_maintenance:
-            gen_maintenance = np.outer(energy_allocation_normed, annual_maintenance_rates)
+            gen_maintenance = np.outer(energy_allocation_normed*num_groups, annual_maintenance_rates)
         else:
             # go in order from largest generator to smallest generator and asign out the maintenance
             gen_maintenance = np.empty((num_groups, len(pmax)))

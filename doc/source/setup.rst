@@ -174,3 +174,21 @@ As mentioned above, EnergyPATHWAYS will need access to your configuration file i
 In most cases, you will at a minimum need to tell EnergyPATHWAYS which scenario to run from the database by using the ``-s`` option to specify its id number. So, for instance, the basic usage to run scenario number 1 would be::
 
     $ energyPATHWAYS -s 1
+
+Running Unit Tests
+==================
+
+.. Warning::
+   EnergyPATHWAYS unit tests are currently a work in progress. If you run them you will certainly see failures and errors; these are not indicative of problems with functionality, simply of an unfinished test suite.
+
+The EnergyPATHWAYS unit tests are located in `energyPATHWAYS/tests`. To run all available tests, cd to that directory and enter::
+
+    $ python -m unittest discover
+
+To run one particular file of unit tests, use the same command but substitute the name of the file for "discover" above. However, you must leave the ".py" out of the filename since you are actually naming the python module, not the file. E.g.::
+
+    $ python -m unittest test_df_operation
+
+If you are debugging something and would like to run just a single test to save time, you can use the path to the test method from the module instead of the whole module, e.g.::
+
+    $ python -m unittest test_df_operation.TestDfOperation.test_basic_add

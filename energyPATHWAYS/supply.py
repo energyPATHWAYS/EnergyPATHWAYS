@@ -378,24 +378,13 @@ class Supply(object):
             del self.map_dict[None]
         logging.info("calculating supply-side outputs")
         self.aggregate_results()
-
         logging.info("calculating supply cost link")
         self.cost_demand_link = self.map_embodied_to_demand(self.cost_dict, self.embodied_cost_link_dict)
         logging.info("calculating supply emissions link")
         self.emissions_demand_link = self.map_embodied_to_demand(self.emissions_dict, self.embodied_emissions_link_dict)
         logging.info("calculating supply energy link")
-        self.energy_demand_link = self.map_embodied_to_demand(self.inverse_dict['energy'],self.embodied_energy_link_dict)
-#        self.calculate_embodied_supply_outputs()
+        self.energy_demand_link = self.map_embodied_to_demand(self.inverse_dict['energy'], self.embodied_energy_link_dict)
         self.remove_blend_and_import()
-#        self.outputs.per_energy_costs = copy.deepcopy(self.cost_demand_link)
-#        unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')+ "/" + cfg.calculation_energy_unit
-#        self.outputs.per_energy_costs.columns  = [unit]
-#        self.outputs.per_energy_emissions = copy.deepcopy(self.emissions_demand_link)
-#        unit = cfg.cfgfile.get('case','mass_unit') + "/" + cfg.calculation_energy_unit
-#        self.outputs.per_energy_emissions.columns  = [unit]
-#        self.outputs.per_energy_embodied = copy.deepcopy(self.energy_demand_link)
-#        unit = cfg.calculation_energy_unit + "/" + cfg.calculation_energy_unit
-#        self.outputs.per_energy_embodied.columns  = [unit]
         logging.info("calculate exported costs")
         self.calculate_export_result('export_costs', self.cost_dict)
         logging.info("calculate exported emissions")
@@ -438,6 +427,7 @@ class Supply(object):
         map_dict = self.map_dict
         index = pd.MultiIndex.from_product([cfg.geographies, self.demand_sectors, map_dict.keys(),self.years, self.ghgs], names=[cfg.primary_geography, 'sector', 'final_energy','year','ghg'])
         self.demand_emissions_rates = util.empty_df(index, ['value'])
+
         for final_energy, node_id in map_dict.iteritems():
             node = self.nodes[node_id]
             for year in self.years:
@@ -445,8 +435,9 @@ class Supply(object):
                 df = df.stack(level=[cfg.primary_geography,'demand_sector']).to_frame()
                 df = df.reorder_levels([cfg.primary_geography,'demand_sector','ghg'])
                 df.sort(inplace=True)
-                emissions_rate_indexer = util.level_specific_indexer(self.demand_emissions_rates,['final_energy','year'],[final_energy,year])
+                emissions_rate_indexer = util.level_specific_indexer(self.demand_emissions_rates, ['final_energy', 'year'], [final_energy, year])
                 self.demand_emissions_rates.loc[emissions_rate_indexer,:] = df.values
+
         for final_energy, node_id in map_dict.iteritems():
             node = self.nodes[node_id] 
             if hasattr(node,'emissions') and hasattr(node.emissions, 'values_physical'):
@@ -458,10 +449,9 @@ class Supply(object):
                 df = df.groupby(level=[cfg.primary_geography, 'demand_sector', 'year', 'ghg']).sum()
                 df = df.reorder_levels([cfg.primary_geography, 'demand_sector', 'year', 'ghg'])
                 idx = pd.IndexSlice
-                df = df.loc[idx[:, :, self.years,:],:]
-                emissions_rate_indexer = util.level_specific_indexer(self.demand_emissions_rates,['final_energy'],[final_energy])
+                df = df.loc[idx[:, :, self.years,:], :]
+                emissions_rate_indexer = util.level_specific_indexer(self.demand_emissions_rates, ['final_energy'], [final_energy])
                 self.demand_emissions_rates.loc[emissions_rate_indexer,:] += df.values
-    
                     
     def set_dispatchability(self):
         """Determines the dispatchability of electricity generation nodes and nodes that demand electricity
@@ -1642,7 +1632,6 @@ class Supply(object):
             for sector in self.demand_sectors:
                 link_dict[year][sector].loc[:,:] = embodied_dict[year][sector].loc[:,idx[:, self.map_dict.values()]].values
                 link_dict[year][sector]= link_dict[year][sector].stack([cfg.primary_geography,'final_energy']).to_frame()
-#                levels = [x for x in ['supply_node',cfg.primary_geography +'_supply', 'ghg',cfg.primary_geography,'final_energy'] if x in link_dict[year][sector].index.names]
                 link_dict[year][sector] = link_dict[year][sector][link_dict[year][sector][0]!=0]
                 levels_to_keep = [x for x in link_dict[year][sector].index.names if x in cfg.output_combined_levels]
                 sector_df_list.append(link_dict[year][sector].groupby(level=levels_to_keep).sum())     
@@ -1654,7 +1643,6 @@ class Supply(object):
         name = ['year']
         df = pd.concat(df_list,keys=keys,names=name)
         df.columns = ['value']
-#       levels = [x for x in ['supply_node',cfg.primary_geography +'_supply', 'ghg',cfg.primary_geography,'final_energy'] if x in df.index.names]
         return df
         
     def convert_io_matrix_dict_to_df(self, adict):
@@ -1744,9 +1732,9 @@ class Supply(object):
             Cols: ['value']
         """
         export_df = self.io_export_df.stack().to_frame()
+        export_df = export_df.groupby(level='supply_node').filter(lambda x: x.sum()>0)
         util.replace_index_name(export_df, 'year')
         util.replace_column(export_df, 'value')
-        export_df = export_df[export_df['value']!=0]
         supply_nodes = list(set(export_df.index.get_level_values('supply_node')))
         df_list = []
         idx = pd.IndexSlice
@@ -1754,15 +1742,15 @@ class Supply(object):
             sector_df_list = []
             keys = self.demand_sectors
             name = ['sector']
-            for sector in self.demand_sectors:                
+            for sector in self.demand_sectors:   
                df = copy.deepcopy(embodied_dict[year][sector]).loc[:,idx[:,supply_nodes]]
                util.replace_column_name(df,'supply_node_export',  'supply_node')
                util.replace_index_name(df, cfg.primary_geography + "_supply", cfg.primary_geography)
                stack_levels =[cfg.primary_geography, "supply_node_export"]
                df = df.stack(stack_levels).to_frame()
-               df = df[df[0]!=0]
                levels_to_keep = [x for x in df.index.names if x in cfg.output_combined_levels+stack_levels]
                df = df.groupby(level=levels_to_keep).sum()
+               df = df.groupby(level='supply_node').filter(lambda x: x.sum()>0)
                sector_df_list.append(df)     
             year_df = pd.concat(sector_df_list, keys=keys,names=name)
             df_list.append(year_df)
@@ -1775,13 +1763,25 @@ class Supply(object):
     def calculate_export_result(self, export_result_name, io_dict):
         export_map_df = self.map_embodied_to_export(io_dict)
         export_df = self.io_export_df.stack().to_frame()
-        export_df = export_df[export_df[0]!=0]
+        export_df = export_df.groupby(level=['supply_node']).filter(lambda x: x.sum()>0)
+        if cfg.primary_geography+"_supply" in cfg.output_combined_levels:
+            export_map_df = export_map_df.groupby(level=['supply_node',cfg.primary_geography+"_supply"]).filter(lambda x: x.sum()>0)
+        else:
+            export_map_df = export_map_df.groupby(level=['supply_node']).filter(lambda x: x.sum()>0)
         if export_map_df.empty is False and export_df.empty is False:
+#            keys = [cfg.geographies]
+#            name = [cfg.primary_geography]
             util.replace_index_name(export_df, 'year')
             util.replace_index_name(export_df, 'sector', 'demand_sector')
             util.replace_index_name(export_df,'supply_node_export','supply_node')
             util.replace_column(export_df, 'value') 
-            export_result= DfOper.mult([export_df, export_map_df])
+            geo_df_list = []
+            for geography in cfg.geographies:
+                export_map_df_indexer = util.level_specific_indexer(export_map_df,[cfg.primary_geography],[geography])
+                export_df_indexer = util.level_specific_indexer(export_df,[cfg.primary_geography],[geography])
+                df = DfOper.mult([export_df.loc[export_df_indexer,:], export_map_df.loc[export_map_df_indexer,:]])
+                geo_df_list.append(df)
+            export_result = pd.concat(geo_df_list)
         else:
             export_result = None
 #        levels = [x for x in ['supply_node','supply_node_export',cfg.primary_geography +'_supply',cfg.primary_geography +'_export',  'ghg'] if x in export_result.index.names]
@@ -2347,6 +2347,7 @@ class Supply(object):
             supply_indexer = util.level_specific_indexer(self.io_export_df, 'supply_node', node.id)     
             node.export.allocate(node.active_supply, self.demand_sectors, self.years, year, loop)
             self.io_export_df.loc[supply_indexer, year] = node.export.active_values.values
+
             
 
 class Node(DataMapFunctions):
@@ -3741,13 +3742,13 @@ class SupplyPotential(Abstract):
             self.values = DfOper.mult([self.values, self.conversion.values],fill_value=self.conversion.values.mean().mean())
 #            self.supply_curve = util.remove_df_levels(self.values, [x for x in self.values.index.names if x not in [cfg.primary_geography,'resource_bin']])
 
-            self.supply_curve = self.values.groupby(level=[x for x in self.values.index.names if x not in 'resource_bin']).cumsum()
+            self.supply_curve = self.values
         else:
             if util.determ_energy(self.unit):
                 self.values = util.unit_convert(self.values, unit_from_num=self.unit, unit_from_den=self.time_unit, unit_to_num=cfg.calculation_energy_unit, unit_to_den='year')
             else:
                 raise ValueError('unit is not an energy unit and no resource conversion has been entered in node %s' %self.id)
-            self.supply_curve = self.values.groupby(level=[cfg.primary_geography]).cumsum()
+            self.supply_curve = self.values
 
     def remap_to_potential(self, active_throughput, year, tradable_geography=None):
         """remaps throughput to potential bins"""    
@@ -3755,15 +3756,14 @@ class SupplyPotential(Abstract):
         primary_geography = cfg.primary_geography
         self.active_throughput = active_throughput    
         self.active_throughput[self.active_throughput<=0] = 1E-25
-        original_supply_curve = self.supply_curve.loc[:,year].to_frame()  
-        self.full_supply_curve = copy.deepcopy(original_supply_curve)
-        self.active_supply_curve = self.full_supply_curve.groupby(level=util.ix_incl(self.supply_curve,[primary_geography, 'resource_bin', 'demand_sector'])).max()
+        original_supply_curve = util.remove_df_levels(self.supply_curve.loc[:,year].to_frame().sort(),[x for x in self.supply_curve.loc[:,year].index.names if x not in [primary_geography, 'resource_bin', 'demand_sector']])
+        self.active_supply_curve = util.remove_df_levels(original_supply_curve,[x for x in self.supply_curve.loc[:,year].index.names if x not in [primary_geography, 'resource_bin', 'demand_sector']])
         if tradable_geography is not None and tradable_geography!=primary_geography:
                 map_df = cfg.geo.map_df(primary_geography,tradable_geography,normalize_as='total',eliminate_zeros=False,filter_geo=False)
                 original_supply_curve = util.DfOper.mult([map_df,original_supply_curve])
                 self.geo_map(converted_geography=tradable_geography, attr='active_supply_curve', inplace=True, current_geography=primary_geography,filter_geo=False)
                 self.geo_map(converted_geography=tradable_geography, attr='active_throughput', inplace=True, current_geography=primary_geography,filter_geo=False)
-                self.geo_map(converted_geography=tradable_geography, attr='full_supply_curve', inplace=True, current_geography=primary_geography,filter_geo=False)
+        self.active_supply_curve = self.active_supply_curve.groupby(level=[x for x in self.active_supply_curve.index.names if x not in 'resource_bin']).cumsum()
         reindexed_throughput = util.DfOper.none([self.active_throughput,self.active_supply_curve],expandable=(True,False),collapsible=(True,True))    
         self.active_supply_curve = util.expand_multi(self.active_supply_curve, reindexed_throughput.index.levels,reindexed_throughput.index.names)        
         bin_supply_curve = copy.deepcopy(self.active_supply_curve)
