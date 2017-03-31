@@ -732,8 +732,8 @@ class Subsector(DataMapFunctions):
         if not hasattr(self, 'service_demand'):
             return None
         if hasattr(self.service_demand,'modifier'):
-            service_demand_normal = util.DfOper.mult([self.service_demand.modifier,self.stock.values]).groupby(level=self.stock.rollover_group_names).transform(lambda x: x/x.sum())
-            df = util.DfOper.mult([service_demand_normal,self.service_demand.values])
+            df = util.DfOper.mult([util.remove_df_elements(self.service_demand.modifier, 9999, 'final_energy'),self.stock.values]).groupby(level=self.service_demand.values.index.names).transform(lambda x: x/x.sum())
+            df = util.DfOper.mult([df,self.service_demand.values])
         else:
             df = self.service_demand.values
         levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
@@ -2337,7 +2337,7 @@ class Subsector(DataMapFunctions):
              enumerate(index.levels)], inplace=True)
         util.replace_index_name(df, 'final_energy', 'demand_technology')
         df = df.reset_index().groupby(df.index.names).sum()
-        df = util.remove_df_elements(df, 9999, 'final_energy')
+        
         return df
 
 
