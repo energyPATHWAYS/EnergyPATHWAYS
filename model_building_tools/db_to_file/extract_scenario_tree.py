@@ -1,5 +1,6 @@
 import psycopg2.extras
 import json
+import re
 from collections import OrderedDict, Callable
 import energyPATHWAYS.config as cfg
 
@@ -114,7 +115,7 @@ for side in SIDES:
 
 # Output to json
 for name, content in scenarios.iteritems():
-    file_name = name.replace(' ', '_').lower() + '.json'
+    file_name = re.sub('[./\s]+', '_', name).lower() + '.json'
     print "Writing {}".format(file_name,)
     with open(file_name, 'w') as outfile:
         json.dump({name: content}, outfile, indent=4, separators=(',', ': ')) # sort_keys=True,

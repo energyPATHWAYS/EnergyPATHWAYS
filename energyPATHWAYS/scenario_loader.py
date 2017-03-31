@@ -19,6 +19,7 @@ class Scenario():
                           "SupplyStockMeasures")
 
     def __init__(self, scenario_id):
+        self._id = scenario_id
         self._bucket_lookup = self._load_bucket_lookup()
 
         path_to_scenario_file = os.path.join(cfg.workingdir, scenario_id + '.json')
@@ -88,7 +89,12 @@ class Scenario():
                 self._load_measures(subtree)
             elif key in self.MEASURE_CATEGORIES and isinstance(subtree, list):
                 for measure in subtree:
-                    bucket_id = self._bucket_lookup[key][measure]
+                    try:
+                        bucket_id = self._bucket_lookup[key][measure]
+                    except KeyError:
+                        logging.exception("{} scenario wants to use {} {} but no such measure was found "
+                                          "in the database.".format(self._id, key, measure))
+                        raise
                     if measure in self._measures[key][bucket_id]:
                         raise ValueError, "Scenario uses {} {} more than once.".format(key, measure)
                     self._measures[key][bucket_id].append(measure)
