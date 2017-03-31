@@ -258,7 +258,6 @@ class PathwaysModel(object):
         keys = ['EXPORTED', 'SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['EMISSIONS TYPE']
         self.outputs.c_emissions = util.df_list_concatenate([self.export_emissions_df, self.embodied_emissions_df, self.direct_emissions_df],keys=keys,new_names = names)
-#        util.replace_index_name(self.outputs.c_emissions, "ENERGY","FINAL_ENERGY")
         util.replace_index_name(self.outputs.c_emissions, cfg.primary_geography.upper() +'-EMITTED', cfg.primary_geography.upper() +'_SUPPLY')
         util.replace_index_name(self.outputs.c_emissions, cfg.primary_geography.upper() +'-CONSUMED', cfg.primary_geography.upper())
         self.outputs.c_emissions= self.outputs.c_emissions[self.outputs.c_emissions['VALUE']!=0]
