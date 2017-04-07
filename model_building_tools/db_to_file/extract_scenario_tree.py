@@ -109,7 +109,7 @@ for side in SIDES:
         state = OrderedDict({'description': row['description']})
         for id_col, table_name in package_data_tables[side].iteritems():
             if row[id_col] is not None:
-                state[table_name.replace('Packages', 's')] = packages[side][table_name][row[id_col]]
+                state[table_name.replace('Packages', 's')] = sorted(packages[side][table_name][row[id_col]])
         case_key = "{} Case: {}".format(side, row[case_name_col])
         scenarios[row['scenario_name']][case_key][row['sector_or_node_name']] = state
 
