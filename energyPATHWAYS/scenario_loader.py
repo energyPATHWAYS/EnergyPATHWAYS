@@ -37,24 +37,25 @@ class Scenario():
         # later (if the user asks for an unknown measure type we get a KeyError rather than silently returning
         # an empty list.)
         self._measures = {category: defaultdict(list) for category in self.MEASURE_CATEGORIES}
+        self._sensitivities = defaultdict(dict)
         self._load_measures(scenario)
 
     @staticmethod
-    def _index_col(table):
+    def _index_col(measure_table):
         """Returns the name of the column that should be used to index the given type of measure"""
-        if table.startswith('Demand'):
+        if measure_table.startswith('Demand'):
             return 'subsector_id'
-        elif table == "BlendNodeBlendMeasures":
+        elif measure_table == "BlendNodeBlendMeasures":
             return 'blend_node_id'
         else:
             return 'supply_node_id'
 
     @staticmethod
-    def _subindex_col(table):
+    def _subindex_col(measure_table):
         """Returns the name of the column that subindexes the given type of measure, i.e. the technology id column"""
-        if table in ("DemandSalesShareMeasures", "DemandStockMeasures"):
+        if measure_table in ("DemandSalesShareMeasures", "DemandStockMeasures"):
             return 'demand_technology_id'
-        elif table in ("SupplySalesMeasures", "SupplySalesShareMeasures", "SupplyStockMeasures"):
+        elif measure_table in ("SupplySalesMeasures", "SupplySalesShareMeasures", "SupplyStockMeasures"):
             return 'supply_technology_id'
         else:
             return None
@@ -85,7 +86,20 @@ class Scenario():
         bucket_id tuple will be None.
         """
         for key, subtree in tree.iteritems():
-            if isinstance(subtree, dict):
+            if key.lower() == 'sensitivities':
+                if not isinstance(subtree, list):
+                    raise ValueError("The 'Sensitivities' for a scenario should be a list of objects containing "
+                                     "the keys 'table', 'parent_id' and 'sensitivity'.")
+                for sensitivity_spec in subtree:
+                    # TODO: Would be good to have some validation here that this sensitivity actually exists,
+                    # it's just a bit tricky to track down the right parent_id column here
+                    table = sensitivity_spec['table']
+                    parent_id = sensitivity_spec['parent_id']
+                    sensitivity = sensitivity_spec['sensitivity']
+                    if parent_id in self._sensitivities[table]:
+                        raise ValueError("Scenario specifies sensitivity for {} {} more than once".format(table, parent_id))
+                    self._sensitivities[table][parent_id] = sensitivity
+            elif isinstance(subtree, dict):
                 self._load_measures(subtree)
             elif key in self.MEASURE_CATEGORIES and isinstance(subtree, list):
                 for measure in subtree:
@@ -96,11 +110,11 @@ class Scenario():
                                           "in the database.".format(self._id, key, measure))
                         raise
                     if measure in self._measures[key][bucket_id]:
-                        raise ValueError, "Scenario uses {} {} more than once.".format(key, measure)
+                        raise ValueError("Scenario uses {} {} more than once.".format(key, measure))
                     self._measures[key][bucket_id].append(measure)
             elif not isinstance(subtree, basestring):
-                raise ValueError, "Encountered an uninterpretable non-string leaf node while loading the scenario. " \
-                                  "The node is '{}: {}'".format(key, subtree)
+                raise ValueError("Encountered an uninterpretable non-string leaf node while loading the scenario. "
+                                 "The node is '{}: {}'".format(key, subtree))
 
     def get_measures(self, category, subsector_or_node_id, tech_id=None):
         """
@@ -124,6 +138,12 @@ class Scenario():
             logging.debug(log_msg)
 
         return measure_ids
+
+    def get_sensitivity(self, table, parent_id):
+        sensitivity = self._sensitivities[table].get(parent_id)
+        if sensitivity:
+            logging.debug("Sensitivity {} loaded for {} with parent id {}.".format(sensitivity, table, parent_id))
+        return sensitivity
 
     @property
     def name(self):

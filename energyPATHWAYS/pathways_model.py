@@ -67,7 +67,7 @@ class PathwaysModel(object):
 
     def calculate_demand(self, save_models):
         logging.info('Configuring energy system demand')
-        self.demand.add_subsectors()
+        self.demand.add_subsectors(self.scenario)
         self.demand.add_measures(self.scenario)
         self.demand.calculate_demand()
         self.demand_solved = True

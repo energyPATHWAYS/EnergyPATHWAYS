@@ -32,10 +32,10 @@ class Demand(object):
         self.feeder_allocation_class.values.index = self.feeder_allocation_class.values.index.rename('sector', 'demand_sector')
         self.electricity_reconciliation = None
 
-    def add_subsectors(self):
+    def add_subsectors(self, scenario):
         """Read in and initialize data"""
         # Drivers must come first
-        self.add_drivers()
+        self.add_drivers(scenario)
         # Sectors requires drivers be read in
         self.add_sectors()
 
@@ -244,18 +244,18 @@ class Demand(object):
         sectors_aggregates = [sector.aggregate_subsector_energy_for_supply_side() for sector in self.sectors.values()]
         self.energy_demand = pd.concat([s for s in sectors_aggregates if s is not None], keys=self.sectors.keys(), names=names)
         
-    def add_drivers(self):
+    def add_drivers(self, scenario):
         """Loops through driver ids and call create driver function"""
         ids = util.sql_read_table('DemandDrivers',column_names='id',return_iterable=True)
         for id in ids:
-            self.add_driver(id)
+            self.add_driver(id, scenario)
 
-    def add_driver(self, id):
+    def add_driver(self, id, scenario):
         """add driver object to demand"""
         if id in self.drivers:
             # ToDo note that a driver by the same name was added twice
             return
-        self.drivers[id] = Driver(id)
+        self.drivers[id] = Driver(id, scenario)
 
     def remap_drivers(self):
         """
@@ -303,8 +303,9 @@ class Demand(object):
 
 
 class Driver(object, DataMapFunctions):
-    def __init__(self, id):
+    def __init__(self, id, scenario):
         self.id = id
+        self.scenario = scenario
         self.sql_id_table = 'DemandDrivers'
         self.sql_data_table = 'DemandDriversData'
         self.mapped = False
