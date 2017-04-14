@@ -21,8 +21,8 @@ class Scenario():
     # These are the columns that various data tables use to refer to the id of their parent table
     # Order matters here; we use the first one that is found in the table. This is because some tables'
     # "true" parent is a subsector/node, but they are further subindexed by technology
-    PARENT_COLUMN_NAMES = ('parent_id', 'subsector_id', 'supply_node_id', 'primary_node_id', 'demand_tech_id',
-                           'demand_technology_id', 'supply_tech_id', 'supply_technology_id')
+    PARENT_COLUMN_NAMES = ('parent_id', 'subsector_id', 'supply_node_id', 'primary_node_id', 'import_node_id',
+                           'demand_tech_id', 'demand_technology_id', 'supply_tech_id', 'supply_technology_id')
 
     def __init__(self, scenario_id):
         self._id = scenario_id
@@ -111,8 +111,6 @@ class Scenario():
             raise ValueError("The 'Sensitivities' for a scenario should be a list of objects containing "
                              "the keys 'table', 'parent_id' and 'sensitivity'.")
         for sensitivity_spec in sensitivities:
-            # TODO: Would be good to have some validation here that this sensitivity actually exists,
-            # it's just a bit tricky to track down the right parent_id column here
             table = sensitivity_spec['table']
             parent_id = sensitivity_spec['parent_id']
             sensitivity = sensitivity_spec['sensitivity']
@@ -185,7 +183,7 @@ class Scenario():
     def get_sensitivity(self, table, parent_id):
         sensitivity = self._sensitivities[table].get(parent_id)
         if sensitivity:
-            logging.debug("Sensitivity {} loaded for {} with parent id {}.".format(sensitivity, table, parent_id))
+            logging.debug("Sensitivity '{}' loaded for {} with parent id {}.".format(sensitivity, table, parent_id))
         return sensitivity
 
     @property

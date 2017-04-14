@@ -79,7 +79,7 @@ class PathwaysModel(object):
         if not self.demand_solved:
             raise ValueError('demand must be solved first before supply')
         logging.info('Configuring energy system supply')
-        self.supply.add_nodes()
+        self.supply.add_nodes(self.scenario)
         self.supply.add_measures(self.scenario)
         self.supply.initial_calculate()
         self.supply.calculated_years = []
