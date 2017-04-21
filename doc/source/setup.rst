@@ -8,7 +8,11 @@ Overview
 A working EnergyPATHWAYS installation consists of two main parts:
 
 1. The EnergyPATHWAYS python code, and the libraries that it depends upon, which are described under `Dependencies`_ below.
-2. Input data, consisting of a `Database`_ describing an energy system and a `Configuration File`_, also described below.
+2. Input data, consisting of:
+
+   a. A `Database`_ describing an energy system
+   b. A `Configuration File`_ providing connection details for your database and other runtime parameters.
+   c. One or more scenario files specifying potential futures for your energy system that you would like to model (see :ref:`scenarios`)
 
 It is possible to use one installation of the python code to run multiple models (e.g. for different states or nations) by creating multiple sets of input data. That is, you will only need to set up part (1) once, and then you can set up part (2) for each energy system that you would like to model.
 
@@ -36,11 +40,11 @@ We have now cloned the EnergyPATHWAYS code, but before completing the installati
 Packages
 --------
 
-We recommend setting up your environment for EnergyPATHWAYS using Anaconda, which is both a package manager and a virtual environment manager. To set up the virtual environment, first `download`_ and install Anaconda, open a command prompt and ``cd`` to the directory where you have cloned the EnergyPATHWAYS repository. If you are working on a windows PC enter::
+We recommend setting up your environment for EnergyPATHWAYS using Anaconda, which is both a package manager and a virtual environment manager. To set up the virtual environment, first `download`_ and install Anaconda -- be sure to get the **Python 2.7** version. Once Anaconda is installed, open a command prompt and ``cd`` to the directory where you have cloned the EnergyPATHWAYS repository. If you are working on a Windows PC enter::
 
   $ conda env create --name pathways -f environment_pc.yml
 
-Or on a mac enter::
+Or on a Mac enter::
 
   $ conda env create --name pathways -f environment_mac.yml
 
@@ -98,12 +102,15 @@ EnergyPATHWAYS is now installed!
 Data Setup
 ==========
 
-In addition to installation of the EnergyPATHWAYS package described above, a model cannot be run until input data are provided. The input data consist of two components:
+In addition to installation of the EnergyPATHWAYS package described above, a model cannot be run until input data are provided. The input data consist of three components:
 
 1. A database describing your energy system
 2. A configuration file (e.g. ``energyPATHWAYS/model\_runs/us\_model\_example/config.INI``)
+3. One or more scenario files that describe the variations of your energy system that you would like to model.
 
-These are described in the following subsections.
+The first two of these are described below, and the third is covered in detail under :ref:`scenarios`.
+
+.. _database:
 
 Database
 --------
@@ -161,7 +168,7 @@ You may wish to change other configuration settings, particularly if you are usi
 Running the Model
 =================
 
-After installing EnergyPATHWAYS and setting up the necessary input data, the model can be run from the command line::
+After installing EnergyPATHWAYS and setting up the necessary input data (remember that you will also need one or more scenario files, as described under :ref:`scenarios`) the model can be run from the command line::
 
     $ energyPATHWAYS [options]
 
@@ -171,9 +178,11 @@ To get help on the various command line options, use::
 
 As mentioned above, EnergyPATHWAYS will need access to your configuration file in order to load your database and begin running. By default, EnergyPATHWAYS will assume that the configuration file is called ``config.INI`` and is located in the current directory. If you need to change these assumptions, you can use the ``-c`` and/or ``-p`` command line options, as described in the ``energyPATHWAYS --help`` text.
 
-In most cases, you will at a minimum need to tell EnergyPATHWAYS which scenario to run from the database by using the ``-s`` option to specify its id number. So, for instance, the basic usage to run scenario number 1 would be::
+In most cases, you will at a minimum need to tell EnergyPATHWAYS which scenario file(s) to run from the database by using the ``-s`` option to specify the name of the scenario. So, for instance, the basic usage to run a scenario file called `example.json` would be::
 
-    $ energyPATHWAYS -s 1
+    $ energyPATHWAYS -s example
+
+If you do not specify a scenario using the `-s` option, EnergyPATHWAYS will scan the current directory (or the working directory you specified with `-p`) for files with the `.json` extension. The model will assume that all such files are scenario files and run them all sequentially.
 
 Running Unit Tests
 ==================
