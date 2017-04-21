@@ -158,11 +158,15 @@ class Demand(object):
             df = driver.values
             df['unit'] = driver.unit_base
             df.set_index('unit',inplace=True,append=True)
+            if hasattr(driver,'other_index_1'):
+                util.replace_index_name(df,"other_index_1",driver.other_index_1)
+            if hasattr(driver,'other_index_2'):
+                util.replace_index_name(df,"other_index_2",driver.other_index_1)
             df_list.append(df)
         df=util.df_list_concatenate(df_list,
-                                     keys=[x.id for x in self.drivers.values()],new_names='driver',levels_to_keep=['driver','unit']+cfg.output_demand_levels)
+                                     keys=[x.id for x in self.drivers.values()],new_names='driver',levels_to_keep=['driver','unit']+cfg.output_demand_levels+["other_index_1","other_index_2"])
         df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
-        setattr(self.outputs, 'd_driver', df)
+        self.outputs.d_driver = df
     
     def aggregate_results(self):
         def remove_na_levels(df):
@@ -2721,7 +2725,7 @@ class Subsector(DataMapFunctions):
             values = link.values.as_matrix()
             calibration_values = link.values[link.year].as_matrix()
             calibration_values = np.column_stack(calibration_values).T
-            new_values = 1 - (values / calibration_values)
+            new_values = 1.0 - (values / np.array(calibration_values,float))
             # calculate weighted after service efficiency as a function of service demand share
             new_values = (link.service_demand_share * new_values) 
             link.values = pd.DataFrame(new_values, link.values.index, link.values.columns.values)
