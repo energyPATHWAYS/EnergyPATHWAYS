@@ -695,7 +695,7 @@ class Dispatch(object):
         return marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights
 
     @staticmethod
-    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals=0, reserves=0.1, max_outage_rate_for_capacity_eligibility=.75):
+    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals=0, reserves=0.15, max_outage_rate_for_capacity_eligibility=.75):
         stock_changes = np.zeros(len(capacity_weights))
         
         max_by_load_group = np.array([Dispatch._get_load_level_lookup(np.array([max(group)]), 0, reserves, decimals)[0] for group in load_groups])
@@ -717,14 +717,13 @@ class Dispatch(object):
                     raise ValueError('No generator can be added to increase capacity given outage rates')
                 normed_capacity_weights /= sum(normed_capacity_weights)
                 ncwi = np.nonzero(normed_capacity_weights)[0]
-            # we need more capacity
-                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - FOR[i][ncwi]
-                )
+                # we need more capacity
+                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - FOR[i][ncwi] - MOR[i][ncwi])
                 
         return stock_changes
     
     @staticmethod
-    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, operating_reserves=0.05, capacity_reserves=0.1, gen_categories=None, return_dispatch_by_category=False):
+    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, operating_reserves=0.05, capacity_reserves=0.15, gen_categories=None, return_dispatch_by_category=False):
         """ Dispatch generators to a net load signal
         
         Args:
