@@ -2,6 +2,7 @@ import csv
 import click
 import psycopg2.extras
 import energyPATHWAYS.config as cfg
+from energyPATHWAYS.scenario_loader import Scenario
 
 cfg.init_cfgfile('../../model_runs/us_model_example/config.INI')
 cfg.init_db()
@@ -14,11 +15,6 @@ class DataTableChunk:
     A DataTableChunk is all the rows in a single data table that are associated with a single parent_id.
     In other words, the contents of one reasonably compact CSV file.
     """
-    # These are the columns that various data tables use to refer to the id of their parent table
-    # Order matters here; we use the first one that is found in the table. This is because some tables'
-    # "true" parent is a subsector/node, but they are further subindexed by technology
-    PARENT_COLUMN_NAMES = ('parent_id', 'subsector_id', 'supply_node_id', 'primary_node_id', 'demand_tech_id',
-                           'demand_technology_id', 'supply_tech_id', 'supply_technology_id')
 
     # Note that the order matters here; if we find one of the longer suffixes, we want to drop those first, and
     # only assume that the suffix is a simple 'Data' if we don't find anything earlier in the list.
@@ -63,29 +59,14 @@ class DataTableChunk:
     def __init__(self, table, parent_id):
         self.table = table
         self.parent_id = parent_id
-        self.parent_col = self.find_parent_col()
+        self.parent_col = Scenario.parent_col(table)
 
     def parent_table(self):
         """Strip "Data", etc. off the end to get the name of the parent table to this data table"""
         for suffix in self.SUFFIXES:
             if self.table.endswith(suffix):
                 return self.table[:-len(suffix)]
-        raise ValueError, "{} does not match any of the known suffixes for a data table".format(self.table)
-
-    def find_parent_col(self):
-        """Returns the name of the column in the data table that references the parent table"""
-        cur.execute("""
-            SELECT column_name FROM information_schema.columns
-            WHERE table_schema = 'public' AND table_name='{}'
-        """.format(self.table))
-
-        cols = [row[0] for row in cur]
-        # We do it this way so that we use a column earlier in the PARENT_COLUMN_NAMES list over one that's later
-        parent_cols = [col for col in self.PARENT_COLUMN_NAMES if col in cols]
-        if len(parent_cols) > 1:
-            print "More than one potential parent-referencing column was found in {}; "\
-                  "we are using the first in this list: {}".format(self.table, parent_cols)
-        return parent_cols[0]
+        raise ValueError("{} does not match any of the known suffixes for a data table".format(self.table))
 
     def id_col_of_parent(self):
         """Some tables identify their members by something more elaborate than 'id', e.g. 'demand_tech_id'"""

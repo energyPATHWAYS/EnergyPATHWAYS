@@ -181,7 +181,7 @@ class Supply(object):
 
         self.io_dict = util.freeze_recursivedict(self.io_dict)
 
-    def add_nodes(self):  
+    def add_nodes(self, scenario):
         """Adds node instances for all active supply nodes"""
         logging.info('Adding supply nodes')
         supply_type_dict = dict(util.sql_read_table('SupplyTypes', column_names=['id', 'name']))
@@ -191,7 +191,7 @@ class Supply(object):
             self.all_nodes.append(node_id)
             if is_active:
                 logging.info('    {} node {}'.format(supply_type_dict[supply_type_id], name))
-                self.add_node(node_id, supply_type_dict[supply_type_id])
+                self.add_node(node_id, supply_type_dict[supply_type_id], scenario)
         
         # this ideally should be moved to the init statements for each of the nodes
         for node in self.nodes.values():
@@ -206,7 +206,7 @@ class Supply(object):
             else:
                 node.enforce_tradable_geography = True
 
-    def add_node(self, id, supply_type):
+    def add_node(self, id, supply_type, scenario):
         """Add node to Supply instance
         Args: 
             id (int): supply node id 
@@ -223,10 +223,10 @@ class Supply(object):
                 logging.debug(ValueError('insufficient data in storage node %s' %id))
 
         elif supply_type == "Import":
-            self.nodes[id] = ImportNode(id, supply_type)
+            self.nodes[id] = ImportNode(id, supply_type, scenario)
 
         elif supply_type == "Primary":
-            self.nodes[id] = PrimaryNode(id, supply_type)
+            self.nodes[id] = PrimaryNode(id, supply_type, scenario)
 
         else:
             if len(util.sql_read_table('SupplyEfficiency', 'id', id=id, return_iterable=True)):          
@@ -5146,9 +5146,9 @@ class StorageNode(SupplyStockNode):
 
         
 class ImportNode(Node):
-    def __init__(self, id, supply_type, **kwargs):
+    def __init__(self, id, supply_type, scenario, **kwargs):
         Node.__init__(self,id, supply_type)
-        self.cost = ImportCost(self.id)
+        self.cost = ImportCost(self.id, scenario)
         self.coefficients = SupplyCoefficients(self.id)
 
     def calculate(self):
@@ -5191,8 +5191,9 @@ class ImportNode(Node):
 
 
 class ImportCost(Abstract):
-    def __init__(self, id, **kwargs):
+    def __init__(self, id, scenario, **kwargs):
         self.id = id
+        self.scenario = scenario
         self.input_type = 'intensity'
         self.sql_id_table = 'ImportCost'
         self.sql_data_table = 'ImportCostData'
@@ -5218,10 +5219,10 @@ class ImportCost(Abstract):
 
           
 class PrimaryNode(Node):
-    def __init__(self, id, supply_type,**kwargs):
+    def __init__(self, id, supply_type, scenario, **kwargs):
         Node.__init__(self,id, supply_type)
         self.potential = SupplyPotential(self.id, self.enforce_potential_constraint)
-        self.cost = PrimaryCost(self.id)
+        self.cost = PrimaryCost(self.id, scenario)
         self.coefficients = SupplyCoefficients(self.id)
 
     def calculate(self):
@@ -5269,8 +5270,9 @@ class PrimaryNode(Node):
 
 
 class PrimaryCost(Abstract):
-    def __init__(self, id, node_geography=None, **kwargs):
+    def __init__(self, id, scenario, node_geography=None, **kwargs):
         self.id = id
+        self.scenario = scenario
         self.input_type = 'intensity'
         self.sql_id_table = 'PrimaryCost'
         self.sql_data_table = 'PrimaryCostData'

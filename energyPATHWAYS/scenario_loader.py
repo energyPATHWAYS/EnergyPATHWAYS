@@ -18,6 +18,12 @@ class Scenario():
                           "SupplySalesShareMeasures",
                           "SupplyStockMeasures")
 
+    # These are the columns that various data tables use to refer to the id of their parent table
+    # Order matters here; we use the first one that is found in the table. This is because some tables'
+    # "true" parent is a subsector/node, but they are further subindexed by technology
+    PARENT_COLUMN_NAMES = ('parent_id', 'subsector_id', 'supply_node_id', 'primary_node_id', 'import_node_id',
+                           'demand_tech_id', 'demand_technology_id', 'supply_tech_id', 'supply_technology_id')
+
     def __init__(self, scenario_id):
         self._id = scenario_id
         self._bucket_lookup = self._load_bucket_lookup()
@@ -37,27 +43,50 @@ class Scenario():
         # later (if the user asks for an unknown measure type we get a KeyError rather than silently returning
         # an empty list.)
         self._measures = {category: defaultdict(list) for category in self.MEASURE_CATEGORIES}
+        self._sensitivities = defaultdict(dict)
         self._load_measures(scenario)
 
     @staticmethod
-    def _index_col(table):
+    def _index_col(measure_table):
         """Returns the name of the column that should be used to index the given type of measure"""
-        if table.startswith('Demand'):
+        if measure_table.startswith('Demand'):
             return 'subsector_id'
-        elif table == "BlendNodeBlendMeasures":
+        elif measure_table == "BlendNodeBlendMeasures":
             return 'blend_node_id'
         else:
             return 'supply_node_id'
 
     @staticmethod
-    def _subindex_col(table):
+    def _subindex_col(measure_table):
         """Returns the name of the column that subindexes the given type of measure, i.e. the technology id column"""
-        if table in ("DemandSalesShareMeasures", "DemandStockMeasures"):
+        if measure_table in ("DemandSalesShareMeasures", "DemandStockMeasures"):
             return 'demand_technology_id'
-        elif table in ("SupplySalesMeasures", "SupplySalesShareMeasures", "SupplyStockMeasures"):
+        elif measure_table in ("SupplySalesMeasures", "SupplySalesShareMeasures", "SupplyStockMeasures"):
             return 'supply_technology_id'
         else:
             return None
+
+    @classmethod
+    def parent_col(cls, data_table):
+        """Returns the name of the column in the data table that references the parent table"""
+        cfg.cur.execute("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = %s
+        """, (data_table,))
+
+        cols = [row[0] for row in cfg.cur]
+        if not cols:
+            raise ValueError("Could not find any columns for table {}. Did you misspell the table "
+                             "name?".format(data_table))
+        # We do it this way so that we use a column earlier in the PARENT_COLUMN_NAMES list over one that's later
+        parent_cols = [col for col in cls.PARENT_COLUMN_NAMES if col in cols]
+        if not parent_cols:
+            raise ValueError("Could not find any known parent-referencing columns in {}. "
+                             "Are you sure it's a table that references a parent table?".format(data_table))
+        elif len(parent_cols) > 1:
+            logging.debug("More than one potential parent-referencing column was found in {}; "
+                          "we are using the first in this list: {}".format(data_table, parent_cols))
+        return parent_cols[0]
 
     def _load_bucket_lookup(self):
         """
@@ -77,6 +106,30 @@ class Scenario():
                     lookup[table][row[0]] = (row[1], None)
         return lookup
 
+    def _load_sensitivities(self, sensitivities):
+        if not isinstance(sensitivities, list):
+            raise ValueError("The 'Sensitivities' for a scenario should be a list of objects containing "
+                             "the keys 'table', 'parent_id' and 'sensitivity'.")
+        for sensitivity_spec in sensitivities:
+            table = sensitivity_spec['table']
+            parent_id = sensitivity_spec['parent_id']
+            sensitivity = sensitivity_spec['sensitivity']
+            if parent_id in self._sensitivities[table]:
+                raise ValueError("Scenario specifies sensitivity for {} {} more than once".format(table, parent_id))
+
+            # Check that the sensitivity actually exists in the database before using it
+            cfg.cur.execute("""
+                        SELECT COUNT(*) AS count
+                        FROM "{}"
+                        WHERE {} = %s AND sensitivity = %s
+                    """.format(table, self.parent_col(table)), (parent_id, sensitivity))
+            row_count = cfg.cur.fetchone()[0]
+
+            if row_count == 0:
+                raise ValueError("Could not find sensitivity '{}' for {} {}.".format(sensitivity, table, parent_id))
+
+            self._sensitivities[table][parent_id] = sensitivity
+
     def _load_measures(self, tree):
         """
         Finds all measures in the Scenario by recursively scanning the parsed json and organizes them by type
@@ -85,7 +138,9 @@ class Scenario():
         bucket_id tuple will be None.
         """
         for key, subtree in tree.iteritems():
-            if isinstance(subtree, dict):
+            if key.lower() == 'sensitivities':
+                self._load_sensitivities(subtree)
+            elif isinstance(subtree, dict):
                 self._load_measures(subtree)
             elif key in self.MEASURE_CATEGORIES and isinstance(subtree, list):
                 for measure in subtree:
@@ -96,11 +151,11 @@ class Scenario():
                                           "in the database.".format(self._id, key, measure))
                         raise
                     if measure in self._measures[key][bucket_id]:
-                        raise ValueError, "Scenario uses {} {} more than once.".format(key, measure)
+                        raise ValueError("Scenario uses {} {} more than once.".format(key, measure))
                     self._measures[key][bucket_id].append(measure)
             elif not isinstance(subtree, basestring):
-                raise ValueError, "Encountered an uninterpretable non-string leaf node while loading the scenario. " \
-                                  "The node is '{}: {}'".format(key, subtree)
+                raise ValueError("Encountered an uninterpretable non-string leaf node while loading the scenario. "
+                                 "The node is '{}: {}'".format(key, subtree))
 
     def get_measures(self, category, subsector_or_node_id, tech_id=None):
         """
@@ -124,6 +179,12 @@ class Scenario():
             logging.debug(log_msg)
 
         return measure_ids
+
+    def get_sensitivity(self, table, parent_id):
+        sensitivity = self._sensitivities[table].get(parent_id)
+        if sensitivity:
+            logging.debug("Sensitivity '{}' loaded for {} with parent id {}.".format(sensitivity, table, parent_id))
+        return sensitivity
 
     @property
     def name(self):
