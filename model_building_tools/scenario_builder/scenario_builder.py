@@ -83,7 +83,7 @@ def query_all_measures():
             parent_name = 'DemandSubsectors'
             side = 'd'
         else:
-            id_name = 'supply_node_id'
+            id_name = 'blend_node_id' if table == 'BlendNodeBlendMeasures' else 'supply_node_id'
             parent_name = 'SupplyNodes'
             side = 's'
         cur.execute('SELECT "{}"."{}", "{}"."name", "{}"."id", "{}"."name" FROM "{}" INNER JOIN "{}" ON "{}".{} = "{}"."id";'.format(
@@ -221,6 +221,7 @@ def _get_scenarios_df(scenarios, merge_by_override=None):
                                                                                         scenario_sensitivities,
                                                                                         how='outer')
         meta_data = _inspect_scenario_and_case_names(json_dict, meta_data)
+
     all_measures = query_all_measures()
     all_sensitivities = query_all_sensitivities()
     merge_by = sht.range('merge_by').value if merge_by_override is None else merge_by_override
@@ -230,6 +231,7 @@ def _get_scenarios_df(scenarios, merge_by_override=None):
     values = pd.merge(values, description_df, how='outer')
     values = values.set_index(['side', 'sub-node id', 'sub-node name', 'measure type', 'measure id', 'measure name'],
                               append=False).sort_index()
+
     return values, meta_data
 
 
