@@ -23,7 +23,10 @@ class Output(object):
     def return_cleaned_output(self, output_type):
         if not hasattr(self, output_type):
             return None
-        if type(getattr(self, output_type)) is not pd.core.frame.DataFrame:
+        elif getattr(self,output_type) is None:
+            print "%s is not calculated in this model run" %output_type
+            return None
+        elif type(getattr(self, output_type)) is not pd.core.frame.DataFrame:
             raise ValueError('output_type must be a pandas dataframe')
         cleaned_output = getattr(self, output_type).copy()
         if 'year' in cleaned_output.index.names:
