@@ -18,7 +18,7 @@ import smtplib
 from profilehooks import timecall
 import pdb
 from scenario_loader import Scenario
-
+import copy
 
 class PathwaysModel(object):
     """
@@ -208,13 +208,14 @@ class PathwaysModel(object):
            self.embodied_energy_costs_df = pd.concat([self.embodied_energy_costs_df],keys=[key],names=[name])       
         #calculte and format direct demand costs
         self.demand_costs_df = self.demand.outputs.return_cleaned_output('d_levelized_costs')
-        levels_to_keep = [x.upper() for x in cfg.output_combined_levels]
-        levels_to_keep = [x for x in levels_to_keep if x in self.demand_costs_df.index.names]
-        self.demand_costs_df= self.demand_costs_df.groupby(level=levels_to_keep).sum()
-        keys = ["DOMESTIC","DEMAND"]
-        names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
-        for key,name in zip(keys,names):
-            self.demand_costs_df = pd.concat([self.demand_costs_df],keys=[key],names=[name])
+        if self.demand_costs_df is not None:
+            levels_to_keep = [x.upper() for x in cfg.output_combined_levels]
+            levels_to_keep = [x for x in levels_to_keep if x in self.demand_costs_df.index.names]
+            self.demand_costs_df= self.demand_costs_df.groupby(level=levels_to_keep).sum()
+            keys = ["DOMESTIC","DEMAND"]
+            names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
+            for key,name in zip(keys,names):
+                self.demand_costs_df = pd.concat([self.demand_costs_df],keys=[key],names=[name])
         keys = ['EXPORTED', 'SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['COST TYPE']
         self.outputs.c_costs = util.df_list_concatenate([self.export_costs_df, self.embodied_energy_costs_df, self.demand_costs_df],keys=keys,new_names=names)
@@ -293,13 +294,14 @@ class PathwaysModel(object):
          for name in [x for x in self.embodied_energy.index.names if x not in self.final_energy.index.names]:
              self.final_energy[name] = "N/A"
              self.final_energy.set_index(name,append=True,inplace=True)
-         for name in [x for x in self.embodied_energy.index.names if x not in self.export_energy.index.names]:
-             self.export_energy[name] = "N/A"
-             self.export_energy.set_index(name,append=True,inplace=True)
+         if self.export_energy is not None:
+             for name in [x for x in self.embodied_energy.index.names if x not in self.export_energy.index.names]:
+                 self.export_energy[name] = "N/A"
+                 self.export_energy.set_index(name,append=True,inplace=True)
+                 self.export_energy = self.export_energy.groupby(level=self.embodied_energy.index.names).sum()
+                 self.export_energy = self.export_energy.reorder_levels(self.embodied_energy.index.names)
          self.final_energy = self.final_energy.groupby(level=self.embodied_energy.index.names).sum()
          self.final_energy = self.final_energy.reorder_levels(self.embodied_energy.index.names)
-         self.export_energy = self.export_energy.groupby(level=self.embodied_energy.index.names).sum()
-         self.export_energy = self.export_energy.reorder_levels(self.embodied_energy.index.names)
          self.outputs.c_energy = pd.concat([self.embodied_energy,self.final_energy,self.export_energy])
          self.outputs.c_energy= self.outputs.c_energy[self.outputs.c_energy['VALUE']!=0]
          self.outputs.c_energy.columns = [energy_unit.upper()]
@@ -331,3 +333,17 @@ class PathwaysModel(object):
         for key, name in zip(keys,names):
             result_df = pd.concat([result_df], keys=[key],names=[name])
         result_df.to_csv(os.path.join(cfg.workingdir,'supply_outputs', 's_io.csv'), header=True, mode='ab')
+        self.export_stacked_io()
+
+    def export_stacked_io(self):
+        df = copy.deepcopy(self.supply.outputs.io)
+        df.index.names = [x + '_input'if x!= 'year' else x for x in df.index.names ]
+        df = df.stack(level=df.columns.names).to_frame()
+        df.columns = ['value']
+        self.supply.outputs.stacked_io = df
+        result_df = self.supply.outputs.return_cleaned_output('stacked_io')
+        keys = [self.scenario.name.upper(),str(datetime.now().replace(second=0,microsecond=0))]
+        names = ['SCENARIO','TIMESTAMP']
+        for key, name in zip(keys,names):
+            result_df = pd.concat([result_df], keys=[key],names=[name])
+        result_df.to_csv(os.path.join(cfg.workingdir,'supply_outputs', 's_stacked_io.csv'), header=True, mode='ab')

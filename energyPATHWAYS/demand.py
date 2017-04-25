@@ -37,7 +37,7 @@ class Demand(object):
         # Drivers must come first
         self.add_drivers(scenario)
         # Sectors requires drivers be read in
-        self.add_sectors()
+        self.add_sectors(scenario)
 
         logging.info('Remapping drivers')
         self.remap_drivers()
@@ -158,11 +158,15 @@ class Demand(object):
             df = driver.values
             df['unit'] = driver.unit_base
             df.set_index('unit',inplace=True,append=True)
+            if hasattr(driver,'other_index_1'):
+                util.replace_index_name(df,"other_index_1",driver.other_index_1)
+            if hasattr(driver,'other_index_2'):
+                util.replace_index_name(df,"other_index_2",driver.other_index_1)
             df_list.append(df)
         df=util.df_list_concatenate(df_list,
-                                     keys=[x.id for x in self.drivers.values()],new_names='driver',levels_to_keep=['driver','unit']+cfg.output_demand_levels)
+                                     keys=[x.id for x in self.drivers.values()],new_names='driver',levels_to_keep=['driver','unit']+cfg.output_demand_levels+["other_index_1","other_index_2"])
         df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
-        setattr(self.outputs, 'd_driver', df)
+        self.outputs.d_driver = df
     
     def aggregate_results(self):
         def remove_na_levels(df):
@@ -284,12 +288,12 @@ class Demand(object):
         driver.mapped = True
         driver.values.data_type = 'total'
 
-    def add_sectors(self):
+    def add_sectors(self,scenario):
         """Loop through sector ids and call add sector function"""
         ids = util.sql_read_table('DemandSectors',column_names='id',return_iterable=True)
         for id in ids:
             self.sectors[id] = Sector(id, self.drivers)
-            self.sectors[id].add_subsectors()
+            self.sectors[id].add_subsectors(scenario)
 
     def calculate_demand(self, solve_supply=True):
         logging.info('Calculating demand')
@@ -338,14 +342,14 @@ class Sector(object):
         self.cfgfile_name = cfg.cfgfile_name
         self.log_name = cfg.log_name
 
-    def add_subsectors(self):
+    def add_subsectors(self,scenario):
         ids = util.sql_read_table('DemandSubsectors',column_names='id',sector_id=self.id, is_active=True, return_iterable=True)
         for id in ids:
             stock = True if id in self.stock_subsector_ids else False
             service_demand = True if id in self.service_demand_subsector_ids else False
             energy_demand = True if id in self.energy_demand_subsector_ids else False
             service_efficiency = True if id in self.service_efficiency_ids else False
-            self.subsectors[id] = Subsector(id, self.drivers, stock, service_demand, energy_demand, service_efficiency)
+            self.subsectors[id] = Subsector(id, self.drivers, stock, service_demand, energy_demand, service_efficiency, scenario)
 
     def make_precursor_dict(self):
         """
@@ -501,7 +505,7 @@ class Sector(object):
             self.subsectors[subsector].set_default_shape(active_shape, self.max_lead_hours, self.max_lag_hours)
 
 class Subsector(DataMapFunctions):
-    def __init__(self, id, drivers, stock, service_demand, energy_demand, service_efficiency):
+    def __init__(self, id, drivers, stock, service_demand, energy_demand, service_efficiency, scenario):
         self.id = id
         self.drivers = drivers
         self.workingdir = cfg.workingdir
@@ -512,9 +516,9 @@ class Subsector(DataMapFunctions):
         self.has_service_demand = service_demand
         self.has_energy_demand = energy_demand
         self.has_service_efficiency = service_efficiency
+        self.scenario = scenario
         for col, att in util.object_att_from_table('DemandSubsectors', id):
             setattr(self, col, att)
-        
         self.outputs = Output()
         self.calculated = False
         if self.shape_id is not None:
@@ -599,7 +603,7 @@ class Subsector(DataMapFunctions):
                 self.add_technologies(self.stock.unit, self.stock.time_unit)
             self.sub_type = 'stock and service'
         elif self.has_stock is True and self.has_energy_demand is True:
-            self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData', drivers=self.drivers)
+            self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData', scenario=self.scenario, drivers=self.drivers)
             self.add_stock()
             if self.stock.demand_stock_unit_type == 'equipment':
                 # service demand unit is equal to the energy demand unit for equipment stocks
@@ -620,10 +624,10 @@ class Subsector(DataMapFunctions):
 
         elif self.has_service_demand is True and self.has_energy_demand is True:
             self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', drivers=self.drivers)
-            self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData', drivers=self.drivers)
+            self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData',scenario=self.scenario, drivers=self.drivers)
             self.sub_type = 'service and energy'
         elif self.has_energy_demand is True:
-            self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData', drivers=self.drivers)
+            self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData', scenario=self.scenario,drivers=self.drivers)
             self.sub_type = 'energy'
             
         elif self.has_stock is True:
@@ -637,7 +641,7 @@ class Subsector(DataMapFunctions):
             else:
                 raise ValueError("A subsector that has no service demand must have its stock input as equipment")
         else:
-            raise ValueError("User has not input enough data")
+            raise ValueError("User has not input enough data in subsector %s" %self.name)
         self.add_service_links()
         self.calculate_years()
 
@@ -2670,7 +2674,7 @@ class Subsector(DataMapFunctions):
             values = link.values.as_matrix()
             calibration_values = link.values[link.year].as_matrix()
             calibration_values = np.column_stack(calibration_values).T
-            new_values = 1 - (values / calibration_values)
+            new_values = 1.0 - (values / np.array(calibration_values,float))
             # calculate weighted after service efficiency as a function of service demand share
             new_values = (link.service_demand_share * new_values) 
             link.values = pd.DataFrame(new_values, link.values.index, link.values.columns.values)

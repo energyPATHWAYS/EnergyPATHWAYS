@@ -94,6 +94,7 @@ class Shapes(object):
             self.data = dict(zip(self.data.keys(), shapes))
         else:
             for id in self.active_shape_ids:
+                print id
                 self.data[id].process_shape()
         
         dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))

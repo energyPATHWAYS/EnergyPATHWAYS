@@ -267,7 +267,6 @@ def init_outputs_id_map():
     outputs_id_map[primary_geography_name + "_input"] = outputs_id_map[primary_geography_name]
     outputs_id_map[primary_geography_name + "_output"] = outputs_id_map[primary_geography_name]
     outputs_id_map[dispatch_geography_name] = outputs_id_map[primary_geography_name]
-
     outputs_id_map['demand_technology'] = util.upper_dict(util.sql_read_table('DemandTechs', ['id', 'name']))
     outputs_id_map['supply_technology'] = util.upper_dict(util.sql_read_table('SupplyTechs', ['id', 'name']))
     outputs_id_map['final_energy'] = util.upper_dict(util.sql_read_table('FinalEnergy', ['id', 'name']))
@@ -282,7 +281,8 @@ def init_outputs_id_map():
     outputs_id_map['driver'] = util.upper_dict(util.sql_read_table('DemandDrivers', ['id', 'name']))
     outputs_id_map['dispatch_feeder'] = util.upper_dict(util.sql_read_table('DispatchFeeders', ['id', 'name']))
     outputs_id_map['dispatch_feeder'][0] = 'BULK'
-
+    outputs_id_map['other_index_1'] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name']))
+    outputs_id_map['other_index_2'] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name']))
     for id, name in util.sql_read_table('OtherIndexes', ('id', 'name'), return_iterable=True):
         if name in ('demand_technology', 'final_energy'):
             continue
