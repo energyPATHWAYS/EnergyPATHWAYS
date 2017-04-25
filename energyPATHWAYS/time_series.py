@@ -72,10 +72,14 @@ class TimeSeries:
         A = min(y) if slope > 0 else max(y)
         K = max(y) if slope > 0 else min(y)
         if len(x) == 3:
-            assert y[0] != y[1] != y[2]
-            B0 = (10 / float(max(x) - min(x)))
-            B = optimize.root(TimeSeries._logistic_end_point_error, x0=B0, args=(A, K, x, y, slope))['x'][0]
-            M = TimeSeries._approx_M(A, K, B, x[1], y[1])
+            if sum(y) == 0:
+                # if we have all zeros, the logistic should just return all zeros
+                A, K, M, B = 0, 0, 0, 0
+            else:
+                assert y[0] != y[1] != y[2], "x = {}, y = {}".format(x, y)
+                B0 = (10 / float(max(x) - min(x)))
+                B = optimize.root(TimeSeries._logistic_end_point_error, x0=B0, args=(A, K, x, y, slope))['x'][0]
+                M = TimeSeries._approx_M(A, K, B, x[1], y[1])
         else:
             B = 10 / float(max(x) - min(x))
             M = min(x) + (max(x) - min(x)) / 2.
