@@ -70,28 +70,29 @@ class Output(object):
 
     @staticmethod
     def write(df, file_name, path):
+        # roughly follows the solutions here: http://stackoverflow.com/questions/11114492/check-if-a-file-is-not-open-not-used-by-other-process-in-python
+        # note that there is still a small, but real chance of a race condition causing an error error, thus this is "safer" but not safe
         if not os.path.exists(path):
             os.mkdir(path)
-        
-        tries = 1
-        while True:
-            try:
-                if os.path.isfile(os.path.join(path, file_name)):
-                    # append and don't write header if the file already exists
-                    df.to_csv(os.path.join(path, file_name), header=False, mode='ab')
-                else:
-                    df.to_csv(os.path.join(path, file_name), header=True, mode='w')
-                return
-            except Exception as e:
-                logging.error('file {} cannot be written: {}'.format(file_name, e))
-                if tries>6:
-                    raise
-                elif tries>=4:
-                    raw_input('Close file {} and press enter to continue...'.format(file_name))
-                elif tries<4:
-                    logging.error('waiting {} seconds...'.format(4**tries))
-                    time.sleep(4**tries)
-                tries += 1
+
+        if os.path.isfile(os.path.join(path, file_name)):
+            tries = 1
+            while True:
+                try:
+                    # rename the file back and forth to see if it is being used
+                    os.rename(os.path.join(path, file_name), os.path.join(path, "_" + file_name))
+                    os.rename(os.path.join(path, "_" + file_name), os.path.join(path, file_name))
+                    # append and don't write header because the file already exists
+                    df.to_csv(os.path.join(path, file_name), header=False, mode='a')
+                    return
+                except OSError:
+                    logging.error('waiting {} seconds to try to write {}...'.format(4 ** tries, file_name))
+                    time.sleep(4 ** tries)
+                    if tries >= 5:
+                        raise
+                    tries += 1
+        else:
+            df.to_csv(os.path.join(path, file_name), header=True, mode='w')
 
     @staticmethod
     def writeobj(obj, write_directory=None, name=None, clean=False):
@@ -175,7 +176,7 @@ class Output(object):
         return s
 
     @staticmethod
-    def csvwrite(path, data, writetype='ab'):
+    def csvwrite(path, data, writetype='a'):
         '''Writes a CSV from a series of data
         '''
         with open(path, writetype) as outfile:

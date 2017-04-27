@@ -332,7 +332,7 @@ class PathwaysModel(object):
         names = ['SCENARIO','TIMESTAMP']
         for key, name in zip(keys,names):
             result_df = pd.concat([result_df], keys=[key],names=[name])
-        result_df.to_csv(os.path.join(cfg.workingdir,'supply_outputs', 's_io.csv'), header=True, mode='ab')
+        Output.write(result_df, 's_io.csv', os.path.join(cfg.workingdir, 'supply_outputs'))
         self.export_stacked_io()
 
     def export_stacked_io(self):
@@ -346,4 +346,4 @@ class PathwaysModel(object):
         names = ['SCENARIO','TIMESTAMP']
         for key, name in zip(keys,names):
             result_df = pd.concat([result_df], keys=[key],names=[name])
-        result_df.to_csv(os.path.join(cfg.workingdir,'supply_outputs', 's_stacked_io.csv'), header=True, mode='ab')
+        Output.write(result_df, 's_stacked_io.csv', os.path.join(cfg.workingdir, 'supply_outputs'))
