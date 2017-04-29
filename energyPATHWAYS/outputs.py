@@ -87,8 +87,8 @@ class Output(object):
                     return
                 except OSError:
                     logging.error('waiting {} seconds to try to write {}...'.format(4 ** tries, file_name))
-                    time.sleep(4 ** tries)
-                    if tries >= 5:
+                    time.sleep(2 ** tries)
+                    if tries >= 10:
                         raise
                     tries += 1
         else:
