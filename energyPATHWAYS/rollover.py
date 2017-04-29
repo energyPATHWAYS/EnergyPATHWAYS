@@ -57,6 +57,9 @@ class Rollover(object):
         self.new_sales_fraction = np.zeros(np.shape(self.sales_record))
         self.early_retirements = np.zeros((self.num_years*self.spy, self.num_techs))
 
+        self.stock_replacement_allocations = []
+        self.stock_growth_allocations = []
+
     def initialize_initial_stock(self, initial_stock):
         if initial_stock is None:
             self.initial_stock = np.zeros(self.num_techs)
@@ -385,6 +388,8 @@ class Rollover(object):
         # this takes into account that some of the stocks are already specified
         stock_replacement_allocation = self.get_stock_replacement_allocation(eligible_for_allocation)
         stock_growth_allocation = self.get_stock_growth_allocation(stock_replacement_allocation, eligible_for_allocation)
+        self.stock_replacement_allocations.append(stock_replacement_allocation)
+        self.stock_growth_allocations.append(stock_growth_allocation)
         
         # the difference between stock changes and the defined sales needs to be allocated
         sales_to_allocate = (self.stock_changes[i] + self.rolloff_summed) - self.sum_defined_sales
