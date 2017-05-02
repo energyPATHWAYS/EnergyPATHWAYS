@@ -86,7 +86,7 @@ class Output(object):
                     df.to_csv(os.path.join(path, file_name), header=False, mode='a')
                     return
                 except OSError:
-                    logging.error('waiting {} seconds to try to write {}...'.format(4 ** tries, file_name))
+                    logging.error('waiting {} seconds to try to write {}...'.format(2 ** tries, file_name))
                     time.sleep(2 ** tries)
                     if tries >= 10:
                         raise

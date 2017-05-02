@@ -51,7 +51,6 @@ class TestGeneratorDispatch(unittest.TestCase):
         self.dispatch_periods = pd.DataFrame.from_csv(os.path.join(self.data_dir, 'dispatch_periods.csv'))
         self.dispatch_periods = self.dispatch_periods.values.flatten()
 
-        self.operating_reserves = 0.05
         self.capacity_reserves = 0.15
 
     def test_simple_generator_dispatch_problem(self):
@@ -88,13 +87,20 @@ class TestGeneratorDispatch(unittest.TestCase):
         sum_across_dispatch_period = MOR.sum(axis=1)
         self.assertAlmostEqual(0, sum_across_dispatch_period[self.dispatch_periods[np.argmax(self.load)]])
 
+    def test_complex_maintenance_zero_maintenance_rate(self):
+        # This makes sure that in the period with the highest load, we are not scheduling maintenance
+        self._set_detailed_dispatch_inputs()
+        self.MORs[:] = 0
+        MOR = Dispatch.schedule_generator_maintenance(self.load, self.pmaxs, self.MORs, dispatch_periods=self.dispatch_periods)
+        self.assertAlmostEqual(0, MOR.sum())
+
     def _helper_return_dispatch_results(self):
         MOR = self._helper_return_generator_maintenance()
         dispatch_results = Dispatch.generator_stack_dispatch(self.load, self.pmaxs, self.marginal_costs, self.dispatch_periods,
                                                              FOR=self.FORs, MOR=MOR, must_runs=self.must_runs,
                                                              capacity_weights=self.capacity_weights,
                                                              gen_categories=self.categories, return_dispatch_by_category=True,
-                                                             operating_reserves=self.operating_reserves, capacity_reserves=self.capacity_reserves)
+                                                             capacity_reserves=self.capacity_reserves)
         return dispatch_results
 
     def test_complex_generator_generation(self):
@@ -103,22 +109,47 @@ class TestGeneratorDispatch(unittest.TestCase):
         dispatch_results = self._helper_return_dispatch_results()
         generation_by_unit = dispatch_results['generation']
         self.assertAlmostEqual(np.sum(generation_by_unit), np.sum(self.load[self.load > 0]))
+        return dispatch_results
 
     def test_complex_generator_generation_with_negative_load(self):
         # the generation should equal the sum of positive load
         self._set_detailed_dispatch_inputs()
         self.load -= np.median(self.load)
+        self.must_runs[:] = 0
         dispatch_results = self._helper_return_dispatch_results()
         generation_by_unit = dispatch_results['generation']
         self.assertAlmostEqual(np.sum(generation_by_unit), np.sum(self.load[self.load > 0]))
+
+    def test_complex_generator_generation_with_zero_load(self):
+        # the generation should equal the sum of positive load
+        self._set_detailed_dispatch_inputs()
+        self.load[:] = 0
+        self.must_runs[:] = 0
+        dispatch_results = self._helper_return_dispatch_results()
+        generation_by_unit = dispatch_results['generation']
+        self.assertAlmostEqual(np.sum(generation_by_unit), 0)
+
+    def test_complex_generator_generation_with_zero_load_and_must_run_generation(self):
+        # the generation should equal the sum of positive load
+        self._set_detailed_dispatch_inputs()
+        self.load[:] = 0
+        self.FORs[:] = 0
+        self.MORs[:] = 0
+        dispatch_results = self._helper_return_dispatch_results()
+        generation_by_unit = dispatch_results['generation']
+        self.assertAlmostEqual(np.sum(generation_by_unit), np.sum(self.pmaxs[np.nonzero(self.must_runs)]*len(self.load)))
 
     def test_complex_generator_generation_all_generators_must_run(self):
         # the generation should equal the sum of positive load
         self._set_detailed_dispatch_inputs()
         self.must_runs[:] = 1
+        self.FORs[:] = 0
+        self.MORs[:] = 0
         dispatch_results = self._helper_return_dispatch_results()
-        generation_by_unit = dispatch_results['generation']
-        self.assertAlmostEqual(np.sum(generation_by_unit), np.sum(self.load[self.load > 0]))
+        gen_cf = dispatch_results['gen_cf']
+        positive_pmax = np.nonzero(self.pmaxs >= 1e-15)[0]
+        np.testing.assert_almost_equal(gen_cf[positive_pmax], np.ones(len(positive_pmax)))
+        # return dispatch_results
 
     def test_complex_generator_capacity_factors(self):
         # the capacity factors * pmax * load should equal the energy generation
@@ -126,42 +157,39 @@ class TestGeneratorDispatch(unittest.TestCase):
         dispatch_results = self._helper_return_dispatch_results()
         gen_cf = dispatch_results['gen_cf']
         generation_by_unit = dispatch_results['generation']
-        np.testing.assert_almost_equal(gen_cf * self.pmaxs * len(self.load), generation_by_unit)
+        np.testing.assert_almost_equal(gen_cf * (self.pmaxs + dispatch_results['stock_changes']) * len(self.load), generation_by_unit)
 
     def test_complex_generator_capacity_factors_are_less_than_one(self):
         # all capacity factors should be between zero and one
         self._set_detailed_dispatch_inputs()
         dispatch_results = self._helper_return_dispatch_results()
         gen_cf = dispatch_results['gen_cf']
-        self.assertLessEqual(max(gen_cf), 1)
+        self.assertLessEqual(round(max(gen_cf), 9), 1)
 
     def test_complex_generator_capacity_factors_are_greater_than_zero(self):
         # all capacity factors should be between zero and one
         self._set_detailed_dispatch_inputs()
         dispatch_results = self._helper_return_dispatch_results()
         gen_cf = dispatch_results['gen_cf']
-        self.assertGreaterEqual(max(gen_cf), 0)
+        self.assertGreaterEqual(round(max(gen_cf), 9), 0)
 
     def test_complex_generator_dispatch_stock_changes(self):
         self._set_detailed_dispatch_inputs()
         new_max_load = np.sum(self.pmaxs) * .75
-        self.load += new_max_load - np.max(self.load)
+        self.load *= np.max(self.load)/new_max_load
 
-        MOR = self._helper_return_generator_maintenance()
         dispatch_results = self._helper_return_dispatch_results()
+        # return dispatch_results
         stock_changes = dispatch_results['stock_changes']
 
-        combined_rate = Dispatch._get_combined_outage_rate(self.FORs, MOR)
-        derated_capacity = self.pmaxs * (1 - combined_rate)
-        derated_capacity_by_period = derated_capacity.sum(axis=1)
-        derated_stock_changes = stock_changes * (1 - combined_rate)
-        derated_changes_by_period = derated_stock_changes.sum(axis=1)
+        derated_capacity = (self.pmaxs * (1 - self.FORs)).sum()
+        derated_stock_changes = (stock_changes * (1 - self.FORs)).sum()
 
         max_load_by_period = np.array([np.max(self.load[self.dispatch_periods==p]) for p in np.unique(self.dispatch_periods)])
         max_load_plus_reserves = (1 + self.capacity_reserves) * max_load_by_period
-        max_period = np.argmax(max_load_plus_reserves)
+        max_period = np.argmax(max_load_plus_reserves-derated_capacity-derated_stock_changes)
 
-        self.assertAlmostEqual(max_load_plus_reserves[max_period], derated_capacity_by_period[max_period] + derated_changes_by_period[max_period])
+        self.assertAlmostEqual(max_load_plus_reserves[max_period], derated_capacity + derated_stock_changes)
 
     def plot_dispatch_outputs(self):
         #pylab.plot(load)
@@ -179,3 +207,11 @@ class TestGeneratorDispatch(unittest.TestCase):
         #print np.sum(dispatch_results['production_cost'])
         pass
 
+
+# self = TestGeneratorDispatch()
+# t = time.time()
+# results = self.test_complex_generator_generation_all_generators_must_run()
+# t = energyPATHWAYS.util.time_stamp(t)
+
+# Initially takes 5.669000 seconds to execute
+# Now takes 3.400000
