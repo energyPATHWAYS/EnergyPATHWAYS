@@ -416,6 +416,7 @@ class Rollover(object):
     def set_final_sales(self):        
         # gross up for retirements within the period (approximation)
         self.sales_by_tech = self.stock_change_by_tech/self.vintaged_markov_matrix[:,0,0]
+        self.sales_by_tech[np.isinf(self.sales_by_tech)]=0
         # this division assumes that stock that retires within the period has an equal chance of also having the replacement replaced
         # this is a conservative assumption
 
@@ -518,7 +519,7 @@ class Rollover(object):
         self.replacement_sales[list_steps] = np.clip(self.natural_rolloff[list_steps], a_min=0, a_max=self.sales_record[list_steps])
 
         self.new_sales_fraction[list_steps] = self.new_sales[list_steps] / self.sales_record[list_steps]
-        self.new_sales_fraction[np.isnan(self.new_sales_fraction)] = 0
+#        self.new_sales_fraction[np.isnan(self.new_sales_fraction)] = 0
         
         # new sales fraction starts from the beginning of the simulated years. stock has an additional pre vintage row 0. This is why we have np.arange(1, max(list_steps)+2)
         update_slice = np.arange(1, max(list_steps)+2)

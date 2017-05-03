@@ -269,7 +269,6 @@ def init_outputs_id_map():
     outputs_id_map[primary_geography_name + "_input"] = outputs_id_map[primary_geography_name]
     outputs_id_map[primary_geography_name + "_output"] = outputs_id_map[primary_geography_name]
     outputs_id_map[dispatch_geography_name] = outputs_id_map[primary_geography_name]
-
     outputs_id_map['demand_technology'] = util.upper_dict(util.sql_read_table('DemandTechs', ['id', 'name']))
     outputs_id_map['supply_technology'] = util.upper_dict(util.sql_read_table('SupplyTechs', ['id', 'name']))
     outputs_id_map['final_energy'] = util.upper_dict(util.sql_read_table('FinalEnergy', ['id', 'name']))

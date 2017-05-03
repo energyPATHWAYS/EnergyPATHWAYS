@@ -640,7 +640,7 @@ class Subsector(DataMapFunctions):
             else:
                 raise ValueError("A subsector that has no service demand must have its stock input as equipment")
         else:
-            raise ValueError("User has not input enough data")
+            raise ValueError("User has not input enough data in subsector %s" %self.name)
         self.add_service_links()
         self.calculate_years()
 

@@ -780,8 +780,6 @@ def initial_book_life_df(book_life, mean_lifetime, vintages, years):
     maximum_remaining = book_life/float(mean_lifetime)
     for i, year in enumerate(years):
         for vintage in [vintages[0]]:
-            # TODO Ryan, better assumption about remaining useful/book life?
-            # Assumes that the stock at time 0 is 50% depreciated
             exist[0, i] = max(maximum_remaining * 1 - ((year-vintage)/float(book_life)),0)
     df = pd.DataFrame(exist, index=vintages, columns=years)
     df.index.rename('vintage', inplace=True)
@@ -814,7 +812,8 @@ def create_markov_matrix(markov_vector, num_techs, num_years, steps_per_year=1):
     for i in range(int(num_years*steps_per_year)):
         markov_matrix[:, :-i - 1, i] = np.transpose(markov_vector[i:-1])
     markov_matrix[:, -1, :] = markov_matrix[:, -2, :]
-    markov_matrix[:, :, -1] = 0
+    if len(range(int(num_years*steps_per_year)))>1:
+        markov_matrix[:, :, -1] = 0
     return np.cumprod(markov_matrix, axis=2)
 
 

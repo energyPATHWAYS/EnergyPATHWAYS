@@ -718,7 +718,7 @@ class Dispatch(object):
                 normed_capacity_weights /= sum(normed_capacity_weights)
                 ncwi = np.nonzero(normed_capacity_weights)[0]
             # we need more capacity
-                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - FOR[i][ncwi]
+                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - FOR[i][ncwi]-MOR[i][ncwi]
                 )
                 
         return stock_changes
