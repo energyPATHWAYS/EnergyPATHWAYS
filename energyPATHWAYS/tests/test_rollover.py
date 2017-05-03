@@ -25,6 +25,7 @@ class TestRollover(unittest.TestCase):
         tech.mean_lifetime = 10 # years
         tech.lifetime_variance = 4 # years
         # Other ways to define lifetime are min_lifetime and max_lifetime
+        energyPATHWAYS.config.weibul_coeff_of_var = energyPATHWAYS.util.create_weibul_coefficient_of_variation()
         tech.stock_decay_function = 'weibull' # other options here ('linear' or 'exponential')
         tech.spy = steps_per_year
         tech.years = years

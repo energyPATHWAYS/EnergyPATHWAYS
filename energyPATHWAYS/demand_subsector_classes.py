@@ -12,12 +12,14 @@ from datamapfunctions import DataMapFunctions, Abstract
 from shared_classes import Stock
 
 class SubDemand(object, DataMapFunctions):
-    def __init__(self, id, drivers, sql_id_table, sql_data_table, demand_technology_id=None, **kwargs):
+    def __init__(self, id, drivers, sql_id_table, sql_data_table, scenario=None,demand_technology_id=None):
         self.id = id
         self.drivers = drivers
         self.demand_technology_id = demand_technology_id
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
+        if scenario:
+            self.scenario = scenario
         self.primary_key = 'subsector_id'
         self.data_id_key = 'subsector_id'
         for col, att in util.object_att_from_table(self.sql_id_table, self.id, 'subsector_id'):

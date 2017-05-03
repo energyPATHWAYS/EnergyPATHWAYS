@@ -9,6 +9,7 @@ import sys
 import signal
 import click
 import os
+import glob
 import cPickle as pickle
 import psycopg2
 import energyPATHWAYS.config as cfg
@@ -73,7 +74,7 @@ signal.signal(signal.SIGTERM, signal_handler)
 @click.command()
 @click.option('-p', '--path', type=click.Path(exists=True), help='Working directory for energyPATHWAYS run.')
 @click.option('-c', '--config', default='config.INI', help='File name for the energyPATHWAYS configuration file.')
-@click.option('-s', '--scenario', type=str, help='Scenario ids [example: 1,3,5]')
+@click.option('-s', '--scenario', type=str, multiple=True, help='Scenario name to run. More than one can be specified by repeating this option. If none are specified, the working directory will be scanned for .json files and all will be run.')
 @click.option('-ld', '--load_demand/--no_load_demand', default=False, help='Load a cached model with the demand side complete.')
 @click.option('--solve_demand/--no_solve_demand', default=True, help='Solve the demand side of the model.')
 @click.option('-ls', '--load_supply/--no_load_supply', default=False, help='Load a cached model with the demand and supply side complete.')
@@ -94,19 +95,30 @@ def click_run(path, config, scenario, load_demand, solve_demand, load_supply, so
     else:
         run(path, config, scenario, load_demand, solve_demand, load_supply, solve_supply, load_error, export_results, pickle_shapes, save_models, log_name, api_run, clear_results)
 
-def run(path, config, scenario, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, load_error=False,
+def run(path, config, scenario_ids, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, load_error=False,
         export_results=True, pickle_shapes=True, save_models=True, log_name=None, api_run=False, clear_results=False):
     global model
     cfg.initialize_config(path, config, log_name)
     cfg.geo.log_geo()
     shape.init_shapes(pickle_shapes)
-    
-    scenario_ids = parse_scenario_ids(scenario)
-    logging.info('Scenario_ids run list = {}'.format(scenario_ids))
+
+    if not scenario_ids:
+        scenario_ids = [os.path.basename(p) for p in glob.glob(os.path.join(cfg.workingdir, '*.json'))]
+        if not scenario_ids:
+            raise ValueError, "No scenarios specified and no .json files found in working directory."
+
+    # Users may have specified a scenario using the full filename, but for our purposes the 'id' of the scenario
+    # is just the part before the .json
+    scenario_ids = [os.path.splitext(s)[0] for s in scenario_ids]
+
+    logging.info('Scenario run list: {}'.format(', '.join(scenario_ids)))
     for scenario_id in scenario_ids:
         scenario_start_time = time.time()
-        logging.info('Starting scenario_id {}'.format(scenario_id))
+        logging.info('Starting scenario {}'.format(scenario_id))
         if api_run:
+            # FIXME: This will be broken since we changed the scenario list from a list of database ids to a list of
+            # filenames. The API-related code will need to be updated before we can update the server with newer
+            # model code.
             util.update_status(scenario_id, 3)
             scenario_name = util.scenario_name(scenario_id)
             subject = 'Now running: EnergyPathways scenario "%s"' % (scenario_name,)
@@ -140,13 +152,6 @@ def run(path, config, scenario, load_demand=False, solve_demand=True, load_suppl
     logging.info('Total calculation time {} seconds'.format(time.time() - run_start_time))
     logging.shutdown()
     logging.getLogger(None).handlers = [] # necessary to totally flush the logger
-
-def parse_scenario_ids(scenario):
-    if scenario is None or len(str(scenario))==0:
-        return []
-    if (type(scenario) is not tuple) and (type(scenario) is not list):
-        scenario = str(scenario).split(',')
-    return [int(str(s).rstrip().lstrip()) for s in scenario]
 
 def load_model(load_demand, load_supply, load_error, scenario_id, api_run):
     # Note that the api_run parameter is effectively ignored if you are loading a previously pickled model
@@ -192,10 +197,10 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS\model_runs\mexico_model_example'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\Mexico'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = [1]
+    scenario = ['mx_mitigation','mx_mitigation_delay','mx_baseline']
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
@@ -206,5 +211,5 @@ if __name__ == "__main__":
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,
-    clear_results = True)
+    clear_results = False)
 

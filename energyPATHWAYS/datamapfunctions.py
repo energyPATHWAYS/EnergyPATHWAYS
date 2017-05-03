@@ -63,12 +63,19 @@ class DataMapFunctions:
         data_col_ind  = []
         for data_col in util.put_in_list(data_column_names):
             data_col_ind.append(headers.index(data_col))
+        filters[self.data_id_key] = self.id
+
+        # Check for a sensitivity specification for this table and id. If there is no relevant sensitivity specified
+        # but the data table has a sensitivity column, we set the sensitivity filter to "None", which will filter
+        # the data table rows down to those where sensitivity is NULL, which is the default, no-sensitivity condition.
+        if 'sensitivity' in headers:
+            filters['sensitivity'] = None
+            if hasattr(self, 'scenario'):
+                # Note that this will return None if the scenario doesn't specify a sensitivity for this table and id
+                filters['sensitivity'] = self.scenario.get_sensitivity(self.sql_data_table, self.id)
+
         # read each line of the data_table matching an id and assign the value to self.raw_values
-        if len(filters):
-            merged_dict = dict({self.data_id_key: self.id}, **filters)
-            read_data = util.sql_read_table(self.sql_data_table, return_iterable=True, **merged_dict)
-        else:
-            read_data = util.sql_read_table(self.sql_data_table, return_iterable=True, **dict([(self.data_id_key, self.id)]))
+        read_data = util.sql_read_table(self.sql_data_table, return_iterable=True, **filters)
 
         self._validate_other_indexes(headers, read_data)
 

@@ -23,7 +23,6 @@ warnings.simplefilter("ignore")
 workingdir = None
 cfgfile = None
 cfgfile_name = None
-scenario_dict = None
 weibul_coeff_of_var = None
 
 # db connection and cursor
@@ -105,7 +104,7 @@ unit_defs = ['US_gge = 120,500 * BTU',
             'bee = 3,559,000 * Btu']
 
 def initialize_config(_path, _cfgfile_name, _log_name):
-    global weibul_coeff_of_var, scenario_dict, available_cpus, workingdir, cfgfile_name, log_name, log_initialized
+    global weibul_coeff_of_var, available_cpus, workingdir, cfgfile_name, log_name, log_initialized
     workingdir = os.getcwd() if _path is None else _path
     cfgfile_name = _cfgfile_name 
     init_cfgfile(os.path.join(workingdir, cfgfile_name))
@@ -118,8 +117,7 @@ def initialize_config(_path, _cfgfile_name, _log_name):
     init_geo()
     init_date_lookup()
     init_output_parameters()
-    
-    scenario_dict = dict(util.sql_read_table('Scenarios',['id', 'name'], return_iterable=True))
+
     available_cpus = int(cfgfile.get('case','num_cores'))
     weibul_coeff_of_var = util.create_weibul_coefficient_of_variation()
 
@@ -296,3 +294,4 @@ def init_output_parameters():
     output_currency = cfgfile.get('case', 'currency_year_id') + ' ' + currency_name
     init_output_levels()
     init_outputs_id_map()
+

@@ -12,14 +12,26 @@ from matplotlib import pyplot as plt
 
 class TestTimeSeries(unittest.TestCase):
     def setUp(self):
-        self.methods = ('linear_interpolation', 'linear_regression', 'logistic', 'cubic', 'quadratic', 'nearest', 'average')
-        
-    def test_clean_empty_data(self):
+        self.methods = ('linear_interpolation',
+                        'linear_regression',
+                        'logistic',
+                        'nearest',
+                        'quadratic',
+                        'cubic',
+                        'exponential',
+                        'none',
+                        'decay_towards_linear_regression',
+                        'average')
+
+    def _help_test_clean_empty_data(self):
         newindex = np.arange(2000, 2051)
 
         x = np.array([])
         y = np.array([])
         self.run_all_cleaning_methods(x, y, newindex)
+
+    def test_clean_empty_data(self):
+        self.assertRaises(IndexError, self._help_test_clean_empty_data)
 
     def test_clean_one_point(self):
         newindex = np.arange(2000, 2051)
@@ -63,16 +75,28 @@ class TestTimeSeries(unittest.TestCase):
         y = (x-2010)**2
         self.run_all_cleaning_methods(x, y, newindex)
 
+    def test_three_zeros(self):
+        # this has been a problem with logistic curve fitting
+        newindex = np.arange(2000, 2051)
+
+        x = np.array([2010, 2011, 2013])
+        y = np.array([0, 0, 0])
+        self.run_all_cleaning_methods(x, y, newindex)
+
+    def test_two_zeros(self):
+        newindex = np.arange(2000, 2051)
+
+        x = np.array([2010, 2013])
+        y = np.array([0, 0])
+        self.run_all_cleaning_methods(x, y, newindex)
 
     def run_all_cleaning_methods(self, x, y, newindex):
         for method in self.methods:
-            print method
-            print x, y
             data = pd.DataFrame(y, index=x)
-            newdata = TimeSeries.clean(data, newindex=newindex, interpolation_method=method)
-
-            plt.plot(newdata.index, newdata[0])
-            plt.plot(x, y, '.')
+            newdata = TimeSeries.clean(data,
+                                       newindex=newindex,
+                                       interpolation_method=(None if method=='decay_towards_linear_regression' else method),  # not supported for linear regression
+                                       extrapolation_method=method)
 
 
 #newindex = np.arange(2015, 2025)
