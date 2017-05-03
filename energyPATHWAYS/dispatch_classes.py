@@ -60,7 +60,6 @@ def run_thermal_dispatch(params):
     # grabs the technology from the label
     gen_categories = [int(s.split(', ')[1].rstrip('L')) for s in thermal_dispatch_df.index.get_level_values('thermal_generators')]
     
-    
     maintenance_rates = Dispatch.schedule_generator_maintenance(load=load,pmaxs=pmaxs,annual_maintenance_rates=MOR, dispatch_periods=months)
     dispatch_results = Dispatch.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
                                                          FOR=FOR, must_runs=must_runs, dispatch_periods=months, capacity_weights=capacity_weights,
@@ -719,6 +718,8 @@ class Dispatch(object):
                                     [market_prices,    production_costs,   gen_energies,   gen_cf,   gen_dispatch_shape, stock_changes, dispatch_by_category_df]))
         
         for key, value in dispatch_results.items():
+            if key == 'dispatch_by_category' and return_dispatch_by_category == False:
+                continue
             if np.any(~np.isfinite(value)):
                 raise ValueError("non finite numbers found in the {} results".format(key))
         
