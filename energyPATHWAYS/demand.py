@@ -595,7 +595,7 @@ class Subsector(DataMapFunctions):
         logging.info('    '+self.name)
         
         if self.has_stock is True and self.has_service_demand is True:
-            self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', drivers=self.drivers)
+            self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', scenario=self.scenario, drivers=self.drivers)
             self.add_stock()
             if self.stock.demand_stock_unit_type == 'equipment':
                 self.add_technologies(self.service_demand.unit, self.stock.time_unit)
@@ -618,12 +618,12 @@ class Subsector(DataMapFunctions):
                 self.add_technologies(self.stock.unit, self.stock.time_unit)
             self.sub_type = 'stock and energy'
         elif self.has_service_demand is True and self.has_service_efficiency is True:
-            self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', drivers=self.drivers)
-            self.service_efficiency = ServiceEfficiency(self.id, self.service_demand.unit)
+            self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', scenario=self.scenario, drivers=self.drivers)
+            self.service_efficiency = ServiceEfficiency(self.id, self.service_demand.unit, self.scenario)
             self.sub_type = 'service and efficiency'
 
         elif self.has_service_demand is True and self.has_energy_demand is True:
-            self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', drivers=self.drivers)
+            self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', scenario=self.scenario, drivers=self.drivers)
             self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData',scenario=self.scenario, drivers=self.drivers)
             self.sub_type = 'service and energy'
         elif self.has_energy_demand is True:
@@ -658,8 +658,8 @@ class Subsector(DataMapFunctions):
         is populated with stock data """
         if self.has_stock:
             for tech in self.technologies:
-                self.technologies[tech].add_specified_stock_measures(scenario)
-                self.technologies[tech].add_sales_share_measures(scenario)
+                self.technologies[tech].add_specified_stock_measures()
+                self.technologies[tech].add_sales_share_measures()
 
     def calculate(self):
         logging.info("    calculating" + " " +  self.name)
@@ -1175,24 +1175,24 @@ class Subsector(DataMapFunctions):
 
     def add_stock(self):
         """add stock instance to subsector"""
-        self.stock = DemandStock(id=self.id, drivers=self.drivers)
+        self.stock = DemandStock(id=self.id, drivers=self.drivers, scenario=self.scenario)
 
     def add_technologies(self, service_demand_unit, stock_time_unit):
         """loops through subsector technologies and adds demand_technology instances to subsector"""
         self.technologies = {}
         ids = util.sql_read_table("DemandTechs",column_names='id',subsector_id=self.id, return_iterable=True)
         for id in ids:
-            self.add_demand_technology(id, self.id, service_demand_unit, stock_time_unit, self.cost_of_capital)
+            self.add_demand_technology(id, self.id, service_demand_unit, stock_time_unit, self.cost_of_capital, self.scenario)
         self.tech_ids = self.technologies.keys()
         self.tech_ids.sort()
 
 
-    def add_demand_technology(self, id, subsector_id, service_demand_unit, stock_time_unit, cost_of_capital, **kwargs):
+    def add_demand_technology(self, id, subsector_id, service_demand_unit, stock_time_unit, cost_of_capital, scenario, **kwargs):
         """Adds demand_technology instances to subsector"""
         if id in self.technologies:
             # ToDo note that a demand_technology was added twice
             return
-        self.technologies[id] = DemandTechnology(id, subsector_id, service_demand_unit, stock_time_unit, cost_of_capital, **kwargs)
+        self.technologies[id] = DemandTechnology(id, subsector_id, service_demand_unit, stock_time_unit, cost_of_capital, scenario=scenario, **kwargs)
 
     def remap_tech_attrs(self, attr_classes, attr='values'):
         """

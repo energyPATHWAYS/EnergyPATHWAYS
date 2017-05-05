@@ -12,7 +12,7 @@ from datamapfunctions import DataMapFunctions, Abstract
 from shared_classes import Stock
 
 class SubDemand(object, DataMapFunctions):
-    def __init__(self, id, drivers, sql_id_table, sql_data_table, scenario=None,demand_technology_id=None):
+    def __init__(self, id, drivers, sql_id_table, sql_data_table, scenario=None, demand_technology_id=None):
         self.id = id
         self.drivers = drivers
         self.demand_technology_id = demand_technology_id
@@ -54,8 +54,8 @@ class SubDemand(object, DataMapFunctions):
 
 
 class DemandStock(Stock):
-    def __init__(self, id, drivers, sql_id_table='DemandStock', sql_data_table='DemandStockData', primary_key='subsector_id', **kwargs):
-        Stock.__init__(self, id, drivers, sql_id_table='DemandStock', sql_data_table='DemandStockData', primary_key='subsector_id', **kwargs)
+    def __init__(self, id, drivers, sql_id_table='DemandStock', sql_data_table='DemandStockData', primary_key='subsector_id', scenario=None, **kwargs):
+        Stock.__init__(self, id, drivers, sql_id_table='DemandStock', sql_data_table='DemandStockData', primary_key='subsector_id', scenario=scenario, **kwargs)
         self.drivers = drivers
         self.in_use_drivers()
         self.projected = False
@@ -65,9 +65,10 @@ class DemandStock(Stock):
         self.annual_costs= defaultdict(dict)
 
 class ServiceEfficiency(Abstract):
-    def __init__(self, id, service_demand_unit, **kwargs):
+    def __init__(self, id, service_demand_unit, scenario=None, **kwargs):
         self.id = id
         self.service_demand_unit = service_demand_unit
+        self.scenario = scenario
         self.sql_id_table = 'DemandServiceEfficiency'
         self.sql_data_table = 'DemandServiceEfficiencyData'
         self.input_type = 'intensity'

@@ -69,6 +69,10 @@ class Scenario():
     @classmethod
     def parent_col(cls, data_table):
         """Returns the name of the column in the data table that references the parent table"""
+        # This is a one-off exception to our general preference order for parent columns
+        if data_table == 'DemandSalesData':
+            return 'demand_technology_id'
+
         cfg.cur.execute("""
             SELECT column_name FROM information_schema.columns
             WHERE table_schema = 'public' AND table_name = %s
