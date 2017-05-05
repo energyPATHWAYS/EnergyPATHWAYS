@@ -161,7 +161,7 @@ class Demand(object):
             if hasattr(driver,'other_index_1'):
                 util.replace_index_name(df,"other_index_1",driver.other_index_1)
             if hasattr(driver,'other_index_2'):
-                util.replace_index_name(df,"other_index_2",driver.other_index_1)
+                util.replace_index_name(df,"other_index_2",driver.other_index_2)
             df_list.append(df)
         df=util.df_list_concatenate(df_list,
                                      keys=[x.id for x in self.drivers.values()],new_names='driver',levels_to_keep=['driver','unit']+cfg.output_demand_levels+["other_index_1","other_index_2"])
@@ -715,6 +715,12 @@ class Subsector(DataMapFunctions):
         else:
             df = self.service_demand.values
         levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
+        if hasattr(self.service_demand,'other_index_1'):
+            util.replace_index_name(df,"other_index_1",self.service_demand.other_index_1)
+            levels_to_keep.append("other_index_1")
+        if hasattr(self.service_demand,'other_index_2'):
+            util.replace_index_name(df,"other_index_2",self.service_demand.other_index_2)
+            levels_to_keep.append("other_index_2")
         levels_to_eliminate = [l for l in df.index.names if l not in levels_to_keep]
         df = util.remove_df_levels(df,levels_to_eliminate).sort_index()
         df = df.stack().to_frame()
