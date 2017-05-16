@@ -59,7 +59,7 @@ def run_thermal_dispatch(params):
     capacity_weights = thermal_dispatch_df['capacity_weights'].values
     # grabs the technology from the label
     gen_categories = [int(s.split(', ')[1].rstrip('L')) for s in thermal_dispatch_df.index.get_level_values('thermal_generators')]
-    
+
     maintenance_rates = Dispatch.schedule_generator_maintenance(load=load,pmaxs=pmaxs,annual_maintenance_rates=MOR, dispatch_periods=months)
     dispatch_results = Dispatch.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
                                                          FOR=FOR, must_runs=must_runs, dispatch_periods=months, capacity_weights=capacity_weights,
@@ -92,10 +92,10 @@ class Dispatch(object):
             self.node_config_dict[supply_node] = DispatchNodeConfig(supply_node)
         self.set_dispatch_order()
         self.dispatch_window_dict = dict(util.sql_read_table('DispatchWindows'))  
-        self.curtailment_cost = util.unit_convert(0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.unserved_energy_cost = util.unit_convert(10**5,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.dist_net_load_penalty = util.unit_convert(10**3,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.bulk_net_load_penalty = util.unit_convert(10**3,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.curtailment_cost = util.unit_convert(75.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.unserved_energy_cost = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.dist_net_load_penalty = util.unit_convert(10000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.bulk_net_load_penalty = util.unit_convert(500.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.upward_imbalance_penalty = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.downward_imbalance_penalty = util.unit_convert(100.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.dispatch_feeders = dispatch_feeders
@@ -328,7 +328,7 @@ class Dispatch(object):
         FORs = np.array(util.df_slice(thermal_dispatch_df,['forced_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
         must_run = np.array(util.df_slice(thermal_dispatch_df,['must_run',geography],['IO',self.dispatch_geography]).values).T[0]
         clustered_dict = self._cluster_generators(n_clusters = int(cfg.cfgfile.get('opt','generator_steps')), pmax=pmax, marginal_cost=marginal_cost, FORs=FORs, 
-                                     MORs=MORs, must_run=must_run, pad_stack=False, zero_mc_4_must_run=True)
+                                     MORs=MORs*0, must_run=must_run, pad_stack=False, zero_mc_4_must_run=True)
         generator_numbers = range(len(clustered_dict['derated_pmax']))
         for number in generator_numbers:
             generator = str(((max(generator_numbers)+1)* (self.dispatch_geographies.index(geography))) + (number)+1)
@@ -638,32 +638,41 @@ class Dispatch(object):
         return marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights
 
     @staticmethod
-    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, reserves=0.15):
-        combined_rates = [Dispatch._get_combined_outage_rate(FOR[i], MOR[i]) for i in range(len(load_groups))]
-        max_by_load_group = np.array([max(group)*(1 + reserves) for group in load_groups])
-        cap_by_load_group = np.array([sum(pmaxs[i] * (1 - combined_rates[i])) for i in range(len(max_by_load_group))])
-        shortage_by_group = max_by_load_group - cap_by_load_group
-        order = [i for i in np.argsort(shortage_by_group)[-1::-1] if shortage_by_group[i] > 0]
+    def _get_load_level_lookup(load, must_run_sum=0, operating_reserves=0, decimals=0):
+        return np.array(np.clip(np.round(load * (1 + operating_reserves) * 10**decimals), a_min=must_run_sum, a_max=None), dtype=int)
 
-        # sometimes they don't come in exactly normalized
-        normed_capacity_weights = capacity_weights / sum(capacity_weights)
+    @staticmethod
+    def _get_derated_capacity(pmax, combined_rate, decimals=0):
+        return np.array(np.round(pmax * (1 - combined_rate) * 10**decimals), dtype=int)
+
+    @staticmethod
+    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals=0, reserves=0.15, max_outage_rate_for_capacity_eligibility=.75):
         stock_changes = np.zeros(len(capacity_weights))
-        for i in order:
-            derated_capacity = sum((pmaxs[i]+stock_changes) * (1 - combined_rates[i]))
-            residual_for_load_balance = max_by_load_group[i] - derated_capacity
-            # we need more capacity
-            if residual_for_load_balance > 0:
-                if all(combined_rates[i][capacity_weights!=0]>.5):
-                    logging.warning('All generators queued for capacity expansion have outage rates higher than 50%, this can cause issues')
-                ncwi = np.nonzero(normed_capacity_weights)[0]
-                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - combined_rates[i][ncwi])
 
-        cap_by_load_group = np.array([sum((pmaxs[i]+stock_changes) * (1 - combined_rates[i])) for i in range(len(max_by_load_group))])
-        final_shortage_by_group = max_by_load_group - cap_by_load_group
-        assert all(np.round(final_shortage_by_group, 9) <= 0)
+        max_by_load_group = np.array([Dispatch._get_load_level_lookup(np.array([max(group)]), 0, reserves, decimals)[0] for group in load_groups])
+        cap_by_load_group = np.array([sum(Dispatch._get_derated_capacity(pmaxs[i], Dispatch._get_combined_outage_rate(FOR[i], MOR[i]), decimals)) for i in range(len(max_by_load_group))])
+
+        shortage_by_group = max_by_load_group - cap_by_load_group
+        order = [i for i in np.argsort(shortage_by_group)[-1::-1] if shortage_by_group[i]>0]
+
+        for i in order:
+            load_group = load_groups[i]
+            max_lookup = Dispatch._get_load_level_lookup(np.array([max(load_group)]), 0, reserves, decimals)[0]
+            combined_rate = Dispatch._get_combined_outage_rate(FOR[i], MOR[i])
+            derated_capacity = Dispatch._get_derated_capacity(pmaxs[i]+stock_changes, combined_rate, decimals)
+            normed_capacity_weights = copy.deepcopy(capacity_weights)
+            normed_capacity_weights[combined_rate>max_outage_rate_for_capacity_eligibility] = 0
+            residual_for_load_balance = float(max_lookup - sum(derated_capacity))/10**decimals
+            if residual_for_load_balance > 0:
+                if not sum(normed_capacity_weights):
+                    raise ValueError('No generator can be added to increase capacity given outage rates')
+                normed_capacity_weights /= sum(normed_capacity_weights)
+                ncwi = np.nonzero(normed_capacity_weights)[0]
+                # we need more capacity
+                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - FOR[i][ncwi] - MOR[i][ncwi])
 
         return stock_changes
-    
+
     @staticmethod
     def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, capacity_reserves=0.15, gen_categories=None, return_dispatch_by_category=False):
         """ Dispatch generators to a net load signal
@@ -688,7 +697,7 @@ class Dispatch(object):
         
         if capacity_weights is not None and capacity_weights.ndim>1:
             raise ValueError('capacity weights should not vary across dispatch periods')
-        
+
         load_groups = (load,) if dispatch_periods is None else np.array_split(load, np.where(np.diff(dispatch_periods)!=0)[0]+1)
         num_groups = len(load_groups)
         
