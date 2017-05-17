@@ -236,7 +236,7 @@ def init_date_lookup():
 
 def init_output_levels():
     global output_demand_levels, output_supply_levels, output_combined_levels
-    output_demand_levels = ['year', 'vintage', 'demand_technology', primary_geography, 'sector', 'subsector', 'final_energy']
+    output_demand_levels = ['year', 'vintage', 'demand_technology', primary_geography, 'sector', 'subsector', 'final_energy','other_index_1','other_index_2']
     output_supply_levels = ['year', 'vintage', 'supply_technology', primary_geography, primary_geography + "_supply", 'demand_sector', 'final_energy', 'supply_node', 'ghg', 'resource_bins']
     output_combined_levels = list(set(output_supply_levels + output_demand_levels))
     
@@ -254,6 +254,8 @@ def init_output_levels():
     
     if cfgfile.get('output_detail', 'produced_supply_geography').lower() != 'true':
         output_combined_levels.remove(primary_geography + "_supply")
+    output_combined_levels.remove('other_index_1')
+    output_combined_levels.remove('other_index_2')
 
     # if cfgfile.get('output_detail', 'consumed_supply_geography').lower() != 'true':
     #     output_combined_levels.remove(primary_geography)

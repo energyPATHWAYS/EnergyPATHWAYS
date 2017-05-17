@@ -197,19 +197,19 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\Mexico'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\NY\separate\Mitigation 1'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['mx_mitigation','mx_mitigation_delay','mx_baseline']
+    scenario = ['ny_mitigation_case_1']
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
-    load_supply   = True,
-    solve_supply  = True,
-    export_results= False,
+    load_supply   = False,
+    solve_supply  = False,
+    export_results= True,
     load_error    = False,
     pickle_shapes = True,
-    save_models   = True,
+    save_models   = False,
     api_run       = False,
-    clear_results = False)
+    clear_results = True)
 
