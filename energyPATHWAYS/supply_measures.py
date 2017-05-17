@@ -17,6 +17,16 @@ class SupplyMeasure(object):
     def __init__(self):
         pass
     
+class CO2PriceMeasure(Abstract):
+    def __init__(self, id, **kwargs):
+        self.id = id 
+        self.sql_id_table = 'CO2PriceMeasures'
+        self.sql_data_table = 'CO2PriceMeasuresData'
+        Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
+        self.input_type = 'intensity'
+        self.remap()
+        self.values.sort_index(inplace=True)
+    
 class BlendMeasure(Abstract):
     def __init__(self,id):
         self.id = id

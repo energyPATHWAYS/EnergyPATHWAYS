@@ -16,7 +16,8 @@ class Scenario():
                           "SupplyExportMeasures",
                           "SupplySalesMeasures",
                           "SupplySalesShareMeasures",
-                          "SupplyStockMeasures")
+                          "SupplyStockMeasures",
+                          "CO2PriceMeasures")
 
     # These are the columns that various data tables use to refer to the id of their parent table
     # Order matters here; we use the first one that is found in the table. This is because some tables'

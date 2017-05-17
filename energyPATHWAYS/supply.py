@@ -10,7 +10,7 @@ import logging
 import time
 from util import DfOper
 from collections import defaultdict
-from supply_measures import BlendMeasure, ExportMeasure, StockMeasure, StockSalesMeasure
+from supply_measures import BlendMeasure, ExportMeasure, StockMeasure, StockSalesMeasure, CO2PriceMeasure
 from supply_technologies import SupplyTechnology, StorageTechnology
 from supply_classes import SupplySpecifiedStock
 from shared_classes import SalesShare, SpecifiedStock, Stock, StockItem
@@ -62,6 +62,23 @@ class Supply(object):
         self.api_run = api_run
         if self.map_dict.has_key(None):
             del self.map_dict[None]
+        self.CO2PriceMeasures = scenario.get_measures('CO2PriceMeasures', self.thermal_dispatch_node_id)
+        self.add_co2_price_to_dispatch(self.CO2PriceMeasures)
+        
+        
+
+    
+    
+    
+    def add_co2_price_to_dispatch(self,CO2PriceMeasures):
+        if len(self.CO2PriceMeasures)>1:
+             raise ValueError('multiple CO2 price measures are active')
+        elif len(self.CO2PriceMeasures) ==0:
+            self.CO2PriceMeasure=None
+        else:
+            self.CO2PriceMeasure = CO2PriceMeasure(self.CO2PricesMeasures[0])
+            self.CO2PriceMeasure.calculate()
+        
      
     def calculate_technologies(self):
         """ initiates calculation of all technology attributes - costs, efficiency, etc.
@@ -1017,8 +1034,10 @@ class Supply(object):
                 if hasattr(node,'active_dispatch_costs'):
                     active_dispatch_costs = node.active_dispatch_costs
                     #TODO Remove 1 is the Reference Case
-#                    if self.case_id == 1:
-                    co2_price = 0
+                    if self.CO2PriceMeasure:
+                        co2_price = util.df_slice(self.CO2PriceMeasure.values,year,'years')
+                    else:
+                        co2_price=0
 #                    else:
 #                        co2_price = 500
                     if hasattr(node,'active_physical_emissions_coefficients') and hasattr(node,'active_co2_capture_rate'):    
