@@ -19,19 +19,6 @@ class TestClusterGenerators(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def _set_simple_dispatch_inputs(self):
-        self.pmax = np.array([.0000001, .001, .01, .1, 1, 10, 60, 50, 20, 20, 5, 2, 2.4, 2.6])
-        self.marginal_cost = np.array([30, 80, 70, 60, 50, 40, 45, 60, 30, 61, 80, 100, 42, 55])
-        self.FORs = np.array([0, 0, 0, 0, 0, 0, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05])
-        self.MORs = self.FORs[-1::-1]
-        self.must_run = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1])
-        self.n_clusters = 4
-        self.zero_mc_4_must_run = True
-        self.pad_stack=True
-
-    def test_simple_generator_dispatch_problem(self):
-        self._set_simple_dispatch_inputs()
-
     def _set_simple_cluster_inputs(self):
         self.pmax = np.array([.001, .01, .1, 1, 10, 60, 50, 20, 20, 5, 2, 2.4, 2.6])
         self.marginal_cost = np.array([80, 70, 60, 50, 40, 45, 60, 30, 61, 80, 100, 42, 55])
@@ -82,6 +69,18 @@ class TestClusterGenerators(unittest.TestCase):
         self._set_simple_cluster_inputs()
         mc_approx = self._helper_run_cluster_generators()
         np.testing.assert_almost_equal(mc_approx['pmax'], [24.6, 92.4, 51.1, 178.122])
+
+    def too_many_clusters(self):
+        self.pmax = np.array([40, 100, 60, 50, 20, 20])
+        self.marginal_cost = np.array([10, 10, 10, 20, 20, 20])
+        self.FORs = np.array([0, 0, 0, 0.05, 0.05, 0.05])
+        self.MORs = self.FORs[-1::-1]
+        self.must_run = np.array([0, 0, 1, 0, 0, 0])
+        self.n_clusters = 4
+        self.zero_mc_4_must_run = True
+        self.pad_stack=True
+        mc_approx = self._helper_run_cluster_generators()
+        assert not any(pd.isnull(mc_approx['FORs']))
 
     def plot_cluster_generator_example(self):
         decimals = 1
