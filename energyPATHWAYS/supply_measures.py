@@ -24,6 +24,8 @@ class CO2PriceMeasure(Abstract):
         self.sql_data_table = 'CO2PriceMeasuresData'
         Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
         self.input_type = 'intensity'
+
+    def calculate(self):
         self.remap()
         self.values.sort_index(inplace=True)
     

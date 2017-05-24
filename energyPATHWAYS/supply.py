@@ -76,7 +76,7 @@ class Supply(object):
         elif len(self.CO2PriceMeasures) ==0:
             self.CO2PriceMeasure=None
         else:
-            self.CO2PriceMeasure = CO2PriceMeasure(self.CO2PricesMeasures[0])
+            self.CO2PriceMeasure = CO2PriceMeasure(self.CO2PriceMeasures[0])
             self.CO2PriceMeasure.calculate()
         
      
@@ -366,6 +366,9 @@ class Supply(object):
                     logging.info("   loop {}: electricity dispatch".format(loop))
                     # loop - 1 is necessary so that it uses last year's throughput
                     self.calculate_embodied_costs(year, loop-1) # necessary here because of the dispatch
+                    #necessary to calculate emissions to apply CO2 price in year 1 if applicable                    
+#                    if year == min(self.years):
+#                        self.calculate_embodied_emissions(year)
                     self.prepare_dispatch_inputs(year, loop)
                     self.solve_electricity_dispatch(year)
                     self._recalculate_stocks_and_io(year, loop)
@@ -1035,18 +1038,16 @@ class Supply(object):
                     active_dispatch_costs = node.active_dispatch_costs
                     #TODO Remove 1 is the Reference Case
                     if self.CO2PriceMeasure:
-                        co2_price = util.df_slice(self.CO2PriceMeasure.values,year,'years')
+                        co2_price = util.df_slice(self.CO2PriceMeasure.values,year,'year')
+                        co2_price.columns = [year]
                     else:
                         co2_price=0
-#                    else:
-#                        co2_price = 500
                     if hasattr(node,'active_physical_emissions_coefficients') and hasattr(node,'active_co2_capture_rate'):    
                         total_physical =node.active_physical_emissions_coefficients.groupby(level='supply_node').sum().stack().stack().to_frame()
                         emissions_rate = util.DfOper.mult([node.stock.dispatch_coefficients.loc[:,year].to_frame(), util.DfOper.divi([total_physical,node.active_coefficients_untraded]).replace([np.inf,np.nan],0)])
                         emissions_rate = util.remove_df_levels(emissions_rate,'supply_node')
                         emissions_rate = util.remove_df_levels(emissions_rate,[x for x in emissions_rate.index.names if x not in node.stock.values.index.names],agg_function='mean')
                         co2_cost = util.DfOper.mult([emissions_rate, 1-node.rollover_output(tech_class = 'co2_capture', stock_att='exist',year=year)]) * co2_price * util.unit_conversion(unit_from_den='ton',unit_to_den=cfg.cfgfile.get('case','mass_unit'))[0]
-#                        * max((year-2015),0)/(max(self.years)-2015)
                         active_dispatch_costs = util.DfOper.add([node.active_dispatch_costs ,co2_cost])
                     stock_values = node.stock.values.loc[:,year].to_frame()
                     stock_values = stock_values[((stock_values.index.get_level_values('vintage')==year) == True) | ((stock_values[year]>0) == True)]
@@ -1874,12 +1875,12 @@ class Supply(object):
                     for dict_node in self.nodes.values():
                         if hasattr(dict_node, 'pass_through_dict'):
                             if node.id in dict_node.pass_through_dict.keys():
-                                del dict_node.pass_through_dict[node.id]              
+                                del dict_node.pass_through_dict[node.id]      
         else:
             for node in self.nodes.values():
-                if hasattr(node,'pass_through_dict'):
-                    for key in node.pass_through_dict.keys():
-                        node.pass_through_dict[key] = False
+                    if hasattr(node,'pass_through_dict'):
+                        for key in node.pass_through_dict.keys():
+                            node.pass_through_dict[key] = False
                 
     def calculate_stocks(self,year,loop):
         """Loops through all supply nodes that have stocks and updates those stocks
@@ -2004,12 +2005,16 @@ class Supply(object):
             loop (int or str) = loop identifier            
         """ 
         for node in self.nodes.values():
+            if hasattr(node,'calculate_co2_capture_rate'):
+                node.calculate_co2_capture_rate(year)
+        for node in self.nodes.values():
             if node.active_emissions_coefficients is not None:
                 node.active_physical_emissions_coefficients = node.active_emissions_coefficients * 0 
         self.set_pass_through_dicts(year)        
         for node in self.nodes.values():
             if hasattr(node,'active_physical_emissions_rate'):
                 self.feed_physical_emissions(year, node.id, node.active_physical_emissions_rate)
+
 
     def feed_constraints(self, year, constrained_node, constraint_adjustment):
         """Propagates constraint reconciliation adjustment factors to all dependent blend nodes
@@ -2919,8 +2924,7 @@ class Node(DataMapFunctions):
                     combustion_emissions.loc[:,:] = self.active_supply.T.values * self.active_physical_emissions_coefficients.loc[indexer,:].values
                     self.active_combustion_emissions = combustion_emissions.groupby(level='ghg').sum() 
                     self.active_combustion_emissions = self.active_combustion_emissions.unstack(cfg.primary_geography).to_frame()
-                    if hasattr(self,'calculate_co2_capture_rate'):
-                        self.calculate_co2_capture_rate(year)
+                    if hasattr(self,'active_co2_capture_rate'):
                         self.active_combustion_emissions = DfOper.mult([self.active_combustion_emissions, 1- self.active_co2_capture_rate])
         if hasattr(self,'active_accounting_emissions_rate'):
             self.active_accounting_emissions = DfOper.mult([self.active_accounting_emissions_rate,self.active_supply])    
@@ -2986,11 +2990,11 @@ class Node(DataMapFunctions):
         pass_through_df.sort(inplace=True, axis=1)
         for year in self.years:
             self.pass_through_df_dict[year] = copy.deepcopy(pass_through_df)
-        self.active_pass_through_df = pass_through_df  
+        self.active_pass_through_df = copy.deepcopy(self.pass_through_df_dict[year])
         
-    def update_pass_through_df_dict(self,year):  
+    def update_pass_through_df_dict(self,year, loop=None):  
         if hasattr(self,'pass_through_df_dict'):
-            self.active_pass_through_df = self.pass_through_df_dict[year]
+            self.active_pass_through_df =self.pass_through_df_dict[year]
     
     def set_pass_through_dict(self, node_dict):   
         if self.active_coefficients is not None:

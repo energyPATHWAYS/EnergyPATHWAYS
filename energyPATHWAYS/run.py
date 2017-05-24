@@ -197,19 +197,19 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\NY\separate\Mitigation 1'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\US_DDPP\separate\AEO Reference REAMP'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['ny_mitigation_case_1']
+    scenario = ['aeo_2015_reference']
     run(workingdir, config, scenario,
     load_demand   = False,
-    solve_demand  = True,
+    solve_demand  = False,
     load_supply   = False,
     solve_supply  = False,
-    export_results= True,
-    load_error    = False,
+    export_results= False,
+    load_error    = True,
     pickle_shapes = True,
     save_models   = False,
     api_run       = False,
-    clear_results = True)
+    clear_results = False)
 

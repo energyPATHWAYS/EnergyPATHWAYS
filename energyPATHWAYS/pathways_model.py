@@ -333,7 +333,7 @@ class PathwaysModel(object):
         for key, name in zip(keys,names):
             result_df = pd.concat([result_df], keys=[key],names=[name])
         Output.write(result_df, 's_io.csv', os.path.join(cfg.workingdir, 'supply_outputs'))
-        self.export_stacked_io()
+#        self.export_stacked_io()
 
     def export_stacked_io(self):
         df = copy.deepcopy(self.supply.outputs.io)

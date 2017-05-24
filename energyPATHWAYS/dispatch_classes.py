@@ -49,6 +49,7 @@ def run_thermal_dispatch(params):
     load = util.df_slice(params[3], dispatch_geography, dispatch_geography_index)
     return_dispatch_by_category = params[4]
     months = load.index.get_level_values('weather_datetime').month
+    weeks = load.index.get_level_values('weather_datetime').week
     load = load.values.flatten()
     
     pmaxs = thermal_dispatch_df['capacity'].values
@@ -60,9 +61,9 @@ def run_thermal_dispatch(params):
     # grabs the technology from the label
     gen_categories = [int(s.split(', ')[1].rstrip('L')) for s in thermal_dispatch_df.index.get_level_values('thermal_generators')]
 
-    maintenance_rates = Dispatch.schedule_generator_maintenance(load=load,pmaxs=pmaxs,annual_maintenance_rates=MOR, dispatch_periods=months)
+    maintenance_rates = Dispatch.schedule_generator_maintenance(load=load,pmaxs=pmaxs,annual_maintenance_rates=MOR, dispatch_periods=weeks)
     dispatch_results = Dispatch.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
-                                                         FOR=FOR, must_runs=must_runs, dispatch_periods=months, capacity_weights=capacity_weights,
+                                                         FOR=FOR, must_runs=must_runs, dispatch_periods=weeks, capacity_weights=capacity_weights,
                                                          gen_categories=gen_categories, return_dispatch_by_category=return_dispatch_by_category)
     
     for output in ['gen_cf', 'generation', 'stock_changes']:
@@ -328,7 +329,7 @@ class Dispatch(object):
         FORs = np.array(util.df_slice(thermal_dispatch_df,['forced_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
         must_run = np.array(util.df_slice(thermal_dispatch_df,['must_run',geography],['IO',self.dispatch_geography]).values).T[0]
         clustered_dict = self._cluster_generators(n_clusters = int(cfg.cfgfile.get('opt','generator_steps')), pmax=pmax, marginal_cost=marginal_cost, FORs=FORs, 
-                                     MORs=MORs*0, must_run=must_run, pad_stack=False, zero_mc_4_must_run=True)
+                                     MORs=MORs, must_run=must_run, pad_stack=False, zero_mc_4_must_run=True)
         generator_numbers = range(len(clustered_dict['derated_pmax']))
         for number in generator_numbers:
             generator = str(((max(generator_numbers)+1)* (self.dispatch_geographies.index(geography))) + (number)+1)
@@ -517,7 +518,7 @@ class Dispatch(object):
         return clustered
 
     @staticmethod
-    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.8, load_ptile=99.5, individual_plant_maintenance=False):
+    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.8, load_ptile=99.9, individual_plant_maintenance=False):
         # gives the index for the change between dispatch_periods
         group_cuts = list(np.where(np.diff(dispatch_periods)!=0)[0]+1) if dispatch_periods is not None else None
         group_lengths = np.array([group_cuts[0]] + list(np.diff(group_cuts)) + [len(load)-group_cuts[-1]])
