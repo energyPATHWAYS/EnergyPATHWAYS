@@ -485,6 +485,8 @@ class Dispatch(object):
         cluster = KMeans(n_clusters=n_clusters, precompute_distances='auto')
         factor = (max(marginal_cost) - min(marginal_cost))*10
         fit = cluster.fit_predict(np.vstack((must_run*factor, new_mc)).T)
+        num_clusters_found = max(fit) + 1
+        n_clusters = min(n_clusters, num_clusters_found)
         
         # helper functions for results
         group_sum = lambda c, a: sum(a[fit==c])
