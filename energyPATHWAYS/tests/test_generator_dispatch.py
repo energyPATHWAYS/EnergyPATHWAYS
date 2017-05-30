@@ -49,7 +49,7 @@ class TestGeneratorDispatch(unittest.TestCase):
         self.categories = generator_params['categories'].values
 
         self.dispatch_periods = pd.DataFrame.from_csv(os.path.join(self.data_dir, 'dispatch_periods.csv'))
-        self.dispatch_periods = self.dispatch_periods.values.flatten()
+        self.dispatch_periods = self.dispatch_periods['week'].values.flatten()
 
         self.capacity_reserves = 0.15
 
@@ -83,9 +83,11 @@ class TestGeneratorDispatch(unittest.TestCase):
     def test_complex_no_maintenance_in_highest_month(self):
         # This makes sure that in the period with the highest load, we are not scheduling maintenance
         self._set_detailed_dispatch_inputs()
+        self.load -= np.median(self.load)
         MOR = Dispatch.schedule_generator_maintenance(self.load, self.pmaxs, self.MORs, dispatch_periods=self.dispatch_periods)
+        group_cuts = list(np.where(np.diff(self.dispatch_periods) != 0)[0] + 1) if self.dispatch_periods is not None else None
         sum_across_dispatch_period = MOR.sum(axis=1)
-        self.assertAlmostEqual(0, sum_across_dispatch_period[self.dispatch_periods[np.argmax(self.load)]])
+        self.assertAlmostEqual(0, sum_across_dispatch_period[np.nonzero(group_cuts > np.argmax(self.load))[0][0]])
 
     def test_complex_maintenance_zero_maintenance_rate(self):
         # This makes sure that in the period with the highest load, we are not scheduling maintenance
@@ -210,8 +212,15 @@ class TestGeneratorDispatch(unittest.TestCase):
 
 # self = TestGeneratorDispatch()
 # t = time.time()
-# results = self.test_complex_generator_generation_all_generators_must_run()
+# MOR = self.test_complex_no_maintenance_in_highest_month()
+# mean_across_dispatch_period = MOR.mean(axis=1)
+# sum_across_dispatch_period = MOR.sum(axis=1)
+# group_cuts = list(np.where(np.diff(self.dispatch_periods)!=0)[0]+1) if self.dispatch_periods is not None else None
+# print sum_across_dispatch_period[np.nonzero(group_cuts > np.argmax(self.load))[0][0]]
+# pylab.plot(mean_across_dispatch_period)
 # t = energyPATHWAYS.util.time_stamp(t)
+
+
 
 # Initially takes 5.669000 seconds to execute
 # Now takes 3.400000

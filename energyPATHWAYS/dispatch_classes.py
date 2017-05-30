@@ -518,7 +518,7 @@ class Dispatch(object):
         return clustered
 
     @staticmethod
-    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.8, load_ptile=99.9, individual_plant_maintenance=False):
+    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.5, load_ptile=99.9, individual_plant_maintenance=False):
         # gives the index for the change between dispatch_periods
         group_cuts = list(np.where(np.diff(dispatch_periods)!=0)[0]+1) if dispatch_periods is not None else None
         group_lengths = np.array([group_cuts[0]] + list(np.diff(group_cuts)) + [len(load)-group_cuts[-1]])
@@ -649,31 +649,34 @@ class Dispatch(object):
         return np.array(np.round(pmax * (1 - combined_rate) * 10**decimals), dtype=int)
 
     @staticmethod
-    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals=0, reserves=0.15, max_outage_rate_for_capacity_eligibility=.75):
-        stock_changes = np.zeros(len(capacity_weights))
-
-        max_by_load_group = np.array([Dispatch._get_load_level_lookup(np.array([max(group)]), 0, reserves, decimals)[0] for group in load_groups])
-        cap_by_load_group = np.array([sum(Dispatch._get_derated_capacity(pmaxs[i], Dispatch._get_combined_outage_rate(FOR[i], MOR[i]), decimals)) for i in range(len(max_by_load_group))])
-
+    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, reserves=0.15):
+        combined_rates = [Dispatch._get_combined_outage_rate(FOR[i], MOR[i]) for i in range(len(load_groups))]
+        max_by_load_group = np.array([max(group) * (1 + reserves) for group in load_groups])
+        cap_by_load_group = np.array(
+            [sum(pmaxs[i] * (1 - combined_rates[i])) for i in range(len(max_by_load_group))])
         shortage_by_group = max_by_load_group - cap_by_load_group
-        order = [i for i in np.argsort(shortage_by_group)[-1::-1] if shortage_by_group[i]>0]
+        order = [i for i in np.argsort(shortage_by_group)[-1::-1] if shortage_by_group[i] > 0]
 
+        # sometimes they don't come in exactly normalized
+        normed_capacity_weights = capacity_weights / sum(capacity_weights)
+        stock_changes = np.zeros(len(capacity_weights))
         for i in order:
-            load_group = load_groups[i]
-            max_lookup = Dispatch._get_load_level_lookup(np.array([max(load_group)]), 0, reserves, decimals)[0]
-            combined_rate = Dispatch._get_combined_outage_rate(FOR[i], MOR[i])
-            derated_capacity = Dispatch._get_derated_capacity(pmaxs[i]+stock_changes, combined_rate, decimals)
-            normed_capacity_weights = copy.deepcopy(capacity_weights)
-            normed_capacity_weights[combined_rate>max_outage_rate_for_capacity_eligibility] = 0
-            residual_for_load_balance = float(max_lookup - sum(derated_capacity))/10**decimals
+            derated_capacity = sum((pmaxs[i] + stock_changes) * (1 - combined_rates[i]))
+            residual_for_load_balance = max_by_load_group[i] - derated_capacity
+            # we need more capacity
             if residual_for_load_balance > 0:
-                if not sum(normed_capacity_weights):
-                    raise ValueError('No generator can be added to increase capacity given outage rates')
-                normed_capacity_weights /= sum(normed_capacity_weights)
+                if all(combined_rates[i][capacity_weights != 0] > .5):
+                    logging.warning(
+                        'All generators queued for capacity expansion have outage rates higher than 50%, this can cause issues')
                 ncwi = np.nonzero(normed_capacity_weights)[0]
-                # we need more capacity
-                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - FOR[i][ncwi] - MOR[i][ncwi])
+                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - combined_rates[i][ncwi])
 
+        cap_by_load_group = np.array(
+            [sum((pmaxs[i] + stock_changes) * (1 - combined_rates[i])) for i in range(len(max_by_load_group))])
+        final_shortage_by_group = max_by_load_group - cap_by_load_group
+        if not all(np.round(final_shortage_by_group, 7) <= 0):
+            logging.error('_get_stock_changes did not build enough capacity')
+            pdb.set_trace()
         return stock_changes
 
     @staticmethod
