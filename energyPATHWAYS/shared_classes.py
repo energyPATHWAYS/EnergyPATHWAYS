@@ -117,11 +117,12 @@ class AggregateStock(object):
 
 
 class Stock(Abstract):
-    def __init__(self, id, drivers, sql_id_table, sql_data_table, primary_key, data_id_key=None, **kwargs):
+    def __init__(self, id, drivers, sql_id_table, sql_data_table, primary_key, data_id_key=None, scenario=None, **kwargs):
         self.id = id
         self.drivers = drivers
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
+        self.scenario = scenario
         if data_id_key is None:
             data_id_key = primary_key
         Abstract.__init__(self, self.id, primary_key=primary_key, data_id_key=data_id_key, **kwargs)
@@ -165,10 +166,11 @@ class Stock(Abstract):
 
 
 class SpecifiedStock(Abstract, DataMapFunctions):
-    def __init__(self, id, sql_id_table, sql_data_table):
+    def __init__(self, id, sql_id_table, sql_data_table, scenario=None):
         self.id = id
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
+        self.scenario = scenario
         self.mapped = False
         Abstract.__init__(self, self.id, data_id_key='parent_id')
         self.input_type='total'
@@ -187,11 +189,12 @@ class SpecifiedStock(Abstract, DataMapFunctions):
 
 
 class SalesShare(Abstract, DataMapFunctions):
-    def __init__(self, id, subsector_id, sql_id_table, sql_data_table, primary_key, data_id_key, reference=False):
+    def __init__(self, id, subsector_id, sql_id_table, sql_data_table, primary_key, data_id_key, reference=False, scenario=None):
         self.id = id
         self.subsector_id = subsector_id
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
+        self.scenario = scenario
         self.mapped = False
         if reference:
                 for col, att in util.object_att_from_table(self.sql_id_table, self.subsector_id, primary_key):

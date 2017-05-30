@@ -17,8 +17,9 @@ import logging
 
 
 class DemandTechCost(Abstract):
-    def __init__(self, tech, sql_id_table, sql_data_table, **kwargs):
+    def __init__(self, tech, sql_id_table, sql_data_table, scenario=None, **kwargs):
         self.id = tech.id
+        self.scenario = scenario
         self.book_life = tech.book_life
         self.demand_tech_unit_type = tech.demand_tech_unit_type
         self.unit = tech.unit
@@ -82,8 +83,9 @@ class DemandTechCost(Abstract):
 
 
 class ParasiticEnergy(Abstract):
-    def __init__(self, tech, sql_id_table, sql_data_table, **kwargs):
+    def __init__(self, tech, sql_id_table, sql_data_table, scenario=None, **kwargs):
         self.id = tech.id
+        self.scenario = scenario
         self.input_type = 'intensity'
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
@@ -129,8 +131,9 @@ class ParasiticEnergy(Abstract):
 
 
 class DemandTechEfficiency(Abstract):
-    def __init__(self, tech, sql_id_table, sql_data_table, **kwargs):
+    def __init__(self, tech, sql_id_table, sql_data_table, scenario=None, **kwargs):
         self.id = tech.id
+        self.scenario = scenario
         self.service_demand_unit = tech.service_demand_unit
         self.input_type = 'intensity'
         self.sql_id_table = sql_id_table
@@ -182,9 +185,10 @@ class DemandTechServiceLink(Abstract):
     ex. clothes washer hot water efficiency
     """
 
-    def __init__(self, service_link_id, id, sql_id_table, sql_data_table, **kwargs):
+    def __init__(self, service_link_id, id, sql_id_table, sql_data_table, scenario=None, **kwargs):
         self.service_link_id = service_link_id
         self.id = id
+        self.scenario = scenario
         self.input_type = 'intensity'
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
@@ -208,8 +212,9 @@ class ServiceDemandModifier(Abstract):
     """ technology specified service demand modifier. Replaces calculated modifiers
     based on stock and service/energy demand inputs."""
 
-    def __init__(self, tech, sql_id_table, sql_data_table, **kwargs):
+    def __init__(self, tech, sql_id_table, sql_data_table, scenario=None, **kwargs):
         self.id = tech.id
+        self.scenario = scenario
         self.input_type = 'intensity'
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
@@ -230,9 +235,10 @@ class ServiceDemandModifier(Abstract):
 
 
 class DemandTechnology(StockItem):
-    def __init__(self, id, subsector_id, service_demand_unit, stock_time_unit, cost_of_capital, **kwargs):
+    def __init__(self, id, subsector_id, service_demand_unit, stock_time_unit, cost_of_capital, scenario=None, **kwargs):
         self.id = id
         self.subsector_id = subsector_id
+        self.scenario = scenario
         StockItem.__init__(self)
         self.service_demand_unit = service_demand_unit
         self.stock_time_unit = stock_time_unit
@@ -249,7 +255,8 @@ class DemandTechnology(StockItem):
         if self.id in util.sql_read_table('DemandSalesData', 'demand_technology_id', return_unique=True, return_iterable=True):
             self.reference_sales_shares[1] = SalesShare(id=self.id, subsector_id=self.subsector_id, reference=True,
                                                         sql_id_table='DemandSales', sql_data_table='DemandSalesData',
-                                                        primary_key='subsector_id', data_id_key='demand_technology_id')
+                                                        primary_key='subsector_id', data_id_key='demand_technology_id',
+                                                        scenario=scenario)
         self.book_life()
         self.add_class()
         self.min_year()
@@ -259,22 +266,24 @@ class DemandTechnology(StockItem):
     def get_shape(default_shape):
         pass
 
-    def add_sales_share_measures(self, scenario):
+    def add_sales_share_measures(self):
         self.sales_shares = {}
-        sales_share_ids = scenario.get_measures('DemandSalesShareMeasures', self.subsector_id, self.id)
+        sales_share_ids = self.scenario.get_measures('DemandSalesShareMeasures', self.subsector_id, self.id)
         for sales_share_id in sales_share_ids:
             self.sales_shares[sales_share_id] = SalesShare(id=sales_share_id, subsector_id=self.subsector_id,
                                                            reference=False, sql_id_table='DemandSalesShareMeasures',
                                                            sql_data_table='DemandSalesShareMeasuresData',
-                                                           primary_key='id', data_id_key='parent_id')
+                                                           primary_key='id', data_id_key='parent_id',
+                                                           scenario=self.scenario)
 
-    def add_specified_stock_measures(self, scenario):
+    def add_specified_stock_measures(self):
         self.specified_stocks = {}
-        specified_stock_ids = scenario.get_measures('DemandStockMeasures', self.subsector_id, self.id)
+        specified_stock_ids = self.scenario.get_measures('DemandStockMeasures', self.subsector_id, self.id)
         for specified_stock_id in specified_stock_ids:
             self.specified_stocks[specified_stock_id] = SpecifiedStock(id=specified_stock_id,
                                                                     sql_id_table='DemandStockMeasures',
-                                                                    sql_data_table='DemandStockMeasuresData')
+                                                                    sql_data_table='DemandStockMeasuresData',
+                                                                    scenario=self.scenario)
 
     def add_service_links(self):
         """adds all technology service links"""
@@ -287,7 +296,8 @@ class DemandTechnology(StockItem):
                 id = util.sql_read_table('DemandTechsServiceLink', 'id', return_unique=True, demand_technology_id=self.id,
                                          service_link_id=service_link)
                 self.service_links[service_link] = DemandTechServiceLink(self, id, 'DemandTechsServiceLink',
-                                                                         'DemandTechsServiceLinkData')
+                                                                         'DemandTechsServiceLinkData',
+                                                                         scenario=self.scenario)
 
     def min_year(self):
         """calculates the minimum or start year of data in the technology specification.
@@ -337,19 +347,20 @@ class DemandTechnology(StockItem):
         equivalent costs.
 
         """
-        self.capital_cost_new = DemandTechCost(self, 'DemandTechsCapitalCost', 'DemandTechsCapitalCostNewData')
-        self.capital_cost_replacement = DemandTechCost(self, 'DemandTechsCapitalCost', 'DemandTechsCapitalCostReplacementData')
-        self.installation_cost_new = DemandTechCost(self, 'DemandTechsInstallationCost', 'DemandTechsInstallationCostNewData')
-        self.installation_cost_replacement = DemandTechCost(self, 'DemandTechsInstallationCost', 'DemandTechsInstallationCostReplacementData')
-        self.fuel_switch_cost = DemandTechCost(self, 'DemandTechsFuelSwitchCost', 'DemandTechsFuelSwitchCostData')
-        self.fixed_om = DemandTechCost(self, 'DemandTechsFixedMaintenanceCost', 'DemandTechsFixedMaintenanceCostData')
+        self.capital_cost_new = DemandTechCost(self, 'DemandTechsCapitalCost', 'DemandTechsCapitalCostNewData',
+                                               scenario=self.scenario)
+        self.capital_cost_replacement = DemandTechCost(self, 'DemandTechsCapitalCost', 'DemandTechsCapitalCostReplacementData', scenario=self.scenario)
+        self.installation_cost_new = DemandTechCost(self, 'DemandTechsInstallationCost', 'DemandTechsInstallationCostNewData', scenario=self.scenario)
+        self.installation_cost_replacement = DemandTechCost(self, 'DemandTechsInstallationCost', 'DemandTechsInstallationCostReplacementData', scenario=self.scenario)
+        self.fuel_switch_cost = DemandTechCost(self, 'DemandTechsFuelSwitchCost', 'DemandTechsFuelSwitchCostData', scenario=self.scenario)
+        self.fixed_om = DemandTechCost(self, 'DemandTechsFixedMaintenanceCost', 'DemandTechsFixedMaintenanceCostData', scenario=self.scenario)
 
-        self.efficiency_main = DemandTechEfficiency(self, 'DemandTechsMainEfficiency', 'DemandTechsMainEfficiencyData')
-        self.efficiency_aux = DemandTechEfficiency(self, 'DemandTechsAuxEfficiency', 'DemandTechsAuxEfficiencyData')
+        self.efficiency_main = DemandTechEfficiency(self, 'DemandTechsMainEfficiency', 'DemandTechsMainEfficiencyData', scenario=self.scenario)
+        self.efficiency_aux = DemandTechEfficiency(self, 'DemandTechsAuxEfficiency', 'DemandTechsAuxEfficiencyData', scenario=self.scenario)
         if hasattr(self.efficiency_main,'definition') and self.efficiency_main.definition == 'absolute':
             self.efficiency_aux.utility_factor = 1 - self.efficiency_main.utility_factor
-        self.service_demand_modifier = ServiceDemandModifier(self, 'DemandTechsServiceDemandModifier', 'DemandTechsServiceDemandModifierData')
-        self.parasitic_energy = ParasiticEnergy(self, 'DemandTechsParasiticEnergy', 'DemandTechsParasiticEnergyData')
+        self.service_demand_modifier = ServiceDemandModifier(self, 'DemandTechsServiceDemandModifier', 'DemandTechsServiceDemandModifierData', scenario=self.scenario)
+        self.parasitic_energy = ParasiticEnergy(self, 'DemandTechsParasiticEnergy', 'DemandTechsParasiticEnergyData', scenario=self.scenario)
         # add service links to service links dictionary
         self.add_service_links()
         self.replace_class('capital_cost_new', 'capital_cost_replacement')
