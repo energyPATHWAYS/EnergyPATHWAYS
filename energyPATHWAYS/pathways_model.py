@@ -295,11 +295,12 @@ class PathwaysModel(object):
              self.final_energy[name] = "N/A"
              self.final_energy.set_index(name,append=True,inplace=True)
          if self.export_energy is not None:
+             pdb.set_trace()
              for name in [x for x in self.embodied_energy.index.names if x not in self.export_energy.index.names]:
                  self.export_energy[name] = "N/A"
                  self.export_energy.set_index(name,append=True,inplace=True)
-                 self.export_energy = self.export_energy.groupby(level=self.embodied_energy.index.names).sum()
-                 self.export_energy = self.export_energy.reorder_levels(self.embodied_energy.index.names)
+             self.export_energy = self.export_energy.groupby(level=self.embodied_energy.index.names).sum()
+             self.export_energy = self.export_energy.reorder_levels(self.embodied_energy.index.names)
          self.final_energy = self.final_energy.groupby(level=self.embodied_energy.index.names).sum()
          self.final_energy = self.final_energy.reorder_levels(self.embodied_energy.index.names)
          self.outputs.c_energy = pd.concat([self.embodied_energy,self.final_energy,self.export_energy])
