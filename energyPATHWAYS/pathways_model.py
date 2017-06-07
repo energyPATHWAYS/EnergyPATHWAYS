@@ -295,7 +295,6 @@ class PathwaysModel(object):
              self.final_energy[name] = "N/A"
              self.final_energy.set_index(name,append=True,inplace=True)
          if self.export_energy is not None:
-             pdb.set_trace()
              for name in [x for x in self.embodied_energy.index.names if x not in self.export_energy.index.names]:
                  self.export_energy[name] = "N/A"
                  self.export_energy.set_index(name,append=True,inplace=True)
