@@ -288,9 +288,11 @@ def init_outputs_id_map():
         outputs_id_map[name] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name'], other_index_id=id, return_unique=True))
 
 def init_output_parameters():
-    global currency_name, output_currency
+    global currency_name, output_currency, output_tco, output_payback
     currency_name = cfgfile.get('case', 'currency_name')
     output_currency = cfgfile.get('case', 'currency_year_id') + ' ' + currency_name
+    output_tco = cfgfile.get('output_detail', 'output_tco')
+    output_payback = cfgfile.get('output_detail', 'output_payback')
     init_output_levels()
     init_outputs_id_map()
 

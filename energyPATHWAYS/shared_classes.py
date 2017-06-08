@@ -15,11 +15,13 @@ class StockItem(object):
     def __init__(self):
         self.spy = 1. #stock rollover steps per year
 
-    def calculate_sales_shares(self, sales_shares):
+    def calculate_sales_shares(self, sales_shares,reference_run=False):
         sales_shares = getattr(self, sales_shares)
         for sales_share in sales_shares.values():
             sales_share.calculate(vintages=self.vintages[1:], years=self.years)
-            
+            if reference_run:
+                sales_share.values*=0
+                
     def calculate_sales(self, sales):
         sales= getattr(self, sales)
         for sales in sales.values():

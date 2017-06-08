@@ -815,6 +815,12 @@ def create_markov_matrix(markov_vector, num_techs, num_years, steps_per_year=1):
     if len(range(int(num_years*steps_per_year)))>1:
         markov_matrix[:, :, -1] = 0
     return np.cumprod(markov_matrix, axis=2)
+    
+def vintage_year_matrix(years,vintages):
+    index = pd.MultiIndex.from_product([years,vintages],names=['year','vintage'])
+    data = index.get_level_values('year')==index.get_level_values('vintage')
+    df = pd.DataFrame(data,index=index,columns = ['value'])
+    return df
 
 
 def create_markov_vector(decay_function, survival_function):

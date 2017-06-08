@@ -27,6 +27,7 @@ import energyPATHWAYS.helper_multiprocess as helper_multiprocess
 import pdb
 import os
 from datetime import datetime
+import random
 
 #def node_update_stock(node):
 #    if hasattr(node, 'stock'):
@@ -1665,6 +1666,7 @@ class Supply(object):
         df.columns = ['value']
         return df
         
+        
     def convert_io_matrix_dict_to_df(self, adict):
         """Converts an io dictionary to a dataframe
         Args:
@@ -2278,7 +2280,6 @@ class Supply(object):
             indexer = util.level_specific_indexer(self.io_supply_df,levels=['supply_node'], elements = [node.id])
             node.active_supply = self.io_supply_df.loc[indexer,year].groupby(level=[cfg.primary_geography, 'demand_sector']).sum().to_frame()
                     
-
     
     def add_initial_demand_dfs(self, year):
         for node in self.nodes.values():
@@ -3707,9 +3708,10 @@ class SupplyNode(Node,StockItem):
                         self.annual_costs.loc[indexer,:] = DfOper.add([self.annual_costs.loc[indexer,:],DfOper.mult([cost_values_level,stock_values],non_expandable_levels=None)*(cost.throughput_correlation)])                
                         
     def calculate_capacity_utilization(self, energy_supply, supply_years):
-        full_capacity_stock = self.stock.values[supply_years] * util.unit_conversion(unit_from_den=cfg.cfgfile.get('case','time_step'), unit_to_den='year')[0]
-        self.capacity_utilization = util.DfOper.divi([energy_supply,full_capacity_stock],expandable=False).replace([np.inf,np.nan,-np.nan],[0,0,0])                       
-
+        energy_stock = self.stock.values_energy[supply_years] 
+        curtailment = util.DfOper.divi([energy_supply,energy_stock],expandable=False).replace([np.inf,np.nan,-np.nan],[0,0,0])
+        self.capacity_utilization = DfOper.mult([self.capacity_factor.values[supply_years] ,curtailment])               
+        
                   
 class SupplyCapacityFactor(Abstract):
     def __init__(self, id, **kwargs):
@@ -4144,7 +4146,10 @@ class SupplyStockNode(Node):
     def max_total(self):
         tech_sum = util.remove_df_levels(self.stock.technology,'supply_technology')
 #        self.stock.total = self.stock.total.fillna(tech_sum)
-        self.stock.total[self.stock.total<tech_sum] = tech_sum
+        if hasattr(self.stock,'total'):
+            self.stock.total[self.stock.total<tech_sum] = tech_sum
+        else:
+            self.stock.total = tech_sum
                 
     def format_rollover_stocks(self):
         #transposed technology stocks are used for entry in the stock rollover function
@@ -4994,8 +4999,11 @@ class SupplyStockNode(Node):
             self.active_dispatch_coefficients= util.remove_df_levels(self.active_dispatch_coefficients,['efficiency_type'])
 
     def calculate_capacity_utilization(self,energy_supply,supply_years):
-        full_capacity_stock = self.stock.values[supply_years] * util.unit_conversion(unit_from_den=cfg.cfgfile.get('case','time_step'), unit_to_den='year')[0]
-        self.capacity_utilization = util.DfOper.divi([energy_supply,full_capacity_stock],expandable=False).replace([np.inf,np.nan,-np.nan],[0,0,0])
+        energy_stock = self.stock.values_energy[supply_years] 
+        curtailment = util.DfOper.divi([energy_supply,energy_stock],expandable=False).replace([np.inf,np.nan,-np.nan],[0,0,0])
+        self.capacity_utilization = DfOper.mult([self.stock.capacity_factor,curtailment])       
+        
+        
         
     def rollover_output(self, tech_class=None, tech_att='values', stock_att=None, year=None, non_expandable_levels=('year', 'vintage'),fill_value=0.0):
         """ Produces rollover outputs for a node stock based on the tech_att class, att of the class, and the attribute of the stock
@@ -5420,4 +5428,5 @@ class SupplyEnergyConversion(Abstract):
                                         unit_to_den=self.resource_unit)
             self.values = self.values.unstack(level='year')    
             self.values.columns = self.values.columns.droplevel()
+
 

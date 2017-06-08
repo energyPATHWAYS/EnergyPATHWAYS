@@ -318,6 +318,9 @@ class Rollover(object):
         elif sum(prior_year_stock[_solvable]):
             # we will allocate new sales based on the last year's stock ratio
             allocation[_solvable] = prior_year_stock[_solvable] / sum(prior_year_stock[_solvable])
+        elif np.sum(rolloff)==0:
+            #no sales to allocate
+            return allocation
         else:
             raise ValueError("No method to use for allocation of sales")
         return allocation
