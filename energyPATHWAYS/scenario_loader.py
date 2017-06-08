@@ -1,6 +1,7 @@
 import json
 import os
 import logging
+import itertools
 from collections import defaultdict
 import config as cfg
 
@@ -29,7 +30,8 @@ class Scenario():
         self._id = scenario_id
         self._bucket_lookup = self._load_bucket_lookup()
 
-        path_to_scenario_file = os.path.join(cfg.workingdir, scenario_id + '.json')
+        scenario_file = scenario_id if scenario_id.endswith('.json') else scenario_id + '.json'
+        path_to_scenario_file = os.path.join(cfg.workingdir, scenario_file)
         with open(path_to_scenario_file) as scenario_data:
             scenario = json.load(scenario_data)
         assert len(scenario) == 1, "More than one scenario found at top level in {}: {}".format(
@@ -70,6 +72,10 @@ class Scenario():
     @classmethod
     def parent_col(cls, data_table):
         """Returns the name of the column in the data table that references the parent table"""
+        # This is a one-off exception to our general preference order for parent columns
+        if data_table == 'DemandSalesData':
+            return 'demand_technology_id'
+
         cfg.cur.execute("""
             SELECT column_name FROM information_schema.columns
             WHERE table_schema = 'public' AND table_name = %s
@@ -180,6 +186,11 @@ class Scenario():
             logging.debug(log_msg)
 
         return measure_ids
+
+    def all_measure_ids_by_category(self):
+        # This list(itertools...) nonsense is just to flatten to a single list from a list-of-lists
+        return {category: list(itertools.chain.from_iterable(contents.values()))
+                for category, contents in self._measures.iteritems()}
 
     def get_sensitivity(self, table, parent_id):
         sensitivity = self._sensitivities[table].get(parent_id)
