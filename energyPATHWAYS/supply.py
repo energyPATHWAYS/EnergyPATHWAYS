@@ -41,7 +41,7 @@ class Supply(object):
     """    
     def __init__(self, scenario, demand_object=None, api_run=False):
         """Initializes supply instance"""
-        self.all_nodes, self.blend_nodes, self.non_storage_nodes = [], [], []
+        self.all_nodes, self.blend_nodes, self.non_storage_nodes, self.storage_nodes = [], [], [], []
         self.nodes = {}
         self.demand_object = demand_object # used to retrieve results from demand-side
         self.scenario = scenario # used in writing dispatch outputs
@@ -187,6 +187,13 @@ class Supply(object):
         else:
             for node in self.nodes.values():
                 node.calculate()
+                if node.id in self.blend_nodes and node.id in cfg.evolved_blend_nodes and cfg.evolved_run:
+                    for x in node.nodes:
+                        if x in self.storage_nodes:
+                            indexer = util.level_specific_indexer(node.values,'supply_node',x)
+                            node.values.loc[indexer,:] = 1e-7
+                            node.values = node.values.groupby(level=[x for x in node.values.index.names if x !='supply_node']).transform(lambda x: x/x.sum()).sum()
+                    
     
     def create_IO(self):
         """Creates a dictionary with year and demand sector keys to store IO table structure"""
@@ -256,6 +263,8 @@ class Supply(object):
 
         if supply_type != "Storage":
             self.non_storage_nodes.append(id)
+        else:
+            self.storage_nodes.append(id)
 
     def add_measures(self, scenario):
         """ Adds measures to supply nodes based on scenario inputs"""
@@ -2781,6 +2790,41 @@ class Node(DataMapFunctions):
                 self.constraint_violation = False
         else:
             self.constraint_violation = False
+            
+            
+    def calculate_potential_constraints_evolved(self, year, active_supply):
+        """calculates the exceedance factor of a node if the node active supply exceeds the potential in the node. This adjustment factor
+        is passed to other nodes in the reconcile step"""
+        if hasattr(self,'potential') and self.potential.data is True:
+            #geomap potential to the tradable geography. Potential is not exceeded unless it is exceeded in a tradable geography region. 
+            active_geomapped_potential, active_geomapped_supply = self.potential.format_potential_and_supply_for_constraint_check(active_supply, self.tradable_geography, year)           
+            self.potential_exceedance = util.DfOper.divi([active_geomapped_potential,active_geomapped_supply], expandable = (False,False), collapsible = (True, True))
+            #reformat dataframes for a remap
+            self.potential_exceedance[self.potential_exceedance<0] = 1            
+            self.potential_exceedance = self.potential_exceedance.replace([np.nan,np.inf],[1,1])
+            self.potential_exceedance= pd.DataFrame(self.potential_exceedance.stack(), columns=['value'])
+            util.replace_index_name(self.potential_exceedance, 'year')
+            remove_levels = [x for x in self.potential_exceedance.index.names if x not in [self.tradable_geography, 'demand_sector']]
+            if len(remove_levels):
+                self.potential_exceedance = util.remove_df_levels(self.potential_exceedance, remove_levels)
+            geography_map_key = self.geography_map_key if hasattr(self, 'geography_map_key') else cfg.cfgfile.get('case','default_geography_map_key')       
+            if self.tradable_geography != cfg.primary_geography:
+                map_df = cfg.geo.map_df(self.tradable_geography, cfg.primary_geography, normalize_as='intensity', map_key=geography_map_key, eliminate_zeros=False)
+                self.potential_exceedance = util.remove_df_levels(util.DfOper.mult([self.potential_exceedance,map_df]), self.tradable_geography)
+            self.active_constraint_df = util.remove_df_elements(self.potential_exceedance, [x for x in cfg.geo.geographies_unfiltered[cfg.primary_geography]  if x not in cfg.geographies],cfg.primary_geography)
+            if 'demand_sector' not in self.active_constraint_df.index.names:
+                keys = self.demand_sectors
+                name = ['demand_sector']
+                active_constraint_df = pd.concat([self.active_constraint_df]*len(keys), keys=keys, names=name)
+                active_constraint_df= active_constraint_df.swaplevel('demand_sector',-1)
+                self.active_constraint_df = active_constraint_df.sort(inplace=False)
+            self.active_constraint_df[self.active_constraint_df>1]=1
+            if np.any(self.active_constraint_df.values<1):
+                self.constraint_violation = True
+            else:
+                self.constraint_violation = False
+        else:
+            self.constraint_violation = False
     
     def calculate_internal_trades(self, year, loop):
         """calculates internal trading adjustment factors based on the ratio of active supply to supply potential or stock
@@ -3146,6 +3190,9 @@ class BlendNode(Node):
          self.expand_blend()
          self.values = self.values.unstack(level='year')    
          self.values.columns = self.values.columns.droplevel()
+         if cfg.evolved_run and self.id in cfg.evolved_blend_nodes:
+             #normalizes blends to parameterize an Evolved run
+             self.values = self.values.groupby(level=[x for x in self.values.index.names if x !='supply_node']).transform(lambda x: x/x.sum())
 
     def update_residual(self, year):
         """calculates values for residual node in Blend Node dataframe
@@ -5001,7 +5048,7 @@ class SupplyStockNode(Node):
     def calculate_capacity_utilization(self,energy_supply,supply_years):
         energy_stock = self.stock.values_energy[supply_years] 
         curtailment = util.DfOper.divi([energy_supply,energy_stock],expandable=False).replace([np.inf,np.nan,-np.nan],[0,0,0])
-        self.capacity_utilization = DfOper.mult([self.stock.capacity_factor,curtailment])       
+        self.capacity_utilization = DfOper.mult([self.stock.capacity_factor[supply_years],curtailment])       
         
         
         

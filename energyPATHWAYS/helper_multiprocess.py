@@ -37,6 +37,10 @@ def subsector_populate(subsector):
     cfg.cur.close()
     return subsector
 
+def individual_calculate(evolve, individual):
+    evolve.calculate(individual)
+    
+
 def aggregate_subsector_shapes(params):
     subsector = params[0]
     year = params[1]    
