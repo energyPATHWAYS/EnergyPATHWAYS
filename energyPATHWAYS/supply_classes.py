@@ -24,12 +24,13 @@ class SupplyStock(Stock, StockItem):
         return group
 
 class SupplySales(Abstract, DataMapFunctions):
-    def __init__(self, id, supply_node_id, sql_id_table, sql_data_table, primary_key, data_id_key, reference=False):
+    def __init__(self, id, supply_node_id, sql_id_table, sql_data_table, primary_key, data_id_key, reference=False, scenario=None):
         self.id = id
         self.input_type = 'total'
         self.supply_node_id = supply_node_id
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
+        self.scenario = scenario
         self.mapped = False
         if reference:
             for col, att in util.object_att_from_table(self.sql_id_table, self.supply_node_id, primary_key):
@@ -73,11 +74,12 @@ class SupplySales(Abstract, DataMapFunctions):
                                             needed_sales_names).sort_index()
 
 class SupplySalesShare(Abstract, DataMapFunctions):
-    def __init__(self, id, supply_node_id, sql_id_table, sql_data_table, primary_key, data_id_key, reference=False):
+    def __init__(self, id, supply_node_id, sql_id_table, sql_data_table, primary_key, data_id_key, reference=False, scenario=None):
         self.id = id
         self.supply_node_id = supply_node_id
         self.sql_id_table = sql_id_table
         self.sql_data_table = sql_data_table
+        self.scenario = scenario
         self.mapped = False
         self.input_type = 'intensity'
         if reference:
