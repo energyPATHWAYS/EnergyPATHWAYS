@@ -238,12 +238,12 @@ class Supply(object):
             supply_type (str): supply type i.e. 'blend'
         """
         if supply_type == "Blend":
-            self.nodes[id] = BlendNode(id, supply_type)
+            self.nodes[id] = BlendNode(id, supply_type, scenario)
             self.blend_nodes.append(id)
 
         elif supply_type == "Storage":
             if len(util.sql_read_table('SupplyTechs', 'supply_node_id', supply_node_id=id, return_iterable=True)):          
-                self.nodes[id] = StorageNode(id, supply_type)
+                self.nodes[id] = StorageNode(id, supply_type, scenario)
             else:
                 logging.debug(ValueError('insufficient data in storage node %s' %id))
 
@@ -255,9 +255,9 @@ class Supply(object):
 
         else:
             if len(util.sql_read_table('SupplyEfficiency', 'id', id=id, return_iterable=True)):          
-                self.nodes[id] = SupplyNode(id, supply_type)
+                self.nodes[id] = SupplyNode(id, supply_type, scenario)
             elif len(util.sql_read_table('SupplyTechs', 'supply_node_id', supply_node_id=id, return_iterable=True)):          
-                self.nodes[id] = SupplyStockNode(id, supply_type)
+                self.nodes[id] = SupplyStockNode(id, supply_type, scenario)
             else:
                 logging.debug(ValueError('insufficient data in supply node %s' %id))
 
@@ -2386,9 +2386,10 @@ class Supply(object):
             
 
 class Node(DataMapFunctions):
-    def __init__(self, id, supply_type):
+    def __init__(self, id, supply_type, scenario):
         self.id = id
         self.supply_type = supply_type
+        self.scenario = scenario
         for col, att in util.object_att_from_table('SupplyNodes', id):
             setattr(self, col, att)
         self.active_supply= None
@@ -3111,8 +3112,8 @@ class Export(Abstract):
 
            
 class BlendNode(Node):
-    def __init__(self, id, supply_type, **kwargs):
-        Node.__init__(self, id, supply_type)
+    def __init__(self, id, supply_type, scenario, **kwargs):
+        Node.__init__(self, id, supply_type, scenario)
         self.id = id
         self.supply_type = supply_type
         for col, att in util.object_att_from_table('SupplyNodes', id, ):
@@ -3240,13 +3241,13 @@ class BlendNode(Node):
         
     
 class SupplyNode(Node,StockItem):
-    def __init__(self, id, supply_type, **kwargs):
-        Node.__init__(self, id, supply_type)
+    def __init__(self, id, supply_type, scenario, **kwargs):
+        Node.__init__(self, id, supply_type, scenario)
         StockItem.__init__(self)
         self.input_type = 'total'
-        self.coefficients = SupplyCoefficients(self.id)
-        self.potential = SupplyPotential(self.id, self.enforce_potential_constraint)
-        self.capacity_factor = SupplyCapacityFactor(self.id)
+        self.coefficients = SupplyCoefficients(self.id, self.scenario)
+        self.potential = SupplyPotential(self.id, self.enforce_potential_constraint, self.scenario)
+        self.capacity_factor = SupplyCapacityFactor(self.id, self.scenario)
         self.costs = {}
         self.create_costs()
         self.add_stock()
@@ -3300,7 +3301,7 @@ class SupplyNode(Node,StockItem):
         
     def add_stock(self):
         """add stock instance to node"""
-        self.stock = Stock(id=self.id, drivers=None, sql_id_table='SupplyStock', sql_data_table='SupplyStockData', primary_key='supply_node_id')
+        self.stock = Stock(id=self.id, drivers=None, sql_id_table='SupplyStock', sql_data_table='SupplyStockData', primary_key='supply_node_id', scenario=self.scenario)
         self.stock.input_type = 'total'
         self.stock.unit = cfg.calculation_energy_unit + "/" + cfg.cfgfile.get('case','time_step')
            
@@ -3762,11 +3763,12 @@ class SupplyNode(Node,StockItem):
         
                   
 class SupplyCapacityFactor(Abstract):
-    def __init__(self, id, **kwargs):
+    def __init__(self, id, scenario, **kwargs):
         self.id = id
         self.input_type = 'intensity'
         self.sql_id_table = 'SupplyCapacityFactor'
         self.sql_data_table = 'SupplyCapacityFactorData'
+        self.scenario = scenario
         Abstract.__init__(self, self.id, 'supply_node_id')
     
     def calculate(self, years, demand_sectors):
@@ -3780,12 +3782,13 @@ class SupplyCapacityFactor(Abstract):
 
 
 class SupplyPotential(Abstract):
-    def __init__(self, id, enforce_potential_constraint, **kwargs):
+    def __init__(self, id, enforce_potential_constraint, scenario, **kwargs):
         self.id = id
         self.input_type = 'total'
         self.sql_id_table = 'SupplyPotential'
         self.sql_data_table = 'SupplyPotentialData'
         self.enforce_potential_constraint = enforce_potential_constraint
+        self.scenario = scenario
         Abstract.__init__(self, self.id, 'supply_node_id')
 
         
@@ -3952,11 +3955,12 @@ class SupplyCost(Abstract):
 
 
 class SupplyCoefficients(Abstract):
-    def __init__(self, id, **kwargs):
+    def __init__(self, id, scenario, **kwargs):
         self.id = id
         self.input_type = 'intensity'
         self.sql_id_table = 'SupplyEfficiency'
         self.sql_data_table = 'SupplyEfficiencyData'
+        self.scenario = scenario
         Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
         
     def calculate(self, years, demand_sectors):
@@ -3984,11 +3988,11 @@ class SupplyCoefficients(Abstract):
 
 
 class SupplyStockNode(Node):
-    def __init__(self, id, supply_type,**kwargs):
-        Node.__init__(self, id, supply_type)
+    def __init__(self, id, supply_type, scenario, **kwargs):
+        Node.__init__(self, id, supply_type, scenario)
         for col, att in util.object_att_from_table('SupplyNodes', id):
             setattr(self, col, att)
-        self.potential = SupplyPotential(self.id,self.enforce_potential_constraint)
+        self.potential = SupplyPotential(self.id, self.enforce_potential_constraint, self.scenario)
         self.technologies = {}
         self.tech_ids = []
         self.add_technologies()
@@ -4069,7 +4073,7 @@ class SupplyStockNode(Node):
         
     def add_stock(self):
         """add stock instance to node"""
-        self.stock = Stock(id=self.id, drivers=None,sql_id_table='SupplyStock', sql_data_table='SupplyStockData', primary_key='supply_node_id')
+        self.stock = Stock(id=self.id, drivers=None,sql_id_table='SupplyStock', sql_data_table='SupplyStockData', primary_key='supply_node_id', scenario=self.scenario)
         self.stock.input_type = 'total'
 
     def calculate(self): 
@@ -4302,7 +4306,7 @@ class SupplyStockNode(Node):
         if id in self.technologies:
             # ToDo note that a technology was added twice
             return
-        self.technologies[id] = SupplyTechnology(id, self.cost_of_capital, **kwargs)
+        self.technologies[id] = SupplyTechnology(id, self.cost_of_capital, self.scenario, **kwargs)
         self.tech_ids.append(id)
         self.tech_ids.sort()
      
@@ -5110,8 +5114,8 @@ class SupplyStockNode(Node):
 
 
 class StorageNode(SupplyStockNode):
-    def __init__(self, id, supply_type,**kwargs):
-        SupplyStockNode.__init__(self, id, supply_type, **kwargs)
+    def __init__(self, id, supply_type, scenario, **kwargs):
+        SupplyStockNode.__init__(self, id, supply_type, scenario, **kwargs)
     
     def add_technology(self, id, **kwargs):
         """
@@ -5120,7 +5124,7 @@ class StorageNode(SupplyStockNode):
         if id in self.technologies:
             # ToDo note that a technology was added twice
             return
-        self.technologies[id] = StorageTechnology(id, self.cost_of_capital, **kwargs)
+        self.technologies[id] = StorageTechnology(id, self.cost_of_capital, self.scenario, **kwargs)
         self.tech_ids.append(id)
         self.tech_ids.sort()
 
@@ -5222,9 +5226,9 @@ class StorageNode(SupplyStockNode):
         
 class ImportNode(Node):
     def __init__(self, id, supply_type, scenario, **kwargs):
-        Node.__init__(self,id, supply_type)
+        Node.__init__(self,id, supply_type, scenario)
         self.cost = ImportCost(self.id, scenario)
-        self.coefficients = SupplyCoefficients(self.id)
+        self.coefficients = SupplyCoefficients(self.id, self.scenario)
 
     def calculate(self):
         #all nodes can have potential conversions. Set to None if no data. 
@@ -5295,10 +5299,10 @@ class ImportCost(Abstract):
           
 class PrimaryNode(Node):
     def __init__(self, id, supply_type, scenario, **kwargs):
-        Node.__init__(self,id, supply_type)
-        self.potential = SupplyPotential(self.id, self.enforce_potential_constraint)
+        Node.__init__(self,id, supply_type, scenario)
+        self.potential = SupplyPotential(self.id, self.enforce_potential_constraint, self.scenario)
         self.cost = PrimaryCost(self.id, scenario)
-        self.coefficients = SupplyCoefficients(self.id)
+        self.coefficients = SupplyCoefficients(self.id, self.scenario)
 
     def calculate(self):
         #all nodes can have potential conversions. Set to None if no data. 
