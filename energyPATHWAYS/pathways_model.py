@@ -257,7 +257,7 @@ class PathwaysModel(object):
         self.outputs.c_tco = pd.concat([util.DfOper.divi([supply_side_df,util.remove_df_levels(service_demand_df,'unit')]),
                                         util.DfOper.divi([demand_side_df,util.remove_df_levels(service_demand_df,'unit')])],
                                         keys=keys,names=names) 
-        self.outputs.c_tco = self.outputs.c_tco[np.isfinite(self.outputs.c_tco.values)]        
+        self.outputs.c_tco = self.outputs.c_tco.replace([np.inf,np.nan],0)
         self.outputs.c_tco[self.outputs.c_tco<0]=0        
         for sector in self.demand.sectors.values():
           for subsector in sector.subsectors.values():
@@ -298,7 +298,7 @@ class PathwaysModel(object):
         names = ['COST TYPE']
         self.outputs.c_payback= pd.concat([util.DfOper.divi([supply_side_df,sales_df]),util.DfOper.divi([demand_side_df,sales_df])],keys=keys,names=names)
         self.outputs.c_payback = self.outputs.c_payback[np.isfinite(self.outputs.c_payback.values)]        
-        self.outputs.c_payback[self.outputs.c_payback<0]=0        
+        self.outputs.c_payback= self.outputs.c_payback.replace([np.inf,np.nan],0)        
         for sector in self.demand.sectors.values():
           for subsector in sector.subsectors.values():
                 if hasattr(subsector,'stock') and subsector.sub_type!='link':
