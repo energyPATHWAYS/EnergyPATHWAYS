@@ -922,6 +922,12 @@ class Subsector(DataMapFunctions):
         else:
             return None
         levels_to_keep = cfg.output_demand_levels + ['demand_technology']   
+        if hasattr(self.service_demand,'other_index_1'):
+                levels_to_keep.append('other_index_1')
+                util.replace_index_name(df,"other_index_1",self.service_demand.other_index_1)
+        if hasattr(self.service_demand,'other_index_2'):
+                levels_to_keep.append('other_index_2')
+                util.replace_index_name(df,"other_index_2",self.service_demand.other_index_2)    
         if 'vintage' in levels_to_keep:
             levels_to_keep.remove('vintage')
         levels_to_eliminate = [l for l in df.index.names if l not in levels_to_keep]
@@ -2588,7 +2594,7 @@ class Subsector(DataMapFunctions):
             if self.stock.is_service_demand_dependent and self.stock.demand_stock_unit_type == 'equipment':
                 sales_share = self.calculate_service_modified_sales(elements,self.stock.rollover_group_names,sales_share)
             demand_technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names)
-            if cfg.evolved_run:
+            if cfg.evolved_run=='true':
                 sales_share[len(self.years) -len(cfg.supply_years):] = 1/float(len(self.tech_ids))
             annual_stock_change = util.df_slice(self.stock.annual_stock_changes, elements, self.stock.rollover_group_names)
             self.rollover = Rollover(vintaged_markov_matrix=self.stock.vintaged_markov_matrix,

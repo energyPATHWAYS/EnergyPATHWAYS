@@ -187,7 +187,7 @@ class Supply(object):
         else:
             for node in self.nodes.values():
                 node.calculate()
-                if node.id in self.blend_nodes and node.id in cfg.evolved_blend_nodes and cfg.evolved_run:
+                if node.id in self.blend_nodes and node.id in cfg.evolved_blend_nodes and cfg.evolved_run=='true':
                     for x in node.nodes:
                         if x in self.storage_nodes:
                             indexer = util.level_specific_indexer(node.values,'supply_node',x)
@@ -213,8 +213,8 @@ class Supply(object):
         supply_nodes = util.sql_read_table('SupplyNodes', column_names=['id', 'name', 'supply_type_id', 'is_active'], return_iterable=True)
         supply_nodes.sort()
         for node_id, name, supply_type_id, is_active  in supply_nodes:
-            self.all_nodes.append(node_id)
             if is_active:
+                self.all_nodes.append(node_id)
                 logging.info('    {} node {}'.format(supply_type_dict[supply_type_id], name))
                 self.add_node(node_id, supply_type_dict[supply_type_id], scenario)
         
@@ -363,7 +363,7 @@ class Supply(object):
                     self.reconciled = False
                     # each time, if reconciliation has occured, we have to recalculate coefficients and resolve the io
                     self.reconcile_trades(year, loop)
-                    self._recalculate_after_reconciliation(year, loop, update_demand=False)
+                    self._recalculate_after_reconciliation(year, loop, update_demand=True)
                     for i in range(2):
                         self.reconcile_oversupply(year, loop)
                         self._recalculate_after_reconciliation(year, loop, update_demand=True)
@@ -2277,14 +2277,15 @@ class Supply(object):
             self.active_io = self.io_dict[year][sector]
             active_cost_io = self.adjust_for_not_incremental(self.active_io)
             self.active_demand = self.io_total_active_demand_df.loc[indexer,:]
-            self.io_supply_df.loc[indexer,year] = solve_IO(self.active_io.values, self.active_demand.values)
-            # TODO this is a temporary fix to deal with negative values
-            self.io_supply_df.loc[:,year][self.io_supply_df.loc[:,year].values<0] = 0
+            temp = solve_IO(self.active_io.values, self.active_demand.values)
+            temp[np.nonzero(self.active_io.values.sum(axis=1) + self.active_demand.values.flatten()==0)[0]] = 0
+            temp[temp<0] = 0
+            self.io_supply_df.loc[indexer,year] = temp
             self.inverse_dict['energy'][year][sector] = pd.DataFrame(solve_IO(self.active_io.values), index=index, columns=index)
             self.inverse_dict['cost'][year][sector] = pd.DataFrame(solve_IO(active_cost_io.values), index=index, columns=index)
             idx = pd.IndexSlice
             self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:].round(7)
-            self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:].round(7)
+            self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:].round(7)    
         for node in self.nodes.values():
             indexer = util.level_specific_indexer(self.io_supply_df,levels=['supply_node'], elements = [node.id])
             node.active_supply = self.io_supply_df.loc[indexer,year].groupby(level=[cfg.primary_geography, 'demand_sector']).sum().to_frame()
@@ -3190,7 +3191,7 @@ class BlendNode(Node):
          self.expand_blend()
          self.values = self.values.unstack(level='year')    
          self.values.columns = self.values.columns.droplevel()
-         if cfg.evolved_run and self.id in cfg.evolved_blend_nodes:
+         if cfg.evolved_run=='true' and self.id in cfg.evolved_blend_nodes:
              #normalizes blends to parameterize an Evolved run
              self.values = self.values.groupby(level=[x for x in self.values.index.names if x !='supply_node']).transform(lambda x: x/x.sum())
 
@@ -3636,7 +3637,7 @@ class SupplyNode(Node,StockItem):
 
     def calculate_oversupply(self, year, loop):
         """calculates whether the stock would oversupply the IO requirement and returns an oversupply adjustment factor."""  
-        if hasattr(self,'stock'):           
+        if hasattr(self,'stock'):
             oversupply_factor = DfOper.divi([self.stock.values_energy.loc[:,year].to_frame(), self.throughput], expandable=(False,False), collapsible=(True,True)).fillna(1)
             oversupply_factor.replace(np.inf,1,inplace=True)
             oversupply_factor[oversupply_factor<1] = 1
@@ -4000,7 +4001,7 @@ class SupplyStockNode(Node):
             oversupply_factor = DfOper.divi([self.stock.values_energy.loc[:,year].to_frame(), self.throughput], expandable=False, collapsible=True).fillna(1)
             oversupply_factor.replace(np.inf, 1, inplace=True)
             oversupply_factor[oversupply_factor<1] = 1
-            if (oversupply_factor.values>1).any():
+            if (oversupply_factor.values>1.000000001).any():
                 self.oversupply_factor = oversupply_factor
                 #TODO fix
                 return oversupply_factor

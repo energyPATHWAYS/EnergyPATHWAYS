@@ -491,7 +491,7 @@ class Dispatch(object):
         
         # helper functions for results
         group_sum = lambda c, a: sum(a[fit==c])
-        group_wgtav = lambda c, a, b: np.dot(a[fit==c], b[fit==c])/group_sum(c, a)
+        group_wgtav = lambda c, a, b: 0 if group_sum(c, a)==0 else np.dot(a[fit==c], b[fit==c])/group_sum(c, a)
 
         combined_rate = Dispatch._get_combined_outage_rate(FORs, MORs)
         derated_pmax = pmax * (1-combined_rate)
@@ -649,7 +649,7 @@ class Dispatch(object):
         return np.array(np.round(pmax * (1 - combined_rate) * 10**decimals), dtype=int)
 
     @staticmethod
-    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals=0, reserves=0.15, max_outage_rate_for_capacity_eligibility=.75):
+    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, decimals=0, reserves=0.05, max_outage_rate_for_capacity_eligibility=.75):
         stock_changes = np.zeros(len(capacity_weights))
 
         max_by_load_group = np.array([Dispatch._get_load_level_lookup(np.array([max(group)]), 0, reserves, decimals)[0] for group in load_groups])
@@ -677,7 +677,7 @@ class Dispatch(object):
         return stock_changes
 
     @staticmethod
-    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, capacity_reserves=0.15, gen_categories=None, return_dispatch_by_category=False):
+    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, capacity_reserves=0.05, gen_categories=None, return_dispatch_by_category=False):
         """ Dispatch generators to a net load signal
         Args:
             load: net load shape (ndarray[h])
