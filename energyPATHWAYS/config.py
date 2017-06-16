@@ -209,7 +209,7 @@ def init_geo():
     # derived from inputs and geomapper object
     dispatch_geography = geo.get_dispatch_geography_name()
     primary_geography = geo.get_primary_geography_name()
-    dispatch_geographies = geo.geographies[dispatch_geography] 
+    dispatch_geographies = geo.geographies[dispatch_geography]
     geographies = geo.geographies[primary_geography]
     
 def init_date_lookup():

@@ -51,7 +51,7 @@ class TestGeneratorDispatch(unittest.TestCase):
         self.dispatch_periods = pd.DataFrame.from_csv(os.path.join(self.data_dir, 'dispatch_periods.csv'))
         self.dispatch_periods = self.dispatch_periods['week'].values.flatten()
 
-        self.capacity_reserves = 0.15
+        self.reserves = 0.05
 
     def test_simple_generator_dispatch_problem(self):
         self._set_simple_dispatch_inputs()
@@ -102,7 +102,7 @@ class TestGeneratorDispatch(unittest.TestCase):
                                                              FOR=self.FORs, MOR=MOR, must_runs=self.must_runs,
                                                              capacity_weights=self.capacity_weights,
                                                              gen_categories=self.categories, return_dispatch_by_category=True,
-                                                             capacity_reserves=self.capacity_reserves)
+                                                             reserves=self.reserves)
         return dispatch_results
 
     def test_complex_generator_generation(self):
@@ -188,7 +188,7 @@ class TestGeneratorDispatch(unittest.TestCase):
         derated_stock_changes = (stock_changes * (1 - self.FORs)).sum()
 
         max_load_by_period = np.array([np.max(self.load[self.dispatch_periods==p]) for p in np.unique(self.dispatch_periods)])
-        max_load_plus_reserves = (1 + self.capacity_reserves) * max_load_by_period
+        max_load_plus_reserves = (1 + self.reserves) * max_load_by_period
         max_period = np.argmax(max_load_plus_reserves-derated_capacity-derated_stock_changes)
 
         self.assertAlmostEqual(max_load_plus_reserves[max_period], derated_capacity + derated_stock_changes)

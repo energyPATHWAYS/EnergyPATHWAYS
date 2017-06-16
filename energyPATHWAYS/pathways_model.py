@@ -46,6 +46,9 @@ class PathwaysModel(object):
                 self.export_result_to_csv('demand_outputs')
 
             if solve_supply and not load_supply:
+                if load_demand:
+                    # if we are loading the demand, we are changing the supply measures and want to reload our scenarios
+                    self.scenario = Scenario(self.scenario_id)
                 self.supply = Supply(self.scenario, demand_object=self.demand)
                 self.calculate_supply(save_models)
 

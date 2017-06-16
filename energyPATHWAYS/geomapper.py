@@ -157,9 +157,6 @@ class GeoMapper:
         self.values = self.values.set_index(new_level_name, append=True)
         # add to self.geographies
         self.geographies[new_level_name] = list(set(self.values.index.get_level_values(new_level_name)))
-        # update geography names for outputs
-        self.geography_names.update(dict(zip(impacted_gaus, ['other ' + self.geography_names[impacted_gau] for impacted_gau in impacted_gaus])))
-
         
     def _create_composite_geography_levels(self):
         """

@@ -65,11 +65,6 @@ class Supply(object):
             del self.map_dict[None]
         self.CO2PriceMeasures = scenario.get_measures('CO2PriceMeasures', self.thermal_dispatch_node_id)
         self.add_co2_price_to_dispatch(self.CO2PriceMeasures)
-        
-        
-
-    
-    
     
     def add_co2_price_to_dispatch(self,CO2PriceMeasures):
         if len(self.CO2PriceMeasures)>1:

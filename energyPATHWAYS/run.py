@@ -197,19 +197,19 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\US_DDPP'
+    workingdir = r'C:\github\ep_runs\ny'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['aeo_2015_reference']
+    scenario = ['mixed']
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
-    solve_supply  = True,
-    export_results= True,
+    solve_supply  = False,
+    export_results= False,
     load_error    = False,
-    pickle_shapes = True,
-    save_models   = True,
+    pickle_shapes = False,
+    save_models   = False,
     api_run       = False,
-    clear_results = True)
+    clear_results = False)
 
