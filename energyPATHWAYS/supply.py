@@ -1148,7 +1148,8 @@ class Supply(object):
                                    [util.df_slice(self.active_thermal_dispatch_df,x,cfg.dispatch_geography,drop_level=False) for x in cfg.dispatch_geographies],
                                    [cfg.dispatch_geography]*len(cfg.dispatch_geographies),
                                     [util.df_slice(self.bulk_net_load,2,'timeshift_type')]*len(cfg.dispatch_geographies),
-                                    [year in self.dispatch_write_years]*len(cfg.dispatch_geographies)))
+                                    [year in self.dispatch_write_years]*len(cfg.dispatch_geographies),
+                                   [float(cfg.cfgfile.get('opt', 'operating_reserves'))]*len(cfg.dispatch_geographies)))
 
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
             dispatch_results = helper_multiprocess.safe_pool(dispatch_classes.run_thermal_dispatch, parallel_params)
