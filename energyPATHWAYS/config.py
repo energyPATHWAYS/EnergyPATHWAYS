@@ -293,8 +293,8 @@ def init_output_parameters():
     global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes
     currency_name = cfgfile.get('case', 'currency_name')
     output_currency = cfgfile.get('case', 'currency_year_id') + ' ' + currency_name
-    output_tco = cfgfile.get('output_detail', 'output_tco')
-    output_payback = cfgfile.get('output_detail', 'output_payback')
+    output_tco = cfgfile.get('output_detail', 'output_tco').lower()
+    output_payback = cfgfile.get('output_detail', 'output_payback').lower()
     evolved_run = cfgfile.get('evolved','evolved_run').lower()
     evolved_blend_nodes =  [int(g) for g in cfgfile.get('evolved','evolved_blend_nodes').split(',') if len(g)]
     init_output_levels()

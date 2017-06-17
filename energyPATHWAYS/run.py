@@ -203,13 +203,13 @@ if __name__ == "__main__":
     scenario = ['mixed']
     run(workingdir, config, scenario,
     load_demand   = False,
-    solve_demand  = True,
+    solve_demand  = False,
     load_supply   = False,
     solve_supply  = False,
     export_results= False,
-    load_error    = False,
-    pickle_shapes = False,
-    save_models   = False,
+    load_error    = True,
+    pickle_shapes = True,
+    save_models   = True,
     api_run       = False,
     clear_results = False)
 

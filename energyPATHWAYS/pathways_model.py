@@ -99,10 +99,10 @@ class PathwaysModel(object):
     def pass_supply_results_back_to_demand(self):
         logging.info("Calculating link to supply")
         self.demand.link_to_supply(self.supply.emissions_demand_link, self.supply.demand_emissions_rates, self.supply.energy_demand_link, self.supply.cost_demand_link)
-        if cfg.output_tco:
+        if cfg.output_tco == 'true':
             if self.demand.d_energy_tco is not None:
                 self.demand.link_to_supply_tco(self.supply.emissions_demand_link, self.supply.demand_emissions_rates, self.supply.cost_demand_link) 
-        if cfg.output_payback:
+        if cfg.output_payback == 'true':
             if self.demand.d_all_energy_demand_payback is not None:
                 self.demand.link_to_supply_payback(self.supply.emissions_demand_link, self.supply.demand_emissions_rates, self.supply.cost_demand_link) 
     
@@ -113,10 +113,10 @@ class PathwaysModel(object):
         self.calculate_combined_cost_results()
         logging.info("Calculating combined energy results")
         self.calculate_combined_energy_results()
-        if cfg.output_tco:
+        if cfg.output_tco == 'true':
             if self.demand.d_energy_tco is not None:
                 self.calculate_tco()
-        if cfg.output_payback:
+        if cfg.output_payback == 'true':
             if self.demand.d_all_energy_demand_payback is not None:
                 self.calculate_payback()
 

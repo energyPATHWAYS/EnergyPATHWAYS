@@ -2275,10 +2275,13 @@ class Supply(object):
             self.active_demand = self.io_total_active_demand_df.loc[indexer,:]
             temp = solve_IO(self.active_io.values, self.active_demand.values)
             temp[np.nonzero(self.active_io.values.sum(axis=1) + self.active_demand.values.flatten()==0)[0]] = 0
-            temp[temp<0] = 0
             self.io_supply_df.loc[indexer,year] = temp
-            self.inverse_dict['energy'][year][sector] = pd.DataFrame(solve_IO(self.active_io.values), index=index, columns=index)
-            self.inverse_dict['cost'][year][sector] = pd.DataFrame(solve_IO(active_cost_io.values), index=index, columns=index)
+            temp = solve_IO(self.active_io.values)
+            temp[np.nonzero(self.active_io.values.sum(axis=1) + self.active_demand.values.flatten()==0)[0]] = 0
+            self.inverse_dict['energy'][year][sector] = pd.DataFrame(temp, index=index, columns=index)
+            temp = solve_IO(active_cost_io.values)
+            temp[np.nonzero(active_cost_io.values.sum(axis=1) + self.active_demand.values.flatten()==0)[0]] = 0
+            self.inverse_dict['cost'][year][sector] = pd.DataFrame(temp, index=index, columns=index)
             idx = pd.IndexSlice
             self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:].round(7)
             self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:].round(7)    

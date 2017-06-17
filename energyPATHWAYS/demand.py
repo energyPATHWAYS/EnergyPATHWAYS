@@ -197,14 +197,14 @@ class Demand(object):
             df = self.group_output(output_name, include_unit=include_unit)
             df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
             setattr(self.outputs,"d_"+ output_name, df)
-        if cfg.output_tco:
+        if cfg.output_tco == 'true':
             output_list = ['energy_tco', 'levelized_costs_tco', 'service_demand_tco']
             unit_flag = [False, False, False,True]
             for output_name, include_unit in zip(output_list,unit_flag):
                 df = self.group_output_tco(output_name, include_unit=include_unit)
                 df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
                 setattr(self,"d_"+ output_name, df)
-        if cfg.output_payback:
+        if cfg.output_payback == 'true':
             output_list = ['annual_costs','all_energy_demand']
             unit_flag = [False,False]
             for output_name, include_unit in zip(output_list,unit_flag):
