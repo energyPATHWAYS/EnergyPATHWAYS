@@ -13,6 +13,7 @@ dependencies:
 - setuptools=27.2.0=py27_0
 - pip:
   - datetime==4.0.1
+  - ddt=1.1.1
   - numexpr==2.6.1
   - pint==0.6
   - profilehooks==1.8.1

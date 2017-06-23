@@ -35,8 +35,7 @@ class TestIdToName(unittest.TestCase):
         self.assertEqual(id_to_name('supply_type_id', 1, 'tuple'), ('supply_type', 'Blend'))
 
     def test_lookup_unknown_table(self):
-        with self.assertRaises(KeyError):
-            id_to_name('GARBAGE', 1)
+        self.assertIsNone(id_to_name('GARBAGE', 1))
 
     def test_lookup_att_out_of_range(self):
         self.assertIsNone(id_to_name('supply_type_id', -1))
@@ -44,7 +43,7 @@ class TestIdToName(unittest.TestCase):
     def test_caching(self):
         # Check to make sure the lookup cache is where we expect, then clear it
         self.assertIsNotNone(energyPATHWAYS.util.id_to_name.lookup_dict)
-        energyPATHWAYS.util.id_to_name.lookup_dict = {}
+        del id_to_name.lookup_dict
 
         id_to_name('supply_type_id', 1)
         self.assertTrue(mock_sql_read_table.called, "Database not accessed on first call to id_to_name()")
