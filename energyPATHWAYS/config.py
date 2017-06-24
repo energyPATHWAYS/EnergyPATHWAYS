@@ -192,7 +192,7 @@ def init_units():
         
 def init_geo():
     #Geography conversions
-    global geo, primary_geography, primary_geography_id, geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id
+    global geo, primary_geography, primary_geography_id, geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id, default_geography_map_key
     global primary_subset_id, breakout_geography_id, dispatch_breakout_geography_id, include_foreign_gaus
     
     # from config file
@@ -202,6 +202,7 @@ def init_geo():
     dispatch_geography_id = int(cfgfile.get('case', 'dispatch_geography_id'))
     dispatch_breakout_geography_id = [int(g) for g in cfgfile.get('case', 'dispatch_breakout_geography_id').split(',') if len(g)]
     include_foreign_gaus = True if cfgfile.get('case', 'include_foreign_gaus').lower()=='true' else False
+    default_geography_map_key = cfgfile.get('case', 'default_geography_map_key')
     
     # geography conversion object
     geo = geomapper.GeoMapper()

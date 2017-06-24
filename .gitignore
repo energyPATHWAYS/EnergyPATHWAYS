@@ -71,7 +71,7 @@ target/
 /.gitignore
 
 # Cache
-*.p
+model_runs/*/*.p
 
 # Results
 **/dispatch_outputs/
