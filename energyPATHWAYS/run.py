@@ -158,15 +158,15 @@ def load_model(load_demand, load_supply, load_error, scenario_id, api_run):
     # (with load_supply or load_demand); the model's api_run property will be set to whatever it was when the model
     # was pickled.
     if load_supply:
-        with open(os.path.join(cfg.workingdir, str(scenario_id)+'_full_model_run.p'), 'rb') as infile:
+        with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.full_model_append_name), 'rb') as infile:
             model = pickle.load(infile)
         logging.info('Loaded complete EnergyPATHWAYS model from pickle')
     elif load_demand:
-        with open(os.path.join(cfg.workingdir, str(scenario_id)+'_model.p'), 'rb') as infile:
+        with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.demand_model_append_name), 'rb') as infile:
             model = pickle.load(infile)
         logging.info('Loaded demand-side EnergyPATHWAYS model from pickle')
     elif load_error:
-        with open(os.path.join(cfg.workingdir, str(scenario_id)+'_model_error.p'), 'rb') as infile:
+        with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.model_error_append_name), 'rb') as infile:
             model = pickle.load(infile)
         logging.info('Loaded crashed EnergyPATHWAYS model from pickle')
     else:
@@ -197,19 +197,19 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\ep_runs\ny'
+    workingdir = r'C:\github\EP_runs\US'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['mixed']
+    scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = False,
-    load_supply   = False,
+    load_supply   = True,
     solve_supply  = False,
     export_results= False,
-    load_error    = True,
-    pickle_shapes = True,
-    save_models   = True,
+    load_error    = False,
+    pickle_shapes = False,
+    save_models   = False,
     api_run       = False,
     clear_results = False)
 

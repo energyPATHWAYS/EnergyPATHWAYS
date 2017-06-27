@@ -65,7 +65,7 @@ class PathwaysModel(object):
         except:
             # pickle the model in the event that it crashes
             if save_models:
-                with open(os.path.join(cfg.workingdir, str(scenario_id) + '_model_error.p'), 'wb') as outfile:
+                with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.model_error_append_name), 'wb') as outfile:
                     pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
             raise
 
@@ -76,7 +76,7 @@ class PathwaysModel(object):
         self.demand.calculate_demand()
         self.demand_solved = True
         if save_models:
-            with open(os.path.join(cfg.workingdir, str(self.scenario_id) + '_model.p'), 'wb') as outfile:
+            with open(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name), 'wb') as outfile:
                 pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
 
     def calculate_supply(self, save_models):
@@ -93,8 +93,11 @@ class PathwaysModel(object):
         self.supply.calculate_capacity_utilization()
         self.supply_solved = True
         if save_models:
-            with open(os.path.join(cfg.workingdir, str(self.scenario_id) + '_full_model_run.p'), 'wb') as outfile:
+            with open(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.full_model_append_name), 'wb') as outfile:
                 pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
+            # we don't need the demand side object any more, so we can remove it to save drive space
+            if os.path.isfile(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name)):
+                os.remove(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name))
 
     def pass_supply_results_back_to_demand(self):
         logging.info("Calculating link to supply")
@@ -142,12 +145,16 @@ class PathwaysModel(object):
                 continue
 
             result_df = getattr(res_obj, 'return_cleaned_output')(attribute)
-            keys = [self.scenario.name.upper(),str(datetime.now().replace(second=0, microsecond=0))]
+            keys = [self.scenario.name.upper(), str(datetime.now().replace(second=0, microsecond=0))]
             names = ['SCENARIO','TIMESTAMP']
             for key, name in zip(keys, names):
                 result_df = pd.concat([result_df], keys=[key], names=[name])
-            
-            Output.write(result_df, attribute+'.csv', os.path.join(cfg.workingdir, result_name))
+
+            if attribute == 'hourly_dispatch_results':
+                # Special case for hourly dispatch results where we want to write them outside of supply_outputs
+                Output.write(result_df, attribute + '.csv', os.path.join(cfg.workingdir, 'dispatch_outputs'))
+            else:
+                Output.write(result_df, attribute+'.csv', os.path.join(cfg.workingdir, result_name))
 
     def export_results_to_db(self):
         scenario_run_id = util.active_scenario_run_id(self.scenario_id)

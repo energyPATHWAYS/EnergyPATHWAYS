@@ -58,6 +58,7 @@ class Supply(object):
         self.dispatch_feeders = list(set(self.dispatch_feeder_allocation.values.index.get_level_values('dispatch_feeder')))
         self.dispatch = Dispatch(self.dispatch_feeders, cfg.dispatch_geography, cfg.dispatch_geographies)
         self.outputs = Output()
+        self.outputs.hourly_dispatch_results = None
         self.active_thermal_dispatch_df_list = []
         self.map_dict = dict(util.sql_read_table('SupplyNodes', ['final_energy_link', 'id']))
         self.api_run = api_run
@@ -993,11 +994,7 @@ class Supply(object):
         #solves dispatch (stack model) for thermal resource connected to thermal dispatch node
         self.solve_thermal_dispatch(year)
         if year in self.dispatch_write_years and not self.api_run:
-            keys = [self.scenario.name.upper(),str(datetime.now().replace(second=0,microsecond=0))]
-            names = ['SCENARIO','TIMESTAMP']
-            for key, name in zip(keys, names):
-                self.bulk_dispatch = pd.concat([self.bulk_dispatch],keys=[key],names=[name])
-            Output.write(self.bulk_dispatch, 'hourly_dispatch_results.csv', os.path.join(cfg.workingdir,'dispatch_outputs'))
+            self.outputs.hourly_dispatch_results = pd.concat([self.outputs.hourly_dispatch_results, self.bulk_dispatch])
 
         self.calculate_thermal_totals(year)
         self.calculate_curtailment(year)
