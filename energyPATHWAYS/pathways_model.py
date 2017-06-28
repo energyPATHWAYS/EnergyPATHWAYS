@@ -65,7 +65,7 @@ class PathwaysModel(object):
         except:
             # pickle the model in the event that it crashes
             if save_models:
-                with open(os.path.join(cfg.workingdir, str(scenario_id) + '_model_error.p'), 'wb') as outfile:
+                with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.model_error_append_name), 'wb') as outfile:
                     pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
             raise
 
@@ -76,7 +76,7 @@ class PathwaysModel(object):
         self.demand.calculate_demand()
         self.demand_solved = True
         if save_models:
-            with open(os.path.join(cfg.workingdir, str(self.scenario_id) + '_model.p'), 'wb') as outfile:
+            with open(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name), 'wb') as outfile:
                 pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
 
     def calculate_supply(self, save_models):
@@ -93,8 +93,11 @@ class PathwaysModel(object):
         self.supply.calculate_capacity_utilization()
         self.supply_solved = True
         if save_models:
-            with open(os.path.join(cfg.workingdir, str(self.scenario_id) + '_full_model_run.p'), 'wb') as outfile:
+            with open(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.full_model_append_name), 'wb') as outfile:
                 pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
+            # we don't need the demand side object any more, so we can remove it to save drive space
+            if os.path.isfile(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name)):
+                os.remove(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name))
 
     def pass_supply_results_back_to_demand(self):
         logging.info("Calculating link to supply")
@@ -142,12 +145,16 @@ class PathwaysModel(object):
                 continue
 
             result_df = getattr(res_obj, 'return_cleaned_output')(attribute)
-            keys = [self.scenario.name.upper(),str(datetime.now().replace(second=0, microsecond=0))]
+            keys = [self.scenario.name.upper(), str(datetime.now().replace(second=0, microsecond=0))]
             names = ['SCENARIO','TIMESTAMP']
             for key, name in zip(keys, names):
                 result_df = pd.concat([result_df], keys=[key], names=[name])
-            
-            Output.write(result_df, attribute+'.csv', os.path.join(cfg.workingdir, result_name))
+
+            if attribute == 'hourly_dispatch_results':
+                # Special case for hourly dispatch results where we want to write them outside of supply_outputs
+                Output.write(result_df, attribute + '.csv', os.path.join(cfg.workingdir, 'dispatch_outputs'))
+            else:
+                Output.write(result_df, attribute+'.csv', os.path.join(cfg.workingdir, result_name))
 
     def export_results_to_db(self):
         scenario_run_id = util.active_scenario_run_id(self.scenario_id)
@@ -285,35 +292,35 @@ class PathwaysModel(object):
         supply_side_df = self.demand.outputs.demand_embodied_energy_costs_payback
         supply_side_df = supply_side_df[supply_side_df.index.get_level_values('vintage')>=initial_vintage]
         supply_side_df = supply_side_df[supply_side_df.index.get_level_values('year')>=initial_vintage]
+        supply_side_df = supply_side_df.sort_index()
         demand_side_df = self.demand.d_annual_costs_payback
         demand_side_df.columns = ['value']
         demand_side_df = demand_side_df[demand_side_df.index.get_level_values('vintage')>=initial_vintage]
         demand_side_df = demand_side_df[demand_side_df.index.get_level_values('year')>=initial_vintage]
-        demand_side_df = demand_side_df.reindex(supply_side_df.index)
+        demand_side_df = demand_side_df.reindex(supply_side_df.index).sort_index()
         sales_df = copy.deepcopy(self.demand.outputs.d_sales)
         util.replace_index_name(sales_df,'vintage','year')
         sales_df = sales_df[sales_df.index.get_level_values('vintage')>=initial_vintage]     
-        sales_df =  util.add_and_set_index(sales_df,'year',cfg.supply_years)
-        sales_df.index =sales_df.index.reorder_levels(supply_side_df.index.names)
-        sales_df = sales_df.reindex(supply_side_df.index)
-        sales_df.sort(inplace=True)
+        sales_df = util.add_and_set_index(sales_df,'year',cfg.supply_years)
+        sales_df.index = sales_df.index.reorder_levels(supply_side_df.index.names)
+        sales_df = sales_df.reindex(supply_side_df.index).sort_index()
         keys = ['SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['COST TYPE']
-        self.outputs.c_payback= pd.concat([util.DfOper.divi([supply_side_df,sales_df]),util.DfOper.divi([demand_side_df,sales_df])],keys=keys,names=names)
+        self.outputs.c_payback = pd.concat([util.DfOper.divi([supply_side_df, sales_df]), util.DfOper.divi([demand_side_df, sales_df])],keys=keys,names=names)
         self.outputs.c_payback = self.outputs.c_payback[np.isfinite(self.outputs.c_payback.values)]        
-        self.outputs.c_payback= self.outputs.c_payback.replace([np.inf,np.nan],0)        
+        self.outputs.c_payback = self.outputs.c_payback.replace([np.inf,np.nan],0)
         for sector in self.demand.sectors.values():
           for subsector in sector.subsectors.values():
                 if hasattr(subsector,'stock') and subsector.sub_type!='link':
                     indexer = util.level_specific_indexer(self.outputs.c_payback,'subsector',subsector.id)
                     self.outputs.c_payback.loc[indexer,'unit'] = subsector.stock.unit.upper()
-        self.outputs.c_payback = self.outputs.c_payback.set_index('unit',append=True)
+        self.outputs.c_payback = self.outputs.c_payback.set_index('unit', append=True)
         self.outputs.c_payback.columns = [cost_unit.upper()]
         self.outputs.c_payback['lifetime_year'] = self.outputs.c_payback.index.get_level_values('year')-self.outputs.c_payback.index.get_level_values('vintage')+1    
         self.outputs.c_payback = self.outputs.c_payback.set_index('lifetime_year',append=True)
-        self.outputs.c_payback= self.outputs.c_payback[self.outputs.c_payback[cost_unit.upper()]!=0]
         self.outputs.c_payback = util.remove_df_levels(self.outputs.c_payback,'year')
-        self.outputs.c_payback = self.outputs.c_payback.groupby(level = [x for x in  self.outputs.c_payback.index.names if x !='lifetime_year']).transform(lambda x: x.cumsum())
+        self.outputs.c_payback = self.outputs.c_payback.groupby(level = [x for x in self.outputs.c_payback.index.names if x !='lifetime_year']).transform(lambda x: x.cumsum())
+        self.outputs.c_payback = self.outputs.c_payback[self.outputs.c_payback[cost_unit.upper()]!=0]
         self.outputs.c_payback = self.outputs.return_cleaned_output('c_payback')
         
         

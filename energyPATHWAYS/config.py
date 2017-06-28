@@ -29,6 +29,11 @@ weibul_coeff_of_var = None
 con = None
 cur = None
 
+# pickle names
+full_model_append_name = '_full_model.p'
+demand_model_append_name = '_demand_model.p'
+model_error_append_name = '_model_error.p'
+
 # common data inputs
 dnmtr_col_names = ['driver_denominator_1_id', 'driver_denominator_2_id']
 drivr_col_names = ['driver_1_id', 'driver_2_id']
