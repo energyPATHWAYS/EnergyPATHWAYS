@@ -521,11 +521,10 @@ class Sector(object):
                                         self.stock_precursors[subsector.id].update(
                                             {demand_technology: precursor.output_demand_technology_stocks[demand_technology]})
                             else:
-                                self.calculate_precursors(precursor)
+                                self.calculate_precursors([precursor_id])
             subsector.linked_service_demand_drivers = self.service_precursors[subsector.id]
             subsector.linked_stock = self.stock_precursors[subsector.id]
             subsector.calculate()
-
     def calculate_links(self,all_subsectors, precursors):
         for subsector_id in all_subsectors:
             subsector = self.subsectors[subsector_id]
@@ -2912,7 +2911,6 @@ class Subsector(DataMapFunctions):
                 pdb.set_trace()
 
 #            # sum over demand_technology and vintage to get a total stock service efficiency
-
             link.values = util.remove_df_levels(link.values,['demand_technology', 'vintage'])
             # normalize stock service efficiency to calibration year
             values = link.values.as_matrix()

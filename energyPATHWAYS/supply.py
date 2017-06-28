@@ -4399,7 +4399,7 @@ class SupplyStockNode(Node):
                     if any([element not in sales.values.index.levels[
                         util.position_in_index(sales.values, level)] for element, level in
                             zip(elements, levels)]):
-                        continue     
+                        continue
                     ss_array[:, repl_index] = util.df_slice(sales.values, elements, levels).values.T[0]
         else:
             for tech_id in self.tech_ids:
