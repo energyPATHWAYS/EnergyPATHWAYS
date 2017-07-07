@@ -511,11 +511,13 @@ class Dispatch(object):
         # check the result
 #        np.testing.assert_almost_equal(sum(clustered['pmax'][np.where(clustered['must_run']==0)]), sum(pmax[np.where(must_run==0)]))
         
-        # if we are padding the stack, increse the size of the last dispatchable generator
+        # if we are padding the stack, add a generator at the end of the stack that is high cost
         if pad_stack:
-            dispatchable_index = np.where(clustered['must_run']==0)[0]
-            clustered['derated_pmax'][dispatchable_index[-1]] += sum(clustered['derated_pmax'])
-            clustered['pmax'][dispatchable_index[-1]] += sum(clustered['pmax'])
+            for name in ['FORs', 'MORs', 'must_run']:
+                clustered[name] = np.concatenate((clustered[name], [clustered[name][-1]]))
+            for name in ['derated_pmax', 'pmax']:
+                clustered[name] = np.concatenate((clustered[name], [sum(clustered[name])]))
+            clustered['marginal_cost'] = np.concatenate((clustered['marginal_cost'], [10*clustered['marginal_cost'][-1]]))
             
         return clustered
 
