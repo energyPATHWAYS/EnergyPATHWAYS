@@ -92,18 +92,21 @@ class Demand(object):
         return df
 
     def electricity_energy_slice(self, year, subsector_slice):
-        if not hasattr(self, 'ele_energy_helper'):
-            indexer = util.level_specific_indexer(self.outputs.d_energy, levels=['year', 'final_energy'], elements=[[year], [cfg.electricity_energy_type_id]])
-            self.ele_energy_helper = self.outputs.d_energy.loc[indexer].groupby(level=('subsector', 'sector', cfg.primary_geography)).sum()
-        feeder_allocation = self.feeder_allocation_class.values.xs(year, level='year')
-        return util.remove_df_levels(util.DfOper.mult((feeder_allocation,
-                                                       self.ele_energy_helper.loc[subsector_slice].groupby(level=('sector', cfg.primary_geography)).sum())), 'sector')
+        if len(subsector_slice):        
+            if not hasattr(self, 'ele_energy_helper'):
+                indexer = util.level_specific_indexer(self.outputs.d_energy, levels=['year', 'final_energy'], elements=[[year], [cfg.electricity_energy_type_id]])
+                self.ele_energy_helper = self.outputs.d_energy.loc[indexer].groupby(level=('subsector', 'sector', cfg.primary_geography)).sum()
+            feeder_allocation = self.feeder_allocation_class.values.xs(year, level='year')
+            return util.remove_df_levels(util.DfOper.mult((feeder_allocation,
+                                                           self.ele_energy_helper.loc[subsector_slice].groupby(level=('sector', cfg.primary_geography)).sum())), 'sector')
+        else:
+            return None
 
     def shape_from_subsectors_with_no_shape(self, year):
         """ Final levels that will always return from this function
         ['gau', 'dispatch_feeder', 'weather_datetime']
         """
-        subsectors_map = defaultdict(list)
+        subsectors_map = util.defaultdict(list)
         shapes_map = {}
         for sector in self.sectors.values():
             subsectors_map[sector.id if hasattr(sector, 'shape') else None] += sector.get_subsectors_with_no_shape(year)
@@ -1587,7 +1590,7 @@ class Subsector(DataMapFunctions):
                         raise ValueError(
                             'energy demand must have the same index levels as stock when stock is specified in capacity factor terms')
                     else:
-                        self.stock.int_values = DfOper.divi([time_step_energy, self.stock.int_values],expandable=(False,True),collapsible=(True,False))*1E6
+                        self.stock.int_values = DfOper.divi([time_step_energy, self.stock.int_values],expandable=(False,True),collapsible=(True,False))
                     # project energy demand stock
                     self.stock.map_from = 'int_values'
                     self.stock.projected_input_type = 'total'

@@ -161,10 +161,19 @@ def load_model(load_demand, load_supply, load_error, scenario_id, api_run):
         with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.full_model_append_name), 'rb') as infile:
             model = pickle.load(infile)
         logging.info('Loaded complete EnergyPATHWAYS model from pickle')
-    elif load_demand:
-        with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.demand_model_append_name), 'rb') as infile:
-            model = pickle.load(infile)
-        logging.info('Loaded demand-side EnergyPATHWAYS model from pickle')
+    elif load_demand:        
+        demand_file = os.path.join(cfg.workingdir, str(scenario_id) + cfg.demand_model_append_name)
+        supply_file = os.path.join(cfg.workingdir, str(scenario_id) + cfg.full_model_append_name)
+        if os.path.isfile(demand_file):
+            with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.demand_model_append_name), 'rb') as infile:
+                model = pickle.load(infile)
+                logging.info('Loaded demand-side EnergyPATHWAYS model from pickle')
+        elif os.path.isfile(supply_file):
+            with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.full_model_append_name), 'rb') as infile:
+                model = pickle.load(infile)
+                logging.info('Loaded complete EnergyPATHWAYS model from pickle')
+        else:
+            raise("No model file exists")
     elif load_error:
         with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.model_error_append_name), 'rb') as infile:
             model = pickle.load(infile)
@@ -197,19 +206,19 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\US'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\US_DDPP'
     os.chdir(workingdir)
     config = 'config.INI'
     scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
-    load_demand   = False,
-    solve_demand  = False,
-    load_supply   = True,
-    solve_supply  = False,
-    export_results= False,
+    load_demand   = True,
+    solve_demand  = True,
+    load_supply   = False,
+    solve_supply  = True,
+    export_results= True,
     load_error    = False,
-    pickle_shapes = False,
-    save_models   = False,
+    pickle_shapes = True,
+    save_models   = True,
     api_run       = False,
     clear_results = True)
 

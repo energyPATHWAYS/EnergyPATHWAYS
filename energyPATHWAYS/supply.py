@@ -3390,7 +3390,7 @@ class SupplyNode(Node,StockItem):
         self.stock.values_financial_energy = util.empty_df(index=index, columns=pd.Index(columns, dtype='object'))
         full_levels = self.rollover_group_levels + [self.vintages]
         index = pd.MultiIndex.from_product(full_levels, names=full_names)
-        self.stock.retirements = util.empty_df(index=index, columns=['value'])
+        self.stock.retirements = util.empty_df(index=index, columns= self.years)
         self.stock.sales = util.empty_df(index=index, columns=['value'])
         self.stock.sales_energy = util.empty_df(index=index, columns=['value'])
         self.rollover_dict = {}
@@ -3418,7 +3418,7 @@ class SupplyNode(Node,StockItem):
                 self.stock.values.loc[elements,year] = stock_total
                 sales_indexer = elements + (year,)
                 self.stock.sales.loc[sales_indexer, 'value'] = sales_record
-                self.stock.retirements.loc[sales_indexer,year] = retirements
+#                self.stock.retirements.loc[sales_indexer,year] = retirements
             self.financial_stock(year)
             self.calculate_energy(year)                                     
                                      
@@ -3468,6 +3468,8 @@ class SupplyNode(Node,StockItem):
             self.stock.values.loc[elements,year] = stock_total
             sales_indexer = elements + (year,)
             self.stock.sales.loc[sales_indexer, 'value'] = sales_record
+#            self.stock.retirements[sales_indexer, year] = retirements
+            
         self.financial_stock(year)
         self.calculate_energy(year)
         
@@ -3665,7 +3667,7 @@ class SupplyNode(Node,StockItem):
         else:
             self.costs[id] = SupplyCost(id,self.cost_of_capital)
 
-    def calculate_levelized_costs(self,year, loop):
+    def calculate_costs(self,year, loop):
         start_year = min(self.years)
         if not hasattr(self,'levelized_costs'):
             index = pd.MultiIndex.from_product(self.rollover_group_levels, names=self.rollover_group_names)
@@ -3673,85 +3675,91 @@ class SupplyNode(Node,StockItem):
             self.embodied_cost = util.empty_df(index, columns=self.years,fill_value=0.)
             self.embodied_cost = util.remove_df_levels(self.embodied_cost,'resource_bin')
         self.levelized_costs[year] = 0
+        self.annual_costs[year] = 0
         for cost in self.costs.values():
-            if cost.data is True:
-                if cost.capacity is False and cost.supply_cost_type != 'revenue requirement':
-                    level_costs = util.DfOper.mult([cost.values_level,self.capacity_factor.values.loc[:,start_year].to_frame()])* util.unit_conversion(unit_from_den=cfg.cfgfile.get('case','time_step'), unit_to_den='year')[0]
-                    no_vintage_level_costs = util.DfOper.mult([cost.values_level_no_vintage,self.capacity_factor.values.loc[:,start_year].to_frame()])* util.unit_conversion(unit_from_den=cfg.cfgfile.get('case','time_step'), unit_to_den='year')[0]
-#                    annual_costs = util.DfOper.mult([cost.values,self.capacity_factor.values.loc[:,start_year].to_frame()])* util.unit_conversion(unit_from_den=cfg.cfgfile.get('case','time_step'), unit_to_den='year')[0]
-                else:
-                    level_costs = cost.values_level
-                    no_vintage_level_costs=cost.values_level_no_vintage
-                stock_values = self.stock.values.groupby(level= self.rollover_group_names+['vintage']).sum()
-                financial_stock_values = self.stock.values_financial.groupby(level= self.rollover_group_names).sum()
-                initial_stock_values = stock_values[start_year].to_frame()
-                initial_stock_values.columns = [year]
-                indexer = util.level_specific_indexer(initial_stock_values,'vintage', start_year)
-                initial_stock_values.loc[indexer,:] = initial_stock_values.loc[indexer,:].replace(0,1)
-                initial_cost_values_level = level_costs[start_year].to_frame()
-                initial_cost_values_level_no_vintage = no_vintage_level_costs[start_year].to_frame()
-                initial_cost_values_level.columns = [year]
-                initial_cost_values_level_no_vintage.columns = [year]
-                initial_financial_stock_values = financial_stock_values[start_year].to_frame()
-                initial_financial_stock_values[initial_financial_stock_values==0]=1
-                initial_financial_stock_values.columns = [year]                
-                if cost.supply_cost_type == 'tariff' or cost.supply_cost_type == 'investment':
-                    if cost.is_capital_cost:
-                        self.levelized_costs.loc[:,year] += util.remove_df_levels((DfOper.mult([no_vintage_level_costs[year].to_frame(),initial_stock_values])*(1-cost.throughput_correlation)),'vintage')[year]
-                        self.levelized_costs.loc[:,year]   += util.remove_df_levels((DfOper.mult([DfOper.divi([DfOper.mult([initial_cost_values_level_no_vintage,initial_stock_values],non_expandable_levels=None), initial_financial_stock_values],non_expandable_levels=None),financial_stock_values[year].to_frame()],non_expandable_levels=None)*cost.throughput_correlation),'vintage')[year]
-                    else:
-                        self.levelized_costs.loc[:,year]  += util.remove_df_levels(util.DfOper.mult([no_vintage_level_costs[year].to_frame(),initial_stock_values],non_expandable_levels=None)*(1-cost.throughput_correlation),'vintage')[year]            
-                        self.levelized_costs.loc[:,year]   += util.remove_df_levels(util.DfOper.mult([no_vintage_level_costs[year].to_frame(), stock_values[year].to_frame()],non_expandable_levels=None)*(cost.throughput_correlation),'vintage')[year] 
-                elif cost.supply_cost_type == 'revenue requirement':
-                    if cost.is_capital_cost:
-                        self.levelized_costs.loc[:,year]   += util.remove_df_levels(DfOper.mult([DfOper.divi([no_vintage_level_costs[year].to_frame(), stock_values[start_year].to_frame()],non_expandable_levels=None),stock_values[start_year].to_frame()],non_expandable_levels=None)*(1-cost.throughput_correlation),'vintage')[year]
-                        self.levelized_costs.loc[:,year]   += util.remove_df_levels(DfOper.mult([DfOper.divi([initial_cost_values_level, initial_financial_stock_values],non_expandable_levels=None),financial_stock_values[year].to_frame()],non_expandable_levels=None)*(cost.throughput_correlation),'vintage')[year]
-                    else:
-                        self.levelized_costs.loc[:,year]  += (util.df_slice(level_costs.loc[:,year].to_frame(),year,'vintage') *(1-cost.throughput_correlation))[year]
-                        self.levelized_costs.loc[:,year]  +=  (util.df_slice(level_costs.loc[:,year].to_frame(), year,'vintage').loc[:,year].to_frame() * (cost.throughput_correlation))[year]
+            rev_req = util.DfOper.add([self.calculate_dynamic_supply_costs(cost, year, start_year), self.calculate_static_supply_costs(cost, year, start_year)])
+            self.levelized_costs.loc[:,year] += rev_req
+            self.calculate_lump_costs(self, year, rev_req)
+            cost.prev_yr_rev_req = rev_req 
         self.embodied_cost.loc[:,year] = util.DfOper.divi([self.levelized_costs[year].to_frame(), self.throughput],expandable=(False,False)).replace([np.inf,np.nan,-np.nan],[0,0,0]).values        
         self.active_embodied_cost = util.expand_multi(self.embodied_cost[year].to_frame(), levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],levels_names=[cfg.primary_geography,'demand_sector'])
 
-    def calculate_annual_costs(self,year):
+   
+    def calculate_dynamic_supply_costs(self, cost,year,start_year):
+        "returns a revenue requirement for the component of costs that is correlated with throughput"
+        if cost.data is True:
+            #determine increased tariffs due to growth rate (financial/physical stock rati-)
+            first_yr_financial_stock = self.stock.values_financial.groupby(level= self.rollover_group_names).sum()[start_year].to_frame()
+            first_yr_stock = self.stock.values.groupby(level= self.rollover_group_names).sum()[start_year].to_frame() 
+            financial_stock = self.stock.values_financial.groupby(level= self.rollover_group_names).sum()[year].to_frame()
+            stock = self.stock.values.groupby(level= self.rollover_group_names).sum()[year].to_frame()            
+            first_yr_energy = self.stock.values_energy.groupby(level=self.rollover_group_names).sum()[start_year].to_frame()             
+            ini_growth_ratio = util.DfOper.divi([first_yr_stock,first_yr_financial_stock]).replace([np.inf,-np.inf],0)
+            growth_ratio = util.DfOper.divi([stock, financial_stock]).replace([np.inf,-np.inf],0)
+            growth_mult = util.DfOper.divi([ini_growth_ratio,growth_ratio]).replace([np.nan,-np.inf,np.inf],1)
+            if cost.supply_cost_type == 'tariff':
+                tariff = cost.values_level_no_vintage[year].to_frame()           
+                if cost.capacity is True:
+                    rev_req = util.DfOper.mult([tariff,stock],expandable=(False,False))[year].to_frame()
+                    if cost.is_capital_cost:
+                        return util.DfOper.mult([rev_req,growth_mult]) * cost.throughput_correlation  
+                    else:
+                        return rev_req* cost.throughput_correlation  
+                else:
+                    cap_factor_mult = util.DfOper.divi([self.capacity_factor.values[start_year].to_frame(),self.capacity_factor.values[year].to_frame()]).replace([np.nan,-np.inf,np.inf],1)
+                    rev_req = util.DfOper.mult([tariff,self.active_supply],expandable=(False,False))[year].to_frame()   
+                    rev_req = util.DfOper.mult([rev_req,financial_stock.groupby(level=cfg.primary_geography).transform(lambda x: x/x.sum())]).replace([np.inf,-np.inf],0)
+                    if cost.is_capital_cost:
+                        return util.DfOper.mult([rev_req,cap_factor_mult,growth_mult]) * cost.throughput_correlation  
+                    else:
+                        return util.DfOper.mult([rev_req,cap_factor_mult]) * cost.throughput_correlation  
+            elif cost.supply_cost_type == 'revenue requirement':
+                    rev_req = cost.values_level_no_vintage[start_year].to_frame()                   
+                    tariff = util.DfOper.divi([rev_req,first_yr_energy]).replace([np.nan,-np.inf,np.inf],1)
+                    tariff.columns = [year]                         
+                    rev_req = util.DfOper.mult([tariff,self.active_supply],expandable=(False,False))[year].to_frame()   
+                    return util.DfOper.mult([rev_req,cap_factor_mult,growth_mult]) * cost.throughput_correlation 
+            else:
+                raise ValueError("investment cost types not implemented")
+            
+            
+    def calculate_static_supply_costs(self,cost,year,start_year):
+       "returns a revenue requirement for the component of costs that is correlated with throughput"
+       first_yr_stock = self.stock.values.groupby(level= self.rollover_group_names).sum()[start_year].to_frame() 
+       first_yr_energy = self.stock.values_energy.groupby(level=self.rollover_group_names).sum()[start_year].to_frame()           
+       if cost.supply_cost_type == 'tariff':
+            tariff = cost.values_level_no_vintage[year].to_frame()           
+            if cost.capacity is True:
+                rev_req = util.DfOper.mult([tariff,first_yr_stock],expandable=(False,False))[year].to_frame()    
+            else:
+                rev_req = util.DfOper.mult([tariff,first_yr_energy],expandable=(False,False))[year].to_frame()  
+       elif cost.supply_cost_type == 'revenue requirement':
+            rev_req = cost.values_level_no_vintage[year].to_frame()
+       return rev_req * (1- cost.throughput_correlation)
+            
+            
+    def calculate_lump_costs(self,year, rev_req):
             start_year = min(self.years)
             if not hasattr(self,'annual_costs'):
                 index = self.stock.sales.index
                 self.annual_costs = util.empty_df(index, columns=['value'],fill_value=0.)
             for cost in self.costs.values():
                 if cost.raw_values is not None:
-                    indexer = util.level_specific_indexer(self.stock.sales,'vintage',year)                        
-                    sales_values = self.stock.sales.loc[indexer,:]
-                    indexer = util.level_specific_indexer(self.stock.sales,'vintage',start_year)
-                    initial_sales_values = util.remove_df_levels(self.stock.sales.loc[indexer,:],'vintage')
-                    stock_values = self.stock.values.groupby(level= self.rollover_group_names).sum()
-                    stock_values = self.stock.values.groupby(level= self.rollover_group_names).sum()
-                    initial_stock_values = stock_values[start_year].to_frame()
-                    initial_stock_values.columns = [year]
-                    cost.values.sort(inplace=True)
-                    if cost.capacity is False and cost.supply_cost_type != 'revenue requirement':
-                        no_vintage_level_costs = util.DfOper.mult([cost.values_level_no_vintage,self.capacity_factor.values.loc[:,start_year].to_frame()])* util.unit_conversion(unit_from_den=cfg.cfgfile.get('case','time_step'), unit_to_den='year')[0]
-                        annual_costs = util.DfOper.mult([cost.values,self.capacity_factor.values.loc[:,start_year].to_frame()])* util.unit_conversion(unit_from_den=cfg.cfgfile.get('case','time_step'), unit_to_den='year')[0]
+                    financial_stock = self.stock.values_financial.groupby(level= self.rollover_group_names).sum()[year].to_frame() 
+                    if year == start_year:
+                        annual_costs = rev_req/(cost.book_life)
                     else:
-                        no_vintage_level_costs=cost.values_level_no_vintage
-                        annual_costs = cost.values
-                    if cost.supply_cost_type == 'tariff' or cost.supply_cost_type == 'investment':     
-                        indexer = util.level_specific_indexer(annual_costs,'vintage',year)
-                        cost_values = annual_costs.loc[indexer,:]
-                        cost_values_level = no_vintage_level_costs.loc[:,year].to_frame()  
-                    elif cost.supply_cost_type == 'revenue requirement':
-                        indexer = util.level_specific_indexer(annual_costs,'vintage',start_year)
-                        cost_values = util.df_slice(annual_costs,start_year,'vintage')
-                        cost_values_level = no_vintage_level_costs.loc[:,start_year].to_frame()
-                        cost_values_level = DfOper.divi([cost_values, initial_stock_values]).replace([np.nan,np.inf],[0,0])
-                        cost_values = DfOper.divi([cost_values, initial_sales_values]).replace([np.nan,np.inf],[0,0])
+                        rem_rev_req = cost.prev_year_rev_req * (1 - 1/cost.book_life)
+                        new_rev_req = util.DfOper.subt([rev_req,rem_rev_req])
+                        annual_costs = new_rev_req * cost.book_life
+                        sales = util.df_slice(self.stock.sales,start_year,'vintage')
+                        sales.columns = [start_year]
+                        ratio =  util.DfOper.divi([sales,financial_stock]).replace([np.nan,-np.inf,np.inf],0)
+                        annual_costs = util.DfOper.mult([ratio, rev_req])
                     indexer = util.level_specific_indexer(self.annual_costs,'vintage',year) 
                     if cost.is_capital_cost:
-                        self.annual_costs.loc[indexer,:] = DfOper.add([self.annual_costs.loc[indexer,:],DfOper.mult([cost_values,initial_sales_values],non_expandable_levels=None)*(1-cost.throughput_correlation)])
-                        self.annual_costs.loc[indexer,:] = DfOper.add([self.annual_costs.loc[indexer,:],DfOper.mult([cost_values,sales_values],non_expandable_levels=None)*cost.throughput_correlation])
-                    else:
-                        self.annual_costs.loc[indexer,:] =  DfOper.add([self.annual_costs.loc[indexer,:],DfOper.mult([cost_values_level,initial_stock_values],non_expandable_levels=None)*(1-cost.throughput_correlation)])          
-                        self.annual_costs.loc[indexer,:] = DfOper.add([self.annual_costs.loc[indexer,:],DfOper.mult([cost_values_level,stock_values],non_expandable_levels=None)*(cost.throughput_correlation)])                
-                        
+                        self.annual_costs.loc[indexer,:] += annual_costs
+
     def calculate_capacity_utilization(self, energy_supply, supply_years):
         energy_stock = self.stock.values_energy[supply_years] 
         curtailment = util.DfOper.divi([energy_supply,energy_stock],expandable=False).replace([np.inf,np.nan,-np.nan],[0,0,0])
