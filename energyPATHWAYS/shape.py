@@ -74,9 +74,18 @@ class Shapes(object):
         self.set_active_dates()
 
     def set_active_dates(self):
+        self.start_date = cfg.shape_start_date
+        if self.start_date:
+            shape_years = cfg.shape_years or 1
+            self.end_date = self.start_date + DT.timedelta(years=shape_years)
+
         if self.start_date is self.end_date is None:
             self.start_date = DT.datetime(int(cfg.cfgfile.get('case', 'current_year')), 1, 1)
             self.end_date = DT.datetime(int(cfg.cfgfile.get('case', 'current_year')), 12, 31, 23)
+
+        logging.debug("shape_start_date: {}, shape_years: {}, start_date: {}, end_date: {}".format(
+            cfg.shape_start_date, cfg.shape_years, self.start_date, self.end_date
+        ))
         
         self.active_dates_index = pd.date_range(self.start_date, self.end_date, freq='H')
         self.time_slice_elements = self.create_time_slice_elements(self.active_dates_index)
@@ -101,6 +110,7 @@ class Shapes(object):
         self.active_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H', tz=self.dispatch_outputs_timezone)
         self.num_active_years = num_active_years(self.active_dates_index)
         self.geography_check = (cfg.primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
+        self.timespan_check = (cfg.shape_start_date, cfg.shape_years)
     
     @staticmethod
     def create_time_slice_elements(active_dates_index):
@@ -424,7 +434,8 @@ def init_shapes(pickle_shapes):
             shapes = pickle.load(infile)
     
     geography_check = (cfg.primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
-    if (not hasattr(shapes, 'geography_check')) or (not hasattr(shapes, '_version')) or (shapes._version != version) or (shapes.geography_check != geography_check) or force_rerun_shapes:
+    timespan_check = (cfg.shape_start_date, cfg.shape_years)
+    if (not hasattr(shapes, 'geography_check')) or (not hasattr(shapes, '_version')) or (not hasattr(shapes, 'timespan_check')) or (shapes._version != version) or (shapes.geography_check != geography_check) or (shapes.timespan_check != timespan_check) or force_rerun_shapes:
         logging.info('Processing shapes')
         shapes.__init__()
         shapes.create_empty_shapes()

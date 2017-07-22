@@ -64,6 +64,10 @@ dispatch_geographies = None
 years = None
 supply_years = None
 
+# shapes
+shape_start_date = None
+shape_years = None
+
 # electricity shapes
 date_lookup = None
 time_slice_col = None
@@ -120,6 +124,7 @@ def initialize_config(_path, _cfgfile_name, _log_name):
     init_db()
     init_units()
     init_geo()
+    init_shapes()
     init_date_lookup()
     init_output_parameters()
 
@@ -216,7 +221,14 @@ def init_geo():
     primary_geography = geo.get_primary_geography_name()
     dispatch_geographies = geo.geographies[dispatch_geography]
     geographies = geo.geographies[primary_geography]
-    
+
+def init_shapes():
+    global shape_start_date, shape_years
+    raw_shape_start_date = cfgfile.get('case', 'shape_start_date')
+    if raw_shape_start_date:
+        shape_start_date = datetime.DateTime.strptime(shape_start_date, '%Y-%m-%d')
+        shape_years = float(cfgfile.get('case', 'shape_years'))
+
 def init_date_lookup():
     global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id, opt_period_length
     class DateTimeLookup:
