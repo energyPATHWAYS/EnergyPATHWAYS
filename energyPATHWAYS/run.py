@@ -209,9 +209,9 @@ if __name__ == "__main__":
     workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\US_DDPP'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['aeo_2017_reference']
+    scenario = ['CA Reference']
     run(workingdir, config, scenario,
-    load_demand   = True,
+    load_demand  = True,
     solve_demand  = True,
     load_supply   = False,
     solve_supply  = True,

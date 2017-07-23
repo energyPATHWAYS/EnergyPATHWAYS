@@ -47,18 +47,19 @@ def run_thermal_dispatch(params):
     thermal_dispatch_df = thermal_dispatch_df.squeeze().unstack('IO')
     dispatch_geography_index = params[2]
     load = util.df_slice(params[3], dispatch_geography, dispatch_geography_index)
+
     return_dispatch_by_category = params[4]
     reserves = params[5]
     months = load.index.get_level_values('weather_datetime').month
     weeks = load.index.get_level_values('weather_datetime').week
     load = load.values.flatten()
-    
     pmaxs = thermal_dispatch_df['capacity'].values
     marginal_costs = thermal_dispatch_df['cost'].values
     MOR = thermal_dispatch_df['maintenance_outage_rate'].values
     FOR = thermal_dispatch_df['forced_outage_rate'].values
     must_runs = thermal_dispatch_df['must_run'].values
     capacity_weights = thermal_dispatch_df['capacity_weights'].values
+    thermal_capacity_multiplier = thermal_dispatch_df['thermal_capacity_multiplier'].values
     # grabs the technology from the label
     gen_categories = [int(s.split(', ')[1].rstrip('L')) for s in thermal_dispatch_df.index.get_level_values('thermal_generators')]
 
@@ -66,7 +67,7 @@ def run_thermal_dispatch(params):
     dispatch_results = Dispatch.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
                                                          FOR=FOR, must_runs=must_runs, dispatch_periods=weeks, capacity_weights=capacity_weights,
                                                          gen_categories=gen_categories, return_dispatch_by_category=return_dispatch_by_category,
-                                                         reserves=reserves)
+                                                         reserves=reserves,thermal_capacity_multiplier=thermal_capacity_multiplier)
     
     for output in ['gen_cf', 'generation', 'stock_changes']:
         thermal_dispatch_df[output] = dispatch_results[output]
@@ -645,10 +646,10 @@ class Dispatch(object):
         return marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights
 
     @staticmethod
-    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, reserves):
+    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, reserves, thermal_capacity_multiplier):
         combined_rates = [Dispatch._get_combined_outage_rate(FOR[i], MOR[i]) for i in range(len(load_groups))]
         max_by_load_group = np.array([max(group) * (1 + reserves) for group in load_groups])
-        cap_by_load_group = np.array([sum(pmaxs[i] * (1 - combined_rates[i])) for i in range(len(max_by_load_group))])
+        cap_by_load_group = np.array([sum(pmaxs[i] * thermal_capacity_multiplier[i] * (1 - combined_rates[i])) for i in range(len(max_by_load_group))])
         shortage_by_group = max_by_load_group - cap_by_load_group
         order = [i for i in np.argsort(shortage_by_group)[-1::-1] if shortage_by_group[i] > 0]
 
@@ -675,7 +676,7 @@ class Dispatch(object):
         return stock_changes
 
     @staticmethod
-    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, gen_categories=None, return_dispatch_by_category=False, reserves=.05):
+    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, gen_categories=None, return_dispatch_by_category=False, reserves=.05, thermal_capacity_multiplier=None):
         """ Dispatch generators to a net load signal
         Args:
             load: net load shape (ndarray[h])
@@ -707,7 +708,7 @@ class Dispatch(object):
         market_prices, production_costs, gen_dispatch_shape, dispatch_by_category_df = [], [], [], []
         gen_energies = np.zeros(pmaxs.shape[1])
         
-        stock_changes = Dispatch._get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, reserves)
+        stock_changes = Dispatch._get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, reserves, thermal_capacity_multiplier)
         
         for i, load_group in enumerate(load_groups):
             market_price, production_cost, gen_energy, shape, dispatch_by_category = Dispatch.solve_gen_dispatch(load_group, pmaxs[i]+stock_changes, marginal_costs[i], FOR[i], MOR[i], must_runs[i], gen_categories)

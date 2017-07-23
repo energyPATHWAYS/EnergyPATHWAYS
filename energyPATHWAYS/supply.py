@@ -1026,7 +1026,7 @@ class Supply(object):
             stock_values = self.nodes[node_id].stock.values.loc[:,year].to_frame()
             stock_values = stock_values[((stock_values.index.get_level_values('vintage')==year) == True) | ((stock_values[year]>0) == True)]
             resources = [str(x[0]) for x in stock_values.groupby(level = stock_values.index.names).groups.values()] 
-            inputs_and_outputs = ['capacity','cost','maintenance_outage_rate','forced_outage_rate','capacity_weights','must_run','gen_cf','generation','stock_changes']
+            inputs_and_outputs = ['capacity','cost','maintenance_outage_rate','forced_outage_rate','capacity_weights','must_run','gen_cf','generation','stock_changes','thermal_capacity_multiplier']
             node_list = [node_id]
             index = pd.MultiIndex.from_product([cfg.dispatch_geographies, node_list, resources,inputs_and_outputs],names = [cfg.dispatch_geography, 'supply_node','thermal_generators','IO'])
             dispatch_resource_list.append(util.empty_df(index=index,columns=[year],fill_value=0.0))
@@ -1076,6 +1076,7 @@ class Supply(object):
                             self.active_thermal_dispatch_df.loc[(dispatch_geography,node.id,str(resource), 'cost'),year] = active_dispatch_costs.loc[geomapped_resource].values[0]
                             self.active_thermal_dispatch_df.loc[(dispatch_geography,node.id,str(resource),'maintenance_outage_rate'),year] = (1- capacity_factor.loc[geomapped_resource].values[0])*.9
                             self.active_thermal_dispatch_df.loc[(dispatch_geography,node.id, str(resource), 'forced_outage_rate'),year]= np.nan_to_num((1- capacity_factor.loc[geomapped_resource].values[0])*.1/(1-self.active_thermal_dispatch_df.loc[(dispatch_geography,node.id,str(resource),'maintenance_outage_rate'),year]))
+                            self.active_thermal_dispatch_df.loc[(dispatch_geography,node.id, str(resource), 'thermal_capacity_multiplier'),year] = node.technologies[resource[1]].thermal_capacity_multiplier 
                             if hasattr(node,'is_flexible') and node.is_flexible == False:
                                 self.active_thermal_dispatch_df.loc[(dispatch_geography,node.id, str(resource), 'must_run'),year] = 1
                         except:
@@ -1110,6 +1111,8 @@ class Supply(object):
                         resource = eval(resource)
                         if resource[-1] == year and resource[0]== dispatch_geography:
                             self.active_thermal_dispatch_df.loc[(dispatch_geography,node.id, str(resource), 'capacity_weights'),year]= (util.df_slice(weights,[dispatch_geography, node_id],[cfg.dispatch_geography,'supply_node']).values * node.active_weighted_sales.loc[resource[0:-1:1],:].values)[0][0]
+    
+    
     def calculate_weighted_sales(self,year):
         """sets the anticipated share of sales by technology for capacity additions added in the thermal dispatch. 
         Thermal dispatch inputs determines share by supply_node, so we have to determine the share of technologies for 
@@ -1144,7 +1147,10 @@ class Supply(object):
                                    [float(cfg.cfgfile.get('opt', 'operating_reserves'))]*len(cfg.dispatch_geographies)))
 
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-            dispatch_results = helper_multiprocess.safe_pool(dispatch_classes.run_thermal_dispatch, parallel_params)
+            try:
+                dispatch_results = helper_multiprocess.safe_pool(dispatch_classes.run_thermal_dispatch, parallel_params)
+            except:
+                pdb.set_trace()
         else:
             dispatch_results = []
             for params in parallel_params:
@@ -2046,6 +2052,7 @@ class Supply(object):
                      #flag that anything in the supply loop has been reconciled, and so the loop needs to be resolved
                      self.reconciled = True
                   else:
+#                     print constrained_node, output_node.id
                      #if the output node has the constrained sub as an input, and it is not a blend node, it becomes the constrained sub
                       #in the loop in order to feed the adjustment factor forward to dependent nodes until it terminates at a blend node
                      self.feed_constraints(year, constrained_node=output_node.id, constraint_adjustment=constraint_adjustment)
@@ -2102,6 +2109,7 @@ class Supply(object):
                 if oversupply_node in output_node.nodes:
                   if output_node.id in self.blend_nodes:
                      # if the output node is a blend node, this is where oversupply is reconciled
+#                     print oversupply_node, output_node.id, oversupply_factor
                      indexer = util.level_specific_indexer(output_node.values,'supply_node', oversupply_node)
                      output_node.values.loc[indexer, year] = DfOper.mult([output_node.values.loc[indexer, year].to_frame(),oversupply_factor]).values
                      output_node.reconciled = True
@@ -2280,8 +2288,8 @@ class Supply(object):
             temp[np.nonzero(active_cost_io.values.sum(axis=1) + self.active_demand.values.flatten()==0)[0]] = 0
             self.inverse_dict['cost'][year][sector] = pd.DataFrame(temp, index=index, columns=index)
             idx = pd.IndexSlice
-            self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:].round(7)
-            self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:].round(7)    
+            self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:]
+            self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:] 
         for node in self.nodes.values():
             indexer = util.level_specific_indexer(self.io_supply_df,levels=['supply_node'], elements = [node.id])
             node.active_supply = self.io_supply_df.loc[indexer,year].groupby(level=[cfg.primary_geography, 'demand_sector']).sum().to_frame()
@@ -4238,7 +4246,10 @@ class SupplyStockNode(Node):
        if len(total_stocks):    
            self.case_stock.total = DfOper.add(total_stocks, expandable=False)
            self.case_stock.total[self.case_stock.total.index.get_level_values('year')<int(cfg.cfgfile.get('case','current_year'))] = np.nan
-   
+       elif len(tech_stocks):
+           self.case_stock.total = util.remove_df_levels(self.case_stock.technology,'supply_technology')
+        
+            
     def remap_tech_attrs(self, attr_classes, attr='values'):
         """
         loops through attr_classes (ex. capital_cost, energy, etc.) in order to map technologies
@@ -4259,7 +4270,7 @@ class SupplyStockNode(Node):
             if getattr(tech_class, 'reference_tech_id'):
                 ref_tech_id = (getattr(tech_class, 'reference_tech_id'))
                 if not self.technologies.has_key(ref_tech_id):
-                    raise ValueError("supply node {} has no technology {} to serve as a reference for technology {}".format(self.id, ref_tech_id, technology))
+                    raise ValueError("supply node {} has no technology {} to serve as a reference for technology {} in attribute {}".format(self.id, ref_tech_id, technology, class_name))
                 ref_tech_class = getattr(self.technologies[ref_tech_id], class_name)
                 # converted is an indicator of whether an input is an absolute
                 # or has already been converted to an absolute
@@ -4791,8 +4802,8 @@ class SupplyStockNode(Node):
         if self.potential.data is False:
             if self.throughput is not None:
                 self.stock.requirement_energy.loc[:,year] = self.throughput
-            a = self.stock.requirement_energy.loc[:,year].to_frame()
-            b = self.stock.act_total_energy
+            a = copy.deepcopy(self.stock.requirement_energy.loc[:,year].to_frame())
+            b = copy.deepcopy(self.stock.act_total_energy)
             b[b<a] = a
             self.stock.requirement_energy.loc[:,year] = b         
             self.stock.requirement.loc[:,year] = DfOper.divi([self.stock.requirement_energy.loc[:,year].to_frame(),self.stock.act_energy_capacity_ratio]) 

@@ -273,11 +273,10 @@ class GeoMapper:
 
         # update foreign GAUs after clean timeseries
         allocated_gau_years = list(allocated_foreign_gau_slice_foreign_geo.index.get_level_values(y_or_v).values)
+        allocated_foreign_gau_slice_foreign_geo = allocated_foreign_gau_slice_foreign_geo.reorder_levels(df.index.names).sort()
         indexer = util.level_specific_indexer(allocated_foreign_gau_slice_foreign_geo, [current_geography, y_or_v], [foreign_gau, allocated_gau_years])
-        try:
-            df.loc[indexer, :] = allocated_foreign_gau_slice_foreign_geo.loc[indexer, :]
-        except:
-            pdb.set_trace()
+            
+        df.loc[indexer, :] = allocated_foreign_gau_slice_foreign_geo.loc[indexer, :]
 
         new_impacted_gaus = util.DfOper.subt((impacted_gaus_slice, allocated_foreign_gau_slice_new_geo), fill_value=np.nan, non_expandable_levels=[])
         new_impacted_gaus = new_impacted_gaus.reorder_levels(df.index.names).sort()
