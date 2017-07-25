@@ -2391,7 +2391,7 @@ class Node(DataMapFunctions):
         self.active_supply= None
         self.reconciled = False
         #all nodes have emissions subclass
-        self.emissions = SupplyEmissions(self.id)      
+        self.emissions = SupplyEmissions(self.id, self.scenario)
         self.shape = self.determine_shape()
         self.workingdir = cfg.workingdir
         self.cfgfile_name = cfg.cfgfile_name
@@ -5393,11 +5393,12 @@ class PrimaryCost(Abstract):
 
 
 class SupplyEmissions(Abstract):
-    def __init__(self, id, **kwargs):
+    def __init__(self, id, scenario, **kwargs):
         self.id = id
         self.input_type = 'intensity'
         self.sql_id_table = 'SupplyEmissions'
         self.sql_data_table = 'SupplyEmissionsData'
+        self.scenario = scenario
         Abstract.__init__(self, self.id,primary_key='supply_node_id')
 
     def calculate(self, conversion, resource_unit):
