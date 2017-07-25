@@ -11,6 +11,7 @@ import csv
 import pandas as pd
 import numpy as np
 import shutil
+import pdb
 
 directory = os.getcwd()
 
@@ -53,7 +54,10 @@ for row in GeographiesSpatialJoin.iterrows():
     for col in row[1].iteritems():
         if col[0] in gau_columns:
             if col[1] is not np.nan:
-                print GeographiesDataDict[col]
+                try:
+                    print GeographiesDataDict[col]
+                except:
+                    pdb.set_trace()
                 GeographyIntersectionData.append([intersection_id, GeographiesDataDict[col]])
         elif col[0] in map_key_columns:
             GeographyMap.append([intersection_id, MapKeysDict[col[0]], col[1]])
