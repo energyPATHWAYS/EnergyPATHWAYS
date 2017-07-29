@@ -224,10 +224,17 @@ def init_geo():
 
 def init_shapes():
     global shape_start_date, shape_years
+
     raw_shape_start_date = cfgfile.get('case', 'shape_start_date')
     if raw_shape_start_date:
-        shape_start_date = datetime.DateTime.strptime(shape_start_date, '%Y-%m-%d')
-        shape_years = float(cfgfile.get('case', 'shape_years'))
+        shape_start_date = datetime.datetime.strptime(raw_shape_start_date, '%Y-%m-%d')
+
+    raw_shape_years = cfgfile.get('case', 'shape_years')
+    if raw_shape_years:
+        shape_years = int(raw_shape_years)
+        if shape_years < 1:
+            raise ValueError('shape_years, if provided, must be a positive integer.')
+
 
 def init_date_lookup():
     global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id, opt_period_length

@@ -11,6 +11,9 @@ import util
 import pandas as pd
 import pytz
 import datetime as DT
+# PyCharm complains about dateutil not being listed in the project requirements, but my understanding is that
+# it is bundled with matplotlib, so it is listed implicitly.
+from dateutil.relativedelta import relativedelta
 import time
 import numpy as np
 import cPickle as pickle
@@ -74,11 +77,33 @@ class Shapes(object):
         self.set_active_dates()
 
     def set_active_dates(self):
-        self.start_date = cfg.shape_start_date
-        if self.start_date:
-            shape_years = cfg.shape_years or 1
-            self.end_date = self.start_date + DT.timedelta(years=shape_years)
+        requested_shape_start_date = cfg.shape_start_date
+        if requested_shape_start_date:
+            # self.start_date and self.end_date could be None here if we encountered no 'weather date' shapes
+            # in initiate_active_shapes().
+            if (self.start_date is None or requested_shape_start_date >= self.start_date) and\
+               (self.end_date is None or requested_shape_start_date <= self.end_date):
+                self.start_date = requested_shape_start_date
+                shape_years = cfg.shape_years or 1
+                # Need to subtract an hour because all timestamps are hour-beginning.
+                requested_shape_end_date = self.start_date + relativedelta(years=shape_years, hours=-1)
+                # We only need to check the "right hand" boundary here, because: A) we already confirmed that the
+                # start_date was within the allowable range, and B) config.py requires shape_years to be positive.
+                # In other words, there's no way at this point that requested_shape_end_date could be < self.start_date
+                if self.end_date is None or requested_shape_end_date <= self.end_date:
+                    self.end_date = requested_shape_end_date
+                else:
+                    raise ValueError("The requested shape_start_date from your config plus the requested shape_years "
+                                     "give an end date of {}, which is after the end date of at least one of "
+                                     "your shapes.".format(requested_shape_end_date))
+            else:
+                raise ValueError("The requested shape_start_date from your config ({}) is outside the range of dates "
+                                 "available in your shapes.".format(requested_shape_start_date))
 
+        # This is a last resort; it's unlikely that we could get here without either:
+        # A) encountering at least one weather_datetime shape in initiate_active_shapes(), or
+        # B) having a shape_start_date requested in the config
+        # but if both of those have happened, we set the date range to the case's current year
         if self.start_date is self.end_date is None:
             self.start_date = DT.datetime(int(cfg.cfgfile.get('case', 'current_year')), 1, 1)
             self.end_date = DT.datetime(int(cfg.cfgfile.get('case', 'current_year')), 12, 31, 23)
