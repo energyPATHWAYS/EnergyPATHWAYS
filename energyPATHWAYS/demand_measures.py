@@ -139,7 +139,7 @@ class FuelSwitchingImpact(Abstract):
         self.id = id
         self.sql_id_table = 'DemandFuelSwitchingMeasuresImpact'
         self.sql_data_table = 'DemandFuelSwitchingMeasuresImpactData'
-        Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
+        Abstract.__init__(self, self.id, primary_key='parent_id', data_id_key='parent_id')
 
     def calculate(self, vintages, years, unit_to):
         self.vintages = vintages
@@ -168,7 +168,7 @@ class FuelSwitchingEnergyIntensity(Abstract):
         self.sql_id_table = 'DemandFuelSwitchingMeasuresEnergyIntensity'
         self.sql_data_table = 'DemandFuelSwitchingMeasuresEnergyIntensityData'
         self.input_type = 'intensity'
-        Abstract.__init__(self, id, primary_key='id', data_id_key='parent_id')
+        Abstract.__init__(self, id, primary_key='parent_id', data_id_key='parent_id')
 
 
     def calculate(self, years, vintages, unit_to):

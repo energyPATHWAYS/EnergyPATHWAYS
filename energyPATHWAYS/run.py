@@ -198,7 +198,7 @@ def send_gmail(scenario_id, subject, body):
     msg.attach(MIMEText(body, 'plain'))
 
     server = smtplib.SMTP('smtp.gmail.com', 587)
-    server.starttls()
+    server.starttls() 
     server.login(fromaddr, cfg.cfgfile.get('email', 'email_password'))
     text = msg.as_string()
     server.sendmail(fromaddr, toaddr, text)
@@ -206,10 +206,11 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\US_DDPP'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\CA_Test'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['CA Reference']
+#    scenario = ['CA_HE','CA_HE_INN','CA_RP','CA_RP_INN','CA_REF']
+    scenario = ['CA_RP_INN']
     run(workingdir, config, scenario,
     load_demand  = True,
     solve_demand  = True,
@@ -220,5 +221,6 @@ if __name__ == "__main__":
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,
-    clear_results = True)
+    clear_results = False)
+    
 

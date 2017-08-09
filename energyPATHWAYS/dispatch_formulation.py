@@ -47,7 +47,7 @@ def meet_load_rule(model, geography, timepoint):
     
     return (feeder_provide_power(model, geography, timepoint, feeder=0) +
             model.bulk_gen[geography, timepoint] -
-            model.bulk_load[geography, timepoint] - model.dispatched_bulk_load[geography, timepoint] -
+            model.bulk_load[geography, timepoint] -
             feeder_charge(model, geography, timepoint, feeder=0) -
             model.Curtailment[geography, timepoint]) \
             == \
@@ -72,13 +72,17 @@ def storage_charge_rule(model, technology, timepoint):
     Storage cannot charge at a higher rate than implied by its total installed power capacity.
     Charge and discharge rate limits are currently the same.
     """
-    return model.Charge[technology, timepoint] <= model.capacity[technology]
+    return model.Charge[technology, timepoint] + model.Provide_Power[technology, timepoint] <= model.capacity[technology]
 
 def storage_energy_rule(model, technology, timepoint):
     """
     No more total energy can be stored at any point that the total storage energy capacity.
     """
     return 0 <= model.Energy_in_Storage[technology, timepoint] <= model.capacity[technology] * model.duration[technology]
+    
+    
+#def storage_simultaneous_rule(model,technology,timepoint):
+    return model.Charge[technology, timepoint] * model.Provide_Power[technology, timepoint] <= 0
 
 def storage_energy_tracking_rule(model, technology, timepoint):
     """
@@ -327,6 +331,7 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     # Storage
     model.Storage_Charge_Constraint = Constraint(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, rule=storage_charge_rule)
     model.Storage_Energy_Constraint = Constraint(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, rule=storage_energy_rule)
+#    model.Storage_Simultaenous_Constraint = Constraint(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, rule=storage_simultaneous_rule)
     model.Storage_Energy_Tracking_Constraint = Constraint(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, rule=storage_energy_tracking_rule)
     model.Large_Storage_End_State_of_Charge_Constraint = Constraint(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, rule=large_storage_end_state_of_charge_rule)
     
@@ -498,6 +503,7 @@ def year_to_period_allocation_formulation(dispatch):
     model.Storage_Charge_Constraint = Constraint(model.VERY_LARGE_STORAGE_TECHNOLOGIES,
                                                             model.PERIODS,
                                                             rule=storage_charge_rule)
+                
 
     def storage_energy_rule(model, technology, period):
         return model.Energy_in_Storage[technology, period] <= model.energy_capacity[technology]

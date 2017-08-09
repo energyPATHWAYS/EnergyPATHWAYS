@@ -96,7 +96,7 @@ class Dispatch(object):
             self.node_config_dict[supply_node] = DispatchNodeConfig(supply_node)
         self.set_dispatch_order()
         self.dispatch_window_dict = dict(util.sql_read_table('DispatchWindows'))  
-        self.curtailment_cost = util.unit_convert(75.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.curtailment_cost = util.unit_convert(0.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.unserved_energy_cost = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.dist_net_load_penalty = util.unit_convert(10000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.bulk_net_load_penalty = util.unit_convert(500.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
