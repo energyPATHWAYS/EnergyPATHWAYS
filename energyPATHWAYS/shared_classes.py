@@ -103,8 +103,7 @@ class AggregateStock(object):
 
     def calc_annual_stock_changes(self):
         # stock is steady before the first year, thus fill the first NaN with 0
-        self.annual_stock_changes = self.total.groupby(level=self.rollover_group_names).transform(
-            pd.Series.diff).fillna(0)
+        self.annual_stock_changes = self.total.groupby(level=self.rollover_group_names).transform(pd.Series.diff).fillna(0)
 
     def set_rollover_groups(self):
         # separate stock rollover except for year and technology
@@ -140,8 +139,7 @@ class Stock(Abstract):
 
     def calc_annual_stock_changes(self):
         # stock is steady before the first year, thus fill the first NaN with 0
-        self.annual_stock_changes = self.total.groupby(level=self.rollover_group_names).transform(
-            pd.Series.diff).fillna(0)
+        self.annual_stock_changes = self.total.groupby(level=self.rollover_group_names).transform(pd.Series.diff).fillna(0)
 
     def set_rollover_groups(self):
         # separate stock rollover except for year and technology

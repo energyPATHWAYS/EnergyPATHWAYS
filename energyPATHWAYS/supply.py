@@ -202,7 +202,7 @@ class Supply(object):
 
         self.io_dict = util.freeze_recursivedict(self.io_dict)
 
-    def add_nodes(self, scenario):
+    def add_nodes(self):
         """Adds node instances for all active supply nodes"""
         logging.info('Adding supply nodes')
         supply_type_dict = dict(util.sql_read_table('SupplyTypes', column_names=['id', 'name']))
@@ -212,7 +212,7 @@ class Supply(object):
             if is_active:
                 self.all_nodes.append(node_id)
                 logging.info('    {} node {}'.format(supply_type_dict[supply_type_id], name))
-                self.add_node(node_id, supply_type_dict[supply_type_id], scenario)
+                self.add_node(node_id, supply_type_dict[supply_type_id], self.scenario)
         
         # this ideally should be moved to the init statements for each of the nodes
         for node in self.nodes.values():
@@ -262,10 +262,10 @@ class Supply(object):
         else:
             self.storage_nodes.append(id)
 
-    def add_measures(self, scenario):
+    def add_measures(self):
         """ Adds measures to supply nodes based on scenario inputs"""
         logging.info('Adding supply measures')
-        self.scenario = scenario
+        scenario = self.scenario
         for node in self.nodes.values():
             #all nodes have export measures
             node.add_export_measures(scenario)

@@ -1,4 +1,4 @@
-F__author__ = 'Ben Haley & Ryan Jones'
+__author__ = 'Ben Haley & Ryan Jones'
 
 import os
 from demand import Demand
@@ -30,7 +30,7 @@ class PathwaysModel(object):
         self.scenario = Scenario(self.scenario_id)
         self.api_run = api_run
         self.outputs = Output()
-        self.demand = Demand()
+        self.demand = Demand(self.scenario)
         self.supply = None
         self.demand_solved, self.supply_solved = False, False
 
@@ -70,10 +70,7 @@ class PathwaysModel(object):
             raise
 
     def calculate_demand(self, save_models):
-        logging.info('Configuring energy system demand')
-        self.demand.add_subsectors(self.scenario)
-        self.demand.add_measures(self.scenario)
-        self.demand.calculate_demand()
+        self.demand.setup_and_solve()
         self.demand_solved = True
         if save_models:
             with open(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name), 'wb') as outfile:
@@ -83,8 +80,8 @@ class PathwaysModel(object):
         if not self.demand_solved:
             raise ValueError('demand must be solved first before supply')
         logging.info('Configuring energy system supply')
-        self.supply.add_nodes(self.scenario)
-        self.supply.add_measures(self.scenario)
+        self.supply.add_nodes()
+        self.supply.add_measures()
         self.supply.initial_calculate()
         self.supply.calculated_years = []
         self.supply.calculate_loop(self.supply.years, self.supply.calculated_years)

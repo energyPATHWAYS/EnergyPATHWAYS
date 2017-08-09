@@ -22,8 +22,23 @@ import pdb
 import logging
 import time
 
+
+class Driver(object, DataMapFunctions):
+    def __init__(self, id, scenario):
+        self.id = id
+        self.scenario = scenario
+        self.sql_id_table = 'DemandDrivers'
+        self.sql_data_table = 'DemandDriversData'
+        self.mapped = False
+        for col, att in util.object_att_from_table(self.sql_id_table, id):
+            setattr(self, col, att)
+        # creates the index_levels dictionary
+        DataMapFunctions.__init__(self, data_id_key='parent_id')
+        self.read_timeseries_data()
+
+
 class Demand(object):
-    def __init__(self):
+    def __init__(self, scenario):
         self.drivers = {}
         self.sectors = {}
         self.outputs = Output()
@@ -31,32 +46,80 @@ class Demand(object):
         self.feeder_allocation_class = dispatch_classes.DispatchFeederAllocation(1)
         self.feeder_allocation_class.values.index = self.feeder_allocation_class.values.index.rename('sector', 'demand_sector')
         self.electricity_reconciliation = None
+        self.scenario = scenario
 
-    def add_subsectors(self, scenario):
-        """Read in and initialize data"""
+    def setup_and_solve(self):
+        logging.info('Configuring energy system')
         # Drivers must come first
-        self.add_drivers(scenario)
-        # Sectors requires drivers be read in
-        self.add_sectors(scenario)
-
-        logging.info('Remapping drivers')
+        self.add_drivers()
         self.remap_drivers()
-        logging.info('Populating energy system data')
+        # Sectors requires drivers be read in
+        self.add_sectors()
+        self.add_subsectors()
+        self.calculate_demand()
+
+    def add_sectors(self):
+        """Loop through sector ids and call add sector function"""
+        ids = util.sql_read_table('DemandSectors',column_names='id',return_iterable=True)
+        for id in ids:
+            self.sectors[id] = Sector(id, self.drivers, self.scenario)
+
+    def add_subsectors(self):
+        """Read in and initialize data"""
+        logging.info('Populating subsector data')
         for sector in self.sectors.values():
             logging.info('  '+sector.name+' sector')
-            if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-                subsectors = helper_multiprocess.safe_pool(helper_multiprocess.subsector_populate, sector.subsectors.values())
-                sector.subsectors = dict(zip(sector.subsectors.keys(), subsectors))
-            else:
-                for subsector in sector.subsectors.values():
-                    subsector.add_energy_system_data()
-            sector.make_precursor_dict()
+            sector.add_subsectors()
 
-    def add_measures(self, scenario):
-        logging.info('Adding demand measures')
+    def calculate_demand(self, solve_supply=True):
+        logging.info('Calculating demand')
         for sector in self.sectors.values():
-            for subsector in sector.subsectors.values():
-                subsector.add_measures(scenario)
+            logging.info('  {} sector'.format(sector.name))
+            sector.manage_calculations()
+        logging.info("Aggregating demand results")
+        self.aggregate_results()
+
+    def add_drivers(self):
+        """Loops through driver ids and call create driver function"""
+        logging.info('Adding drivers')
+        ids = util.sql_read_table('DemandDrivers',column_names='id',return_iterable=True)
+        for id in ids:
+            self.add_driver(id, self.scenario)
+
+    def add_driver(self, id, scenario):
+        """add driver object to demand"""
+        if id in self.drivers:
+            # ToDo note that a driver by the same name was added twice
+            return
+        self.drivers[id] = Driver(id, scenario)
+
+    def remap_drivers(self):
+        """
+        loop through demand drivers and remap geographically
+        """
+        logging.info('Remapping drivers')
+        for driver in self.drivers.values():
+            # It is possible that recursion has mapped before we get to a driver in the list. If so, continue.
+            if driver.mapped:
+                continue
+            self.remap_driver(driver)
+
+    def remap_driver(self, driver):
+        """mapping of a demand driver to its base driver"""
+        # base driver may be None
+        base_driver_id = driver.base_driver_id
+        if base_driver_id:
+            base_driver = self.drivers[base_driver_id]
+            # mapped is an indicator variable that records whether a driver has been mapped yet
+            if not base_driver.mapped:
+                # If a driver hasn't been mapped, recursion is uesd to map it first (this can go multiple layers)
+                self.remap_driver(base_driver)
+            driver.remap(drivers=base_driver.values, filter_geo=False)
+        else:
+            driver.remap(filter_geo=False)
+        # Now that it has been mapped, set indicator to true
+        driver.mapped = True
+        driver.values.data_type = 'total'
 
     @staticmethod
     def geomap_to_dispatch_geography(df):
@@ -114,6 +177,7 @@ class Demand(object):
         return df
 
     def create_electricity_reconciliation(self):
+        logging.info('Creating electricity shape reconciliation')
         # weather_year is the year for which we have top down load data
         weather_year = int(np.round(np.mean(shape.shapes.active_dates_index.year)))
         
@@ -168,8 +232,6 @@ class Demand(object):
         df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
         self.outputs.d_driver = df
     
-    
-    
     def aggregate_results_evolved(self,specific_years):
         def remove_na_levels(df):
             if df is None:
@@ -182,8 +244,6 @@ class Demand(object):
             df = self.group_output(output_name, include_unit=include_unit, specific_years=specific_years)
             df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
             setattr(self.outputs,"d_"+ output_name, df)
-            
-            
             
     def aggregate_results(self):
         def remove_na_levels(df):
@@ -248,7 +308,6 @@ class Demand(object):
         logging.info("linking supply costs to energy demand for payback calculations")
         setattr(self.outputs, 'demand_embodied_energy_costs_payback', self.group_linked_output_payback(cost_link))
 
-
     def group_output(self, output_type, levels_to_keep=None, include_unit=False, specific_years=None):
         levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep
         levels_to_keep = list(set(levels_to_keep + ['unit'])) if include_unit else levels_to_keep
@@ -270,7 +329,6 @@ class Demand(object):
         dfs, keys = zip(*[(df, key) for df, key in zip(dfs, self.sectors.keys()) if df is not None])
         new_names = 'sector'
         return util.df_list_concatenate(dfs, keys, new_names, levels_to_keep)
-    
 
     def group_linked_output(self, supply_link, levels_to_keep=None):
         demand_df = self.outputs.d_energy.copy()
@@ -346,82 +404,12 @@ class Demand(object):
         names = ['sector', cfg.primary_geography, 'final_energy', 'year']
         sectors_aggregates = [sector.aggregate_subsector_energy_for_supply_side() for sector in self.sectors.values()]
         self.energy_demand = pd.concat([s for s in sectors_aggregates if s is not None], keys=self.sectors.keys(), names=names)
-        
-    def add_drivers(self, scenario):
-        """Loops through driver ids and call create driver function"""
-        ids = util.sql_read_table('DemandDrivers',column_names='id',return_iterable=True)
-        for id in ids:
-            self.add_driver(id, scenario)
-
-    def add_driver(self, id, scenario):
-        """add driver object to demand"""
-        if id in self.drivers:
-            # ToDo note that a driver by the same name was added twice
-            return
-        self.drivers[id] = Driver(id, scenario)
-
-    def remap_drivers(self):
-        """
-        loop through demand drivers and remap geographically
-        """
-        for driver in self.drivers.values():
-            # It is possible that recursion has mapped before we get to a driver in the list. If so, continue.
-            if driver.mapped:
-                continue
-            self.remap_driver(driver)
-
-    def remap_driver(self, driver):
-        """mapping of a demand driver to its base driver"""
-        # base driver may be None
-        base_driver_id = driver.base_driver_id
-        if base_driver_id:
-            base_driver = self.drivers[base_driver_id]
-            # mapped is an indicator variable that records whether a driver has been mapped yet
-            if not base_driver.mapped:
-                # If a driver hasn't been mapped, recursion is uesd to map it first (this can go multiple layers)
-                self.remap_driver(base_driver)
-            driver.remap(drivers=base_driver.values, filter_geo=False)
-        else:
-            driver.remap(filter_geo=False)
-        # Now that it has been mapped, set indicator to true
-        driver.mapped = True
-        driver.values.data_type = 'total'
-
-    def add_sectors(self,scenario):
-        """Loop through sector ids and call add sector function"""
-        ids = util.sql_read_table('DemandSectors',column_names='id',return_iterable=True)
-        for id in ids:
-            self.sectors[id] = Sector(id, self.drivers)
-            self.sectors[id].add_subsectors(scenario)
-
-    def calculate_demand(self, solve_supply=True):
-        logging.info('Calculating demand')
-        for sector in self.sectors.values():
-            logging.info('  {} sector'.format(sector.name))
-            sector.manage_calculations()
-        logging.info("Aggregating demand results")
-        self.aggregate_results()
-        logging.info('Creating electricity shape reconciliation')
-        
-
-
-class Driver(object, DataMapFunctions):
-    def __init__(self, id, scenario):
-        self.id = id
-        self.scenario = scenario
-        self.sql_id_table = 'DemandDrivers'
-        self.sql_data_table = 'DemandDriversData'
-        self.mapped = False
-        for col, att in util.object_att_from_table(self.sql_id_table, id):
-            setattr(self, col, att)
-        # creates the index_levels dictionary
-        DataMapFunctions.__init__(self, data_id_key='parent_id')
-        self.read_timeseries_data()
 
 
 class Sector(object):
-    def __init__(self, id, drivers):
+    def __init__(self, id, drivers, scenario):
         self.drivers = drivers
+        self.scenario = scenario
         self.id = id
         self.subsectors = {}
         for col, att in util.object_att_from_table('DemandSectors', id):
@@ -429,6 +417,7 @@ class Sector(object):
         self.outputs = Output()
         if self.shape_id is not None:
             self.shape = shape.shapes.data[self.shape_id]
+        self.subsector_ids = util.sql_read_table('DemandSubsectors', column_names='id', sector_id=self.id, is_active=True, return_iterable=True)
         self.stock_subsector_ids = util.sql_read_table('DemandStock', 'subsector_id', return_iterable=True)
         self.service_demand_subsector_ids = util.sql_read_table('DemandServiceDemands', 'subsector_id', return_iterable=True)
         self.energy_demand_subsector_ids = util.sql_read_table('DemandEnergyDemands', 'subsector_id', return_iterable=True)
@@ -440,15 +429,32 @@ class Sector(object):
         self.workingdir = cfg.workingdir
         self.cfgfile_name = cfg.cfgfile_name
         self.log_name = cfg.log_name
+        self.service_precursors = defaultdict(dict)
+        self.stock_precursors = defaultdict(dict)
+        self.subsector_precursors = defaultdict(list)
+        self.subsector_precursers_reversed = defaultdict(list)
 
-    def add_subsectors(self,scenario):
-        ids = util.sql_read_table('DemandSubsectors',column_names='id',sector_id=self.id, is_active=True, return_iterable=True)
-        for id in ids:
-            stock = True if id in self.stock_subsector_ids else False
-            service_demand = True if id in self.service_demand_subsector_ids else False
-            energy_demand = True if id in self.energy_demand_subsector_ids else False
-            service_efficiency = True if id in self.service_efficiency_ids else False
-            self.subsectors[id] = Subsector(id, self.drivers, stock, service_demand, energy_demand, service_efficiency, scenario)
+    def add_subsectors(self):
+        for id in self.subsector_ids:
+            self.add_subsector(id)
+
+        # populate_subsector_data, this is a separate step so we can use multiprocessing
+        if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
+            subsectors = helper_multiprocess.safe_pool(helper_multiprocess.subsector_populate, self.subsectors.values())
+            self.subsectors = dict(zip(self.subsectors.keys(), subsectors))
+        else:
+            for id in self.subsector_ids:
+                self.subsectors[id].add_energy_system_data()
+
+        self.make_precursor_dict()
+        self.make_precursors_reversed_dict()
+
+    def add_subsector(self, id):
+        stock = True if id in self.stock_subsector_ids else False
+        service_demand = True if id in self.service_demand_subsector_ids else False
+        energy_demand = True if id in self.energy_demand_subsector_ids else False
+        service_efficiency = True if id in self.service_efficiency_ids else False
+        self.subsectors[id] = Subsector(id, self.drivers, stock, service_demand, energy_demand, service_efficiency, self.scenario)
 
     def make_precursor_dict(self):
         """
@@ -457,21 +463,33 @@ class Sector(object):
             clothes washing can be a service demand precursor for water heating, and so must be solved first. This puts water heating as the 
             key in a dictionary with clothes washing as a value. Function also records the link in the service_precursors dictionary within the same loop. 
         """
-
-        self.subsector_precursors = defaultdict(list)
-        self.service_precursors = defaultdict(dict)
-        self.stock_precursors = defaultdict(dict)
+        #service links
         for subsector in self.subsectors.values():
             for service_link in subsector.service_links.values():
                 self.subsector_precursors[service_link.linked_subsector_id].append(subsector.id)
-                self.service_precursors[service_link.linked_subsector_id]
-            if hasattr(subsector, 'technologies'):
-                for demand_technology in subsector.technologies.values():
-                    linked_tech_id = demand_technology.linked_id
-                    for lookup_subsector in self.subsectors.values():
-                        if hasattr(lookup_subsector, 'technologies'):
-                            if linked_tech_id in lookup_subsector.technologies.keys():
-                                self.subsector_precursors[lookup_subsector.id].append(subsector.id)
+        # technology links
+        subsectors_with_techs = [subsector for subsector in self.subsectors.values() if hasattr(subsector, 'technologies')]
+        for subsector in subsectors_with_techs:
+            for demand_technology in subsector.technologies.values():
+                linked_tech_id = demand_technology.linked_id
+                for lookup_subsector in subsectors_with_techs:
+                    if linked_tech_id in lookup_subsector.technologies.keys():
+                        self.subsector_precursors[lookup_subsector.id].append(subsector.id)
+
+    def make_precursors_reversed_dict(self):
+        # revisit this -- there should be a more elegant way to reverse a dictionary
+        for subsector_id, precursor_ids in self.subsector_precursors.items():
+            for precursor_id in precursor_ids:
+                if subsector_id not in self.subsector_precursers_reversed[precursor_id]:
+                    self.subsector_precursers_reversed[precursor_id].append(subsector_id)
+
+    def reset_subsector_for_perdubation(self, subsector_id):
+        self.add_subsector(subsector_id)
+        logging.info('resetting subsector {}'.format(self.subsectors[subsector_id].name))
+        self.subsectors[subsector_id].add_energy_system_data()
+        if subsector_id in self.subsector_precursers_reversed:
+            for dependent_subsector_id in self.subsector_precursers_reversed[subsector_id]:
+                self.reset_subsector_for_perdubation(dependent_subsector_id)
 
     def manage_calculations(self):
         """
@@ -480,7 +498,8 @@ class Sector(object):
         """
         precursors = set(util.flatten_list(self.subsector_precursors.values()))
         self.calculate_precursors(precursors)
-        self.calculate_links(self.subsectors.keys(), precursors)
+        # TODO: seems like this next step could be shortened, but it changes the answer when it is removed altogether
+        self.update_links(precursors)
         
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
             subsectors = helper_multiprocess.safe_pool(helper_multiprocess.subsector_calculate, self.subsectors.values())
@@ -489,55 +508,48 @@ class Sector(object):
             for subsector in self.subsectors.values():
                 if not subsector.calculated:
                     subsector.calculate()
-                             
-        #clear the calculations for the next scenario loop
-        for subsector in self.subsectors.values():
-            subsector.calculated = False
 
     def calculate_precursors(self, precursors):
-        """ 
+        """
         calculates subsector if all precursors have been calculated
         """
-        # checks whether the subsector has precursors in the subsector_precursors dictionary
         for id in precursors:
-            subsector = self.subsectors[id]
-            if self.subsector_precursors.has_key(subsector.id):
-                # loops through subsector precursors
-                for precursor_id in self.subsector_precursors[subsector.id]:
-                    # finds subsector in the demand sectors and subsectors
-                        if precursor_id in self.subsectors.keys():
-                            # precursor is the class instance of the precursor subsector id
-                            precursor = self.subsectors[precursor_id]
-                            if precursor.calculated:
-                                # checks whether the precursor has been calculated. If it has, update the service_precursors dictionary
-                                # with the output_service_drivers if applicable. This allows a subsector to output service drivers to multiple
-                                # subsectors
-                                if precursor.output_service_drivers.has_key(subsector.id):
-                                    self.service_precursors[subsector.id].update(
-                                        {precursor.id: precursor.output_service_drivers[subsector.id]})
-                                for demand_technology in precursor.output_demand_technology_stocks.keys():
-                                    if demand_technology in subsector.technologies.keys():
-                                        # updates stock_precursor values dictionary with linked demand_technology stocks
-                                        self.stock_precursors[subsector.id].update(
-                                            {demand_technology: precursor.output_demand_technology_stocks[demand_technology]})
-                            else:
-                                self.calculate_precursors([precursor_id])
-            subsector.linked_service_demand_drivers = self.service_precursors[subsector.id]
-            subsector.linked_stock = self.stock_precursors[subsector.id]
-            subsector.calculate()
-    def calculate_links(self,all_subsectors, precursors):
-        for subsector_id in all_subsectors:
+            precursor = self.subsectors[id]
+            if precursor.calculated:
+                continue
+
+            # if the precursor itself has precursors, those must be done first
+            if self.subsector_precursors.has_key(precursor.id):
+                self.calculate_precursors(self.subsector_precursors[precursor.id])
+
+            precursor.linked_service_demand_drivers = self.service_precursors[precursor.id]
+            precursor.linked_stock = self.stock_precursors[precursor.id]
+            precursor.calculate()
+
+            #because other subsectors depend on "precursor", we add it's outputs to a dictionary
+            for service_link in precursor.service_links.values():
+                self.service_precursors[service_link.linked_subsector_id].update({precursor.id: precursor.output_service_drivers[service_link.linked_subsector_id]})
+
+            for dependent_id in self.subsector_precursers_reversed[id]:
+                dependent = self.subsectors[dependent_id]
+                if not hasattr(dependent, 'technologies'):
+                    continue
+                for demand_technology in precursor.output_demand_technology_stocks.keys():
+                    if demand_technology in dependent.technologies.keys():
+                        # updates stock_precursor values dictionary with linked demand_technology stocks
+                        self.stock_precursors[dependent_id].update({demand_technology: precursor.output_demand_technology_stocks[demand_technology]})
+
+    def update_links(self, precursors):
+        for subsector_id in self.subsectors:
             subsector = self.subsectors[subsector_id]
             for precursor_id in precursors:
                 precursor = self.subsectors[precursor_id]
                 if precursor.output_service_drivers.has_key(subsector.id):
-                    self.service_precursors[subsector.id].update(
-                            {precursor.id: precursor.output_service_drivers[subsector.id]})
+                    self.service_precursors[subsector.id].update({precursor.id: precursor.output_service_drivers[subsector.id]})
                 for demand_technology in precursor.output_demand_technology_stocks.keys():
                     if hasattr(subsector,'technologies') and demand_technology in subsector.technologies.keys():
                         # updates stock_precursor values dictionary with linked demand_technology stocks
-                        self.stock_precursors[subsector.id].update(
-                            {demand_technology: precursor.output_demand_technology_stocks[demand_technology]})
+                        self.stock_precursors[subsector.id].update({demand_technology: precursor.output_demand_technology_stocks[demand_technology]})
             subsector.linked_service_demand_drivers = self.service_precursors[subsector.id]
             subsector.linked_stock = self.stock_precursors[subsector.id]
 
@@ -590,7 +602,6 @@ class Sector(object):
         agg_shape = util.DfOper.add([self.subsectors[id].aggregate_electricity_shapes(year) for id in (self.subsectors.keys() if ids is None else ids)], expandable=False, collapsible=False)
         return util.DfOper.mult((self.feeder_allocation.xs(year, level='year'), agg_shape))
 
-#self.electricity_reconciliation
 
     def pass_electricity_reconciliation(self, electricity_reconciliation):
         """ This function threads the reconciliation factors into sectors and subsectors
@@ -609,6 +620,7 @@ class Sector(object):
             active_shape = self.shape
         for subsector in self.subsectors:
             self.subsectors[subsector].set_default_shape(active_shape, self.max_lead_hours, self.max_lag_hours)
+
 
 class Subsector(DataMapFunctions):
     def __init__(self, id, drivers, stock, service_demand, energy_demand, service_efficiency, scenario):
@@ -631,6 +643,8 @@ class Subsector(DataMapFunctions):
             self.shape = shape.shapes.data[self.shape_id]
         self.shapes_weather_year = int(np.round(np.mean(shape.shapes.active_dates_index.year)))
         self.electricity_reconciliation = None
+        self.linked_service_demand_drivers = {}
+        self.linked_stock = {}
 
     def set_default_shape(self, default_shape, default_max_lead_hours, default_max_lag_hours):
         self.default_shape = default_shape if self.shape_id is None else None
@@ -750,14 +764,15 @@ class Subsector(DataMapFunctions):
             raise ValueError("User has not input enough data in subsector %s" %self.name)
         self.add_service_links()
         self.calculate_years()
+        self.add_measures()
 
-    def add_measures(self, scenario):
+    def add_measures(self):
         """ add measures to subsector based on scenario inputs """
-        self.add_service_demand_measures(scenario)
-        self.add_energy_efficiency_measures(scenario)
-        self.add_fuel_switching_measures(scenario)
-        self.add_stock_measures(scenario)
-        self.add_flexible_load_measures(scenario)
+        self.add_service_demand_measures(self.scenario)
+        self.add_energy_efficiency_measures(self.scenario)
+        self.add_fuel_switching_measures(self.scenario)
+        self.add_stock_measures(self.scenario)
+        self.add_flexible_load_measures(self.scenario)
 
     def add_stock_measures(self, scenario):
         """ add specified stock and sales measures to model if the subsector
@@ -788,6 +803,7 @@ class Subsector(DataMapFunctions):
         """ adds linked inputs to subsector """
         self.linked_service_demand_drivers = linked_service_demand_drivers
         self.linked_stock = linked_stock
+        # TODO: why do we do this override of interpolation and extrapolation methods? (from Ryan)
         self.interpolation_method = 'linear_interpolation'
         self.extrapolation_method = 'linear_interpolation'
 
@@ -1992,7 +2008,7 @@ class Subsector(DataMapFunctions):
             projected  = True
         elif map_from == 'int_values':
             current_geography = cfg.primary_geography
-            current_data_type = self.stock.current_data_type if hasattr(self.stock, 'current_data_type')  else 'total'
+            current_data_type = self.stock.current_data_type if hasattr(self.stock, 'current_data_type') else 'total'
             projected = False
         else:
             current_geography = self.stock.geography
@@ -2081,9 +2097,7 @@ class Subsector(DataMapFunctions):
         tech_sum = util.remove_df_levels(self.stock.technology,'demand_technology')
 #        self.stock.total = self.stock.total.fillna(tech_sum)
         self.stock.total.sort(inplace=True)
-        self.stock.total[self.stock.total<tech_sum] = tech_sum    
-
-                  
+        self.stock.total[self.stock.total<tech_sum] = tech_sum
 
     def project_ee_measure_stock(self):
         """ 
@@ -2333,10 +2347,7 @@ class Subsector(DataMapFunctions):
         additional_drivers = []
         if stock_or_service == 'service':
             if len(self.linked_service_demand_drivers):
-                linked_service_demand_drivers = []
-                for driver in self.linked_service_demand_drivers.values():
-                    linked_service_demand_drivers.append(driver)
-                linked_driver = 1 - DfOper.add(linked_service_demand_drivers)
+                linked_driver = 1 - DfOper.add(self.linked_service_demand_drivers.values())
                 additional_drivers.append(linked_driver)
         if stock_dependent:
             if len(additional_drivers):

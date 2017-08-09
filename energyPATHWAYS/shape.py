@@ -416,7 +416,7 @@ force_rerun_shapes = False
 version = 2 #change this when you need to force users to rerun shapes
 shapes = Shapes()
 
-def init_shapes(pickle_shapes):
+def init_shapes(pickle_shapes=True):
     global shapes
     if os.path.isfile(os.path.join(cfg.workingdir, 'shapes.p')):
         logging.info('Loading shapes')
