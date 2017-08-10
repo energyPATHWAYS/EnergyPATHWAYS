@@ -148,8 +148,8 @@ def run(path, config, scenario_ids, load_demand=False, solve_demand=True, load_s
             send_gmail(scenario_id, subject, body)
 
         logging.info('EnergyPATHWAYS run for scenario_id {} successful!'.format(scenario_id))
-        logging.info('Scenario calculation time {} seconds'.format(time.time() - scenario_start_time))
-    logging.info('Total calculation time {} seconds'.format(time.time() - run_start_time))
+        logging.info('Scenario calculation time {}'.format(str(datetime.timedelta(seconds=time.time() - scenario_start_time)).split('.')[0]))
+    logging.info('Total calculation time {}'.format(str(datetime.timedelta(seconds=time.time() - scenario_start_time)).split('.')[0]))
     logging.shutdown()
     logging.getLogger(None).handlers = [] # necessary to totally flush the logger
 
@@ -202,14 +202,14 @@ if __name__ == "__main__":
     config = 'config.INI'
     scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
-    load_demand   = False,
+    load_demand   = True,
     solve_demand  = False,
-    load_supply   = True,
+    load_supply   = False,
     solve_supply  = False,
     export_results= False,
     load_error    = False,
     pickle_shapes = False,
     save_models   = False,
     api_run       = False,
-    clear_results = True)
+    clear_results = False)
 
