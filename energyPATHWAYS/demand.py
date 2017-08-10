@@ -52,7 +52,6 @@ class Demand(object):
         logging.info('Configuring energy system')
         # Drivers must come first
         self.add_drivers()
-        self.remap_drivers()
         # Sectors requires drivers be read in
         self.add_sectors()
         self.add_subsectors()
@@ -71,8 +70,9 @@ class Demand(object):
             logging.info('  '+sector.name+' sector')
             sector.add_subsectors()
 
-    def calculate_demand(self, solve_supply=True):
+    def calculate_demand(self):
         logging.info('Calculating demand')
+        self.remap_drivers()
         for sector in self.sectors.values():
             logging.info('  {} sector'.format(sector.name))
             sector.manage_calculations()
@@ -97,7 +97,7 @@ class Demand(object):
         """
         loop through demand drivers and remap geographically
         """
-        logging.info('Remapping drivers')
+        logging.info('  remapping drivers')
         for driver in self.drivers.values():
             # It is possible that recursion has mapped before we get to a driver in the list. If so, continue.
             if driver.mapped:
@@ -219,7 +219,7 @@ class Demand(object):
             return util.remove_df_levels(df, levels_with_na_only).sort_index()
         df_list = []
         for driver in self.drivers.values():
-            df = driver.values
+            df = driver.values.copy()
             df['unit'] = driver.unit_base
             df.set_index('unit',inplace=True,append=True)
             if hasattr(driver,'other_index_1'):
@@ -227,8 +227,7 @@ class Demand(object):
             if hasattr(driver,'other_index_2'):
                 util.replace_index_name(df,"other_index_2",driver.other_index_2)
             df_list.append(df)
-        df=util.df_list_concatenate(df_list,
-                                     keys=[x.id for x in self.drivers.values()],new_names='driver',levels_to_keep=['driver','unit']+cfg.output_demand_levels+["other_index_1","other_index_2"])
+        df=util.df_list_concatenate(df_list, keys=[x.id for x in self.drivers.values()],new_names='driver',levels_to_keep=['driver','unit']+cfg.output_demand_levels+["other_index_1","other_index_2"])
         df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
         self.outputs.d_driver = df
     
