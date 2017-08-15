@@ -209,14 +209,15 @@ if __name__ == "__main__":
     workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\CA_Test'
     os.chdir(workingdir)
     config = 'config.INI'
+#    scenario = ['CA_HE','CA_RP','CA_RP_INN']
 #    scenario = ['CA_HE','CA_HE_INN','CA_RP','CA_RP_INN','CA_REF']
     scenario = ['CA_RP_INN']
     run(workingdir, config, scenario,
-    load_demand  = True,
+    load_demand  = False,
     solve_demand  = True,
     load_supply   = False,
-    solve_supply  = True,
-    export_results= True,
+    solve_supply  = False,
+    export_results= False,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,

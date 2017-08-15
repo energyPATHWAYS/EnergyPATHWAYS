@@ -3518,11 +3518,14 @@ class SupplyNode(Node,StockItem):
         instead of physical decay
         """
         # stock values in any year equals vintage sales multiplied by book life
-        values_financial = DfOper.mult([self.stock.sales, self.book_life_matrix[year].to_frame()])
-        # initial stock values in any year equals stock.values multiplied by the initial tech_df
-        initial_values_financial = DfOper.mult([self.stock.values[year].to_frame(), self.initial_book_life_matrix[year].to_frame()])
+        start_year = min(self.years)
+        values_financial = util.DfOper.mult([self.stock.sales, self.book_life_matrix[year].to_frame()])
+        indexer = util.level_specific_indexer(self.stock.values,'vintage',start_year-1)
+        starting_financial_stock = self.stock.values.loc[indexer,start_year].to_frame()
+        starting_financial_stock.columns = [year]
+        initial_values_financial = util.DfOper.mult([starting_financial_stock, self.initial_book_life_matrix[year].to_frame()])
         # sum normal and initial stock values       
-        self.stock.values_financial[year] = DfOper.add([values_financial, initial_values_financial[year].to_frame()],non_expandable_levels=None)
+        self.stock.values_financial[year] = util.DfOper.add([values_financial, initial_values_financial[year].to_frame()],non_expandable_levels=None)
         self.stock.values_financial_energy[year] = DfOper.mult([self.stock.values_financial[year].to_frame(), self.capacity_factor.values[year].to_frame()])* util.unit_conversion(unit_from_den=cfg.cfgfile.get('case','time_step'), unit_to_den='year')[0]
     
     def calculate_active_coefficients(self,year, loop):
@@ -3719,14 +3722,18 @@ class SupplyNode(Node,StockItem):
         "returns a revenue requirement for the component of costs that is correlated with throughput"
         if cost.data is True:
             #determine increased tariffs due to growth rate (financial/physical stock rati-)
-            first_yr_financial_stock = self.stock.values_financial.groupby(level= self.rollover_group_names).sum()[start_year].to_frame()
-            first_yr_stock = self.stock.values.groupby(level= self.rollover_group_names).sum()[start_year].to_frame() 
-            financial_stock = self.stock.values_financial.groupby(level= self.rollover_group_names).sum()[year].to_frame()
-            stock = self.stock.values.groupby(level= self.rollover_group_names).sum()[year].to_frame()            
-            first_yr_energy = self.stock.values_energy.groupby(level=self.rollover_group_names).sum()[start_year].to_frame()             
+            limited_names = self.rollover_group_names if len(self.rollover_group_names)>1 else self.rollover_group_names[0]
+            first_yr_financial_stock = self.stock.values_financial.groupby(level=limited_names).sum()[start_year].to_frame()
+            first_yr_stock = self.stock.values.groupby(level= limited_names).sum()[start_year].to_frame() 
+            financial_stock = self.stock.values_financial.groupby(level= limited_names).sum()[year].to_frame()
+            stock = self.stock.values.groupby(level= limited_names).sum()[year].to_frame()            
+            first_yr_energy = self.stock.values_energy.groupby(level=limited_names).sum()[start_year].to_frame()             
             ini_growth_ratio = util.DfOper.divi([first_yr_stock,first_yr_financial_stock]).replace([np.inf,-np.inf],0)
             growth_ratio = util.DfOper.divi([stock, financial_stock]).replace([np.inf,-np.inf],0)
             growth_mult = util.DfOper.divi([ini_growth_ratio,growth_ratio]).replace([np.nan,-np.inf,np.inf],1)
+            stock_energy = self.stock.values_energy.groupby(level= limited_names).sum()[year].to_frame()  
+            flow = self.active_supply.groupby(level= limited_names).sum()[year].to_frame()
+            cap_factor_mult = util.DfOper.divi([stock_energy,flow]).replace([np.nan,-np.inf,np.inf],1)
             if cost.supply_cost_type == 'tariff':
                 tariff = cost.values_level_no_vintage[year].to_frame()           
                 if cost.capacity is True:
@@ -3736,9 +3743,15 @@ class SupplyNode(Node,StockItem):
                     else:
                         return rev_req* cost.throughput_correlation  
                 else:
-                    cap_factor_mult = util.DfOper.divi([self.capacity_factor.values[start_year].to_frame(),self.capacity_factor.values[year].to_frame()]).replace([np.nan,-np.inf,np.inf],1)
+                    stock_energy = self.stock.values_energy.groupby(level= limited_names).sum()[year].to_frame()
+                    flow = self.active_supply.groupby(level= limited_names).sum()[year].to_frame()
+                    cap_factor_mult = util.DfOper.mult([util.DfOper.divi([stock_energy,flow]).replace([np.nan,-np.inf,np.inf],1), util.DfOper.divi([self.capacity_factor.values[start_year].to_frame(),self.capacity_factor.values[year].to_frame()]).replace([np.nan,-np.inf,np.inf],1)])
                     rev_req = util.DfOper.mult([tariff,self.active_supply],expandable=(False,False))[year].to_frame()   
-                    rev_req = util.DfOper.mult([rev_req,financial_stock.groupby(level=cfg.primary_geography).transform(lambda x: x/x.sum())]).replace([np.inf,-np.inf],0)
+                    if len(rev_req.index.names)==1:
+                        rev_names = rev_req.index.names[0]
+                    else:
+                        rev_names = rev_req.index.names
+                    rev_req = util.DfOper.mult([rev_req,financial_stock.groupby(level=rev_names).transform(lambda x: x/x.sum())]).replace([np.inf,-np.inf],0)
                     if cost.is_capital_cost:
                         return util.DfOper.mult([rev_req,cap_factor_mult,growth_mult]) * cost.throughput_correlation  
                     else:
@@ -3748,13 +3761,16 @@ class SupplyNode(Node,StockItem):
                     tariff = util.DfOper.divi([rev_req,first_yr_energy]).replace([np.nan,-np.inf,np.inf],1)
                     tariff.columns = [year]                         
                     rev_req = util.DfOper.mult([tariff,self.active_supply],expandable=(False,False))[year].to_frame()   
+                    stock_energy = self.stock.values_energy.groupby(level= limited_names).sum()[year].to_frame()
+                    flow = self.active_supply.groupby(level= limited_names).sum()[year].to_frame()
+                    cap_factor_mult = util.DfOper.divi([stock_energy,flow]).replace([np.nan,-np.inf,np.inf],1)
                     return util.DfOper.mult([rev_req,cap_factor_mult,growth_mult]) * cost.throughput_correlation 
             else:
                 raise ValueError("investment cost types not implemented")
             
             
     def calculate_static_supply_costs(self,cost,year,start_year):
-       "returns a revenue requirement for the component of costs that is correlated with throughput"
+       "returns a revenue requirement for the component of costs that is not correlated with throughput"
        first_yr_stock = self.stock.values.groupby(level= self.rollover_group_names).sum()[start_year].to_frame() 
        first_yr_energy = self.stock.values_energy.groupby(level=self.rollover_group_names).sum()[start_year].to_frame()           
        if cost.supply_cost_type == 'tariff':

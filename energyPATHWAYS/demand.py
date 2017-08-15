@@ -2892,12 +2892,12 @@ class Subsector(DataMapFunctions):
         # TODO check that these work!!
         fuel_switch_sales_energy = util.remove_df_levels(fuel_switch_sales, 'demand_technology')
         fuel_switch_retirements_energy = util.remove_df_levels(fuel_switch_retirements, 'demand_technology')
-        new_energy_sales = DfOper.subt([fuel_switch_sales_energy, fuel_switch_retirements_energy])
+        new_energy_sales = util.DfOper.subt([fuel_switch_sales_energy, fuel_switch_retirements_energy])
         new_energy_sales[new_energy_sales<0]=0
         new_energy_sales_share_by_demand_technology = fuel_switch_sales.groupby(level=util.ix_excl(fuel_switch_sales, 'demand_technology')).transform(lambda x: x / x.sum())
 #        new_energy_sales_share_by_demand_technology[new_energy_sales_share_by_demand_technology < 0] = 0
-        new_energy_sales_by_demand_technology = DfOper.mult([new_energy_sales_share_by_demand_technology, new_energy_sales])
-        fuel_switch_sales_share = DfOper.divi([new_energy_sales_by_demand_technology, fuel_switch_sales]).replace(np.nan,0)
+        new_energy_sales_by_demand_technology = util.DfOper.mult([new_energy_sales_share_by_demand_technology, new_energy_sales])
+        fuel_switch_sales_share = util.DfOper.divi([new_energy_sales_by_demand_technology, fuel_switch_sales]).replace(np.nan,0)
 #        .groupby(level=util.ix_excl(fuel_switch_sales, 'demand_technology')).sum()
         fuel_switch_sales_share = util.remove_df_levels(fuel_switch_sales_share, 'final_energy')
         self.stock.sales_fuel_switch = DfOper.mult([self.stock.sales, fuel_switch_sales_share])       
@@ -3096,6 +3096,7 @@ class Subsector(DataMapFunctions):
         self.calculate_parasitic()
         self.service_demand.values = self.service_demand.values.unstack('year')
         self.service_demand.values.columns = self.service_demand.values.columns.droplevel()
+        pdb.set_trace()
         all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'],self.service_demand.modifier, self.service_demand.values]) 
         self.energy_forecast = util.DfOper.add([all_energy, self.parasitic_energy])
         self.energy_forecast = pd.DataFrame(self.energy_forecast.stack())
