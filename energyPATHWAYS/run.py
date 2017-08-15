@@ -149,7 +149,7 @@ def run(path, config, scenario_ids, load_demand=False, solve_demand=True, load_s
 
         logging.info('EnergyPATHWAYS run for scenario_id {} successful!'.format(scenario_id))
         logging.info('Scenario calculation time {}'.format(str(datetime.timedelta(seconds=time.time() - scenario_start_time)).split('.')[0]))
-    logging.info('Total calculation time {}'.format(str(datetime.timedelta(seconds=time.time() - scenario_start_time)).split('.')[0]))
+    logging.info('Total calculation time {}'.format(str(datetime.timedelta(seconds=time.time() - run_start_time)).split('.')[0]))
     logging.shutdown()
     logging.getLogger(None).handlers = [] # necessary to totally flush the logger
 
@@ -202,8 +202,8 @@ if __name__ == "__main__":
     config = 'config.INI'
     scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
-    load_demand   = True,
-    solve_demand  = False,
+    load_demand   = False,
+    solve_demand  = True,
     load_supply   = False,
     solve_supply  = False,
     export_results= False,
