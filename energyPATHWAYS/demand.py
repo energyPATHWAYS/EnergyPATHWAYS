@@ -2651,7 +2651,7 @@ class Subsector(DataMapFunctions):
         self.set_up_empty_stock_rollover_output_dataframes()
         rollover_groups = self.stock.total.groupby(level=self.stock.rollover_group_names).groups
         if self.stock.is_service_demand_dependent and self.stock.demand_stock_unit_type == 'equipment':        
-            self.tech_sd_modifier()        
+            self.tech_sd_modifier_calc()      
         for elements in rollover_groups.keys():
             elements = util.ensure_tuple(elements)
             #returns sales share and a flag as to whether the sales share can be used to parameterize initial stock. 
@@ -3129,7 +3129,6 @@ class Subsector(DataMapFunctions):
         self.calculate_parasitic()
         self.service_demand.values = self.service_demand.values.unstack('year')
         self.service_demand.values.columns = self.service_demand.values.columns.droplevel()
-        pdb.set_trace()
         all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'],self.service_demand.modifier, self.service_demand.values])
         self.energy_forecast = util.DfOper.add([all_energy, self.parasitic_energy])
         self.energy_forecast = pd.DataFrame(self.energy_forecast.stack())

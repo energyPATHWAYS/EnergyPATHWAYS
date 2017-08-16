@@ -206,10 +206,10 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\US'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\CA'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['aeo_2017_reference']
+    scenario = ['CA_RP_INN']
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
