@@ -15,6 +15,7 @@ import time
 import inspect
 import csv
 from collections import defaultdict, OrderedDict
+import cPickle as pickle
 
 class Output(object):
     def __init__(self):
@@ -67,6 +68,14 @@ class Output(object):
         else:
             df.columns = [x.upper() if isinstance(x, basestring) else x for x in df.columns]        
         return df
+
+    @staticmethod
+    def pickle(obj, file_name, path):
+        if not os.path.exists(path):
+            os.mkdir(path)
+
+        with open(os.path.join(path, file_name), 'wb') as outfile:
+            pickle.dump(obj, outfile, pickle.HIGHEST_PROTOCOL)
 
     @staticmethod
     def write(df, file_name, path):

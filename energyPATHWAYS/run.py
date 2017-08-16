@@ -148,8 +148,8 @@ def run(path, config, scenario_ids, load_demand=False, solve_demand=True, load_s
             send_gmail(scenario_id, subject, body)
 
         logging.info('EnergyPATHWAYS run for scenario_id {} successful!'.format(scenario_id))
-        logging.info('Scenario calculation time {} seconds'.format(time.time() - scenario_start_time))
-    logging.info('Total calculation time {} seconds'.format(time.time() - run_start_time))
+        logging.info('Scenario calculation time {}'.format(str(datetime.timedelta(seconds=time.time() - scenario_start_time)).split('.')[0]))
+    logging.info('Total calculation time {}'.format(str(datetime.timedelta(seconds=time.time() - run_start_time)).split('.')[0]))
     logging.shutdown()
     logging.getLogger(None).handlers = [] # necessary to totally flush the logger
 
@@ -161,7 +161,7 @@ def load_model(load_demand, load_supply, load_error, scenario_id, api_run):
         with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.full_model_append_name), 'rb') as infile:
             model = pickle.load(infile)
         logging.info('Loaded complete EnergyPATHWAYS model from pickle')
-    elif load_demand:        
+    elif load_demand:
         demand_file = os.path.join(cfg.workingdir, str(scenario_id) + cfg.demand_model_append_name)
         supply_file = os.path.join(cfg.workingdir, str(scenario_id) + cfg.full_model_append_name)
         if os.path.isfile(demand_file):
@@ -198,7 +198,7 @@ def send_gmail(scenario_id, subject, body):
     msg.attach(MIMEText(body, 'plain'))
 
     server = smtplib.SMTP('smtp.gmail.com', 587)
-    server.starttls() 
+    server.starttls()
     server.login(fromaddr, cfg.cfgfile.get('email', 'email_password'))
     text = msg.as_string()
     server.sendmail(fromaddr, toaddr, text)
@@ -206,22 +206,19 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\CA_Test'
+    workingdir = r'C:\github\EP_runs\US'
     os.chdir(workingdir)
     config = 'config.INI'
-#    scenario = ['CA_HE','CA_RP','CA_RP_INN']
-#    scenario = ['CA_HE','CA_HE_INN','CA_RP','CA_RP_INN','CA_REF']
-    scenario = ['CA_RP_INN']
+    scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
-    load_demand  = False,
+    load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
-    solve_supply  = False,
-    export_results= False,
+    solve_supply  = True,
+    export_results= True,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,
     clear_results = False)
-    
 

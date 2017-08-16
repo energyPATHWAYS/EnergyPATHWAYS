@@ -202,7 +202,7 @@ class Supply(object):
 
         self.io_dict = util.freeze_recursivedict(self.io_dict)
 
-    def add_nodes(self, scenario):
+    def add_nodes(self):
         """Adds node instances for all active supply nodes"""
         logging.info('Adding supply nodes')
         supply_type_dict = dict(util.sql_read_table('SupplyTypes', column_names=['id', 'name']))
@@ -212,7 +212,7 @@ class Supply(object):
             if is_active:
                 self.all_nodes.append(node_id)
                 logging.info('    {} node {}'.format(supply_type_dict[supply_type_id], name))
-                self.add_node(node_id, supply_type_dict[supply_type_id], scenario)
+                self.add_node(node_id, supply_type_dict[supply_type_id], self.scenario)
         
         # this ideally should be moved to the init statements for each of the nodes
         for node in self.nodes.values():
@@ -262,10 +262,10 @@ class Supply(object):
         else:
             self.storage_nodes.append(id)
 
-    def add_measures(self, scenario):
+    def add_measures(self):
         """ Adds measures to supply nodes based on scenario inputs"""
         logging.info('Adding supply measures')
-        self.scenario = scenario
+        scenario = self.scenario
         for node in self.nodes.values():
             #all nodes have export measures
             node.add_export_measures(scenario)
@@ -2413,7 +2413,7 @@ class Node(DataMapFunctions):
         self.active_supply= None
         self.reconciled = False
         #all nodes have emissions subclass
-        self.emissions = SupplyEmissions(self.id)      
+        self.emissions = SupplyEmissions(self.id, self.scenario)
         self.shape = self.determine_shape()
         self.workingdir = cfg.workingdir
         self.cfgfile_name = cfg.cfgfile_name
@@ -5453,11 +5453,12 @@ class PrimaryCost(Abstract):
 
 
 class SupplyEmissions(Abstract):
-    def __init__(self, id, **kwargs):
+    def __init__(self, id, scenario, **kwargs):
         self.id = id
         self.input_type = 'intensity'
         self.sql_id_table = 'SupplyEmissions'
         self.sql_data_table = 'SupplyEmissionsData'
+        self.scenario = scenario
         Abstract.__init__(self, self.id,primary_key='supply_node_id')
 
     def calculate(self, conversion, resource_unit):

@@ -68,13 +68,13 @@ id,name,geography_id
 67,midwest,5
 68,south,5
 69,west,5
-71,east,6
-72,gulf coast,6
-73,mid-continent,6
-74,southwest,6
-75,rocky mountains,6
-76,west coast,6
-77,alaska,6
+71,east (o&g producing region),6
+72,gulf coast (o&g producing region),6
+73,mid-continent (o&g producing region),6
+74,southwest (o&g producing region),6
+75,rocky mountains (o&g producing region),6
+76,west coast (o&g producing region),6
+77,alaska (o&g producing region),6
 78,PADD 3 (Gulf Coast),7
 79,PADD 5 (West Coast),7
 80,PADD 4 (Rocky Mountain),7
@@ -143,34 +143,36 @@ id,name,geography_id
 143,1A,13
 144,6A,13
 145,7A,13
-2004,AKGD,12
-2005,AKMS,12
-2006,AZ-NM-NV,12
-2007,BASN,12
-2008,CALN,12
-2009,CALS,12
-2010,ERCT,12
-2011,FRCC,12
-2012,HIMS,12
-2013,HIOA,12
-2014,MROE,12
-2015,MROW,12
-2016,NEWE,12
-2017,NWPP,12
-2018,NYCW,12
-2019,NYLI,12
-2020,NYUP,12
-2021,RFCE,12
-2022,RFCM,12
-2023,RFCW,12
-2024,RMPA,12
-2025,SPNO,12
-2026,SPSO,12
-2027,SRMV,12
-2028,SRMW,12
-2029,SRSO,12
-2030,SRTV,12
-2031,SRVC,12
+146,Portland General Electric,14
+147,unspecified utility,14
+2004,AKGD (egrid with wecc detail),12
+2005,AKMS (egrid with wecc detail),12
+2006,AZ-NM-NV (egrid with wecc detail),12
+2007,BASN (egrid with wecc detail),12
+2008,CALN (egrid with wecc detail),12
+2009,CALS (egrid with wecc detail),12
+2010,ERCT (egrid with wecc detail),12
+2011,FRCC (egrid with wecc detail),12
+2012,HIMS (egrid with wecc detail),12
+2013,HIOA (egrid with wecc detail),12
+2014,MROE (egrid with wecc detail),12
+2015,MROW (egrid with wecc detail),12
+2016,NEWE (egrid with wecc detail),12
+2017,NWPP (egrid with wecc detail),12
+2018,NYCW (egrid with wecc detail),12
+2019,NYLI (egrid with wecc detail),12
+2020,NYUP (egrid with wecc detail),12
+2021,RFCE (egrid with wecc detail),12
+2022,RFCM (egrid with wecc detail),12
+2023,RFCW (egrid with wecc detail),12
+2024,RMPA (egrid with wecc detail),12
+2025,SPNO (egrid with wecc detail),12
+2026,SPSO (egrid with wecc detail),12
+2027,SRMV (egrid with wecc detail),12
+2028,SRMW (egrid with wecc detail),12
+2029,SRSO (egrid with wecc detail),12
+2030,SRTV (egrid with wecc detail),12
+2031,SRVC (egrid with wecc detail),12
 2032,"autauga, alabama",11
 2033,"baldwin, alabama",11
 2034,"barbour, alabama",11

@@ -80,3 +80,8 @@ id,name
 128,Military Fuel Sales - Diesel Fule
 129,Steel Production Facility GHGs
 130,Domestic Shipping Ton-Miles Allocation
+131,pop_x_transit_share
+132,CDD_res_sq_ft
+133,HDD_res_sq_ft
+134,CDD_com_sq_ft
+135,HDD_com_sq_ft

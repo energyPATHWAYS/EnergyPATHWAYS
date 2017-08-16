@@ -1,4 +1,4 @@
-F__author__ = 'Ben Haley & Ryan Jones'
+__author__ = 'Ben Haley & Ryan Jones'
 
 import os
 from demand import Demand
@@ -30,7 +30,7 @@ class PathwaysModel(object):
         self.scenario = Scenario(self.scenario_id)
         self.api_run = api_run
         self.outputs = Output()
-        self.demand = Demand()
+        self.demand = Demand(self.scenario)
         self.supply = None
         self.demand_solved, self.supply_solved = False, False
 
@@ -65,30 +65,25 @@ class PathwaysModel(object):
         except:
             # pickle the model in the event that it crashes
             if save_models:
-                with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.model_error_append_name), 'wb') as outfile:
-                    pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
+                Output.pickle(self, file_name=str(scenario_id) + cfg.model_error_append_name, path=cfg.workingdir)
             raise
 
     def calculate_demand(self, save_models):
-        logging.info('Configuring energy system demand')
-        self.demand.add_subsectors(self.scenario)
-        self.demand.add_measures(self.scenario)
-        self.demand.calculate_demand()
+        self.demand.setup_and_solve()
         self.demand_solved = True
         if cfg.output_payback == 'true':
             if self.demand.d_all_energy_demand_payback is not None:
                 self.calculate_d_payback()
                 self.calculate_d_payback_energy()
         if save_models:
-            with open(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name), 'wb') as outfile:
-                pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
+            Output.pickle(self, file_name=str(self.scenario_id) + cfg.demand_model_append_name, path=cfg.workingdir)
 
     def calculate_supply(self, save_models):
         if not self.demand_solved:
             raise ValueError('demand must be solved first before supply')
         logging.info('Configuring energy system supply')
-        self.supply.add_nodes(self.scenario)
-        self.supply.add_measures(self.scenario)
+        self.supply.add_nodes()
+        self.supply.add_measures()
         self.supply.initial_calculate()
         self.supply.calculated_years = []
         self.supply.calculate_loop(self.supply.years, self.supply.calculated_years)
@@ -97,8 +92,7 @@ class PathwaysModel(object):
         self.supply.calculate_capacity_utilization()
         self.supply_solved = True
         if save_models:
-            with open(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.full_model_append_name), 'wb') as outfile:
-                pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
+            Output.pickle(self, file_name=str(self.scenario_id) + cfg.full_model_append_name, path=cfg.workingdir)
             # we don't need the demand side object any more, so we can remove it to save drive space
             if os.path.isfile(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name)):
                 os.remove(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name))
@@ -236,13 +230,13 @@ class PathwaysModel(object):
         keys = ["DOMESTIC","SUPPLY"]
         names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
         for key,name in zip(keys,names):
-           self.embodied_energy_costs_df = pd.concat([self.embodied_energy_costs_df],keys=[key],names=[name])       
+           self.embodied_energy_costs_df = pd.concat([self.embodied_energy_costs_df],keys=[key],names=[name])
         #calculte and format direct demand costs
         self.demand_costs_df = self.demand.outputs.return_cleaned_output('d_levelized_costs')
         if self.demand_costs_df is not None:
             levels_to_keep = [x.upper() for x in cfg.output_combined_levels]
             levels_to_keep = [x for x in levels_to_keep if x in self.demand_costs_df.index.names]
-            self.demand_costs_df= self.demand_costs_df.groupby(level=levels_to_keep).sum()
+            self.demand_costs_df = self.demand_costs_df.groupby(level=levels_to_keep).sum()
             keys = ["DOMESTIC","DEMAND"]
             names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]
             for key,name in zip(keys,names):
