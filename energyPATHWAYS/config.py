@@ -35,6 +35,7 @@ demand_model_append_name = '_demand_model.p'
 model_error_append_name = '_model_error.p'
 
 # common data inputs
+index_levels = None
 dnmtr_col_names = ['driver_denominator_1_id', 'driver_denominator_2_id']
 drivr_col_names = ['driver_1_id', 'driver_2_id']
 tech_classes = ['capital_cost_new', 'capital_cost_replacement', 'installation_cost_new', 'installation_cost_replacement', 'fixed_om', 'variable_om', 'efficiency']
@@ -109,7 +110,7 @@ unit_defs = ['US_gge = 120,500 * BTU',
             'bee = 3,559,000 * Btu']
 
 def initialize_config(_path, _cfgfile_name, _log_name):
-    global weibul_coeff_of_var, available_cpus, workingdir, cfgfile_name, log_name, log_initialized
+    global weibul_coeff_of_var, available_cpus, workingdir, cfgfile_name, log_name, log_initialized, index_levels
     workingdir = os.getcwd() if _path is None else _path
     cfgfile_name = _cfgfile_name 
     init_cfgfile(os.path.join(workingdir, cfgfile_name))
@@ -122,6 +123,8 @@ def initialize_config(_path, _cfgfile_name, _log_name):
     init_geo()
     init_date_lookup()
     init_output_parameters()
+    # used when reading in raw_values from data tables
+    index_levels = util.sql_read_table('IndexLevels', column_names=['index_level', 'data_column_name'])
 
     available_cpus = int(cfgfile.get('case','num_cores'))
     weibul_coeff_of_var = util.create_weibul_coefficient_of_variation()

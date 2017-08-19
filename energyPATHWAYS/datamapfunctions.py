@@ -27,42 +27,28 @@ class DataMapFunctions:
         return this_method.memoized_result
 
     def __init__(self, data_id_key='id'):
-        # ToDo remove from being an ordered dict, this shouldn't be necessary
         self.data_id_key = data_id_key
         self.index_levels = OrderedDict()
         self.column_names = OrderedDict()
-        self.read_index_levels()
-        # creates list of dataframe headers from relational table lookup with database headers
-        #  i.e. gau = geography ; self.geography = 'state'.
-#        self.df_index_names = [level if hasattr(self, level) else level for level in self.index_levels]
-        self.df_index_names = [util.id_to_name(level, getattr(self, level)) if hasattr(self, level) else level for level
-                               in self.index_levels]
+        self.df_index_names = []
 
-    def read_index_levels(self):
+    def inspect_index_levels(self, headers, read_data):
         """
         creates a dictionary to store level headings (for database lookup) and
         level elements. Stored as attr 'index_level'
         """
-        data_table_columns = [x for x in util.sql_read_headers(self.sql_data_table) if x not in self.data_id_key]
-        for id, index_level, column_name in util.sql_read_table('IndexLevels'):
-            if column_name not in data_table_columns:
-                continue
-            elements = util.sql_read_table(self.sql_data_table, column_names=column_name,
-                                           return_iterable=True, return_unique=True,
-                                           **dict([(self.data_id_key, self.id)]))
-            if len(elements):
-                self.index_levels[index_level] = elements
-                self.column_names[index_level] = column_name
-
+        # if read_data is empty, there is nothing to do here
+        if read_data:
+            elements = [sorted(set(e)) for e in zip(*read_data)]
+            # OrderedDict in necessary the way this currently works
+            self.column_names = OrderedDict([(index_level, column_name) for index_level, column_name in cfg.index_levels if (column_name in headers) and (column_name not in self.data_id_key) and (elements[headers.index(column_name)] != [None])])
+            self.index_levels = OrderedDict([(index_level, elements[headers.index(column_name)]) for index_level, column_name in cfg.index_levels if column_name in self.column_names.values()])
+            self.df_index_names = [util.id_to_name(level, getattr(self, level)) if hasattr(self, level) else level for level in self.index_levels]
 
     def read_timeseries_data(self, data_column_names='value', **filters):  # This function needs to be sped up
         """reads timeseries data to dataframe from database. Stored in self.raw_values"""
         # rowmap is used in ordering the data when read from the sql table
         headers = util.sql_read_headers(self.sql_data_table)
-        rowmap = [headers.index(self.column_names[level]) for level in self.index_levels]
-        data_col_ind  = []
-        for data_col in util.put_in_list(data_column_names):
-            data_col_ind.append(headers.index(data_col))
         filters[self.data_id_key] = self.id
 
         # Check for a sensitivity specification for this table and id. If there is no relevant sensitivity specified
@@ -76,14 +62,18 @@ class DataMapFunctions:
 
         # read each line of the data_table matching an id and assign the value to self.raw_values
         read_data = util.sql_read_table(self.sql_data_table, return_iterable=True, **filters)
-
+        self.inspect_index_levels(headers, read_data)
         self._validate_other_indexes(headers, read_data)
 
-        data = []
+        rowmap = [headers.index(self.column_names[level]) for level in self.index_levels]
+        data_col_ind = [headers.index(data_col) for data_col in util.put_in_list(data_column_names)]
+
+        unit_prefix = self.unit_prefix if hasattr(self, 'unit_prefix') else 1
         if read_data:
+            data = []
             for row in read_data:
                 try:
-                    data.append([row[i] for i in rowmap] + [row[i] * (self.unit_prefix if hasattr(self, 'unit_prefix') else 1) for i in data_col_ind])
+                    data.append([row[i] for i in rowmap] + [row[i] * unit_prefix for i in data_col_ind])
                 except:
                     logging.warning('error reading table: {}, row: {}'.format(self.sql_data_table, row))
                     raise

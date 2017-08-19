@@ -49,14 +49,12 @@ class Shapes(object):
 
     def create_empty_shapes(self):
         """ This should be called first as it creates a record of all of the shapes that are in the database."""
-        logging.info(' reading data for:')
         for id in util.sql_read_table(self.sql_id_table, column_names='id', return_unique=True, return_iterable=True):
-            logging.info('    shape id: {}'.format(id))
             self.data[id] = Shape(id)
             self.active_shape_ids.append(id)
 
     def initiate_active_shapes(self):
-        logging.info(' initial processing for:')
+        logging.info(' reading data for:')
         for id in self.active_shape_ids:
             shape = self.data[id]
             logging.info('    shape: ' + shape.name)
@@ -208,6 +206,8 @@ class Shape(dmf.DataMapFunctions):
         self.sum_over_time_zone()
         self.normalize()
         self.add_timeshift_type()
+        # raw values can be very large, so we delete it in this one case
+        del self.raw_values
 
     def add_timeshift_type(self):
         """Later these shapes will need a level called timeshift type, and it is faster to add it now if it doesn't already have it"""
