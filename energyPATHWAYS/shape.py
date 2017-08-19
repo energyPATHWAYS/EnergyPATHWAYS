@@ -45,6 +45,7 @@ class Shapes(object):
         self.active_shape_ids = []
         self.start_date = None
         self.end_date = None
+        self._geography_check = None
         self._version = version
 
     def create_empty_shapes(self):
@@ -100,7 +101,7 @@ class Shapes(object):
         self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.timezone_names[dispatch_outputs_timezone_id])
         self.active_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H', tz=self.dispatch_outputs_timezone)
         self.num_active_years = num_active_years(self.active_dates_index)
-        self.geography_check = (cfg.primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
+        self._geography_check = (cfg.primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
     
     @staticmethod
     def create_time_slice_elements(active_dates_index):
@@ -266,7 +267,6 @@ class Shape(dmf.DataMapFunctions):
 
         if inplace:
             setattr(self, attr, mapped_data.sort())
-            self.geography_check = (cfg.primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
         else:
             return mapped_data.sort()
 
@@ -420,13 +420,13 @@ shapes = Shapes()
 
 def init_shapes(pickle_shapes=True):
     global shapes
-    if os.path.isfile(os.path.join(cfg.workingdir, 'shapes.p')):
+    if os.path.isfile(os.path.join(cfg.workingdir, '{}_shapes.p'.format(cfg.primary_geography))):
         logging.info('Loading shapes')
-        with open(os.path.join(cfg.workingdir, 'shapes.p'), 'rb') as infile:
+        with open(os.path.join(cfg.workingdir, '{}_shapes.p'.format(cfg.primary_geography)), 'rb') as infile:
             shapes = pickle.load(infile)
     
     geography_check = (cfg.primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
-    if (not hasattr(shapes, 'geography_check')) or (not hasattr(shapes, '_version')) or (shapes._version != version) or (shapes.geography_check != geography_check) or force_rerun_shapes:
+    if (shapes._version != version) or (shapes._geography_check != geography_check) or force_rerun_shapes:
         logging.info('Processing shapes')
         shapes.__init__()
         shapes.create_empty_shapes()
@@ -435,5 +435,5 @@ def init_shapes(pickle_shapes=True):
         
         if pickle_shapes:
             logging.info('Pickling shapes')
-            with open(os.path.join(cfg.workingdir, 'shapes.p'), 'wb') as outfile:
+            with open(os.path.join(cfg.workingdir, '{}_shapes.p'.format(cfg.primary_geography)), 'wb') as outfile:
                 pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)
