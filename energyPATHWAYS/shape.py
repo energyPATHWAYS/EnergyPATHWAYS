@@ -49,12 +49,14 @@ class Shapes(object):
 
     def create_empty_shapes(self):
         """ This should be called first as it creates a record of all of the shapes that are in the database."""
+        logging.info(' reading data for:')
         for id in util.sql_read_table(self.sql_id_table, column_names='id', return_unique=True, return_iterable=True):
+            logging.info('    shape id: {}'.format(id))
             self.data[id] = Shape(id)
             self.active_shape_ids.append(id)
 
     def initiate_active_shapes(self):
-        logging.info(' reading data for:')
+        logging.info(' initial processing for:')
         for id in self.active_shape_ids:
             shape = self.data[id]
             logging.info('    shape: ' + shape.name)
@@ -413,7 +415,7 @@ class Shape(dmf.DataMapFunctions):
 
 # electricity shapes
 force_rerun_shapes = False
-version = 2 #change this when you need to force users to rerun shapes
+version = 3 #change this when you need to force users to rerun shapes
 shapes = Shapes()
 
 def init_shapes(pickle_shapes=True):

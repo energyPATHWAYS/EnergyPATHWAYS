@@ -145,6 +145,120 @@ id,name,geography_id
 145,7A,13
 146,Portland General Electric,14
 147,unspecified utility,14
+148,Oregon outside of PGE,14
+1891,Alabama 2A,15
+1892,Alabama 3A,15
+1893,Alaska 7B,15
+1894,Alaska 8B,15
+1895,Arizona 2B,15
+1896,Arizona 3B,15
+1897,Arizona 4B,15
+1898,Arizona 5B,15
+1899,Arkansas 3A,15
+1900,Arkansas 4A,15
+1901,California 2B,15
+1902,California 3B,15
+1903,California 3C,15
+1904,California 4B,15
+1905,California 4C,15
+1906,California 5B,15
+1907,California 6B,15
+1908,Colorado 4B,15
+1909,Colorado 5B,15
+1910,Colorado 6B,15
+1911,Colorado 7B,15
+1912,Connecticut 5A,15
+1913,Delaware 4A,15
+1914,District of Columbia 4A,15
+1915,Florida 1A,15
+1916,Florida 2A,15
+1917,Georgia 2A,15
+1918,Georgia 3A,15
+1919,Georgia 4A,15
+1920,Hawaii 1A,15
+1921,Idaho 5B,15
+1922,Idaho 6B,15
+1923,Illinois 4A,15
+1924,Illinois 5A,15
+1925,Indiana 4A,15
+1926,Indiana 5A,15
+1927,Iowa 5A,15
+1928,Iowa 6A,15
+1929,Kansas 4A,15
+1930,Kansas 5A,15
+1931,Kentucky 4A,15
+1932,Louisiana 2A,15
+1933,Louisiana 3A,15
+1934,Maine 6A,15
+1935,Maine 7A,15
+1936,Maryland 4A,15
+1937,Maryland 5A,15
+1938,Massachusetts 5A,15
+1939,Michigan 5A,15
+1940,Michigan 6A,15
+1941,Michigan 7A,15
+1942,Minnesota 6A,15
+1943,Minnesota 7A,15
+1944,Mississippi 2A,15
+1945,Mississippi 3A,15
+1946,Missouri 4A,15
+1947,Missouri 5A,15
+1948,Montana 6B,15
+1949,Nebraska 5A,15
+1950,Nevada 3B,15
+1951,Nevada 5B,15
+1952,New Hampshire 5A,15
+1953,New Hampshire 6A,15
+1954,New Jersey 4A,15
+1955,New Jersey 5A,15
+1956,New Mexico 3B,15
+1957,New Mexico 4B,15
+1958,New Mexico 5B,15
+1959,New York 4A,15
+1960,New York 5A,15
+1961,New York 6A,15
+1962,North Carolina 3A,15
+1963,North Carolina 4A,15
+1964,North Carolina 5A,15
+1965,North Dakota 6A,15
+1966,North Dakota 7A,15
+1967,Ohio 4A,15
+1968,Ohio 5A,15
+1969,Oklahoma 3A,15
+1970,Oklahoma 4B,15
+1971,Oregon 4C,15
+1972,Oregon 5B,15
+1973,Pennsylvania 4A,15
+1974,Pennsylvania 5A,15
+1975,Pennsylvania 6A,15
+1976,Puerto Rico 1A,15
+1977,Rhode Island 5A,15
+1978,South Carolina 3A,15
+1979,South Dakota 5A,15
+1980,South Dakota 6A,15
+1981,Tennessee 3A,15
+1982,Tennessee 4A,15
+1983,Texas 2A,15
+1984,Texas 2B,15
+1985,Texas 3A,15
+1986,Texas 3B,15
+1987,Texas 4A,15
+1988,Texas 4B,15
+1989,Utah 3B,15
+1990,Utah 5B,15
+1991,Utah 6B,15
+1992,Vermont 6A,15
+1993,Virginia 4A,15
+1994,Washington 4C,15
+1995,Washington 5B,15
+1996,Washington 6B,15
+1997,West Virginia 4A,15
+1998,West Virginia 5A,15
+1999,Wisconsin 6A,15
+2000,Wisconsin 7A,15
+2001,Wyoming 5B,15
+2002,Wyoming 6B,15
+2003,Wyoming 7A,15
 2004,AKGD (egrid with wecc detail),12
 2005,AKMS (egrid with wecc detail),12
 2006,AZ-NM-NV (egrid with wecc detail),12
