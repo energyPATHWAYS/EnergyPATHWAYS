@@ -58,6 +58,9 @@ class Demand(object):
         self.calculate_demand()
         logging.info("Aggregating demand results")
         self.aggregate_results()
+        if cfg.evolved_run == 'true':
+            self.aggregate_results_evolved(cfg.evolved_years)
+            
 
     def add_sectors(self):
         """Loop through sector ids and call add sector function"""
@@ -1487,8 +1490,6 @@ class Subsector(DataMapFunctions):
                     # If a technnology hasn't been mapped, recursion is used
                     # to map it first (this can go multiple layers)
                     self.remap_tech_attr(getattr(tech_class, 'reference_tech_id'), class_name, attr)
-                if tech_class.id == 73 and class_name == 'fixed_om':
-                    pdb.set_trace()
                 if tech_class.raw_values is not None:
                     tech_data = getattr(tech_class, attr)
                     flipped = getattr(ref_tech_class, 'flipped') if hasattr(ref_tech_class, 'flipped') else False
@@ -1501,7 +1502,10 @@ class Subsector(DataMapFunctions):
                                             getattr(ref_tech_class, 'values_level')])
 
                 else:
-                    new_data = copy.deepcopy(getattr(ref_tech_class, attr))
+                    try:
+                        new_data = copy.deepcopy(getattr(ref_tech_class, attr))
+                    except:
+                        pdb.set_trace()
                     if hasattr(ref_tech_class,'values_level'):
                         new_data_level = copy.deepcopy(getattr(ref_tech_class, 'values_level'))
                 tech_attributes = vars(getattr(self.technologies[ref_tech_id], class_name))
@@ -1778,7 +1782,8 @@ class Subsector(DataMapFunctions):
         """
         self.stock_subset_prep()
         df_for_indexing = util.empty_df(index=self.stock.values_efficiency.index, columns=self.stock.values.columns.values, fill_value=1)
-        sd_subset = getattr(self.service_demand, self.service_demand.map_from)
+        sd_subset = getattr(self.service_demand, 'values')
+        sd_subset = util.df_slice(self.service_demand.values,np.arange(self.min_year,self.max_year+1,1),'year',drop_level=False)
         if self.service_subset is None:
             # if there is no service subset, initial service demand modifiers equal 1"
             sd_modifier = df_for_indexing
@@ -1868,6 +1873,7 @@ class Subsector(DataMapFunctions):
         self.sd_modifier = sd_modifier
         self.sd_mod_adjustment = sd_mod_adjustment
         self.service_demand.modifier = DfOper.divi([sd_modifier, sd_mod_adjustment])
+
 
     def calc_tech_survival_functions(self, steps_per_year=1, rollover_threshold=.99):
         self.stock.spy = steps_per_year

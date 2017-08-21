@@ -206,7 +206,7 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\US'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\NREL'
     os.chdir(workingdir)
     config = 'config.INI'
     scenario = ['aeo_2017_reference']
@@ -215,7 +215,7 @@ if __name__ == "__main__":
     solve_demand  = True,
     load_supply   = False,
     solve_supply  = True,
-    export_results= True,
+    export_results= False,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,

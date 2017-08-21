@@ -304,6 +304,7 @@ def init_output_parameters():
     output_tco = cfgfile.get('output_detail', 'output_tco').lower()
     output_payback = cfgfile.get('output_detail', 'output_payback').lower()
     evolved_run = cfgfile.get('evolved','evolved_run').lower()
+    evolved_years = cfgfile.get('evolved','evolved_years')
     evolved_blend_nodes =  [int(g) for g in cfgfile.get('evolved','evolved_blend_nodes').split(',') if len(g)]
     init_output_levels()
     init_outputs_id_map()

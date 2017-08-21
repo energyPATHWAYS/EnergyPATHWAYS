@@ -4,6 +4,7 @@ import logging
 import itertools
 from collections import defaultdict
 import config as cfg
+import pdb
 
 
 class Scenario():
