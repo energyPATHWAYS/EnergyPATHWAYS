@@ -244,26 +244,26 @@ def init_date_lookup():
 
 def init_output_levels():
     global output_demand_levels, output_supply_levels, output_combined_levels
-    output_demand_levels = ['year', 'vintage', 'demand_technology', primary_geography, 'sector', 'subsector', 'final_energy','other_index_1','other_index_2']
-    output_supply_levels = ['year', 'vintage', 'supply_technology', primary_geography, primary_geography + "_supply", 'demand_sector', 'final_energy', 'supply_node', 'ghg', 'resource_bins']
-    output_combined_levels = list(set(output_supply_levels + output_demand_levels))
+    output_demand_levels = ['year', 'vintage', 'demand_technology', primary_geography, 'sector', 'subsector', 'final_energy','other_index_1','other_index_2','cost_type','new/replacement']
+    output_supply_levels = ['year', 'vintage', 'supply_technology', primary_geography,  'demand_sector', 'supply_node', 'ghg', 'resource_bin','cost_type']
+    output_combined_levels = list(set(output_supply_levels + output_demand_levels + [primary_geography + "_supply"]))
     
-    if cfgfile.get('output_detail', 'demand_vintage').lower() != 'true':
-        output_demand_levels.remove('vintage')
+    for x in [x[0] for x in cfgfile.items('demand_output_detail')]:
+        if cfgfile.get('demand_output_detail',x).lower() != 'true':
+            if x in output_demand_levels:
+                output_demand_levels.remove(x)
+    for x in [x[0] for x in cfgfile.items('supply_output_detail')]:
+        if cfgfile.get('supply_output_detail',x).lower() != 'true':
+            if x in output_supply_levels:
+                output_supply_levels.remove(x)  
+    for x in [x[0] for x in cfgfile.items('combined_output_detail')]:
+        if cfgfile.get('combined_output_detail',x).lower() != 'true':
+            if x == 'supply_geography':
+                x =  primary_geography + "_supply"
+            if x in output_combined_levels:
+                output_combined_levels.remove(x)  
 
-    if cfgfile.get('output_detail', 'supply_vintage').lower() != 'true':
-        output_supply_levels.remove('vintage')
-
-    if cfgfile.get('output_detail', 'combined_vintage').lower() != 'true':
-        output_combined_levels.remove('vintage')
-
-    if cfgfile.get('output_detail', 'demand_technology').lower() != 'true':
-        output_combined_levels.remove('demand_technology')
-    
-    if cfgfile.get('output_detail', 'produced_supply_geography').lower() != 'true':
-        output_combined_levels.remove(primary_geography + "_supply")
-    output_combined_levels.remove('other_index_1')
-    output_combined_levels.remove('other_index_2')
+        
 
 def init_outputs_id_map():
     global outputs_id_map
@@ -298,13 +298,13 @@ def init_outputs_id_map():
         outputs_id_map[name] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name'], other_index_id=id, return_unique=True))
 
 def init_output_parameters():
-    global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes
+    global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes, evolved_years
     currency_name = cfgfile.get('case', 'currency_name')
     output_currency = cfgfile.get('case', 'currency_year_id') + ' ' + currency_name
     output_tco = cfgfile.get('output_detail', 'output_tco').lower()
     output_payback = cfgfile.get('output_detail', 'output_payback').lower()
     evolved_run = cfgfile.get('evolved','evolved_run').lower()
-    evolved_years = cfgfile.get('evolved','evolved_years')
+    evolved_years = [int(x) for x in util.ensure_iterable_and_not_string(cfgfile.get('evolved','evolved_years'))]
     evolved_blend_nodes =  [int(g) for g in cfgfile.get('evolved','evolved_blend_nodes').split(',') if len(g)]
     init_output_levels()
     init_outputs_id_map()

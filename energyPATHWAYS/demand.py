@@ -842,7 +842,10 @@ class Subsector(DataMapFunctions):
             else:
                 return None       
         if return_array is not None:   
-            return  util.df_slice(return_array, specific_years, 'year', drop_level=False) if specific_years else return_array
+            try:
+                return  util.df_slice(return_array, specific_years, 'year', drop_level=False) if specific_years else return_array
+            except:
+                pdb.set_trace()
         else:
             return None
 
@@ -898,11 +901,9 @@ class Subsector(DataMapFunctions):
             df = self.service_demand.values
         levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
         if hasattr(self.service_demand,'other_index_1'):
-                levels_to_keep.append('other_index_1')
-                util.replace_index_name(df,"other_index_1",self.service_demand.other_index_1)
+            util.replace_index_name(df,"other_index_1",self.service_demand.other_index_1)
         if hasattr(self.service_demand,'other_index_2'):
-                levels_to_keep.append('other_index_2')
-                util.replace_index_name(df,"other_index_2",self.service_demand.other_index_2)
+            util.replace_index_name(df,"other_index_2",self.service_demand.other_index_2)
         levels_to_eliminate = [l for l in df.index.names if l not in levels_to_keep]
         df = util.remove_df_levels(df,levels_to_eliminate).sort_index()
         df = df.stack().to_frame()
@@ -939,17 +940,11 @@ class Subsector(DataMapFunctions):
         if not hasattr(self, 'service_demand'):
             return None
         if hasattr(self.service_demand,'modifier'):
-            df = self.stock.values.groupby(level=self.service_demand.values.index.names).transform(lambda x: x/x.sum())
+            df = self.stock.values.groupby(level=[x for x in self.stock.values.index.names if x in self.service_demand.values.index.names]).transform(lambda x: x/x.sum())
             df = util.DfOper.mult([df,self.service_demand.values])
         else:
             return None
         levels_to_keep = cfg.output_demand_levels + ['demand_technology']   
-        if hasattr(self.service_demand,'other_index_1'):
-                levels_to_keep.append('other_index_1')
-                util.replace_index_name(df,"other_index_1",self.service_demand.other_index_1)
-        if hasattr(self.service_demand,'other_index_2'):
-                levels_to_keep.append('other_index_2')
-                util.replace_index_name(df,"other_index_2",self.service_demand.other_index_2)    
         if 'vintage' in levels_to_keep:
             levels_to_keep.remove('vintage')
         levels_to_eliminate = [l for l in df.index.names if l not in levels_to_keep]
@@ -966,6 +961,10 @@ class Subsector(DataMapFunctions):
         levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
         levels_to_eliminate = [l for l in self.stock.sales.index.names if l not in levels_to_keep]
         df = self.stock.sales
+        if hasattr(self.stock,'other_index_1'):
+            util.replace_index_name(df,"other_index_1",self.stock.other_index_1)
+        if hasattr(self.stock,'other_index_2'):
+            util.replace_index_name(df,"other_index_2",self.stock.other_index_2)   
         util.replace_index_name(df, 'year','vintage')
         df = util.remove_df_levels(df, levels_to_eliminate).sort_index()
         df = util.add_and_set_index(df, 'unit', self.stock.unit.upper(), -2)
@@ -975,8 +974,13 @@ class Subsector(DataMapFunctions):
         if not hasattr(self, 'stock'):
             return None
         levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
-        levels_to_eleminate = [l for l in self.stock.values.index.names if l not in levels_to_keep]
-        df = util.remove_df_levels(self.stock.values, levels_to_eleminate).sort_index()
+        df = self.stock.values
+        if hasattr(self.stock,'other_index_1'):
+            util.replace_index_name(df,"other_index_1",self.stock.other_index_1)
+        if hasattr(self.stock,'other_index_2'):
+            util.replace_index_name(df,"other_index_2",self.stock.other_index_2)    
+        levels_to_eleminate = [l for l in df.index.names if l not in levels_to_keep]
+        df = util.remove_df_levels(df, levels_to_eleminate).sort_index()
         # stock starts with vintage as an index and year as a column, but we need to stack it for export
         df = df.stack().to_frame()
         util.replace_column_name(df,'value')
@@ -991,7 +995,8 @@ class Subsector(DataMapFunctions):
         if len(measure_types):
             df_list = []
             for measure_type in measure_types:
-                df = getattr(getattr(self,measure_type),att)['unspecified']
+                active_type = getattr(self,measure_type)
+                df = getattr(active_type,att)['unspecified']
                 if list(df.columns) != ['value']:
                     df = df.stack().to_frame()
                     df.columns = ['value']
@@ -1003,11 +1008,15 @@ class Subsector(DataMapFunctions):
                     df = df[df.values>0]
                 if 'final_energy' in df.index.names:
                     df = util.remove_df_levels(df, 'final_energy')
+                if hasattr(active_type,'other_index_1'):
+                    util.replace_index_name(df,"other_index_1",active_type.other_index_1)
+                if hasattr(active_type,'other_index_2'):
+                    util.replace_index_name(df,"other_index_2",active_type.other_index_2)    
                 df_list.append(df)
             if len(df_list):
                 keys = measure_types
                 names = ['measure_types']
-                df = pd.concat(df_list,keys=keys,names=names)
+                df = util.df_list_concatenate(df_list,keys=keys,new_names=names,levels_to_keep=override_levels_to_keep)
                 unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
                 df.columns = [unit]
                 return df
@@ -1059,7 +1068,7 @@ class Subsector(DataMapFunctions):
             return None
         cost_dict = getattr(self.stock, att)
         keys, values = zip(*[(a, b) for a, b in util.unpack_dict(cost_dict)])
-        keys = util.flatten_list([[tuple(k)]*len(v) for k, v in zip(keys, values)])
+#        keys = util.flatten_list([[tuple(k)]*len(v) for k, v in zip(keys, values)])
         values = list(values)
         for index, value in enumerate(values):
             if list(value.columns) != ['value']:
@@ -1068,8 +1077,19 @@ class Subsector(DataMapFunctions):
                 util.replace_index_name(value, 'year')
                 values[index] = value
             else:
-                values[index]=value
-        df = util.df_list_concatenate(values, keys=keys, new_names=['cost category', 'new/replacement'], levels_to_keep=override_levels_to_keep)
+                values[index]=value         
+            if hasattr(self.stock,'other_index_1'):
+                util.replace_index_name(values[index],"other_index_1",self.stock.other_index_1)
+            if hasattr(self.stock,'other_index_2'):
+                util.replace_index_name(values[index],"other_index_2",self.stock.other_index_2) 
+            values[index]['cost_type'] = keys[index][0].upper()
+            values[index]['new/replacement'] = keys[index][1].upper()
+        df = pd.concat(values)
+#        df['cost_type'] = [x[0] for x in keys]
+#        df['new/replacement'] = [x[1] for x in keys]
+        df = df.set_index('cost_type',append=True)
+        df = df.set_index('new/replacement',append=True)
+        df = df.groupby(level = [x for x in df.index.names if x in override_levels_to_keep]).sum()
         unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
         df.columns = [unit]        
         return df
@@ -1101,12 +1121,20 @@ class Subsector(DataMapFunctions):
             # calculates the energy demand change from energy efficiency measures
             self.energy_efficiency_savings_calc()
             # adds an index level of subsector name as demand_technology to the dataframe for use in aggregated outputs
+            if hasattr(self.service_demand,'other_index_1'):
+                util.replace_index_name(self.energy_forecast,"other_index_1",self.service_demand.other_index_1)
+            if hasattr(self.service_demand,'other_index_2'):
+                util.replace_index_name(self.energy_forecast,"other_index_2",self.service_demand.other_index_2)
         elif self.sub_type == 'energy':
             # calculates the energy demand change from fuel swiching measures
             self.fuel_switching_impact_calc()
             # calculates the energy demand change from fuel swiching measures
             self.energy_efficiency_savings_calc()
             # adds an index level of subsector name as demand_technology to the dataframe for use in aggregated outputs
+            if hasattr(self.energy_demand,'other_index_1'):
+                util.replace_index_name(self.energy_forecast,"other_index_1",self.energy_demand.other_index_1)
+            if hasattr(self.energy_demand,'other_index_2'):
+                util.replace_index_name(self.energy_forecast,"other_index_2",self.energy_demand.other_index_2)
         elif self.sub_type == 'stock and service' or self.sub_type == 'stock and energy':
             # initiates the energy calculation for a subsector with a stock
             self.calculate_energy_stock()
@@ -2851,6 +2879,7 @@ class Subsector(DataMapFunctions):
         self.stock.levelized_costs['installation']['replacement'] = self.rollover_output(tech_class='installation_cost_replacement', tech_att='values_level', stock_att='values_financial_replacement')
         if self.sub_type != 'link':
             self.stock.levelized_costs['fuel_switching']['new'] = self.rollover_output(tech_class='fuel_switch_cost', tech_att='values_level', stock_att='values_fuel_switch')
+            self.stock.levelized_costs['fuel_switching']['replacement'] = self.stock.levelized_costs['fuel_switching']['new'] *0
         year_df = util.vintage_year_matrix(self.years,self.vintages)
         self.stock.annual_costs['fixed_om']['new'] = self.rollover_output(tech_class='fixed_om', tech_att='values', stock_att='values_new').stack().to_frame()
         self.stock.annual_costs['fixed_om']['replacement'] = self.rollover_output(tech_class='fixed_om', tech_att='values', stock_att='values_replacement').stack().to_frame()    
@@ -2863,8 +2892,8 @@ class Subsector(DataMapFunctions):
         self.stock.annual_costs['installation']['new'] = util.DfOper.mult([self.rollover_output(tech_class='installation_cost_new', tech_att='values', stock_att='sales_new'),year_df])
         self.stock.annual_costs['installation']['replacement'] = util.DfOper.mult([self.rollover_output(tech_class='installation_cost_replacement', tech_att='values', stock_att='sales_replacement'),year_df])
         if self.sub_type != 'link':
-            self.stock.annual_costs['fuel_switching']['all'] = util.DfOper.mult([self.rollover_output(tech_class='fuel_switch_cost', tech_att='values', stock_att='sales_fuel_switch'),year_df])
-
+            self.stock.annual_costs['fuel_switching']['new'] = util.DfOper.mult([self.rollover_output(tech_class='fuel_switch_cost', tech_att='values', stock_att='sales_fuel_switch'),year_df])
+            self.stock.annual_costs['fuel_switching']['replacement'] = self.stock.annual_costs['fuel_switching']['new']  * 0
     def remove_extra_subsector_attributes(self):
         if hasattr(self, 'stock'):
             delete_list = ['values_financial_new', 'values_financial_replacement', 'values_new',
@@ -3147,6 +3176,10 @@ class Subsector(DataMapFunctions):
         util.replace_column(self.energy_forecast_no_modifier, 'value')
         self.energy_forecast = util.remove_df_elements(self.energy_forecast, 9999, 'final_energy')
         self.energy_forecast_no_modifier = util.remove_df_elements(self.energy_forecast_no_modifier, 9999, 'final_energy')
+        if hasattr(self.stock,'other_index_1'):
+            util.replace_index_name(self.energy_forecast,"other_index_1",self.stock.other_index_1)
+        if hasattr(self.stock,'other_index_2'):
+            util.replace_index_name(self.energy_forecast,"other_index_2",self.stock.other_index_2)
 
 
 
