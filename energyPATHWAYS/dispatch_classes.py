@@ -202,6 +202,9 @@ class Dispatch(object):
         return df.sort_index().squeeze() # squeeze turns it into a series, which is better when using the to_dict method
 
     def _add_dispatch_feeder_level_zero(self, df):
+        # if we already have dispatch feeder zero, we shouldn't add it
+        if 'dispatch_feeder' in df.index.names and 0 in df.index.get_level_values('dispatch_feeder'):
+            return df
         levels = [list(l) if n != 'dispatch_feeder' else [0] for l, n in zip(df.index.levels, df.index.names)]
         index = pd.MultiIndex.from_product(levels, names=df.index.names)
         return pd.concat((df, pd.DataFrame(0.0, columns=df.columns, index=index))).sort_index()

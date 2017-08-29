@@ -157,7 +157,11 @@ def load_model(load_demand, load_supply, load_error, scenario_id, api_run):
     # Note that the api_run parameter is effectively ignored if you are loading a previously pickled model
     # (with load_supply or load_demand); the model's api_run property will be set to whatever it was when the model
     # was pickled.
-    if load_supply:
+    if load_error:
+        with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.model_error_append_name), 'rb') as infile:
+            model = pickle.load(infile)
+        logging.info('Loaded crashed EnergyPATHWAYS model from pickle')
+    elif load_supply:
         with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.full_model_append_name), 'rb') as infile:
             model = pickle.load(infile)
         logging.info('Loaded complete EnergyPATHWAYS model from pickle')
@@ -174,10 +178,6 @@ def load_model(load_demand, load_supply, load_error, scenario_id, api_run):
                 logging.info('Loaded complete EnergyPATHWAYS model from pickle')
         else:
             raise("No model file exists")
-    elif load_error:
-        with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.model_error_append_name), 'rb') as infile:
-            model = pickle.load(infile)
-        logging.info('Loaded crashed EnergyPATHWAYS model from pickle')
     else:
         model = PathwaysModel(scenario_id, api_run)
     return model
@@ -210,15 +210,17 @@ if __name__ == "__main__":
     os.chdir(workingdir)
     config = 'config.INI'
     scenario = ['aeo_2017_reference']
-    run(workingdir, config, scenario,
-    load_demand   = False,
-    solve_demand  = True,
-    load_supply   = False,
-    solve_supply  = True,
-    export_results= True,
-    load_error    = False,
-    pickle_shapes = True,
-    save_models   = True,
-    api_run       = False,
-    clear_results = False)
+    # run(workingdir, config, scenario,
+    # load_demand   = False,
+    # solve_demand  = False,
+    # load_supply   = True,
+    # solve_supply  = False,
+    # export_results= True,
+    # load_error    = False,
+    # pickle_shapes = False,
+    # save_models   = False,
+    # api_run       = False,
+    # clear_results = False)
+
+    cProfile.run('run(workingdir, config, scenario, load_demand = False, solve_demand = False, load_supply = True, solve_supply = False,export_results= True,load_error= False,pickle_shapes = False, save_models = False,api_run = False,clear_results = False)', 'new3.cprof')
 

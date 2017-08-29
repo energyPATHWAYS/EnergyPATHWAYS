@@ -31,6 +31,7 @@ import decimal
 import psycopg2
 import logging
 import pdb
+from operator import mul
 
 from psycopg2.extensions import register_adapter, AsIs
 def addapt_numpy_float64(numpy_float64):
@@ -1019,8 +1020,41 @@ class DfOper:
                                        copy=False)
             return DfOper._operate(new_a, new_b, action)
         else:
+            # if quick_merge: # this is still a work in progress
+            #     new_a, new_b = DfOper._quick_merge_using_concat(new_a, new_b, join, fill_value, a_can_collapse, a_can_expand, b_can_collapse, b_can_expand)
+            # else:
             new_a, new_b = DfOper._merge_then_separate_for_operation(new_a, new_b, join, fill_value, a_can_collapse, a_can_expand, b_can_collapse, b_can_expand)
             return DfOper._operate(new_a, new_b, action)
+
+    # @staticmethod
+    # def _quick_merge_using_concat(a, b, join, fill_value, a_can_collapse, a_can_expand, b_can_collapse, b_can_expand):
+    #     names_a_not_in_b, names_b_not_in_a = difference_in_df_names(a, b, return_bool=False)
+    #
+    #     a_names = a.index.names if a.index.nlevels > 1 else [a.index.name]
+    #     b_names = b.index.names if b.index.nlevels > 1 else [b.index.name]
+    #     common_names = list(set(a_names) & set(b_names))
+    #     # Eliminate levels for one when the other is not expandable
+    #     new_a = a.groupby(level=common_names).sum() if (len(names_a_not_in_b) > 0 and not b_can_expand) and a_can_collapse else a
+    #     new_b = b.groupby(level=common_names).sum() if (len(names_b_not_in_a) > 0 and not a_can_expand) and b_can_collapse else b
+    #
+    #     # we need to add names_b_not_in_a to a
+    #     for missing_name in names_b_not_in_a:
+    #         missing_elements = sorted(new_b.index.get_level_values(missing_name).unique())
+    #         new_a = pd.concat([new_a]*len(missing_elements), keys=missing_elements, names=[missing_name])
+    #         # TODO in the documentation there seems to be a way to do this without a for loop, but I haven't figured it out. Below is the start of the effort.
+    #         # missing_elements = [tuple(sorted(b.index.get_level_values(missing_name).unique())) for missing_name in names_b_not_in_a]
+    #         # num_repeats = reduce(mul, [len(me) for me in missing_elements], 1)
+    #         # a = pd.concat([a] * num_repeats, keys=tuple(missing_elements), names=names_b_not_in_a+new_a.index.names)
+    #
+    #     # we need to add names_a_not_in_b to b
+    #     for missing_name in names_a_not_in_b:
+    #         missing_elements = sorted(new_a.index.get_level_values(missing_name).unique())
+    #         new_b = pd.concat([new_b]*len(missing_elements), keys=missing_elements, names=[missing_name])
+    #
+    #     # join = join if join is not None else ('outer' if fill_value is not None else 'left')
+    #     # new_a, new_b = new_a.align(reorder_b_to_match_a(new_b, new_a), join=join, fill_value=fill_value, axis=0, copy=False)
+    #     new_b = reorder_b_to_match_a(new_b, new_a)
+    #     return new_a, new_b
 
     @staticmethod
     def _operate(a, b, action):
@@ -1148,24 +1182,23 @@ class DfOper:
         # This next bit of code helps return the levels in a familiar order
         alen, blen = float(len(a_names) - 1), float(len(b_names) - 1)
         alen, blen = max(alen, 1), max(blen, 1)  # avoid error from dividing by zero
-        average_location = [a_names.index(cand) / alen if cand in a_names else b_names.index(cand) / blen for cand in
-                            new_index]
+        average_location = [a_names.index(cand) / alen if cand in a_names else b_names.index(cand) / blen for cand in new_index]
         new_index = [new_index[ni] for ni in np.argsort(average_location)]
+        c = c.set_index(new_index).sort()
+        # new_a, new_b = c[new_index + merged_a_cols], c[new_index + merged_b_cols]
+        new_a, new_b = c[merged_a_cols], c[merged_b_cols]
+        # new_a = new_a.set_index(new_index).sort()
+        # new_b = new_b.set_index(new_index).sort()
 
-        new_a, new_b = c[new_index + merged_a_cols], c[new_index + merged_b_cols]
+        # new_a.sort(inplace=True)
+        # new_b.sort(inplace=True)
 
-        new_a.set_index(new_index, inplace=True)
-        new_b.set_index(new_index, inplace=True)
-
-        new_a.sort(inplace=True)
-        new_b.sort(inplace=True)
-
-        new_a.rename(columns=dict(zip(merged_a_cols, a_cols)), inplace=True)
-        new_b.rename(columns=dict(zip(merged_b_cols, b_cols)), inplace=True)
+        new_a = new_a.rename(columns=dict(zip(merged_a_cols, a_cols)))
+        new_b = new_b.rename(columns=dict(zip(merged_b_cols, b_cols)))
 
         if fill_value is not None:
-            new_a.fillna(fill_value, inplace=True)
-            new_b.fillna(fill_value, inplace=True)
+            new_a = new_a.fillna(fill_value)
+            new_b = new_b.fillna(fill_value)
 
         return new_a, new_b
 

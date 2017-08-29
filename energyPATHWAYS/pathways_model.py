@@ -42,7 +42,7 @@ class PathwaysModel(object):
             if not append_results:
                 self.remove_old_results()
 
-            if hasattr(self, 'demand_solved') and self.demand_solved and export_results and not self.api_run:
+            if self.demand_solved and export_results and not self.api_run:
                 self.export_result_to_csv('demand_outputs')
 
             if solve_supply and not load_supply:
@@ -52,7 +52,7 @@ class PathwaysModel(object):
                 self.supply = Supply(self.scenario, demand_object=self.demand)
                 self.calculate_supply(save_models)
 
-            if hasattr(self, 'supply_solved') and self.supply_solved and solve_supply and export_results:
+            if self.supply_solved and export_results:
                 self.supply.calculate_supply_outputs()
                 self.pass_supply_results_back_to_demand()
                 self.calculate_combined_results()
