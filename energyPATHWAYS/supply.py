@@ -173,6 +173,7 @@ class Supply(object):
 
     def final_calculate(self):
         self.concatenate_annual_costs()
+        self.concatenate_levelized_costs()
         self.calculate_capacity_utilization()
             
     def calculate_nodes(self):
@@ -438,6 +439,10 @@ class Supply(object):
             if hasattr(node,'concatenate_annual_costs'):
                 node.concatenate_annual_costs()
     
+    def concatenate_levelized_costs(self):
+        for node in self.nodes.values():
+            if hasattr(node,'concatenate_levelized_costs'):
+                node.concatenate_annual_costs()
     def calculate_capacity_utilization(self):
         for node in self.nodes.values():
             if hasattr(node,'calculate_capacity_utilization'):
@@ -1317,7 +1322,9 @@ class Supply(object):
         thermal_df = copy.deepcopy(self.nodes[self.bulk_id].values.loc[indexer, year])
         thermal_df[thermal_df>1]=1
         self.nodes[self.bulk_id].values.loc[indexer, year] =0
-        self.nodes[self.bulk_id].values.loc[:, year] = util.DfOper.mult([self.nodes[self.bulk_id].values.loc[:, year].to_frame().groupby(level=[cfg.primary_geography,'demand_sector']).transform(lambda x: x/x.sum()),1-util.remove_df_levels(thermal_df,'supply_node').to_frame()],expandable=True)
+        #don't normalize these if it's an evolved run. Leave curtailment. Simplifies per-unit accounting
+        if cfg.evolved_run == 'false':
+            self.nodes[self.bulk_id].values.loc[:, year] = util.DfOper.mult([self.nodes[self.bulk_id].values.loc[:, year].to_frame().groupby(level=[cfg.primary_geography,'demand_sector']).transform(lambda x: x/x.sum()),1-util.remove_df_levels(thermal_df,'supply_node').to_frame()],expandable=True)
         self.nodes[self.bulk_id].values.loc[indexer, year] = thermal_df
         self.nodes[self.bulk_id].calculate_active_coefficients(year, 3)
 
@@ -1685,6 +1692,7 @@ class Supply(object):
         name = ['year']
         df = pd.concat(df_list,keys=keys,names=name)
         df.columns = ['value']
+        df = df.groupby(level=[x for x in df.index.names if x in cfg.output_combined_levels]).sum()
         return df
         
         
@@ -1792,8 +1800,9 @@ class Supply(object):
                stack_levels =[cfg.primary_geography, "supply_node_export"]
                df = df.stack(stack_levels).to_frame()
                levels_to_keep = [x for x in df.index.names if x in cfg.output_combined_levels+stack_levels]
-               df = df.groupby(level=levels_to_keep).sum()
+               df = df.groupby(level=levels_to_keep+['supply_node']).sum()
                df = df.groupby(level='supply_node').filter(lambda x: x.sum()>0)
+               df = df.groupby(level=levels_to_keep+['supply_node']).sum()
                sector_df_list.append(df)     
             year_df = pd.concat(sector_df_list, keys=keys,names=name)
             df_list.append(year_df)
@@ -1812,8 +1821,6 @@ class Supply(object):
         else:
             export_map_df = export_map_df.groupby(level=['supply_node']).filter(lambda x: x.sum()>0)
         if export_map_df.empty is False and export_df.empty is False:
-#            keys = [cfg.geographies]
-#            name = [cfg.primary_geography]
             util.replace_index_name(export_df, 'year')
             util.replace_index_name(export_df, 'sector', 'demand_sector')
             util.replace_index_name(export_df,'supply_node_export','supply_node')
@@ -1825,9 +1832,9 @@ class Supply(object):
                 df = DfOper.mult([export_df.loc[export_df_indexer,:], export_map_df.loc[export_map_df_indexer,:]])
                 geo_df_list.append(df)
             export_result = pd.concat(geo_df_list)
+            export_result = export_result.groupby(level=[x for x in export_result.index.names if x in cfg.output_combined_levels]).sum()
         else:
             export_result = None
-#        levels = [x for x in ['supply_node','supply_node_export',cfg.primary_geography +'_supply',cfg.primary_geography +'_export',  'ghg'] if x in export_result.index.names]
         setattr(self, export_result_name, export_result)
     
 
@@ -2478,22 +2485,23 @@ class Node(DataMapFunctions):
     def format_output_capacity_utilization(self, override_levels_to_keep=None):
         if not hasattr(self, 'capacity_utilization'):
             return None
-        levels_to_keep = cfg.output_supply_levels if override_levels_to_keep is None else override_levels_to_keep
-        levels_to_eliminate = [l for l in self.capacity_utilization.index.names if l not in levels_to_keep]
-        df = util.remove_df_levels(self.capacity_utilization, levels_to_eliminate).sort()
+#        levels_to_keep = cfg.output_supply_levels if override_levels_to_keep is None else override_levels_to_keep
+#        levels_to_eliminate = [l for l in self.capacity_utilization.index.names if l not in levels_to_keep]
+#        df = util.remove_df_levels(self.capacity_utilization, levels_to_eliminate).sort()
         # stock starts with vintage as an index and year as a column, but we need to stack it for export
+        df = self.capacity_utilization
         df = df.stack().to_frame()
         util.replace_index_name(df, 'year')
         df.columns =  ["%"]
         return df
         
     def format_output_annual_costs(self,override_levels_to_keep=None):
-        if not hasattr(self, 'annual_costs'):
+        if not hasattr(self, 'final_annual_costs'):
             return None
         levels_to_keep = cfg.output_supply_levels if override_levels_to_keep is None else override_levels_to_keep
-        levels_to_eliminate = [l for l in self.annual_costs.index.names if l not in levels_to_keep]
-        if 'vintage' in self.annual_costs.index.names:
-            df = self.annual_costs
+        levels_to_eliminate = [l for l in self.final_annual_costs.index.names if l not in levels_to_keep]
+        if 'vintage' in self.final_annual_costs.index.names:
+            df = self.final_annual_costs
             util.replace_index_name(df, 'year','vintage')
         else:
             df = self.annual_costs.stack().to_frame()
@@ -2504,11 +2512,11 @@ class Node(DataMapFunctions):
         return df
     
     def format_output_levelized_costs(self, override_levels_to_keep=None):
-        if not hasattr(self, 'levelized_costs'):
+        if not hasattr(self, 'final_levelized_costs'):
             return None
         levels_to_keep = cfg.output_supply_levels if override_levels_to_keep is None else override_levels_to_keep
-        levels_to_eliminate = [l for l in self.levelized_costs.index.names if l not in levels_to_keep]
-        df = util.remove_df_levels(self.levelized_costs, levels_to_eliminate).sort()
+        levels_to_eliminate = [l for l in self.final_levelized_costs.index.names if l not in levels_to_keep]
+        df = util.remove_df_levels(self.final_levelized_costs, levels_to_eliminate).sort()
         # stock starts with vintage as an index and year as a column, but we need to stack it for export
         df = df.stack().to_frame()
         util.replace_index_name(df, 'year')
@@ -3809,9 +3817,8 @@ class SupplyNode(Node,StockItem):
                         self.annual_costs.loc[indexer,:] += annual_costs.values
 
     def calculate_capacity_utilization(self, energy_supply, supply_years):
-        energy_stock = self.stock.values_energy[supply_years] 
-        curtailment = util.DfOper.divi([energy_supply,energy_stock],expandable=False).replace([np.inf,np.nan,-np.nan],[0,0,0])
-        self.capacity_utilization = DfOper.mult([self.capacity_factor.values[supply_years] ,curtailment])               
+        energy_stock = self.stock.values[supply_years] * util.unit_convert(1,unit_from_den='hour', unit_to_den='year')
+        self.capacity_utilization = util.DfOper.divi([energy_supply,energy_stock],expandable=False).replace([np.inf,np.nan,-np.nan],[0,0,0])           
         
                   
 class SupplyCapacityFactor(Abstract):
@@ -5008,9 +5015,18 @@ class SupplyStockNode(Node):
         variable_om.columns = ['value']
         keys = ['capital cost - new', 'capital cost - replacement','installation cost - new','installation cost - replacement',
                 'fixed om', 'variable om']
+        keys = [x.upper() for x in keys]                
         names = ['cost_type']
-        self.annual_costs = pd.concat([self.stock.capital_cost_new_annual, self.stock.capital_cost_replacement_annual, self.stock.installation_cost_new_annual,
+        self.final_annual_costs = pd.concat([self.stock.capital_cost_new_annual, self.stock.capital_cost_replacement_annual, self.stock.installation_cost_new_annual,
                                            self.stock.installation_cost_replacement_annual, fixed_om, variable_om],keys=keys, names=names)
+                                           
+    def concatenate_levelized_costs(self): 
+        keys = ['capital cost - new', 'capital cost - replacement','installation cost - new','installation cost - replacement',
+                'fixed om', 'variable om']
+        keys = [x.upper() for x in keys]                
+        names = ['cost_type']
+        self.final_levelized_costs = pd.concat([self.stock.capital_cost_new, self.stock.capital_cost_replacement, self.stock.installation_cost_new,
+                                           self.stock.installation_cost_replacement, self.stock.fixed_om, self.stock.variable_om],keys=keys, names=names)
         
     def calculate_dispatch_costs(self, year, embodied_cost_df, loop=None):
         self.calculate_dispatch_coefficients(year, loop)
@@ -5107,9 +5123,8 @@ class SupplyStockNode(Node):
             self.active_dispatch_coefficients= util.remove_df_levels(self.active_dispatch_coefficients,['efficiency_type'])
 
     def calculate_capacity_utilization(self,energy_supply,supply_years):
-        energy_stock = self.stock.values_energy[supply_years] 
-        curtailment = util.DfOper.divi([energy_supply,energy_stock],expandable=False).replace([np.inf,np.nan,-np.nan],[0,0,0])
-        self.capacity_utilization = DfOper.mult([self.stock.capacity_factor[supply_years],curtailment])       
+        energy_stock = self.stock.values[supply_years] * util.unit_convert(1,unit_from_den='hour', unit_to_den='year')
+        self.capacity_utilization = util.DfOper.divi([energy_supply,energy_stock],expandable=False).replace([np.inf,np.nan,-np.nan],[0,0,0])    
         
         
         
@@ -5251,14 +5266,24 @@ class StorageNode(SupplyStockNode):
         fixed_om = util.remove_df_levels(self.stock.fixed_om,'vintage').stack().to_frame()
         util.replace_index_name(fixed_om,'vintage')
         fixed_om.columns =['value']
-        variable_om = util.remove_df_levels(self.stock.fixed_om,'vintage').stack().to_frame()
+        variable_om = util.remove_df_levels(self.stock.variable_om,'vintage').stack().to_frame()
         util.replace_index_name(variable_om,'vintage')            
         variable_om.columns =['value']
         keys = ['capital cost energy - new', 'capital cost capacity - new', 'capital cost energy - replacement', 'capital cost capacity - replacement', 'installation cost - new','installation cost - replacement',
                 'fixed om', 'variable om']
+        keys = [x.upper() for x in keys]
         names = ['cost_type']
-        self.annual_costs = pd.concat([self.stock.capital_cost_new_annual_energy, self.stock.capital_cost_new_annual_capacity, self.stock.capital_cost_replacement_annual_energy,self.stock.capital_cost_replacement_annual_capacity, self.stock.installation_cost_new_annual,
+        self.final_annual_costs = pd.concat([self.stock.capital_cost_new_annual_energy, self.stock.capital_cost_new_annual_capacity, self.stock.capital_cost_replacement_annual_energy,self.stock.capital_cost_replacement_annual_capacity, 
+                                       self.stock.installation_cost_new_annual,
                                            self.stock.installation_cost_replacement_annual, fixed_om, variable_om], keys=keys, names=names)
+    def concatenate_levelized_costs(self):       
+        keys = ['capital cost energy - new', 'capital cost capacity - new', 'capital cost energy - replacement', 'capital cost capacity - replacement', 'installation cost - new','installation cost - replacement',
+                'fixed om', 'variable om']
+        keys = [x.upper() for x in keys]
+        names = ['cost_type']
+        self.final_levelized_costs = pd.concat([self.stock.capital_cost_new_energy, self.stock.capital_cost_new_capacity, self.stock.capital_cost_replacement_energy,self.stock.capital_cost_replacement_capacity, 
+                                       self.stock.installation_cost_new,
+                                           self.stock.installation_cost_replacement, self.stock.fixed_om, self.stock.variable_om], keys=keys, names=names)
 
     def calculate_dispatch_coefficients(self, year,loop):
         """

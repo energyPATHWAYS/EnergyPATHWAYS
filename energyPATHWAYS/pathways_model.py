@@ -88,8 +88,6 @@ class PathwaysModel(object):
         self.supply.calculated_years = []
         self.supply.calculate_loop(self.supply.years, self.supply.calculated_years)
         self.supply.final_calculate()
-        self.supply.concatenate_annual_costs()
-        self.supply.calculate_capacity_utilization()
         self.supply_solved = True
         if save_models:
             Output.pickle(self, file_name=str(self.scenario_id) + cfg.full_model_append_name, path=cfg.workingdir)

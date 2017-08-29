@@ -20,9 +20,9 @@ load*=20000000
 dispatch_periods = pd.DataFrame.from_csv(os.path.join(data_dir, 'dispatch_periods.csv'))
 dispatch_periods = dispatch_periods['month'].values.flatten()
 
-pmins = np.array([-1500]*12)
+pmins = np.array([0]*12)
 pmaxs = np.array([5000]*12)
-energy = np.array([100000]*12)
+energy = np.array([-100000]*12)
 
 test = Dispatch.dispatch_to_energy_budget(load, energy_budgets=energy, dispatch_periods=dispatch_periods, pmins=pmins, pmaxs=pmaxs)
 
