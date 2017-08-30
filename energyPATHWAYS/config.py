@@ -65,6 +65,10 @@ dispatch_geographies = None
 years = None
 supply_years = None
 
+# shapes
+shape_start_date = None
+shape_years = None
+
 # electricity shapes
 date_lookup = None
 time_slice_col = None
@@ -121,6 +125,7 @@ def initialize_config(_path, _cfgfile_name, _log_name):
     init_db()
     init_units()
     init_geo()
+    init_shapes()
     init_date_lookup()
     init_output_parameters()
     # used when reading in raw_values from data tables
@@ -219,7 +224,21 @@ def init_geo():
     primary_geography = geo.get_primary_geography_name()
     dispatch_geographies = geo.geographies[dispatch_geography]
     geographies = geo.geographies[primary_geography]
-    
+
+def init_shapes():
+    global shape_start_date, shape_years
+
+    raw_shape_start_date = cfgfile.get('opt', 'shape_start_date')
+    if raw_shape_start_date:
+        shape_start_date = datetime.datetime.strptime(raw_shape_start_date, '%Y-%m-%d')
+
+    raw_shape_years = cfgfile.get('opt', 'shape_years')
+    if raw_shape_years:
+        shape_years = int(raw_shape_years)
+        if shape_years < 1:
+            raise ValueError('shape_years, if provided, must be a positive integer.')
+
+
 def init_date_lookup():
     global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id, opt_period_length
     class DateTimeLookup:
