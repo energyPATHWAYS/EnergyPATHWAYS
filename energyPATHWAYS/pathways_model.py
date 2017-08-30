@@ -56,6 +56,7 @@ class PathwaysModel(object):
                 self.supply.calculate_supply_outputs()
                 self.pass_supply_results_back_to_demand()
                 self.calculate_combined_results()
+                self.outputs.electricity_reconciliation = self.demand.electricity_reconciliation # we want to write these to outputs
                 if self.api_run:
                     self.export_results_to_db()
                 else:
@@ -150,7 +151,7 @@ class PathwaysModel(object):
             for key, name in zip(keys, names):
                 result_df = pd.concat([result_df], keys=[key], names=[name])
 
-            if attribute == 'hourly_dispatch_results':
+            if attribute in ('hourly_dispatch_results', 'electricity_reconciliation'):
                 # Special case for hourly dispatch results where we want to write them outside of supply_outputs
                 Output.write(result_df, attribute + '.csv', os.path.join(cfg.workingdir, 'dispatch_outputs'))
             else:
