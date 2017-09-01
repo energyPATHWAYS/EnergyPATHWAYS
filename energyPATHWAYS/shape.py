@@ -60,14 +60,20 @@ class Shapes(object):
 
     def initiate_active_shapes(self):
         logging.info(' reading data for:')
+
+        if cfg.cfgfile.get('case', 'parallel_process').lower() == 'true':
+            shapes = helper_multiprocess.safe_pool(helper_multiprocess.shapes_populate, self.data.values())
+            self.data = dict(zip(self.data.keys(), shapes))
+        else:
+            for id in self.active_shape_ids:
+                shape = self.data[id]
+                logging.info('    shape: ' + shape.name)
+                if hasattr(shape, 'raw_values'):
+                    return
+                shape.read_timeseries_data()
+
         for id in self.active_shape_ids:
             shape = self.data[id]
-            logging.info('    shape: ' + shape.name)
-            if hasattr(shape, 'raw_values'):
-                return
-            
-            shape.read_timeseries_data()
-            
             if shape.shape_type=='weather date':
                 shape.convert_index_to_datetime('raw_values', 'weather_datetime')
                 date_position = util.position_in_index(shape.raw_values, 'weather_datetime')
@@ -111,8 +117,7 @@ class Shapes(object):
             self.end_date = DT.datetime(int(cfg.cfgfile.get('case', 'current_year')), 12, 31, 23)
 
         logging.debug("shape_start_date: {}, shape_years: {}, start_date: {}, end_date: {}".format(
-            cfg.shape_start_date, cfg.shape_years, self.start_date, self.end_date
-        ))
+            cfg.shape_start_date, cfg.shape_years, self.start_date, self.end_date))
 
         self.active_dates_index = pd.date_range(self.start_date, self.end_date, freq='H')
         self.time_slice_elements = self.create_time_slice_elements(self.active_dates_index)
@@ -167,7 +172,6 @@ class Shape(dmf.DataMapFunctions):
         self.sql_data_table = 'ShapesData'
         for col, att in util.object_att_from_table(self.sql_id_table, id):
             setattr(self, col, att)
-        # creates the index_levels dictionary
         dmf.DataMapFunctions.__init__(self, data_id_key='parent_id')
         # needed for parallel process
         self.workingdir = cfg.workingdir
@@ -208,7 +212,7 @@ class Shape(dmf.DataMapFunctions):
         if self.shape_type=='weather date':
             self.values = util.reindex_df_level_with_new_elements(self.raw_values, 'weather_datetime', self.active_dates_index) # this step is slow, consider replacing
             if self.values.isnull().values.any():
-                raise ValueError('Weather data did not give full coverage of the active dates')
+                raise ValueError('Weather data for shape {} did not give full coverage of the active dates'.format(self.name))
 
         elif self.shape_type=='time slice':
             self.values = self.create_empty_shape_data()
@@ -234,7 +238,7 @@ class Shape(dmf.DataMapFunctions):
                 raise ValueError('Shape time slice data did not give full coverage of the active dates')
             # reindex to remove the helper columns
             self.values.index = self.values.index.droplevel(self._active_time_keys)
-        
+
         self.values = cfg.geo.filter_extra_geos_from_df(self.values.swaplevel('weather_datetime', -1).sort())
         self.geomap_to_time_zone()
         self.localize_shapes()
@@ -276,7 +280,8 @@ class Shape(dmf.DataMapFunctions):
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
         
         # create dataframe with map from one geography to another
-        self.map_df_tz = cfg.geo.map_df(self.geography, 'time zone', normalize_as=self.input_type, map_key=geography_map_key)
+        # we always want to normalize as a total here because we will re-sum over time zone later
+        self.map_df_tz = cfg.geo.map_df(self.geography, 'time zone', normalize_as='total', map_key=geography_map_key)
 
         mapped_data = util.DfOper.mult([getattr(self, attr), self.map_df_tz])
         mapped_data = mapped_data.swaplevel('weather_datetime', -1)
@@ -291,14 +296,9 @@ class Shape(dmf.DataMapFunctions):
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
         
         self.map_df_primary = cfg.geo.map_df(self.geography, cfg.primary_geography, normalize_as=self.input_type, map_key=geography_map_key)
-        try:
-            mapped_data = util.DfOper.mult((getattr(self, attr), self.map_df_primary), fill_value=None)
-        except:
-            pdb.set_trace()
+        mapped_data = util.DfOper.mult((getattr(self, attr), self.map_df_primary), fill_value=None)
         if self.geography!=cfg.primary_geography and self.geography!='time zone':
             mapped_data = util.remove_df_levels(mapped_data, self.geography)
-#        levels = [ind for ind in mapped_data.index.names if ((ind==self.geography and self.geography!=cfg.primary_geography) or ind=='time zone')]
-#        mapped_data = mapped_data.groupby(level=levels).sum()
         mapped_data = mapped_data.swaplevel('weather_datetime', -1)
 
         if inplace:

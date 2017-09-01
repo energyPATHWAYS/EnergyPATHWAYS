@@ -11,7 +11,7 @@ import copy
 from datetime import datetime
 from demand_subsector_classes import DemandStock, SubDemand, ServiceEfficiency, ServiceLink
 from shared_classes import AggregateStock
-from demand_measures import ServiceDemandMeasure, EnergyEfficiencyMeasure, FuelSwitchingMeasure, FlexibleLoadMeasure
+from demand_measures import ServiceDemandMeasure, EnergyEfficiencyMeasure, FuelSwitchingMeasure, FlexibleLoadMeasure, FlexibleLoadMeasure2
 from demand_technologies import DemandTechnology, SalesShare
 from rollover import Rollover
 from util import DfOper
@@ -155,6 +155,7 @@ class Demand(object):
             inflex_load = pd.concat([inflex_load]*3, keys=[1,2,3], names=['timeshift_type'])
             agg_load = util.DfOper.add((flex_load, inflex_load), expandable=False, collapsible=False)
         df = self.geomap_to_dispatch_geography(agg_load) if geomap_to_dispatch_geography else agg_load
+        # this line makes sure the energy is correct.. sometimes it is a bit off due to rounding
         df *= self.energy_demand.xs([cfg.electricity_energy_type_id, year], level=['final_energy', 'year']).sum().sum() / df.xs(2, level='timeshift_type').sum().sum()
         df = df.rename(columns={'value':year})
         return df
@@ -444,13 +445,15 @@ class Sector(object):
         for id in self.subsector_ids:
             self.add_subsector(id)
 
-        # populate_subsector_data, this is a separate step so we can use multiprocessing
-        if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-            subsectors = helper_multiprocess.safe_pool(helper_multiprocess.subsector_populate, self.subsectors.values())
-            self.subsectors = dict(zip(self.subsectors.keys(), subsectors))
-        else:
-            for id in self.subsector_ids:
-                self.subsectors[id].add_energy_system_data()
+        # # populate_subsector_data, this is a separate step so we can use multiprocessing
+        # if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
+        #     subsectors = helper_multiprocess.safe_pool(helper_multiprocess.subsector_populate, self.subsectors.values())
+        #     self.subsectors = dict(zip(self.subsectors.keys(), subsectors))
+        # else:
+        # TODO: when we added shapes to technologies, we can no longer do this in parallel process because we don't have access to shapes
+        # we will need to add technologies in a separate prior step so that shapes are in the namespace
+        for id in self.subsector_ids:
+            self.subsectors[id].add_energy_system_data()
 
         self.make_precursor_dict()
         self.make_precursors_reversed_dict()
@@ -492,10 +495,15 @@ class Sector(object):
     def reset_subsector_for_perdubation(self, subsector_id):
         self.add_subsector(subsector_id)
         logging.info('resetting subsector {}'.format(self.subsectors[subsector_id].name))
-        self.subsectors[subsector_id].add_energy_system_data()
         if subsector_id in self.subsector_precursers_reversed:
             for dependent_subsector_id in self.subsector_precursers_reversed[subsector_id]:
                 self.reset_subsector_for_perdubation(dependent_subsector_id)
+
+    def add_energy_system_data_after_reset(self, subsector_id):
+        self.subsectors[subsector_id].add_energy_system_data()
+        if subsector_id in self.subsector_precursers_reversed:
+            for dependent_subsector_id in self.subsector_precursers_reversed[subsector_id]:
+                self.add_energy_system_data_after_reset(dependent_subsector_id)
 
     def manage_calculations(self):
         """
@@ -645,8 +653,7 @@ class Subsector(DataMapFunctions):
             setattr(self, col, att)
         self.outputs = Output()
         self.calculated = False
-        if self.shape_id is not None:
-            self.shape = shape.shapes.data[self.shape_id]
+        self.shape = shape.shapes.data[self.shape_id] if self.shape_id is not None else None
         self.shapes_weather_year = int(np.round(np.mean(shape.shapes.active_dates_index.year)))
         self.electricity_reconciliation = None
         self.linked_service_demand_drivers = {}
@@ -659,8 +666,7 @@ class Subsector(DataMapFunctions):
         self.default_max_lag_hours = default_max_lag_hours if hasattr(self, 'max_lag_hours') else None
 
     def has_shape(self):
-        if (self.shape_id is not None) or\
-           (hasattr(self, 'technologies') and np.any([tech.shape_id is not None for tech in self.technologies.values()])):
+        if (self.shape_id is not None) or (hasattr(self, 'technologies') and np.any([tech.shape is not None for tech in self.technologies.values()])):
             return True
         else:
             return False
@@ -671,48 +677,118 @@ class Subsector(DataMapFunctions):
     def has_electricity_consumption(self, year):
         return hasattr(self,'energy_forecast') and cfg.electricity_energy_type_id in util.get_elements_from_level(self.energy_forecast, 'final_energy')
 
-    def get_electricity_consumption(self, year, keep_technology=False):
+    def get_electricity_consumption(self, year, keep_technology=True):
         """ Returns with primary geography level
         """
         if self.has_electricity_consumption(year):
-            group_level = [cfg.primary_geography, 'technology'] if (keep_technology and hasattr(self, 'technologies')) else cfg.primary_geography
+            group_level = [cfg.primary_geography, 'demand_technology'] if (keep_technology and hasattr(self, 'technologies')) else cfg.primary_geography
             return self.energy_forecast.xs([cfg.electricity_energy_type_id, year], level=['final_energy', 'year']).groupby(level=group_level).sum()
         else:
             return None
+
+    def aggr_elect_shapes_unique_techs_with_flex_load(self, unique_tech_ids, active_shape, active_hours, year, energy_slice, annual_flexible):
+        unique_tech_ids_with_energy = self._filter_techs_without_energy(unique_tech_ids, energy_slice)
+        result = []
+        # we have something unique about each of these technologies which means we have to calculate each separately
+        for tech_id in unique_tech_ids_with_energy:
+            tech_energy_slice = util.df_slice(energy_slice, tech_id, 'demand_technology', reset_index=True)
+            shape_values = self.technologies[tech_id].get_shape(default_shape=active_shape)
+            percent_flexible = annual_flexible.xs(tech_id, level='demand_technology') if 'demand_technology' in annual_flexible.index.names else annual_flexible
+            tech_max_lag_hours = self.technologies[tech_id].get_max_lag_hours() or active_hours['lag']
+            tech_max_lead_hours = self.technologies[tech_id].get_max_lead_hours() or active_hours['lead']
+            flex = self.return_shape_after_flex_load(shape_values, percent_flexible, tech_max_lag_hours, tech_max_lead_hours)
+            result.append(util.DfOper.mult((flex, tech_energy_slice)))
+        return util.DfOper.add(result, collapsible=False)
+
+    def aggr_elect_shapes_techs_not_unique(self, techs_with_energy_and_shapes, active_shape, energy_slice):
+        tech_shapes = pd.concat([self.technologies[tech].get_shape(default_shape=active_shape) for tech in techs_with_energy_and_shapes],
+                                keys=techs_with_energy_and_shapes, names=['demand_technology'])
+        energy_with_shapes = util.df_slice(energy_slice, techs_with_energy_and_shapes, 'demand_technology',
+                                           drop_level=False, reset_index=True)
+        return util.remove_df_levels(util.DfOper.mult((energy_with_shapes, tech_shapes)), levels='demand_technology')
+
+    def return_shape_after_flex_load(self, shape_values, percent_flexible, max_lag_hours, max_lead_hours):
+        timeshift_levels = sorted(list(util.get_elements_from_level(shape_values, 'timeshift_type')))
+        # using electricity reconcilliation with a profile with a timeshift type can cause big problems, so it is avoided
+        shape_df = shape_values if timeshift_levels == [1, 2, 3] else util.DfOper.mult((shape_values, self.electricity_reconciliation))
+        flex = shape.Shape.produce_flexible_load(shape_df, percent_flexible=percent_flexible, hr_delay=max_lag_hours, hr_advance=max_lead_hours)
+        return flex
+
+    def _filter_techs_without_energy(self, candidate_techs, energy_slice):
+        if not 'demand_technology' in energy_slice.index.names:
+            return []
+        techs_with_energy = sorted(energy_slice[energy_slice['value'] != 0].index.get_level_values('demand_technology').unique())
+        return [tech_id for tech_id in candidate_techs if tech_id in techs_with_energy]
 
     def aggregate_electricity_shapes(self, year):
         """ Final levels that will always return from this function
         ['gau', 'weather_datetime'] or ['timeshift_type', 'gau', 'weather_datetime']
         """
+        energy_slice = self.get_electricity_consumption(year)
+        # if we have no electricity consumption, we don't make a shape
+        if energy_slice is None or len(energy_slice[energy_slice['value'] != 0])==0:
+            return None
+        # to speed this up, we are removing anything that has zero energy
+        energy_slice = energy_slice[energy_slice['value'] != 0]
+
         active_shape = self.shape if hasattr(self, 'shape') else self.default_shape
-        active_max_lead_hours = self.max_lead_hours if hasattr(self, 'max_lead_hours') is not None else self.default_max_lead_hours
-        active_max_lag_hours = self.max_lag_hours if hasattr(self, 'max_lag_hours') is not None else self.default_max_lag_hours
+        active_hours = {}
+        active_hours['lag'] = self.max_lag_hours if hasattr(self, 'max_lag_hours') is not None else self.default_max_lag_hours
+        active_hours['lead'] = self.max_lead_hours if hasattr(self, 'max_lead_hours') is not None else self.default_max_lead_hours
+        has_flexible_load = True if hasattr(self, 'flexible_load_measure') and \
+                                    self.flexible_load_measure.values.xs(year,level='year').sum().sum() > 0 else False
+        flexible_load_tech_index = True if has_flexible_load and 'demand_technology' in self.flexible_load_measure.values.index.names else False
+        percent_flexible = self.flexible_load_measure.values.xs(year, level='year') if has_flexible_load else None
 
-        # if none of the technologies have shapes, great! we can avoid having to aggregate each one separately
-        if not hasattr(self, 'technologies') or np.all([tech.shape_id is None for tech in self.technologies.values()]):
-            energy_slice = self.get_electricity_consumption(year)
-            if energy_slice is None:
-                return None
-            if hasattr(self, 'flexible_load_measure') and self.flexible_load_measure.values.xs(year, level='year').sum().sum()>0:
-                percent_flexible = self.flexible_load_measure.values.xs(year, level='year')
-                timeshift_levels = sorted(list(util.get_elements_from_level(active_shape.values, 'timeshift_type')))
-                # using electricity reconcilliation with a profile with a timeshift type can cause big problems, so it is avoided
-                shape_df = active_shape.values if timeshift_levels==[1, 2, 3] else util.DfOper.mult((active_shape.values, self.electricity_reconciliation))
-                flex = shape.Shape.produce_flexible_load(shape_df, percent_flexible=percent_flexible, hr_delay=active_max_lag_hours, hr_advance=active_max_lead_hours)
-                return util.DfOper.mult((flex, energy_slice))
-            else:
-                return util.DfOper.mult((active_shape.values.xs(2, level='timeshift_type'), energy_slice))
+        tech_load, unique_tech_load, unique_tech_ids = None, None, []
+        if hasattr(self, 'technologies'):
+            if has_flexible_load:
+                # sometimes a tech will have a different lead or lag than the subsector, which means we need to treat this tech separately
+                unique_tech_ids = set([tech for tech in self.technologies if
+                                                 (self.technologies[tech].get_max_lead_hours() and self.technologies[tech].get_max_lead_hours()!=active_hours['lead']) or
+                                                 (self.technologies[tech].get_max_lag_hours() and self.technologies[tech].get_max_lag_hours()!=active_hours['lag'])])
+                # if we have a flexible load measure, sometimes techs will be called out specifically
+                if 'demand_technology' in self.flexible_load_measure.values.index.names:
+                    unique_tech_ids =  unique_tech_ids | set(self.flexible_load_measure.values.index.get_level_values('demand_technology'))
+                unique_tech_ids = self._filter_techs_without_energy(sorted(unique_tech_ids), energy_slice)
+                unique_tech_load = self.aggr_elect_shapes_unique_techs_with_flex_load(unique_tech_ids, active_shape, active_hours, year, energy_slice, percent_flexible)
 
-        # some technologies have their own shapes, so we need to aggregate from that level
+            # other times, we just have a tech with a unique shape. Note if we've already dealt with it in unique tech ids, we can skip this
+            # these are techs that we need to treat specially because they will have their own shape
+            not_unique_tech_ids = [tech.id for tech in self.technologies.values() if tech.shape if tech.id not in unique_tech_ids]
+            not_unique_tech_ids = self._filter_techs_without_energy(not_unique_tech_ids, energy_slice)
+            if not_unique_tech_ids:
+                # at this point we haven't yet done flexible load
+                tech_load = self.aggr_elect_shapes_techs_not_unique(not_unique_tech_ids, active_shape, energy_slice)
+
+            accounted_for_techs = sorted(set(unique_tech_ids) | set(not_unique_tech_ids))
+            # remove the energy from the techs we've already accounted for
+            remaining_energy = util.remove_df_levels(util.remove_df_elements(energy_slice, accounted_for_techs, 'demand_technology'), 'demand_technology')
         else:
-            raise ValueError("demand_technology shapes are not fully implemented")
-            energy_slice = energy_slice.groupby(level=[cfg.primary_geography, 'demand_technology']).sum()
-            
-            technology_shapes = pd.concat([tech.get_shape(default_shape=active_shape) for tech in self.technologies.values()],
-                                           keys=self.technologies.keys(), names=['demand_technology'])
-            # here we might have a problem because some of the demand_technology shapes had flex load others didn't, this could lead to NaN
-            # it might be possible to simply fill with 2, which would be the native shape
-            return util.remove_df_levels(util.DfOper.mult((energy_slice, technology_shapes)), levels='demand_technology')
+            # we haven't done anything yet, so the remaining energy is just the starting energy_slice
+            remaining_energy = util.remove_df_levels(energy_slice, 'demand_technology')
+
+        if has_flexible_load:
+            # this is a special case where we've actually already accounted for all the parts that are flexible, we just need to add in the other parts and return it
+            if flexible_load_tech_index:
+                remaining_shape = util.DfOper.mult((active_shape.values.xs(2, level='timeshift_type'), remaining_energy))if remaining_energy.sum().sum()>0 else None
+                tech_load = tech_load.xs(2, level='timeshift_type') if tech_load is not None else tech_load
+                remaining_shape = util.DfOper.add((remaining_shape, tech_load), collapsible=False)
+                # we need to add in the electricity reconciliation because we have flexible load for the other parts and it's expected by the function calling this one
+                if remaining_shape is not None:
+                    remaining_shape = util.DfOper.mult((remaining_shape, self.electricity_reconciliation), collapsible=False)
+                    remaining_shape = pd.concat([remaining_shape] * 3, keys=[1, 2, 3], names=['timeshift_type'])
+                return util.DfOper.add((unique_tech_load, remaining_shape), collapsible=False)
+            else:
+                # here we have flexible load, but it is not indexed by technology
+                remaining_shape = util.DfOper.mult((active_shape.values, remaining_energy), collapsible=False)
+                remaining_shape = util.DfOper.add((remaining_shape, tech_load), collapsible=False)
+                remaining_shape = self.return_shape_after_flex_load(remaining_shape, percent_flexible, active_hours['lag'], active_hours['lead'])
+                return remaining_shape
+        else:
+            # if we don't have flexible load, we don't introduce electricity reconcilliation because that is done at a more aggregate level
+            remaining_shape = util.DfOper.mult((active_shape.values.xs(2, level='timeshift_type'), remaining_energy))
+            return (tech_load.xs(2, level='timeshift_type') + remaining_shape) if tech_load is not None else remaining_shape
 
     def add_energy_system_data(self):
         """ 
@@ -1046,7 +1122,7 @@ class Subsector(DataMapFunctions):
        
     def format_output_costs(self,att,override_levels_to_keep=None):
         stock_costs = self.format_output_stock_costs(att, override_levels_to_keep)
-        measure_costs = self.format_output_measure_costs(att, override_levels_to_keep)   
+        measure_costs = self.format_output_measure_costs(att, override_levels_to_keep)
         cost_list = []
         for cost in [stock_costs, measure_costs]:
             if cost is not None:
@@ -1091,7 +1167,10 @@ class Subsector(DataMapFunctions):
         df = df.set_index('new/replacement',append=True)
         df = df.groupby(level = [x for x in df.index.names if x in override_levels_to_keep]).sum()
         unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
-        df.columns = [unit]        
+        try:
+            df.columns = [unit]
+        except:
+            pdb.set_trace()
         return df
 
     def calculate_measures(self):
@@ -1397,6 +1476,15 @@ class Subsector(DataMapFunctions):
         if measure_ids:
             assert len(measure_ids) == 1, "Found more than one flexible load measure for subsector {}".format(self.id,)
             self.flexible_load_measure = FlexibleLoadMeasure(measure_ids[0])
+
+            if 'demand_technology' in self.flexible_load_measure.values.index.names:
+                techs_with_specific_flexible_load = sorted(self.flexible_load_measure.values.index.get_level_values('demand_technology').unique())
+                if techs_with_specific_flexible_load:
+                    assert hasattr(self,'technologies'), "subsector {} cannot have a technology specific flexible load measure if it has no technologies".format(self.name)
+
+        if self.pertubation and self.pertubation.flexible_operation:
+            assert len(measure_ids) == 0, 'perturbations in flexible load when a flexible load measure already exists is not supported yet'
+            self.flexible_load_measure = FlexibleLoadMeasure2(self.pertubation)
 
     def add_fuel_switching_measures(self, scenario):
         """

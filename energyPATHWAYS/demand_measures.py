@@ -16,7 +16,7 @@ import logging
 
 
 class FlexibleLoadMeasure(Abstract):
-    def __init__(self, id, **kwargs):
+    def __init__(self, id):
         self.id = id
         self.sql_id_table = 'DemandFlexibleLoadMeasures'
         self.sql_data_table = 'DemandFlexibleLoadMeasuresData'
@@ -24,7 +24,30 @@ class FlexibleLoadMeasure(Abstract):
         self.input_type = 'intensity'
         self.remap()
         self.values.sort_index(inplace=True)
-        
+
+    #TODO we should really do something like this to separate the class constructor from the DB
+    @classmethod
+    def make_from_db(cls, id):
+        # read DB here
+        return FlexibleLoadMeasure()
+
+    @classmethod
+    def make_from_pertubation(cls, pertubation):
+        # set up here
+        return FlexibleLoadMeasure()
+
+# this class really should be combined with the top flexible load measure class but the constructor is not flexible enough
+class FlexibleLoadMeasure2(Abstract):
+    def __init__(self, pertubation):
+        self.raw_values = util.remove_df_levels(pertubation.sales_share_changes, 'replaced_demand_technology_id')
+        self.raw_values[:] = 1
+        self.name = 'pertubation'
+        self.interpolation_method = 'nearest'
+        self.extrapolation_method = 'nearest'
+        self.input_type = 'intensity'
+        self.geography = cfg.primary_geography # the pertubations come in already geomapped
+        self.remap()
+        self.values.sort_index(inplace=True)
 
 class DemandMeasure(StockItem):
     def __init__(self):

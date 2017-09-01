@@ -14,6 +14,7 @@ import inspect
 from shared_classes import StockItem, SalesShare, SpecifiedStock
 import shape
 import logging
+import pdb
 
 
 class DemandTechCost(Abstract):
@@ -260,11 +261,16 @@ class DemandTechnology(StockItem):
         self.book_life()
         self.add_class()
         self.min_year()
-        if self.shape_id is not None:
-            self.shape = shape.shapes.data[self.shape_id]
+        self.shape = shape.shapes.data[self.shape_id] if self.shape_id is not None else None
 
-    def get_shape(default_shape):
-        pass
+    def get_shape(self, default_shape):
+        return default_shape.values if self.shape is None else self.shape.values
+
+    def get_max_lead_hours(self):
+        return self.max_lead_hours if self.max_lead_hours else None
+
+    def get_max_lag_hours(self):
+        return self.max_lag_hours if self.max_lag_hours else None
 
     def add_sales_share_measures(self):
         self.sales_shares = {}

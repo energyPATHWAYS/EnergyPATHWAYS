@@ -206,19 +206,30 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\US_DDPP'
+    workingdir = r'C:\github\EP_runs\US_county'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['mixed']
+    scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
-    load_demand   = True,
-    solve_demand  = True,
-    load_supply   = True,
+    load_demand   = False,
+    solve_demand  = False,
+    load_supply   = False,
     solve_supply  = False,
     export_results= False,
     load_error    = False,
     pickle_shapes = True,
-    save_models   = True,
+    save_models   = False,
     api_run       = False,
-    clear_results = True)
+    clear_results = False)
+    # t = time.time()
+    # test = model.demand.aggregate_electricity_shapes(2015)
+    # t = util.time_stamp(t)
+    # # model.demand.sectors[2].subsectors[2].aggregate_electricity_shapes(2015)
+    # from energyPATHWAYS import outputs
+    # test = outputs.Output()
+    # test.dx_ac = shape.shapes.data[42].values
+    # test.furnace = shape.shapes.data[41].values
+    # test.return_cleaned_output('dx_ac').to_csv('dx_ac.csv')
+    # test.return_cleaned_output('furnace').to_csv('furnace.csv')
+
 

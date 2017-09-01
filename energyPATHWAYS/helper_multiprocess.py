@@ -6,6 +6,7 @@ Created on Fri Jul 29 10:12:07 2016
 """
 
 import config as cfg
+import logging
 from multiprocessing import Pool
 from pyomo.opt import SolverFactory
 #import util
@@ -36,6 +37,13 @@ def subsector_populate(subsector):
     subsector.add_energy_system_data()
     cfg.cur.close()
     return subsector
+
+def shapes_populate(shape):
+    cfg.initialize_config(shape.workingdir, shape.cfgfile_name, shape.log_name)
+    logging.info('    shape: ' + shape.name)
+    shape.read_timeseries_data()
+    cfg.cur.close()
+    return shape
 
 def individual_calculate(evolve, individual):
     evolve.calculate(individual)

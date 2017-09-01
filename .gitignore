@@ -86,6 +86,7 @@ target/
 /model building tools/create map keys from drivers/*.log
 /model building tools/aggregate results/inputs/*
 /model building tools/aggregate results/outputs/*
+/model building tools/scenario_builder/scenario_builder_config.txt
 
 # profiler
 /model runs/*.profile
