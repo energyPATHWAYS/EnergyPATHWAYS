@@ -1064,35 +1064,38 @@ class Subsector(DataMapFunctions):
         """ 
         Formats cost outputs
         """
-        if not hasattr(self, 'stock'):
-            return None
-        cost_dict = getattr(self.stock, att)
-        keys, values = zip(*[(a, b) for a, b in util.unpack_dict(cost_dict)])
-#        keys = util.flatten_list([[tuple(k)]*len(v) for k, v in zip(keys, values)])
-        values = list(values)
-        for index, value in enumerate(values):
-            if list(value.columns) != ['value']:
-                value = value.stack().to_frame()
-                value.columns = ['value']
-                util.replace_index_name(value, 'year')
-                values[index] = value
-            else:
-                values[index]=value         
-            if hasattr(self.stock,'other_index_1'):
-                util.replace_index_name(values[index],"other_index_1",self.stock.other_index_1)
-            if hasattr(self.stock,'other_index_2'):
-                util.replace_index_name(values[index],"other_index_2",self.stock.other_index_2) 
-            values[index]['cost_type'] = keys[index][0].upper()
-            values[index]['new/replacement'] = keys[index][1].upper()
-        df = pd.concat(values)
-#        df['cost_type'] = [x[0] for x in keys]
-#        df['new/replacement'] = [x[1] for x in keys]
-        df = df.set_index('cost_type',append=True)
-        df = df.set_index('new/replacement',append=True)
-        df = df.groupby(level = [x for x in df.index.names if x in override_levels_to_keep]).sum()
-        unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
-        df.columns = [unit]        
-        return df
+        try:
+            if not hasattr(self, 'stock'):
+                return None
+            cost_dict = copy.deepcopy(getattr(self.stock, att))
+            keys, values = zip(*[(a, b) for a, b in util.unpack_dict(cost_dict)])
+    #        keys = util.flatten_list([[tuple(k)]*len(v) for k, v in zip(keys, values)])
+            values = list(values)
+            for index, value in enumerate(values):
+                if list(value.columns) != ['value']:
+                    value = value.stack().to_frame()
+                    value.columns = ['value']
+                    util.replace_index_name(value, 'year')
+                    values[index] = value
+                else:
+                    values[index]=value         
+                if hasattr(self.stock,'other_index_1'):
+                    util.replace_index_name(values[index],"other_index_1",self.stock.other_index_1)
+                if hasattr(self.stock,'other_index_2'):
+                    util.replace_index_name(values[index],"other_index_2",self.stock.other_index_2) 
+                values[index]['cost_type'] = keys[index][0].upper()
+                values[index]['new/replacement'] = keys[index][1].upper()
+            df = pd.concat(values)
+    #        df['cost_type'] = [x[0] for x in keys]
+    #        df['new/replacement'] = [x[1] for x in keys]
+            df = df.set_index('cost_type',append=True)
+            df = df.set_index('new/replacement',append=True)
+            df = df.groupby(level = [x for x in df.index.names if x in override_levels_to_keep]).sum()
+            unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
+            df.columns = [unit]        
+            return df
+        except:
+            pdb.set_trace()
 
     def calculate_measures(self):
         """calculates measures for use in subsector calculations """
