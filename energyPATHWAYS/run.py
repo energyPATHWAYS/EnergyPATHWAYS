@@ -206,15 +206,15 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\US_county'
+    workingdir = r'C:\github\ep-supply-curve\inputs\scenarios'
     os.chdir(workingdir)
     config = 'config.INI'
     scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
     load_demand   = False,
-    solve_demand  = False,
+    solve_demand  = True,
     load_supply   = False,
-    solve_supply  = False,
+    solve_supply  = True,
     export_results= False,
     load_error    = False,
     pickle_shapes = True,

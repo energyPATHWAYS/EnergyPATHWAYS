@@ -1147,7 +1147,7 @@ class Subsector(DataMapFunctions):
                 util.replace_index_name(value, 'year')
                 values[index] = value
             else:
-                values[index]=value         
+                values[index]=value
             if hasattr(self.stock,'other_index_1'):
                 util.replace_index_name(values[index],"other_index_1", self.stock.other_index_1)
             if hasattr(self.stock,'other_index_2'):
