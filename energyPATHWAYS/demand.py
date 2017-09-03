@@ -1071,8 +1071,8 @@ class Subsector(DataMapFunctions):
         if len(measure_types):
             df_list = []
             for measure_type in measure_types:
-                active_type = getattr(self,measure_type)
-                df = getattr(active_type,att)['unspecified']
+                active_type = copy.deepcopy(getattr(self,measure_type))
+                df = copy.deepcopy(getattr(active_type,att))['unspecified']
                 if list(df.columns) != ['value']:
                     df = df.stack().to_frame()
                     df.columns = ['value']
@@ -1123,18 +1123,13 @@ class Subsector(DataMapFunctions):
     def format_output_costs(self,att,override_levels_to_keep=None):
         stock_costs = self.format_output_stock_costs(att, override_levels_to_keep)
         measure_costs = self.format_output_measure_costs(att, override_levels_to_keep)
-        cost_list = []
-        for cost in [stock_costs, measure_costs]:
-            if cost is not None:
-                cost_list.append(cost)
+        cost_list = [c for c in [stock_costs, measure_costs] if c is not None]
         if len(cost_list) == 0:
             return None
         if len(cost_list) == 1:
             return cost_list[0]
         else:
-            keys = ['stock', 'measure']
-            names = ['cost_type']
-            return util.df_list_concatenate(cost_list,keys=keys,new_names=names)
+            return util.df_list_concatenate(cost_list,keys=['stock', 'measure'],new_names=['cost_type'])
   
     def format_output_stock_costs(self, att, override_levels_to_keep=None):
         """ 
@@ -1142,9 +1137,8 @@ class Subsector(DataMapFunctions):
         """
         if not hasattr(self, 'stock'):
             return None
-        cost_dict = getattr(self.stock, att)
+        cost_dict = copy.deepcopy(getattr(self.stock, att))
         keys, values = zip(*[(a, b) for a, b in util.unpack_dict(cost_dict)])
-#        keys = util.flatten_list([[tuple(k)]*len(v) for k, v in zip(keys, values)])
         values = list(values)
         for index, value in enumerate(values):
             if list(value.columns) != ['value']:
@@ -1155,22 +1149,15 @@ class Subsector(DataMapFunctions):
             else:
                 values[index]=value         
             if hasattr(self.stock,'other_index_1'):
-                util.replace_index_name(values[index],"other_index_1",self.stock.other_index_1)
+                util.replace_index_name(values[index],"other_index_1", self.stock.other_index_1)
             if hasattr(self.stock,'other_index_2'):
-                util.replace_index_name(values[index],"other_index_2",self.stock.other_index_2) 
+                util.replace_index_name(values[index],"other_index_2", self.stock.other_index_2)
             values[index]['cost_type'] = keys[index][0].upper()
             values[index]['new/replacement'] = keys[index][1].upper()
         df = pd.concat(values)
-#        df['cost_type'] = [x[0] for x in keys]
-#        df['new/replacement'] = [x[1] for x in keys]
-        df = df.set_index('cost_type',append=True)
-        df = df.set_index('new/replacement',append=True)
+        df = df.set_index(['cost_type', 'new/replacement'] ,append=True)
         df = df.groupby(level = [x for x in df.index.names if x in override_levels_to_keep]).sum()
-        unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
-        try:
-            df.columns = [unit]
-        except:
-            pdb.set_trace()
+        df.columns = [cfg.output_currency]
         return df
 
     def calculate_measures(self):
