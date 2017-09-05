@@ -184,13 +184,15 @@ class Supply(object):
         else:
             for node in self.nodes.values():
                 node.calculate()
-                if node.id in self.blend_nodes and node.id in cfg.evolved_blend_nodes and cfg.evolved_run=='true':
-                    for x in node.nodes:
-                        if x in self.storage_nodes:
-                            indexer = util.level_specific_indexer(node.values,'supply_node',x)
-                            node.values.loc[indexer,:] = 1e-7
-                            node.values = node.values.groupby(level=[x for x in node.values.index.names if x !='supply_node']).transform(lambda x: x/x.sum()).sum()
-                    
+        for node in self.nodes.values():
+            if node.id in self.blend_nodes and node.id in cfg.evolved_blend_nodes and cfg.evolved_run=='true':
+                node.values = node.values.groupby(level=[x for x in node.values.index.names if x !='supply_node']).transform(lambda x: 1/float(x.count()))
+                for x in node.nodes:
+                    if x in self.storage_nodes:
+                        indexer = util.level_specific_indexer(node.values,'supply_node',x)
+                        node.values.loc[indexer,:] = 1e-7 * 4
+                node.values = node.values.groupby(level=[x for x in node.values.index.names if x !='supply_node']).transform(lambda x: x/x.sum())/4.0
+            
     
     def create_IO(self):
         """Creates a dictionary with year and demand sector keys to store IO table structure"""
@@ -1800,9 +1802,8 @@ class Supply(object):
                stack_levels =[cfg.primary_geography, "supply_node_export"]
                df = df.stack(stack_levels).to_frame()
                levels_to_keep = [x for x in df.index.names if x in cfg.output_combined_levels+stack_levels]
-               df = df.groupby(level=levels_to_keep+['supply_node']).sum()
+               df = df.groupby(level=list(set(levels_to_keep+['supply_node']))).sum()
                df = df.groupby(level='supply_node').filter(lambda x: x.sum()>0)
-               df = df.groupby(level=levels_to_keep+['supply_node']).sum()
                sector_df_list.append(df)     
             year_df = pd.concat(sector_df_list, keys=keys,names=name)
             df_list.append(year_df)
@@ -2248,14 +2249,6 @@ class Supply(object):
                 previous_year =  max(min(self.years), year-1)
                 node.trade_adjustment_dict[previous_year] = copy.deepcopy(node.active_trade_adjustment_df)
         self.map_export_to_io(year,loop)
-#            if hasattr(node, 'active_constraint_df'):
-#                node.constraint_dict[previous_year] = node.active_constraint_df
-#                node.active_constraint_df = node.constraint_dict[year]
-#            if hasattr(node, 'active_constraint_adjustment_df'):
-#                node.constraint_adjustment_dict[previous_year] = node.active_constraint_adjustment_df
-#                node.active_constraint_adjustment_df = node.constraint_adjustment_dict[year]
-#            if not isinstance(node,SupplyStockNode) and not isinstance(node,StorageNode):
-#                node.calculate_active_coefficients(year, loop)
 
                 
     
@@ -3221,9 +3214,7 @@ class BlendNode(Node):
          self.expand_blend()
          self.values = self.values.unstack(level='year')    
          self.values.columns = self.values.columns.droplevel()
-         if cfg.evolved_run=='true' and self.id in cfg.evolved_blend_nodes:
-             #normalizes blends to parameterize an Evolved run
-             self.values = self.values.groupby(level=[x for x in self.values.index.names if x !='supply_node']).transform(lambda x: x/x.sum())
+
 
     def update_residual(self, year):
         """calculates values for residual node in Blend Node dataframe
@@ -5331,11 +5322,12 @@ class ImportNode(Node):
                 filter_geo_potential_normal = filter_geo_potential_normal.reset_index().set_index(filter_geo_potential_normal.index.names)
                 supply_curve = filter_geo_potential_normal
                 supply_curve[supply_curve.values<0]=0
+                supply_curve = util.DfOper.mult([supply_curve,self.potential.values.loc[:,year].to_frame()]).groupby(level = [x for x in self.potential.values.index.names if x in ['demand_sector', cfg.primary_geography]]).transform(lambda x:x/x.sum())
                 cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
                 levels = ['demand_sector',cfg.primary_geography]
                 self.active_embodied_cost = cost.groupby(level = [x for x in levels if x in cost.index.names]).sum()
                 self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],
-                                                                                                                            levels_names=[cfg.primary_geography,'demand_sector'])
+                                                                                                                            levels_names=[cfg.primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
             else:
                 allowed_indices = ['demand_sector', cfg.primary_geography]
                 if set(self.cost.values.index.names).issubset(allowed_indices):
@@ -5409,12 +5401,12 @@ class PrimaryNode(Node):
                 filter_geo_potential_normal = filter_geo_potential_normal.reset_index().set_index(filter_geo_potential_normal.index.names)
                 supply_curve = filter_geo_potential_normal
                 supply_curve = supply_curve[supply_curve.values>0]
-#                supply_curve[supply_curve>0]=1
+                supply_curve = util.DfOper.mult([supply_curve,self.potential.values.loc[:,year].to_frame()]).groupby(level = [x for x in self.potential.values.index.names if x in ['demand_sector', cfg.primary_geography]]).transform(lambda x:x/x.sum())
                 cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
                 levels = ['demand_sector',cfg.primary_geography]
                 self.active_embodied_cost = cost.groupby(level = [x for x in levels if x in cost.index.names]).sum()
                 self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],
-                                                                                                                            levels_names=[cfg.primary_geography,'demand_sector'])
+                                                                                                                            levels_names=[cfg.primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
             else:
                 allowed_indices = ['demand_sector', cfg.primary_geography]
                 if set(self.cost.values.index.names).issubset(allowed_indices):
