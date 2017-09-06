@@ -751,11 +751,14 @@ class Subsector(DataMapFunctions):
                 if 'demand_technology' in self.flexible_load_measure.values.index.names:
                     unique_tech_ids =  unique_tech_ids | set(self.flexible_load_measure.values.index.get_level_values('demand_technology'))
                 unique_tech_ids = self._filter_techs_without_energy(sorted(unique_tech_ids), energy_slice)
-                unique_tech_load = self.aggr_elect_shapes_unique_techs_with_flex_load(unique_tech_ids, active_shape, active_hours, year, energy_slice, percent_flexible)
+                if unique_tech_ids:
+                    unique_tech_load = self.aggr_elect_shapes_unique_techs_with_flex_load(unique_tech_ids, active_shape, active_hours, year, energy_slice, percent_flexible)
+                else:
+                    unique_tech_load = None
 
             # other times, we just have a tech with a unique shape. Note if we've already dealt with it in unique tech ids, we can skip this
             # these are techs that we need to treat specially because they will have their own shape
-            not_unique_tech_ids = [tech.id for tech in self.technologies.values() if tech.shape if tech.id not in unique_tech_ids]
+            not_unique_tech_ids = [tech.id for tech in self.technologies.values() if tech.shape and (tech.id not in unique_tech_ids)]
             not_unique_tech_ids = self._filter_techs_without_energy(not_unique_tech_ids, energy_slice)
             if not_unique_tech_ids:
                 # at this point we haven't yet done flexible load
@@ -2731,6 +2734,9 @@ class Subsector(DataMapFunctions):
             y_i = years_lookup[int(row['year'])]
             dt_i = tech_lookup[int(row['demand_technology_id'])]
             rdt_i = tech_lookup[int(row['replaced_demand_technology_id'])]
+            if dt_i == rdt_i:
+                # if the demand and replace technology are the same, we don't do anything
+                continue
             sales_share[y_i, dt_i, :] += sales_share[y_i, rdt_i, :] * row['value']
             sales_share[y_i, rdt_i, :] *= 1-row['value']
         return sales_share

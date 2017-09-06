@@ -13,6 +13,7 @@ import inspect
 from util import DfOper
 from shared_classes import StockItem
 import logging
+import pdb
 
 
 class FlexibleLoadMeasure(Abstract):
@@ -40,6 +41,7 @@ class FlexibleLoadMeasure(Abstract):
 class FlexibleLoadMeasure2(Abstract):
     def __init__(self, pertubation):
         self.raw_values = util.remove_df_levels(pertubation.sales_share_changes, 'replaced_demand_technology_id')
+        self.raw_values.index = self.raw_values.index.rename('demand_technology', 'demand_technology_id')
         self.raw_values[:] = 1
         self.name = 'pertubation'
         self.interpolation_method = 'nearest'
@@ -47,7 +49,11 @@ class FlexibleLoadMeasure2(Abstract):
         self.input_type = 'intensity'
         self.geography = cfg.primary_geography # the pertubations come in already geomapped
         self.remap()
-        self.values.sort_index(inplace=True)
+        org_index = self.values.index.names
+        temp = self.values.reset_index()
+        start_year = self.raw_values.index.get_level_values('year').min()
+        temp.loc[temp['year'] < start_year, 'value'] = 0
+        self.values = temp.set_index(org_index).sort()
 
 class DemandMeasure(StockItem):
     def __init__(self):

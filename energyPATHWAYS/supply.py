@@ -5414,8 +5414,6 @@ class PrimaryNode(Node):
                 else:
                     raise ValueError("too many indexes in cost inputs of node %s" %self.id)
             try:
-                if self.id == 56:
-                    pdb.set_trace()
                 self.levelized_costs.loc[:,year] = DfOper.mult([self.active_embodied_cost,self.active_supply]).values
             except:
                 pdb.set_trace()

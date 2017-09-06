@@ -266,21 +266,19 @@ def init_output_levels():
     output_demand_levels = ['year', 'vintage', 'demand_technology', primary_geography, 'sector', 'subsector', 'final_energy','other_index_1','other_index_2','cost_type','new/replacement']
     output_supply_levels = ['year', 'vintage', 'supply_technology', primary_geography,  'demand_sector', 'supply_node', 'ghg', 'resource_bin','cost_type']
     output_combined_levels = list(set(output_supply_levels + output_demand_levels + [primary_geography + "_supply"]))
-    
+
     for x in [x[0] for x in cfgfile.items('demand_output_detail')]:
-        if cfgfile.get('demand_output_detail',x).lower() != 'true':
-            if x in output_demand_levels:
-                output_demand_levels.remove(x)
+        if x in output_demand_levels and cfgfile.get('demand_output_detail', x).lower() != 'true':
+            output_demand_levels.remove(x)
     for x in [x[0] for x in cfgfile.items('supply_output_detail')]:
-        if cfgfile.get('supply_output_detail',x).lower() != 'true':
-            if x in output_supply_levels:
-                output_supply_levels.remove(x)  
+        if x in output_supply_levels and cfgfile.get('supply_output_detail',x).lower() != 'true':
+            output_supply_levels.remove(x)
     for x in [x[0] for x in cfgfile.items('combined_output_detail')]:
         if cfgfile.get('combined_output_detail',x).lower() != 'true':
             if x == 'supply_geography':
-                x =  primary_geography + "_supply"
+                x = primary_geography + "_supply"
             if x in output_combined_levels:
-                output_combined_levels.remove(x)  
+                output_combined_levels.remove(x)
 
         
 
