@@ -5322,7 +5322,9 @@ class ImportNode(Node):
                 filter_geo_potential_normal = filter_geo_potential_normal.reset_index().set_index(filter_geo_potential_normal.index.names)
                 supply_curve = filter_geo_potential_normal
                 supply_curve[supply_curve.values<0]=0
-                supply_curve = util.DfOper.mult([supply_curve,self.potential.values.loc[:,year].to_frame()]).groupby(level = [x for x in self.potential.values.index.names if x in ['demand_sector', cfg.primary_geography]]).transform(lambda x:x/x.sum())
+                supply_curve = util.DfOper.mult([util.DfOper.divi([self.potential.values.loc[:,year].to_frame(),
+                                                                   util.remove_df_levels(self.potential.values.loc[:,year].to_frame(),[x for x in self.potential.values.index.names if x not in ['demand_sector',cfg.primary_geography,'resource_bin']])]),
+                                                                supply_curve])
                 cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
                 levels = ['demand_sector',cfg.primary_geography]
                 self.active_embodied_cost = cost.groupby(level = [x for x in levels if x in cost.index.names]).sum()
@@ -5401,7 +5403,9 @@ class PrimaryNode(Node):
                 filter_geo_potential_normal = filter_geo_potential_normal.reset_index().set_index(filter_geo_potential_normal.index.names)
                 supply_curve = filter_geo_potential_normal
                 supply_curve = supply_curve[supply_curve.values>0]
-                supply_curve = util.DfOper.mult([supply_curve,self.potential.values.loc[:,year].to_frame()]).groupby(level = [x for x in self.potential.values.index.names if x in ['demand_sector', cfg.primary_geography]]).transform(lambda x:x/x.sum())
+                supply_curve = util.DfOper.mult([util.DfOper.divi([self.potential.values.loc[:,year].to_frame(),
+                                                                   util.remove_df_levels(self.potential.values.loc[:,year].to_frame(),[x for x in self.potential.values.index.names if x not in ['demand_sector',cfg.primary_geography,'resource_bin']])]),
+                                                                supply_curve])
                 cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
                 levels = ['demand_sector',cfg.primary_geography]
                 self.active_embodied_cost = cost.groupby(level = [x for x in levels if x in cost.index.names]).sum()
