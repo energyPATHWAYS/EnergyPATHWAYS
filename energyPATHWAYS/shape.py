@@ -199,8 +199,10 @@ class Shape(dmf.DataMapFunctions):
         # this next step could be done outside of a for loop, but I'm not able to get the Pandas syntax to take
         for name, level in zip(self._non_time_keys, non_time_levels):
             data = pd.concat([data]*len(level), keys=level, names=[name])  
-        
-        data.reset_index(inplace=True)
+        try:
+            data.reset_index(inplace=True)
+        except:
+            pdb.set_trace()
         data.set_index(self._non_time_keys+self._active_time_keys+['weather_datetime'], inplace=True)
         data.sort(inplace=True)
         return data

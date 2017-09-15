@@ -3720,7 +3720,7 @@ class SupplyNode(Node,StockItem):
     def calculate_dynamic_supply_costs(self, cost,year,start_year):
         "returns a revenue requirement for the component of costs that is correlated with throughput"
         if cost.data is True:
-            #determine increased tariffs due to growth rate (financial/physical stock rati-)
+            #determine increased tariffs due to growth rate (financial/physical stock rati0)
             limited_names = self.rollover_group_names if len(self.rollover_group_names)>1 else self.rollover_group_names[0]
             first_yr_financial_stock = self.stock.values_financial.groupby(level=limited_names).sum()[start_year].to_frame()
             first_yr_stock = self.stock.values.groupby(level= limited_names).sum()[start_year].to_frame() 
@@ -3785,27 +3785,28 @@ class SupplyNode(Node,StockItem):
             
     def calculate_lump_costs(self,year, rev_req):
             start_year = min(self.years)
-#            if not hasattr(self,'annual_costs'):
-#                index = self.stock.sales.index
-#                self.annual_costs = util.empty_df(index, columns=['value'],fill_value=0.)
             indexer = util.level_specific_indexer(self.annual_costs,'vintage',year) 
             self.annual_costs.loc[indexer,:] = 0
             for cost in self.costs.values():
                 if cost.raw_values is not None:
                     financial_stock = self.stock.values_financial.groupby(level= self.rollover_group_names).sum()[year].to_frame() 
-                    if year == start_year:
-                        annual_costs = rev_req/(cost.book_life)
-                    else:
-                        rem_rev_req = cost.prev_yr_rev_req * (1 - 1/cost.book_life)
-                        new_rev_req = util.DfOper.subt([rev_req,rem_rev_req])
-                        annual_costs = new_rev_req * cost.book_life
-                        sales = util.df_slice(self.stock.sales,start_year,'vintage')
-                        sales.columns = [start_year]
-                        ratio =  util.DfOper.divi([sales,financial_stock]).replace([np.nan,-np.inf,np.inf],0)
-                        annual_costs = util.DfOper.mult([ratio, rev_req])
-                    indexer = util.level_specific_indexer(self.annual_costs,'vintage',year) 
                     if cost.is_capital_cost:
+                        if year == start_year:
+                            annual_costs = rev_req/(cost.book_life)
+                        else:
+                            rem_rev_req = cost.prev_yr_rev_req * (1 - 1/self.book_life)
+                            new_rev_req = util.DfOper.subt([rev_req,rem_rev_req])
+                            annual_costs = new_rev_req * cost.book_life
+                            sales = util.df_slice(self.stock.sales,start_year,'vintage')
+                            sales.columns = [start_year]
+                            ratio =  util.DfOper.divi([sales,financial_stock]).replace([np.nan,-np.inf,np.inf],0)
+                            annual_costs = util.DfOper.mult([ratio, rev_req])
+                        indexer = util.level_specific_indexer(self.annual_costs,'vintage',year) 
                         self.annual_costs.loc[indexer,:] += annual_costs.values
+                    else:
+                        pass
+                     
+                     
 
     def calculate_capacity_utilization(self, energy_supply, supply_years):
         energy_stock = self.stock.values[supply_years] * util.unit_convert(1,unit_from_den='hour', unit_to_den='year')
@@ -5314,22 +5315,13 @@ class ImportNode(Node):
         self.set_pass_through_df_dict()
         self.set_cost_dataframes()
 
-    def calculate_levelized_costs(self,year, loop):
+    def calculate_levelized_costs(self,year,loop):
         "calculates the embodied costs of nodes with emissions"
         if hasattr(self,'cost') and self.cost.data is True:
-            if hasattr(self,'potential') and self.potential.data is True:
-                filter_geo_potential_normal = util.remove_df_elements(self.potential.active_supply_curve_normal, [x for x in cfg.geo.geographies_unfiltered[cfg.primary_geography] if x not in cfg.geographies],cfg.primary_geography)
-                filter_geo_potential_normal = filter_geo_potential_normal.reset_index().set_index(filter_geo_potential_normal.index.names)
-                supply_curve = filter_geo_potential_normal
-                supply_curve[supply_curve.values<0]=0
-                supply_curve = util.DfOper.mult([util.DfOper.divi([self.potential.values.loc[:,year].to_frame(),
-                                                                   util.remove_df_levels(self.potential.values.loc[:,year].to_frame(),[x for x in self.potential.values.index.names if x not in ['demand_sector',cfg.primary_geography,'resource_bin']])]),
-                                                                supply_curve])
-                cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
-                levels = ['demand_sector',cfg.primary_geography]
-                self.active_embodied_cost = cost.groupby(level = [x for x in levels if x in cost.index.names]).sum()
-                self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],
-                                                                                                                            levels_names=[cfg.primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
+            if hasattr(self,'potential') and self.potential.data is True and self.cost.cost_method == 'average':
+                self.active_embodied_cost = self.calculate_avg_costs(year)
+            elif hasattr(self,'potential') and self.potential.data is True and self.cost.cost_method == 'marginal': 
+                self.active_embodied_cost = self.calculate_marginal_costs(year)
             else:
                 allowed_indices = ['demand_sector', cfg.primary_geography]
                 if set(self.cost.values.index.names).issubset(allowed_indices):
@@ -5341,7 +5333,44 @@ class ImportNode(Node):
     
     def calculate_annual_costs(self,year):
         if hasattr(self,'active_embodied_cost'):
-            self.annual_costs.loc[:,year] = DfOper.mult([self.active_embodied_cost,self.active_supply])
+            self.annual_costs.loc[:,year] = DfOper.mult([self.active_embodied_cost,self.active_supply]).values
+
+
+    
+    def calculate_avg_costs(self,year):
+        filter_geo_potential_normal = util.remove_df_elements(self.potential.active_supply_curve_normal, [x for x in cfg.geo.geographies_unfiltered[cfg.primary_geography] if x not in cfg.geographies],cfg.primary_geography)
+        filter_geo_potential_normal = filter_geo_potential_normal.reset_index().set_index(filter_geo_potential_normal.index.names)
+        supply_curve = filter_geo_potential_normal
+        supply_curve = supply_curve[supply_curve.values>0]
+        supply_curve = util.DfOper.mult([util.DfOper.divi([self.potential.values.loc[:,year].to_frame(),
+                                                           util.remove_df_levels(self.potential.values.loc[:,year].to_frame(),[x for x in self.potential.values.index.names if x not in ['demand_sector',cfg.primary_geography,'resource_bin']])]),
+                                                        supply_curve])
+        cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
+        levels = ['demand_sector',cfg.primary_geography]
+        cost = cost.groupby(level = [x for x in levels if x in cost.index.names]).sum()
+        return  util.expand_multi(cost, levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],
+                                                                                                                            levels_names=[cfg.primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
+                                                                                                                            
+                                                                                                                            
+    def calculate_marginal_costs(self,year):
+        filter_geo_potential_normal = util.remove_df_elements(self.potential.active_supply_curve_normal, [x for x in cfg.geo.geographies_unfiltered[cfg.primary_geography] if x not in cfg.geographies],cfg.primary_geography)
+        filter_geo_potential_normal = filter_geo_potential_normal.reset_index().set_index(filter_geo_potential_normal.index.names)
+        supply_curve = filter_geo_potential_normal
+        supply_curve = supply_curve[supply_curve.values>0]
+        supply_curve = util.DfOper.mult([util.DfOper.divi([self.potential.values.loc[:,year].to_frame(),
+                                                           util.remove_df_levels(self.potential.values.loc[:,year].to_frame(),[x for x in self.potential.values.index.names if x not in ['demand_sector',cfg.primary_geography,'resource_bin']])]),
+                                                        supply_curve])
+        supply_curve[supply_curve.values>0] = 1
+        cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
+        levels = ['demand_sector',cfg.primary_geography]
+        tradable_levels = ['demand_sector',self.tradable_geography]
+        map_df = cfg.geo.map_df(cfg.primary_geography,self.tradable_geography,normalize_as='total',eliminate_zeros=False,filter_geo=False)
+        traded_cost = util.DfOper.mult([cost,map_df])
+        traded_cost = traded_cost.groupby(level=[x for x in tradable_levels if x in traded_cost.index.names]).transform(lambda x: x.max())
+        cost = traded_cost.groupby(level = [x for x in levels if x in cost.index.names]).max()
+        return  util.expand_multi(cost, levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],
+                                                                                                                            levels_names=[cfg.primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
+
 
 
 class ImportCost(Abstract):
@@ -5398,18 +5427,10 @@ class PrimaryNode(Node):
     def calculate_levelized_costs(self,year,loop):
         "calculates the embodied costs of nodes with emissions"
         if hasattr(self,'cost') and self.cost.data is True:
-            if hasattr(self,'potential') and self.potential.data is True:
-                filter_geo_potential_normal = util.remove_df_elements(self.potential.active_supply_curve_normal, [x for x in cfg.geo.geographies_unfiltered[cfg.primary_geography] if x not in cfg.geographies],cfg.primary_geography)
-                filter_geo_potential_normal = filter_geo_potential_normal.reset_index().set_index(filter_geo_potential_normal.index.names)
-                supply_curve = filter_geo_potential_normal
-                supply_curve = supply_curve[supply_curve.values>0]
-                supply_curve = util.DfOper.mult([util.DfOper.divi([self.potential.values.loc[:,year].to_frame(),
-                                                                   util.remove_df_levels(self.potential.values.loc[:,year].to_frame(),[x for x in self.potential.values.index.names if x not in ['demand_sector',cfg.primary_geography,'resource_bin']])]),
-                                                                supply_curve])
-                cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
-                levels = ['demand_sector',cfg.primary_geography]
-                self.active_embodied_cost = cost.groupby(level = [x for x in levels if x in cost.index.names]).sum()
-                self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors], levels_names=[cfg.primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
+            if hasattr(self,'potential') and self.potential.data is True and self.cost.cost_method == 'average':
+                self.active_embodied_cost = self.calculate_avg_costs(year)
+            elif hasattr(self,'potential') and self.potential.data is True and self.cost.cost_method == 'marginal': 
+                self.active_embodied_cost = self.calculate_marginal_costs(year)
             else:
                 allowed_indices = ['demand_sector', cfg.primary_geography]
                 if set(self.cost.values.index.names).issubset(allowed_indices):
@@ -5417,15 +5438,49 @@ class PrimaryNode(Node):
                     self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],levels_names=[cfg.primary_geography,'demand_sector'])
                 else:
                     raise ValueError("too many indexes in cost inputs of node %s" %self.id)
-            try:
-                self.levelized_costs.loc[:,year] = DfOper.mult([self.active_embodied_cost,self.active_supply]).values
-            except:
-                pdb.set_trace()
-
+            self.levelized_costs.loc[:,year] = DfOper.mult([self.active_embodied_cost,self.active_supply]).values
+    
     def calculate_annual_costs(self,year):
         if hasattr(self,'active_embodied_cost'):
             self.annual_costs.loc[:,year] = DfOper.mult([self.active_embodied_cost,self.active_supply]).values
 
+
+    
+    def calculate_avg_costs(self,year):
+        filter_geo_potential_normal = util.remove_df_elements(self.potential.active_supply_curve_normal, [x for x in cfg.geo.geographies_unfiltered[cfg.primary_geography] if x not in cfg.geographies],cfg.primary_geography)
+        filter_geo_potential_normal = filter_geo_potential_normal.reset_index().set_index(filter_geo_potential_normal.index.names)
+        supply_curve = filter_geo_potential_normal
+        supply_curve = supply_curve[supply_curve.values>0]
+        supply_curve = util.DfOper.mult([util.DfOper.divi([self.potential.values.loc[:,year].to_frame(),
+                                                           util.remove_df_levels(self.potential.values.loc[:,year].to_frame(),[x for x in self.potential.values.index.names if x not in ['demand_sector',cfg.primary_geography,'resource_bin']])]),
+                                                        supply_curve])
+        cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
+        levels = ['demand_sector',cfg.primary_geography]
+        cost = cost.groupby(level = [x for x in levels if x in cost.index.names]).sum()
+        return  util.expand_multi(cost, levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],
+                                                                                                                            levels_names=[cfg.primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
+                                                                                                                            
+                                                                                                                            
+    def calculate_marginal_costs(self,year):
+        filter_geo_potential_normal = util.remove_df_elements(self.potential.active_supply_curve_normal, [x for x in cfg.geo.geographies_unfiltered[cfg.primary_geography] if x not in cfg.geographies],cfg.primary_geography)
+        filter_geo_potential_normal = filter_geo_potential_normal.reset_index().set_index(filter_geo_potential_normal.index.names)
+        supply_curve = filter_geo_potential_normal
+        supply_curve = supply_curve[supply_curve.values>0]
+        supply_curve = util.DfOper.mult([util.DfOper.divi([self.potential.values.loc[:,year].to_frame(),
+                                                           util.remove_df_levels(self.potential.values.loc[:,year].to_frame(),[x for x in self.potential.values.index.names if x not in ['demand_sector',cfg.primary_geography,'resource_bin']])]),
+                                                        supply_curve])
+        supply_curve[supply_curve.values>0] = 1
+        cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
+        levels = ['demand_sector',cfg.primary_geography]
+        tradable_levels = ['demand_sector',self.tradable_geography]
+        map_df = cfg.geo.map_df(cfg.primary_geography,self.tradable_geography,normalize_as='total',eliminate_zeros=False,filter_geo=False)
+        traded_cost = util.DfOper.mult([cost,map_df])
+        traded_cost = traded_cost.groupby(level=[x for x in tradable_levels if x in traded_cost.index.names]).transform(lambda x: x.max())
+        cost = traded_cost.groupby(level = [x for x in levels if x in cost.index.names]).max()
+        print cost
+        return  util.expand_multi(cost, levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],
+                                                                                                                            levels_names=[cfg.primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
+    
 
 class PrimaryCost(Abstract):
     def __init__(self, id, scenario, node_geography=None, **kwargs):

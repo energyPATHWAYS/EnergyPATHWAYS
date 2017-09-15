@@ -146,7 +146,10 @@ class Demand(object):
             self.create_electricity_reconciliation()
         inflexible = [sector.aggregate_inflexible_electricity_shape(year) for sector in self.sectors.values()]
         no_shape = [self.shape_from_subsectors_with_no_shape(year)]
-        inflex_load = util.DfOper.add(no_shape+inflexible, expandable=False, collapsible=False)
+        try:
+            inflex_load = util.DfOper.add(no_shape+inflexible, expandable=False, collapsible=False)
+        except:
+            pdb.set_trace()
         inflex_load = util.DfOper.mult((inflex_load, self.electricity_reconciliation))
         flex_load = util.DfOper.add([sector.aggregate_flexible_electricity_shape(year) for sector in self.sectors.values()], expandable=False, collapsible=False)
         if flex_load is None:
@@ -2071,7 +2074,7 @@ class Subsector(DataMapFunctions):
         self.energy_demand.values = util.unit_convert(self.energy_demand.values, unit_from_num=self.energy_demand.unit,
                                                       unit_to_num=cfg.calculation_energy_unit)
         # make a copy of energy demand for use as service demand        
-        self.service_demand = self.energy_demand
+        self.service_demand = copy.deepcopy(self.energy_demand)
         self.service_demand.raw_values = self.service_demand.values
         self.service_demand.int_values = DfOper.divi([self.service_demand.raw_values, eff])
         self.service_demand.int_values.replace([np.inf, -np.inf], 1, inplace=True)

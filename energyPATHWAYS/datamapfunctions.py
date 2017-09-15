@@ -277,6 +277,7 @@ class DataMapFunctions:
             drivers (list of or single dataframe): drivers for the remap
             input_type_override (string): either 'total' or 'intensity' (defaults to self.type)
         """
+
         converted_geography = cfg.primary_geography if converted_geography is None else converted_geography
         current_data_type = self.input_type if current_data_type is None else current_data_type
         current_geography = self.geography if current_geography is None else current_geography
@@ -296,7 +297,8 @@ class DataMapFunctions:
             # we have no drivers, just need to do a clean timeseries and a geomap
             if fill_timeseries:     
                 self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, time_index_name=time_index_name,
-                                      interpolation_method=interpolation_method, extrapolation_method=extrapolation_method, lower=lower, upper=upper)
+                                      interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
+                                      lower=lower, upper=upper)
             if current_geography != converted_geography:
                 self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
                              current_data_type=current_data_type, fill_value=fill_value,filter_geo=filter_geo)
@@ -311,9 +313,13 @@ class DataMapFunctions:
                                       time_index=time_index, lower=None, upper=None, interpolation_method='missing', extrapolation_method='missing')
             # While not on primary geography, geography does have some information we would like to preserve
             # we put the driver on the same geography as our data
-            geomapped_total_driver = self.geo_map(current_geography, attr='total_driver', inplace=False,
-                                             current_geography=converted_geography,
-                                             current_data_type='total', fill_value=fill_value, filter_geo=False)
+                  
+            if hasattr(self,'drivers') and len(drivers) == len(self.drivers) and set([x.input_type for x in self.drivers.values()]) == set(['intensity']) and set([x.base_driver_id for x in self.drivers.values()]) == set([None]):  
+                geomapped_total_driver = self.geo_map(current_geography, attr='total_driver', inplace=False, current_geography=converted_geography, current_data_type='intensity', fill_value=fill_value, filter_geo=False)
+            else:
+                geomapped_total_driver = self.geo_map(current_geography, attr='total_driver', inplace=False,
+                                                  current_geography=converted_geography, current_data_type='total', 
+                                                  fill_value=fill_value, filter_geo=False)
 
             # Divide by drivers to turn a total to intensity. multindex_operation will aggregate to common levels.
             if current_data_type == 'total':
