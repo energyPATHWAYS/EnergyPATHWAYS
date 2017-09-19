@@ -320,6 +320,9 @@ class DataMapFunctions:
                 geomapped_total_driver = self.geo_map(current_geography, attr='total_driver', inplace=False,
                                                   current_geography=converted_geography, current_data_type='total', 
                                                   fill_value=fill_value, filter_geo=False)
+                                                  
+#            if self.id == 39 and hasattr(self,'driver_1_id'):
+#                pdb.set_trace()
 
             # Divide by drivers to turn a total to intensity. multindex_operation will aggregate to common levels.
             if current_data_type == 'total':

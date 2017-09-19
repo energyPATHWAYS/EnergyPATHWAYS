@@ -164,6 +164,7 @@ class Scenario():
                         raise ValueError("Scenario uses {} {} more than once.".format(key, measure))
                     self._measures[key][bucket_id].append(measure)
             elif not isinstance(subtree, basestring):
+                pdb.set_trace()
                 raise ValueError("Encountered an uninterpretable non-string leaf node while loading the scenario. "
                                  "The node is '{}: {}'".format(key, subtree))
 

@@ -678,7 +678,12 @@ class Subsector(DataMapFunctions):
         return True if (hasattr(self, 'flexible_load_measure') and self.flexible_load_measure.values.xs(year, level='year').sum().sum()>0) else False
 
     def has_electricity_consumption(self, year):
-        return hasattr(self,'energy_forecast') and cfg.electricity_energy_type_id in util.get_elements_from_level(self.energy_forecast, 'final_energy')
+        if hasattr(self,'energy_forecast') and \
+            cfg.electricity_energy_type_id in util.get_elements_from_level(self.energy_forecast, 'final_energy') and \
+                self.energy_forecast.xs([cfg.electricity_energy_type_id, year], level=['final_energy', 'year']).sum().sum() > 0:
+            return True
+        else:
+            return False
 
     def get_electricity_consumption(self, year, keep_technology=True):
         """ Returns with primary geography level
