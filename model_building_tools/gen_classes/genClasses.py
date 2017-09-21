@@ -1,17 +1,10 @@
 #!/usr/bin/env python
-#
-# TBD: features to consider
-# - file of regex transformations to perform on names
-# - tables to skip
-# - dict of superclasses keyed by table name
-# - call super(classname, self).__init__(id=id)?
-# - gen any classmethods?
-#
 from __future__ import print_function
 import click
-import psycopg2
 import re
 import sys
+
+from energyPATHWAYS.database import SqlDatabase
 
 BASE_CLASS = 'DataObject'
 BASE_CLASS_SLOTS = []       # add base class ivar names here if using __slots__
@@ -44,6 +37,25 @@ Patterns_to_ignore = [
     'DispatchWindows'
 ]
 
+File_header = '''#
+# This is a generated file. Manual edits may be lost!
+#
+import sys
+from energyPATHWAYS.error import UnknownDataClass
+from energyPATHWAYS.data_object import %s
+
+def class_for_table(tbl_name):
+    try:
+        module = sys.modules[__name__]  # get ref to our own module object
+        cls = getattr(module, tbl_name)
+    except AttributeError:
+        raise UnknownDataClass(tbl_name)
+
+    return cls
+
+''' % BASE_CLASS
+
+
 Method_template = """
     @classmethod
     def from_tuple(cls, tup):    
@@ -54,24 +66,6 @@ Method_template = """
         return obj
 
 """
-
-# Deprecated
-def cleanupName(name, removeBlanks=True, lower=False):
-    original = name
-    if removeBlanks:
-        name = name.replace(' ', '')    # remove blanks
-    else:
-        name = name.replace(' ', '_')
-
-    name = name.replace('-', '_')
-
-    if lower:
-        name = name.lower()
-
-    if original != name:
-        print("Changed '%s' to '%s'" % (original, name))
-
-    return name
 
 def observeLinewidth(args, linewidth, indent=16):
     processed = ''
@@ -89,47 +83,24 @@ def observeLinewidth(args, linewidth, indent=16):
 
 class ClassGenerator(object):
     def __init__(self, dbname, host, linewidth, outfile, password, slots, user):
-        conn_str = "host='%s' dbname='%s' user='%s'" % (host, dbname, user)
-        if password:
-            conn_str += " password='%s'" % password
-
-        self.con = psycopg2.connect(conn_str)
-        self.cur = self.con.cursor()
-
+        self.db = SqlDatabase(host, dbname, user, password, cache_data=False)
         self.genSlots = slots
         self.outfile = outfile
         self.linewidth = linewidth
-
-        self.stream  = open(outfile, 'w') if outfile else sys.stdout
-
         self.generated = []
 
-        self.stream.write('''#
-# This is a generated file. Manual edits may be lost!
-#
-from energyPATHWAYS.data_object import %s
-
-''' % BASE_CLASS)
-
-    def close(self):
-        if self.outfile:
-            self.stream.close()
 
     def getTableOfType(self, tableType):
         query = "select table_name from INFORMATION_SCHEMA.TABLES where table_schema = 'public' and table_type = '%s'" % tableType
-        self.cur.execute(query)
-        # result = [cleanupName(tup[0]) for tup in self.cur.fetchall()]
-        result = [tup[0] for tup in self.cur.fetchall()]
+        result = self.db.fetchcolumn(query)
         return result
 
     def getColumns(self, table):
-        query = "select column_name, data_type from INFORMATION_SCHEMA.COLUMNS where table_name = '%s' and table_schema = 'public'" % table
-        self.cur.execute(query)
-        # result = [cleanupName(tup[0], removeBlanks=False, lower=True) for tup in self.cur.fetchall()]
-        result = [tup[0] for tup in self.cur.fetchall()]
+        query = "select column_name from INFORMATION_SCHEMA.COLUMNS where table_name = '%s' and table_schema = 'public'" % table
+        result = self.db.fetchcolumn(query)
         return result
 
-    def generateClass(self, table):
+    def generateClass(self, stream, table):
         cols = self.getColumns(table)
 
         if not cols or len(cols) < 3:   # don't generate classes for trivial tables
@@ -137,38 +108,42 @@ from energyPATHWAYS.data_object import %s
 
         self.generated.append(table)
 
-        out = self.stream
-        out.write('class %s(%s):\n' % (table, BASE_CLASS))
+        stream.write('class %s(%s):\n' % (table, BASE_CLASS))
 
         if self.genSlots:
             allNames = BASE_CLASS_SLOTS + cols
             slots = ["'%s'" % name for name in allNames]
             slots = observeLinewidth(slots, self.linewidth)
-            out.write('    __slots__ = [%s]\n\n' % slots)
+            stream.write('    __slots__ = [%s]\n\n' % slots)
 
         params = [col + '=None' for col in cols]
         params = observeLinewidth(params, self.linewidth)
 
-        out.write('    def __init__(self, %s):\n' % params)
-        out.write('        %s.__init__(self)\n\n' % BASE_CLASS)
+        stream.write('    def __init__(self, %s):\n' % params)
+        stream.write('        %s.__init__(self)\n\n' % BASE_CLASS)
         for col in cols:
-            out.write('        self.%s = %s\n' % (col, col))
+            stream.write('        self.%s = %s\n' % (col, col))
 
         keywds = [col + '=' + col for col in cols]
         keywds = observeLinewidth(keywds, self.linewidth, indent=17)
         names  = observeLinewidth(cols, self.linewidth, indent=8)
-        out.write(Method_template.format(names=names, keywds=keywds))
+        stream.write(Method_template.format(names=names, keywds=keywds))
 
     def generateClasses(self):
+        stream = open(self.outfile, 'w') if self.outfile else sys.stdout
+        stream.write(File_header)
+
         tables = self.getTableOfType('BASE TABLE')
 
         # filter out tables that don't need classes
         tables = filter(lambda name: not any([re.match(pattern, name) for pattern in Patterns_to_ignore]), tables)
 
         for name in sorted(tables):
-            self.generateClass(name)
+            self.generateClass(stream, name)
 
         sys.stderr.write('Generated %d classes\n' % len(self.generated))
+        if stream != sys.stdout:
+            stream.close()
 
 
 @click.command()
@@ -196,7 +171,6 @@ from energyPATHWAYS.data_object import %s
 def main(dbname, host, linewidth, outfile, password, slots, user):
     obj = ClassGenerator(dbname, host, linewidth, outfile, password, slots, user)
     obj.generateClasses()
-    obj.close()
 
 
 if __name__ == '__main__':

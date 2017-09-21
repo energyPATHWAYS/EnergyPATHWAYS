@@ -1,7 +1,18 @@
 #
 # This is a generated file. Manual edits may be lost!
 #
+import sys
+from energyPATHWAYS.error import UnknownDataClass
 from energyPATHWAYS.data_object import DataObject
+
+def class_for_table(tbl_name):
+    try:
+        module = sys.modules[__name__]  # get ref to our own module object
+        cls = getattr(module, tbl_name)
+    except AttributeError:
+        raise UnknownDataClass(tbl_name)
+
+    return cls
 
 class BlendNodeBlendMeasures(DataObject):
     def __init__(self, id=None, name=None, blend_node_id=None, supply_node_id=None, geography_id=None,
