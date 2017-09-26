@@ -67,7 +67,7 @@ class DemandTechCost(Abstract):
             self.absolute = False
 
     def levelize_costs(self):
-        if self.definition == 'absolute':if hasattr(self, 'is_levelized'):
+        if self.definition == 'absolute' and hasattr(self, 'is_levelized'):
             inflation = float(cfg.cfgfile.get('case', 'inflation_rate'))
             rate = self.cost_of_capital - inflation
             if self.is_levelized == 0:
@@ -80,7 +80,7 @@ class DemandTechCost(Abstract):
                                  vintages=self.vintages, years=self.years)
                 self.values = np.pv(rate, self.book_life, -1, 0, 'end') * self.values
         else:
-            util.convert_age(self, reverse=False, vintages=self.vintages, years=self.years)else:
+            util.convert_age(self, reverse=False, vintages=self.vintages, years=self.years)
             self.values_level = self.values.copy()
 
 

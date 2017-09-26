@@ -31,6 +31,13 @@ import pandas as pd
 model = None
 run_start_time = time.time()
 
+class SubsectorPertubation(object):
+    def __init__(self, sales_share_changes, flexible_operation, subsector):
+        self.sales_share_changes = sales_share_changes
+        self.flexible_operation = flexible_operation
+        self.subsector = subsector
+
+
 def update_api_run_status(status_id):
     logging.debug("Updating scenario run status in database.")
     try:
@@ -206,21 +213,20 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\CA'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\SupplyCurve'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['CA_REF']
+    scenario = ['supply_curve_id_70']
     run(workingdir, config, scenario,
-    load_demand   = True,
+    load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
     solve_supply  = True,
-    export_results= False,
+    export_results= True,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,
     clear_results = False)
-
 
 
