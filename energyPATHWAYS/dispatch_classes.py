@@ -674,8 +674,8 @@ class Dispatch(object):
             [sum((pmaxs[i] + stock_changes) * (1 - combined_rates[i])) for i in range(len(max_by_load_group))])
         final_shortage_by_group = max_by_load_group - cap_by_load_group
         if not all(np.round(final_shortage_by_group, 7) <= 0):
-            logging.error('_get_stock_changes did not build enough capacity')
             pdb.set_trace()
+            logging.error('_get_stock_changes did not build enough capacity')
         return stock_changes
 
     @staticmethod

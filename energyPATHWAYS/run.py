@@ -220,7 +220,7 @@ if __name__ == "__main__":
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
-    load_supply   = False,
+    load_supply   = True,
     solve_supply  = True,
     export_results= True,
     load_error    = False,

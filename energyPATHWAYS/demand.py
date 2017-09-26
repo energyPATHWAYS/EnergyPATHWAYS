@@ -146,10 +146,7 @@ class Demand(object):
             self.create_electricity_reconciliation()
         inflexible = [sector.aggregate_inflexible_electricity_shape(year) for sector in self.sectors.values()]
         no_shape = [self.shape_from_subsectors_with_no_shape(year)]
-        try:
-            inflex_load = util.DfOper.add(no_shape+inflexible, expandable=False, collapsible=False)
-        except:
-            pdb.set_trace()
+        inflex_load = util.DfOper.add(no_shape+inflexible, expandable=False, collapsible=False)
         inflex_load = util.DfOper.mult((inflex_load, self.electricity_reconciliation))
         flex_load = util.DfOper.add([sector.aggregate_flexible_electricity_shape(year) for sector in self.sectors.values()], expandable=False, collapsible=False)
         if flex_load is None:
