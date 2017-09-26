@@ -200,7 +200,7 @@ class Demand(object):
         top_down_shape = top_down_energy * util.df_slice(self.default_electricity_shape.values, 2, 'timeshift_type')
         
         # this calls the functions that create the bottom up load shape for the weather_year
-        bottom_up_shape = self.aggregate_electricity_shapes(weather_year, geomap_to_dispatch_geography=False,reconciliation_step=True)
+        bottom_up_shape = self.aggregate_electricity_shapes(weather_year, geomap_to_dispatch_geography=False, reconciliation_step=True)
         bottom_up_shape = util.df_slice(bottom_up_shape, 2, 'timeshift_type')
         bottom_up_shape = util.remove_df_levels(bottom_up_shape, 'dispatch_feeder')
         
@@ -217,7 +217,8 @@ class Demand(object):
             load shifting.
         """
         for sector in self.sectors:
-            self.sectors[sector].pass_electricity_reconciliation(self.electricity_reconciliation)
+            for subsector in self.sectors[sector].subsectors:
+                self.sectors[sector].subsectors[subsector].set_electricity_reconciliation(self.electricity_reconciliation)
 
     def pass_default_shape(self):
         for sector in self.sectors:
@@ -619,16 +620,6 @@ class Sector(object):
         agg_shape = util.DfOper.add([self.subsectors[id].aggregate_electricity_shapes(year) for id in (self.subsectors.keys() if ids is None else ids)], expandable=False, collapsible=False)
         return util.DfOper.mult((self.feeder_allocation.xs(year, level='year'), agg_shape))
 
-
-    def pass_electricity_reconciliation(self, electricity_reconciliation):
-        """ This function threads the reconciliation factors into sectors and subsectors
-            it is necessary to do it like this because we need the reconciliation at the lowest level to apply reconciliation before
-            load shifting.
-        """
-        self.electricity_reconciliation = electricity_reconciliation
-        for subsector in self.subsectors.values():
-            subsector.electricity_reconciliation = electricity_reconciliation
-
     def set_default_shape(self, default_shape):
         if self.shape_id is None:
             self.default_shape = default_shape
@@ -659,9 +650,15 @@ class Subsector(DataMapFunctions):
         self.shape = shape.shapes.data[self.shape_id] if self.shape_id is not None else None
         self.shapes_weather_year = int(np.round(np.mean(shape.shapes.active_dates_index.year)))
         self.electricity_reconciliation = None
+        self.default_shape = None
+        self.default_max_lead_hours = None
+        self.default_max_lag_hours = None
         self.linked_service_demand_drivers = {}
         self.linked_stock = {}
         self.pertubation = None
+
+    def set_electricity_reconciliation(self, electricity_reconciliation):
+        self.electricity_reconciliation = electricity_reconciliation
 
     def set_default_shape(self, default_shape, default_max_lead_hours, default_max_lag_hours):
         self.default_shape = default_shape if self.shape_id is None else None
@@ -1609,11 +1606,9 @@ class Subsector(DataMapFunctions):
                     flipped = getattr(ref_tech_class, 'flipped') if hasattr(ref_tech_class, 'flipped') else False
                     if flipped is True:
                         tech_data = 1 / tech_data
-                    new_data = util.DfOper.mult([tech_data,
-                                            getattr(ref_tech_class, attr)])
+                    new_data = util.DfOper.mult([tech_data, getattr(ref_tech_class, attr)])
                     if hasattr(ref_tech_class,'values_level'):
-                        new_data_level = util.DfOper.mult([tech_data,
-                                            getattr(ref_tech_class, 'values_level')])
+                        new_data_level = util.DfOper.mult([tech_data, getattr(ref_tech_class, 'values_level')])
 
                 else:
                     try:

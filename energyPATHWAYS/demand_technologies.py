@@ -18,7 +18,7 @@ import pdb
 
 
 class DemandTechCost(Abstract):
-    def __init__(self, tech, sql_id_table, sql_data_table, scenario=None, **kwargs):
+    def __init__(self, tech, sql_id_table, sql_data_table, scenario=None):
         self.id = tech.id
         self.scenario = scenario
         self.book_life = tech.book_life
@@ -67,24 +67,21 @@ class DemandTechCost(Abstract):
             self.absolute = False
 
     def levelize_costs(self):
-        if self.definition == 'absolute':        
-            if hasattr(self, 'is_levelized'):
-                inflation = float(cfg.cfgfile.get('case', 'inflation_rate'))
-                rate = self.cost_of_capital - inflation
-                if self.is_levelized == 0:
-                    self.values_level = - np.pmt(rate, self.book_life, 1, 0, 'end') * self.values
-                    util.convert_age(self, attr_from='values_level', attr_to='values_level', reverse=False,
-                                     vintages=self.vintages, years=self.years)
-                else:
-                    self.values_level = self.values.copy()
-                    util.convert_age(self, attr_from='values_level', attr_to='value_level', reverse=False,
-                                     vintages=self.vintages, years=self.years)
-                    self.values = np.pv(rate, self.book_life, -1, 0, 'end') * self.values
+        if self.definition == 'absolute':if hasattr(self, 'is_levelized'):
+            inflation = float(cfg.cfgfile.get('case', 'inflation_rate'))
+            rate = self.cost_of_capital - inflation
+            if self.is_levelized == 0:
+                self.values_level = - np.pmt(rate, self.book_life, 1, 0, 'end') * self.values
+                util.convert_age(self, attr_from='values_level', attr_to='values_level', reverse=False,
+                                 vintages=self.vintages, years=self.years)
             else:
-                util.convert_age(self, reverse=False, vintages=self.vintages, years=self.years)
+                self.values_level = self.values.copy()
+                util.convert_age(self, attr_from='values_level', attr_to='value_level', reverse=False,
+                                 vintages=self.vintages, years=self.years)
+                self.values = np.pv(rate, self.book_life, -1, 0, 'end') * self.values
         else:
+            util.convert_age(self, reverse=False, vintages=self.vintages, years=self.years)else:
             self.values_level = self.values.copy()
-            
 
 
 class ParasiticEnergy(Abstract):
@@ -357,8 +354,7 @@ class DemandTechnology(StockItem):
         equivalent costs.
 
         """
-        self.capital_cost_new = DemandTechCost(self, 'DemandTechsCapitalCost', 'DemandTechsCapitalCostNewData',
-                                               scenario=self.scenario)
+        self.capital_cost_new = DemandTechCost(self, 'DemandTechsCapitalCost', 'DemandTechsCapitalCostNewData', scenario=self.scenario)
         self.capital_cost_replacement = DemandTechCost(self, 'DemandTechsCapitalCost', 'DemandTechsCapitalCostReplacementData', scenario=self.scenario)
         self.installation_cost_new = DemandTechCost(self, 'DemandTechsInstallationCost', 'DemandTechsInstallationCostNewData', scenario=self.scenario)
         self.installation_cost_replacement = DemandTechCost(self, 'DemandTechsInstallationCost', 'DemandTechsInstallationCostReplacementData', scenario=self.scenario)
