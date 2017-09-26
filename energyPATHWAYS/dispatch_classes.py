@@ -346,6 +346,7 @@ class Dispatch(object):
             self.capacity[generator] = clustered_dict['derated_pmax'][number]
             self.variable_costs[generator] = clustered_dict['marginal_cost'][number]
 
+
     def convert_to_period(self, dictionary):
         """repeats a dictionary's values of all periods in the optimization
         args:
@@ -489,7 +490,7 @@ class Dispatch(object):
         if zero_mc_4_must_run:
             new_mc[np.nonzero(must_run)] = 0
         # clustering is done here
-        cluster = KMeans(n_clusters=n_clusters, precompute_distances='auto')
+        cluster = KMeans(n_clusters=n_clusters, precompute_distances='auto',random_state=1)
         factor = (max(marginal_cost) - min(marginal_cost))*10
         fit = cluster.fit_predict(np.vstack((must_run*factor, new_mc)).T)
         num_clusters_found = max(fit) + 1

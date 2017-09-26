@@ -218,9 +218,9 @@ if __name__ == "__main__":
     config = 'config.INI'
     scenario = ['supply_curve_id_70']
     run(workingdir, config, scenario,
-    load_demand   = False,
+    load_demand   = True,
     solve_demand  = True,
-    load_supply   = True,
+    load_supply   = False,
     solve_supply  = True,
     export_results= True,
     load_error    = False,

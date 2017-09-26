@@ -1681,7 +1681,6 @@ class Supply(object):
             name = ['sector']
             idx = pd.IndexSlice
             for sector in self.demand_sectors:
-                pdb.set_trace()
                 link_dict[year][sector].loc[:,:] = embodied_dict[year][sector].loc[:,idx[:, self.map_dict.values()]].values
                 link_dict[year][sector]= link_dict[year][sector].stack([cfg.primary_geography,'final_energy']).to_frame()
                 link_dict[year][sector] = link_dict[year][sector][link_dict[year][sector][0]!=0]
@@ -1834,7 +1833,6 @@ class Supply(object):
                 df = util.DfOper.mult([export_df.loc[export_df_indexer,:], export_map_df.loc[export_map_df_indexer,:]])
                 geo_df_list.append(df)
             export_result = pd.concat(geo_df_list)
-#            export_result = export_result.groupby(level=[x for x in export_result.index.names if x in cfg.output_combined_levels]).sum()
         else:
             export_result = None
         setattr(self, export_result_name, export_result)
