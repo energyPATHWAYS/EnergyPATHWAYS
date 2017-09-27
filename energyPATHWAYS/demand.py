@@ -118,9 +118,9 @@ class Demand(object):
             if not base_driver.mapped:
                 # If a driver hasn't been mapped, recursion is uesd to map it first (this can go multiple layers)
                 self.remap_driver(base_driver)
-            driver.remap(drivers=base_driver.values, filter_geo=False)
+            driver.remap(drivers=base_driver.values,converted_geography=cfg.disagg_geography, filter_geo=False)
         else:
-            driver.remap(filter_geo=False)
+            driver.remap(converted_geography=cfg.disagg_geography,filter_geo=False)
         # Now that it has been mapped, set indicator to true
         logging.info('    {}'.format(driver.name))
         driver.mapped = True
@@ -2152,9 +2152,7 @@ class Subsector(DataMapFunctions):
             current_geography = self.stock.geography
             current_data_type = self.stock.input_type
             projected = False
-        self.stock.project(map_from=map_from, map_to='total', current_geography=current_geography,
-                           additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent),
-                           current_data_type=current_data_type, projected=projected)
+        self.stock.project(map_from=map_from, map_to='total', current_geography=current_geography, additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent), current_data_type=current_data_type, projected=projected)
         self.stock.total = util.remove_df_levels(self.stock.total, ['demand_technology', 'final_energy'])
         self.stock.total = self.stock.total.swaplevel('year',-1)
         if stock_dependent:
@@ -2491,14 +2489,14 @@ class Subsector(DataMapFunctions):
                 additional_drivers.append(linked_driver)
         if stock_dependent:
             if len(additional_drivers):
-                additional_drivers.append(self.stock.total_unfiltered)
+                additional_drivers.append(self.stock.geo_map(attr='total_unfiltered',current_geography=cfg.primary_geography, converted_geography=cfg.disagg_geography,inplace=False))
             else:
-                additional_drivers = self.stock.total_unfiltered
+                additional_drivers = self.stock.geo_map(attr='total_unfiltered',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography,inplace=False)
         if service_dependent:
             if len(additional_drivers):
-                additional_drivers.append(self.service_demand.values_unfiltered)
+                additional_drivers.append(self.service_demand.geo_map(attr='values_unfiltered',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography,inplace=False))
             else:
-                additional_drivers = self.service_demand.values_unfiltered
+                additional_drivers = self.service_demand.geo_map(attr='values_unfiltered',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography, inplace=False)
         if len(additional_drivers) == 0:
             additional_drivers = None
         return additional_drivers
@@ -3044,10 +3042,8 @@ class Subsector(DataMapFunctions):
         new_energy_sales = util.DfOper.subt([fuel_switch_sales_energy, fuel_switch_retirements_energy])
         new_energy_sales[new_energy_sales<0]=0
         new_energy_sales_share_by_demand_technology = fuel_switch_sales.groupby(level=util.ix_excl(fuel_switch_sales, 'demand_technology')).transform(lambda x: x / x.sum())
-#        new_energy_sales_share_by_demand_technology[new_energy_sales_share_by_demand_technology < 0] = 0
         new_energy_sales_by_demand_technology = util.DfOper.mult([new_energy_sales_share_by_demand_technology, new_energy_sales])
         fuel_switch_sales_share = util.DfOper.divi([new_energy_sales_by_demand_technology, fuel_switch_sales]).replace(np.nan,0)
-#        .groupby(level=util.ix_excl(fuel_switch_sales, 'demand_technology')).sum()
         fuel_switch_sales_share = util.remove_df_levels(fuel_switch_sales_share, 'final_energy')
         self.stock.sales_fuel_switch = DfOper.mult([self.stock.sales, fuel_switch_sales_share])       
         self.stock.values_fuel_switch = DfOper.mult([self.stock.values_financial, fuel_switch_sales_share])
@@ -3066,7 +3062,15 @@ class Subsector(DataMapFunctions):
         self.calculate_service_impact()
         self.output_service_drivers = {}
         for link in self.service_links.values():
-            df = link.values
+            if hasattr(self,'service_demand') and hasattr(self.service_demand,'geography_map_key'):
+                link.geography_map_key=self.service_demand.geography_map_key
+            elif hasattr(self,'stock') and hasattr(self.stock,'geography_map_key'):
+                link.geography_map_key=self.stock.geography_map_key
+            else:
+                link.geography_map_key=None
+            link.input_type = 'total'
+            link.geography = cfg.primary_geography
+            df = link.geo_map(attr='values',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography, inplace=False)
             df = pd.DataFrame(df.stack(), columns=['value'])
             util.replace_index_name(df, 'year')
             self.output_service_drivers[link.linked_subsector_id] = df
@@ -3076,8 +3080,9 @@ class Subsector(DataMapFunctions):
         """ calculates demand_technology stocks for use in subsectors with linked technologies
         """
         self.output_demand_technology_stocks = {}
-        stock = self.stock.values.groupby(level=util.ix_excl(self.stock.values, 'vintage')).sum()
-        stock = stock.stack()
+        self.stock.output_stock = self.stock.values.groupby(level=util.ix_excl(self.stock.values, 'vintage')).sum()
+#        self.stock.geo_map(attr='output_stock', current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography)
+        stock = self.stock.output_stock.stack()
         util.replace_index_name(stock, 'year')
         stock = pd.DataFrame(stock, columns=['value'])
         for demand_technology in self.technologies.values():
@@ -3102,11 +3107,7 @@ class Subsector(DataMapFunctions):
         """
         for id in self.service_links:
             link = self.service_links[id]
-            try:
-                link.values = self.rollover_output_dict(tech_dict='service_links',tech_dict_key=id, tech_att='values', stock_att='values_normal')
-            except:
-                pdb.set_trace()
-
+            link.values = self.rollover_output_dict(tech_dict='service_links',tech_dict_key=id, tech_att='values', stock_att='values_normal')
 #            # sum over demand_technology and vintage to get a total stock service efficiency
             link.values = util.remove_df_levels(link.values,['demand_technology', 'vintage'])
             # normalize stock service efficiency to calibration year
