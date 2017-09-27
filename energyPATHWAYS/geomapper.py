@@ -165,7 +165,9 @@ class GeoMapper:
         primary_geography_name = self.get_primary_geography_name()
         if cfg.breakout_geography_id and (primary_geography_name not in self.values.index.names):
             self._create_composite_geography_level(primary_geography_name, self.id_to_geography[cfg.primary_geography_id], cfg.breakout_geography_id)
-        
+        disagg_geography_name = self.get_disagg_geography_name()
+        if cfg.disagg_breakout_geography_id and (disagg_geography_name not in self.values.index.names):
+            self._create_composite_geography_level(disagg_geography_name, self.id_to_geography[cfg.disagg_geography_id], cfg.disagg_breakout_geography_id)
         dispatch_geography_name = self.get_dispatch_geography_name()
         if cfg.dispatch_breakout_geography_id and (dispatch_geography_name not in self.values.index.names):
             self._create_composite_geography_level(dispatch_geography_name, self.id_to_geography[cfg.dispatch_geography_id], cfg.dispatch_breakout_geography_id)
@@ -238,6 +240,9 @@ class GeoMapper:
     def get_primary_geography_name(self):
         return self.make_new_geography_name(self.id_to_geography[cfg.primary_geography_id],
                                             cfg.breakout_geography_id)
+    def get_disagg_geography_name(self):
+        return self.make_new_geography_name(self.id_to_geography[cfg.disagg_geography_id],
+                                            cfg.disagg_breakout_geography_id)
 
     def get_dispatch_geography_name(self):
         return self.make_new_geography_name(self.id_to_geography[cfg.dispatch_geography_id],

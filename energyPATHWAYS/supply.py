@@ -2180,6 +2180,9 @@ class Supply(object):
                     active_row_indexer =  util.level_specific_indexer(col_node.active_coefficients_total, levels=levels, elements=[sector,row_nodes]) 
                     active_col_indexer = util.level_specific_indexer(col_node.active_coefficients_total, levels=['demand_sector'], elements=[sector], axis=1)
                     self.io_dict[year][sector].loc[row_indexer, col_indexer] = col_node.active_coefficients_total.loc[active_row_indexer,active_col_indexer].values
+                    if col_node.overflow_node:
+                        self.io_dict[year][sector].loc[row_indexer, col_indexer]=0                    
+                    
  
                 
                 

@@ -205,8 +205,8 @@ def init_units():
         
 def init_geo():
     #Geography conversions
-    global geo, primary_geography, primary_geography_id, geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id
-    global primary_subset_id, breakout_geography_id, dispatch_breakout_geography_id, include_foreign_gaus
+    global geo, primary_geography, primary_geography_id, geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id, disagg_geography,disagg_geography_id
+    global primary_subset_id, breakout_geography_id, dispatch_breakout_geography_id, disagg_breakout_geography_id, include_foreign_gaus
     
     # from config file
     primary_geography_id = int(cfgfile.get('case', 'primary_geography_id'))
@@ -214,6 +214,8 @@ def init_geo():
     breakout_geography_id = [int(g) for g in cfgfile.get('case', 'breakout_geography_id').split(',') if len(g)]
     dispatch_geography_id = int(cfgfile.get('case', 'dispatch_geography_id'))
     dispatch_breakout_geography_id = [int(g) for g in cfgfile.get('case', 'dispatch_breakout_geography_id').split(',') if len(g)]
+    disagg_geography_id = int(cfgfile.get('case', 'disagg_geography_id'))
+    disagg_breakout_geography_id = [int(g) for g in cfgfile.get('case', 'disagg_breakout_geography_id').split(',') if len(g)]
     include_foreign_gaus = True if cfgfile.get('case', 'include_foreign_gaus').lower()=='true' else False
     
     # geography conversion object
@@ -222,8 +224,11 @@ def init_geo():
     # derived from inputs and geomapper object
     dispatch_geography = geo.get_dispatch_geography_name()
     primary_geography = geo.get_primary_geography_name()
+    disagg_geography = geo.get_disagg_geography_name()
     dispatch_geographies = geo.geographies[dispatch_geography]
     geographies = geo.geographies[primary_geography]
+    #disagg_geography = max(geo.geographies.iterkeys(), key=(lambda key: len(geo.geographies[key])))
+    disagg_geography = 'state'
 
 def init_shapes():
     global shape_start_date, shape_years

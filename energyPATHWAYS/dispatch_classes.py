@@ -306,7 +306,7 @@ class Dispatch(object):
                         self.alloc_technologies.append(tech_dispatch_id)
                         self.large_storage[tech_dispatch_id] = 1
                         self.alloc_geography[tech_dispatch_id] = dispatch_geography
-                        self.alloc_capacity[tech_dispatch_id] = self.capacity[tech_dispatch_id] * len(self.period_hours)
+                        self.alloc_capacity[tech_dispatch_id] = self.capacity[tech_dispatch_id] * len(self.hours)
                         self.alloc_energy[tech_dispatch_id] = self.energy[tech_dispatch_id]
                         x = 1/np.sqrt(storage_efficiency_dict[dispatch_geography][zone][feeder][tech])
                         if not np.isfinite(x):
