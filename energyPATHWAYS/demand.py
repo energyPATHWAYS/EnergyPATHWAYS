@@ -229,7 +229,7 @@ class Demand(object):
             return util.remove_df_levels(df, levels_with_na_only).sort_index()
         df_list = []
         for driver in self.drivers.values():
-            df = driver.values.copy()
+            df = driver.geo_map(attr='values',current_geography=cfg.disagg_geography, converted_geography=cfg.primary_geography, inplace=False)
             df['unit'] = driver.unit_base
             df.set_index('unit',inplace=True,append=True)
             if hasattr(driver,'other_index_1'):
@@ -263,6 +263,7 @@ class Demand(object):
         output_list = ['energy', 'stock', 'sales','annual_costs', 'levelized_costs', 'service_demand']
         unit_flag = [False, True, False, False, True, True]
         for output_name, include_unit in zip(output_list,unit_flag):
+            print "aggregating %s" %output_name
             df = self.group_output(output_name, include_unit=include_unit)
             df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
             setattr(self.outputs,"d_"+ output_name, df)
@@ -1153,15 +1154,14 @@ class Subsector(DataMapFunctions):
                 values[index] = value
             else:
                 values[index]=value
-            if hasattr(self.stock,'other_index_1'):
+            if hasattr(self.stock,'other_index_1') and self.stock.other_index_1 != None :
                 util.replace_index_name(values[index],"other_index_1", self.stock.other_index_1)
-            if hasattr(self.stock,'other_index_2'):
+            if hasattr(self.stock,'other_index_2') and self.stock.other_index_2 != None:
                 util.replace_index_name(values[index],"other_index_2", self.stock.other_index_2)
-            values[index]['cost_type'] = keys[index][0].upper()
+            values[index] = values[index].groupby(level = [x for x in values[index].index.names if x in override_levels_to_keep]).sum()
+            values[index]['cost_type'] = keys[index][0].upper() 
             values[index]['new/replacement'] = keys[index][1].upper()
-        df = pd.concat(values)
-        df = df.set_index(['cost_type', 'new/replacement'] ,append=True)
-        df = df.groupby(level = [x for x in df.index.names if x in override_levels_to_keep]).sum()
+        df = util.df_list_concatenate([x.set_index(['cost_type', 'new/replacement'] ,append=True) for x in values],keys=None, new_names=None)
         df.columns = [cfg.output_currency]
         return df
 
