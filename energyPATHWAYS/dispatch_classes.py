@@ -97,10 +97,10 @@ class Dispatch(object):
         self.set_dispatch_order()
         self.dispatch_window_dict = dict(util.sql_read_table('DispatchWindows'))  
         self.curtailment_cost = util.unit_convert(0.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.unserved_energy_cost = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.dist_net_load_penalty = util.unit_convert(10000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.unserved_energy_cost = util.unit_convert(2000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.dist_net_load_penalty = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.bulk_net_load_penalty = util.unit_convert(500.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.upward_imbalance_penalty = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.upward_imbalance_penalty = util.unit_convert(2000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.downward_imbalance_penalty = util.unit_convert(100.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.dispatch_feeders = dispatch_feeders
         self.feeders = [0] + dispatch_feeders
@@ -242,7 +242,7 @@ class Dispatch(object):
         self.max_cumulative_flex_load = self._timeseries_to_dict(cum_distribution_load.xs(3, level='timeshift_type')) if 3 in active_timeshift_types else self.cumulative_distribution_load
 
     def set_max_min_flex_loads(self, distribution_load):
-        self.flex_load_penalty = util.unit_convert(5, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.flex_load_penalty = util.unit_convert(0.1, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         native_slice = distribution_load.xs(2, level='timeshift_type')
         groups = native_slice.groupby(level=['period', self.dispatch_geography, 'dispatch_feeder'])
         self.max_flex_load = self._timeseries_to_dict(groups.max())
@@ -489,7 +489,7 @@ class Dispatch(object):
         if zero_mc_4_must_run:
             new_mc[np.nonzero(must_run)] = 0
         # clustering is done here
-        cluster = KMeans(n_clusters=n_clusters, precompute_distances='auto')
+        cluster = KMeans(n_clusters=n_clusters, precompute_distances='auto', random_state=1)
         factor = (max(marginal_cost) - min(marginal_cost))*10
         fit = cluster.fit_predict(np.vstack((must_run*factor, new_mc)).T)
         num_clusters_found = max(fit) + 1

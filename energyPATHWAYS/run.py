@@ -204,20 +204,25 @@ def send_gmail(scenario_id, subject, body):
     server.sendmail(fromaddr, toaddr, text)
     server.quit()
 
+class SubsectorPertubation(object):
+    def __init__(self, sales_share_changes, flexible_operation, subsector):
+        self.sales_share_changes = sales_share_changes
+        self.flexible_operation = flexible_operation
+        self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\ep-supply-curve\inputs\scenarios'
+    workingdir = r'C:\Users\ryandrewjones\Dropbox\Evolved Energy Research\Pathways\passing_results\supply_curve_difference'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['aeo_2017_reference']
+    scenario = ['supply_curve_id_70']
     run(workingdir, config, scenario,
     load_demand   = False,
-    solve_demand  = True,
-    load_supply   = False,
-    solve_supply  = True,
+    solve_demand  = False,
+    load_supply   = True,
+    solve_supply  = False,
     export_results= False,
     load_error    = False,
-    pickle_shapes = True,
+    pickle_shapes = False,
     save_models   = False,
     api_run       = False,
     clear_results = False)
