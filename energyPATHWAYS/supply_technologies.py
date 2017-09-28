@@ -355,7 +355,8 @@ class SupplyTechCapacityFactor(Abstract):
         self.vintages = vintages
         self.years = years
         if self.data and self.raw_values is not None:
-            self.remap(time_index_name='vintage',fill_value=1.0)
+            self.remap(time_index_name='vintage')
+            self.values.replace(0,1,inplace=True)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
 
  
