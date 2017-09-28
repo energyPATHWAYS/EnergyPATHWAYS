@@ -90,7 +90,7 @@ class ServiceEfficiency(Abstract):
                                         unit_to_num=cfg.calculation_energy_unit,
                                         unit_to_den=self.service_demand_unit)
 
-class ServiceLink(object):
+class ServiceLink(Abstract):
     def __init__(self, id):
         self.id = id
         for col, att in util.object_att_from_table('DemandServiceLink', self.id):

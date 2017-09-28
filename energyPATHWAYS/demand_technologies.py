@@ -67,22 +67,20 @@ class DemandTechCost(Abstract):
             self.absolute = False
 
     def levelize_costs(self):
-        if self.definition == 'absolute':
-            if hasattr(self, 'is_levelized'):
-                inflation = float(cfg.cfgfile.get('case', 'inflation_rate'))
-                rate = self.cost_of_capital - inflation
-                if self.is_levelized == 0:
-                    self.values_level = - np.pmt(rate, self.book_life, 1, 0, 'end') * self.values
-                    util.convert_age(self, attr_from='values_level', attr_to='values_level', reverse=False,
-                                     vintages=self.vintages, years=self.years)
-                else:
-                    self.values_level = self.values.copy()
-                    util.convert_age(self, attr_from='values_level', attr_to='value_level', reverse=False,
-                                     vintages=self.vintages, years=self.years)
-                    self.values = np.pv(rate, self.book_life, -1, 0, 'end') * self.values
+        if self.definition == 'absolute' and hasattr(self, 'is_levelized'):
+            inflation = float(cfg.cfgfile.get('case', 'inflation_rate'))
+            rate = self.cost_of_capital - inflation
+            if self.is_levelized == 0:
+                self.values_level = - np.pmt(rate, self.book_life, 1, 0, 'end') * self.values
+                util.convert_age(self, attr_from='values_level', attr_to='values_level', reverse=False,
+                                 vintages=self.vintages, years=self.years)
             else:
-                util.convert_age(self, reverse=False, vintages=self.vintages, years=self.years)
+                self.values_level = self.values.copy()
+                util.convert_age(self, attr_from='values_level', attr_to='value_level', reverse=False,
+                                 vintages=self.vintages, years=self.years)
+                self.values = np.pv(rate, self.book_life, -1, 0, 'end') * self.values
         else:
+            util.convert_age(self, reverse=False, vintages=self.vintages, years=self.years)
             self.values_level = self.values.copy()
 
 

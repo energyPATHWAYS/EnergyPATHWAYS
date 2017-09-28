@@ -195,7 +195,6 @@ class DataMapFunctions:
 
         # create dataframe with map from one geography to another
         map_df = cfg.geo.map_df(current_geography, converted_geography, normalize_as=current_data_type, map_key=geography_map_key,filter_geo=filter_geo)
-
         mapped_data = DfOper.mult([getattr(self, attr), map_df], fill_value=fill_value)
         if current_geography!=converted_geography:
             mapped_data = util.remove_df_levels(mapped_data, current_geography)
@@ -277,11 +276,11 @@ class DataMapFunctions:
             drivers (list of or single dataframe): drivers for the remap
             input_type_override (string): either 'total' or 'intensity' (defaults to self.type)
         """
+
         converted_geography = cfg.primary_geography if converted_geography is None else converted_geography
         current_data_type = self.input_type if current_data_type is None else current_data_type
         current_geography = self.geography if current_geography is None else current_geography
         time_index = self._get_active_time_index(time_index, time_index_name)
-
         if current_geography not in self._get_df_index_names_in_a_list(getattr(self, map_from)):
             raise ValueError('Current geography does not match the geography of the dataframe in remap')
 
@@ -296,7 +295,8 @@ class DataMapFunctions:
             # we have no drivers, just need to do a clean timeseries and a geomap
             if fill_timeseries:     
                 self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, time_index_name=time_index_name,
-                                      interpolation_method=interpolation_method, extrapolation_method=extrapolation_method, lower=lower, upper=upper)
+                                      interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
+                                      lower=lower, upper=upper)
             if current_geography != converted_geography:
                 self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
                              current_data_type=current_data_type, fill_value=fill_value,filter_geo=filter_geo)
@@ -311,11 +311,14 @@ class DataMapFunctions:
                                       time_index=time_index, lower=None, upper=None, interpolation_method='missing', extrapolation_method='missing')
             # While not on primary geography, geography does have some information we would like to preserve
             # we put the driver on the same geography as our data
-            geomapped_total_driver = self.geo_map(current_geography, attr='total_driver', inplace=False,
-                                             current_geography=converted_geography,
-                                             current_data_type='total', fill_value=fill_value, filter_geo=False)
-
-            # Divide by drivers to turn a total to intensity. multindex_operation will aggregate to common levels.
+                  
+            if hasattr(self,'drivers') and len(drivers) == len(self.drivers) and set([x.input_type for x in self.drivers.values()]) == set(['intensity']) and set([x.base_driver_id for x in self.drivers.values()]) == set([None]):  
+                geomapped_total_driver = self.geo_map(current_geography, attr='total_driver', inplace=False, current_geography=cfg.disagg_geography, current_data_type='intensity', fill_value=fill_value, filter_geo=False)
+            else:
+                geomapped_total_driver = self.geo_map(current_geography, attr='total_driver', inplace=False,
+                                                  current_geography=cfg.disagg_geography, current_data_type='total', 
+                                                  fill_value=fill_value, filter_geo=False)
+                                        
             if current_data_type == 'total':
                 df_intensity = DfOper.divi((getattr(self, map_to), geomapped_total_driver), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf,np.nan,-np.nan],0)
                 setattr(self, map_to, df_intensity)
@@ -325,8 +328,8 @@ class DataMapFunctions:
                 self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method)
 
             self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='intensity', fill_value=fill_value, filter_geo=filter_geo)
+            self.geo_map(converted_geography, attr='total_driver', inplace=True, current_geography=cfg.disagg_geography, current_data_type='total', fill_value=fill_value, filter_geo=filter_geo)
             current_geography = converted_geography
-
             if current_data_type == 'total':
                 setattr(self, map_to, DfOper.mult((getattr(self, map_to), self.total_driver),fill_value=fill_value))
             else:
@@ -365,10 +368,11 @@ class DataMapFunctions:
                 self.geo_map(converted_geography, attr=map_to, inplace=True)
                 current_geography = converted_geography
             total_driver = DfOper.mult([self.drivers[id].values for id in denominator_driver_ids])
+            self.geo_map(current_geography=current_geography, attr=map_to, converted_geography=cfg.disagg_geography)
             setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver)))
+            self.geo_map(current_geography=cfg.disagg_geography, attr=map_to, converted_geography=current_geography)
             # the datatype is now total
             current_data_type = 'total'
-
         driver_ids = [getattr(self, col) for col in cfg.drivr_col_names if getattr(self, col) is not None]
         drivers = [self.drivers[id].values for id in driver_ids]
         if additional_drivers is not None:

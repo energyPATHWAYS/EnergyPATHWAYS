@@ -306,7 +306,7 @@ class Dispatch(object):
                         self.alloc_technologies.append(tech_dispatch_id)
                         self.large_storage[tech_dispatch_id] = 1
                         self.alloc_geography[tech_dispatch_id] = dispatch_geography
-                        self.alloc_capacity[tech_dispatch_id] = self.capacity[tech_dispatch_id] * len(self.period_hours)
+                        self.alloc_capacity[tech_dispatch_id] = self.capacity[tech_dispatch_id] * len(self.hours)
                         self.alloc_energy[tech_dispatch_id] = self.energy[tech_dispatch_id]
                         x = 1/np.sqrt(storage_efficiency_dict[dispatch_geography][zone][feeder][tech])
                         if not np.isfinite(x):
@@ -345,6 +345,7 @@ class Dispatch(object):
             self.feeder[generator] = 0
             self.capacity[generator] = clustered_dict['derated_pmax'][number]
             self.variable_costs[generator] = clustered_dict['marginal_cost'][number]
+
 
     def convert_to_period(self, dictionary):
         """repeats a dictionary's values of all periods in the optimization
@@ -674,8 +675,8 @@ class Dispatch(object):
             [sum((pmaxs[i] + stock_changes) * (1 - combined_rates[i])) for i in range(len(max_by_load_group))])
         final_shortage_by_group = max_by_load_group - cap_by_load_group
         if not all(np.round(final_shortage_by_group, 7) <= 0):
-            logging.error('_get_stock_changes did not build enough capacity')
             pdb.set_trace()
+            logging.error('_get_stock_changes did not build enough capacity')
         return stock_changes
 
     @staticmethod
