@@ -213,12 +213,12 @@ def send_gmail(scenario_id, subject, body):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\CA'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\PGE'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['CA_HE_INN']
+    scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
-    load_demand   = True,
+    load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
     solve_supply  = True,

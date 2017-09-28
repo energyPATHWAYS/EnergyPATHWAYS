@@ -227,8 +227,6 @@ def init_geo():
     disagg_geography = geo.get_disagg_geography_name()
     dispatch_geographies = geo.geographies[dispatch_geography]
     geographies = geo.geographies[primary_geography]
-    #disagg_geography = max(geo.geographies.iterkeys(), key=(lambda key: len(geo.geographies[key])))
-    disagg_geography = 'state'
 
 def init_shapes():
     global shape_start_date, shape_years
