@@ -430,7 +430,7 @@ def start_energypathways():
     for scenario_chunk in np.array_split(scenarios, ep_cmd_window_count):
         args = base_args + [val for pair in zip(['-s']*len(scenario_chunk), scenario_chunk) for val in pair]
         run(args, working_dir)
-        time.sleep(1000)
+        time.sleep(500)
     _msg("sucessfully launched {} scenarios".format(len(scenarios)))
 
 def load_config():
