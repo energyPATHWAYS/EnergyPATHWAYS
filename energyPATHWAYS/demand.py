@@ -2540,9 +2540,7 @@ class Subsector(DataMapFunctions):
             current_geography = cfg.primary_geography
             current_data_type =  'total'
             projected =  True
-        self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
-                                   additional_drivers=self.additional_drivers(stock_or_service='service',
-                                                                                            service_dependent=service_dependent),current_data_type=current_data_type, projected=projected)
+        self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography, additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent),current_data_type=current_data_type, projected=projected)
                                                                             
 
     def calculate_sales_shares(self,reference_run=False):

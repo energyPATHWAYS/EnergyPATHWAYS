@@ -1163,10 +1163,7 @@ class Supply(object):
                                    [float(cfg.cfgfile.get('opt', 'operating_reserves'))]*len(cfg.dispatch_geographies)))
 
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-            try:
-                dispatch_results = helper_multiprocess.safe_pool(dispatch_classes.run_thermal_dispatch, parallel_params)
-            except:
-                pdb.set_trace()
+            dispatch_results = helper_multiprocess.safe_pool(dispatch_classes.run_thermal_dispatch, parallel_params)
         else:
             dispatch_results = []
             for params in parallel_params:
@@ -2180,8 +2177,8 @@ class Supply(object):
                     active_row_indexer =  util.level_specific_indexer(col_node.active_coefficients_total, levels=levels, elements=[sector,row_nodes]) 
                     active_col_indexer = util.level_specific_indexer(col_node.active_coefficients_total, levels=['demand_sector'], elements=[sector], axis=1)
                     self.io_dict[year][sector].loc[row_indexer, col_indexer] = col_node.active_coefficients_total.loc[active_row_indexer,active_col_indexer].values
-                    if col_node.overflow_node:
-                        self.io_dict[year][sector].loc[row_indexer, col_indexer]=0                    
+#                    if col_node.overflow_node:
+#                        self.io_dict[year][sector].loc[row_indexer, col_indexer]=0                    
                     
  
                 
@@ -5479,7 +5476,6 @@ class PrimaryNode(Node):
         traded_cost = util.DfOper.mult([cost,map_df])
         traded_cost = traded_cost.groupby(level=[x for x in tradable_levels if x in traded_cost.index.names]).transform(lambda x: x.max())
         cost = traded_cost.groupby(level = [x for x in levels if x in cost.index.names]).max()
-        print cost
         return  util.expand_multi(cost, levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],
                                                                                                                             levels_names=[cfg.primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
     

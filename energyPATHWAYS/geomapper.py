@@ -272,7 +272,6 @@ class GeoMapper:
         ratio_allocated_to_impacted.iloc[np.nonzero(impacted_gaus_slice.values==0)] = 0
         clean_ratio = TimeSeries.clean(data=ratio_allocated_to_impacted, time_index_name=y_or_v, interpolation_method='linear_interpolation', extrapolation_method='nearest')
         allocated_foreign_gau_slice_all_years = util.DfOper.mult((clean_ratio, impacted_gaus_slice), fill_value=np.nan, non_expandable_levels=[])
-
         allocated_foreign_gau_slice_new_geo = util.remove_df_levels(allocated_foreign_gau_slice_all_years, foreign_geography)
         allocated_foreign_gau_slice_foreign_geo = util.remove_df_levels(allocated_foreign_gau_slice_all_years, current_geography)
         allocated_foreign_gau_slice_foreign_geo.index = allocated_foreign_gau_slice_foreign_geo.index.rename(current_geography, level=foreign_geography)
