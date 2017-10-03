@@ -408,6 +408,16 @@ class TimeSeries:
         
         return yhat
 
+# newindex = np.arange(2000, 2051)
+# x = np.array([2015, 2045, 2070])
+# y = np.array([.2, .8, 1])
+# start = pd.DataFrame(y, index=x)
+# interpolation_method = 'logistic'
+# extrapolation_method = 'logistic'
+# filled = TimeSeries.clean(start, newindex, interpolation_method, extrapolation_method)
+#
+# pylab.plot(newindex, filled.values.flatten(), '.')
+# pylab.plot(x, y, '*')
 
 # newindex = np.arange(2000, 2051)
 # x = np.array([2015, 2020, 2025, 2030, 2040])

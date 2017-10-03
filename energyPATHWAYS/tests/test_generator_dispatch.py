@@ -8,10 +8,11 @@ import pandas as pd
 import pylab
 import os
 import time
-from energyPATHWAYS.dispatch_classes import Dispatch
 import math
 import copy
 from ddt import ddt, data, unpack
+from energyPATHWAYS import dispatch_generators
+from energyPATHWAYS import dispatch_maintenance
 
 class TestGeneratorDispatch(unittest.TestCase):
     # def __init__(self):
@@ -57,34 +58,34 @@ class TestGeneratorDispatch(unittest.TestCase):
         self._set_simple_dispatch_inputs()
 
     def _helper_return_generator_maintenance(self):
-        MOR = Dispatch.schedule_generator_maintenance(self.load, self.pmaxs, self.MORs,
-                                                      dispatch_periods=self.dispatch_periods)
+        MOR = dispatch_maintenance.schedule_generator_maintenance(self.load, self.pmaxs, self.MORs,
+                                                                 dispatch_periods=self.dispatch_periods)
         return MOR
 
     def test_complex_maintenance_sums(self):
         # This compares the scheduled maintenance by month to the annual maintenance rate
         self._set_detailed_dispatch_inputs()
-        MOR = Dispatch.schedule_generator_maintenance(self.load, self.pmaxs, self.MORs, dispatch_periods=self.dispatch_periods)
+        MOR = dispatch_maintenance.schedule_generator_maintenance(self.load, self.pmaxs, self.MORs, dispatch_periods=self.dispatch_periods)
         self.assertAlmostEqual(np.sum(self.MORs * self.pmaxs), np.sum(MOR * self.pmaxs) / float(len(set(self.dispatch_periods))))
 
     def test_complex_maintenance_no_month_worse_off(self):
         # after scheduling maintenance, no month should have swapped places with another month in terms of degree of capacity shortage
         self._set_detailed_dispatch_inputs()
-        MOR = Dispatch.schedule_generator_maintenance(self.load, self.pmaxs, self.MORs, dispatch_periods=self.dispatch_periods)
+        MOR = dispatch_maintenance.schedule_generator_maintenance(self.load, self.pmaxs, self.MORs, dispatch_periods=self.dispatch_periods)
         # TODO
 
     def test_complex_maintenance_sums_with_flat_load(self):
         # This compares the scheduled maintenance by month to the annual maintenance rate
         self._set_detailed_dispatch_inputs()
         self.load = np.array([np.sum(self.pmaxs)] * len(self.dispatch_periods))
-        MOR = Dispatch.schedule_generator_maintenance(self.load, self.pmaxs, self.MORs, dispatch_periods=self.dispatch_periods)
+        MOR = dispatch_maintenance.schedule_generator_maintenance(self.load, self.pmaxs, self.MORs, dispatch_periods=self.dispatch_periods)
         self.assertAlmostEqual(np.sum(self.MORs * self.pmaxs), np.sum(MOR * self.pmaxs) / float(len(set(self.dispatch_periods))))
 
     def test_complex_no_maintenance_in_highest_month(self):
         # This makes sure that in the period with the highest load, we are not scheduling maintenance
         self._set_detailed_dispatch_inputs()
         self.load -= np.median(self.load)
-        MOR = Dispatch.schedule_generator_maintenance(self.load, self.pmaxs, self.MORs, dispatch_periods=self.dispatch_periods)
+        MOR = dispatch_maintenance.schedule_generator_maintenance(self.load, self.pmaxs, self.MORs, dispatch_periods=self.dispatch_periods)
         group_cuts = list(np.where(np.diff(self.dispatch_periods) != 0)[0] + 1) if self.dispatch_periods is not None else None
         sum_across_dispatch_period = MOR.sum(axis=1)
         self.assertAlmostEqual(0, sum_across_dispatch_period[np.nonzero(group_cuts > np.argmax(self.load))[0][0]])
@@ -93,16 +94,16 @@ class TestGeneratorDispatch(unittest.TestCase):
         # This makes sure that in the period with the highest load, we are not scheduling maintenance
         self._set_detailed_dispatch_inputs()
         self.MORs[:] = 0
-        MOR = Dispatch.schedule_generator_maintenance(self.load, self.pmaxs, self.MORs, dispatch_periods=self.dispatch_periods)
+        MOR = dispatch_maintenance.schedule_generator_maintenance(self.load, self.pmaxs, self.MORs, dispatch_periods=self.dispatch_periods)
         self.assertAlmostEqual(0, MOR.sum())
 
     def _helper_return_dispatch_results(self):
         MOR = self._helper_return_generator_maintenance()
-        dispatch_results = Dispatch.generator_stack_dispatch(self.load, self.pmaxs, self.marginal_costs, self.dispatch_periods,
-                                                             FOR=self.FORs, MOR=MOR, must_runs=self.must_runs,
-                                                             capacity_weights=self.capacity_weights,
-                                                             gen_categories=self.categories, return_dispatch_by_category=True,
-                                                             reserves=self.reserves)
+        dispatch_results = dispatch_generators.generator_stack_dispatch(self.load, self.pmaxs, self.marginal_costs, self.dispatch_periods,
+                                                                        FOR=self.FORs, MOR=MOR, must_runs=self.must_runs,
+                                                                        capacity_weights=self.capacity_weights,
+                                                                        gen_categories=self.categories, return_dispatch_by_category=True,
+                                                                        reserves=self.reserves)
         return dispatch_results
 
     def test_complex_generator_generation(self):
@@ -224,3 +225,19 @@ class TestGeneratorDispatch(unittest.TestCase):
 
 # Initially takes 5.669000 seconds to execute
 # Now takes 3.400000
+
+# data_dir = os.path.join(os.getcwd(), 'test_dispatch_data')
+# generator_params = pd.DataFrame.from_csv(os.path.join(data_dir, 'generator_params_pge_error.csv'))
+# pmaxs = generator_params['pmaxs'].values
+# MORs = generator_params['MOR'].values
+#
+# dispatch_periods = pd.DataFrame.from_csv(os.path.join(data_dir, 'dispatch_periods_pge_error.csv'))
+# dispatch_periods = dispatch_periods['week'].values.flatten()
+#
+# load = pd.DataFrame.from_csv(os.path.join(data_dir, 'load_pge_error.csv'))['load']
+# load = load.values.flatten()
+#
+# MOR = dispatch_maintenance.schedule_generator_maintenance(load, pmaxs, MORs, dispatch_periods=dispatch_periods)
+# # MOR = dispatch_maintenance.schedule_generator_maintenance(load, pmaxs, MORs, dispatch_periods=dispatch_periods)
+#
+# pd.DataFrame(MOR.mean(axis=1)).plot()

@@ -5,7 +5,7 @@ import pandas as pd
 import pylab
 import os
 import time
-from energyPATHWAYS.dispatch_classes import Dispatch
+from energyPATHWAYS import dispatch_budget
 import math
 import copy
 from ddt import ddt, data, unpack
@@ -24,7 +24,7 @@ pmins = np.array([0]*12)
 pmaxs = np.array([5000]*12)
 energy = np.array([-100000]*12)
 
-test = Dispatch.dispatch_to_energy_budget(load, energy_budgets=energy, dispatch_periods=dispatch_periods, pmins=pmins, pmaxs=pmaxs)
+test = dispatch_budget.dispatch_to_energy_budget(load, energy_budgets=energy, dispatch_periods=dispatch_periods, pmins=pmins, pmaxs=pmaxs)
 
 pylab.plot(load)
 pylab.plot(load-test)

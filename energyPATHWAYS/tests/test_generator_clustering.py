@@ -8,7 +8,7 @@ import pandas as pd
 import pylab
 import os
 import time
-from energyPATHWAYS.dispatch_classes import Dispatch
+from energyPATHWAYS import dispatch_generators
 import math
 import copy
 
@@ -30,7 +30,7 @@ class TestClusterGenerators(unittest.TestCase):
         self.pad_stack=True
 
     def _helper_run_cluster_generators(self):
-        mc_approx = Dispatch._cluster_generators(self.n_clusters,
+        mc_approx = dispatch_generators.cluster_generators(self.n_clusters,
                                                    self.pmax,
                                                    self.marginal_cost,
                                                    self.FORs,

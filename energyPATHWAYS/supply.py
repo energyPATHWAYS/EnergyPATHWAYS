@@ -28,6 +28,7 @@ import pdb
 import os
 from datetime import datetime
 import random
+import dispatch_budget
 
 #def node_update_stock(node):
 #    if hasattr(node, 'stock'):
@@ -607,7 +608,7 @@ class Supply(object):
                                 self.energy_budgets = energy_budgets
                                 self.p_min = p_min
                                 self.p_max = p_max
-                                dispatch = np.transpose([Dispatch.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
+                                dispatch = np.transpose([dispatch_budget.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
                                 self.dispatch_result = dispatch            
                                 indexer = util.level_specific_indexer(self.bulk_load,[cfg.dispatch_geography], [geography])
                                 self.bulk_load.loc[indexer,:] += dispatch
@@ -615,13 +616,13 @@ class Supply(object):
                                 self.dispatched_bulk_load.loc[indexer,:] += dispatch
                             else:
                                 indexer = util.level_specific_indexer(self.bulk_gen,cfg.dispatch_geography, geography)
-                                dispatch = np.transpose([Dispatch.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),np.array(energy_budgets).flatten(), dispatch_periods, p_min, p_max)])
+                                dispatch = np.transpose([dispatch_budget.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),np.array(energy_budgets).flatten(), dispatch_periods, p_min, p_max)])
                                 self.bulk_gen.loc[indexer,:] += dispatch
                                 self.dispatched_bulk_gen.loc[indexer,:] += dispatch
                         else:
                             if load:
                                 indexer = util.level_specific_indexer(self.dist_load,[cfg.dispatch_geography,'dispatch_feeder'], [geography,feeder])
-                                dispatch =  np.transpose([Dispatch.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
+                                dispatch =  np.transpose([dispatch_budget.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
                                 for timeshift_type in list(set(self.distribution_load.index.get_level_values('timeshift_type'))):
                                     indexer = util.level_specific_indexer(self.distribution_load,[cfg.dispatch_geography,'timeshift_type'], [geography,timeshift_type])
                                     self.distribution_load.loc[indexer,:] += dispatch
@@ -630,7 +631,7 @@ class Supply(object):
 
                             else:
                                 indexer = util.level_specific_indexer(self.dist_gen,[cfg.dispatch_geography,'dispatch_feeder'], [geography,feeder])
-                                dispatch =  np.transpose([Dispatch.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
+                                dispatch =  np.transpose([dispatch_budget.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
                                 self.distribution_gen.loc[indexer,:] += dispatch
                                 self.dispatched_dist_gen.loc[indexer,:] += dispatch
                         index = pd.MultiIndex.from_product([shape.shapes.active_dates_index,[feeder]],names=['weather_datetime','dispatch_feeder'])
