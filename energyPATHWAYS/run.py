@@ -211,30 +211,20 @@ class SubsectorPertubation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Users\ryandrewjones\Dropbox\Evolved Energy Research\Pathways\passing_results\supply_curve_difference'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\US_DDPP'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['supply_curve_id_70']
+    scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
-    load_demand   = False,
+    load_demand   = True,
     solve_demand  = False,
-    load_supply   = True,
-    solve_supply  = False,
+    load_supply   = False,
+    solve_supply  = True,
     export_results= False,
     load_error    = False,
-    pickle_shapes = False,
+    pickle_shapes = True,
     save_models   = False,
     api_run       = False,
     clear_results = False)
-    # t = time.time()
-    # test = model.demand.aggregate_electricity_shapes(2015)
-    # t = util.time_stamp(t)
-    # # model.demand.sectors[2].subsectors[2].aggregate_electricity_shapes(2015)
-    # from energyPATHWAYS import outputs
-    # test = outputs.Output()
-    # test.dx_ac = shape.shapes.data[42].values
-    # test.furnace = shape.shapes.data[41].values
-    # test.return_cleaned_output('dx_ac').to_csv('dx_ac.csv')
-    # test.return_cleaned_output('furnace').to_csv('furnace.csv')
 
 

@@ -1608,10 +1608,7 @@ class Subsector(DataMapFunctions):
                         new_data_level = util.DfOper.mult([tech_data, getattr(ref_tech_class, 'values_level')])
 
                 else:
-                    try:
-                        new_data = copy.deepcopy(getattr(ref_tech_class, attr))
-                    except:
-                        pdb.set_trace()
+                    new_data = copy.deepcopy(getattr(ref_tech_class, attr))
                     if hasattr(ref_tech_class,'values_level'):
                         new_data_level = copy.deepcopy(getattr(ref_tech_class, 'values_level'))
                 tech_attributes = vars(getattr(self.technologies[ref_tech_id], class_name))
