@@ -211,17 +211,17 @@ class SubsectorPertubation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Users\ryandrewjones\Dropbox\Evolved Energy Research\Pathways\passing_results\supply_curve_difference'
+    workingdir = r'C:\github\EP_runs\US'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['supply_curve_id_70']
+    scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = False,
-    load_supply   = True,
+    load_supply   = False,
     solve_supply  = False,
     export_results= False,
-    load_error    = False,
+    load_error    = True,
     pickle_shapes = False,
     save_models   = False,
     api_run       = False,

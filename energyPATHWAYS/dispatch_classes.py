@@ -9,14 +9,12 @@ import numpy as np
 from datamapfunctions import Abstract,DataMapFunctions
 import copy
 import pandas as pd
-from scipy import optimize
 import math
 import config as cfg
 import os
 from pyomo.opt import SolverFactory, SolverStatus
 import csv
 import logging
-from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 from energyPATHWAYS.outputs import Output
 import dispatch_formulation
@@ -59,44 +57,35 @@ def flexible_load_result_to_list(flexible_load):
     lists = [key + (value.value,) for key, value in items]
     return lists
 
-def run_thermal_dispatch(params):
-    dispatch_geography = params[0]
-    thermal_dispatch_df = params[1]
-    columns = params[1].columns #save for later since we are doing a squeeze
-    thermal_dispatch_df = thermal_dispatch_df.squeeze().unstack('IO')
-    dispatch_geography_index = params[2]
-    load = util.df_slice(params[3], dispatch_geography, dispatch_geography_index)
+class DispatchSuper(object):
+    def __init__(self, dispatch_feeders, dispatch_geography, dispatch_geographies):
+        pass
 
-    return_dispatch_by_category = params[4]
-    reserves = params[5]
-    months = load.index.get_level_values('weather_datetime').month
-    weeks = load.index.get_level_values('weather_datetime').week
-    load = load.values.flatten()
-    pmaxs = thermal_dispatch_df['capacity'].values
-    marginal_costs = thermal_dispatch_df['cost'].values
-    MOR = thermal_dispatch_df['maintenance_outage_rate'].values
-    FOR = thermal_dispatch_df['forced_outage_rate'].values
-    must_runs = thermal_dispatch_df['must_run'].values
-    capacity_weights = thermal_dispatch_df['capacity_weights'].values
-    thermal_capacity_multiplier = thermal_dispatch_df['thermal_capacity_multiplier'].values
-    # grabs the technology from the label
-    gen_categories = [int(s.split(', ')[1].rstrip('L')) for s in thermal_dispatch_df.index.get_level_values('thermal_generators')]
+    @classmethod
+    def from_supply_obj(cls, supply):
+        # most of the data setup is probably universal and can go here
+        pass
 
-    maintenance_rates = dispatch_maintenance.schedule_generator_maintenance(load=load, pmaxs=pmaxs, annual_maintenance_rates=MOR, dispatch_periods=weeks)
-    dispatch_results = dispatch_generators.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
-                                                                    FOR=FOR, must_runs=must_runs, dispatch_periods=weeks, capacity_weights=capacity_weights,
-                                                                    gen_categories=gen_categories, return_dispatch_by_category=return_dispatch_by_category,
-                                                                    reserves=reserves, thermal_capacity_multiplier=thermal_capacity_multiplier)
-    
-    for output in ['gen_cf', 'generation', 'stock_changes']:
-        thermal_dispatch_df[output] = dispatch_results[output]
-    
-    thermal_dispatch_df = thermal_dispatch_df.stack('IO').to_frame()
-    thermal_dispatch_df.columns = columns
-    
-#    dispatch_results['dispatch_by_category'].index = shape.shapes.active_dates_index
-    
-    return [thermal_dispatch_df, dispatch_results['gen_dispatch_shape'], dispatch_results['dispatch_by_category']]
+    @classmethod
+    def from_pickle(cls, path):
+        # most of the data setup is probably universal and can go here
+        pass
+
+    def write_self(self, path):
+        # important function that will allow us to write the data and then change functions and then test
+        pass
+
+class SeriesHourlyDispatch(DispatchSuper):
+    def __init__(self):
+        pass
+
+    def calculate(self):
+        # here is where we can put the calculations
+        pass
+
+    def get_output_X(self):
+        # pattern we can use for getting outputs back to supply, some of this could go into the super class, but much is likely specific
+        pass
 
 class Dispatch(object):
     def __init__(self, dispatch_feeders, dispatch_geography, dispatch_geographies):

@@ -1603,10 +1603,17 @@ class Subsector(DataMapFunctions):
                     flipped = getattr(ref_tech_class, 'flipped') if hasattr(ref_tech_class, 'flipped') else False
                     if flipped is True:
                         tech_data = 1 / tech_data
-                    new_data = util.DfOper.mult([tech_data, getattr(ref_tech_class, attr)])
-                    if hasattr(ref_tech_class,'values_level'):
-                        new_data_level = util.DfOper.mult([tech_data, getattr(ref_tech_class, 'values_level')])
-
+                    # not all our techs have reference tech_operation which indicates how to do the math
+                    if hasattr(tech_class, 'reference_tech_operation') and tech_class.reference_tech_operation == 'add':
+                        # ADD instead of multiply
+                        new_data = util.DfOper.add([tech_data, getattr(ref_tech_class, attr)])
+                    else:
+                        new_data = util.DfOper.mult([tech_data, getattr(ref_tech_class, attr)])
+                    if hasattr(ref_tech_class, 'values_level'):
+                        if hasattr(tech_class, 'reference_tech_operation') and tech_class.reference_tech_operation == 'add':
+                            new_data_level = util.DfOper.add([tech_data, getattr(ref_tech_class, 'values_level')])
+                        else:
+                            new_data_level = util.DfOper.mult([tech_data, getattr(ref_tech_class, 'values_level')])
                 else:
                     try:
                         new_data = copy.deepcopy(getattr(ref_tech_class, attr))
@@ -2235,7 +2242,10 @@ class Subsector(DataMapFunctions):
         tech_sum = util.remove_df_levels(self.stock.technology,'demand_technology')
 #        self.stock.total = self.stock.total.fillna(tech_sum)
         self.stock.total.sort(inplace=True)
-        self.stock.total[self.stock.total<tech_sum] = tech_sum
+        try:
+            self.stock.total[self.stock.total<tech_sum] = tech_sum
+        except:
+            pdb.set_trace()
 
     def project_ee_measure_stock(self):
         """ 
@@ -3256,6 +3266,8 @@ class Subsector(DataMapFunctions):
         util.replace_column(self.energy_forecast_no_modifier, 'value')
         self.energy_forecast = util.remove_df_elements(self.energy_forecast, 9999, 'final_energy')
         self.energy_forecast_no_modifier = util.remove_df_elements(self.energy_forecast_no_modifier, 9999, 'final_energy')
+        if cfg.cfgfile.get('case', 'use_service_demand_modifiers').lower()=='false':
+            self.energy_forecast = self.energy_forecast_no_modifier
         if hasattr(self.stock,'other_index_1'):
             util.replace_index_name(self.energy_forecast,"other_index_1",self.stock.other_index_1)
         if hasattr(self.stock,'other_index_2'):
