@@ -17,6 +17,7 @@ import psycopg2.extras
 import numpy as np
 from collections import OrderedDict, defaultdict
 import csv
+import time
 
 class PathwaysLookupError(KeyError):
     def __init__(self, val, table, col):
@@ -429,6 +430,7 @@ def start_energypathways():
     for scenario_chunk in np.array_split(scenarios, ep_cmd_window_count):
         args = base_args + [val for pair in zip(['-s']*len(scenario_chunk), scenario_chunk) for val in pair]
         run(args, working_dir)
+        time.sleep(500)
     _msg("sucessfully launched {} scenarios".format(len(scenarios)))
 
 def load_config():

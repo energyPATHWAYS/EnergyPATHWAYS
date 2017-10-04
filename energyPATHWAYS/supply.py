@@ -28,6 +28,7 @@ import pdb
 import os
 from datetime import datetime
 import random
+import dispatch_budget
 
 #def node_update_stock(node):
 #    if hasattr(node, 'stock'):
@@ -607,7 +608,7 @@ class Supply(object):
                                 self.energy_budgets = energy_budgets
                                 self.p_min = p_min
                                 self.p_max = p_max
-                                dispatch = np.transpose([Dispatch.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
+                                dispatch = np.transpose([dispatch_budget.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
                                 self.dispatch_result = dispatch            
                                 indexer = util.level_specific_indexer(self.bulk_load,[cfg.dispatch_geography], [geography])
                                 self.bulk_load.loc[indexer,:] += dispatch
@@ -615,13 +616,13 @@ class Supply(object):
                                 self.dispatched_bulk_load.loc[indexer,:] += dispatch
                             else:
                                 indexer = util.level_specific_indexer(self.bulk_gen,cfg.dispatch_geography, geography)
-                                dispatch = np.transpose([Dispatch.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),np.array(energy_budgets).flatten(), dispatch_periods, p_min, p_max)])
+                                dispatch = np.transpose([dispatch_budget.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),np.array(energy_budgets).flatten(), dispatch_periods, p_min, p_max)])
                                 self.bulk_gen.loc[indexer,:] += dispatch
                                 self.dispatched_bulk_gen.loc[indexer,:] += dispatch
                         else:
                             if load:
                                 indexer = util.level_specific_indexer(self.dist_load,[cfg.dispatch_geography,'dispatch_feeder'], [geography,feeder])
-                                dispatch =  np.transpose([Dispatch.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
+                                dispatch =  np.transpose([dispatch_budget.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
                                 for timeshift_type in list(set(self.distribution_load.index.get_level_values('timeshift_type'))):
                                     indexer = util.level_specific_indexer(self.distribution_load,[cfg.dispatch_geography,'timeshift_type'], [geography,timeshift_type])
                                     self.distribution_load.loc[indexer,:] += dispatch
@@ -630,7 +631,7 @@ class Supply(object):
 
                             else:
                                 indexer = util.level_specific_indexer(self.dist_gen,[cfg.dispatch_geography,'dispatch_feeder'], [geography,feeder])
-                                dispatch =  np.transpose([Dispatch.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
+                                dispatch =  np.transpose([dispatch_budget.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
                                 self.distribution_gen.loc[indexer,:] += dispatch
                                 self.dispatched_dist_gen.loc[indexer,:] += dispatch
                         index = pd.MultiIndex.from_product([shape.shapes.active_dates_index,[feeder]],names=['weather_datetime','dispatch_feeder'])
@@ -1155,18 +1156,14 @@ class Supply(object):
         logging.info('      solving thermal dispatch')
         self.calculate_weighted_sales(year)
         self.capacity_weights(year)
-        parallel_params = list(zip(cfg.dispatch_geographies,
-                                   [util.df_slice(self.active_thermal_dispatch_df,x,cfg.dispatch_geography,drop_level=False) for x in cfg.dispatch_geographies],
+        parallel_params = list(zip(cfg.dispatch_geographies,[util.df_slice(self.active_thermal_dispatch_df,x,cfg.dispatch_geography,drop_level=False) for x in cfg.dispatch_geographies],
                                    [cfg.dispatch_geography]*len(cfg.dispatch_geographies),
                                     [util.df_slice(self.bulk_net_load,2,'timeshift_type')]*len(cfg.dispatch_geographies),
                                     [year in self.dispatch_write_years]*len(cfg.dispatch_geographies),
                                    [float(cfg.cfgfile.get('opt', 'operating_reserves'))]*len(cfg.dispatch_geographies)))
 
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-            try:
-                dispatch_results = helper_multiprocess.safe_pool(dispatch_classes.run_thermal_dispatch, parallel_params)
-            except:
-                pdb.set_trace()
+            dispatch_results = helper_multiprocess.safe_pool(dispatch_classes.run_thermal_dispatch, parallel_params)
         else:
             dispatch_results = []
             for params in parallel_params:
@@ -1830,10 +1827,9 @@ class Supply(object):
             for geography in cfg.geographies:
                 export_map_df_indexer = util.level_specific_indexer(export_map_df,[cfg.primary_geography],[geography])
                 export_df_indexer = util.level_specific_indexer(export_df,[cfg.primary_geography],[geography])
-                df = DfOper.mult([export_df.loc[export_df_indexer,:], export_map_df.loc[export_map_df_indexer,:]])
+                df = util.DfOper.mult([export_df.loc[export_df_indexer,:], export_map_df.loc[export_map_df_indexer,:]])
                 geo_df_list.append(df)
             export_result = pd.concat(geo_df_list)
-            export_result = export_result.groupby(level=[x for x in export_result.index.names if x in cfg.output_combined_levels]).sum()
         else:
             export_result = None
         setattr(self, export_result_name, export_result)
@@ -2181,6 +2177,9 @@ class Supply(object):
                     active_row_indexer =  util.level_specific_indexer(col_node.active_coefficients_total, levels=levels, elements=[sector,row_nodes]) 
                     active_col_indexer = util.level_specific_indexer(col_node.active_coefficients_total, levels=['demand_sector'], elements=[sector], axis=1)
                     self.io_dict[year][sector].loc[row_indexer, col_indexer] = col_node.active_coefficients_total.loc[active_row_indexer,active_col_indexer].values
+#                    if col_node.overflow_node:
+#                        self.io_dict[year][sector].loc[row_indexer, col_indexer]=0                    
+                    
  
                 
                 
@@ -2497,7 +2496,7 @@ class Node(DataMapFunctions):
             df = self.final_annual_costs
             util.replace_index_name(df, 'year','vintage')
         else:
-            df = self.annual_costs.stack().to_frame()
+            df = self.final_annual_costs.stack().to_frame()
             util.replace_index_name(df,'year')
         df = util.remove_df_levels(df, levels_to_eliminate).sort()
         cost_unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
@@ -5477,7 +5476,6 @@ class PrimaryNode(Node):
         traded_cost = util.DfOper.mult([cost,map_df])
         traded_cost = traded_cost.groupby(level=[x for x in tradable_levels if x in traded_cost.index.names]).transform(lambda x: x.max())
         cost = traded_cost.groupby(level = [x for x in levels if x in cost.index.names]).max()
-        print cost
         return  util.expand_multi(cost, levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],
                                                                                                                             levels_names=[cfg.primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
     

@@ -165,7 +165,9 @@ class GeoMapper:
         primary_geography_name = self.get_primary_geography_name()
         if cfg.breakout_geography_id and (primary_geography_name not in self.values.index.names):
             self._create_composite_geography_level(primary_geography_name, self.id_to_geography[cfg.primary_geography_id], cfg.breakout_geography_id)
-        
+        disagg_geography_name = self.get_disagg_geography_name()
+        if cfg.disagg_breakout_geography_id and (disagg_geography_name not in self.values.index.names):
+            self._create_composite_geography_level(disagg_geography_name, self.id_to_geography[cfg.disagg_geography_id], cfg.disagg_breakout_geography_id)
         dispatch_geography_name = self.get_dispatch_geography_name()
         if cfg.dispatch_breakout_geography_id and (dispatch_geography_name not in self.values.index.names):
             self._create_composite_geography_level(dispatch_geography_name, self.id_to_geography[cfg.dispatch_geography_id], cfg.dispatch_breakout_geography_id)
@@ -238,6 +240,9 @@ class GeoMapper:
     def get_primary_geography_name(self):
         return self.make_new_geography_name(self.id_to_geography[cfg.primary_geography_id],
                                             cfg.breakout_geography_id)
+    def get_disagg_geography_name(self):
+        return self.make_new_geography_name(self.id_to_geography[cfg.disagg_geography_id],
+                                            cfg.disagg_breakout_geography_id)
 
     def get_dispatch_geography_name(self):
         return self.make_new_geography_name(self.id_to_geography[cfg.dispatch_geography_id],
@@ -264,9 +269,9 @@ class GeoMapper:
         allocated_foreign_gau_slice = util.DfOper.mult((foreign_gau_slice, allocation), fill_value=np.nan)
         allocated_foreign_gau_slice = allocated_foreign_gau_slice.reorder_levels([-1]+range(df.index.nlevels))
         ratio_allocated_to_impacted = util.DfOper.divi((allocated_foreign_gau_slice, impacted_gaus_slice), fill_value=np.nan, non_expandable_levels=[])
+        ratio_allocated_to_impacted.iloc[np.nonzero(impacted_gaus_slice.values==0)] = 0
         clean_ratio = TimeSeries.clean(data=ratio_allocated_to_impacted, time_index_name=y_or_v, interpolation_method='linear_interpolation', extrapolation_method='nearest')
         allocated_foreign_gau_slice_all_years = util.DfOper.mult((clean_ratio, impacted_gaus_slice), fill_value=np.nan, non_expandable_levels=[])
-
         allocated_foreign_gau_slice_new_geo = util.remove_df_levels(allocated_foreign_gau_slice_all_years, foreign_geography)
         allocated_foreign_gau_slice_foreign_geo = util.remove_df_levels(allocated_foreign_gau_slice_all_years, current_geography)
         allocated_foreign_gau_slice_foreign_geo.index = allocated_foreign_gau_slice_foreign_geo.index.rename(current_geography, level=foreign_geography)

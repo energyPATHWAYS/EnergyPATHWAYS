@@ -24,6 +24,25 @@ import pdb
 import shape
 import helper_multiprocess
 import cPickle as pickle
+import dispatch_generators
+import dispatch_maintenance
+
+class DispatchFeederAllocation(Abstract):
+    """loads and cleans the data that allocates demand sectors to dispatch feeders"""
+    def __init__(self, id,**kwargs):
+        self.id = id
+        self.sql_id_table = 'DispatchFeedersAllocation'
+        self.sql_data_table = 'DispatchFeedersAllocationData'
+        Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
+        self.remap()
+        self.values.sort_index(inplace=True)
+
+class DispatchNodeConfig(DataMapFunctions):
+    def __init__(self, id, **kwargs):
+        self.id = id
+        self.sql_id_table = 'DispatchNodeConfig'
+        for col, att in util.object_att_from_table(self.sql_id_table, id, primary_key='supply_node_id'):
+            setattr(self, col, att)
 
 def all_results_to_list(instance):
     return {'Charge':storage_result_to_list(instance.Charge),
@@ -63,11 +82,11 @@ def run_thermal_dispatch(params):
     # grabs the technology from the label
     gen_categories = [int(s.split(', ')[1].rstrip('L')) for s in thermal_dispatch_df.index.get_level_values('thermal_generators')]
 
-    maintenance_rates = Dispatch.schedule_generator_maintenance(load=load, pmaxs=pmaxs, annual_maintenance_rates=MOR, dispatch_periods=weeks)
-    dispatch_results = Dispatch.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
-                                                         FOR=FOR, must_runs=must_runs, dispatch_periods=weeks, capacity_weights=capacity_weights,
-                                                         gen_categories=gen_categories, return_dispatch_by_category=return_dispatch_by_category,
-                                                         reserves=reserves,thermal_capacity_multiplier=thermal_capacity_multiplier)
+    maintenance_rates = dispatch_maintenance.schedule_generator_maintenance(load=load, pmaxs=pmaxs, annual_maintenance_rates=MOR, dispatch_periods=weeks)
+    dispatch_results = dispatch_generators.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
+                                                                    FOR=FOR, must_runs=must_runs, dispatch_periods=weeks, capacity_weights=capacity_weights,
+                                                                    gen_categories=gen_categories, return_dispatch_by_category=return_dispatch_by_category,
+                                                                    reserves=reserves, thermal_capacity_multiplier=thermal_capacity_multiplier)
     
     for output in ['gen_cf', 'generation', 'stock_changes']:
         thermal_dispatch_df[output] = dispatch_results[output]
@@ -78,13 +97,6 @@ def run_thermal_dispatch(params):
 #    dispatch_results['dispatch_by_category'].index = shape.shapes.active_dates_index
     
     return [thermal_dispatch_df, dispatch_results['gen_dispatch_shape'], dispatch_results['dispatch_by_category']]
-
-class DispatchNodeConfig(DataMapFunctions):
-    def __init__(self, id, **kwargs):
-        self.id = id
-        self.sql_id_table = 'DispatchNodeConfig'
-        for col, att in util.object_att_from_table(self.sql_id_table, id, primary_key='supply_node_id'):
-            setattr(self, col, att)
 
 class Dispatch(object):
     def __init__(self, dispatch_feeders, dispatch_geography, dispatch_geographies):
@@ -97,42 +109,21 @@ class Dispatch(object):
         self.set_dispatch_order()
         self.dispatch_window_dict = dict(util.sql_read_table('DispatchWindows'))  
         self.curtailment_cost = util.unit_convert(0.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.unserved_energy_cost = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.dist_net_load_penalty = util.unit_convert(10000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.unserved_energy_cost = util.unit_convert(2000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.dist_net_load_penalty = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.bulk_net_load_penalty = util.unit_convert(500.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.upward_imbalance_penalty = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.upward_imbalance_penalty = util.unit_convert(2000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.downward_imbalance_penalty = util.unit_convert(100.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.dispatch_feeders = dispatch_feeders
         self.feeders = [0] + dispatch_feeders
         self.dispatch_geography = dispatch_geography
         self.dispatch_geographies = dispatch_geographies
-        self.solver_name = self.find_solver()
         self.stdout_detail = cfg.cfgfile.get('opt','stdout_detail')
         if self.stdout_detail == 'False':
             self.stdout_detail = False
         else:
             self.stdout_detail = True
         self.solve_kwargs = {"keepfiles": False, "tee": False}
-
-    def find_solver(self):
-        requested_solvers = cfg.cfgfile.get('opt', 'dispatch_solver').replace(' ', '').split(',')
-        solver_name = None
-        # inspired by the solver detection code at https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/scripting/driver_help.py#L336
-        # suppress logging of warnings for solvers that are not found
-        logger = logging.getLogger('pyomo.solvers')
-        _level = logger.getEffectiveLevel()
-        logger.setLevel(logging.ERROR)
-        for requested_solver in requested_solvers:
-            logging.debug("Looking for %s solver" % requested_solver)
-            if SolverFactory(requested_solver).available(False):
-                solver_name = requested_solver
-                logging.info("Using %s solver" % requested_solver)
-                break
-        # restore logging
-        logger.setLevel(_level)
-    
-        assert solver_name is not None, "Dispatch could not find any of the solvers requested in your configuration (%s) please see README.md, check your configuration, and make sure you have at least one requested solver installed." % ', '.join(requested_solvers)        
-        return solver_name
   
     def set_dispatch_order(self):
         order = [x.dispatch_order for x in self.node_config_dict.values()]
@@ -242,7 +233,7 @@ class Dispatch(object):
         self.max_cumulative_flex_load = self._timeseries_to_dict(cum_distribution_load.xs(3, level='timeshift_type')) if 3 in active_timeshift_types else self.cumulative_distribution_load
 
     def set_max_min_flex_loads(self, distribution_load):
-        self.flex_load_penalty = util.unit_convert(5, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.flex_load_penalty = util.unit_convert(0.1, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         native_slice = distribution_load.xs(2, level='timeshift_type')
         groups = native_slice.groupby(level=['period', self.dispatch_geography, 'dispatch_feeder'])
         self.max_flex_load = self._timeseries_to_dict(groups.max())
@@ -306,7 +297,7 @@ class Dispatch(object):
                         self.alloc_technologies.append(tech_dispatch_id)
                         self.large_storage[tech_dispatch_id] = 1
                         self.alloc_geography[tech_dispatch_id] = dispatch_geography
-                        self.alloc_capacity[tech_dispatch_id] = self.capacity[tech_dispatch_id] * len(self.period_hours)
+                        self.alloc_capacity[tech_dispatch_id] = self.capacity[tech_dispatch_id] * len(self.hours)
                         self.alloc_energy[tech_dispatch_id] = self.energy[tech_dispatch_id]
                         x = 1/np.sqrt(storage_efficiency_dict[dispatch_geography][zone][feeder][tech])
                         if not np.isfinite(x):
@@ -334,7 +325,7 @@ class Dispatch(object):
         MORs = np.array(util.df_slice(thermal_dispatch_df,['maintenance_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
         FORs = np.array(util.df_slice(thermal_dispatch_df,['forced_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
         must_run = np.array(util.df_slice(thermal_dispatch_df,['must_run',geography],['IO',self.dispatch_geography]).values).T[0]
-        clustered_dict = self._cluster_generators(n_clusters = int(cfg.cfgfile.get('opt','generator_steps')), pmax=pmax, marginal_cost=marginal_cost, FORs=FORs, 
+        clustered_dict = dispatch_generators.cluster_generators(n_clusters = int(cfg.cfgfile.get('opt','generator_steps')), pmax=pmax, marginal_cost=marginal_cost, FORs=FORs,
                                      MORs=MORs, must_run=must_run, pad_stack=False, zero_mc_4_must_run=True)
         generator_numbers = range(len(clustered_dict['derated_pmax']))
         for number in generator_numbers:
@@ -358,387 +349,6 @@ class Dispatch(object):
             new_dictionary[period] = dictionary
         return new_dictionary
 
-    ##################################################################
-    ##################################################################
-    ## POWER TO GAS, ELECTROLYSIS AND HYDRO DISPATCH
-    ##################################################################
-    @staticmethod
-    def residual_energy(load_cutoff, load, energy_budget, pmin=0, pmax=None):
-        """
-        energy_budget > 0 is generation (hydro)
-        energy_budget < 0 is load (P2G)
-        """
-        dct = (1 if energy_budget>0 else -1)
-        return np.sum(np.clip(dct*load[dct*load>dct*(load_cutoff + pmin)] - dct*load_cutoff, a_min=pmin, a_max=pmax) - pmin) + len(load)*pmin - dct*energy_budget
-
-    @staticmethod
-    def dispatch_shape(load, load_cutoff, dct, pmin=0, pmax=None):
-        """
-        dct = 1 is generation (hydro)
-        dct = -1 is load (P2G)
-        """
-        dispatch = np.zeros_like(load) - dct*pmin
-        dispatch[dct*load>dct*(load_cutoff + pmin)] -= dct*(np.clip(dct*load[dct*load>dct*(load_cutoff + pmin)] - dct*load_cutoff, a_min=pmin, a_max=pmax) - pmin)
-        return dispatch * -dct #always positive
-
-    @staticmethod
-    def solve_for_load_cutoff(load, energy_budget, pmin=0, pmax=None):
-        lowest = min(load) - pmax - 1
-        highest = max(load) + pmax + 1
-        load_cutoff = optimize.bisect(Dispatch.residual_energy, lowest, highest, args=(load, energy_budget, pmin, pmax))
-        return load_cutoff
-    
-    @staticmethod
-    def solve_for_dispatch_shape(load, energy_budget, pmin=0, pmax=None):
-        if abs(energy_budget) < pmin*len(load):
-            logging.debug('During dispatch to energy budget, the pmin is too large for the given energy budget')
-            return np.ones_like(load) * energy_budget / len(load)
-        
-        if pmax is not None and abs(energy_budget) > pmax*len(load):
-            logging.debug('During dispatch to energy budget, the pmax is too small for the given energy budget')
-            return np.ones_like(load) * pmax
-        
-        load_cutoff = Dispatch.solve_for_load_cutoff(load, energy_budget, pmin, pmax)
-        return Dispatch.dispatch_shape(load, load_cutoff, (1 if energy_budget>0 else -1), pmin, pmax)
-    
-    @staticmethod
-    def dispatch_to_energy_budget(load, energy_budgets, dispatch_periods=None, pmins=0, pmaxs=None):
-        """ Dispatch to energy budget produces a dispatch shape for a load or generating energy budget
-    
-        Common uses would be hydro, power2gas, and hydrogen electrolysis
-        
-        energy_budget > 0 is generation (hydro)
-        energy_budget < 0 is load (P2G)
-        
-        Args:
-            load: net load shape (ndarray)
-            energy_budgets: availabile energy (float or ndarray)
-            dispatch_periods: identifiers for each load hour (ndarray) defaults to None
-            pmins: min power for the dispatch (float or ndarray) defaults to zero
-            pmaxs: max power for the dispatch (float or ndarray) defaults to None
-        
-        Returns:
-            dispatch: (ndarray)
-        
-        This function solves based on a huristic, which returns the same solution as optimization
-        
-        Note that every change in dispatch period results in a new dispatch group, for instance,
-         range(12) + range(12) will result in 24 dispatch groups, not 12, as might be expected.
-        """
-        if dispatch_periods is not None and len(dispatch_periods) != len(load):
-            raise ValueError('Dispatch period identifiers must match the length of the load data')
-        
-        #spit the load into dispatch groups
-        load_groups = (load,) if dispatch_periods is None else np.array_split(load, np.where(np.diff(dispatch_periods)!=0)[0]+1)
-        energy_budgets = util.ensure_iterable_and_not_string(energy_budgets)
-        pmins, pmaxs = util.ensure_iterable_and_not_string(pmins), util.ensure_iterable_and_not_string(pmaxs)
-    
-        if len(energy_budgets) != len(load_groups):
-            raise ValueError('Number of energy_budgets must match the number of dispatch periods')
-    
-        if len(pmins) != len(load_groups):
-            if len(pmins)==1:
-                #expand to match the number of load groups
-                pmins*=len(load_groups)
-            else:
-                raise ValueError('Number of pmin values must match the number of dispatch periods')
-    
-        if len(pmaxs) != len(load_groups):
-            if len(pmaxs)==1:
-                #expand to match the number of load groups
-                pmaxs*=len(load_groups)
-            else:
-                raise ValueError('Number of pmax values must match the number of dispatch periods')
-        
-        #call solve for dispatch on each group and concatenate
-        return np.concatenate([Dispatch.solve_for_dispatch_shape(load_group, energy_budget, pmin, pmax)
-            for load_group, energy_budget, pmin, pmax in zip(load_groups, energy_budgets, pmins, pmaxs)])
-    
-    ##################################################################
-    ##################################################################
-    ## GENERATOR DISPATCH (LOOKUP HEURISTIC)
-    ##################################################################
-    @staticmethod
-    def _cluster_generators(n_clusters, pmax, marginal_cost, FORs, MORs, must_run, pad_stack=False, zero_mc_4_must_run=False):
-        """ Cluster generators is a function that takes a generator stack and clusters them by marginal_cost and must run status.
-        
-        clustering is done with sklearn KMeans
-        
-        Args:
-            n_clusters (int): controls the number of output generators (must between 1 and the number of generators)
-            pmax (1d array): pmax of each generator
-            marginal_cost (1d array): the full marginal marginal cost for each generator
-            FORs (1d array): forced outage rates by generator
-            MORs (1d array): maintenance rates by generator
-            must_run (bool 1d array): boolean array indicating whether each generator is must run
-            pad_stack (bool): if true, the highest cost dispatchable generator has it's capacity increased
-            zero_mc_4_must_run (bool): if true, must run generators are returned with zero marginal cost
-        
-        Returns:
-            clustered: a dictionary with generator clusters
-        """
-        ind = np.nonzero(pmax)
-        pmax = pmax[ind]
-        marginal_cost = marginal_cost[ind]
-        FORs = FORs[ind]
-        MORs = MORs[ind]
-        must_run = must_run[ind]
-        assert n_clusters>=1
-        assert n_clusters<=len(pmax)
-        new_mc = copy.deepcopy(marginal_cost) #copy mc before changing it
-        if zero_mc_4_must_run:
-            new_mc[np.nonzero(must_run)] = 0
-        # clustering is done here
-        cluster = KMeans(n_clusters=n_clusters, precompute_distances='auto')
-        factor = (max(marginal_cost) - min(marginal_cost))*10
-        fit = cluster.fit_predict(np.vstack((must_run*factor, new_mc)).T)
-        num_clusters_found = max(fit) + 1
-        n_clusters = min(n_clusters, num_clusters_found)
-        
-        # helper functions for results
-        group_sum = lambda c, a: sum(a[fit==c])
-        group_wgtav = lambda c, a, b: 0 if group_sum(c, a)==0 else np.dot(a[fit==c], b[fit==c])/group_sum(c, a)
-
-        combined_rate = Dispatch._get_combined_outage_rate(FORs, MORs)
-        derated_pmax = pmax * (1-combined_rate)
-
-        clustered = {}
-        clustered['marginal_cost'] = np.array([group_wgtav(c, derated_pmax, new_mc) for c in range(n_clusters)])
-        order = np.argsort(clustered['marginal_cost']) #order the result by marginal cost
-        clustered['marginal_cost'] = clustered['marginal_cost'][order]
-        clustered['derated_pmax'] = np.array([group_sum(c, derated_pmax) for c in range(n_clusters)])[order]
-        clustered['pmax'] = np.array([group_sum(c, pmax) for c in range(n_clusters)])[order]
-        clustered['FORs'] = np.array([group_wgtav(c, pmax, FORs) for c in range(n_clusters)])[order]
-        clustered['MORs'] = np.array([group_wgtav(c, pmax, MORs) for c in range(n_clusters)])[order]
-        clustered['must_run'] = np.array([round(group_wgtav(c, pmax, must_run)) for c in range(n_clusters)], dtype=int)[order]
-        
-        # check the result
-#        np.testing.assert_almost_equal(sum(clustered['pmax'][np.where(clustered['must_run']==0)]), sum(pmax[np.where(must_run==0)]))
-        
-        # if we are padding the stack, add a generator at the end of the stack that is high cost
-        if pad_stack:
-            for name in ['FORs', 'MORs', 'must_run']:
-                clustered[name] = np.concatenate((clustered[name], [clustered[name][-1]]))
-            for name in ['derated_pmax', 'pmax']:
-                clustered[name] = np.concatenate((clustered[name], [sum(clustered[name])]))
-            clustered['marginal_cost'] = np.concatenate((clustered['marginal_cost'], [10*clustered['marginal_cost'][-1]]))
-            
-        return clustered
-
-    @staticmethod
-    def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, min_maint=0., max_maint=.5, load_ptile=99.9, individual_plant_maintenance=False):
-        # gives the index for the change between dispatch_periods
-        group_cuts = list(np.where(np.diff(dispatch_periods)!=0)[0]+1) if dispatch_periods is not None else None
-        group_lengths = np.array([group_cuts[0]] + list(np.diff(group_cuts)) + [len(load)-group_cuts[-1]])
-        num_groups = len(group_cuts)+1
-
-        annual_maintenance_rates = np.clip(annual_maintenance_rates, 0, None)
-        if sum(annual_maintenance_rates)==0:
-            return np.zeros(len(pmaxs))
-        if not group_cuts:
-            return annual_maintenance_rates
-        
-        pmax = np.max(pmaxs, axis=0) if pmaxs.ndim > 1 else pmaxs
-        sum_capacity = np.sum(pmax)
-        pmaxs = np.tile(pmaxs, (num_groups, 1)) if len(pmaxs.shape)==1 else pmaxs
-        
-        maintenance_energy_by_plant = pmax * annual_maintenance_rates * len(load)
-        maintenance_energy = np.sum(maintenance_energy_by_plant)
-        
-        load_cut = np.percentile(load, load_ptile)
-        
-        # checks to see if we have a low level that is in the top percentile, if we do, we don't schedule maintenance in that month
-        not_okay_for_maint = util.flatten_list([[np.any(group)]*len(group) for group in np.array_split(load>load_cut, group_cuts)])
-        # make a new version of load where months when maintenance is not allowed is given an artificially high load
-        load_for_maint = np.copy(load)
-        set_load_index = np.intersect1d(np.nonzero(not_okay_for_maint)[0], np.nonzero(load<load_cut)[0])
-        load_for_maint[set_load_index] = load_cut * 10
-
-        energy_allocation = Dispatch.dispatch_to_energy_budget(load_for_maint, -maintenance_energy, pmins=sum_capacity*min_maint, pmaxs=sum_capacity*max_maint)
-        energy_allocation_by_group = np.array([np.sum(ge) for ge in np.array_split(energy_allocation, np.array(group_cuts))])
-        energy_allocation_normed = energy_allocation_by_group/sum(energy_allocation_by_group)
-        
-        if not individual_plant_maintenance:
-            gen_maintenance = np.outer(energy_allocation_normed*num_groups, annual_maintenance_rates)
-        else:
-            # go in order from largest generator to smallest generator and asign out the maintenance
-            gen_maintenance = np.empty((num_groups, len(pmax)))
-            for i in np.argsort(pmax)[-1::-1]:
-                arg_sort_group = np.argsort(energy_allocation_by_group)[-1::-1]
-                max_gen_maint = np.array([c*group_len for c, group_len in zip(pmaxs[:,i], group_lengths)])
-                plant_energy_allocation = np.zeros(num_groups)
-                remaining_energy_to_allocate = maintenance_energy_by_plant[i]
-                cycle = 0
-                while remaining_energy_to_allocate > 0:
-                    energy_to_allocate = min(remaining_energy_to_allocate, max_gen_maint[arg_sort_group[cycle]])
-                    plant_energy_allocation[arg_sort_group[cycle]] += energy_to_allocate
-                    energy_allocation_by_group[arg_sort_group[cycle]] -= energy_to_allocate
-                    max_gen_maint[arg_sort_group[cycle]] -= energy_to_allocate
-                    remaining_energy_to_allocate -= energy_to_allocate
-                    cycle+=1
-                    if cycle>=num_groups:
-                        break
-                gen_maintenance[:,i] = np.nan_to_num(plant_energy_allocation/group_lengths/pmaxs[:,i])
-             
-#            gen_maintenance[np.nonzero(pmaxs==0)] = np.outer(energy_allocation_normed, annual_maintenance_rates[np.nonzero(pmaxs==0)])
-
-        if np.any(np.isnan(gen_maintenance)):
-            pdb.set_trace()
-            raise ValueError("Calculation has returned maintenance rates of nan")
-        return gen_maintenance
-
-    @staticmethod
-    def _get_combined_outage_rate(FORs, MORs):
-        return MORs + (1 - MORs) * FORs
-
-    @staticmethod
-    def _get_marginal_cost_order(marginal_cost, must_run=None):
-        if must_run is None:
-            must_run = np.zeros_like(marginal_cost)
-        must_run_index, dispat_index = np.nonzero(must_run)[0], np.nonzero(must_run==0)[0] 
-        sorted_cost = np.argsort(marginal_cost)
-        marginal_cost_order = np.concatenate(([mc for mc in sorted_cost if mc in must_run_index],
-                                              [mc for mc in sorted_cost if mc in dispat_index])).astype(int)
-        return marginal_cost_order
-
-    @staticmethod
-    def solve_gen_dispatch(load, pmax, marginal_cost, FORs, MORs, must_run, gen_categories=None):
-        marginal_cost_order = Dispatch._get_marginal_cost_order(marginal_cost, must_run)
-
-        combined_rate = Dispatch._get_combined_outage_rate(FORs, MORs)
-        derated_capacity = pmax * (1 - combined_rate)
-
-        sorted_pmax = derated_capacity[marginal_cost_order]
-        sorted_marginal_cost = marginal_cost[marginal_cost_order]
-        cum_pmax = np.cumsum(sorted_pmax)
-
-        must_run_sum = sum((pmax * (1 - combined_rate))[np.nonzero(must_run)])
-        load_w_must_run = np.clip(load, a_min=must_run_sum, a_max=None)
-
-        dispatch = np.zeros((len(derated_capacity), len(load)))
-        market_prices = []
-        for h, look in enumerate(load_w_must_run):
-            height = np.where(cum_pmax < look)[0]
-            dispatch[height, h] = sorted_pmax[height]
-            if len(height) and len(height)!=len(pmax):
-                marg = height[-1] + 1
-                dispatch[marg, h] = look - cum_pmax[height[-1]]
-                market_prices.append(sorted_marginal_cost[marg])
-            else:
-                dispatch[0, h] = look
-                market_prices.append(sorted_marginal_cost[0])
-        dispatch = dispatch[np.argsort(marginal_cost_order)]
-
-        dispatch_by_generator = dispatch.sum(axis=1)
-        production_cost = (marginal_cost * dispatch.T).sum(axis=1)
-        gen_dispatch_shape = dispatch.sum(axis=0)
-        dispatch_by_category = pd.DataFrame(dispatch, index=gen_categories).groupby(level=0).sum().T
-
-        return market_prices, production_cost, dispatch_by_generator, gen_dispatch_shape, dispatch_by_category
-
-    @staticmethod
-    def _format_gen_dispatch_inputs(num_groups, pmaxs, marginal_costs, FOR=None, MOR=None, must_runs=None, capacity_weights=None):
-        zero_clip = lambda x: np.clip(x, 0, None)
-        pmaxs, marginal_costs, FOR, MOR = zero_clip(pmaxs), zero_clip(marginal_costs), zero_clip(FOR), zero_clip(MOR)
-        marginal_costs = np.tile(marginal_costs, (num_groups,1)) if len(marginal_costs.shape)==1 else marginal_costs
-        pmaxs = np.tile(pmaxs, (num_groups,1)) if len(pmaxs.shape)==1 else pmaxs
-        FOR = np.zeros_like(pmaxs) if FOR is None else (np.tile(FOR, (num_groups,1)) if len(FOR.shape)==1 else FOR)
-        MOR = np.zeros_like(pmaxs) if MOR is None else (np.tile(MOR, (num_groups,1)) if len(MOR.shape)==1 else MOR)
-        must_runs = np.ones_like(pmaxs, dtype=bool) if must_runs is None else np.array(np.tile(must_runs, (num_groups,1)) if len(must_runs.shape)==1 else must_runs, dtype=bool)
-        capacity_weights = np.full(pmaxs.shape[1], 1/float(len(pmaxs.T)), dtype=float) if capacity_weights is None else np.array(capacity_weights, dtype=float)
-        return marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights
-
-    @staticmethod
-    def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, reserves, thermal_capacity_multiplier):
-        combined_rates = [Dispatch._get_combined_outage_rate(FOR[i], MOR[i]) for i in range(len(load_groups))]
-        max_by_load_group = np.array([max(group) * (1 + reserves) for group in load_groups])
-        cap_by_load_group = np.array([sum(pmaxs[i] * thermal_capacity_multiplier[i] * (1 - combined_rates[i])) for i in range(len(max_by_load_group))])
-        shortage_by_group = max_by_load_group - cap_by_load_group
-        order = [i for i in np.argsort(shortage_by_group)[-1::-1] if shortage_by_group[i] > 0]
-
-        # sometimes they don't come in exactly normalized
-        normed_capacity_weights = capacity_weights / sum(capacity_weights)
-        stock_changes = np.zeros(len(capacity_weights))
-        for i in order:
-            derated_capacity = sum((pmaxs[i] + stock_changes) * (1 - combined_rates[i]))
-            residual_for_load_balance = max_by_load_group[i] - derated_capacity
-            # we need more capacity
-            if residual_for_load_balance > 0:
-                if all(combined_rates[i][capacity_weights != 0] > .5):
-                    logging.warning(
-                        'All generators queued for capacity expansion have outage rates higher than 50%, this can cause issues')
-                ncwi = np.nonzero(normed_capacity_weights)[0]
-                stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - combined_rates[i][ncwi])
-
-        cap_by_load_group = np.array(
-            [sum((pmaxs[i] + stock_changes) * (1 - combined_rates[i])) for i in range(len(max_by_load_group))])
-        final_shortage_by_group = max_by_load_group - cap_by_load_group
-        if not all(np.round(final_shortage_by_group, 7) <= 0):
-            logging.error('_get_stock_changes did not build enough capacity')
-            pdb.set_trace()
-        return stock_changes
-
-    @staticmethod
-    def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None, capacity_weights=None, gen_categories=None, return_dispatch_by_category=False, reserves=.05, thermal_capacity_multiplier=None):
-        """ Dispatch generators to a net load signal
-        Args:
-            load: net load shape (ndarray[h])
-            pmaxs: max capacity (ndarray[d, n])
-            marginal_costs: marginal generator operating cost (ndarray[d, n])
-            dispatch_periods: identifiers for each load hour (ndarray[d]) defaults to None
-            FOR: generator forced outage rates (ndarray[d, n]) defaults to zero for each generator
-            MOR: maintenance outage rates (ndarray[d, n]) defaults to zero for each generator
-            must_run: generator must run status (ndarray[d, n]) defaults to False for each generator
-            periods_per_year: number of periods per year, used to calculate capacity factors, default is 8760
-        Returns:
-            dispatch_results: dictionary
-             --market_price: hourly market price over the dispatch (ndarray[h])
-             --production_cost: hourly production cost over the dispatch (ndarray[h])
-             --gen_cf: generator capacity factors over the dispatch period (ndarray[n])
-        """
-        count = lambda x: len(x.T) if x.ndim>1 else len(x)
-        if count(pmaxs) != count(marginal_costs):
-            raise ValueError('Number of generator pmaxs must equal number of marginal_costs')
-        
-        if capacity_weights is not None and capacity_weights.ndim>1:
-            raise ValueError('capacity weights should not vary across dispatch periods')
-
-        load_groups = (load,) if dispatch_periods is None else np.array_split(load, np.where(np.diff(dispatch_periods)!=0)[0]+1)
-        num_groups = len(load_groups)
-        
-        marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights = Dispatch._format_gen_dispatch_inputs(num_groups, pmaxs, marginal_costs, FOR, MOR, must_runs, capacity_weights)
-        
-        market_prices, production_costs, gen_dispatch_shape, dispatch_by_category_df = [], [], [], []
-        gen_energies = np.zeros(pmaxs.shape[1])
-        
-        stock_changes = Dispatch._get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, reserves, thermal_capacity_multiplier)
-        
-        for i, load_group in enumerate(load_groups):
-            market_price, production_cost, gen_energy, shape, dispatch_by_category = Dispatch.solve_gen_dispatch(load_group, pmaxs[i]+stock_changes, marginal_costs[i], FOR[i], MOR[i], must_runs[i], gen_categories)
-            market_prices += list(market_price)
-            production_costs += list(production_cost)
-            gen_dispatch_shape += list(shape)
-            gen_energies += gen_energy
-            dispatch_by_category_df.append(dispatch_by_category)
-        
-        if return_dispatch_by_category:
-            dispatch_by_category_df = pd.concat(dispatch_by_category_df).reset_index(drop=True)
-        else:
-            dispatch_by_category_df = None
-
-        gen_cf = gen_energies/np.max((pmaxs+stock_changes), axis=0)/float(len(load))
-        gen_cf[np.nonzero(np.max((pmaxs+stock_changes), axis=0)==0)] = 0
-        dispatch_results = dict(zip(['market_price', 'production_cost', 'generation', 'gen_cf', 'gen_dispatch_shape', 'stock_changes', 'dispatch_by_category'],
-                                    [market_prices,    production_costs,   gen_energies,   gen_cf,   gen_dispatch_shape, stock_changes, dispatch_by_category_df]))
-        
-        for key, value in dispatch_results.items():
-            if key == 'dispatch_by_category' and return_dispatch_by_category == False:
-                continue
-            if np.any(~np.isfinite(value)):
-                raise ValueError("non finite numbers found in the {} results".format(key))
-        
-        return dispatch_results
-
     def run_pyomo_year_to_month(self, model, data, **kwargs):
         """
         Pyomo optimization steps: create model instance from model formulation and data,
@@ -747,7 +357,7 @@ class Dispatch(object):
         logging.debug("Creating model instance...")
         instance = model.create_instance(data)
         logging.debug("Getting solver...")
-        solver = SolverFactory(self.solver_name)
+        solver = SolverFactory(cfg.solver_name)
         logging.debug("Solving...")
         solution = solver.solve(instance, **kwargs)
         logging.debug("Loading solution...")
@@ -806,7 +416,7 @@ class Dispatch(object):
     def solve_optimization_period(self, period, return_model_instance=False):
         model = dispatch_formulation.create_dispatch_model(self, period)
         instance = model.create_instance(report_timing=False) # report_timing=True used to try to make this step faster
-        solver = SolverFactory(self.solver_name)
+        solver = SolverFactory(cfg.solver_name)
         solution = solver.solve(instance)
         instance.solutions.load_from(solution)
         return instance if return_model_instance else all_results_to_list(instance)
@@ -850,7 +460,7 @@ class Dispatch(object):
         self.start_soc_large_storage, self.end_soc_large_storage = state_of_charge[0], state_of_charge[1]
         try:
             if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-                params = [(dispatch_formulation.create_dispatch_model(self, period), self.solver_name) for period in self.periods]
+                params = [(dispatch_formulation.create_dispatch_model(self, period), cfg.solver_name) for period in self.periods]
                 results = helper_multiprocess.safe_pool(helper_multiprocess.run_optimization, params)
             else:
                 results = [self.solve_optimization_period(period) for period in self.periods]
@@ -919,14 +529,6 @@ class Dispatch(object):
         return state_of_charge
 
 
-class DispatchFeederAllocation(Abstract):
-    """loads and cleans the data that allocates demand sectors to dispatch feeders"""
-    def __init__(self, id,**kwargs):
-        self.id = id
-        self.sql_id_table = 'DispatchFeedersAllocation'
-        self.sql_data_table = 'DispatchFeedersAllocationData'
-        Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
-        self.remap()
-        self.values.sort_index(inplace=True)
+
 
 

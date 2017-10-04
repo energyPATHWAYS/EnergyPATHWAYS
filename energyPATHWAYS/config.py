@@ -13,8 +13,8 @@ import util
 import datetime
 import logging
 import sys
+from pyomo.opt import SolverFactory
 import pdb
-from multiprocessing import cpu_count
 
 # Don't print warnings
 warnings.simplefilter("ignore")
@@ -75,6 +75,7 @@ time_slice_col = None
 electricity_energy_type_id = None
 electricity_energy_type_shape_id = None
 opt_period_length = None
+solver_name = None
 
 # outputs
 output_levels = None
@@ -114,7 +115,7 @@ unit_defs = ['US_gge = 120,500 * BTU',
             'bee = 3,559,000 * Btu']
 
 def initialize_config(_path, _cfgfile_name, _log_name):
-    global weibul_coeff_of_var, available_cpus, workingdir, cfgfile_name, log_name, log_initialized, index_levels
+    global weibul_coeff_of_var, available_cpus, workingdir, cfgfile_name, log_name, log_initialized, index_levels, solver_name
     workingdir = os.getcwd() if _path is None else _path
     cfgfile_name = _cfgfile_name 
     init_cfgfile(os.path.join(workingdir, cfgfile_name))
@@ -130,6 +131,7 @@ def initialize_config(_path, _cfgfile_name, _log_name):
     init_output_parameters()
     # used when reading in raw_values from data tables
     index_levels = util.sql_read_table('IndexLevels', column_names=['index_level', 'data_column_name'])
+    solver_name = find_solver()
 
     available_cpus = int(cfgfile.get('case','num_cores'))
     weibul_coeff_of_var = util.create_weibul_coefficient_of_variation()
@@ -205,8 +207,8 @@ def init_units():
         
 def init_geo():
     #Geography conversions
-    global geo, primary_geography, primary_geography_id, geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id
-    global primary_subset_id, breakout_geography_id, dispatch_breakout_geography_id, include_foreign_gaus
+    global geo, primary_geography, primary_geography_id, geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id, disagg_geography,disagg_geography_id
+    global primary_subset_id, breakout_geography_id, dispatch_breakout_geography_id, disagg_breakout_geography_id, include_foreign_gaus
     
     # from config file
     primary_geography_id = int(cfgfile.get('case', 'primary_geography_id'))
@@ -214,6 +216,8 @@ def init_geo():
     breakout_geography_id = [int(g) for g in cfgfile.get('case', 'breakout_geography_id').split(',') if len(g)]
     dispatch_geography_id = int(cfgfile.get('case', 'dispatch_geography_id'))
     dispatch_breakout_geography_id = [int(g) for g in cfgfile.get('case', 'dispatch_breakout_geography_id').split(',') if len(g)]
+    disagg_geography_id = int(cfgfile.get('case', 'disagg_geography_id'))
+    disagg_breakout_geography_id = [int(g) for g in cfgfile.get('case', 'disagg_breakout_geography_id').split(',') if len(g)]
     include_foreign_gaus = True if cfgfile.get('case', 'include_foreign_gaus').lower()=='true' else False
     
     # geography conversion object
@@ -222,6 +226,7 @@ def init_geo():
     # derived from inputs and geomapper object
     dispatch_geography = geo.get_dispatch_geography_name()
     primary_geography = geo.get_primary_geography_name()
+    disagg_geography = geo.get_disagg_geography_name()
     dispatch_geographies = geo.geographies[dispatch_geography]
     geographies = geo.geographies[primary_geography]
 
@@ -326,3 +331,22 @@ def init_output_parameters():
     init_output_levels()
     init_outputs_id_map()
 
+def find_solver():
+    requested_solvers = cfgfile.get('opt', 'dispatch_solver').replace(' ', '').split(',')
+    solver_name = None
+    # inspired by the solver detection code at https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/scripting/driver_help.py#L336
+    # suppress logging of warnings for solvers that are not found
+    logger = logging.getLogger('pyomo.solvers')
+    _level = logger.getEffectiveLevel()
+    logger.setLevel(logging.ERROR)
+    for requested_solver in requested_solvers:
+        logging.debug("Looking for %s solver" % requested_solver)
+        if SolverFactory(requested_solver).available(False):
+            solver_name = requested_solver
+            logging.debug("Using %s solver" % requested_solver)
+            break
+    # restore logging
+    logger.setLevel(_level)
+
+    assert solver_name is not None, "Dispatch could not find any of the solvers requested in your configuration (%s) please see README.md, check your configuration, and make sure you have at least one requested solver installed." % ', '.join(requested_solvers)
+    return solver_name

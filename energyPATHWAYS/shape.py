@@ -453,7 +453,7 @@ class Shape(dmf.DataMapFunctions):
 
 # electricity shapes
 force_rerun_shapes = False
-version = 3 #change this when you need to force users to rerun shapes
+version = 4 #change this when you need to force users to rerun shapes
 shapes = Shapes()
 
 def init_shapes(pickle_shapes=True):
