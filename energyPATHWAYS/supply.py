@@ -1041,7 +1041,9 @@ class Supply(object):
         dispatch_resource_list = []
         for node_id in self.thermal_dispatch_nodes:
             stock_values = self.nodes[node_id].stock.values.loc[:,year].to_frame()
+            cap_factor_values = self.nodes[node_id].stock.capacity_factor.loc[:,year].to_frame()
             stock_values = stock_values[((stock_values.index.get_level_values('vintage')==year) == True) | ((stock_values[year]>0) == True)]
+            stock_values = stock_values[((cap_factor_values[year]>0) == True)]
             resources = [str(x[0]) for x in stock_values.groupby(level = stock_values.index.names).groups.values()] 
             inputs_and_outputs = ['capacity','cost','maintenance_outage_rate','forced_outage_rate','capacity_weights','must_run','gen_cf','generation','stock_changes','thermal_capacity_multiplier']
             node_list = [node_id]
@@ -4198,9 +4200,11 @@ class SupplyStockNode(Node):
             levels = self.stock.rollover_group_levels + [self.years]
             names = self.stock.rollover_group_names + ['year'] 
             index = pd.MultiIndex.from_product(levels,names=names)
+            structure_df = pd.DataFrame(1,index=index,columns=['value'])
             self.stock.remap(map_from='raw_values', map_to='total', time_index = self.years,fill_timeseries=True, fill_value=np.nan)
             #TODO add to clean timeseries. Don't allow filling of timseries before raw values.
             self.stock.total[self.stock.total.index.get_level_values('year')<min(self.stock.raw_values.index.get_level_values('year'))] = np.nan
+            self.stock.total = DfOper.mult([self.stock.total,structure_df],fill_value=np.nan)
             self.convert_stock('stock', 'total')
             if hasattr(self.case_stock,'total'):
                 mismatched_levels = [x for x in self.case_stock.total.index.names if x not in names] 

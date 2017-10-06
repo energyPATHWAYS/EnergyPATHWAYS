@@ -163,21 +163,20 @@ def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, reserves,
                 logging.warning(
                     'All generators queued for capacity expansion have outage rates higher than 50%, this can cause issues')
             ncwi = np.nonzero(normed_capacity_weights)[0]
-            stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (
-            1 - combined_rates[i][ncwi])
-
+            ncwi = ncwi[np.not_equal(combined_rates[i][ncwi],1)]
+            normed_capacity_weights[ncwi] /=normed_capacity_weights[ncwi].sum()
+            stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - combined_rates[i][ncwi])
     cap_by_load_group = np.array(
         [sum((pmaxs[i] + stock_changes) * (1 - combined_rates[i])) for i in range(len(max_by_load_group))])
     final_shortage_by_group = max_by_load_group - cap_by_load_group
     if not all(np.round(final_shortage_by_group, 7) <= 0):
-        pdb.set_trace()
         logging.error('_get_stock_changes did not build enough capacity')
     return stock_changes
 
 
 def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None, FOR=None, MOR=None, must_runs=None,
                              capacity_weights=None, gen_categories=None, return_dispatch_by_category=False,
-                             reserves=.05, thermal_capacity_multiplier=None):
+                             reserves=.07, thermal_capacity_multiplier=None):
     """ Dispatch generators to a net load signal
     Args:
         load: net load shape (ndarray[h])
