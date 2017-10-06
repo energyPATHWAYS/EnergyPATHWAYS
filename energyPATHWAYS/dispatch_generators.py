@@ -6,7 +6,7 @@ import pandas as pd
 import logging
 from sklearn.cluster import KMeans
 import pdb
-import dispatch_budget
+import dispatch_maintenance
 
 def cluster_generators(n_clusters, pmax, marginal_cost, FORs, MORs, must_run, pad_stack=False, zero_mc_4_must_run=False):
     """ Cluster generators is a function that takes a generator stack and clusters them by marginal_cost and must run status.
@@ -160,14 +160,11 @@ def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, reserves,
         # we need more capacity
         if residual_for_load_balance > 0:
             if all(combined_rates[i][capacity_weights != 0] > .5):
-                logging.warning(
-                    'All generators queued for capacity expansion have outage rates higher than 50%, this can cause issues')
-            ncwi = np.nonzero(normed_capacity_weights)[0]
-            ncwi = ncwi[np.not_equal(combined_rates[i][ncwi],1)]
+                logging.warning('All generators queued for capacity expansion have outage rates higher than 50%, this can cause issues')
+            ncwi = np.nonzero((normed_capacity_weights!=0) & (combined_rates[i]<1))[0]
             normed_capacity_weights[ncwi] /=normed_capacity_weights[ncwi].sum()
             stock_changes[ncwi] += normed_capacity_weights[ncwi] * residual_for_load_balance / (1 - combined_rates[i][ncwi])
-    cap_by_load_group = np.array(
-        [sum((pmaxs[i] + stock_changes) * (1 - combined_rates[i])) for i in range(len(max_by_load_group))])
+    cap_by_load_group = np.array([sum((pmaxs[i] + stock_changes) * (1 - combined_rates[i])) for i in range(len(max_by_load_group))])
     final_shortage_by_group = max_by_load_group - cap_by_load_group
     if not all(np.round(final_shortage_by_group, 7) <= 0):
         logging.error('_get_stock_changes did not build enough capacity')
@@ -247,3 +244,40 @@ def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None,
             raise ValueError("non finite numbers found in the {} results".format(key))
 
     return dispatch_results
+
+def run_thermal_dispatch(params):
+    dispatch_geography = params[0]
+    thermal_dispatch_df = params[1]
+    columns = params[1].columns #save for later since we are doing a squeeze
+    thermal_dispatch_df = thermal_dispatch_df.squeeze().unstack('IO')
+    dispatch_geography_index = params[2]
+    load = util.df_slice(params[3], dispatch_geography, dispatch_geography_index)
+
+    return_dispatch_by_category = params[4]
+    reserves = params[5]
+    months = load.index.get_level_values('weather_datetime').month
+    weeks = load.index.get_level_values('weather_datetime').week
+    load = load.values.flatten()
+    pmaxs = thermal_dispatch_df['capacity'].values
+    marginal_costs = thermal_dispatch_df['cost'].values
+    MOR = thermal_dispatch_df['maintenance_outage_rate'].values
+    FOR = thermal_dispatch_df['forced_outage_rate'].values
+    must_runs = thermal_dispatch_df['must_run'].values
+    capacity_weights = thermal_dispatch_df['capacity_weights'].values
+    thermal_capacity_multiplier = thermal_dispatch_df['thermal_capacity_multiplier'].values
+    # grabs the technology from the label
+    gen_categories = [int(s.split(', ')[1].rstrip('L')) for s in thermal_dispatch_df.index.get_level_values('thermal_generators')]
+
+    maintenance_rates = dispatch_maintenance.schedule_generator_maintenance(load=load, pmaxs=pmaxs, annual_maintenance_rates=MOR, dispatch_periods=weeks)
+    dispatch_results = generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
+                                                                    FOR=FOR, must_runs=must_runs, dispatch_periods=weeks, capacity_weights=capacity_weights,
+                                                                    gen_categories=gen_categories, return_dispatch_by_category=return_dispatch_by_category,
+                                                                    reserves=reserves, thermal_capacity_multiplier=thermal_capacity_multiplier)
+
+    for output in ['gen_cf', 'generation', 'stock_changes']:
+        thermal_dispatch_df[output] = dispatch_results[output]
+
+    thermal_dispatch_df = thermal_dispatch_df.stack('IO').to_frame()
+    thermal_dispatch_df.columns = columns
+
+    return [thermal_dispatch_df, dispatch_results['gen_dispatch_shape'], dispatch_results['dispatch_by_category']]

@@ -229,7 +229,7 @@ class Demand(object):
             return util.remove_df_levels(df, levels_with_na_only).sort_index()
         df_list = []
         for driver in self.drivers.values():
-            df = driver.geo_map(attr='values',current_geography=cfg.disagg_geography, converted_geography=cfg.primary_geography, inplace=False)
+            df = driver.geo_map(attr='values',current_geography=cfg.disagg_geography, converted_geography=cfg.primary_geography, current_data_type='total', inplace=False)
             df['unit'] = driver.unit_base
             df.set_index('unit',inplace=True,append=True)
             if hasattr(driver,'other_index_1'):
@@ -923,11 +923,8 @@ class Subsector(DataMapFunctions):
                 return_array = self.format_output_energy_demand_payback()
             else:
                 return None       
-        if return_array is not None:   
-            try:
-                return  util.df_slice(return_array, specific_years, 'year', drop_level=False) if specific_years else return_array
-            except:
-                pdb.set_trace()
+        if return_array is not None:
+            return  util.df_slice(return_array, specific_years, 'year', drop_level=False) if specific_years else return_array
         else:
             return None
 
@@ -1011,10 +1008,7 @@ class Subsector(DataMapFunctions):
         util.replace_index_name(df, 'year')
         df = util.add_and_set_index(df, 'unit', self.service_demand.unit.upper(), index_location=-2)
         df.columns = ['value']
-        try:
-            df = util.DfOper.mult([df,npv])
-        except:
-            pdb.set_trace()
+        df = util.DfOper.mult([df,npv])
         df = util.remove_df_levels(df,'year')
         return df
         
@@ -1603,10 +1597,17 @@ class Subsector(DataMapFunctions):
                     flipped = getattr(ref_tech_class, 'flipped') if hasattr(ref_tech_class, 'flipped') else False
                     if flipped is True:
                         tech_data = 1 / tech_data
-                    new_data = util.DfOper.mult([tech_data, getattr(ref_tech_class, attr)])
-                    if hasattr(ref_tech_class,'values_level'):
-                        new_data_level = util.DfOper.mult([tech_data, getattr(ref_tech_class, 'values_level')])
-
+                    # not all our techs have reference tech_operation which indicates how to do the math
+                    if hasattr(tech_class, 'reference_tech_operation') and tech_class.reference_tech_operation == 'add':
+                        # ADD instead of multiply
+                        new_data = util.DfOper.add([tech_data, getattr(ref_tech_class, attr)])
+                    else:
+                        new_data = util.DfOper.mult([tech_data, getattr(ref_tech_class, attr)])
+                    if hasattr(ref_tech_class, 'values_level'):
+                        if hasattr(tech_class, 'reference_tech_operation') and tech_class.reference_tech_operation == 'add':
+                            new_data_level = util.DfOper.add([tech_data, getattr(ref_tech_class, 'values_level')])
+                        else:
+                            new_data_level = util.DfOper.mult([tech_data, getattr(ref_tech_class, 'values_level')])
                 else:
                     new_data = copy.deepcopy(getattr(ref_tech_class, attr))
                     if hasattr(ref_tech_class,'values_level'):
@@ -2420,13 +2421,10 @@ class Subsector(DataMapFunctions):
 
     def create_measure_survival_functions(self, measures, stock):
         functions = defaultdict(list)
-        try:
-            for fun in ['survival_vintaged', 'survival_initial_stock', 'decay_vintaged', 'decay_initial_stock']:
-                for measure in measures.values():
-                    functions[fun].append(getattr(measure, fun))
-                setattr(stock, fun, pd.DataFrame(np.array(functions[fun]).T, columns=measures.keys()))
-        except:
-            pdb.set_trace()
+        for fun in ['survival_vintaged', 'survival_initial_stock', 'decay_vintaged', 'decay_initial_stock']:
+            for measure in measures.values():
+                functions[fun].append(getattr(measure, fun))
+            setattr(stock, fun, pd.DataFrame(np.array(functions[fun]).T, columns=measures.keys()))
 
     def create_tech_survival_functions(self):
         functions = defaultdict(list)
@@ -2469,9 +2467,14 @@ class Subsector(DataMapFunctions):
                 subsector_stock = util.remove_df_levels(self.stock.total, 'demand_technology')
             else:
                 subsector_stock = util.remove_df_levels(self.stock.technology,'year')
-            self.stock.remap(map_from='linked_demand_technology', map_to='linked_demand_technology', drivers=subsector_stock.replace([0,np.nan],[1,1]),
+            self.stock.subsector_stock = subsector_stock.replace([0,np.nan],[1e-10,1e-10])
+            # this needs to be geomapped here because we assume all drivers come in on cfg.disagg_geography and it is currently on primary_geography
+            self.stock.geo_map(cfg.disagg_geography, attr='subsector_stock', inplace=True, current_geography=cfg.primary_geography, current_data_type='total')
+            self.stock.remap(map_from='linked_demand_technology', map_to='linked_demand_technology', drivers=self.stock.subsector_stock,
                              current_geography=cfg.primary_geography, current_data_type='total',
-                             time_index=self.years)   
+                             time_index=self.years)
+            # delete this after, it was only assigned because we needed it as an instance variable for the geomap above
+            del self.stock.subsector_stock
             self.stock.linked_demand_technology[self.stock.linked_demand_technology==0]=np.nan
             self.stock.has_linked_demand_technology = True
         else:
@@ -2486,14 +2489,14 @@ class Subsector(DataMapFunctions):
                 additional_drivers.append(linked_driver)
         if stock_dependent:
             if len(additional_drivers):
-                additional_drivers.append(self.stock.geo_map(attr='total_unfiltered',current_geography=cfg.primary_geography, converted_geography=cfg.disagg_geography,inplace=False))
+                additional_drivers.append(self.stock.geo_map(attr='total_unfiltered',current_geography=cfg.primary_geography, converted_geography=cfg.disagg_geography, current_data_type='total', inplace=False))
             else:
-                additional_drivers = self.stock.geo_map(attr='total_unfiltered',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography,inplace=False)
+                additional_drivers = self.stock.geo_map(attr='total_unfiltered',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography, current_data_type='total', inplace=False)
         if service_dependent:
             if len(additional_drivers):
-                additional_drivers.append(self.service_demand.geo_map(attr='values_unfiltered',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography,inplace=False))
+                additional_drivers.append(self.service_demand.geo_map(attr='values_unfiltered',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography, current_data_type='total', inplace=False))
             else:
-                additional_drivers = self.service_demand.geo_map(attr='values_unfiltered',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography, inplace=False)
+                additional_drivers = self.service_demand.geo_map(attr='values_unfiltered',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography, current_data_type='total', inplace=False)
         if len(additional_drivers) == 0:
             additional_drivers = None
         return additional_drivers
@@ -3065,7 +3068,7 @@ class Subsector(DataMapFunctions):
                 link.geography_map_key=None
             link.input_type = 'total'
             link.geography = cfg.primary_geography
-            df = link.geo_map(attr='values',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography, inplace=False)
+            df = link.geo_map(attr='values',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography, current_data_type='total', inplace=False)
             df = pd.DataFrame(df.stack(), columns=['value'])
             util.replace_index_name(df, 'year')
             self.output_service_drivers[link.linked_subsector_id] = df
@@ -3253,6 +3256,8 @@ class Subsector(DataMapFunctions):
         util.replace_column(self.energy_forecast_no_modifier, 'value')
         self.energy_forecast = util.remove_df_elements(self.energy_forecast, 9999, 'final_energy')
         self.energy_forecast_no_modifier = util.remove_df_elements(self.energy_forecast_no_modifier, 9999, 'final_energy')
+        if cfg.cfgfile.get('case', 'use_service_demand_modifiers').lower()=='false':
+            self.energy_forecast = self.energy_forecast_no_modifier
         if hasattr(self.stock,'other_index_1'):
             util.replace_index_name(self.energy_forecast,"other_index_1",self.stock.other_index_1)
         if hasattr(self.stock,'other_index_2'):

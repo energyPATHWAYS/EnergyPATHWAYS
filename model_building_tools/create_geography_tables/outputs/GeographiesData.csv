@@ -146,6 +146,14 @@ id,name,geography_id
 146,Portland General Electric,14
 147,unspecified utility,14
 148,Oregon outside of PGE,14
+150,quebec (state),2
+157,"quebec (county), quebec (state)",11
+158,hydro quebec (egrid with wecc detail),12
+159,Portland General Electric (egrid with wecc detail),12
+160,hydro quebec,14
+161,quebec 7A,15
+162,us (north america),16
+163,canada (north america),16
 1891,Alabama 2A,15
 1892,Alabama 3A,15
 1893,Alaska 7B,15
