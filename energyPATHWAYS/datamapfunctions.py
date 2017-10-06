@@ -254,7 +254,7 @@ class DataMapFunctions:
 
     def remap(self, map_from='raw_values', map_to='values', drivers=None, time_index_name='year',
               time_index=None, fill_timeseries=True, interpolation_method='missing', extrapolation_method='missing',
-              converted_geography=None, current_geography=None, current_data_type=None, fill_value=0., lower=0, upper=None, filter_geo=True):
+              converted_geography=None, current_geography=None, current_data_type=None, fill_value=0., lower=0, upper=None, filter_geo=True, driver_geography=None):
         """ Map data to drivers and geography
         Args:
             map_from (string): starting variable name (defaults to 'raw_values')
@@ -262,7 +262,7 @@ class DataMapFunctions:
             drivers (list of or single dataframe): drivers for the remap
             input_type_override (string): either 'total' or 'intensity' (defaults to self.type)
         """
-
+        driver_geography = cfg.disagg_geography if driver_geography is None else driver_geography
         converted_geography = cfg.primary_geography if converted_geography is None else converted_geography
         current_data_type = self.input_type if current_data_type is None else current_data_type
         current_geography = self.geography if current_geography is None else current_geography
@@ -303,7 +303,7 @@ class DataMapFunctions:
             else:
                 driver_mapping_data_type = 'total'
             geomapped_total_driver = self.geo_map(current_geography, attr='total_driver', inplace=False,
-                                              current_geography=cfg.disagg_geography, current_data_type=driver_mapping_data_type,
+                                              current_geography=driver_geography, current_data_type=driver_mapping_data_type,
                                               fill_value=fill_value, filter_geo=False)
                                         
             if current_data_type == 'total':
@@ -315,7 +315,7 @@ class DataMapFunctions:
                 self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method)
 
             self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='intensity', fill_value=fill_value, filter_geo=filter_geo)
-            self.geo_map(converted_geography, attr='total_driver', inplace=True, current_geography=cfg.disagg_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=filter_geo)
+            self.geo_map(converted_geography, attr='total_driver', inplace=True, current_geography=driver_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=filter_geo)
 
             if current_data_type == 'total':
                 setattr(self, map_to, DfOper.mult((getattr(self, map_to), self.total_driver), fill_value=fill_value))

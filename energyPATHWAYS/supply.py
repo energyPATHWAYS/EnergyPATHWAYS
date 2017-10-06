@@ -3146,7 +3146,7 @@ class Export(Abstract):
         else:
             #remap exports to active supply, which has information about sectoral throughput
             self.active_values =  self.values.loc[:,year].to_frame()
-            self.remap(map_from='active_values', map_to='active_values', drivers=active_supply, fill_timeseries=False, current_geography=cfg.primary_geography)
+            self.remap(map_from='active_values', map_to='active_values', drivers=active_supply, fill_timeseries=False, current_geography=cfg.primary_geography, driver_geography=cfg.primary_geography)
         self.active_values.replace(np.nan,0,inplace=True)
         self.active_values = self.active_values.reorder_levels([cfg.primary_geography, 'demand_sector'])
 

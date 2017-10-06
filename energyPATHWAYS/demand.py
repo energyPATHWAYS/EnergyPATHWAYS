@@ -1378,7 +1378,7 @@ class Subsector(DataMapFunctions):
             if measure.input_type == 'intensity':
                 measure.savings = DfOper.mult([measure.values, self.energy_forecast])
             else:
-                measure.remap(map_from='values', map_to='savings', drivers=self.energy_forecast)
+                measure.remap(map_from='values', map_to='savings', drivers=self.energy_forecast, driver_geography=cfg.primary_geography)
 
     def energy_efficiency_savings_calc(self):
         """
@@ -1424,7 +1424,7 @@ class Subsector(DataMapFunctions):
             if measure.input_type == 'intensity':
                 measure.savings = DfOper.mult([measure.values,self.service_demand.values])
             else:
-                measure.remap(map_from='values', map_to='savings', drivers=self.service_demand.values)
+                measure.remap(map_from='values', map_to='savings', drivers=self.service_demand.values, driver_geography=cfg.primary_geography)
 
     def service_demand_savings_calc(self):
         """
@@ -1490,7 +1490,7 @@ class Subsector(DataMapFunctions):
                 measure.impact.savings = DfOper.mult([measure.impact.values,
                                                       self.energy_forecast.loc[indexer, :]])
             else:
-                measure.impact.remap(map_from='values', map_to='savings', drivers=self.energy_forecast.loc[indexer, :])
+                measure.impact.remap(map_from='values', map_to='savings', drivers=self.energy_forecast.loc[indexer, :],driver_geography=cfg.primary_geography)
             measure.impact.additions = DfOper.mult([measure.impact.savings, measure.energy_intensity.values])
             util.replace_index_label(measure.impact.additions,
                                      {measure.final_energy_from_id: measure.final_energy_to_id},
@@ -2216,7 +2216,7 @@ class Subsector(DataMapFunctions):
         for demand_technology in self.technologies.values():
             if len(demand_technology.specified_stocks) and reference_run==False:
                for specified_stock in demand_technology.specified_stocks.values():
-                   specified_stock.remap(map_from='values', current_geography = cfg.primary_geography, drivers=self.stock.total)
+                   specified_stock.remap(map_from='values', current_geography = cfg.primary_geography, drivers=self.stock.total, driver_geography=cfg.primary_geography)
                    self.stock.technology.sort(inplace=True)
                    indexer = util.level_specific_indexer(self.stock.technology,'demand_technology',demand_technology.id)
                    df = util.remove_df_levels(self.stock.technology.loc[indexer,:],'demand_technology')
@@ -2469,10 +2469,10 @@ class Subsector(DataMapFunctions):
                 subsector_stock = util.remove_df_levels(self.stock.technology,'year')
             self.stock.subsector_stock = subsector_stock.replace([0,np.nan],[1e-10,1e-10])
             # this needs to be geomapped here because we assume all drivers come in on cfg.disagg_geography and it is currently on primary_geography
-            self.stock.geo_map(cfg.disagg_geography, attr='subsector_stock', inplace=True, current_geography=cfg.primary_geography, current_data_type='total')
+#            self.stock.geo_map(cfg.disagg_geography, attr='subsector_stock', inplace=True, current_geography=cfg.primary_geography, current_data_type='total')
             self.stock.remap(map_from='linked_demand_technology', map_to='linked_demand_technology', drivers=self.stock.subsector_stock,
                              current_geography=cfg.primary_geography, current_data_type='total',
-                             time_index=self.years)
+                             time_index=self.years, driver_geography=cfg.primary_geography)
             # delete this after, it was only assigned because we needed it as an instance variable for the geomap above
             del self.stock.subsector_stock
             self.stock.linked_demand_technology[self.stock.linked_demand_technology==0]=np.nan
