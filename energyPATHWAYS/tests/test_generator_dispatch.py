@@ -236,8 +236,8 @@ class TestGeneratorDispatch(unittest.TestCase):
 #
 # load = pd.DataFrame.from_csv(os.path.join(data_dir, 'load_pge_error.csv'))['load']
 # load = load.values.flatten()
-#
+
 # MOR = dispatch_maintenance.schedule_generator_maintenance(load, pmaxs, MORs, dispatch_periods=dispatch_periods)
-# # MOR = dispatch_maintenance.schedule_generator_maintenance(load, pmaxs, MORs, dispatch_periods=dispatch_periods)
-#
+# MOR = dispatch_maintenance.schedule_generator_maintenance(load, pmaxs, MORs, dispatch_periods=dispatch_periods)
+
 # pd.DataFrame(MOR.mean(axis=1)).plot()

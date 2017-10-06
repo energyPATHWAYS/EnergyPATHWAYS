@@ -60,6 +60,8 @@ dispatch_geography_id = None
 dispatch_subset_id = None
 dispatch_breakout_geography_id = None
 dispatch_geographies = None
+disagg_geography = None
+disagg_geography_id = None
 
 # run years
 years = None
@@ -207,7 +209,7 @@ def init_units():
         
 def init_geo():
     #Geography conversions
-    global geo, primary_geography, primary_geography_id, geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id, disagg_geography,disagg_geography_id
+    global geo, primary_geography, primary_geography_id, geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id, disagg_geography, disagg_geography_id
     global primary_subset_id, breakout_geography_id, dispatch_breakout_geography_id, disagg_breakout_geography_id, include_foreign_gaus
     
     # from config file
