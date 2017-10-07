@@ -278,4 +278,4 @@ def run_thermal_dispatch(params):
     thermal_dispatch_df = thermal_dispatch_df.stack('IO').to_frame()
     thermal_dispatch_df.columns = columns
 
-    return [thermal_dispatch_df, dispatch_results['gen_dispatch_shape'], dispatch_results['dispatch_by_category']]
+    return (thermal_dispatch_df, dispatch_results)

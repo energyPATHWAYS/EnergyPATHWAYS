@@ -295,19 +295,18 @@ class DataMapFunctions:
                 # sometimes when we have a linked service demand driver in a demand subsector it will come in on a fewer number of years than self.years, making this clean timeseries necesary
                 self.clean_timeseries(attr='total_driver', inplace=True, time_index_name=time_index_name,
                                       time_index=time_index, lower=None, upper=None, interpolation_method='missing', extrapolation_method='missing')
-            # While not on primary geography, geography does have some information we would like to preserve
-            # we put the driver on the same geography as our data
 
+            # While not on primary geography, geography does have some information we would like to preserve
             if hasattr(self,'drivers') and len(drivers) == len(self.drivers) and set([x.input_type for x in self.drivers.values()]) == set(['intensity']) and set([x.base_driver_id for x in self.drivers.values()]) == set([None]):
                 driver_mapping_data_type = 'intensity'
             else:
                 driver_mapping_data_type = 'total'
-            geomapped_total_driver = self.geo_map(current_geography, attr='total_driver', inplace=False,
+            total_driver_current_geo = self.geo_map(current_geography, attr='total_driver', inplace=False,
                                               current_geography=driver_geography, current_data_type=driver_mapping_data_type,
                                               fill_value=fill_value, filter_geo=False)
                                         
             if current_data_type == 'total':
-                df_intensity = DfOper.divi((getattr(self, map_to), geomapped_total_driver), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf,np.nan,-np.nan],0)
+                df_intensity = DfOper.divi((getattr(self, map_to), total_driver_current_geo), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf,np.nan,-np.nan],0)
                 setattr(self, map_to, df_intensity)
 
             # Clean the timeseries as an intensity
@@ -315,21 +314,15 @@ class DataMapFunctions:
                 self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method)
 
             self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='intensity', fill_value=fill_value, filter_geo=filter_geo)
-            self.geo_map(converted_geography, attr='total_driver', inplace=True, current_geography=driver_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=filter_geo)
+            total_driver_converted_geo = self.geo_map(converted_geography, attr='total_driver', inplace=False, current_geography=driver_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=filter_geo)
 
             if current_data_type == 'total':
-                setattr(self, map_to, DfOper.mult((getattr(self, map_to), self.total_driver), fill_value=fill_value))
+                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_converted_geo), fill_value=fill_value))
             else:
-                setattr(self, map_to, DfOper.mult((getattr(self, map_to), self.total_driver), expandable=(True, False), collapsible=(False, True), fill_value=fill_value))
+                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_converted_geo), expandable=(True, False), collapsible=(False, True), fill_value=fill_value))
 
             # we don't want to keep this around
             del self.total_driver
-
-
-    def _remap_using_driver_multiplication(self):
-        pass
-
-
 
 
     def project(self, map_from='raw_values', map_to='values', additional_drivers=None, interpolation_method='missing',extrapolation_method='missing',

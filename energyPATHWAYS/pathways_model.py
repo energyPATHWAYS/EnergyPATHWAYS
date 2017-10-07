@@ -151,7 +151,7 @@ class PathwaysModel(object):
             for key, name in zip(keys, names):
                 result_df = pd.concat([result_df], keys=[key], names=[name])
 
-            if attribute in ('hourly_dispatch_results', 'electricity_reconciliation'):
+            if attribute in ('hourly_dispatch_results', 'electricity_reconciliation', 'hourly_marginal_cost', 'hourly_production_cost'):
                 # Special case for hourly dispatch results where we want to write them outside of supply_outputs
                 Output.write(result_df, attribute + '.csv', os.path.join(cfg.workingdir, 'dispatch_outputs'))
             else:

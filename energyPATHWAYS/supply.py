@@ -61,6 +61,8 @@ class Supply(object):
         self.dispatch = Dispatch(self.dispatch_feeders, cfg.dispatch_geography, cfg.dispatch_geographies)
         self.outputs = Output()
         self.outputs.hourly_dispatch_results = None
+        self.outputs.hourly_marginal_cost = None
+        self.outputs.hourly_production_cost = None
         self.active_thermal_dispatch_df_list = []
         self.map_dict = dict(util.sql_read_table('SupplyNodes', ['final_energy_link', 'id']))
         self.api_run = api_run
@@ -1191,12 +1193,17 @@ class Supply(object):
             dispatch_results = []
             for params in parallel_params:
                 dispatch_results.append(dispatch_generators.run_thermal_dispatch(params))
+
+        thermal_dispatch_df, detailed_results = zip(*dispatch_results) #both of these are lists by geography
+        thermal_dispatch_df = pd.concat(thermal_dispatch_df).sort()
+        self.active_thermal_dispatch_df = thermal_dispatch_df
+
         if year in self.dispatch_write_years:
-            # this is the generator dispatch by category [x[2] for x in dispatch_results]
-            thermal_shape_list = [x[2] for x in dispatch_results]
-            for x in thermal_shape_list:
-                x.index = shape.shapes.active_dates_index
-            thermal_shape = pd.concat(thermal_shape_list,axis=0,keys=cfg.dispatch_geographies)
+
+            for x in detailed_results:
+                x['dispatch_by_category'].index = shape.shapes.active_dates_index
+
+            thermal_shape = pd.concat([x['dispatch_by_category'] for x in detailed_results],axis=0,keys=cfg.dispatch_geographies)
             thermal_shape = thermal_shape.stack().to_frame()
             thermal_shape = pd.concat([thermal_shape], keys=[year], names=['year'])
             thermal_shape.index.names = ['year', cfg.dispatch_geography, 'weather_datetime','supply_technology']
@@ -1204,9 +1211,21 @@ class Supply(object):
             thermal_shape_dataframe = self.outputs.clean_df(thermal_shape)
             util.replace_index_name(thermal_shape_dataframe,'DISPATCH_OUTPUT','SUPPLY_TECHNOLOGY')
             self.bulk_dispatch = pd.concat([self.bulk_dispatch, -thermal_shape_dataframe.reorder_levels(self.bulk_dispatch.index.names)])
-        dispatch_results = pd.concat([x[0] for x in dispatch_results])
-        dispatch_results.sort(inplace=True)
-        self.active_thermal_dispatch_df = dispatch_results
+
+            bulk_marginal_cost = pd.concat([pd.DataFrame(outputs['market_price'], index=shape.shapes.active_dates_index) for outputs in detailed_results],axis=0,keys=cfg.dispatch_geographies)
+            bulk_production_cost = pd.concat([pd.DataFrame(outputs['production_cost'], index=shape.shapes.active_dates_index) for outputs in detailed_results],axis=0,keys=cfg.dispatch_geographies)
+            bulk_marginal_cost = pd.concat([bulk_marginal_cost], keys=[year], names=['year'])
+            bulk_production_cost = pd.concat([bulk_production_cost], keys=[year], names=['year'])
+            bulk_marginal_cost.index.names = ['year', cfg.dispatch_geography, 'weather_datetime']
+            bulk_production_cost.index.names = ['year', cfg.dispatch_geography, 'weather_datetime']
+            # we really don't want this ever to be anything but $/MWh
+            # bulk_marginal_cost /= util.unit_convert(1, unit_from_den=cfg.calculation_energy_unit,unit_to_den='megawatt_hour')
+            bulk_marginal_cost.columns = ["{} / {}".format(cfg.output_currency.upper(), 'MWh')]
+            bulk_production_cost.columns = [cfg.output_currency.upper()]
+            bulk_marginal_cost = self.outputs.clean_df(bulk_marginal_cost)
+            bulk_production_cost = self.outputs.clean_df(bulk_production_cost)
+            self.outputs.hourly_marginal_cost = pd.concat([self.outputs.hourly_marginal_cost, bulk_marginal_cost])
+            self.outputs.hourly_production_cost = pd.concat([self.outputs.hourly_production_cost, bulk_production_cost])
 
 
         for node_id in self.thermal_dispatch_nodes:
