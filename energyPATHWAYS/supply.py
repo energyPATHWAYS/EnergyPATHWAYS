@@ -1219,7 +1219,7 @@ class Supply(object):
             bulk_marginal_cost.index.names = ['year', cfg.dispatch_geography, 'weather_datetime']
             bulk_production_cost.index.names = ['year', cfg.dispatch_geography, 'weather_datetime']
             # we really don't want this ever to be anything but $/MWh
-            # bulk_marginal_cost /= util.unit_convert(1, unit_from_den=cfg.calculation_energy_unit,unit_to_den='megawatt_hour')
+            bulk_marginal_cost *= util.unit_convert(1, unit_from_den=cfg.calculation_energy_unit,unit_to_den='megawatt_hour')
             bulk_marginal_cost.columns = ["{} / {}".format(cfg.output_currency.upper(), 'MWh')]
             bulk_production_cost.columns = [cfg.output_currency.upper()]
             bulk_marginal_cost = self.outputs.clean_df(bulk_marginal_cost)
