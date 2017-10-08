@@ -3141,10 +3141,8 @@ class Subsector(DataMapFunctions):
             tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names]+[x for x in tech_df.index.names if x not in stock_df.index.names])
             tech_df = tech_df.sort_index()
             c = util.DfOper.mult((tech_df, stock_df), expandable=(True, stock_expandable), collapsible=(False, True))
-            if not np.all(np.isfinite(c.values)):
-                pdb.set_trace()
-
-        
+            # if not np.all(np.isfinite(c.values)):
+            #     pdb.set_trace()
         else:
             util.empty_df(stock_df.index, stock_df.columns.values, 0.)
 
