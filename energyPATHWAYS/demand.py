@@ -3005,9 +3005,7 @@ class Subsector(DataMapFunctions):
                                                                              stock_att=values_normal,
                                                                              other_aggregate_levels=aggregate_level, efficiency=True)
             else:
-                self.stock.efficiency[element]['all'] = self.rollover_output(tech_class='efficiency_main',
-                                                                             stock_att=values_normal,
-                                                                             other_aggregate_levels=aggregate_level, efficiency=True)
+                self.stock.efficiency[element]['all'] = self.rollover_output(tech_class='efficiency_main',stock_att=values_normal,other_aggregate_levels=aggregate_level, efficiency=True)
 
     def fuel_switch_stock_calc(self):
         """ 
@@ -3131,9 +3129,7 @@ class Subsector(DataMapFunctions):
         
         stock_df = getattr(self.stock, stock_att)
         groupby_level = util.ix_excl(stock_df, ['vintage'])
-        # determines index position for demand_technology and final energy element
         c = util.empty_df(stock_df.index, stock_df.columns.values, fill_value=0.)
-        # puts technologies on the appropriate basis
         tech_class = util.put_in_list(tech_class)  
         tech_dfs = []
         for tech_class in tech_class:
@@ -3145,6 +3141,10 @@ class Subsector(DataMapFunctions):
             tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names]+[x for x in tech_df.index.names if x not in stock_df.index.names])
             tech_df = tech_df.sort_index()
             c = util.DfOper.mult((tech_df, stock_df), expandable=(True, stock_expandable), collapsible=(False, True))
+            if not np.all(np.isfinite(c.values)):
+                pdb.set_trace()
+
+        
         else:
             util.empty_df(stock_df.index, stock_df.columns.values, 0.)
 
@@ -3155,9 +3155,8 @@ class Subsector(DataMapFunctions):
         if other_aggregate_levels is not None:
             groupby_level = util.ix_excl(c, other_aggregate_levels)
             c = c.groupby(level=groupby_level).sum()
-        # TODO fix
         if 'final_energy' in c.index.names:
-            c = util.remove_df_elements(c, 9999, 'final_energy')
+            c = c[c.index.get_level_values('final_energy')!=9999]
         return c
         
         
