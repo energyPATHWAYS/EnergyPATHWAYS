@@ -1057,7 +1057,7 @@ class Supply(object):
         #concatenates sector costs into single dataframe    
         embodied_cost_df  = pd.concat(dataframes,keys=keys,names=names)    
         embodied_cost_df = embodied_cost_df.reorder_levels([cfg.primary_geography,'demand_sector','supply_node']).to_frame()
-        embodied_cost_df.sort(inplace=True)   
+        embodied_cost_df.sort(inplace=True)
         self.dispatch_df = embodied_cost_df
         self.thermal_dispatch_nodes = [x for x in set(list(self.nodes[self.thermal_dispatch_node_id].active_coefficients.index.get_level_values('supply_node')))]
         dispatch_resource_list = []
@@ -3759,7 +3759,7 @@ class SupplyNode(Node,StockItem):
             self.levelized_costs.loc[:,year] += rev_req.values.flatten()
             self.calculate_lump_costs(year, rev_req)
             cost.prev_yr_rev_req = rev_req 
-        self.embodied_cost.loc[:,year] = util.DfOper.divi([self.levelized_costs[year].to_frame(), self.throughput],expandable=(False,False)).replace([np.inf,np.nan,-np.nan],[0,0,0]).values        
+        self.embodied_cost.loc[:,year] = util.DfOper.divi([self.levelized_costs[year].to_frame(), self.throughput],expandable=(False,False)).replace([np.inf,-np.inf,np.nan,-np.nan],[0,0,0,0]).values
         self.active_embodied_cost = util.expand_multi(self.embodied_cost[year].to_frame(), levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],levels_names=[cfg.primary_geography,'demand_sector'])
 
    
@@ -5075,8 +5075,7 @@ class SupplyStockNode(Node):
             for node in list(set(self.active_trade_adjustment_df.index.get_level_values('supply_node'))):
                 embodied_cost_indexer = util.level_specific_indexer(embodied_cost_df, 'supply_node',node)
                 trade_adjustment_indexer = util.level_specific_indexer(self.active_trade_adjustment_df, 'supply_node',node)
-                self.active_dispatch_costs.loc[trade_adjustment_indexer,:] = util.DfOper.mult([self.active_trade_adjustment_df.loc[trade_adjustment_indexer,:],
-                                                                                         embodied_cost_df.loc[embodied_cost_indexer,:]]).values
+                self.active_dispatch_costs.loc[trade_adjustment_indexer,:] = util.DfOper.mult([self.active_trade_adjustment_df.loc[trade_adjustment_indexer,:],embodied_cost_df.loc[embodied_cost_indexer,:]]).values
             self.active_dispatch_costs = self.active_dispatch_costs.groupby(level='supply_node').sum()
             self.active_dispatch_costs = self.active_dispatch_costs.stack([cfg.primary_geography,'demand_sector'])
             self.active_dispatch_costs = util.reduce_levels(self.active_dispatch_costs, self.stock.rollover_group_names+['supply_node'], agg_function='mean')
