@@ -1,24 +1,99 @@
-#
-# This is a generated file. Manual edits may be lost!
-#
+## Start of boilerplate.py ##
+
 import sys
 from energyPATHWAYS.error import UnknownDataClass
 from energyPATHWAYS.data_object import DataObject
+from energyPATHWAYS.database import get_database, ForeignKey
+
+_Module = sys.modules[__name__]  # get ref to our own module object
 
 def class_for_table(tbl_name):
     try:
-        module = sys.modules[__name__]  # get ref to our own module object
-        cls = getattr(module, tbl_name)
+        cls = getattr(_Module, tbl_name)
     except AttributeError:
         raise UnknownDataClass(tbl_name)
 
     return cls
 
+def load_data_objects(scenario, load_children=True):
+
+    db = get_database()
+
+    table_names = db.tables_with_classes()
+    table_objs  = [db.get_table(name) for name in table_names]
+
+    fk_by_parent = ForeignKey.fk_by_parent
+
+    for tbl in table_objs:
+        name = tbl.name
+        cls = class_for_table(name)
+        tbl.data_class = cls
+        df = tbl.load_all()
+        print("Loaded %d rows for %s" % (df.shape[0], name))
+
+        # This is inefficient for Postgres since we go from list(tuple)->DataFrame->Series->tuple,
+        # but eventually, for the CSV "database", it's just DataFrame->Series->tuple
+        for _, row in df.iterrows():
+            cls.from_series(scenario, row)  # adds itself to the classes _instances_by_id dict
+
+            # could load children at this point, assuming all tables are cached when first encountered
+
+    if load_children:
+        # After loading all "direct" data, link child records via foreign keys
+        for parent_tbl in table_objs:
+            parent_tbl_name = parent_tbl.name
+            parent_cls = parent_tbl.data_class
+
+            print("Linking child data for %s" % parent_tbl_name)
+            for parent_obj in parent_cls.instances():
+                fkeys = fk_by_parent[parent_tbl_name]
+
+                for fk in fkeys:
+                    parent_col      = fk.column_name
+                    child_tbl_name  = fk.foreign_table_name
+                    child_col_name  = fk.foreign_column_name
+
+                    child_tbl = db.get_table(child_tbl_name)
+                    child_cls = child_tbl.data_class
+
+                    if not child_cls:
+                        print("** Skipping missing child class '%s'" % child_tbl_name)
+                        continue
+
+                    # create and save a list of all matching data class instances with matching ids
+                    children = [obj for obj in child_cls.instances() if getattr(obj, child_col_name) == getattr(parent_obj, parent_col)]
+                    parent_tbl.children_by_fk_col[parent_col] = children
+
+    print("Done loading data objects")
+
+## End of boilerplate.py ##
+
+class AgeGrowthOrDecayType(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        AgeGrowthOrDecayType._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
+        return obj
+
 class BlendNodeBlendMeasures(DataObject):
-    def __init__(self, id=None, name=None, blend_node_id=None, supply_node_id=None, geography_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, blend_node_id=None, supply_node_id=None, geography_id=None,
                  other_index_1_id=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        BlendNodeBlendMeasures._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -31,21 +106,24 @@ class BlendNodeBlendMeasures(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, blend_node_id, supply_node_id, geography_id, other_index_1_id,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth) = tup
-        
-        obj = cls(id=id, name=name, blend_node_id=blend_node_id, supply_node_id=supply_node_id,
+
+        obj = cls(scenario, id=id, name=name, blend_node_id=blend_node_id, supply_node_id=supply_node_id,
                   geography_id=geography_id, other_index_1_id=other_index_1_id,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class BlendNodeBlendMeasuresData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, year=None, value=None, id=None, demand_sector_id=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, year=None, value=None, id=None, demand_sector_id=None):
+        DataObject.__init__(self, scenario)
+        BlendNodeBlendMeasuresData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -55,35 +133,41 @@ class BlendNodeBlendMeasuresData(DataObject):
         self.demand_sector_id = demand_sector_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, year, value, id, demand_sector_id) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, year=year, value=value, id=id,
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, year=year, value=value, id=id,
                   demand_sector_id=demand_sector_id)
-        
+
         return obj
 
 class BlendNodeInputsData(DataObject):
-    def __init__(self, blend_node_id=None, supply_node_id=None, id=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, blend_node_id=None, supply_node_id=None, id=None):
+        DataObject.__init__(self, scenario)
+        BlendNodeInputsData._instances_by_id[id] = self
 
         self.blend_node_id = blend_node_id
         self.supply_node_id = supply_node_id
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (blend_node_id, supply_node_id, id) = tup
-        
-        obj = cls(blend_node_id=blend_node_id, supply_node_id=supply_node_id, id=id)
-        
+
+        obj = cls(scenario, blend_node_id=blend_node_id, supply_node_id=supply_node_id, id=id)
+
         return obj
 
 class CO2PriceMeasures(DataObject):
-    def __init__(self, id=None, name=None, geography_id=None, interpolation_method_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, geography_id=None, interpolation_method_id=None,
                  extrapolation_method_id=None, extrapolation_growth=None, geography_map_key_id=None,
                  supply_node_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        CO2PriceMeasures._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -95,21 +179,24 @@ class CO2PriceMeasures(DataObject):
         self.supply_node_id = supply_node_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, geography_id, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth, geography_map_key_id, supply_node_id) = tup
-        
-        obj = cls(id=id, name=name, geography_id=geography_id,
+
+        obj = cls(scenario, id=id, name=name, geography_id=geography_id,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth, geography_map_key_id=geography_map_key_id,
                   supply_node_id=supply_node_id)
-        
+
         return obj
 
 class CO2PriceMeasuresData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, year=None, value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, year=None, value=None, id=None, sensitivity=None):
+        DataObject.__init__(self, scenario)
+        CO2PriceMeasuresData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -119,19 +206,40 @@ class CO2PriceMeasuresData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, year, value, id, sensitivity) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, year=year, value=value, id=id, sensitivity=sensitivity)
-        
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, year=year, value=value, id=id, sensitivity=sensitivity)
+
+        return obj
+
+class CleaningMethods(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        CleaningMethods._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
         return obj
 
 class DemandCO2CaptureMeasures(DataObject):
-    def __init__(self, id=None, name=None, subsector_id=None, input_type_id=None, unit=None, geography_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, subsector_id=None, input_type_id=None, unit=None, geography_id=None,
                  other_index_1_id=None, other_index_2_id=None, interpolation_method_id=None,
                  extrapolation_method_id=None, extrapolation_growth=None, stock_decay_function_id=None,
                  min_lifetime=None, max_lifetime=None, mean_lifetime=None, lifetime_variance=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandCO2CaptureMeasures._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -151,12 +259,12 @@ class DemandCO2CaptureMeasures(DataObject):
         self.lifetime_variance = lifetime_variance
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, subsector_id, input_type_id, unit, geography_id, other_index_1_id,
          other_index_2_id, interpolation_method_id, extrapolation_method_id, extrapolation_growth,
          stock_decay_function_id, min_lifetime, max_lifetime, mean_lifetime, lifetime_variance) = tup
-        
-        obj = cls(id=id, name=name, subsector_id=subsector_id, input_type_id=input_type_id, unit=unit,
+
+        obj = cls(scenario, id=id, name=name, subsector_id=subsector_id, input_type_id=input_type_id, unit=unit,
                   geography_id=geography_id, other_index_1_id=other_index_1_id,
                   other_index_2_id=other_index_2_id, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
@@ -164,15 +272,18 @@ class DemandCO2CaptureMeasures(DataObject):
                   stock_decay_function_id=stock_decay_function_id, min_lifetime=min_lifetime,
                   max_lifetime=max_lifetime, mean_lifetime=mean_lifetime,
                   lifetime_variance=lifetime_variance)
-        
+
         return obj
 
 class DemandDrivers(DataObject):
-    def __init__(self, id=None, name=None, base_driver_id=None, input_type_id=None, unit_prefix=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, base_driver_id=None, input_type_id=None, unit_prefix=None,
                  unit_base=None, geography_id=None, other_index_1_id=None, other_index_2_id=None,
                  geography_map_key_id=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None, source=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandDrivers._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -190,25 +301,28 @@ class DemandDrivers(DataObject):
         self.source = source
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, base_driver_id, input_type_id, unit_prefix, unit_base, geography_id,
          other_index_1_id, other_index_2_id, geography_map_key_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, source) = tup
-        
-        obj = cls(id=id, name=name, base_driver_id=base_driver_id, input_type_id=input_type_id,
+
+        obj = cls(scenario, id=id, name=name, base_driver_id=base_driver_id, input_type_id=input_type_id,
                   unit_prefix=unit_prefix, unit_base=unit_base, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, other_index_2_id=other_index_2_id,
                   geography_map_key_id=geography_map_key_id,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth, source=source)
-        
+
         return obj
 
 class DemandDriversData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, year=None, value=None, id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, year=None, value=None, id=None,
                  sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandDriversData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -220,22 +334,25 @@ class DemandDriversData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, oth_1_id, oth_2_id, year, value, id, sensitivity) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, year=year,
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, year=year,
                   value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class DemandEnergyDemands(DataObject):
-    def __init__(self, subsector_id=None, is_stock_dependent=None, input_type_id=None, unit=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, subsector_id=None, is_stock_dependent=None, input_type_id=None, unit=None,
                  driver_denominator_1_id=None, driver_denominator_2_id=None, driver_1_id=None,
                  driver_2_id=None, geography_id=None, final_energy_index=None,
                  demand_technology_index=None, other_index_1_id=None, other_index_2_id=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None,
                  geography_map_key_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandEnergyDemands._instances_by_id[id] = self
 
         self.subsector_id = subsector_id
         self.is_stock_dependent = is_stock_dependent
@@ -256,13 +373,13 @@ class DemandEnergyDemands(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (subsector_id, is_stock_dependent, input_type_id, unit, driver_denominator_1_id,
          driver_denominator_2_id, driver_1_id, driver_2_id, geography_id, final_energy_index,
          demand_technology_index, other_index_1_id, other_index_2_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, geography_map_key_id) = tup
-        
-        obj = cls(subsector_id=subsector_id, is_stock_dependent=is_stock_dependent,
+
+        obj = cls(scenario, subsector_id=subsector_id, is_stock_dependent=is_stock_dependent,
                   input_type_id=input_type_id, unit=unit, driver_denominator_1_id=driver_denominator_1_id,
                   driver_denominator_2_id=driver_denominator_2_id, driver_1_id=driver_1_id,
                   driver_2_id=driver_2_id, geography_id=geography_id,
@@ -271,13 +388,16 @@ class DemandEnergyDemands(DataObject):
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth, geography_map_key_id=geography_map_key_id)
-        
+
         return obj
 
 class DemandEnergyDemandsData(DataObject):
-    def __init__(self, subsector_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, final_energy_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, subsector_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, final_energy_id=None,
                  demand_technology_id=None, year=None, value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandEnergyDemandsData._instances_by_id[id] = self
 
         self.subsector_id = subsector_id
         self.gau_id = gau_id
@@ -291,22 +411,25 @@ class DemandEnergyDemandsData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (subsector_id, gau_id, oth_1_id, oth_2_id, final_energy_id, demand_technology_id, year,
          value, id, sensitivity) = tup
-        
-        obj = cls(subsector_id=subsector_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
+
+        obj = cls(scenario, subsector_id=subsector_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
                   final_energy_id=final_energy_id, demand_technology_id=demand_technology_id, year=year,
                   value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class DemandEnergyEfficiencyMeasures(DataObject):
-    def __init__(self, id=None, name=None, subsector_id=None, input_type_id=None, unit=None, geography_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, subsector_id=None, input_type_id=None, unit=None, geography_id=None,
                  other_index_1_id=None, other_index_2_id=None, interpolation_method_id=None,
                  extrapolation_method_id=None, extrapolation_growth=None, stock_decay_function_id=None,
                  min_lifetime=None, max_lifetime=None, mean_lifetime=None, lifetime_variance=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandEnergyEfficiencyMeasures._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -326,12 +449,12 @@ class DemandEnergyEfficiencyMeasures(DataObject):
         self.lifetime_variance = lifetime_variance
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, subsector_id, input_type_id, unit, geography_id, other_index_1_id,
          other_index_2_id, interpolation_method_id, extrapolation_method_id, extrapolation_growth,
          stock_decay_function_id, min_lifetime, max_lifetime, mean_lifetime, lifetime_variance) = tup
-        
-        obj = cls(id=id, name=name, subsector_id=subsector_id, input_type_id=input_type_id, unit=unit,
+
+        obj = cls(scenario, id=id, name=name, subsector_id=subsector_id, input_type_id=input_type_id, unit=unit,
                   geography_id=geography_id, other_index_1_id=other_index_1_id,
                   other_index_2_id=other_index_2_id, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
@@ -339,15 +462,18 @@ class DemandEnergyEfficiencyMeasures(DataObject):
                   stock_decay_function_id=stock_decay_function_id, min_lifetime=min_lifetime,
                   max_lifetime=max_lifetime, mean_lifetime=mean_lifetime,
                   lifetime_variance=lifetime_variance)
-        
+
         return obj
 
 class DemandEnergyEfficiencyMeasuresCost(DataObject):
-    def __init__(self, parent_id=None, currency_id=None, currency_year_id=None, cost_denominator_unit=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, currency_id=None, currency_year_id=None, cost_denominator_unit=None,
                  cost_of_capital=None, is_levelized=None, geography_id=None, other_index_1_id=None,
                  other_index_2_id=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandEnergyEfficiencyMeasuresCost._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.currency_id = currency_id
@@ -363,24 +489,27 @@ class DemandEnergyEfficiencyMeasuresCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, currency_id, currency_year_id, cost_denominator_unit, cost_of_capital,
          is_levelized, geography_id, other_index_1_id, other_index_2_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
-        
-        obj = cls(parent_id=parent_id, currency_id=currency_id, currency_year_id=currency_year_id,
+
+        obj = cls(scenario, parent_id=parent_id, currency_id=currency_id, currency_year_id=currency_year_id,
                   cost_denominator_unit=cost_denominator_unit, cost_of_capital=cost_of_capital,
                   is_levelized=is_levelized, geography_id=geography_id, other_index_1_id=other_index_1_id,
                   other_index_2_id=other_index_2_id, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class DemandEnergyEfficiencyMeasuresCostData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None, value=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None, value=None,
                  id=None, final_energy_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandEnergyEfficiencyMeasuresCostData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -392,18 +521,21 @@ class DemandEnergyEfficiencyMeasuresCostData(DataObject):
         self.final_energy_id = final_energy_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, final_energy_id) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, vintage=vintage,
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, vintage=vintage,
                   value=value, id=id, final_energy_id=final_energy_id)
-        
+
         return obj
 
 class DemandEnergyEfficiencyMeasuresData(DataObject):
-    def __init__(self, parent_id=None, final_energy_id=None, gau_id=None, oth_1_id=None, oth_2_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, final_energy_id=None, gau_id=None, oth_1_id=None, oth_2_id=None,
                  year=None, value=None, id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandEnergyEfficiencyMeasuresData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.final_energy_id = final_energy_id
@@ -415,19 +547,22 @@ class DemandEnergyEfficiencyMeasuresData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, final_energy_id, gau_id, oth_1_id, oth_2_id, year, value, id) = tup
-        
-        obj = cls(parent_id=parent_id, final_energy_id=final_energy_id, gau_id=gau_id, oth_1_id=oth_1_id,
+
+        obj = cls(scenario, parent_id=parent_id, final_energy_id=final_energy_id, gau_id=gau_id, oth_1_id=oth_1_id,
                   oth_2_id=oth_2_id, year=year, value=value, id=id)
-        
+
         return obj
 
 class DemandFlexibleLoadMeasures(DataObject):
-    def __init__(self, id=None, subsector_id=None, geography_id=None, other_index_1_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, subsector_id=None, geography_id=None, other_index_1_id=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None,
                  name=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandFlexibleLoadMeasures._instances_by_id[id] = self
 
         self.id = id
         self.subsector_id = subsector_id
@@ -439,20 +574,23 @@ class DemandFlexibleLoadMeasures(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, subsector_id, geography_id, other_index_1_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, name) = tup
-        
-        obj = cls(id=id, subsector_id=subsector_id, geography_id=geography_id,
+
+        obj = cls(scenario, id=id, subsector_id=subsector_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth, name=name)
-        
+
         return obj
 
 class DemandFlexibleLoadMeasuresData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, oth_1_id=None, year=None, value=None, id=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, oth_1_id=None, year=None, value=None, id=None):
+        DataObject.__init__(self, scenario)
+        DemandFlexibleLoadMeasuresData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -462,18 +600,21 @@ class DemandFlexibleLoadMeasuresData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, oth_1_id, year, value, id) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, year=year, value=value, id=id)
-        
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, year=year, value=value, id=id)
+
         return obj
 
 class DemandFuelSwitchingMeasures(DataObject):
-    def __init__(self, id=None, name=None, subsector_id=None, final_energy_from_id=None, final_energy_to_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, subsector_id=None, final_energy_from_id=None, final_energy_to_id=None,
                  stock_decay_function_id=None, max_lifetime=None, min_lifetime=None, mean_lifetime=None,
                  lifetime_variance=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandFuelSwitchingMeasures._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -487,23 +628,26 @@ class DemandFuelSwitchingMeasures(DataObject):
         self.lifetime_variance = lifetime_variance
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, subsector_id, final_energy_from_id, final_energy_to_id, stock_decay_function_id,
          max_lifetime, min_lifetime, mean_lifetime, lifetime_variance) = tup
-        
-        obj = cls(id=id, name=name, subsector_id=subsector_id, final_energy_from_id=final_energy_from_id,
+
+        obj = cls(scenario, id=id, name=name, subsector_id=subsector_id, final_energy_from_id=final_energy_from_id,
                   final_energy_to_id=final_energy_to_id, stock_decay_function_id=stock_decay_function_id,
                   max_lifetime=max_lifetime, min_lifetime=min_lifetime, mean_lifetime=mean_lifetime,
                   lifetime_variance=lifetime_variance)
-        
+
         return obj
 
 class DemandFuelSwitchingMeasuresCost(DataObject):
-    def __init__(self, parent_id=None, currency_id=None, currency_year_id=None, cost_denominator_unit=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, currency_id=None, currency_year_id=None, cost_denominator_unit=None,
                  cost_of_capital=None, is_levelized=None, geography_id=None, other_index_1_id=None,
                  other_index_2_id=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandFuelSwitchingMeasuresCost._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.currency_id = currency_id
@@ -519,24 +663,27 @@ class DemandFuelSwitchingMeasuresCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, currency_id, currency_year_id, cost_denominator_unit, cost_of_capital,
          is_levelized, geography_id, other_index_1_id, other_index_2_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
-        
-        obj = cls(parent_id=parent_id, currency_id=currency_id, currency_year_id=currency_year_id,
+
+        obj = cls(scenario, parent_id=parent_id, currency_id=currency_id, currency_year_id=currency_year_id,
                   cost_denominator_unit=cost_denominator_unit, cost_of_capital=cost_of_capital,
                   is_levelized=is_levelized, geography_id=geography_id, other_index_1_id=other_index_1_id,
                   other_index_2_id=other_index_2_id, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class DemandFuelSwitchingMeasuresCostData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None, value=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None, value=None,
                  id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandFuelSwitchingMeasuresCostData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -547,18 +694,21 @@ class DemandFuelSwitchingMeasuresCostData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, oth_1_id, oth_2_id, vintage, value, id) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, vintage=vintage,
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, vintage=vintage,
                   value=value, id=id)
-        
+
         return obj
 
 class DemandFuelSwitchingMeasuresEnergyIntensity(DataObject):
-    def __init__(self, parent_id=None, geography_id=None, other_index_1_id=None, other_index_2_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, geography_id=None, other_index_1_id=None, other_index_2_id=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandFuelSwitchingMeasuresEnergyIntensity._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.geography_id = geography_id
@@ -569,20 +719,23 @@ class DemandFuelSwitchingMeasuresEnergyIntensity(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, geography_id, other_index_1_id, other_index_2_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
-        
-        obj = cls(parent_id=parent_id, geography_id=geography_id, other_index_1_id=other_index_1_id,
+
+        obj = cls(scenario, parent_id=parent_id, geography_id=geography_id, other_index_1_id=other_index_1_id,
                   other_index_2_id=other_index_2_id, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class DemandFuelSwitchingMeasuresEnergyIntensityData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, year=None, value=None, id=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, year=None, value=None, id=None):
+        DataObject.__init__(self, scenario)
+        DemandFuelSwitchingMeasuresEnergyIntensityData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -593,19 +746,22 @@ class DemandFuelSwitchingMeasuresEnergyIntensityData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, oth_1_id, oth_2_id, year, value, id) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, year=year,
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, year=year,
                   value=value, id=id)
-        
+
         return obj
 
 class DemandFuelSwitchingMeasuresImpact(DataObject):
-    def __init__(self, parent_id=None, input_type_id=None, unit=None, geography_id=None, other_index_1_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, input_type_id=None, unit=None, geography_id=None, other_index_1_id=None,
                  other_index_2_id=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandFuelSwitchingMeasuresImpact._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.input_type_id = input_type_id
@@ -618,21 +774,24 @@ class DemandFuelSwitchingMeasuresImpact(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, input_type_id, unit, geography_id, other_index_1_id, other_index_2_id,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth) = tup
-        
-        obj = cls(parent_id=parent_id, input_type_id=input_type_id, unit=unit, geography_id=geography_id,
+
+        obj = cls(scenario, parent_id=parent_id, input_type_id=input_type_id, unit=unit, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, other_index_2_id=other_index_2_id,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class DemandFuelSwitchingMeasuresImpactData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, year=None, value=None, id=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, year=None, value=None, id=None):
+        DataObject.__init__(self, scenario)
+        DemandFuelSwitchingMeasuresImpactData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -643,19 +802,22 @@ class DemandFuelSwitchingMeasuresImpactData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, oth_1_id, oth_2_id, year, value, id) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, year=year,
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, year=year,
                   value=value, id=id)
-        
+
         return obj
 
 class DemandSales(DataObject):
-    def __init__(self, subsector_id=None, geography_id=None, other_index_1_id=None, other_index_2_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, subsector_id=None, geography_id=None, other_index_1_id=None, other_index_2_id=None,
                  input_type_id=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandSales._instances_by_id[id] = self
 
         self.subsector_id = subsector_id
         self.geography_id = geography_id
@@ -667,22 +829,25 @@ class DemandSales(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (subsector_id, geography_id, other_index_1_id, other_index_2_id, input_type_id,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth) = tup
-        
-        obj = cls(subsector_id=subsector_id, geography_id=geography_id, other_index_1_id=other_index_1_id,
+
+        obj = cls(scenario, subsector_id=subsector_id, geography_id=geography_id, other_index_1_id=other_index_1_id,
                   other_index_2_id=other_index_2_id, input_type_id=input_type_id,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class DemandSalesData(DataObject):
-    def __init__(self, subsector_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, demand_technology_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, subsector_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, demand_technology_id=None,
                  vintage=None, value=None, id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandSalesData._instances_by_id[id] = self
 
         self.subsector_id = subsector_id
         self.gau_id = gau_id
@@ -694,20 +859,23 @@ class DemandSalesData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (subsector_id, gau_id, oth_1_id, oth_2_id, demand_technology_id, vintage, value, id) = tup
-        
-        obj = cls(subsector_id=subsector_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
+
+        obj = cls(scenario, subsector_id=subsector_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
                   demand_technology_id=demand_technology_id, vintage=vintage, value=value, id=id)
-        
+
         return obj
 
 class DemandSalesShareMeasures(DataObject):
-    def __init__(self, id=None, subsector_id=None, geography_id=None, other_index_1_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, subsector_id=None, geography_id=None, other_index_1_id=None,
                  demand_technology_id=None, replaced_demand_tech_id=None, input_type_id=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None,
                  name=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandSalesShareMeasures._instances_by_id[id] = self
 
         self.id = id
         self.subsector_id = subsector_id
@@ -722,23 +890,26 @@ class DemandSalesShareMeasures(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, subsector_id, geography_id, other_index_1_id, demand_technology_id,
          replaced_demand_tech_id, input_type_id, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth, name) = tup
-        
-        obj = cls(id=id, subsector_id=subsector_id, geography_id=geography_id,
+
+        obj = cls(scenario, id=id, subsector_id=subsector_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, demand_technology_id=demand_technology_id,
                   replaced_demand_tech_id=replaced_demand_tech_id, input_type_id=input_type_id,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth, name=name)
-        
+
         return obj
 
 class DemandSalesShareMeasuresData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, oth_1_id=None, vintage=None, value=None, id=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, oth_1_id=None, vintage=None, value=None, id=None):
+        DataObject.__init__(self, scenario)
+        DemandSalesShareMeasuresData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -748,16 +919,19 @@ class DemandSalesShareMeasuresData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, oth_1_id, vintage, value, id) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, vintage=vintage, value=value, id=id)
-        
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, vintage=vintage, value=value, id=id)
+
         return obj
 
 class DemandSectors(DataObject):
-    def __init__(self, id=None, name=None, shape_id=None, max_lead_hours=None, max_lag_hours=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, shape_id=None, max_lead_hours=None, max_lag_hours=None):
+        DataObject.__init__(self, scenario)
+        DemandSectors._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -766,20 +940,23 @@ class DemandSectors(DataObject):
         self.max_lag_hours = max_lag_hours
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, shape_id, max_lead_hours, max_lag_hours) = tup
-        
-        obj = cls(id=id, name=name, shape_id=shape_id, max_lead_hours=max_lead_hours,
+
+        obj = cls(scenario, id=id, name=name, shape_id=shape_id, max_lead_hours=max_lead_hours,
                   max_lag_hours=max_lag_hours)
-        
+
         return obj
 
 class DemandServiceDemandMeasures(DataObject):
-    def __init__(self, id=None, name=None, subsector_id=None, input_type_id=None, unit=None, geography_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, subsector_id=None, input_type_id=None, unit=None, geography_id=None,
                  other_index_1_id=None, other_index_2_id=None, interpolation_method_id=None,
                  extrapolation_method_id=None, extrapolation_growth=None, stock_decay_function_id=None,
                  min_lifetime=None, max_lifetime=None, mean_lifetime=None, lifetime_variance=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandServiceDemandMeasures._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -799,12 +976,12 @@ class DemandServiceDemandMeasures(DataObject):
         self.lifetime_variance = lifetime_variance
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, subsector_id, input_type_id, unit, geography_id, other_index_1_id,
          other_index_2_id, interpolation_method_id, extrapolation_method_id, extrapolation_growth,
          stock_decay_function_id, min_lifetime, max_lifetime, mean_lifetime, lifetime_variance) = tup
-        
-        obj = cls(id=id, name=name, subsector_id=subsector_id, input_type_id=input_type_id, unit=unit,
+
+        obj = cls(scenario, id=id, name=name, subsector_id=subsector_id, input_type_id=input_type_id, unit=unit,
                   geography_id=geography_id, other_index_1_id=other_index_1_id,
                   other_index_2_id=other_index_2_id, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
@@ -812,15 +989,18 @@ class DemandServiceDemandMeasures(DataObject):
                   stock_decay_function_id=stock_decay_function_id, min_lifetime=min_lifetime,
                   max_lifetime=max_lifetime, mean_lifetime=mean_lifetime,
                   lifetime_variance=lifetime_variance)
-        
+
         return obj
 
 class DemandServiceDemandMeasuresCost(DataObject):
-    def __init__(self, parent_id=None, currency_id=None, currency_year_id=None, cost_denominator_unit=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, currency_id=None, currency_year_id=None, cost_denominator_unit=None,
                  cost_of_capital=None, is_levelized=None, geography_id=None, other_index_1_id=None,
                  other_index_2_id=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandServiceDemandMeasuresCost._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.currency_id = currency_id
@@ -836,24 +1016,27 @@ class DemandServiceDemandMeasuresCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, currency_id, currency_year_id, cost_denominator_unit, cost_of_capital,
          is_levelized, geography_id, other_index_1_id, other_index_2_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
-        
-        obj = cls(parent_id=parent_id, currency_id=currency_id, currency_year_id=currency_year_id,
+
+        obj = cls(scenario, parent_id=parent_id, currency_id=currency_id, currency_year_id=currency_year_id,
                   cost_denominator_unit=cost_denominator_unit, cost_of_capital=cost_of_capital,
                   is_levelized=is_levelized, geography_id=geography_id, other_index_1_id=other_index_1_id,
                   other_index_2_id=other_index_2_id, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class DemandServiceDemandMeasuresCostData(DataObject):
-    def __init__(self, id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None, value=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None, value=None,
                  parent_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandServiceDemandMeasuresCostData._instances_by_id[id] = self
 
         self.id = id
         self.gau_id = gau_id
@@ -864,17 +1047,20 @@ class DemandServiceDemandMeasuresCostData(DataObject):
         self.parent_id = parent_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, gau_id, oth_1_id, oth_2_id, vintage, value, parent_id) = tup
-        
-        obj = cls(id=id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, vintage=vintage, value=value,
+
+        obj = cls(scenario, id=id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, vintage=vintage, value=value,
                   parent_id=parent_id)
-        
+
         return obj
 
 class DemandServiceDemandMeasuresData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, year=None, value=None, id=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, year=None, value=None, id=None):
+        DataObject.__init__(self, scenario)
+        DemandServiceDemandMeasuresData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -885,22 +1071,25 @@ class DemandServiceDemandMeasuresData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, oth_1_id, oth_2_id, year, value, id) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, year=year,
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, year=year,
                   value=value, id=id)
-        
+
         return obj
 
 class DemandServiceDemands(DataObject):
-    def __init__(self, subsector_id=None, is_stock_dependent=None, input_type_id=None, unit=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, subsector_id=None, is_stock_dependent=None, input_type_id=None, unit=None,
                  driver_denominator_1_id=None, driver_denominator_2_id=None, driver_1_id=None,
                  driver_2_id=None, geography_id=None, final_energy_index=None,
                  demand_technology_index=None, other_index_1_id=None, other_index_2_id=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None,
                  geography_map_key_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandServiceDemands._instances_by_id[id] = self
 
         self.subsector_id = subsector_id
         self.is_stock_dependent = is_stock_dependent
@@ -921,13 +1110,13 @@ class DemandServiceDemands(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (subsector_id, is_stock_dependent, input_type_id, unit, driver_denominator_1_id,
          driver_denominator_2_id, driver_1_id, driver_2_id, geography_id, final_energy_index,
          demand_technology_index, other_index_1_id, other_index_2_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, geography_map_key_id) = tup
-        
-        obj = cls(subsector_id=subsector_id, is_stock_dependent=is_stock_dependent,
+
+        obj = cls(scenario, subsector_id=subsector_id, is_stock_dependent=is_stock_dependent,
                   input_type_id=input_type_id, unit=unit, driver_denominator_1_id=driver_denominator_1_id,
                   driver_denominator_2_id=driver_denominator_2_id, driver_1_id=driver_1_id,
                   driver_2_id=driver_2_id, geography_id=geography_id,
@@ -936,13 +1125,16 @@ class DemandServiceDemands(DataObject):
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth, geography_map_key_id=geography_map_key_id)
-        
+
         return obj
 
 class DemandServiceDemandsData(DataObject):
-    def __init__(self, subsector_id=None, gau_id=None, final_energy_id=None, demand_technology_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, subsector_id=None, gau_id=None, final_energy_id=None, demand_technology_id=None,
                  oth_1_id=None, oth_2_id=None, year=None, value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandServiceDemandsData._instances_by_id[id] = self
 
         self.subsector_id = subsector_id
         self.gau_id = gau_id
@@ -956,21 +1148,24 @@ class DemandServiceDemandsData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (subsector_id, gau_id, final_energy_id, demand_technology_id, oth_1_id, oth_2_id, year,
          value, id, sensitivity) = tup
-        
-        obj = cls(subsector_id=subsector_id, gau_id=gau_id, final_energy_id=final_energy_id,
+
+        obj = cls(scenario, subsector_id=subsector_id, gau_id=gau_id, final_energy_id=final_energy_id,
                   demand_technology_id=demand_technology_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
                   year=year, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class DemandServiceEfficiency(DataObject):
-    def __init__(self, subsector_id=None, energy_unit=None, denominator_unit=None, geography_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, subsector_id=None, energy_unit=None, denominator_unit=None, geography_id=None,
                  other_index_1_id=None, other_index_2_id=None, interpolation_method_id=None,
                  extrapolation_method_id=None, extrapolation_growth=None, geography_map_key_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandServiceEfficiency._instances_by_id[id] = self
 
         self.subsector_id = subsector_id
         self.energy_unit = energy_unit
@@ -984,23 +1179,26 @@ class DemandServiceEfficiency(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (subsector_id, energy_unit, denominator_unit, geography_id, other_index_1_id,
          other_index_2_id, interpolation_method_id, extrapolation_method_id, extrapolation_growth,
          geography_map_key_id) = tup
-        
-        obj = cls(subsector_id=subsector_id, energy_unit=energy_unit, denominator_unit=denominator_unit,
+
+        obj = cls(scenario, subsector_id=subsector_id, energy_unit=energy_unit, denominator_unit=denominator_unit,
                   geography_id=geography_id, other_index_1_id=other_index_1_id,
                   other_index_2_id=other_index_2_id, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth, geography_map_key_id=geography_map_key_id)
-        
+
         return obj
 
 class DemandServiceEfficiencyData(DataObject):
-    def __init__(self, subsector_id=None, final_energy_id=None, gau_id=None, oth_1_id=None, oth_2_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, subsector_id=None, final_energy_id=None, gau_id=None, oth_1_id=None, oth_2_id=None,
                  year=None, value=None, id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandServiceEfficiencyData._instances_by_id[id] = self
 
         self.subsector_id = subsector_id
         self.final_energy_id = final_energy_id
@@ -1012,17 +1210,20 @@ class DemandServiceEfficiencyData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (subsector_id, final_energy_id, gau_id, oth_1_id, oth_2_id, year, value, id) = tup
-        
-        obj = cls(subsector_id=subsector_id, final_energy_id=final_energy_id, gau_id=gau_id,
+
+        obj = cls(scenario, subsector_id=subsector_id, final_energy_id=final_energy_id, gau_id=gau_id,
                   oth_1_id=oth_1_id, oth_2_id=oth_2_id, year=year, value=value, id=id)
-        
+
         return obj
 
 class DemandServiceLink(DataObject):
-    def __init__(self, id=None, subsector_id=None, linked_subsector_id=None, service_demand_share=None, year=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, subsector_id=None, linked_subsector_id=None, service_demand_share=None, year=None):
+        DataObject.__init__(self, scenario)
+        DemandServiceLink._instances_by_id[id] = self
 
         self.id = id
         self.subsector_id = subsector_id
@@ -1031,21 +1232,24 @@ class DemandServiceLink(DataObject):
         self.year = year
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, subsector_id, linked_subsector_id, service_demand_share, year) = tup
-        
-        obj = cls(id=id, subsector_id=subsector_id, linked_subsector_id=linked_subsector_id,
+
+        obj = cls(scenario, id=id, subsector_id=subsector_id, linked_subsector_id=linked_subsector_id,
                   service_demand_share=service_demand_share, year=year)
-        
+
         return obj
 
 class DemandStock(DataObject):
-    def __init__(self, subsector_id=None, is_service_demand_dependent=None, driver_denominator_1_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, subsector_id=None, is_service_demand_dependent=None, driver_denominator_1_id=None,
                  driver_denominator_2_id=None, driver_1_id=None, driver_2_id=None, geography_id=None,
                  other_index_1_id=None, other_index_2_id=None, geography_map_key_id=None,
                  input_type_id=None, demand_stock_unit_type_id=None, unit=None, time_unit=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandStock._instances_by_id[id] = self
 
         self.subsector_id = subsector_id
         self.is_service_demand_dependent = is_service_demand_dependent
@@ -1066,13 +1270,13 @@ class DemandStock(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (subsector_id, is_service_demand_dependent, driver_denominator_1_id,
          driver_denominator_2_id, driver_1_id, driver_2_id, geography_id, other_index_1_id,
          other_index_2_id, geography_map_key_id, input_type_id, demand_stock_unit_type_id, unit,
          time_unit, interpolation_method_id, extrapolation_method_id, extrapolation_growth) = tup
-        
-        obj = cls(subsector_id=subsector_id, is_service_demand_dependent=is_service_demand_dependent,
+
+        obj = cls(scenario, subsector_id=subsector_id, is_service_demand_dependent=is_service_demand_dependent,
                   driver_denominator_1_id=driver_denominator_1_id,
                   driver_denominator_2_id=driver_denominator_2_id, driver_1_id=driver_1_id,
                   driver_2_id=driver_2_id, geography_id=geography_id, other_index_1_id=other_index_1_id,
@@ -1081,13 +1285,16 @@ class DemandStock(DataObject):
                   unit=unit, time_unit=time_unit, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class DemandStockData(DataObject):
-    def __init__(self, subsector_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, demand_technology_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, subsector_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, demand_technology_id=None,
                  year=None, value=None, id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandStockData._instances_by_id[id] = self
 
         self.subsector_id = subsector_id
         self.gau_id = gau_id
@@ -1099,19 +1306,22 @@ class DemandStockData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (subsector_id, gau_id, oth_1_id, oth_2_id, demand_technology_id, year, value, id) = tup
-        
-        obj = cls(subsector_id=subsector_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
+
+        obj = cls(scenario, subsector_id=subsector_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
                   demand_technology_id=demand_technology_id, year=year, value=value, id=id)
-        
+
         return obj
 
 class DemandStockMeasures(DataObject):
-    def __init__(self, id=None, subsector_id=None, geography_id=None, other_index_1_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, subsector_id=None, geography_id=None, other_index_1_id=None,
                  demand_technology_id=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None, name=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandStockMeasures._instances_by_id[id] = self
 
         self.id = id
         self.subsector_id = subsector_id
@@ -1124,21 +1334,24 @@ class DemandStockMeasures(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, subsector_id, geography_id, other_index_1_id, demand_technology_id,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth, name) = tup
-        
-        obj = cls(id=id, subsector_id=subsector_id, geography_id=geography_id,
+
+        obj = cls(scenario, id=id, subsector_id=subsector_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, demand_technology_id=demand_technology_id,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth, name=name)
-        
+
         return obj
 
 class DemandStockMeasuresData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, oth_1_id=None, year=None, value=None, id=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, oth_1_id=None, year=None, value=None, id=None):
+        DataObject.__init__(self, scenario)
+        DemandStockMeasuresData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -1148,17 +1361,38 @@ class DemandStockMeasuresData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, oth_1_id, year, value, id) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, year=year, value=value, id=id)
-        
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, year=year, value=value, id=id)
+
+        return obj
+
+class DemandStockUnitTypes(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        DemandStockUnitTypes._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
         return obj
 
 class DemandSubsectors(DataObject):
-    def __init__(self, id=None, sector_id=None, name=None, cost_of_capital=None, is_active=None, shape_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, sector_id=None, name=None, cost_of_capital=None, is_active=None, shape_id=None,
                  max_lead_hours=None, max_lag_hours=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandSubsectors._instances_by_id[id] = self
 
         self.id = id
         self.sector_id = sector_id
@@ -1170,22 +1404,61 @@ class DemandSubsectors(DataObject):
         self.max_lag_hours = max_lag_hours
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, sector_id, name, cost_of_capital, is_active, shape_id, max_lead_hours, max_lag_hours) = tup
-        
-        obj = cls(id=id, sector_id=sector_id, name=name, cost_of_capital=cost_of_capital,
+
+        obj = cls(scenario, id=id, sector_id=sector_id, name=name, cost_of_capital=cost_of_capital,
                   is_active=is_active, shape_id=shape_id, max_lead_hours=max_lead_hours,
                   max_lag_hours=max_lag_hours)
-        
+
+        return obj
+
+class DemandTechEfficiencyTypes(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        DemandTechEfficiencyTypes._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
+        return obj
+
+class DemandTechUnitTypes(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        DemandTechUnitTypes._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
         return obj
 
 class DemandTechs(DataObject):
-    def __init__(self, id=None, linked_id=None, stock_link_ratio=None, subsector_id=None, name=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, linked_id=None, stock_link_ratio=None, subsector_id=None, name=None,
                  min_lifetime=None, max_lifetime=None, source=None, additional_description=None,
                  demand_tech_unit_type_id=None, unit=None, time_unit=None, cost_of_capital=None,
                  stock_decay_function_id=None, mean_lifetime=None, lifetime_variance=None, shape_id=None,
                  max_lead_hours=None, max_lag_hours=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechs._instances_by_id[id] = self
 
         self.id = id
         self.linked_id = linked_id
@@ -1208,30 +1481,33 @@ class DemandTechs(DataObject):
         self.max_lag_hours = max_lag_hours
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, linked_id, stock_link_ratio, subsector_id, name, min_lifetime, max_lifetime, source,
          additional_description, demand_tech_unit_type_id, unit, time_unit, cost_of_capital,
          stock_decay_function_id, mean_lifetime, lifetime_variance, shape_id, max_lead_hours,
          max_lag_hours) = tup
-        
-        obj = cls(id=id, linked_id=linked_id, stock_link_ratio=stock_link_ratio, subsector_id=subsector_id,
+
+        obj = cls(scenario, id=id, linked_id=linked_id, stock_link_ratio=stock_link_ratio, subsector_id=subsector_id,
                   name=name, min_lifetime=min_lifetime, max_lifetime=max_lifetime, source=source,
                   additional_description=additional_description,
                   demand_tech_unit_type_id=demand_tech_unit_type_id, unit=unit, time_unit=time_unit,
                   cost_of_capital=cost_of_capital, stock_decay_function_id=stock_decay_function_id,
                   mean_lifetime=mean_lifetime, lifetime_variance=lifetime_variance, shape_id=shape_id,
                   max_lead_hours=max_lead_hours, max_lag_hours=max_lag_hours)
-        
+
         return obj
 
 class DemandTechsAuxEfficiency(DataObject):
-    def __init__(self, demand_technology_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
                  other_index_1_id=None, other_index_2_id=None, final_energy_id=None,
                  demand_tech_efficiency_types_id=None, is_numerator_service=None, numerator_unit=None,
                  denominator_unit=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None, age_growth_or_decay_type_id=None, age_growth_or_decay=None,
                  shape_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsAuxEfficiency._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.definition_id = definition_id
@@ -1252,13 +1528,13 @@ class DemandTechsAuxEfficiency(DataObject):
         self.shape_id = shape_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, definition_id, reference_tech_id, geography_id, other_index_1_id,
          other_index_2_id, final_energy_id, demand_tech_efficiency_types_id, is_numerator_service,
          numerator_unit, denominator_unit, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth, age_growth_or_decay_type_id, age_growth_or_decay, shape_id) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, definition_id=definition_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, definition_id=definition_id,
                   reference_tech_id=reference_tech_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, other_index_2_id=other_index_2_id,
                   final_energy_id=final_energy_id,
@@ -1269,13 +1545,16 @@ class DemandTechsAuxEfficiency(DataObject):
                   extrapolation_growth=extrapolation_growth,
                   age_growth_or_decay_type_id=age_growth_or_decay_type_id,
                   age_growth_or_decay=age_growth_or_decay, shape_id=shape_id)
-        
+
         return obj
 
 class DemandTechsAuxEfficiencyData(DataObject):
-    def __init__(self, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
                  value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsAuxEfficiencyData._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.gau_id = gau_id
@@ -1287,20 +1566,23 @@ class DemandTechsAuxEfficiencyData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
                   oth_2_id=oth_2_id, vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class DemandTechsCapitalCost(DataObject):
-    def __init__(self, demand_technology_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
                  other_index_1_id=None, other_index_2_id=None, currency_id=None, currency_year_id=None,
                  is_levelized=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsCapitalCost._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.definition_id = definition_id
@@ -1316,25 +1598,28 @@ class DemandTechsCapitalCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, definition_id, reference_tech_id, geography_id, other_index_1_id,
          other_index_2_id, currency_id, currency_year_id, is_levelized, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, definition_id=definition_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, definition_id=definition_id,
                   reference_tech_id=reference_tech_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, other_index_2_id=other_index_2_id,
                   currency_id=currency_id, currency_year_id=currency_year_id, is_levelized=is_levelized,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class DemandTechsCapitalCostNewData(DataObject):
-    def __init__(self, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
                  value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsCapitalCostNewData._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.gau_id = gau_id
@@ -1346,18 +1631,21 @@ class DemandTechsCapitalCostNewData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
                   oth_2_id=oth_2_id, vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class DemandTechsCapitalCostReplacementData(DataObject):
-    def __init__(self, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
                  value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsCapitalCostReplacementData._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.gau_id = gau_id
@@ -1369,20 +1657,23 @@ class DemandTechsCapitalCostReplacementData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
                   oth_2_id=oth_2_id, vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class DemandTechsFixedMaintenanceCost(DataObject):
-    def __init__(self, demand_technology_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
                  other_index_1_id=None, other_index_2_id=None, currency_id=None, currency_year_id=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None,
                  age_growth_or_decay_type_id=None, age_growth_or_decay=None, additional_description=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsFixedMaintenanceCost._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.definition_id = definition_id
@@ -1400,13 +1691,13 @@ class DemandTechsFixedMaintenanceCost(DataObject):
         self.additional_description = additional_description
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, definition_id, reference_tech_id, geography_id, other_index_1_id,
          other_index_2_id, currency_id, currency_year_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, age_growth_or_decay_type_id,
          age_growth_or_decay, additional_description) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, definition_id=definition_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, definition_id=definition_id,
                   reference_tech_id=reference_tech_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, other_index_2_id=other_index_2_id,
                   currency_id=currency_id, currency_year_id=currency_year_id,
@@ -1415,13 +1706,16 @@ class DemandTechsFixedMaintenanceCost(DataObject):
                   extrapolation_growth=extrapolation_growth,
                   age_growth_or_decay_type_id=age_growth_or_decay_type_id,
                   age_growth_or_decay=age_growth_or_decay, additional_description=additional_description)
-        
+
         return obj
 
 class DemandTechsFixedMaintenanceCostData(DataObject):
-    def __init__(self, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
                  value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsFixedMaintenanceCostData._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.gau_id = gau_id
@@ -1433,20 +1727,23 @@ class DemandTechsFixedMaintenanceCostData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
                   oth_2_id=oth_2_id, vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class DemandTechsFuelSwitchCost(DataObject):
-    def __init__(self, demand_technology_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
                  other_index_1_id=None, other_index_2_id=None, currency_id=None, currency_year_id=None,
                  is_levelized=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsFuelSwitchCost._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.definition_id = definition_id
@@ -1462,25 +1759,28 @@ class DemandTechsFuelSwitchCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, definition_id, reference_tech_id, geography_id, other_index_1_id,
          other_index_2_id, currency_id, currency_year_id, is_levelized, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, definition_id=definition_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, definition_id=definition_id,
                   reference_tech_id=reference_tech_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, other_index_2_id=other_index_2_id,
                   currency_id=currency_id, currency_year_id=currency_year_id, is_levelized=is_levelized,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class DemandTechsFuelSwitchCostData(DataObject):
-    def __init__(self, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
                  value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsFuelSwitchCostData._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.gau_id = gau_id
@@ -1492,20 +1792,23 @@ class DemandTechsFuelSwitchCostData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
                   oth_2_id=oth_2_id, vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class DemandTechsInstallationCost(DataObject):
-    def __init__(self, demand_technology_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
                  other_index_1_id=None, other_index_2_id=None, currency_id=None, currency_year_id=None,
                  is_levelized=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsInstallationCost._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.definition_id = definition_id
@@ -1521,25 +1824,28 @@ class DemandTechsInstallationCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, definition_id, reference_tech_id, geography_id, other_index_1_id,
          other_index_2_id, currency_id, currency_year_id, is_levelized, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, definition_id=definition_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, definition_id=definition_id,
                   reference_tech_id=reference_tech_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, other_index_2_id=other_index_2_id,
                   currency_id=currency_id, currency_year_id=currency_year_id, is_levelized=is_levelized,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class DemandTechsInstallationCostNewData(DataObject):
-    def __init__(self, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
                  value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsInstallationCostNewData._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.gau_id = gau_id
@@ -1551,18 +1857,21 @@ class DemandTechsInstallationCostNewData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
                   oth_2_id=oth_2_id, vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class DemandTechsInstallationCostReplacementData(DataObject):
-    def __init__(self, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
                  value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsInstallationCostReplacementData._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.gau_id = gau_id
@@ -1574,22 +1883,25 @@ class DemandTechsInstallationCostReplacementData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
                   oth_2_id=oth_2_id, vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class DemandTechsMainEfficiency(DataObject):
-    def __init__(self, demand_technology_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
                  other_index_1_id=None, other_index_2_id=None, final_energy_id=None, utility_factor=None,
                  demand_tech_efficiency_types=None, is_numerator_service=None, numerator_unit=None,
                  denominator_unit=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None, age_growth_or_decay_type_id=None, age_growth_or_decay=None,
                  shape_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsMainEfficiency._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.definition_id = definition_id
@@ -1611,14 +1923,14 @@ class DemandTechsMainEfficiency(DataObject):
         self.shape_id = shape_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, definition_id, reference_tech_id, geography_id, other_index_1_id,
          other_index_2_id, final_energy_id, utility_factor, demand_tech_efficiency_types,
          is_numerator_service, numerator_unit, denominator_unit, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, age_growth_or_decay_type_id,
          age_growth_or_decay, shape_id) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, definition_id=definition_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, definition_id=definition_id,
                   reference_tech_id=reference_tech_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, other_index_2_id=other_index_2_id,
                   final_energy_id=final_energy_id, utility_factor=utility_factor,
@@ -1629,13 +1941,16 @@ class DemandTechsMainEfficiency(DataObject):
                   extrapolation_growth=extrapolation_growth,
                   age_growth_or_decay_type_id=age_growth_or_decay_type_id,
                   age_growth_or_decay=age_growth_or_decay, shape_id=shape_id)
-        
+
         return obj
 
 class DemandTechsMainEfficiencyData(DataObject):
-    def __init__(self, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
                  value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsMainEfficiencyData._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.gau_id = gau_id
@@ -1647,20 +1962,23 @@ class DemandTechsMainEfficiencyData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
                   oth_2_id=oth_2_id, vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class DemandTechsParasiticEnergy(DataObject):
-    def __init__(self, demand_technology_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
                  other_index_1_id=None, other_index_2_id=None, energy_unit=None, time_unit=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None,
                  age_growth_or_decay_type_id=None, age_growth_or_decay=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsParasiticEnergy._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.definition_id = definition_id
@@ -1677,13 +1995,13 @@ class DemandTechsParasiticEnergy(DataObject):
         self.age_growth_or_decay = age_growth_or_decay
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, definition_id, reference_tech_id, geography_id, other_index_1_id,
          other_index_2_id, energy_unit, time_unit, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, age_growth_or_decay_type_id,
          age_growth_or_decay) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, definition_id=definition_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, definition_id=definition_id,
                   reference_tech_id=reference_tech_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, other_index_2_id=other_index_2_id,
                   energy_unit=energy_unit, time_unit=time_unit,
@@ -1692,13 +2010,16 @@ class DemandTechsParasiticEnergy(DataObject):
                   extrapolation_growth=extrapolation_growth,
                   age_growth_or_decay_type_id=age_growth_or_decay_type_id,
                   age_growth_or_decay=age_growth_or_decay)
-        
+
         return obj
 
 class DemandTechsParasiticEnergyData(DataObject):
-    def __init__(self, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None,
                  final_energy_id=None, vintage=None, value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsParasiticEnergyData._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.gau_id = gau_id
@@ -1711,21 +2032,24 @@ class DemandTechsParasiticEnergyData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, final_energy_id, vintage, value, id,
          sensitivity) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
                   oth_2_id=oth_2_id, final_energy_id=final_energy_id, vintage=vintage, value=value, id=id,
                   sensitivity=sensitivity)
-        
+
         return obj
 
 class DemandTechsServiceDemandModifier(DataObject):
-    def __init__(self, demand_technology_id=None, geography_id=None, other_index_1_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, geography_id=None, other_index_1_id=None,
                  other_index_2_id=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None, age_growth_or_decay_type_id=None, age_growth_or_decay=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsServiceDemandModifier._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.geography_id = geography_id
@@ -1738,25 +2062,28 @@ class DemandTechsServiceDemandModifier(DataObject):
         self.age_growth_or_decay = age_growth_or_decay
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, geography_id, other_index_1_id, other_index_2_id,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth,
          age_growth_or_decay_type_id, age_growth_or_decay) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, geography_id=geography_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, other_index_2_id=other_index_2_id,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth,
                   age_growth_or_decay_type_id=age_growth_or_decay_type_id,
                   age_growth_or_decay=age_growth_or_decay)
-        
+
         return obj
 
 class DemandTechsServiceDemandModifierData(DataObject):
-    def __init__(self, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, demand_technology_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None,
                  value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsServiceDemandModifierData._instances_by_id[id] = self
 
         self.demand_technology_id = demand_technology_id
         self.gau_id = gau_id
@@ -1768,20 +2095,23 @@ class DemandTechsServiceDemandModifierData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
+
+        obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
                   oth_2_id=oth_2_id, vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class DemandTechsServiceLink(DataObject):
-    def __init__(self, id=None, service_link_id=None, demand_technology_id=None, definition_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, service_link_id=None, demand_technology_id=None, definition_id=None,
                  reference_id=None, geography_id=None, other_index_1_id=None, other_index_2_id=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None,
                  age_growth_or_decay_type_id=None, age_growth_or_decay=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsServiceLink._instances_by_id[id] = self
 
         self.id = id
         self.service_link_id = service_link_id
@@ -1798,12 +2128,12 @@ class DemandTechsServiceLink(DataObject):
         self.age_growth_or_decay = age_growth_or_decay
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, service_link_id, demand_technology_id, definition_id, reference_id, geography_id,
          other_index_1_id, other_index_2_id, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth, age_growth_or_decay_type_id, age_growth_or_decay) = tup
-        
-        obj = cls(id=id, service_link_id=service_link_id, demand_technology_id=demand_technology_id,
+
+        obj = cls(scenario, id=id, service_link_id=service_link_id, demand_technology_id=demand_technology_id,
                   definition_id=definition_id, reference_id=reference_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, other_index_2_id=other_index_2_id,
                   interpolation_method_id=interpolation_method_id,
@@ -1811,13 +2141,16 @@ class DemandTechsServiceLink(DataObject):
                   extrapolation_growth=extrapolation_growth,
                   age_growth_or_decay_type_id=age_growth_or_decay_type_id,
                   age_growth_or_decay=age_growth_or_decay)
-        
+
         return obj
 
 class DemandTechsServiceLinkData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None, value=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None, value=None,
                  id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        DemandTechsServiceLinkData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -1828,65 +2161,130 @@ class DemandTechsServiceLinkData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, oth_1_id, oth_2_id, vintage, value, id) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, vintage=vintage,
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, vintage=vintage,
                   value=value, id=id)
-        
+
+        return obj
+
+class DispatchConstraintTypes(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        DispatchConstraintTypes._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
+        return obj
+
+class EfficiencyTypes(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        EfficiencyTypes._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
         return obj
 
 class FinalEnergy(DataObject):
-    def __init__(self, id=None, name=None, shape_id=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, shape_id=None):
+        DataObject.__init__(self, scenario)
+        FinalEnergy._instances_by_id[id] = self
 
         self.id = id
         self.name = name
         self.shape_id = shape_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, shape_id) = tup
-        
-        obj = cls(id=id, name=name, shape_id=shape_id)
-        
+
+        obj = cls(scenario, id=id, name=name, shape_id=shape_id)
+
+        return obj
+
+class FlexibleLoadShiftTypes(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        FlexibleLoadShiftTypes._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
+        return obj
+
+class Geographies(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        Geographies._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
         return obj
 
 class GeographiesData(DataObject):
-    def __init__(self, id=None, name=None, geography_id=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, geography_id=None):
+        DataObject.__init__(self, scenario)
+        GeographiesData._instances_by_id[id] = self
 
         self.id = id
         self.name = name
         self.geography_id = geography_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, geography_id) = tup
-        
-        obj = cls(id=id, name=name, geography_id=geography_id)
-        
-        return obj
 
-class GeographyIntersectionData(DataObject):
-    def __init__(self, intersection_id=None, gau_id=None, id=None):
-        DataObject.__init__(self)
+        obj = cls(scenario, id=id, name=name, geography_id=geography_id)
 
-        self.intersection_id = intersection_id
-        self.gau_id = gau_id
-        self.id = id
-
-    @classmethod
-    def from_tuple(cls, tup):    
-        (intersection_id, gau_id, id) = tup
-        
-        obj = cls(intersection_id=intersection_id, gau_id=gau_id, id=id)
-        
         return obj
 
 class GeographyMap(DataObject):
-    def __init__(self, intersection_id=None, geography_map_key_id=None, value=None, id=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, intersection_id=None, geography_map_key_id=None, value=None, id=None):
+        DataObject.__init__(self, scenario)
+        GeographyMap._instances_by_id[id] = self
 
         self.intersection_id = intersection_id
         self.geography_map_key_id = geography_map_key_id
@@ -1894,19 +2292,58 @@ class GeographyMap(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (intersection_id, geography_map_key_id, value, id) = tup
-        
-        obj = cls(intersection_id=intersection_id, geography_map_key_id=geography_map_key_id, value=value,
+
+        obj = cls(scenario, intersection_id=intersection_id, geography_map_key_id=geography_map_key_id, value=value,
                   id=id)
-        
+
+        return obj
+
+class GeographyMapKeys(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        GeographyMapKeys._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
+        return obj
+
+class GreenhouseGasEmissionsType(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        GreenhouseGasEmissionsType._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
         return obj
 
 class ImportCost(DataObject):
-    def __init__(self, import_node_id=None, source=None, notes=None, geography_id=None, currency_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, import_node_id=None, source=None, notes=None, geography_id=None, currency_id=None,
                  currency_year_id=None, denominator_unit=None, interpolation_method_id=None,
                  extrapolation_method_id=None, extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        ImportCost._instances_by_id[id] = self
 
         self.import_node_id = import_node_id
         self.source = source
@@ -1920,22 +2357,25 @@ class ImportCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (import_node_id, source, notes, geography_id, currency_id, currency_year_id,
          denominator_unit, interpolation_method_id, extrapolation_method_id, extrapolation_growth) = tup
-        
-        obj = cls(import_node_id=import_node_id, source=source, notes=notes, geography_id=geography_id,
+
+        obj = cls(scenario, import_node_id=import_node_id, source=source, notes=notes, geography_id=geography_id,
                   currency_id=currency_id, currency_year_id=currency_year_id,
                   denominator_unit=denominator_unit, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class ImportCostData(DataObject):
-    def __init__(self, import_node_id=None, gau_id=None, demand_sector_id=None, year=None, value=None, id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, import_node_id=None, gau_id=None, demand_sector_id=None, year=None, value=None, id=None,
                  sensitivity=None, resource_bin=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        ImportCostData._instances_by_id[id] = self
 
         self.import_node_id = import_node_id
         self.gau_id = gau_id
@@ -1947,51 +2387,96 @@ class ImportCostData(DataObject):
         self.resource_bin = resource_bin
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (import_node_id, gau_id, demand_sector_id, year, value, id, sensitivity, resource_bin) = tup
-        
-        obj = cls(import_node_id=import_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, import_node_id=import_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
                   year=year, value=value, id=id, sensitivity=sensitivity, resource_bin=resource_bin)
-        
+
+        return obj
+
+class InputTypes(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        InputTypes._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
+        return obj
+
+class OtherIndexes(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        OtherIndexes._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
         return obj
 
 class OtherIndexesData(DataObject):
-    def __init__(self, id=None, name=None, other_index_id=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, other_index_id=None):
+        DataObject.__init__(self, scenario)
+        OtherIndexesData._instances_by_id[id] = self
 
         self.id = id
         self.name = name
         self.other_index_id = other_index_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, other_index_id) = tup
-        
-        obj = cls(id=id, name=name, other_index_id=other_index_id)
-        
+
+        obj = cls(scenario, id=id, name=name, other_index_id=other_index_id)
+
         return obj
 
 class OtherIndexesData_copy(DataObject):
-    def __init__(self, id=None, name=None, other_index_id=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, other_index_id=None):
+        DataObject.__init__(self, scenario)
+        OtherIndexesData_copy._instances_by_id[id] = self
 
         self.id = id
         self.name = name
         self.other_index_id = other_index_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, other_index_id) = tup
-        
-        obj = cls(id=id, name=name, other_index_id=other_index_id)
-        
+
+        obj = cls(scenario, id=id, name=name, other_index_id=other_index_id)
+
         return obj
 
 class PrimaryCost(DataObject):
-    def __init__(self, primary_node_id=None, geography_id=None, other_index_1_id=None, currency_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, primary_node_id=None, geography_id=None, other_index_1_id=None, currency_id=None,
                  currency_year_id=None, denominator_unit=None, interpolation_method_id=None,
                  extrapolation_method_id=None, extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        PrimaryCost._instances_by_id[id] = self
 
         self.primary_node_id = primary_node_id
         self.geography_id = geography_id
@@ -2004,23 +2489,26 @@ class PrimaryCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (primary_node_id, geography_id, other_index_1_id, currency_id, currency_year_id,
          denominator_unit, interpolation_method_id, extrapolation_method_id, extrapolation_growth) = tup
-        
-        obj = cls(primary_node_id=primary_node_id, geography_id=geography_id,
+
+        obj = cls(scenario, primary_node_id=primary_node_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, currency_id=currency_id,
                   currency_year_id=currency_year_id, denominator_unit=denominator_unit,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class PrimaryCostData(DataObject):
-    def __init__(self, primary_node_id=None, gau_id=None, demand_sector_id=None, oth_1_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, primary_node_id=None, gau_id=None, demand_sector_id=None, oth_1_id=None,
                  resource_bin=None, year=None, value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        PrimaryCostData._instances_by_id[id] = self
 
         self.primary_node_id = primary_node_id
         self.gau_id = gau_id
@@ -2033,22 +2521,25 @@ class PrimaryCostData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (primary_node_id, gau_id, demand_sector_id, oth_1_id, resource_bin, year, value, id,
          sensitivity) = tup
-        
-        obj = cls(primary_node_id=primary_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, primary_node_id=primary_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
                   oth_1_id=oth_1_id, resource_bin=resource_bin, year=year, value=value, id=id,
                   sensitivity=sensitivity)
-        
+
         return obj
 
 class Shapes(DataObject):
-    def __init__(self, id=None, name=None, shape_type_id=None, shape_unit_type_id=None, time_zone_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, shape_type_id=None, shape_unit_type_id=None, time_zone_id=None,
                  geography_id=None, other_index_1_id=None, other_index_2_id=None,
                  geography_map_key_id=None, interpolation_method_id=None, extrapolation_method_id=None,
                  input_type_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        Shapes._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -2064,58 +2555,46 @@ class Shapes(DataObject):
         self.input_type_id = input_type_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, shape_type_id, shape_unit_type_id, time_zone_id, geography_id, other_index_1_id,
          other_index_2_id, geography_map_key_id, interpolation_method_id, extrapolation_method_id,
          input_type_id) = tup
-        
-        obj = cls(id=id, name=name, shape_type_id=shape_type_id, shape_unit_type_id=shape_unit_type_id,
+
+        obj = cls(scenario, id=id, name=name, shape_type_id=shape_type_id, shape_unit_type_id=shape_unit_type_id,
                   time_zone_id=time_zone_id, geography_id=geography_id, other_index_1_id=other_index_1_id,
                   other_index_2_id=other_index_2_id, geography_map_key_id=geography_map_key_id,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id, input_type_id=input_type_id)
-        
+
         return obj
 
-class ShapesData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, dispatch_feeder_id=None, timeshift_type_id=None,
-                 resource_bin=None, dispatch_constraint_id=None, year=None, month=None, week=None,
-                 hour=None, day_type_id=None, weather_datetime=None, value=None, id=None):
-        DataObject.__init__(self)
+class ShapesTypes(DataObject):
+    _instances_by_id = {}
 
-        self.parent_id = parent_id
-        self.gau_id = gau_id
-        self.dispatch_feeder_id = dispatch_feeder_id
-        self.timeshift_type_id = timeshift_type_id
-        self.resource_bin = resource_bin
-        self.dispatch_constraint_id = dispatch_constraint_id
-        self.year = year
-        self.month = month
-        self.week = week
-        self.hour = hour
-        self.day_type_id = day_type_id
-        self.weather_datetime = weather_datetime
-        self.value = value
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        ShapesTypes._instances_by_id[id] = self
+
         self.id = id
+        self.name = name
 
     @classmethod
-    def from_tuple(cls, tup):    
-        (parent_id, gau_id, dispatch_feeder_id, timeshift_type_id, resource_bin,
-         dispatch_constraint_id, year, month, week, hour, day_type_id, weather_datetime, value, id) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, dispatch_feeder_id=dispatch_feeder_id,
-                  timeshift_type_id=timeshift_type_id, resource_bin=resource_bin,
-                  dispatch_constraint_id=dispatch_constraint_id, year=year, month=month, week=week,
-                  hour=hour, day_type_id=day_type_id, weather_datetime=weather_datetime, value=value, id=id)
-        
+    def from_tuple(cls, scenario, tup, **kwargs):
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
         return obj
 
 class StorageTechsCapacityCapitalCost(DataObject):
-    def __init__(self, supply_tech_id=None, definition_id=None, reference_tech_id=None, currency_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, definition_id=None, reference_tech_id=None, currency_id=None,
                  geography_id=None, currency_year_id=None, capacity_or_energy_unit=None,
                  is_levelized=None, cost_of_capital=None, interpolation_method_id=None,
                  extrapolation_method_id=None, time_unit=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        StorageTechsCapacityCapitalCost._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.definition_id = definition_id
@@ -2131,24 +2610,27 @@ class StorageTechsCapacityCapitalCost(DataObject):
         self.time_unit = time_unit
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, definition_id, reference_tech_id, currency_id, geography_id,
          currency_year_id, capacity_or_energy_unit, is_levelized, cost_of_capital,
          interpolation_method_id, extrapolation_method_id, time_unit) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, definition_id=definition_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, definition_id=definition_id,
                   reference_tech_id=reference_tech_id, currency_id=currency_id, geography_id=geography_id,
                   currency_year_id=currency_year_id, capacity_or_energy_unit=capacity_or_energy_unit,
                   is_levelized=is_levelized, cost_of_capital=cost_of_capital,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id, time_unit=time_unit)
-        
+
         return obj
 
 class StorageTechsCapacityCapitalCostNewData(DataObject):
-    def __init__(self, supply_tech_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None, value=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None, value=None,
                  id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        StorageTechsCapacityCapitalCostNewData._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.gau_id = gau_id
@@ -2160,18 +2642,21 @@ class StorageTechsCapacityCapitalCostNewData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
                   vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class StorageTechsCapacityCapitalCostReplacementData(DataObject):
-    def __init__(self, supply_tech_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None, value=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None, value=None,
                  id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        StorageTechsCapacityCapitalCostReplacementData._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.gau_id = gau_id
@@ -2183,19 +2668,22 @@ class StorageTechsCapacityCapitalCostReplacementData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
                   vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class StorageTechsEnergyCapitalCost(DataObject):
-    def __init__(self, supply_tech_id=None, definition_id=None, reference_tech_id=None, currency_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, definition_id=None, reference_tech_id=None, currency_id=None,
                  geography_id=None, currency_year_id=None, energy_unit=None, is_levelized=None,
                  cost_of_capital=None, interpolation_method_id=None, extrapolation_method_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        StorageTechsEnergyCapitalCost._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.definition_id = definition_id
@@ -2210,23 +2698,26 @@ class StorageTechsEnergyCapitalCost(DataObject):
         self.extrapolation_method_id = extrapolation_method_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, definition_id, reference_tech_id, currency_id, geography_id,
          currency_year_id, energy_unit, is_levelized, cost_of_capital, interpolation_method_id,
          extrapolation_method_id) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, definition_id=definition_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, definition_id=definition_id,
                   reference_tech_id=reference_tech_id, currency_id=currency_id, geography_id=geography_id,
                   currency_year_id=currency_year_id, energy_unit=energy_unit, is_levelized=is_levelized,
                   cost_of_capital=cost_of_capital, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id)
-        
+
         return obj
 
 class StorageTechsEnergyCapitalCostNewData(DataObject):
-    def __init__(self, supply_tech_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None, value=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None, value=None,
                  id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        StorageTechsEnergyCapitalCostNewData._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.gau_id = gau_id
@@ -2238,18 +2729,21 @@ class StorageTechsEnergyCapitalCostNewData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
                   vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class StorageTechsEnergyCapitalCostReplacementData(DataObject):
-    def __init__(self, supply_tech_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None, value=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, vintage=None, value=None,
                  id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        StorageTechsEnergyCapitalCostReplacementData._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.gau_id = gau_id
@@ -2261,19 +2755,22 @@ class StorageTechsEnergyCapitalCostReplacementData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
                   vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class SupplyCapacityFactor(DataObject):
-    def __init__(self, supply_node_id=None, geography_id=None, unit=None, interpolation_method_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_node_id=None, geography_id=None, unit=None, interpolation_method_id=None,
                  extrapolation_method_id=None, extrapolation_growth=None,
                  age_growth_or_decay_type_id=None, age_growth_or_decay=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyCapacityFactor._instances_by_id[id] = self
 
         self.supply_node_id = supply_node_id
         self.geography_id = geography_id
@@ -2285,23 +2782,26 @@ class SupplyCapacityFactor(DataObject):
         self.age_growth_or_decay = age_growth_or_decay
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_node_id, geography_id, unit, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth, age_growth_or_decay_type_id, age_growth_or_decay) = tup
-        
-        obj = cls(supply_node_id=supply_node_id, geography_id=geography_id, unit=unit,
+
+        obj = cls(scenario, supply_node_id=supply_node_id, geography_id=geography_id, unit=unit,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth,
                   age_growth_or_decay_type_id=age_growth_or_decay_type_id,
                   age_growth_or_decay=age_growth_or_decay)
-        
+
         return obj
 
 class SupplyCapacityFactorData(DataObject):
-    def __init__(self, supply_node_id=None, gau_id=None, demand_sector_id=None, resource_bin=None, year=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_node_id=None, gau_id=None, demand_sector_id=None, resource_bin=None, year=None,
                  value=None, id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyCapacityFactorData._instances_by_id[id] = self
 
         self.supply_node_id = supply_node_id
         self.gau_id = gau_id
@@ -2312,21 +2812,24 @@ class SupplyCapacityFactorData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_node_id, gau_id, demand_sector_id, resource_bin, year, value, id) = tup
-        
-        obj = cls(supply_node_id=supply_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, supply_node_id=supply_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
                   resource_bin=resource_bin, year=year, value=value, id=id)
-        
+
         return obj
 
 class SupplyCost(DataObject):
-    def __init__(self, id=None, name=None, source=None, additional_notes=None, supply_node_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, source=None, additional_notes=None, supply_node_id=None,
                  geography_id=None, supply_cost_type_id=None, currency_id=None, currency_year_id=None,
                  energy_or_capacity_unit=None, time_unit=None, is_capital_cost=None, cost_of_capital=None,
                  book_life=None, throughput_correlation=None, interpolation_method_id=None,
                  extrapolation_method_id=None, extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyCost._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -2348,13 +2851,13 @@ class SupplyCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, source, additional_notes, supply_node_id, geography_id, supply_cost_type_id,
          currency_id, currency_year_id, energy_or_capacity_unit, time_unit, is_capital_cost,
          cost_of_capital, book_life, throughput_correlation, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
-        
-        obj = cls(id=id, name=name, source=source, additional_notes=additional_notes,
+
+        obj = cls(scenario, id=id, name=name, source=source, additional_notes=additional_notes,
                   supply_node_id=supply_node_id, geography_id=geography_id,
                   supply_cost_type_id=supply_cost_type_id, currency_id=currency_id,
                   currency_year_id=currency_year_id, energy_or_capacity_unit=energy_or_capacity_unit,
@@ -2363,13 +2866,16 @@ class SupplyCost(DataObject):
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class SupplyCostData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, demand_sector_id=None, resource_bin=None, year=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, demand_sector_id=None, resource_bin=None, year=None,
                  value=None, id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyCostData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -2380,18 +2886,39 @@ class SupplyCostData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, demand_sector_id, resource_bin, year, value, id) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
                   resource_bin=resource_bin, year=year, value=value, id=id)
-        
+
+        return obj
+
+class SupplyCostTypes(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        SupplyCostTypes._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
         return obj
 
 class SupplyEfficiency(DataObject):
-    def __init__(self, id=None, geography_id=None, source=None, notes=None, input_unit=None, output_unit=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, geography_id=None, source=None, notes=None, input_unit=None, output_unit=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyEfficiency._instances_by_id[id] = self
 
         self.id = id
         self.geography_id = geography_id
@@ -2404,21 +2931,24 @@ class SupplyEfficiency(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, geography_id, source, notes, input_unit, output_unit, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
-        
-        obj = cls(id=id, geography_id=geography_id, source=source, notes=notes, input_unit=input_unit,
+
+        obj = cls(scenario, id=id, geography_id=geography_id, source=source, notes=notes, input_unit=input_unit,
                   output_unit=output_unit, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class SupplyEfficiencyData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, efficiency_type_id=None, demand_sector_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, efficiency_type_id=None, demand_sector_id=None,
                  supply_node_id=None, resource_bin=None, year=None, value=None, id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyEfficiencyData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -2431,21 +2961,24 @@ class SupplyEfficiencyData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, efficiency_type_id, demand_sector_id, supply_node_id, resource_bin,
          year, value, id) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, efficiency_type_id=efficiency_type_id,
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, efficiency_type_id=efficiency_type_id,
                   demand_sector_id=demand_sector_id, supply_node_id=supply_node_id,
                   resource_bin=resource_bin, year=year, value=value, id=id)
-        
+
         return obj
 
 class SupplyEmissions(DataObject):
-    def __init__(self, supply_node_id=None, geography_id=None, other_index_1_id=None, mass_unit=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_node_id=None, geography_id=None, other_index_1_id=None, mass_unit=None,
                  denominator_unit=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None, source=None, notes=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyEmissions._instances_by_id[id] = self
 
         self.supply_node_id = supply_node_id
         self.geography_id = geography_id
@@ -2459,22 +2992,25 @@ class SupplyEmissions(DataObject):
         self.notes = notes
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_node_id, geography_id, other_index_1_id, mass_unit, denominator_unit,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth, source, notes) = tup
-        
-        obj = cls(supply_node_id=supply_node_id, geography_id=geography_id,
+
+        obj = cls(scenario, supply_node_id=supply_node_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, mass_unit=mass_unit,
                   denominator_unit=denominator_unit, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth, source=source, notes=notes)
-        
+
         return obj
 
 class SupplyEmissionsData(DataObject):
-    def __init__(self, supply_node_id=None, gau_id=None, demand_sector_id=None, oth_1_id=None, ghg_type_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_node_id=None, gau_id=None, demand_sector_id=None, oth_1_id=None, ghg_type_id=None,
                  ghg_id=None, year=None, value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyEmissionsData._instances_by_id[id] = self
 
         self.supply_node_id = supply_node_id
         self.gau_id = gau_id
@@ -2488,20 +3024,23 @@ class SupplyEmissionsData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_node_id, gau_id, demand_sector_id, oth_1_id, ghg_type_id, ghg_id, year, value, id,
          sensitivity) = tup
-        
-        obj = cls(supply_node_id=supply_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, supply_node_id=supply_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
                   oth_1_id=oth_1_id, ghg_type_id=ghg_type_id, ghg_id=ghg_id, year=year, value=value, id=id,
                   sensitivity=sensitivity)
-        
+
         return obj
 
 class SupplyExport(DataObject):
-    def __init__(self, supply_node_id=None, geography_id=None, other_index_1_id=None, unit=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_node_id=None, geography_id=None, other_index_1_id=None, unit=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyExport._instances_by_id[id] = self
 
         self.supply_node_id = supply_node_id
         self.geography_id = geography_id
@@ -2512,22 +3051,25 @@ class SupplyExport(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_node_id, geography_id, other_index_1_id, unit, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
-        
-        obj = cls(supply_node_id=supply_node_id, geography_id=geography_id,
+
+        obj = cls(scenario, supply_node_id=supply_node_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, unit=unit,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class SupplyExportData(DataObject):
-    def __init__(self, supply_node_id=None, gau_id=None, oth_1_id=None, resource_bin=None, year=None, value=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_node_id=None, gau_id=None, oth_1_id=None, resource_bin=None, year=None, value=None,
                  id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyExportData._instances_by_id[id] = self
 
         self.supply_node_id = supply_node_id
         self.gau_id = gau_id
@@ -2538,18 +3080,21 @@ class SupplyExportData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_node_id, gau_id, oth_1_id, resource_bin, year, value, id) = tup
-        
-        obj = cls(supply_node_id=supply_node_id, gau_id=gau_id, oth_1_id=oth_1_id,
+
+        obj = cls(scenario, supply_node_id=supply_node_id, gau_id=gau_id, oth_1_id=oth_1_id,
                   resource_bin=resource_bin, year=year, value=value, id=id)
-        
+
         return obj
 
 class SupplyExportMeasures(DataObject):
-    def __init__(self, id=None, supply_node_id=None, name=None, geography_id=None, other_index_1_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, supply_node_id=None, name=None, geography_id=None, other_index_1_id=None,
                  interpolation_method_id=None, extrapolation_method_id=None, unit=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyExportMeasures._instances_by_id[id] = self
 
         self.id = id
         self.supply_node_id = supply_node_id
@@ -2561,19 +3106,22 @@ class SupplyExportMeasures(DataObject):
         self.unit = unit
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, supply_node_id, name, geography_id, other_index_1_id, interpolation_method_id,
          extrapolation_method_id, unit) = tup
-        
-        obj = cls(id=id, supply_node_id=supply_node_id, name=name, geography_id=geography_id,
+
+        obj = cls(scenario, id=id, supply_node_id=supply_node_id, name=name, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id, unit=unit)
-        
+
         return obj
 
 class SupplyExportMeasuresData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, oth_1_id=None, year=None, value=None, id=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, oth_1_id=None, year=None, value=None, id=None):
+        DataObject.__init__(self, scenario)
+        SupplyExportMeasuresData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -2583,21 +3131,24 @@ class SupplyExportMeasuresData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, oth_1_id, year, value, id) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, year=year, value=value, id=id)
-        
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, year=year, value=value, id=id)
+
         return obj
 
 class SupplyNodes(DataObject):
-    def __init__(self, id=None, name=None, supply_type_id=None, tradable_geography_id=None, is_active=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, supply_type_id=None, tradable_geography_id=None, is_active=None,
                  final_energy_link=None, is_curtailable=None, is_exportable=None, is_flexible=None,
                  residual_supply_node_id=None, mean_lifetime=None, lifetime_variance=None,
                  max_lifetime=None, min_lifetime=None, stock_decay_function_id=None, cost_of_capital=None,
                  book_life=None, geography_map_key_id=None, shape_id=None, max_lag_hours=None,
                  max_lead_hours=None, enforce_potential_constraint=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyNodes._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -2623,14 +3174,14 @@ class SupplyNodes(DataObject):
         self.enforce_potential_constraint = enforce_potential_constraint
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, supply_type_id, tradable_geography_id, is_active, final_energy_link,
          is_curtailable, is_exportable, is_flexible, residual_supply_node_id, mean_lifetime,
          lifetime_variance, max_lifetime, min_lifetime, stock_decay_function_id, cost_of_capital,
          book_life, geography_map_key_id, shape_id, max_lag_hours, max_lead_hours,
          enforce_potential_constraint) = tup
-        
-        obj = cls(id=id, name=name, supply_type_id=supply_type_id,
+
+        obj = cls(scenario, id=id, name=name, supply_type_id=supply_type_id,
                   tradable_geography_id=tradable_geography_id, is_active=is_active,
                   final_energy_link=final_energy_link, is_curtailable=is_curtailable,
                   is_exportable=is_exportable, is_flexible=is_flexible,
@@ -2641,15 +3192,19 @@ class SupplyNodes(DataObject):
                   geography_map_key_id=geography_map_key_id, shape_id=shape_id,
                   max_lag_hours=max_lag_hours, max_lead_hours=max_lead_hours,
                   enforce_potential_constraint=enforce_potential_constraint)
-        
+
         return obj
 
 class SupplyPotential(DataObject):
-    def __init__(self, supply_node_id=None, geography_id=None, other_index_1_id=None, unit=None, time_unit=None,
-                 interpolation_method_id=None, extrapolation_growth=None, extrapolation_method_id=None,
-                 geography_map_key_id=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
 
+    def __init__(self, scenario, enforce=False, supply_node_id=None, geography_id=None, other_index_1_id=None, unit=None,
+                 time_unit=None, interpolation_method_id=None, extrapolation_growth=None,
+                 extrapolation_method_id=None, geography_map_key_id=None):
+        DataObject.__init__(self, scenario)
+        SupplyPotential._instances_by_id[id] = self
+
+        self.enforce = enforce
         self.supply_node_id = supply_node_id
         self.geography_id = geography_id
         self.other_index_1_id = other_index_1_id
@@ -2661,24 +3216,27 @@ class SupplyPotential(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_node_id, geography_id, other_index_1_id, unit, time_unit, interpolation_method_id,
          extrapolation_growth, extrapolation_method_id, geography_map_key_id) = tup
-        
-        obj = cls(supply_node_id=supply_node_id, geography_id=geography_id,
+
+        obj = cls(scenario, kwargs.get("enforce", False), supply_node_id=supply_node_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, unit=unit, time_unit=time_unit,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_growth=extrapolation_growth,
                   extrapolation_method_id=extrapolation_method_id,
                   geography_map_key_id=geography_map_key_id)
-        
+
         return obj
 
 class SupplyPotentialConversion(DataObject):
-    def __init__(self, supply_node_id=None, geography_id=None, other_index_1_id=None, energy_unit_numerator=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_node_id=None, geography_id=None, other_index_1_id=None, energy_unit_numerator=None,
                  resource_unit_denominator=None, interpolation_method_id=None,
                  extrapolation_method_id=None, extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyPotentialConversion._instances_by_id[id] = self
 
         self.supply_node_id = supply_node_id
         self.geography_id = geography_id
@@ -2690,24 +3248,27 @@ class SupplyPotentialConversion(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_node_id, geography_id, other_index_1_id, energy_unit_numerator,
          resource_unit_denominator, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth) = tup
-        
-        obj = cls(supply_node_id=supply_node_id, geography_id=geography_id,
+
+        obj = cls(scenario, supply_node_id=supply_node_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, energy_unit_numerator=energy_unit_numerator,
                   resource_unit_denominator=resource_unit_denominator,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class SupplyPotentialConversionData(DataObject):
-    def __init__(self, supply_node_id=None, gau_id=None, oth_1_id=None, resource_bin=None, year=None, value=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_node_id=None, gau_id=None, oth_1_id=None, resource_bin=None, year=None, value=None,
                  id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyPotentialConversionData._instances_by_id[id] = self
 
         self.supply_node_id = supply_node_id
         self.gau_id = gau_id
@@ -2718,18 +3279,21 @@ class SupplyPotentialConversionData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_node_id, gau_id, oth_1_id, resource_bin, year, value, id) = tup
-        
-        obj = cls(supply_node_id=supply_node_id, gau_id=gau_id, oth_1_id=oth_1_id,
+
+        obj = cls(scenario, supply_node_id=supply_node_id, gau_id=gau_id, oth_1_id=oth_1_id,
                   resource_bin=resource_bin, year=year, value=value, id=id)
-        
+
         return obj
 
 class SupplyPotentialData(DataObject):
-    def __init__(self, supply_node_id=None, gau_id=None, demand_sector_id=None, oth_1_id=None, resource_bin=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_node_id=None, gau_id=None, demand_sector_id=None, oth_1_id=None, resource_bin=None,
                  year=None, value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyPotentialData._instances_by_id[id] = self
 
         self.supply_node_id = supply_node_id
         self.gau_id = gau_id
@@ -2742,21 +3306,24 @@ class SupplyPotentialData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_node_id, gau_id, demand_sector_id, oth_1_id, resource_bin, year, value, id,
          sensitivity) = tup
-        
-        obj = cls(supply_node_id=supply_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, supply_node_id=supply_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
                   oth_1_id=oth_1_id, resource_bin=resource_bin, year=year, value=value, id=id,
                   sensitivity=sensitivity)
-        
+
         return obj
 
 class SupplySales(DataObject):
-    def __init__(self, supply_node_id=None, geography_id=None, capacity_or_energy_unit=None, time_unit=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_node_id=None, geography_id=None, capacity_or_energy_unit=None, time_unit=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None,
                  geography_map_key_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplySales._instances_by_id[id] = self
 
         self.supply_node_id = supply_node_id
         self.geography_id = geography_id
@@ -2768,22 +3335,25 @@ class SupplySales(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_node_id, geography_id, capacity_or_energy_unit, time_unit, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, geography_map_key_id) = tup
-        
-        obj = cls(supply_node_id=supply_node_id, geography_id=geography_id,
+
+        obj = cls(scenario, supply_node_id=supply_node_id, geography_id=geography_id,
                   capacity_or_energy_unit=capacity_or_energy_unit, time_unit=time_unit,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth, geography_map_key_id=geography_map_key_id)
-        
+
         return obj
 
 class SupplySalesData(DataObject):
-    def __init__(self, supply_node_id=None, gau_id=None, demand_sector_id=None, supply_technology_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_node_id=None, gau_id=None, demand_sector_id=None, supply_technology_id=None,
                  vintage=None, value=None, id=None, resource_bin=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplySalesData._instances_by_id[id] = self
 
         self.supply_node_id = supply_node_id
         self.gau_id = gau_id
@@ -2795,21 +3365,24 @@ class SupplySalesData(DataObject):
         self.resource_bin = resource_bin
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_node_id, gau_id, demand_sector_id, supply_technology_id, vintage, value, id,
          resource_bin) = tup
-        
-        obj = cls(supply_node_id=supply_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, supply_node_id=supply_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
                   supply_technology_id=supply_technology_id, vintage=vintage, value=value, id=id,
                   resource_bin=resource_bin)
-        
+
         return obj
 
 class SupplySalesMeasures(DataObject):
-    def __init__(self, id=None, name=None, supply_technology_id=None, supply_node_id=None, geography_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, supply_technology_id=None, supply_node_id=None, geography_id=None,
                  other_index_1_id=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None, geography_map_key_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplySalesMeasures._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -2823,23 +3396,26 @@ class SupplySalesMeasures(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, supply_technology_id, supply_node_id, geography_id, other_index_1_id,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth,
          geography_map_key_id) = tup
-        
-        obj = cls(id=id, name=name, supply_technology_id=supply_technology_id,
+
+        obj = cls(scenario, id=id, name=name, supply_technology_id=supply_technology_id,
                   supply_node_id=supply_node_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth, geography_map_key_id=geography_map_key_id)
-        
+
         return obj
 
 class SupplySalesMeasuresData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, oth_1_id=None, demand_sector_id=None, resource_bin=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, oth_1_id=None, demand_sector_id=None, resource_bin=None,
                  vintage=None, value=None, id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplySalesMeasuresData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -2851,18 +3427,21 @@ class SupplySalesMeasuresData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, oth_1_id, demand_sector_id, resource_bin, vintage, value, id) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, demand_sector_id=demand_sector_id,
                   resource_bin=resource_bin, vintage=vintage, value=value, id=id)
-        
+
         return obj
 
 class SupplySalesShare(DataObject):
-    def __init__(self, supply_node_id=None, geography_id=None, interpolation_method_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_node_id=None, geography_id=None, interpolation_method_id=None,
                  extrapolation_method_id=None, extrapolation_growth=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplySalesShare._instances_by_id[id] = self
 
         self.supply_node_id = supply_node_id
         self.geography_id = geography_id
@@ -2871,21 +3450,24 @@ class SupplySalesShare(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_node_id, geography_id, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth) = tup
-        
-        obj = cls(supply_node_id=supply_node_id, geography_id=geography_id,
+
+        obj = cls(scenario, supply_node_id=supply_node_id, geography_id=geography_id,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth)
-        
+
         return obj
 
 class SupplySalesShareData(DataObject):
-    def __init__(self, supply_node_id=None, gau_id=None, demand_sector_id=None, supply_technology_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_node_id=None, gau_id=None, demand_sector_id=None, supply_technology_id=None,
                  vintage=None, value=None, id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplySalesShareData._instances_by_id[id] = self
 
         self.supply_node_id = supply_node_id
         self.gau_id = gau_id
@@ -2896,20 +3478,23 @@ class SupplySalesShareData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_node_id, gau_id, demand_sector_id, supply_technology_id, vintage, value, id) = tup
-        
-        obj = cls(supply_node_id=supply_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, supply_node_id=supply_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
                   supply_technology_id=supply_technology_id, vintage=vintage, value=value, id=id)
-        
+
         return obj
 
 class SupplySalesShareMeasures(DataObject):
-    def __init__(self, id=None, name=None, supply_node_id=None, supply_technology_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, supply_node_id=None, supply_technology_id=None,
                  replaced_supply_technology_id=None, geography_id=None, capacity_or_energy_unit=None,
                  time_unit=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None, other_index_1_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplySalesShareMeasures._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -2925,25 +3510,28 @@ class SupplySalesShareMeasures(DataObject):
         self.other_index_1_id = other_index_1_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, supply_node_id, supply_technology_id, replaced_supply_technology_id,
          geography_id, capacity_or_energy_unit, time_unit, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, other_index_1_id) = tup
-        
-        obj = cls(id=id, name=name, supply_node_id=supply_node_id,
+
+        obj = cls(scenario, id=id, name=name, supply_node_id=supply_node_id,
                   supply_technology_id=supply_technology_id,
                   replaced_supply_technology_id=replaced_supply_technology_id, geography_id=geography_id,
                   capacity_or_energy_unit=capacity_or_energy_unit, time_unit=time_unit,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth, other_index_1_id=other_index_1_id)
-        
+
         return obj
 
 class SupplySalesShareMeasuresData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, demand_sector_id=None, vintage=None, value=None, id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, demand_sector_id=None, vintage=None, value=None, id=None,
                  resource_bin=None, oth_1_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplySalesShareMeasuresData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -2955,19 +3543,22 @@ class SupplySalesShareMeasuresData(DataObject):
         self.oth_1_id = oth_1_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, demand_sector_id, vintage, value, id, resource_bin, oth_1_id) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, demand_sector_id=demand_sector_id, vintage=vintage,
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, demand_sector_id=demand_sector_id, vintage=vintage,
                   value=value, id=id, resource_bin=resource_bin, oth_1_id=oth_1_id)
-        
+
         return obj
 
 class SupplyStock(DataObject):
-    def __init__(self, supply_node_id=None, geography_id=None, capacity_or_energy_unit=None, time_unit=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_node_id=None, geography_id=None, capacity_or_energy_unit=None, time_unit=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None,
                  geography_map_key_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyStock._instances_by_id[id] = self
 
         self.supply_node_id = supply_node_id
         self.geography_id = geography_id
@@ -2979,22 +3570,25 @@ class SupplyStock(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_node_id, geography_id, capacity_or_energy_unit, time_unit, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, geography_map_key_id) = tup
-        
-        obj = cls(supply_node_id=supply_node_id, geography_id=geography_id,
+
+        obj = cls(scenario, supply_node_id=supply_node_id, geography_id=geography_id,
                   capacity_or_energy_unit=capacity_or_energy_unit, time_unit=time_unit,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth, geography_map_key_id=geography_map_key_id)
-        
+
         return obj
 
 class SupplyStockData(DataObject):
-    def __init__(self, supply_node_id=None, gau_id=None, demand_sector_id=None, supply_technology_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_node_id=None, gau_id=None, demand_sector_id=None, supply_technology_id=None,
                  resource_bin=None, year=None, value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyStockData._instances_by_id[id] = self
 
         self.supply_node_id = supply_node_id
         self.gau_id = gau_id
@@ -3007,22 +3601,25 @@ class SupplyStockData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_node_id, gau_id, demand_sector_id, supply_technology_id, resource_bin, year, value,
          id, sensitivity) = tup
-        
-        obj = cls(supply_node_id=supply_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, supply_node_id=supply_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
                   supply_technology_id=supply_technology_id, resource_bin=resource_bin, year=year,
                   value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class SupplyStockMeasures(DataObject):
-    def __init__(self, id=None, name=None, supply_technology_id=None, supply_node_id=None, geography_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, supply_technology_id=None, supply_node_id=None, geography_id=None,
                  other_index_1_id=None, capacity_or_energy_unit=None, time_unit=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None,
                  geography_map_key_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyStockMeasures._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -3038,24 +3635,27 @@ class SupplyStockMeasures(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, supply_technology_id, supply_node_id, geography_id, other_index_1_id,
          capacity_or_energy_unit, time_unit, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth, geography_map_key_id) = tup
-        
-        obj = cls(id=id, name=name, supply_technology_id=supply_technology_id,
+
+        obj = cls(scenario, id=id, name=name, supply_technology_id=supply_technology_id,
                   supply_node_id=supply_node_id, geography_id=geography_id,
                   other_index_1_id=other_index_1_id, capacity_or_energy_unit=capacity_or_energy_unit,
                   time_unit=time_unit, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth, geography_map_key_id=geography_map_key_id)
-        
+
         return obj
 
 class SupplyStockMeasuresData(DataObject):
-    def __init__(self, parent_id=None, gau_id=None, oth_1_id=None, demand_sector_id=None, year=None, value=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, oth_1_id=None, demand_sector_id=None, year=None, value=None,
                  id=None, resource_bin=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyStockMeasuresData._instances_by_id[id] = self
 
         self.parent_id = parent_id
         self.gau_id = gau_id
@@ -3067,20 +3667,23 @@ class SupplyStockMeasuresData(DataObject):
         self.resource_bin = resource_bin
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (parent_id, gau_id, oth_1_id, demand_sector_id, year, value, id, resource_bin) = tup
-        
-        obj = cls(parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, demand_sector_id=demand_sector_id,
                   year=year, value=value, id=id, resource_bin=resource_bin)
-        
+
         return obj
 
 class SupplyTechs(DataObject):
-    def __init__(self, id=None, name=None, supply_node_id=None, source=None, additional_description=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, supply_node_id=None, source=None, additional_description=None,
                  stock_decay_function_id=None, book_life=None, mean_lifetime=None, lifetime_variance=None,
                  min_lifetime=None, max_lifetime=None, discharge_duration=None, cost_of_capital=None,
                  shape_id=None, max_lag_hours=None, max_lead_hours=None, thermal_capacity_multiplier=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyTechs._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -3101,13 +3704,13 @@ class SupplyTechs(DataObject):
         self.thermal_capacity_multiplier = thermal_capacity_multiplier
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (id, name, supply_node_id, source, additional_description, stock_decay_function_id,
          book_life, mean_lifetime, lifetime_variance, min_lifetime, max_lifetime,
          discharge_duration, cost_of_capital, shape_id, max_lag_hours, max_lead_hours,
          thermal_capacity_multiplier) = tup
-        
-        obj = cls(id=id, name=name, supply_node_id=supply_node_id, source=source,
+
+        obj = cls(scenario, id=id, name=name, supply_node_id=supply_node_id, source=source,
                   additional_description=additional_description,
                   stock_decay_function_id=stock_decay_function_id, book_life=book_life,
                   mean_lifetime=mean_lifetime, lifetime_variance=lifetime_variance,
@@ -3115,14 +3718,17 @@ class SupplyTechs(DataObject):
                   discharge_duration=discharge_duration, cost_of_capital=cost_of_capital,
                   shape_id=shape_id, max_lag_hours=max_lag_hours, max_lead_hours=max_lead_hours,
                   thermal_capacity_multiplier=thermal_capacity_multiplier)
-        
+
         return obj
 
 class SupplyTechsCO2Capture(DataObject):
-    def __init__(self, supply_tech_id=None, definition_id=None, geography_id=None, reference_tech_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, definition_id=None, geography_id=None, reference_tech_id=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None,
                  age_growth_or_decay_type_id=None, age_growth_or_decay=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyTechsCO2Capture._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.definition_id = definition_id
@@ -3135,23 +3741,26 @@ class SupplyTechsCO2Capture(DataObject):
         self.age_growth_or_decay = age_growth_or_decay
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, definition_id, geography_id, reference_tech_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, age_growth_or_decay_type_id,
          age_growth_or_decay) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, definition_id=definition_id, geography_id=geography_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, definition_id=definition_id, geography_id=geography_id,
                   reference_tech_id=reference_tech_id, interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth,
                   age_growth_or_decay_type_id=age_growth_or_decay_type_id,
                   age_growth_or_decay=age_growth_or_decay)
-        
+
         return obj
 
 class SupplyTechsCO2CaptureData(DataObject):
-    def __init__(self, supply_tech_id=None, gau_id=None, resource_bin=None, vintage=None, value=None, id=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, gau_id=None, resource_bin=None, vintage=None, value=None, id=None):
+        DataObject.__init__(self, scenario)
+        SupplyTechsCO2CaptureData._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.gau_id = gau_id
@@ -3161,19 +3770,22 @@ class SupplyTechsCO2CaptureData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, gau_id, resource_bin, vintage, value, id) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, gau_id=gau_id, resource_bin=resource_bin, vintage=vintage,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, resource_bin=resource_bin, vintage=vintage,
                   value=value, id=id)
-        
+
         return obj
 
 class SupplyTechsCapacityFactor(DataObject):
-    def __init__(self, supply_tech_id=None, geography_id=None, reference_tech_id=None, definition_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, geography_id=None, reference_tech_id=None, definition_id=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None,
                  age_growth_or_decay_type_id=None, age_growth_or_decay=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyTechsCapacityFactor._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.geography_id = geography_id
@@ -3186,25 +3798,28 @@ class SupplyTechsCapacityFactor(DataObject):
         self.age_growth_or_decay = age_growth_or_decay
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, geography_id, reference_tech_id, definition_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, age_growth_or_decay_type_id,
          age_growth_or_decay) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, geography_id=geography_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, geography_id=geography_id,
                   reference_tech_id=reference_tech_id, definition_id=definition_id,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth,
                   age_growth_or_decay_type_id=age_growth_or_decay_type_id,
                   age_growth_or_decay=age_growth_or_decay)
-        
+
         return obj
 
 class SupplyTechsCapacityFactorData(DataObject):
-    def __init__(self, supply_tech_id=None, gau_id=None, oth_1_id=None, resource_bin=None, vintage=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, gau_id=None, oth_1_id=None, resource_bin=None, vintage=None,
                  value=None, id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyTechsCapacityFactorData._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.gau_id = gau_id
@@ -3215,20 +3830,23 @@ class SupplyTechsCapacityFactorData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, gau_id, oth_1_id, resource_bin, vintage, value, id) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, gau_id=gau_id, oth_1_id=oth_1_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, oth_1_id=oth_1_id,
                   resource_bin=resource_bin, vintage=vintage, value=value, id=id)
-        
+
         return obj
 
 class SupplyTechsCapitalCost(DataObject):
-    def __init__(self, supply_tech_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
                  currency_id=None, currency_year_id=None, capacity_or_energy_unit=None, time_unit=None,
                  is_levelized=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None, source=None, notes=None, geography_map_key_id=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyTechsCapitalCost._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.definition_id = definition_id
@@ -3247,13 +3865,13 @@ class SupplyTechsCapitalCost(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, definition_id, reference_tech_id, geography_id, currency_id,
          currency_year_id, capacity_or_energy_unit, time_unit, is_levelized,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth, source, notes,
          geography_map_key_id) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, definition_id=definition_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, definition_id=definition_id,
                   reference_tech_id=reference_tech_id, geography_id=geography_id, currency_id=currency_id,
                   currency_year_id=currency_year_id, capacity_or_energy_unit=capacity_or_energy_unit,
                   time_unit=time_unit, is_levelized=is_levelized,
@@ -3261,13 +3879,16 @@ class SupplyTechsCapitalCost(DataObject):
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth, source=source, notes=notes,
                   geography_map_key_id=geography_map_key_id)
-        
+
         return obj
 
 class SupplyTechsCapitalCostNewData(DataObject):
-    def __init__(self, supply_tech_id=None, gau_id=None, demand_sector_id=None, resource_bin=None, vintage=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, gau_id=None, demand_sector_id=None, resource_bin=None, vintage=None,
                  value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyTechsCapitalCostNewData._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.gau_id = gau_id
@@ -3279,18 +3900,21 @@ class SupplyTechsCapitalCostNewData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, gau_id, demand_sector_id, resource_bin, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
                   resource_bin=resource_bin, vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class SupplyTechsCapitalCostReplacementData(DataObject):
-    def __init__(self, supply_tech_id=None, gau_id=None, demand_sector_id=None, resource_bin=None, vintage=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, gau_id=None, demand_sector_id=None, resource_bin=None, vintage=None,
                  value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyTechsCapitalCostReplacementData._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.gau_id = gau_id
@@ -3302,20 +3926,23 @@ class SupplyTechsCapitalCostReplacementData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, gau_id, demand_sector_id, resource_bin, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
                   resource_bin=resource_bin, vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class SupplyTechsEfficiency(DataObject):
-    def __init__(self, supply_tech_id=None, geography_id=None, definition_id=None, reference_tech_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, geography_id=None, definition_id=None, reference_tech_id=None,
                  input_unit=None, output_unit=None, interpolation_method_id=None,
                  extrapolation_method_id=None, extrapolation_growth=None,
                  age_growth_or_decay_type_id=None, age_growth_or_decay=None, source=None, notes=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyTechsEfficiency._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.geography_id = geography_id
@@ -3332,26 +3959,29 @@ class SupplyTechsEfficiency(DataObject):
         self.notes = notes
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, geography_id, definition_id, reference_tech_id, input_unit, output_unit,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth,
          age_growth_or_decay_type_id, age_growth_or_decay, source, notes) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, geography_id=geography_id, definition_id=definition_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, geography_id=geography_id, definition_id=definition_id,
                   reference_tech_id=reference_tech_id, input_unit=input_unit, output_unit=output_unit,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth,
                   age_growth_or_decay_type_id=age_growth_or_decay_type_id,
                   age_growth_or_decay=age_growth_or_decay, source=source, notes=notes)
-        
+
         return obj
 
 class SupplyTechsEfficiencyData(DataObject):
-    def __init__(self, supply_tech_id=None, supply_node_id=None, efficiency_type_id=None, gau_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, supply_node_id=None, efficiency_type_id=None, gau_id=None,
                  demand_sector_id=None, resource_bin=None, vintage=None, value=None, id=None,
                  sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyTechsEfficiencyData._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.supply_node_id = supply_node_id
@@ -3365,22 +3995,25 @@ class SupplyTechsEfficiencyData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, supply_node_id, efficiency_type_id, gau_id, demand_sector_id,
          resource_bin, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, supply_node_id=supply_node_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, supply_node_id=supply_node_id,
                   efficiency_type_id=efficiency_type_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
                   resource_bin=resource_bin, vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class SupplyTechsFixedMaintenanceCost(DataObject):
-    def __init__(self, supply_tech_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, definition_id=None, reference_tech_id=None, geography_id=None,
                  currency_id=None, currency_year_id=None, capacity_or_energy_unit=None, time_unit=None,
                  interpolation_method_id=None, extrapolation_method_id=None, extrapolation_growth=None,
                  age_growth_or_decay_type_id=None, age_growth_or_decay=None, source=None, notes=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyTechsFixedMaintenanceCost._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.definition_id = definition_id
@@ -3399,13 +4032,13 @@ class SupplyTechsFixedMaintenanceCost(DataObject):
         self.notes = notes
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, definition_id, reference_tech_id, geography_id, currency_id,
          currency_year_id, capacity_or_energy_unit, time_unit, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, age_growth_or_decay_type_id,
          age_growth_or_decay, source, notes) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, definition_id=definition_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, definition_id=definition_id,
                   reference_tech_id=reference_tech_id, geography_id=geography_id, currency_id=currency_id,
                   currency_year_id=currency_year_id, capacity_or_energy_unit=capacity_or_energy_unit,
                   time_unit=time_unit, interpolation_method_id=interpolation_method_id,
@@ -3413,13 +4046,16 @@ class SupplyTechsFixedMaintenanceCost(DataObject):
                   extrapolation_growth=extrapolation_growth,
                   age_growth_or_decay_type_id=age_growth_or_decay_type_id,
                   age_growth_or_decay=age_growth_or_decay, source=source, notes=notes)
-        
+
         return obj
 
 class SupplyTechsFixedMaintenanceCostData(DataObject):
-    def __init__(self, supply_tech_id=None, gau_id=None, demand_sector_id=None, resource_bin=None, vintage=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, gau_id=None, demand_sector_id=None, resource_bin=None, vintage=None,
                  value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyTechsFixedMaintenanceCostData._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.gau_id = gau_id
@@ -3431,20 +4067,23 @@ class SupplyTechsFixedMaintenanceCostData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, gau_id, demand_sector_id, resource_bin, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
                   resource_bin=resource_bin, vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class SupplyTechsInstallationCost(DataObject):
-    def __init__(self, supply_tech_id=None, definition_id=None, geography_id=None, reference_tech_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, definition_id=None, geography_id=None, reference_tech_id=None,
                  currency_id=None, currency_year_id=None, capacity_or_energy_unit=None, time_unit=None,
                  is_levelized=None, interpolation_method_id=None, extrapolation_method_id=None,
                  extrapolation_growth=None, source=None, notes=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyTechsInstallationCost._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.definition_id = definition_id
@@ -3462,25 +4101,28 @@ class SupplyTechsInstallationCost(DataObject):
         self.notes = notes
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, definition_id, geography_id, reference_tech_id, currency_id,
          currency_year_id, capacity_or_energy_unit, time_unit, is_levelized,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth, source, notes) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, definition_id=definition_id, geography_id=geography_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, definition_id=definition_id, geography_id=geography_id,
                   reference_tech_id=reference_tech_id, currency_id=currency_id,
                   currency_year_id=currency_year_id, capacity_or_energy_unit=capacity_or_energy_unit,
                   time_unit=time_unit, is_levelized=is_levelized,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id,
                   extrapolation_growth=extrapolation_growth, source=source, notes=notes)
-        
+
         return obj
 
 class SupplyTechsInstallationCostNewData(DataObject):
-    def __init__(self, supply_tech_id=None, gau_id=None, demand_sector_id=None, resource_bin=None, vintage=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, gau_id=None, demand_sector_id=None, resource_bin=None, vintage=None,
                  value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyTechsInstallationCostNewData._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.gau_id = gau_id
@@ -3492,18 +4134,21 @@ class SupplyTechsInstallationCostNewData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, gau_id, demand_sector_id, resource_bin, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
                   resource_bin=resource_bin, vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class SupplyTechsInstallationCostReplacementData(DataObject):
-    def __init__(self, supply_tech_id=None, gau_id=None, demand_sector_id=None, resource_bin=None, vintage=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, gau_id=None, demand_sector_id=None, resource_bin=None, vintage=None,
                  value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyTechsInstallationCostReplacementData._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.gau_id = gau_id
@@ -3515,20 +4160,23 @@ class SupplyTechsInstallationCostReplacementData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, gau_id, demand_sector_id, resource_bin, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
                   resource_bin=resource_bin, vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
         return obj
 
 class SupplyTechsVariableMaintenanceCost(DataObject):
-    def __init__(self, supply_tech_id=None, definition_id=None, reference_tech_id=None, currency_id=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, definition_id=None, reference_tech_id=None, currency_id=None,
                  geography_id=None, currency_year_id=None, energy_unit=None, interpolation_method_id=None,
                  extrapolation_method_id=None, extrapolation_growth=None,
                  age_growth_or_decay_type_id=None, age_growth_or_decay=None, source=None, notes=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyTechsVariableMaintenanceCost._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.definition_id = definition_id
@@ -3546,12 +4194,12 @@ class SupplyTechsVariableMaintenanceCost(DataObject):
         self.notes = notes
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, definition_id, reference_tech_id, currency_id, geography_id,
          currency_year_id, energy_unit, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth, age_growth_or_decay_type_id, age_growth_or_decay, source, notes) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, definition_id=definition_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, definition_id=definition_id,
                   reference_tech_id=reference_tech_id, currency_id=currency_id, geography_id=geography_id,
                   currency_year_id=currency_year_id, energy_unit=energy_unit,
                   interpolation_method_id=interpolation_method_id,
@@ -3559,13 +4207,16 @@ class SupplyTechsVariableMaintenanceCost(DataObject):
                   extrapolation_growth=extrapolation_growth,
                   age_growth_or_decay_type_id=age_growth_or_decay_type_id,
                   age_growth_or_decay=age_growth_or_decay, source=source, notes=notes)
-        
+
         return obj
 
 class SupplyTechsVariableMaintenanceCostData(DataObject):
-    def __init__(self, supply_tech_id=None, gau_id=None, demand_sector_id=None, resource_bin=None, vintage=None,
+    _instances_by_id = {}
+
+    def __init__(self, scenario, supply_tech_id=None, gau_id=None, demand_sector_id=None, resource_bin=None, vintage=None,
                  value=None, id=None, sensitivity=None):
-        DataObject.__init__(self)
+        DataObject.__init__(self, scenario)
+        SupplyTechsVariableMaintenanceCostData._instances_by_id[id] = self
 
         self.supply_tech_id = supply_tech_id
         self.gau_id = gau_id
@@ -3577,27 +4228,48 @@ class SupplyTechsVariableMaintenanceCostData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (supply_tech_id, gau_id, demand_sector_id, resource_bin, vintage, value, id, sensitivity) = tup
-        
-        obj = cls(supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
+
+        obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
                   resource_bin=resource_bin, vintage=vintage, value=value, id=id, sensitivity=sensitivity)
-        
+
+        return obj
+
+class SupplyTypes(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        SupplyTypes._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
         return obj
 
 class Version(DataObject):
-    def __init__(self, version_number=None, date=None, author=None):
-        DataObject.__init__(self)
+    _instances_by_id = {}
+
+    def __init__(self, scenario, version_number=None, date=None, author=None):
+        DataObject.__init__(self, scenario)
+        Version._instances_by_id[id] = self
 
         self.version_number = version_number
         self.date = date
         self.author = author
 
     @classmethod
-    def from_tuple(cls, tup):    
+    def from_tuple(cls, scenario, tup, **kwargs):
         (version_number, date, author) = tup
-        
-        obj = cls(version_number=version_number, date=date, author=author)
-        
+
+        obj = cls(scenario, version_number=version_number, date=date, author=author)
+
         return obj
 

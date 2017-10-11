@@ -3,22 +3,55 @@
 # and indexes off the unique id. Could just cache the rows as tuples on first use of
 # the table, and then always perform lookups on the cache.
 #
+from collections import defaultdict
 from .database import get_database
 from .error import SubclassProtocolError
 
 class DataObject(object):
 
-    def __init__(self):
-        pass
+    # dict keyed by class object; value is list of instances of the class
+    instancesByClass = defaultdict(list)
+
+    def __init__(self, scenario):
+        """
+        Append self to a list for our subclass
+        """
+        cls = self.__class__
+        self.instancesByClass[cls].append(self)
+        self.scenario = scenario
+        self.id = None
+        self.children_by_fk_col = {}
+
+    def __str__(self):
+        return "<%s id=%d>" % (self.__class__.__name__, self.id)
 
     @classmethod
-    def from_tuple(cls, id):
+    def instances(cls):
+        """
+        Return instances for any subclass of DataObject.
+        """
+        return DataObject.instancesByClass[cls]
+
+    @classmethod
+    def get_instance(cls, id):
+        cls._instances_by_id.get(id, None)  # uses each class' internal dict
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):
+        """
+        Generated method
+        """
         raise SubclassProtocolError(cls, 'from_tuple')
 
+    # TBD: test this
     @classmethod
-    def from_db(cls, id):
+    def from_series(cls, scenario, series, **kwargs):
+        return cls.from_tuple(scenario, tuple(series), **kwargs)
+
+    @classmethod
+    def from_db(cls, scenario, id, **kwargs):
         tup = cls.get_row(id)
-        return cls.from_tuple(tup)
+        return cls.from_tuple(scenario, tup, **kwargs)
 
     @classmethod
     def get_row(cls, id, raise_error=True):
@@ -36,3 +69,31 @@ class DataObject(object):
         db = get_database()
         tbl_name = cls.__name__
         return db.get_row_from_table(tbl_name, id, raise_error=raise_error)
+
+    @classmethod
+    def from_dataframe(cls, scenario, df, **kwargs):
+        nodes = [cls.from_series(scenario, row, **kwargs) for idx, row in df.iterrows()]
+        return nodes
+
+def instantiate_from_table(tableName, factoryFunc, scenario=''):
+    """
+    Instantiate appropriate subclasses for a data table by reading the entire
+    table and calling factoryFunc on each row as a pandas Series. This
+    function assumes the database has already been instantiated.
+
+    :param tableName: (str) the name of a database table
+    :param factoryFunc: (fn) a function that takes a pandas Series and
+       returns an instance of the appropriate object class.
+    :param scenario: (str) the name of the scenario
+    :return: (list) a list of the objects instantiated
+    """
+    db = get_database()
+    tbl = db.get_table(tableName)
+    tbl.load_all()
+
+    objs = []
+    for idx, row in tbl.data.iterrows():
+        obj = factoryFunc(scenario, row)
+        objs.append(obj)
+
+    return objs

@@ -27,6 +27,10 @@ class UnknownDataClass(PathwaysException):
         msg = 'Unknown data classname "%s"' % classname
         super(UnknownDataClass, self).__init__(msg)
 
+class MissingParentIdColumn(PathwaysException):
+    def __init__(self, table):
+        msg = 'Table "%s" has no known parent ID column' % table
+        super(MissingParentIdColumn, self).__init__(msg)
 
 class SubclassProtocolError(PathwaysException):
     def __init__(self, cls, method):
