@@ -212,19 +212,18 @@ class SubsectorPertubation(object):
 
 if __name__ == "__main__":
     workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\US_DDPP'
-    os.chdir(workingdir)
     config = 'config.INI'
     scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
-    load_demand   = True,
-    solve_demand  = False,
+    load_demand   = False,
+    solve_demand  = True,
     load_supply   = False,
-    solve_supply  = True,
-    export_results= False,
+    solve_supply  = False,
+    export_results= True,
     load_error    = False,
     pickle_shapes = True,
-    save_models   = False,
+    save_models   = True,
     api_run       = False,
-    clear_results = False)
+    clear_results = True)
 
 

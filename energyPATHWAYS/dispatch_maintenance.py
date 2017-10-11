@@ -29,8 +29,10 @@ def scale_load_to_system(load, pmaxs, typical_reserve=1.15):
     sum_cap = sum(pmaxs)
     if (max_load * typical_reserve) > sum_cap:
         assert max_load != 0
-        load *= sum_cap / (max_load * typical_reserve)
-    return load
+        load2 = load * (sum_cap / (max_load * typical_reserve))
+        return load2
+    else:
+        return load
 
 def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispatch_periods=None, load_ptile=99.9, print_opt=False):
     # annual maintenance rates must be between zero and one

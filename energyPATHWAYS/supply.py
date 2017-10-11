@@ -29,6 +29,7 @@ import os
 from datetime import datetime
 import random
 import dispatch_budget
+import dispatch_generators
 
 #def node_update_stock(node):
 #    if hasattr(node, 'stock'):
@@ -60,6 +61,8 @@ class Supply(object):
         self.dispatch = Dispatch(self.dispatch_feeders, cfg.dispatch_geography, cfg.dispatch_geographies)
         self.outputs = Output()
         self.outputs.hourly_dispatch_results = None
+        self.outputs.hourly_marginal_cost = None
+        self.outputs.hourly_production_cost = None
         self.active_thermal_dispatch_df_list = []
         self.map_dict = dict(util.sql_read_table('SupplyNodes', ['final_energy_link', 'id']))
         self.api_run = api_run
@@ -549,8 +552,26 @@ class Supply(object):
                             if load_node.id not in util.flatten_list(self.electricity_nodes.values()):
                                 self.all_electricity_load_nodes[zone].append(load_node.id)
 
+    def append_heuristic_load_and_gen_to_dispatch_outputs(self, df, load_or_gen):
+        if 0 in util.elements_in_index_level(df,'dispatch_feeder'):
+            bulk_df = util.df_slice(df,0,'dispatch_feeder')
+            if load_or_gen=='load':
+                bulk_df = DfOper.mult([bulk_df, self.transmission_losses])
+            bulk_df = self.outputs.clean_df(bulk_df)
+            bulk_df.columns = [cfg.calculation_energy_unit.upper()]
+            util.replace_index_name(bulk_df, 'DISPATCH_OUTPUT', 'SUPPLY_NODE')
+            self.bulk_dispatch = pd.concat([self.bulk_dispatch, bulk_df.reorder_levels(self.bulk_dispatch.index.names)])
+        if len([x for x in  util.elements_in_index_level(df,'dispatch_feeder') if x in self.dispatch_feeders]):
+            distribution_df = util.df_slice(df, [x for x in  util.elements_in_index_level(df,'dispatch_feeder') if x in self.dispatch_feeders], self.dispatch_feeders)
+            distribution_df = self.outputs.clean_df(distribution_df)
+            distribution_df.columns = [cfg.calculation_energy_unit.upper()]
+            distribution_df = DfOper.mult([distribution_df, self.distribution_losses, self.transmission_losses])
+            util.replace_index_name(distribution_df, 'DISPATCH_OUTPUT', 'SUPPLY_NODE')
+            distribution_df = util.remove_df_levels(distribution_df, 'DISPATCH_FEEDER')
+            self.bulk_dispatch = pd.concat([self.bulk_dispatch, distribution_df.reorder_levels(self.bulk_dispatch.index.names)])
 
     def solve_heuristic_load_and_gen(self, year):
+        # MOVE
         """solves dispatch shapes for heuristically dispatched nodes (ex. conventional hydro)"""
         def split_and_apply(array, dispatch_periods, fun):
             energy_by_block = np.array_split(array, np.where(np.diff(dispatch_periods)!=0)[0]+1)
@@ -559,16 +580,15 @@ class Supply(object):
         self.dispatched_bulk_gen = copy.deepcopy(self.bulk_gen)*0
         self.dispatched_dist_load = copy.deepcopy(self.distribution_load)*0
         self.dispatched_dist_gen = copy.deepcopy(self.distribution_gen)*0
-        node_list = []
         for node_id in [x for x in self.dispatch.dispatch_order if x in self.nodes.keys()]:
             node = self.nodes[node_id]
             full_energy_shape, p_min_shape, p_max_shape = node.aggregate_flexible_electricity_shapes(year, util.remove_df_levels(util.df_slice(self.dispatch_feeder_allocation.values,year,'year'),year))
             if node_id in self.flexible_gen.keys():
                 lookup = self.flexible_gen
-                load = False
+                load_or_gen = 'gen'
             elif node_id in self.flexible_load.keys():
                 lookup = self.flexible_load
-                load = True
+                load_or_gen = 'load'
             else:
                 continue        
             logging.info("      solving dispatch for %s" %node.name)
@@ -582,7 +602,7 @@ class Supply(object):
                         dispatch_window = self.dispatch.dispatch_window_dict[self.dispatch.node_config_dict[node_id].dispatch_window_id]
                         dispatch_periods = getattr(shape.shapes.active_dates_index, dispatch_window)
                         num_years = len(dispatch_periods)/8766.
-                        if load:
+                        if load_or_gen=='load':
                             energy = copy.deepcopy(energy) *-1
                         if full_energy_shape is not None and 'dispatch_feeder' in full_energy_shape.index.names:
                             energy_shape = util.df_slice(full_energy_shape, feeder, 'dispatch_feeder')     
@@ -604,7 +624,7 @@ class Supply(object):
                             p_max = split_and_apply(hourly_p_max, dispatch_periods, np.mean)                        
                         if zone == self.transmission_node_id:                    
                             net_indexer = util.level_specific_indexer(self.bulk_net_load,[cfg.dispatch_geography,'timeshift_type'], [geography,2])
-                            if load:                               
+                            if load_or_gen=='load':
                                 self.energy_budgets = energy_budgets
                                 self.p_min = p_min
                                 self.p_max = p_max
@@ -620,7 +640,7 @@ class Supply(object):
                                 self.bulk_gen.loc[indexer,:] += dispatch
                                 self.dispatched_bulk_gen.loc[indexer,:] += dispatch
                         else:
-                            if load:
+                            if load_or_gen=='load':
                                 indexer = util.level_specific_indexer(self.dist_load,[cfg.dispatch_geography,'dispatch_feeder'], [geography,feeder])
                                 dispatch =  np.transpose([dispatch_budget.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
                                 for timeshift_type in list(set(self.distribution_load.index.get_level_values('timeshift_type'))):
@@ -636,33 +656,19 @@ class Supply(object):
                                 self.dispatched_dist_gen.loc[indexer,:] += dispatch
                         index = pd.MultiIndex.from_product([shape.shapes.active_dates_index,[feeder]],names=['weather_datetime','dispatch_feeder'])
                         dispatch=pd.DataFrame(dispatch,index=index,columns=['value'])
-                        if load is False:
+                        if load_or_gen=='gen':
                             dispatch *=-1
                         feeder_list.append(dispatch)
                     self.update_net_load_signal()
                     geography_list.append(pd.concat(feeder_list))
-            node_list.append(pd.concat(geography_list, keys=lookup[node_id].keys(), names=[cfg.dispatch_geography]))
-            df = pd.concat(node_list,keys=[x for x in self.dispatch.dispatch_order if x in self.nodes.keys()],names=['supply_node'])
-        df = pd.concat([df],keys=[year],names=['year'])
-        if year in self.dispatch_write_years:
-            if 0 in util.elements_in_index_level(df,'dispatch_feeder'):
-                bulk_df = util.df_slice(df,0,'dispatch_feeder')
-                if load:
-                    bulk_df = DfOper.mult([bulk_df, self.transmission_losses])
-                bulk_df = self.outputs.clean_df(bulk_df)
-                bulk_df.columns = [cfg.calculation_energy_unit.upper()]
-                util.replace_index_name(bulk_df, 'DISPATCH_OUTPUT', 'SUPPLY_NODE')
-                self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,bulk_df])
-            if len([x for x in  util.elements_in_index_level(df,'dispatch_feeder') if x in self.dispatch_feeders]):
-                distribution_df = util.df_slice(df,[x for x in  util.elements_in_index_level(df,'dispatch_feeder') if x in self.dispatch_feeders],self.dispatch_feeders)
-                df = util.DfOper.mult([distribution_df,self.distribution_losses])
-                distribution_df = self.outputs.clean_df(distribution_df)
-                distribution_df.columns = [cfg.calculation_energy_unit.upper()]
-                distribution_df = DfOper.mult([distribution_df, self.distribution_losses,self.transmission_losses])
-                util.replace_index_name(distribution_df, 'DISPATCH_OUTPUT', 'SUPPLY_NODE')
-                self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch_df,util.remove_df_levels(distribution_df,'DISPATCH_FEEDER')])
+            df = pd.concat(geography_list, keys=lookup[node_id].keys(), names=[cfg.dispatch_geography])
+            df = pd.concat([df], keys=[node_id], names=['supply_node'])
+            df = pd.concat([df], keys=[year], names=['year'])
+            if year in self.dispatch_write_years:
+                self.append_heuristic_load_and_gen_to_dispatch_outputs(df, load_or_gen)
 
     def prepare_optimization_inputs(self,year):
+        # MOVE
         logging.info("      preparing optimization inputs")
         self.dispatch.set_timeperiods()
         self.dispatch.set_losses(self.distribution_losses)
@@ -702,6 +708,7 @@ class Supply(object):
             transmission_grid_node.update_stock(year,3)
 
     def solve_storage_and_flex_load_optimization(self,year):
+        # MOVE
         """prepares, solves, and updates the net load with results from the storage and flexible load optimization""" 
         self.prepare_optimization_inputs(year)
         logging.info("      solving dispatch for storage and dispatchable load")
@@ -724,6 +731,7 @@ class Supply(object):
         self.produce_flex_load_outputs(year)
 
     def produce_distributed_storage_outputs(self, year):
+        # MOVE
         if year in self.dispatch_write_years:
             dist_storage_df = util.df_slice(self.dispatch.storage_df, self.dispatch_feeders, 'dispatch_feeder')
             distribution_df = util.remove_df_levels(util.DfOper.mult([dist_storage_df, self.distribution_losses,self.transmission_losses]), 'dispatch_feeder')
@@ -731,13 +739,16 @@ class Supply(object):
             charge_df = util.df_slice(distribution_df,'charge','charge_discharge')
             charge_df = self.outputs.clean_df(charge_df)
             charge_df = pd.concat([charge_df],keys=['DISTRIBUTED STORAGE CHARGE'],names=['DISPATCH_OUTPUT'])
-            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, charge_df])
+            self.bulk_dispatch = pd.concat([self.bulk_dispatch, charge_df.reorder_levels(self.bulk_dispatch.index.names)])
+            # self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, charge_df])
             discharge_df = util.df_slice(distribution_df,'discharge','charge_discharge')*-1
             discharge_df = self.outputs.clean_df(discharge_df)
             discharge_df = pd.concat([discharge_df],keys=['DISTRIBUTED STORAGE DISCHARGE'],names=['DISPATCH_OUTPUT'])
-            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, discharge_df])
+            self.bulk_dispatch = pd.concat([self.bulk_dispatch, discharge_df.reorder_levels(self.bulk_dispatch.index.names)])
+            # self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, discharge_df])
 
     def produce_bulk_storage_outputs(self, year):
+        # MOVE
         if year in self.dispatch_write_years:
             bulk_df = self.dispatch.storage_df.xs(0, level='dispatch_feeder')
             bulk_df = util.add_and_set_index(bulk_df, 'year', year)
@@ -745,13 +756,16 @@ class Supply(object):
             charge_df = util.df_slice(bulk_df,'charge','charge_discharge')
             charge_df = self.outputs.clean_df(charge_df)
             charge_df = pd.concat([charge_df],keys=['BULK STORAGE CHARGE'],names=['DISPATCH_OUTPUT'])
-            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, charge_df])
+            self.bulk_dispatch = pd.concat([self.bulk_dispatch, charge_df.reorder_levels(self.bulk_dispatch.index.names)])
+            # self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, charge_df])
             discharge_df = util.df_slice(bulk_df,'discharge','charge_discharge')*-1
             discharge_df = self.outputs.clean_df(discharge_df)
             discharge_df = pd.concat([discharge_df], keys=['BULK STORAGE DISCHARGE'], names=['DISPATCH_OUTPUT'])
-            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, discharge_df])
+            self.bulk_dispatch = pd.concat([self.bulk_dispatch, discharge_df.reorder_levels(self.bulk_dispatch.index.names)])
+            # self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, discharge_df])
 
     def produce_flex_load_outputs(self,year):
+        # MOVE
         if year in self.dispatch_write_years:
             flex_load_df = util.DfOper.mult([util.df_slice(self.dispatch.flex_load_df, self.dispatch_feeders, 'dispatch_feeder'), self.distribution_losses])
             flex_load_df.columns = [cfg.calculation_energy_unit.upper()]
@@ -760,7 +774,8 @@ class Supply(object):
             label_replace_dict = dict(zip(util.elements_in_index_level(flex_load_df,'DISPATCH_FEEDER'),[x+' FLEXIBLE LOAD' for x in util.elements_in_index_level(flex_load_df,'DISPATCH_FEEDER')]))
             util.replace_index_label(flex_load_df,label_replace_dict,'DISPATCH_FEEDER')
             util.replace_index_name(flex_load_df,'DISPATCH_OUTPUT','DISPATCH_FEEDER')
-            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, flex_load_df])
+            self.bulk_dispatch = pd.concat([self.bulk_dispatch, flex_load_df.reorder_levels(self.bulk_dispatch.index.names)])
+            # self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, flex_load_df])
 
     def set_distribution_losses(self,year):
         distribution_grid_node =self.nodes[self.distribution_grid_node_id] 
@@ -787,6 +802,7 @@ class Supply(object):
         self.transmission_losses = util.remove_df_levels(self.transmission_losses,'demand_sector',agg_function='mean')
 
     def set_net_load_thresholds(self, year):
+        # MOVE?
         distribution_grid_node = self.nodes[self.distribution_grid_node_id]
         dist_stock = distribution_grid_node.stock.values.groupby(level=[cfg.primary_geography,'demand_sector']).sum().loc[:,year].to_frame()
         dist_stock = util.remove_df_levels(DfOper.mult([dist_stock, util.df_slice(self.dispatch_feeder_allocation.values,year,'year')]),'demand_sector')
@@ -927,6 +943,7 @@ class Supply(object):
         return energy
 
     def prepare_non_flexible_load(self, year):
+        # MOVE
         """Calculates the demand from non-flexible load on the supply-side
         Args:
             year (int) = year of analysis 
@@ -947,6 +964,7 @@ class Supply(object):
         self.non_flexible_load = pd.concat(self.non_flexible_load).sort()
 
     def prepare_non_flexible_gen(self,year):
+        # MOVE
         """Calculates the supply from non-flexible generation on the supply-side
         Args:
             year (int) = year of analysis 
@@ -966,6 +984,7 @@ class Supply(object):
         self.non_flexible_gen = pd.concat(self.non_flexible_gen).sort()
 
     def prepare_dispatch_inputs(self, year, loop):
+        # MOVE
         """Calculates supply node parameters needed to run electricity dispatch
         Args:
             year (int) = year of analysis 
@@ -989,6 +1008,7 @@ class Supply(object):
         self.set_initial_net_load_signals(year)
         
     def solve_electricity_dispatch(self, year):
+        # MOVE
         """solves heuristic dispatch, optimization dispatch, and thermal dispatch
         Args: 
             year (int) = year of analysis 
@@ -1009,6 +1029,7 @@ class Supply(object):
         self.calculate_curtailment(year)
                 
     def solve_hourly_curtailment(self):
+        # MOVE
         curtailment =  -util.remove_df_levels(self.bulk_dispatch,'DISPATCH_OUTPUT')
         curtailment['DISPATCH_OUTPUT'] = 'CURTAILMENT'
         curtailment = curtailment.set_index('DISPATCH_OUTPUT',append=True) 
@@ -1018,6 +1039,7 @@ class Supply(object):
         
         
     def prepare_thermal_dispatch_nodes(self,year,loop):
+        # MOVE
         """Calculates the operating cost of all thermal dispatch resources 
         Args:
             year (int) = year of analysis 
@@ -1041,7 +1063,9 @@ class Supply(object):
         dispatch_resource_list = []
         for node_id in self.thermal_dispatch_nodes:
             stock_values = self.nodes[node_id].stock.values.loc[:,year].to_frame()
+            cap_factor_values = self.nodes[node_id].stock.capacity_factor.loc[:,year].to_frame()
             stock_values = stock_values[((stock_values.index.get_level_values('vintage')==year) == True) | ((stock_values[year]>0) == True)]
+            stock_values = stock_values[((cap_factor_values[year]>0) == True)]
             resources = [str(x[0]) for x in stock_values.groupby(level = stock_values.index.names).groups.values()] 
             inputs_and_outputs = ['capacity','cost','maintenance_outage_rate','forced_outage_rate','capacity_weights','must_run','gen_cf','generation','stock_changes','thermal_capacity_multiplier']
             node_list = [node_id]
@@ -1151,6 +1175,7 @@ class Supply(object):
             node.active_weighted_sales = node.active_weighted_sales.fillna(1/float(len(node.tech_ids)))
 
     def solve_thermal_dispatch(self, year):
+        # MOVE
         """solves the thermal dispatch, updating the capacity factor for each thermal dispatch technology
         and adding capacity to each node based on determination of need"""
         logging.info('      solving thermal dispatch')
@@ -1163,26 +1188,44 @@ class Supply(object):
                                    [float(cfg.cfgfile.get('opt', 'operating_reserves'))]*len(cfg.dispatch_geographies)))
 
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-            dispatch_results = helper_multiprocess.safe_pool(dispatch_classes.run_thermal_dispatch, parallel_params)
+            dispatch_results = helper_multiprocess.safe_pool(dispatch_generators.run_thermal_dispatch, parallel_params)
         else:
             dispatch_results = []
             for params in parallel_params:
-                dispatch_results.append(dispatch_classes.run_thermal_dispatch(params))
+                dispatch_results.append(dispatch_generators.run_thermal_dispatch(params))
+
+        thermal_dispatch_df, detailed_results = zip(*dispatch_results) #both of these are lists by geography
+        thermal_dispatch_df = pd.concat(thermal_dispatch_df).sort()
+        self.active_thermal_dispatch_df = thermal_dispatch_df
+
         if year in self.dispatch_write_years:
-            # this is the generator dispatch by category [x[2] for x in dispatch_results]
-            thermal_shape_list = [x[2] for x in dispatch_results]
-            for x in thermal_shape_list:
-                x.index = shape.shapes.active_dates_index
-            thermal_shape =pd.concat(thermal_shape_list,axis=0,keys=cfg.dispatch_geographies)
+
+            for x in detailed_results:
+                x['dispatch_by_category'].index = shape.shapes.active_dates_index
+
+            thermal_shape = pd.concat([x['dispatch_by_category'] for x in detailed_results],axis=0,keys=cfg.dispatch_geographies)
             thermal_shape = thermal_shape.stack().to_frame()
-            thermal_shape.index.names = [cfg.dispatch_geography, 'weather_datetime','supply_technology']
+            thermal_shape = pd.concat([thermal_shape], keys=[year], names=['year'])
+            thermal_shape.index.names = ['year', cfg.dispatch_geography, 'weather_datetime','supply_technology']
             thermal_shape.columns = [cfg.calculation_energy_unit.upper()]
             thermal_shape_dataframe = self.outputs.clean_df(thermal_shape)
             util.replace_index_name(thermal_shape_dataframe,'DISPATCH_OUTPUT','SUPPLY_TECHNOLOGY')
-            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch,-thermal_shape_dataframe])
-        dispatch_results = pd.concat([x[0] for x in dispatch_results])
-        dispatch_results.sort(inplace=True)
-        self.active_thermal_dispatch_df = dispatch_results
+            self.bulk_dispatch = pd.concat([self.bulk_dispatch, -thermal_shape_dataframe.reorder_levels(self.bulk_dispatch.index.names)])
+
+            bulk_marginal_cost = pd.concat([pd.DataFrame(outputs['market_price'], index=shape.shapes.active_dates_index) for outputs in detailed_results],axis=0,keys=cfg.dispatch_geographies)
+            bulk_production_cost = pd.concat([pd.DataFrame(outputs['production_cost'], index=shape.shapes.active_dates_index) for outputs in detailed_results],axis=0,keys=cfg.dispatch_geographies)
+            bulk_marginal_cost = pd.concat([bulk_marginal_cost], keys=[year], names=['year'])
+            bulk_production_cost = pd.concat([bulk_production_cost], keys=[year], names=['year'])
+            bulk_marginal_cost.index.names = ['year', cfg.dispatch_geography, 'weather_datetime']
+            bulk_production_cost.index.names = ['year', cfg.dispatch_geography, 'weather_datetime']
+            # we really don't want this ever to be anything but $/MWh
+            bulk_marginal_cost *= util.unit_convert(1, unit_from_den=cfg.calculation_energy_unit,unit_to_den='megawatt_hour')
+            bulk_marginal_cost.columns = ["{} / {}".format(cfg.output_currency.upper(), 'MWh')]
+            bulk_production_cost.columns = [cfg.output_currency.upper()]
+            bulk_marginal_cost = self.outputs.clean_df(bulk_marginal_cost)
+            bulk_production_cost = self.outputs.clean_df(bulk_production_cost)
+            self.outputs.hourly_marginal_cost = pd.concat([self.outputs.hourly_marginal_cost, bulk_marginal_cost])
+            self.outputs.hourly_production_cost = pd.concat([self.outputs.hourly_production_cost, bulk_production_cost])
 
 
         for node_id in self.thermal_dispatch_nodes:
@@ -1237,11 +1280,13 @@ class Supply(object):
             self.outputs.s_curtailment.columns = [cfg.calculation_energy_unit.upper()]
    
     def update_coefficients_from_dispatch(self,year):
+        # MOVE
         self.update_thermal_coefficients(year)
         self.store_active_thermal_df(year)
 #        self.update_bulk_coefficients()
 
     def update_thermal_coefficients(self,year):
+        # MOVE
         if cfg.primary_geography != cfg.dispatch_geography:
             map_df = cfg.geo.map_df(cfg.primary_geography,cfg.dispatch_geography,normalize_as='total',eliminate_zeros=False)
             thermal_demand  = util.DfOper.mult([self.nodes[self.thermal_dispatch_node_id].active_supply,map_df])
@@ -1547,7 +1592,8 @@ class Supply(object):
             df_output.columns = [cfg.calculation_energy_unit.upper()]
             if generation:
                 df_output*=-1
-            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, df_output])
+            self.bulk_dispatch = pd.concat([self.bulk_dispatch, df_output.reorder_levels(self.bulk_dispatch.index.names)])
+            # self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, df_output])
             df = util.remove_df_levels(df, 'supply_node') # only necessary when we origionally kept supply node as a level
         return df
 
@@ -1566,7 +1612,8 @@ class Supply(object):
             util.replace_index_name(df_output,'DISPATCH_OUTPUT','SUPPLY_NODE')
             df_output.columns = [cfg.calculation_energy_unit.upper()]
             df_output = util.reorder_b_to_match_a(df_output, self.bulk_dispatch)
-            self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, df_output])
+            self.bulk_dispatch = pd.concat([self.bulk_dispatch, df_output.reorder_levels(self.bulk_dispatch.index.names)])
+            # self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, df_output])
             df = util.remove_df_levels(df, 'supply_node') # only necessary when we origionally kept supply node as a level
         return df
 
@@ -3127,7 +3174,7 @@ class Export(Abstract):
         else:
             #remap exports to active supply, which has information about sectoral throughput
             self.active_values =  self.values.loc[:,year].to_frame()
-            self.remap(map_from='active_values', map_to='active_values', drivers=active_supply, fill_timeseries=False, current_geography=cfg.primary_geography)
+            self.remap(map_from='active_values', map_to='active_values', drivers=active_supply, fill_timeseries=False, current_geography=cfg.primary_geography, driver_geography=cfg.primary_geography)
         self.active_values.replace(np.nan,0,inplace=True)
         self.active_values = self.active_values.reorder_levels([cfg.primary_geography, 'demand_sector'])
 
@@ -4198,9 +4245,11 @@ class SupplyStockNode(Node):
             levels = self.stock.rollover_group_levels + [self.years]
             names = self.stock.rollover_group_names + ['year'] 
             index = pd.MultiIndex.from_product(levels,names=names)
+            structure_df = pd.DataFrame(1,index=index,columns=['value'])
             self.stock.remap(map_from='raw_values', map_to='total', time_index = self.years,fill_timeseries=True, fill_value=np.nan)
             #TODO add to clean timeseries. Don't allow filling of timseries before raw values.
             self.stock.total[self.stock.total.index.get_level_values('year')<min(self.stock.raw_values.index.get_level_values('year'))] = np.nan
+            self.stock.total = DfOper.mult([self.stock.total,structure_df],fill_value=np.nan)
             self.convert_stock('stock', 'total')
             if hasattr(self.case_stock,'total'):
                 mismatched_levels = [x for x in self.case_stock.total.index.names if x not in names] 
