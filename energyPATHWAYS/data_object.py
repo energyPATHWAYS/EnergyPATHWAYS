@@ -75,25 +75,26 @@ class DataObject(object):
         nodes = [cls.from_series(scenario, row, **kwargs) for idx, row in df.iterrows()]
         return nodes
 
-def instantiate_from_table(tableName, factoryFunc, scenario=''):
-    """
-    Instantiate appropriate subclasses for a data table by reading the entire
-    table and calling factoryFunc on each row as a pandas Series. This
-    function assumes the database has already been instantiated.
-
-    :param tableName: (str) the name of a database table
-    :param factoryFunc: (fn) a function that takes a pandas Series and
-       returns an instance of the appropriate object class.
-    :param scenario: (str) the name of the scenario
-    :return: (list) a list of the objects instantiated
-    """
-    db = get_database()
-    tbl = db.get_table(tableName)
-    tbl.load_all()
-
-    objs = []
-    for idx, row in tbl.data.iterrows():
-        obj = factoryFunc(scenario, row)
-        objs.append(obj)
-
-    return objs
+# Deprecated
+# def instantiate_from_table(tableName, factoryFunc, scenario=''):
+#     """
+#     Instantiate appropriate subclasses for a data table by reading the entire
+#     table and calling factoryFunc on each row as a pandas Series. This
+#     function assumes the database has already been instantiated.
+#
+#     :param tableName: (str) the name of a database table
+#     :param factoryFunc: (fn) a function that takes a pandas Series and
+#        returns an instance of the appropriate object class.
+#     :param scenario: (str) the name of the scenario
+#     :return: (list) a list of the objects instantiated
+#     """
+#     db = get_database()
+#     tbl = db.get_table(tableName)
+#     tbl.load_all()
+#
+#     objs = []
+#     for idx, row in tbl.data.iterrows():
+#         obj = factoryFunc(scenario, row)
+#         objs.append(obj)
+#
+#     return objs

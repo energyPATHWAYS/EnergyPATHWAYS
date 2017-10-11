@@ -90,3 +90,5 @@ scenario_builder_config.txt
 
 # profiler
 /model runs/*.profile
+schema.py
+foreign_keys.csv

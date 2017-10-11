@@ -2,10 +2,9 @@ from __future__ import print_function
 import pandas as pd
 import sys
 
-from energyPATHWAYS.database import SqlDatabase, CsvDatabase, forget_database
-from energyPATHWAYS.data_object import instantiateFromTable
+from energyPATHWAYS.database import PostgresDatabase, CsvDatabase, forget_database
 
-from schema import BlendNodeBlendMeasures, BlendNodeBlendMeasuresData, class_for_table
+from energyPATHWAYS.schema import BlendNodeBlendMeasures, BlendNodeBlendMeasuresData, class_for_table
 
 pd.set_option('display.width', 200)
 
@@ -33,15 +32,10 @@ def test_with_db(db):
     obj = cls.from_db(scenario, 1)
     print(obj)
 
-db = SqlDatabase.get_database(dbname='170817_US', user='rjp', cache_data=True)
+db = PostgresDatabase.get_database(dbname='170817_US', user='rjp', cache_data=True)
 test_with_db(db)
 
 forget_database()
 
 db = CsvDatabase.get_database(pathname='/Users/rjp/Projects/EvolvedEnergy/us_pathways.db')
 test_with_db(db)
-
-
-from energyPATHWAYS.supply import supply_factory
-
-objs = instantiateFromTable('SupplyNodes', supply_factory)
