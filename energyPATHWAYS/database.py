@@ -6,6 +6,7 @@
 #
 from __future__ import print_function
 from collections import defaultdict
+import gzip
 import os
 import pandas as pd
 import psycopg2
@@ -13,10 +14,11 @@ import re
 
 pd.set_option('display.width', 200)
 
-LimitRowsForDebugging = True
+# Set to zero to read unlimited rows
+RowLimitForDebugging = 2000
 
-if LimitRowsForDebugging:
-    print("*** Limiting rows for debugging! ***")
+if RowLimitForDebugging:
+    print("\n*** Limiting to %d rows for debugging! ***\n" % RowLimitForDebugging)
 
 from .error import PathwaysException, RowNotFound, DuplicateRowsFound, SubclassProtocolError
 
@@ -62,7 +64,6 @@ _Tables_to_ignore = [
     'InflationConversion',
     'Month',
     'OptPeriods',
-    'ShapesData',   # TBD: skip this for testing; decide if special case is required since > 2.8M rows
     'ShapesUnits',
     'StockDecayFunctions',
     'StockRolloverMethods',
@@ -174,8 +175,8 @@ class PostgresTable(AbstractTable):
         self.columns = self.db.fetchcolumn(query)
 
         query = 'select * from "%s"' % tbl_name
-        if LimitRowsForDebugging:
-            query += ' limit 500'
+        if RowLimitForDebugging:
+            query += ' limit %d' % RowLimitForDebugging
 
         rows = self.db.fetchall(query)
         self.data = pd.DataFrame.from_records(data=rows, columns=self.columns, index=None)
@@ -201,7 +202,16 @@ class CsvTable(AbstractTable):
 
         tbl_name = self.name
         filename = self.db.file_for_table(tbl_name)
-        self.data = pd.read_csv(filename)
+
+        index_col = None    # or should it be 'id'?
+
+        if filename.endswith('.gz'):
+            with gzip.open(filename, 'rb') as f:
+                df = pd.read_csv(f, index_col=index_col)
+        else:
+            df = pd.read_csv(filename, index_col=index_col)
+
+        self.data = df
         # self.data.fillna(value=None, inplace=True)        # TBD: can't fill with None; check preferred handling
         rows, cols = self.data.shape
         print("Cached %d rows, %d cols for table '%s' from %s" % (rows, cols, tbl_name, filename))
@@ -424,9 +434,10 @@ class CsvDatabase(AbstractDatabase):
             raise PathwaysException('Database path "%s" is not a directory')
 
         for root, dir, files in os.walk(pathname):
-            csv_files = filter(lambda fn: fn.endswith('.csv'), files)
+            csv_files = filter(lambda fn: fn.endswith('.csv') or fn.endswith('csv.gz'), files)
             for csv in csv_files:
-                tbl_name = os.path.splitext(os.path.basename(csv))[0]
+                basename = os.path.basename(csv)
+                tbl_name = basename.split('.')[0]
                 path = os.path.join(root, csv)
                 self.file_map[tbl_name] = path
 

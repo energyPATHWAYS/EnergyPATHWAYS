@@ -7,7 +7,10 @@ from collections import defaultdict
 from .database import get_database
 from .error import SubclassProtocolError
 
+BASE_CLASS = 'DataObject'
+
 class DataObject(object):
+    __slots__ = ['id', 'scenario', 'children_by_fk_col']
 
     # dict keyed by class object; value is list of instances of the class
     instancesByClass = defaultdict(list)

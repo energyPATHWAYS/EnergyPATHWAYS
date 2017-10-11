@@ -39,6 +39,8 @@ def load_data_objects(scenario, load_children=True):
             # could load children at this point, assuming all tables are cached when first encountered
 
     if load_children:
+        missing = {}
+
         # After loading all "direct" data, link child records via foreign keys
         for parent_tbl in table_objs:
             parent_tbl_name = parent_tbl.name
@@ -56,12 +58,15 @@ def load_data_objects(scenario, load_children=True):
                     child_cls = child_tbl.data_class
 
                     if not child_cls:
-                        print("** Skipping missing child class '%s'" % child_tbl_name)
+                        missing[child_tbl_name] = 1
                         continue
 
                     # create and save a list of all matching data class instances with matching ids
                     children = [obj for obj in child_cls.instances() if getattr(obj, child_col_name) == getattr(parent_obj, parent_col)]
                     parent_tbl.children_by_fk_col[parent_col] = children
+
+        if missing.keys():
+            print("** Skipped missing child classes:\n  %s" % '\n  '.join(missing.keys()))
 
     print("Done loading data objects")
 

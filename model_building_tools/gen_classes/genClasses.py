@@ -3,35 +3,8 @@ from __future__ import print_function
 import click
 import sys
 
-from energyPATHWAYS.database import PostgresDatabase, get_database
-
-BASE_CLASS = 'DataObject'
-BASE_CLASS_SLOTS = []       # add base class ivar names here if using __slots__
-
-# Parent_id_colnames = (
-#     'parent_id', 'supply_tech_id', 'supply_node_id', 'demand_technology_id',
-#     'intersection_id', 'import_node_id', 'other_index_id', 'primary_node_id'
-# )
-#
-# def parent_id_colname(tbl):
-#     """
-#     Determine the name of the column identifying the parent record for `tbl`.
-#     """
-#
-#     # From Michael's code
-#     # if data_table == 'DemandSalesData':
-#     #     return 'demand_technology_id'
-#     # if data_table == 'SupplyTechsEfficiencyData':
-#     #     return 'supply_tech_id'
-#     # if data_table in ('SupplySalesData', 'SupplySalesShareData'):
-#     #     return 'supply_technology_id'
-#
-#     cols = tbl.data.columns
-#     for col in Parent_id_colnames:
-#         if col in cols:
-#             return col
-#
-#     return None
+from energyPATHWAYS.database import PostgresDatabase
+from energyPATHWAYS.data_object import DataObject
 
 #
 # This dict provides extra args to include in init method of the classes that are
@@ -42,6 +15,8 @@ BASE_CLASS_SLOTS = []       # add base class ivar names here if using __slots__
 ExtraInitArgs = {
     'SupplyPotential' : [('enforce', 'False')],
 }
+
+AlwaysUseSlots = ('ShapesData')
 
 def observeLinewidth(args, linewidth, indent=16):
     processed = ''
@@ -75,12 +50,15 @@ class ClassGenerator(object):
 
         self.generated.append(table)
 
-        stream.write('class %s(%s):\n' % (table, BASE_CLASS))
+        # Using DataObject.__name__ rather than "DataObject" so references
+        # to uses of the class will be recognized properly.
+        base_class = DataObject.__name__
+
+        stream.write('class %s(%s):\n' % (table, base_class))
         stream.write('    _instances_by_id = {}\n\n')
 
-        if self.genSlots:
-            allNames = BASE_CLASS_SLOTS + cols
-            slots = ["'%s'" % name for name in allNames]
+        if self.genSlots or table in AlwaysUseSlots:
+            slots = ["'%s'" % col for col in cols]
             slots = observeLinewidth(slots, self.linewidth)
             stream.write('    __slots__ = [%s]\n\n' % slots)
 
@@ -91,7 +69,7 @@ class ClassGenerator(object):
         params = observeLinewidth(params, self.linewidth)
 
         stream.write('    def __init__(self, scenario, %s):\n' % params)
-        stream.write('        %s.__init__(self, scenario)\n' % BASE_CLASS)
+        stream.write('        %s.__init__(self, scenario)\n' % base_class)
         stream.write('        %s._instances_by_id[id] = self\n\n' % table)
         extra2 = [tup[0] for tup in extraArgs]
         for col in extra2 + cols:

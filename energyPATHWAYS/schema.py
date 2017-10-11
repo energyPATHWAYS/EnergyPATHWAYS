@@ -39,12 +39,13 @@ def load_data_objects(scenario, load_children=True):
             # could load children at this point, assuming all tables are cached when first encountered
 
     if load_children:
+        missing = {}
+
         # After loading all "direct" data, link child records via foreign keys
         for parent_tbl in table_objs:
             parent_tbl_name = parent_tbl.name
             parent_cls = parent_tbl.data_class
 
-            print("Linking child data for %s" % parent_tbl_name)
             for parent_obj in parent_cls.instances():
                 fkeys = fk_by_parent[parent_tbl_name]
 
@@ -57,12 +58,15 @@ def load_data_objects(scenario, load_children=True):
                     child_cls = child_tbl.data_class
 
                     if not child_cls:
-                        print("** Skipping missing child class '%s'" % child_tbl_name)
+                        missing[child_tbl_name] = 1
                         continue
 
                     # create and save a list of all matching data class instances with matching ids
                     children = [obj for obj in child_cls.instances() if getattr(obj, child_col_name) == getattr(parent_obj, parent_col)]
                     parent_tbl.children_by_fk_col[parent_col] = children
+
+        if missing.keys():
+            print("** Skipped missing child classes:\n  %s" % '\n  '.join(missing.keys()))
 
     print("Done loading data objects")
 
@@ -79,7 +83,7 @@ class AgeGrowthOrDecayType(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
@@ -106,7 +110,7 @@ class BlendNodeBlendMeasures(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, blend_node_id, supply_node_id, geography_id, other_index_1_id,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth) = tup
 
@@ -133,7 +137,7 @@ class BlendNodeBlendMeasuresData(DataObject):
         self.demand_sector_id = demand_sector_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, year, value, id, demand_sector_id) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, year=year, value=value, id=id,
@@ -153,7 +157,7 @@ class BlendNodeInputsData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (blend_node_id, supply_node_id, id) = tup
 
         obj = cls(scenario, blend_node_id=blend_node_id, supply_node_id=supply_node_id, id=id)
@@ -179,7 +183,7 @@ class CO2PriceMeasures(DataObject):
         self.supply_node_id = supply_node_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, geography_id, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth, geography_map_key_id, supply_node_id) = tup
 
@@ -206,7 +210,7 @@ class CO2PriceMeasuresData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, year, value, id, sensitivity) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, year=year, value=value, id=id, sensitivity=sensitivity)
@@ -224,7 +228,7 @@ class CleaningMethods(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
@@ -259,7 +263,7 @@ class DemandCO2CaptureMeasures(DataObject):
         self.lifetime_variance = lifetime_variance
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, subsector_id, input_type_id, unit, geography_id, other_index_1_id,
          other_index_2_id, interpolation_method_id, extrapolation_method_id, extrapolation_growth,
          stock_decay_function_id, min_lifetime, max_lifetime, mean_lifetime, lifetime_variance) = tup
@@ -301,7 +305,7 @@ class DemandDrivers(DataObject):
         self.source = source
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, base_driver_id, input_type_id, unit_prefix, unit_base, geography_id,
          other_index_1_id, other_index_2_id, geography_map_key_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, source) = tup
@@ -334,7 +338,7 @@ class DemandDriversData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, oth_1_id, oth_2_id, year, value, id, sensitivity) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, year=year,
@@ -373,7 +377,7 @@ class DemandEnergyDemands(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (subsector_id, is_stock_dependent, input_type_id, unit, driver_denominator_1_id,
          driver_denominator_2_id, driver_1_id, driver_2_id, geography_id, final_energy_index,
          demand_technology_index, other_index_1_id, other_index_2_id, interpolation_method_id,
@@ -411,7 +415,7 @@ class DemandEnergyDemandsData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (subsector_id, gau_id, oth_1_id, oth_2_id, final_energy_id, demand_technology_id, year,
          value, id, sensitivity) = tup
 
@@ -449,7 +453,7 @@ class DemandEnergyEfficiencyMeasures(DataObject):
         self.lifetime_variance = lifetime_variance
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, subsector_id, input_type_id, unit, geography_id, other_index_1_id,
          other_index_2_id, interpolation_method_id, extrapolation_method_id, extrapolation_growth,
          stock_decay_function_id, min_lifetime, max_lifetime, mean_lifetime, lifetime_variance) = tup
@@ -489,7 +493,7 @@ class DemandEnergyEfficiencyMeasuresCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, currency_id, currency_year_id, cost_denominator_unit, cost_of_capital,
          is_levelized, geography_id, other_index_1_id, other_index_2_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
@@ -521,7 +525,7 @@ class DemandEnergyEfficiencyMeasuresCostData(DataObject):
         self.final_energy_id = final_energy_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, final_energy_id) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, vintage=vintage,
@@ -547,7 +551,7 @@ class DemandEnergyEfficiencyMeasuresData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, final_energy_id, gau_id, oth_1_id, oth_2_id, year, value, id) = tup
 
         obj = cls(scenario, parent_id=parent_id, final_energy_id=final_energy_id, gau_id=gau_id, oth_1_id=oth_1_id,
@@ -574,7 +578,7 @@ class DemandFlexibleLoadMeasures(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, subsector_id, geography_id, other_index_1_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, name) = tup
 
@@ -600,7 +604,7 @@ class DemandFlexibleLoadMeasuresData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, oth_1_id, year, value, id) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, year=year, value=value, id=id)
@@ -628,7 +632,7 @@ class DemandFuelSwitchingMeasures(DataObject):
         self.lifetime_variance = lifetime_variance
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, subsector_id, final_energy_from_id, final_energy_to_id, stock_decay_function_id,
          max_lifetime, min_lifetime, mean_lifetime, lifetime_variance) = tup
 
@@ -663,7 +667,7 @@ class DemandFuelSwitchingMeasuresCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, currency_id, currency_year_id, cost_denominator_unit, cost_of_capital,
          is_levelized, geography_id, other_index_1_id, other_index_2_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
@@ -694,7 +698,7 @@ class DemandFuelSwitchingMeasuresCostData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, oth_1_id, oth_2_id, vintage, value, id) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, vintage=vintage,
@@ -719,7 +723,7 @@ class DemandFuelSwitchingMeasuresEnergyIntensity(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, geography_id, other_index_1_id, other_index_2_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
 
@@ -746,7 +750,7 @@ class DemandFuelSwitchingMeasuresEnergyIntensityData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, oth_1_id, oth_2_id, year, value, id) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, year=year,
@@ -774,7 +778,7 @@ class DemandFuelSwitchingMeasuresImpact(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, input_type_id, unit, geography_id, other_index_1_id, other_index_2_id,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth) = tup
 
@@ -802,7 +806,7 @@ class DemandFuelSwitchingMeasuresImpactData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, oth_1_id, oth_2_id, year, value, id) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, year=year,
@@ -829,7 +833,7 @@ class DemandSales(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (subsector_id, geography_id, other_index_1_id, other_index_2_id, input_type_id,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth) = tup
 
@@ -859,7 +863,7 @@ class DemandSalesData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (subsector_id, gau_id, oth_1_id, oth_2_id, demand_technology_id, vintage, value, id) = tup
 
         obj = cls(scenario, subsector_id=subsector_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
@@ -890,7 +894,7 @@ class DemandSalesShareMeasures(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, subsector_id, geography_id, other_index_1_id, demand_technology_id,
          replaced_demand_tech_id, input_type_id, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth, name) = tup
@@ -919,7 +923,7 @@ class DemandSalesShareMeasuresData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, oth_1_id, vintage, value, id) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, vintage=vintage, value=value, id=id)
@@ -940,7 +944,7 @@ class DemandSectors(DataObject):
         self.max_lag_hours = max_lag_hours
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, shape_id, max_lead_hours, max_lag_hours) = tup
 
         obj = cls(scenario, id=id, name=name, shape_id=shape_id, max_lead_hours=max_lead_hours,
@@ -976,7 +980,7 @@ class DemandServiceDemandMeasures(DataObject):
         self.lifetime_variance = lifetime_variance
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, subsector_id, input_type_id, unit, geography_id, other_index_1_id,
          other_index_2_id, interpolation_method_id, extrapolation_method_id, extrapolation_growth,
          stock_decay_function_id, min_lifetime, max_lifetime, mean_lifetime, lifetime_variance) = tup
@@ -1016,7 +1020,7 @@ class DemandServiceDemandMeasuresCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, currency_id, currency_year_id, cost_denominator_unit, cost_of_capital,
          is_levelized, geography_id, other_index_1_id, other_index_2_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
@@ -1047,7 +1051,7 @@ class DemandServiceDemandMeasuresCostData(DataObject):
         self.parent_id = parent_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, gau_id, oth_1_id, oth_2_id, vintage, value, parent_id) = tup
 
         obj = cls(scenario, id=id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, vintage=vintage, value=value,
@@ -1071,7 +1075,7 @@ class DemandServiceDemandMeasuresData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, oth_1_id, oth_2_id, year, value, id) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, year=year,
@@ -1110,7 +1114,7 @@ class DemandServiceDemands(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (subsector_id, is_stock_dependent, input_type_id, unit, driver_denominator_1_id,
          driver_denominator_2_id, driver_1_id, driver_2_id, geography_id, final_energy_index,
          demand_technology_index, other_index_1_id, other_index_2_id, interpolation_method_id,
@@ -1148,7 +1152,7 @@ class DemandServiceDemandsData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (subsector_id, gau_id, final_energy_id, demand_technology_id, oth_1_id, oth_2_id, year,
          value, id, sensitivity) = tup
 
@@ -1179,7 +1183,7 @@ class DemandServiceEfficiency(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (subsector_id, energy_unit, denominator_unit, geography_id, other_index_1_id,
          other_index_2_id, interpolation_method_id, extrapolation_method_id, extrapolation_growth,
          geography_map_key_id) = tup
@@ -1210,7 +1214,7 @@ class DemandServiceEfficiencyData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (subsector_id, final_energy_id, gau_id, oth_1_id, oth_2_id, year, value, id) = tup
 
         obj = cls(scenario, subsector_id=subsector_id, final_energy_id=final_energy_id, gau_id=gau_id,
@@ -1232,7 +1236,7 @@ class DemandServiceLink(DataObject):
         self.year = year
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, subsector_id, linked_subsector_id, service_demand_share, year) = tup
 
         obj = cls(scenario, id=id, subsector_id=subsector_id, linked_subsector_id=linked_subsector_id,
@@ -1270,7 +1274,7 @@ class DemandStock(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (subsector_id, is_service_demand_dependent, driver_denominator_1_id,
          driver_denominator_2_id, driver_1_id, driver_2_id, geography_id, other_index_1_id,
          other_index_2_id, geography_map_key_id, input_type_id, demand_stock_unit_type_id, unit,
@@ -1306,7 +1310,7 @@ class DemandStockData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (subsector_id, gau_id, oth_1_id, oth_2_id, demand_technology_id, year, value, id) = tup
 
         obj = cls(scenario, subsector_id=subsector_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
@@ -1334,7 +1338,7 @@ class DemandStockMeasures(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, subsector_id, geography_id, other_index_1_id, demand_technology_id,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth, name) = tup
 
@@ -1361,7 +1365,7 @@ class DemandStockMeasuresData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, oth_1_id, year, value, id) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, year=year, value=value, id=id)
@@ -1379,7 +1383,7 @@ class DemandStockUnitTypes(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
@@ -1404,7 +1408,7 @@ class DemandSubsectors(DataObject):
         self.max_lag_hours = max_lag_hours
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, sector_id, name, cost_of_capital, is_active, shape_id, max_lead_hours, max_lag_hours) = tup
 
         obj = cls(scenario, id=id, sector_id=sector_id, name=name, cost_of_capital=cost_of_capital,
@@ -1424,7 +1428,7 @@ class DemandTechEfficiencyTypes(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
@@ -1442,7 +1446,7 @@ class DemandTechUnitTypes(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
@@ -1481,7 +1485,7 @@ class DemandTechs(DataObject):
         self.max_lag_hours = max_lag_hours
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, linked_id, stock_link_ratio, subsector_id, name, min_lifetime, max_lifetime, source,
          additional_description, demand_tech_unit_type_id, unit, time_unit, cost_of_capital,
          stock_decay_function_id, mean_lifetime, lifetime_variance, shape_id, max_lead_hours,
@@ -1528,7 +1532,7 @@ class DemandTechsAuxEfficiency(DataObject):
         self.shape_id = shape_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, definition_id, reference_tech_id, geography_id, other_index_1_id,
          other_index_2_id, final_energy_id, demand_tech_efficiency_types_id, is_numerator_service,
          numerator_unit, denominator_unit, interpolation_method_id, extrapolation_method_id,
@@ -1566,7 +1570,7 @@ class DemandTechsAuxEfficiencyData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
@@ -1598,7 +1602,7 @@ class DemandTechsCapitalCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, definition_id, reference_tech_id, geography_id, other_index_1_id,
          other_index_2_id, currency_id, currency_year_id, is_levelized, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
@@ -1631,7 +1635,7 @@ class DemandTechsCapitalCostNewData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
@@ -1657,7 +1661,7 @@ class DemandTechsCapitalCostReplacementData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
@@ -1691,7 +1695,7 @@ class DemandTechsFixedMaintenanceCost(DataObject):
         self.additional_description = additional_description
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, definition_id, reference_tech_id, geography_id, other_index_1_id,
          other_index_2_id, currency_id, currency_year_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, age_growth_or_decay_type_id,
@@ -1727,7 +1731,7 @@ class DemandTechsFixedMaintenanceCostData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
@@ -1759,7 +1763,7 @@ class DemandTechsFuelSwitchCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, definition_id, reference_tech_id, geography_id, other_index_1_id,
          other_index_2_id, currency_id, currency_year_id, is_levelized, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
@@ -1792,7 +1796,7 @@ class DemandTechsFuelSwitchCostData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
@@ -1824,7 +1828,7 @@ class DemandTechsInstallationCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, definition_id, reference_tech_id, geography_id, other_index_1_id,
          other_index_2_id, currency_id, currency_year_id, is_levelized, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
@@ -1857,7 +1861,7 @@ class DemandTechsInstallationCostNewData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
@@ -1883,7 +1887,7 @@ class DemandTechsInstallationCostReplacementData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
@@ -1923,7 +1927,7 @@ class DemandTechsMainEfficiency(DataObject):
         self.shape_id = shape_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, definition_id, reference_tech_id, geography_id, other_index_1_id,
          other_index_2_id, final_energy_id, utility_factor, demand_tech_efficiency_types,
          is_numerator_service, numerator_unit, denominator_unit, interpolation_method_id,
@@ -1962,7 +1966,7 @@ class DemandTechsMainEfficiencyData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
@@ -1995,7 +1999,7 @@ class DemandTechsParasiticEnergy(DataObject):
         self.age_growth_or_decay = age_growth_or_decay
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, definition_id, reference_tech_id, geography_id, other_index_1_id,
          other_index_2_id, energy_unit, time_unit, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, age_growth_or_decay_type_id,
@@ -2032,7 +2036,7 @@ class DemandTechsParasiticEnergyData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, final_energy_id, vintage, value, id,
          sensitivity) = tup
 
@@ -2062,7 +2066,7 @@ class DemandTechsServiceDemandModifier(DataObject):
         self.age_growth_or_decay = age_growth_or_decay
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, geography_id, other_index_1_id, other_index_2_id,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth,
          age_growth_or_decay_type_id, age_growth_or_decay) = tup
@@ -2095,7 +2099,7 @@ class DemandTechsServiceDemandModifierData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (demand_technology_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, demand_technology_id=demand_technology_id, gau_id=gau_id, oth_1_id=oth_1_id,
@@ -2128,7 +2132,7 @@ class DemandTechsServiceLink(DataObject):
         self.age_growth_or_decay = age_growth_or_decay
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, service_link_id, demand_technology_id, definition_id, reference_id, geography_id,
          other_index_1_id, other_index_2_id, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth, age_growth_or_decay_type_id, age_growth_or_decay) = tup
@@ -2161,7 +2165,7 @@ class DemandTechsServiceLinkData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, oth_1_id, oth_2_id, vintage, value, id) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id, vintage=vintage,
@@ -2180,7 +2184,7 @@ class DispatchConstraintTypes(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
@@ -2198,7 +2202,7 @@ class EfficiencyTypes(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
@@ -2217,7 +2221,7 @@ class FinalEnergy(DataObject):
         self.shape_id = shape_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, shape_id) = tup
 
         obj = cls(scenario, id=id, name=name, shape_id=shape_id)
@@ -2235,7 +2239,7 @@ class FlexibleLoadShiftTypes(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
@@ -2253,7 +2257,7 @@ class Geographies(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
@@ -2272,7 +2276,7 @@ class GeographiesData(DataObject):
         self.geography_id = geography_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, geography_id) = tup
 
         obj = cls(scenario, id=id, name=name, geography_id=geography_id)
@@ -2292,7 +2296,7 @@ class GeographyMap(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (intersection_id, geography_map_key_id, value, id) = tup
 
         obj = cls(scenario, intersection_id=intersection_id, geography_map_key_id=geography_map_key_id, value=value,
@@ -2311,7 +2315,7 @@ class GeographyMapKeys(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
@@ -2329,7 +2333,7 @@ class GreenhouseGasEmissionsType(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
@@ -2357,7 +2361,7 @@ class ImportCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (import_node_id, source, notes, geography_id, currency_id, currency_year_id,
          denominator_unit, interpolation_method_id, extrapolation_method_id, extrapolation_growth) = tup
 
@@ -2387,7 +2391,7 @@ class ImportCostData(DataObject):
         self.resource_bin = resource_bin
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (import_node_id, gau_id, demand_sector_id, year, value, id, sensitivity, resource_bin) = tup
 
         obj = cls(scenario, import_node_id=import_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
@@ -2406,7 +2410,7 @@ class InputTypes(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
@@ -2424,7 +2428,7 @@ class OtherIndexes(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
@@ -2443,7 +2447,7 @@ class OtherIndexesData(DataObject):
         self.other_index_id = other_index_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, other_index_id) = tup
 
         obj = cls(scenario, id=id, name=name, other_index_id=other_index_id)
@@ -2462,7 +2466,7 @@ class OtherIndexesData_copy(DataObject):
         self.other_index_id = other_index_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, other_index_id) = tup
 
         obj = cls(scenario, id=id, name=name, other_index_id=other_index_id)
@@ -2489,7 +2493,7 @@ class PrimaryCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (primary_node_id, geography_id, other_index_1_id, currency_id, currency_year_id,
          denominator_unit, interpolation_method_id, extrapolation_method_id, extrapolation_growth) = tup
 
@@ -2521,7 +2525,7 @@ class PrimaryCostData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (primary_node_id, gau_id, demand_sector_id, oth_1_id, resource_bin, year, value, id,
          sensitivity) = tup
 
@@ -2533,6 +2537,10 @@ class PrimaryCostData(DataObject):
 
 class Shapes(DataObject):
     _instances_by_id = {}
+
+    __slots__ = ['id', 'name', 'shape_type_id', 'shape_unit_type_id', 'time_zone_id', 'geography_id',
+                 'other_index_1_id', 'other_index_2_id', 'geography_map_key_id',
+                 'interpolation_method_id', 'extrapolation_method_id', 'input_type_id']
 
     def __init__(self, scenario, id=None, name=None, shape_type_id=None, shape_unit_type_id=None, time_zone_id=None,
                  geography_id=None, other_index_1_id=None, other_index_2_id=None,
@@ -2555,7 +2563,7 @@ class Shapes(DataObject):
         self.input_type_id = input_type_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, shape_type_id, shape_unit_type_id, time_zone_id, geography_id, other_index_1_id,
          other_index_2_id, geography_map_key_id, interpolation_method_id, extrapolation_method_id,
          input_type_id) = tup
@@ -2565,6 +2573,46 @@ class Shapes(DataObject):
                   other_index_2_id=other_index_2_id, geography_map_key_id=geography_map_key_id,
                   interpolation_method_id=interpolation_method_id,
                   extrapolation_method_id=extrapolation_method_id, input_type_id=input_type_id)
+
+        return obj
+
+class ShapesData(DataObject):
+    _instances_by_id = {}
+
+    __slots__ = ['parent_id', 'gau_id', 'dispatch_feeder_id', 'timeshift_type_id', 'resource_bin',
+                 'dispatch_constraint_id', 'year', 'month', 'week', 'hour', 'day_type_id',
+                 'weather_datetime', 'value', 'id']
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, dispatch_feeder_id=None, timeshift_type_id=None,
+                 resource_bin=None, dispatch_constraint_id=None, year=None, month=None, week=None,
+                 hour=None, day_type_id=None, weather_datetime=None, value=None, id=None):
+        DataObject.__init__(self, scenario)
+        ShapesData._instances_by_id[id] = self
+
+        self.parent_id = parent_id
+        self.gau_id = gau_id
+        self.dispatch_feeder_id = dispatch_feeder_id
+        self.timeshift_type_id = timeshift_type_id
+        self.resource_bin = resource_bin
+        self.dispatch_constraint_id = dispatch_constraint_id
+        self.year = year
+        self.month = month
+        self.week = week
+        self.hour = hour
+        self.day_type_id = day_type_id
+        self.weather_datetime = weather_datetime
+        self.value = value
+        self.id = id
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):    
+        (parent_id, gau_id, dispatch_feeder_id, timeshift_type_id, resource_bin,
+         dispatch_constraint_id, year, month, week, hour, day_type_id, weather_datetime, value, id) = tup
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, dispatch_feeder_id=dispatch_feeder_id,
+                  timeshift_type_id=timeshift_type_id, resource_bin=resource_bin,
+                  dispatch_constraint_id=dispatch_constraint_id, year=year, month=month, week=week,
+                  hour=hour, day_type_id=day_type_id, weather_datetime=weather_datetime, value=value, id=id)
 
         return obj
 
@@ -2579,7 +2627,7 @@ class ShapesTypes(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
@@ -2610,7 +2658,7 @@ class StorageTechsCapacityCapitalCost(DataObject):
         self.time_unit = time_unit
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, definition_id, reference_tech_id, currency_id, geography_id,
          currency_year_id, capacity_or_energy_unit, is_levelized, cost_of_capital,
          interpolation_method_id, extrapolation_method_id, time_unit) = tup
@@ -2642,7 +2690,7 @@ class StorageTechsCapacityCapitalCostNewData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
@@ -2668,7 +2716,7 @@ class StorageTechsCapacityCapitalCostReplacementData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
@@ -2698,7 +2746,7 @@ class StorageTechsEnergyCapitalCost(DataObject):
         self.extrapolation_method_id = extrapolation_method_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, definition_id, reference_tech_id, currency_id, geography_id,
          currency_year_id, energy_unit, is_levelized, cost_of_capital, interpolation_method_id,
          extrapolation_method_id) = tup
@@ -2729,7 +2777,7 @@ class StorageTechsEnergyCapitalCostNewData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
@@ -2755,7 +2803,7 @@ class StorageTechsEnergyCapitalCostReplacementData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, gau_id, oth_1_id, oth_2_id, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, oth_1_id=oth_1_id, oth_2_id=oth_2_id,
@@ -2782,7 +2830,7 @@ class SupplyCapacityFactor(DataObject):
         self.age_growth_or_decay = age_growth_or_decay
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_node_id, geography_id, unit, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth, age_growth_or_decay_type_id, age_growth_or_decay) = tup
 
@@ -2812,7 +2860,7 @@ class SupplyCapacityFactorData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_node_id, gau_id, demand_sector_id, resource_bin, year, value, id) = tup
 
         obj = cls(scenario, supply_node_id=supply_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
@@ -2851,7 +2899,7 @@ class SupplyCost(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, source, additional_notes, supply_node_id, geography_id, supply_cost_type_id,
          currency_id, currency_year_id, energy_or_capacity_unit, time_unit, is_capital_cost,
          cost_of_capital, book_life, throughput_correlation, interpolation_method_id,
@@ -2886,7 +2934,7 @@ class SupplyCostData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, demand_sector_id, resource_bin, year, value, id) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
@@ -2905,7 +2953,7 @@ class SupplyCostTypes(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
@@ -2931,7 +2979,7 @@ class SupplyEfficiency(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, geography_id, source, notes, input_unit, output_unit, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
 
@@ -2961,7 +3009,7 @@ class SupplyEfficiencyData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, efficiency_type_id, demand_sector_id, supply_node_id, resource_bin,
          year, value, id) = tup
 
@@ -2992,7 +3040,7 @@ class SupplyEmissions(DataObject):
         self.notes = notes
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_node_id, geography_id, other_index_1_id, mass_unit, denominator_unit,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth, source, notes) = tup
 
@@ -3024,7 +3072,7 @@ class SupplyEmissionsData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_node_id, gau_id, demand_sector_id, oth_1_id, ghg_type_id, ghg_id, year, value, id,
          sensitivity) = tup
 
@@ -3051,7 +3099,7 @@ class SupplyExport(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_node_id, geography_id, other_index_1_id, unit, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth) = tup
 
@@ -3080,7 +3128,7 @@ class SupplyExportData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_node_id, gau_id, oth_1_id, resource_bin, year, value, id) = tup
 
         obj = cls(scenario, supply_node_id=supply_node_id, gau_id=gau_id, oth_1_id=oth_1_id,
@@ -3106,7 +3154,7 @@ class SupplyExportMeasures(DataObject):
         self.unit = unit
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, supply_node_id, name, geography_id, other_index_1_id, interpolation_method_id,
          extrapolation_method_id, unit) = tup
 
@@ -3131,7 +3179,7 @@ class SupplyExportMeasuresData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, oth_1_id, year, value, id) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, year=year, value=value, id=id)
@@ -3174,7 +3222,7 @@ class SupplyNodes(DataObject):
         self.enforce_potential_constraint = enforce_potential_constraint
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, supply_type_id, tradable_geography_id, is_active, final_energy_link,
          is_curtailable, is_exportable, is_flexible, residual_supply_node_id, mean_lifetime,
          lifetime_variance, max_lifetime, min_lifetime, stock_decay_function_id, cost_of_capital,
@@ -3216,7 +3264,7 @@ class SupplyPotential(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_node_id, geography_id, other_index_1_id, unit, time_unit, interpolation_method_id,
          extrapolation_growth, extrapolation_method_id, geography_map_key_id) = tup
 
@@ -3248,7 +3296,7 @@ class SupplyPotentialConversion(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_node_id, geography_id, other_index_1_id, energy_unit_numerator,
          resource_unit_denominator, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth) = tup
@@ -3279,7 +3327,7 @@ class SupplyPotentialConversionData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_node_id, gau_id, oth_1_id, resource_bin, year, value, id) = tup
 
         obj = cls(scenario, supply_node_id=supply_node_id, gau_id=gau_id, oth_1_id=oth_1_id,
@@ -3306,7 +3354,7 @@ class SupplyPotentialData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_node_id, gau_id, demand_sector_id, oth_1_id, resource_bin, year, value, id,
          sensitivity) = tup
 
@@ -3335,7 +3383,7 @@ class SupplySales(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_node_id, geography_id, capacity_or_energy_unit, time_unit, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, geography_map_key_id) = tup
 
@@ -3365,7 +3413,7 @@ class SupplySalesData(DataObject):
         self.resource_bin = resource_bin
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_node_id, gau_id, demand_sector_id, supply_technology_id, vintage, value, id,
          resource_bin) = tup
 
@@ -3396,7 +3444,7 @@ class SupplySalesMeasures(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, supply_technology_id, supply_node_id, geography_id, other_index_1_id,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth,
          geography_map_key_id) = tup
@@ -3427,7 +3475,7 @@ class SupplySalesMeasuresData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, oth_1_id, demand_sector_id, resource_bin, vintage, value, id) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, demand_sector_id=demand_sector_id,
@@ -3450,7 +3498,7 @@ class SupplySalesShare(DataObject):
         self.extrapolation_growth = extrapolation_growth
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_node_id, geography_id, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth) = tup
 
@@ -3478,7 +3526,7 @@ class SupplySalesShareData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_node_id, gau_id, demand_sector_id, supply_technology_id, vintage, value, id) = tup
 
         obj = cls(scenario, supply_node_id=supply_node_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
@@ -3510,7 +3558,7 @@ class SupplySalesShareMeasures(DataObject):
         self.other_index_1_id = other_index_1_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, supply_node_id, supply_technology_id, replaced_supply_technology_id,
          geography_id, capacity_or_energy_unit, time_unit, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, other_index_1_id) = tup
@@ -3543,7 +3591,7 @@ class SupplySalesShareMeasuresData(DataObject):
         self.oth_1_id = oth_1_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, demand_sector_id, vintage, value, id, resource_bin, oth_1_id) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, demand_sector_id=demand_sector_id, vintage=vintage,
@@ -3570,7 +3618,7 @@ class SupplyStock(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_node_id, geography_id, capacity_or_energy_unit, time_unit, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, geography_map_key_id) = tup
 
@@ -3601,7 +3649,7 @@ class SupplyStockData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_node_id, gau_id, demand_sector_id, supply_technology_id, resource_bin, year, value,
          id, sensitivity) = tup
 
@@ -3635,7 +3683,7 @@ class SupplyStockMeasures(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, supply_technology_id, supply_node_id, geography_id, other_index_1_id,
          capacity_or_energy_unit, time_unit, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth, geography_map_key_id) = tup
@@ -3667,7 +3715,7 @@ class SupplyStockMeasuresData(DataObject):
         self.resource_bin = resource_bin
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (parent_id, gau_id, oth_1_id, demand_sector_id, year, value, id, resource_bin) = tup
 
         obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, oth_1_id=oth_1_id, demand_sector_id=demand_sector_id,
@@ -3704,7 +3752,7 @@ class SupplyTechs(DataObject):
         self.thermal_capacity_multiplier = thermal_capacity_multiplier
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name, supply_node_id, source, additional_description, stock_decay_function_id,
          book_life, mean_lifetime, lifetime_variance, min_lifetime, max_lifetime,
          discharge_duration, cost_of_capital, shape_id, max_lag_hours, max_lead_hours,
@@ -3741,7 +3789,7 @@ class SupplyTechsCO2Capture(DataObject):
         self.age_growth_or_decay = age_growth_or_decay
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, definition_id, geography_id, reference_tech_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, age_growth_or_decay_type_id,
          age_growth_or_decay) = tup
@@ -3770,7 +3818,7 @@ class SupplyTechsCO2CaptureData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, gau_id, resource_bin, vintage, value, id) = tup
 
         obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, resource_bin=resource_bin, vintage=vintage,
@@ -3798,7 +3846,7 @@ class SupplyTechsCapacityFactor(DataObject):
         self.age_growth_or_decay = age_growth_or_decay
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, geography_id, reference_tech_id, definition_id, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, age_growth_or_decay_type_id,
          age_growth_or_decay) = tup
@@ -3830,7 +3878,7 @@ class SupplyTechsCapacityFactorData(DataObject):
         self.id = id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, gau_id, oth_1_id, resource_bin, vintage, value, id) = tup
 
         obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, oth_1_id=oth_1_id,
@@ -3865,7 +3913,7 @@ class SupplyTechsCapitalCost(DataObject):
         self.geography_map_key_id = geography_map_key_id
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, definition_id, reference_tech_id, geography_id, currency_id,
          currency_year_id, capacity_or_energy_unit, time_unit, is_levelized,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth, source, notes,
@@ -3900,7 +3948,7 @@ class SupplyTechsCapitalCostNewData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, gau_id, demand_sector_id, resource_bin, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
@@ -3926,7 +3974,7 @@ class SupplyTechsCapitalCostReplacementData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, gau_id, demand_sector_id, resource_bin, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
@@ -3959,7 +4007,7 @@ class SupplyTechsEfficiency(DataObject):
         self.notes = notes
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, geography_id, definition_id, reference_tech_id, input_unit, output_unit,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth,
          age_growth_or_decay_type_id, age_growth_or_decay, source, notes) = tup
@@ -3995,7 +4043,7 @@ class SupplyTechsEfficiencyData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, supply_node_id, efficiency_type_id, gau_id, demand_sector_id,
          resource_bin, vintage, value, id, sensitivity) = tup
 
@@ -4032,7 +4080,7 @@ class SupplyTechsFixedMaintenanceCost(DataObject):
         self.notes = notes
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, definition_id, reference_tech_id, geography_id, currency_id,
          currency_year_id, capacity_or_energy_unit, time_unit, interpolation_method_id,
          extrapolation_method_id, extrapolation_growth, age_growth_or_decay_type_id,
@@ -4067,7 +4115,7 @@ class SupplyTechsFixedMaintenanceCostData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, gau_id, demand_sector_id, resource_bin, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
@@ -4101,7 +4149,7 @@ class SupplyTechsInstallationCost(DataObject):
         self.notes = notes
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, definition_id, geography_id, reference_tech_id, currency_id,
          currency_year_id, capacity_or_energy_unit, time_unit, is_levelized,
          interpolation_method_id, extrapolation_method_id, extrapolation_growth, source, notes) = tup
@@ -4134,7 +4182,7 @@ class SupplyTechsInstallationCostNewData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, gau_id, demand_sector_id, resource_bin, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
@@ -4160,7 +4208,7 @@ class SupplyTechsInstallationCostReplacementData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, gau_id, demand_sector_id, resource_bin, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
@@ -4194,7 +4242,7 @@ class SupplyTechsVariableMaintenanceCost(DataObject):
         self.notes = notes
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, definition_id, reference_tech_id, currency_id, geography_id,
          currency_year_id, energy_unit, interpolation_method_id, extrapolation_method_id,
          extrapolation_growth, age_growth_or_decay_type_id, age_growth_or_decay, source, notes) = tup
@@ -4228,7 +4276,7 @@ class SupplyTechsVariableMaintenanceCostData(DataObject):
         self.sensitivity = sensitivity
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (supply_tech_id, gau_id, demand_sector_id, resource_bin, vintage, value, id, sensitivity) = tup
 
         obj = cls(scenario, supply_tech_id=supply_tech_id, gau_id=gau_id, demand_sector_id=demand_sector_id,
@@ -4247,7 +4295,7 @@ class SupplyTypes(DataObject):
         self.name = name
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
@@ -4266,7 +4314,7 @@ class Version(DataObject):
         self.author = author
 
     @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def from_tuple(cls, scenario, tup, **kwargs):    
         (version_number, date, author) = tup
 
         obj = cls(scenario, version_number=version_number, date=date, author=author)
