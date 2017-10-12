@@ -211,7 +211,7 @@ class SubsectorPertubation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\US_DDPP'
+    workingdir = r'C:\github\ep-supply-curve\inputs\scenarios\test'
     config = 'config.INI'
     scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
@@ -221,7 +221,7 @@ if __name__ == "__main__":
     solve_supply  = False,
     export_results= True,
     load_error    = False,
-    pickle_shapes = True,
+    pickle_shapes = False,
     save_models   = True,
     api_run       = False,
     clear_results = True)

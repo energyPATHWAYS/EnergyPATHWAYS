@@ -1359,6 +1359,7 @@ class Subsector(DataMapFunctions):
                         self.technologies[tech].calculate([self.vintages[0] - 1] + self.vintages, self.years)
                 else:
                     self.technologies[tech].calculate([self.vintages[0] - 1] + self.vintages, self.years)
+
             self.remap_tech_attrs(tech_classes)
 
 
@@ -1552,8 +1553,21 @@ class Subsector(DataMapFunctions):
         ids = util.sql_read_table("DemandTechs",column_names='id',subsector_id=self.id, return_iterable=True)
         for id in ids:
             self.add_demand_technology(id, self.id, service_demand_unit, stock_time_unit, self.cost_of_capital, self.scenario)
+        if self.pertubation is not None:
+            self.add_new_technology_for_pertubation()
         self.tech_ids = self.technologies.keys()
         self.tech_ids.sort()
+
+    def add_new_technology_for_pertubation(self):
+        """
+        By adding a new technology specific to a pertubation, it allows us to isolate a single vintage
+        """
+        for tech_id, new_tech_id in self.pertubation.new_techs.items():
+            self.technologies[new_tech_id] = copy.deepcopy(self.technologies[tech_id])
+            self.technologies[new_tech_id].id = new_tech_id #should be safe to replace the id at this point
+            self.technologies[new_tech_id].reference_sales_shares = {} # empty the reference sales share
+            # we also need to add the technology to the config outputs
+            cfg.outputs_id_map['demand_technology'][new_tech_id] = "{} {}".format(str(new_tech_id)[:4],  cfg.outputs_id_map['demand_technology'][tech_id])
 
     def add_demand_technology(self, id, subsector_id, service_demand_unit, stock_time_unit, cost_of_capital, scenario, **kwargs):
         """Adds demand_technology instances to subsector"""
@@ -2723,13 +2737,16 @@ class Subsector(DataMapFunctions):
         years_lookup = dict(zip(self.years, range(num_years)))
         for i, row in self.pertubation.filtered_sales_share_changes(elements, levels).reset_index().iterrows():
             y_i = years_lookup[int(row['year'])]
-            dt_i = tech_lookup[int(row['demand_technology_id'])]
+            dt_i = tech_lookup[self.pertubation.new_techs[int(row['demand_technology_id'])]]
             rdt_i = tech_lookup[int(row['replaced_demand_technology_id'])]
             if dt_i == rdt_i:
                 # if the demand and replace technology are the same, we don't do anything
                 continue
-            sales_share[y_i, dt_i, :] += sales_share[y_i, rdt_i, :] * row['value']
-            sales_share[y_i, rdt_i, :] *= 1-row['value']
+            sales_share[y_i, dt_i, :] += sales_share[y_i, rdt_i, :] * row['adoption_achieved']
+            sales_share[y_i, rdt_i, :] *= 1-row['adoption_achieved']
+            # for all future years, we return our tech back to the original replaced tech
+            sales_share[y_i+1:, rdt_i, dt_i] = 1
+            sales_share[y_i+1:, dt_i, dt_i] = 0
         return sales_share
 
     def set_up_empty_stock_rollover_output_dataframes(self):
@@ -2966,6 +2983,7 @@ class Subsector(DataMapFunctions):
         if self.sub_type != 'link':
             self.stock.annual_costs['fuel_switching']['new'] = util.DfOper.mult([self.rollover_output(tech_class='fuel_switch_cost', tech_att='values', stock_att='sales_fuel_switch'),year_df])
             self.stock.annual_costs['fuel_switching']['replacement'] = self.stock.annual_costs['fuel_switching']['new']  * 0
+
     def remove_extra_subsector_attributes(self):
         if hasattr(self, 'stock'):
             delete_list = ['values_financial_new', 'values_financial_replacement', 'values_new',
@@ -3125,8 +3143,6 @@ class Subsector(DataMapFunctions):
         ex. to produce levelized costs for all new vehicles, it takes the capital_costs_new class, the 'values_level' attribute, and the 'values'
         attribute of the stock
         """
-        
-        
         stock_df = getattr(self.stock, stock_att)
         groupby_level = util.ix_excl(stock_df, ['vintage'])
         c = util.empty_df(stock_df.index, stock_df.columns.values, fill_value=0.)
@@ -3137,6 +3153,7 @@ class Subsector(DataMapFunctions):
                         self.technologies.values() if
                             hasattr(getattr(tech, tech_class), tech_att) and getattr(tech, tech_class).raw_values is not None])       
         if len(tech_dfs):
+            #TODO we are doing an add here when an append might work and will be faster
             tech_df = util.DfOper.add(tech_dfs)
             tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names]+[x for x in tech_df.index.names if x not in stock_df.index.names])
             tech_df = tech_df.sort_index()
@@ -3254,7 +3271,10 @@ class Subsector(DataMapFunctions):
             util.replace_index_name(self.energy_forecast,"other_index_1",self.stock.other_index_1)
         if hasattr(self.stock,'other_index_2'):
             util.replace_index_name(self.energy_forecast,"other_index_2",self.stock.other_index_2)
-
+        if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_1'):
+            util.replace_index_name(self.energy_forecast,"other_index_1",self.service_demand.other_index_1)
+        if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_2'):
+            util.replace_index_name(self.energy_forecast,"other_index_2",self.service_demand.other_index_2)
 
 
 

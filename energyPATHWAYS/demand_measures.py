@@ -40,9 +40,10 @@ class FlexibleLoadMeasure(Abstract):
 # this class really should be combined with the top flexible load measure class but the constructor is not flexible enough
 class FlexibleLoadMeasure2(Abstract):
     def __init__(self, pertubation):
-        self.raw_values = util.remove_df_levels(pertubation.sales_share_changes, 'replaced_demand_technology_id')
+        self.raw_values = pertubation.sales_share_changes['percent_of_load_that_is_flexible'].to_frame()
+        self.raw_values.columns = ['value']
+        self.raw_values = util.remove_df_levels(self.raw_values, 'replaced_demand_technology_id')
         self.raw_values.index = self.raw_values.index.rename('demand_technology', 'demand_technology_id')
-        self.raw_values[:] = 1
         self.name = 'pertubation'
         self.interpolation_method = 'nearest'
         self.extrapolation_method = 'nearest'
