@@ -204,7 +204,7 @@ def send_gmail(scenario_id, subject, body):
     server.sendmail(fromaddr, toaddr, text)
     server.quit()
 
-class SubsectorPertubation(object):
+class SubsectorPerturbation(object):
     def __init__(self, sales_share_changes, flexible_operation, subsector):
         self.sales_share_changes = sales_share_changes
         self.flexible_operation = flexible_operation

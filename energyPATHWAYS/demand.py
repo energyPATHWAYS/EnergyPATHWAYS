@@ -653,7 +653,7 @@ class Subsector(DataMapFunctions):
         self.default_max_lag_hours = None
         self.linked_service_demand_drivers = {}
         self.linked_stock = {}
-        self.pertubation = None
+        self.perturbation = None
 
     def set_electricity_reconciliation(self, electricity_reconciliation):
         self.electricity_reconciliation = electricity_reconciliation
@@ -1333,7 +1333,7 @@ class Subsector(DataMapFunctions):
                     tests[tech].append(False)
                 if self.technologies[tech].reference_sales_shares.has_key(1):
                     tests[tech].append(self.technologies[tech].reference_sales_shares[1].raw_values.sum().sum() == 0)
-                if self.pertubation is not None and self.pertubation.involves_tech_id(tech):
+                if self.perturbation is not None and self.perturbation.involves_tech_id(tech):
                     tests[tech].append(False)
                 tests[tech].append(len(self.technologies[tech].sales_shares) == 0)
                 tests[tech].append(len(self.technologies[tech].specified_stocks) == 0)
@@ -1469,9 +1469,9 @@ class Subsector(DataMapFunctions):
                 if techs_with_specific_flexible_load:
                     assert hasattr(self,'technologies'), "subsector {} cannot have a technology specific flexible load measure if it has no technologies".format(self.name)
 
-        if self.pertubation and self.pertubation.flexible_operation:
+        if self.perturbation and self.perturbation.flexible_operation:
             assert len(measure_ids) == 0, 'perturbations in flexible load when a flexible load measure already exists is not supported yet'
-            self.flexible_load_measure = FlexibleLoadMeasure2(self.pertubation)
+            self.flexible_load_measure = FlexibleLoadMeasure2(self.perturbation)
 
     def add_fuel_switching_measures(self, scenario):
         """
@@ -1553,16 +1553,16 @@ class Subsector(DataMapFunctions):
         ids = util.sql_read_table("DemandTechs",column_names='id',subsector_id=self.id, return_iterable=True)
         for id in ids:
             self.add_demand_technology(id, self.id, service_demand_unit, stock_time_unit, self.cost_of_capital, self.scenario)
-        if self.pertubation is not None:
-            self.add_new_technology_for_pertubation()
+        if self.perturbation is not None:
+            self.add_new_technology_for_perturbation()
         self.tech_ids = self.technologies.keys()
         self.tech_ids.sort()
 
-    def add_new_technology_for_pertubation(self):
+    def add_new_technology_for_perturbation(self):
         """
-        By adding a new technology specific to a pertubation, it allows us to isolate a single vintage
+        By adding a new technology specific to a perturbation, it allows us to isolate a single vintage
         """
-        for tech_id, new_tech_id in self.pertubation.new_techs.items():
+        for tech_id, new_tech_id in self.perturbation.new_techs.items():
             self.technologies[new_tech_id] = copy.deepcopy(self.technologies[tech_id])
             self.technologies[new_tech_id].id = new_tech_id #should be safe to replace the id at this point
             self.technologies[new_tech_id].reference_sales_shares = {} # empty the reference sales share
@@ -2727,17 +2727,17 @@ class Subsector(DataMapFunctions):
             self.stock.total = util.DfOper.add([self.stock.total, total_stock_adjust])
             self.stock.total[self.stock.total<util.remove_df_levels(spec_tech_stock,'demand_technology')] = util.remove_df_levels(spec_tech_stock,'demand_technology')
 
-    def sales_share_pertubation(self, elements, levels, sales_share):
-        # we don't always have a pertubation object because this is introduced only when we are making a supply curve
-        if self.pertubation is None:
+    def sales_share_perturbation(self, elements, levels, sales_share):
+        # we don't always have a perturbation object because this is introduced only when we are making a supply curve
+        if self.perturbation is None:
             return sales_share
         num_techs = len(self.tech_ids)
         tech_lookup = dict(zip(self.tech_ids, range(num_techs)))
         num_years = len(self.years)
         years_lookup = dict(zip(self.years, range(num_years)))
-        for i, row in self.pertubation.filtered_sales_share_changes(elements, levels).reset_index().iterrows():
+        for i, row in self.perturbation.filtered_sales_share_changes(elements, levels).reset_index().iterrows():
             y_i = years_lookup[int(row['year'])]
-            dt_i = tech_lookup[self.pertubation.new_techs[int(row['demand_technology_id'])]]
+            dt_i = tech_lookup[self.perturbation.new_techs[int(row['demand_technology_id'])]]
             rdt_i = tech_lookup[int(row['replaced_demand_technology_id'])]
             if dt_i == rdt_i:
                 # if the demand and replace technology are the same, we don't do anything
@@ -2787,9 +2787,9 @@ class Subsector(DataMapFunctions):
             if rerun_sales_shares:
                sales_share =  self.calculate_total_sales_share_after_initial(elements, self.stock.rollover_group_names, initial_stock)
 
-            # the pertubation object is used to create supply curves of demand technologies
-            if self.pertubation is not None:
-                sales_share = self.sales_share_pertubation(elements, self.stock.rollover_group_names, sales_share)
+            # the perturbation object is used to create supply curves of demand technologies
+            if self.perturbation is not None:
+                sales_share = self.sales_share_perturbation(elements, self.stock.rollover_group_names, sales_share)
 
             if self.stock.is_service_demand_dependent and self.stock.demand_stock_unit_type == 'equipment':
                 sales_share = self.calculate_service_modified_sales(elements,self.stock.rollover_group_names,sales_share)
