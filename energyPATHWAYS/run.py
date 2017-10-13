@@ -211,7 +211,7 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\ep-supply-curve\inputs\scenarios\test'
+    workingdir = r'C:\github\HQ\scenarios'
     config = 'config.INI'
     scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
@@ -222,7 +222,7 @@ if __name__ == "__main__":
     export_results= True,
     load_error    = False,
     pickle_shapes = False,
-    save_models   = True,
+    save_models   = False,
     api_run       = False,
     clear_results = True)
 

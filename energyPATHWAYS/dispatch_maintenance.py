@@ -4,6 +4,9 @@ import numpy as np
 import util
 import config as cfg
 import pdb
+import pandas as pd
+import copy
+import dispatch_budget
 
 def surplus_capacity(model):
     return model.surplus_capacity + model.peak_penalty * model.weight_on_peak_penalty
@@ -99,4 +102,35 @@ def schedule_generator_maintenance(load, pmaxs, annual_maintenance_rates, dispat
     scheduled_maintenance = np.empty((num_groups, len(pmaxs)))
     scheduled_maintenance[:, pmaxs_zero] = annual_maintenance_rates[pmaxs_zero]
     scheduled_maintenance[:, pmaxs_not_zero] = np.array([[model.scheduled_maintenance[i, g].value for i in model.i.keys()] for g in model.g.keys()]).T
+    return scheduled_maintenance
+
+
+def schedule_generator_maintenance_loop(load, pmaxs, annual_maintenance_rates, dispatch_periods, scheduling_order):
+    # if nothing else, better to schedule the large generators first
+    scheduling_order = np.argsort(-pmaxs) if scheduling_order is None else scheduling_order
+
+    # annual maintenance rates must be between zero and one
+    annual_maintenance_rates = np.clip(annual_maintenance_rates, 0, 1)
+
+    # gives the index for the change between dispatch_periods
+    group_cuts = list(np.where(np.diff(dispatch_periods) != 0)[0] + 1) if dispatch_periods is not None else None
+    group_lengths = np.array([group_cuts[0]] + list(np.diff(group_cuts)) + [len(load) - group_cuts[-1]])
+    num_groups = len(group_cuts) + 1
+
+    # necessary to scale load in some cases for the optimization to work. Basically, load shouldn't be > gen
+    load_scaled = scale_load_to_system(load, pmaxs)
+    load_scaled = np.concatenate([[np.max(ls)]*gl for gl, ls in zip(group_lengths, np.array_split(load_scaled, np.array(group_cuts)))])
+
+    pmaxs2 = copy.deepcopy(pmaxs)
+    pmaxs2[pmaxs2==0] = np.mean(pmaxs[pmaxs!=0])
+    maintenance_energy = annual_maintenance_rates*pmaxs2*len(load)
+    scheduled_maintenance = np.zeros((num_groups, len(pmaxs)))
+
+    # loop through and schedule maintenance for each generator one at a time. Update the net load after each one.
+    for i in scheduling_order:
+        energy_allocation = dispatch_budget.dispatch_to_energy_budget(load_scaled, -maintenance_energy[i], pmins=0, pmaxs=pmaxs2[i])
+        scheduled_maintenance[:, i] = np.array([np.mean(ls) for ls in np.array_split(energy_allocation, np.array(group_cuts))])/pmaxs2[i]
+        if pmaxs[i]>0:
+            load_scaled += energy_allocation
+
     return scheduled_maintenance
