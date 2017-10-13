@@ -243,6 +243,18 @@ def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None,
 
     return dispatch_results
 
+def increase_pmax_with_capacity_weights(pmaxs, capacity_weights, scale_amount=0.03):
+    """
+    This function is necessary because without some token capacity for generators we may build, the model will not schedule maintenance properly
+    """
+    has_capacity_weight = np.nonzero(capacity_weights)[0]
+    has_zero_pmax = np.nonzero(pmaxs==0)[0]
+    capacity_weight_no_capacity = np.intersect1d(has_capacity_weight, has_zero_pmax)
+    capacity_to_add = pmaxs.sum() * scale_amount
+    pmaxs2 = copy.deepcopy(pmaxs)
+    pmaxs2[capacity_weight_no_capacity] += capacity_to_add / len(capacity_weight_no_capacity)
+    return pmaxs2
+
 def run_thermal_dispatch(params):
     dispatch_geography = params[0]
     thermal_dispatch_df = params[1]
@@ -266,7 +278,8 @@ def run_thermal_dispatch(params):
     # grabs the technology from the label
     gen_categories = [int(s.split(', ')[1].rstrip('L')) for s in thermal_dispatch_df.index.get_level_values('thermal_generators')]
 
-    maintenance_rates = dispatch_maintenance.schedule_generator_maintenance(load=load, pmaxs=pmaxs, annual_maintenance_rates=MOR, dispatch_periods=weeks)
+    pmaxs2 = increase_pmax_with_capacity_weights(pmaxs, capacity_weights)
+    maintenance_rates = dispatch_maintenance.schedule_generator_maintenance(load=load, pmaxs=pmaxs2, annual_maintenance_rates=MOR, dispatch_periods=weeks)
     dispatch_results = generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
                                                                     FOR=FOR, must_runs=must_runs, dispatch_periods=weeks, capacity_weights=capacity_weights,
                                                                     gen_categories=gen_categories, return_dispatch_by_category=return_dispatch_by_category,
