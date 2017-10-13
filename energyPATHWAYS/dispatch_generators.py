@@ -279,7 +279,7 @@ def run_thermal_dispatch(params):
     gen_categories = [int(s.split(', ')[1].rstrip('L')) for s in thermal_dispatch_df.index.get_level_values('thermal_generators')]
 
     pmaxs2 = increase_pmax_with_capacity_weights(pmaxs, capacity_weights)
-    maintenance_rates = dispatch_maintenance.schedule_generator_maintenance(load=load, pmaxs=pmaxs2, annual_maintenance_rates=MOR, dispatch_periods=weeks)
+    maintenance_rates = dispatch_maintenance.schedule_generator_maintenance(load=load, pmaxs=pmaxs2, annual_maintenance_rates=MOR, dispatch_periods=weeks, marginal_costs=marginal_costs)
     dispatch_results = generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
                                                                     FOR=FOR, must_runs=must_runs, dispatch_periods=weeks, capacity_weights=capacity_weights,
                                                                     gen_categories=gen_categories, return_dispatch_by_category=return_dispatch_by_category,
