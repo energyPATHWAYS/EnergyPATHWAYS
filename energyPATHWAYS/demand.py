@@ -1993,7 +1993,7 @@ class Subsector(DataMapFunctions):
         self.service_demand.modifier = DfOper.divi([sd_modifier, sd_mod_adjustment])
 
 
-    def calc_tech_survival_functions(self, steps_per_year=1, rollover_threshold=.99):
+    def calc_tech_survival_functions(self, steps_per_year=1, rollover_threshold=.95):
         self.stock.spy = steps_per_year
         for demand_technology in self.technologies.values():
             demand_technology.spy = steps_per_year
@@ -2806,7 +2806,7 @@ class Subsector(DataMapFunctions):
                                          num_techs=len(self.tech_ids), initial_stock=initial_stock,
                                          sales_share=sales_share, stock_changes=annual_stock_change.values,
                                          specified_stock=demand_technology_stock.values, specified_retirements=None,
-                                         steps_per_year=self.stock.spy)
+                                         steps_per_year=self.stock.spy,lifetimes=np.array([x.book_life for x in self.technologies.values()]))
 
             self.rollover.run()
             stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
@@ -3158,8 +3158,6 @@ class Subsector(DataMapFunctions):
             tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names]+[x for x in tech_df.index.names if x not in stock_df.index.names])
             tech_df = tech_df.sort_index()
             c = util.DfOper.mult((tech_df, stock_df), expandable=(True, stock_expandable), collapsible=(False, True))
-            # if not np.all(np.isfinite(c.values)):
-            #     pdb.set_trace()
         else:
             util.empty_df(stock_df.index, stock_df.columns.values, 0.)
 
@@ -3267,10 +3265,10 @@ class Subsector(DataMapFunctions):
         self.energy_forecast_no_modifier = util.remove_df_elements(self.energy_forecast_no_modifier, 9999, 'final_energy')
         if cfg.cfgfile.get('case', 'use_service_demand_modifiers').lower()=='false':
             self.energy_forecast = self.energy_forecast_no_modifier
-        if hasattr(self.stock,'other_index_1'):
-            util.replace_index_name(self.energy_forecast,"other_index_1",self.stock.other_index_1)
-        if hasattr(self.stock,'other_index_2'):
-            util.replace_index_name(self.energy_forecast,"other_index_2",self.stock.other_index_2)
+        if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_1') :
+            util.replace_index_name(self.energy_forecast,"other_index_1",self.service_demand.other_index_1)
+        if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_2') :
+            util.replace_index_name(self.energy_forecast,"other_index_2",self.service_demand.other_index_2)
         if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_1'):
             util.replace_index_name(self.energy_forecast,"other_index_1",self.service_demand.other_index_1)
         if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_2'):

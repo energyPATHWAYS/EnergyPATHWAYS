@@ -1310,9 +1310,17 @@ def sum_chunk(x, chunk_size, axis=-1):
     shape = x.shape
     if axis < 0:
         axis += x.ndim
-    
     shape = shape[:axis] + (shape[axis]/chunk_size, chunk_size) + shape[axis+1:]
     return np.sum(x.reshape(shape), axis=axis+1)
+    
+    
+def mean_chunk(x, chunk_size, axis=-1):
+    """http://stackoverflow.com/questions/18582544/sum-parts-of-numpy-array"""
+    shape = x.shape
+    if axis < 0:
+        axis += x.ndim
+    shape = shape[:axis] + (shape[axis]/chunk_size, chunk_size) + shape[axis+1:]
+    return np.mean(x.reshape(shape), axis=axis+1)
 
 def sum_chunk_vintage(x, chunk_size, axis=-1):
     """Reshapes and sum the rows after 1 and then appends the first row after"""
@@ -1325,5 +1333,5 @@ def sum_chunk_vintage(x, chunk_size, axis=-1):
     
     residual_shape = shape[:axis] + (1,) + shape[axis+1:]
     shape = shape[:axis] + ((shape[axis]-1)/chunk_size, chunk_size) + shape[axis+1:]
-    
-    return np.concatenate((x[residual_index].reshape(residual_shape), np.mean(x[slice_index].reshape(shape), axis=axis+1)), axis=axis)
+    return np.concatenate((x[residual_index].reshape(residual_shape), np.sum(x[slice_index].reshape(shape), axis=axis+1)), axis=axis)
+

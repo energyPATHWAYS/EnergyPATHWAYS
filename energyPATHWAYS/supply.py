@@ -2224,8 +2224,8 @@ class Supply(object):
                     active_row_indexer =  util.level_specific_indexer(col_node.active_coefficients_total, levels=levels, elements=[sector,row_nodes]) 
                     active_col_indexer = util.level_specific_indexer(col_node.active_coefficients_total, levels=['demand_sector'], elements=[sector], axis=1)
                     self.io_dict[year][sector].loc[row_indexer, col_indexer] = col_node.active_coefficients_total.loc[active_row_indexer,active_col_indexer].values
-#                    if col_node.overflow_node:
-#                        self.io_dict[year][sector].loc[row_indexer, col_indexer]=0                    
+                    if col_node.overflow_node:
+                        self.io_dict[year][sector].loc[row_indexer, col_indexer]=0                    
                     
  
                 
@@ -3509,7 +3509,7 @@ class SupplyNode(Node,StockItem):
         for node in self.active_trade_adjustment_df.index.get_level_values('supply_node'):
             embodied_cost_indexer = util.level_specific_indexer(embodied_cost_df, 'supply_node',node)
             trade_adjustment_indexer = util.level_specific_indexer(self.active_trade_adjustment_df, 'supply_node',node)
-            self.active_dispatch_costs.loc[trade_adjustment_indexer,:] = DfOper.mult([self.active_trade_adjustment_df.loc[trade_adjustment_indexer,:],embodied_cost_df.loc[embodied_cost_indexer,:]]).values 
+            self.active_dispatch_costs.loc[trade_adjustment_indexer,:] = util.DfOper.mult([self.active_trade_adjustment_df.loc[trade_adjustment_indexer,:],embodied_cost_df.loc[embodied_cost_indexer,:]]).values 
         self.active_dispatch_costs = self.active_dispatch_costs.groupby(level='supply_node').sum()
         self.active_dispatch_costs = self.active_dispatch_costs.stack([cfg.primary_geography,'demand_sector'])
         self.active_dispatch_costs *= self.active_coefficients_total
@@ -3940,7 +3940,10 @@ class SupplyPotential(Abstract):
         reindexed_throughput = util.DfOper.none([self.active_throughput,self.active_supply_curve],expandable=(True,False),collapsible=(True,True))    
         self.active_supply_curve = util.expand_multi(self.active_supply_curve, reindexed_throughput.index.levels,reindexed_throughput.index.names)        
         bin_supply_curve = copy.deepcopy(self.active_supply_curve)
-        bin_supply_curve[bin_supply_curve>reindexed_throughput] = reindexed_throughput
+        try:
+            bin_supply_curve[bin_supply_curve>reindexed_throughput] = reindexed_throughput
+        except:
+            pdb.set_trace()
         self.active_supply_curve = bin_supply_curve.groupby(level=util.ix_excl(bin_supply_curve,'resource_bin')).diff().fillna(bin_supply_curve)
         if tradable_geography is not None and tradable_geography!=primary_geography:
             normalized = original_supply_curve.groupby(level=[tradable_geography,'resource_bin']).transform(lambda x: x/x.sum())
