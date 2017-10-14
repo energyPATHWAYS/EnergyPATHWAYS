@@ -13,6 +13,7 @@ import copy
 from ddt import ddt, data, unpack
 from energyPATHWAYS import dispatch_generators
 from energyPATHWAYS import dispatch_maintenance
+import pandas as pd
 
 class TestGeneratorDispatch(unittest.TestCase):
     # def __init__(self):
@@ -230,14 +231,19 @@ class TestGeneratorDispatch(unittest.TestCase):
 # generator_params = pd.DataFrame.from_csv(os.path.join(data_dir, 'generator_params_pge_error.csv'))
 # pmaxs = generator_params['pmaxs'].values
 # MORs = generator_params['MOR'].values
+# marginal_costs = np.arange(0,.01*len(MORs),.01)
 #
 # dispatch_periods = pd.DataFrame.from_csv(os.path.join(data_dir, 'dispatch_periods_pge_error.csv'))
 # dispatch_periods = dispatch_periods['week'].values.flatten()
 #
 # load = pd.DataFrame.from_csv(os.path.join(data_dir, 'load_pge_error.csv'))['load']
 # load = load.values.flatten()
-
-# MOR = dispatch_maintenance.schedule_generator_maintenance(load, pmaxs, MORs, dispatch_periods=dispatch_periods)
-# MOR = dispatch_maintenance.schedule_generator_maintenance(load, pmaxs, MORs, dispatch_periods=dispatch_periods)
-
+#
+# t=time.time()
+# MOR = dispatch_maintenance.schedule_generator_maintenance(load, pmaxs, MORs, dispatch_periods, marginal_costs)
+# t=energyPATHWAYS.util.time_stamp(t)
+# MOR2 = dispatch_maintenance.schedule_generator_maintenance_steady(load, pmaxs, MORs, dispatch_periods, np.argsort(marginal_costs))
+# t=energyPATHWAYS.util.time_stamp(t)
+#
 # pd.DataFrame(MOR.mean(axis=1)).plot()
+# pd.DataFrame(MOR2.mean(axis=1)).plot()
