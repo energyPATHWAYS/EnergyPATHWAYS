@@ -359,8 +359,6 @@ class Supply(object):
                         self.initialize_year(year, loop)
                     self._recalculate_stocks_and_io(year, loop)
                     self.calculate_coefficients(year, loop)
-                    print self.nodes[6].active_supply.groupby(level=0).sum()
-                    print self.nodes[68].active_supply.groupby(level=0).sum()
                 # reconciliation loop
                 elif loop == 2:
                     logging.info("   loop {}: supply reconciliation".format(loop))
@@ -376,8 +374,6 @@ class Supply(object):
                     self._recalculate_after_reconciliation(year, loop, update_demand=True)
                     self.reconcile_oversupply(year, loop)
                     self._recalculate_after_reconciliation(year, loop, update_demand=True)
-                    print self.nodes[6].active_supply.groupby(level=0).sum()
-                    print self.nodes[68].active_supply.groupby(level=0).sum()
                 # dispatch loop
                 elif loop == 3 and year in self.dispatch_years:
                     logging.info("   loop {}: electricity dispatch".format(loop))
@@ -389,8 +385,6 @@ class Supply(object):
                     self.prepare_dispatch_inputs(year, loop)
                     self.solve_electricity_dispatch(year)
                     self._recalculate_stocks_and_io(year, loop)
-                    print self.nodes[6].active_supply.groupby(level=0).sum()
-                    print self.nodes[68].active_supply.groupby(level=0).sum()
             self.calculate_embodied_costs(year, loop=3)
             self.calculate_embodied_emissions(year)
             self.calculate_annual_costs(year)
@@ -1402,8 +1396,6 @@ class Supply(object):
                     primary_geography = resource[0]
                     df.loc[(primary_geography,node_id),(dispatch_geography)] += np.nan_to_num(thermal_dispatch_df.loc[str(resource),:].values)
         self.thermal_totals = df
-        print df.sum()
-        
 
 #    def update_bulk_coefficients(self):
 #        bulk_load = util.DfOper.add([self.bulk_load.groupby(level=cfg.dispatch_geography).sum(), util.DfOper.mult([util.DfOper.subt([self.distribution_load,self.distribution_gen]),self.distribution_losses]).groupby(level=cfg.dispatch_geography).sum()])
