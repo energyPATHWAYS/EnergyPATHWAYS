@@ -1223,7 +1223,6 @@ class Subsector(DataMapFunctions):
 #        self.calculate_driver_min_year()
         driver_min_year = 9999
         if self.sub_type == 'stock and energy':
-            tech_min_year = self.calculate_tech_min_year()
             stock_min_year = min(
                 self.stock.raw_values.index.levels[util.position_in_index(self.stock.raw_values, 'year')])
             sales_share = util.sql_read_table('DemandSalesData', 'vintage', return_iterable=True, subsector_id=self.id)            
@@ -1233,10 +1232,9 @@ class Subsector(DataMapFunctions):
                 sales_share_min_year = 9999
             energy_min_year = min(self.energy_demand.raw_values.index.levels[
                 util.position_in_index(self.energy_demand.raw_values, 'year')])
-            self.min_year = min(int(cfg.cfgfile.get('case', 'current_year')), driver_min_year, tech_min_year,
+            self.min_year = min(int(cfg.cfgfile.get('case', 'current_year')), driver_min_year,
                                 stock_min_year, sales_share_min_year, energy_min_year)
         elif self.sub_type == 'stock and service':
-            tech_min_year = self.calculate_tech_min_year()
             stock_min_year = min(
                 self.stock.raw_values.index.levels[util.position_in_index(self.stock.raw_values, 'year')])
             sales_share = util.sql_read_table('DemandSalesData', 'vintage', return_iterable=True, subsector_id=self.id)            
@@ -1246,7 +1244,7 @@ class Subsector(DataMapFunctions):
                 sales_share_min_year = 9999
             service_min_year = min(self.service_demand.raw_values.index.levels[
                 util.position_in_index(self.service_demand.raw_values, 'year')])
-            self.min_year = min(int(cfg.cfgfile.get('case', 'current_year')), driver_min_year, tech_min_year,
+            self.min_year = min(int(cfg.cfgfile.get('case', 'current_year')), driver_min_year,
                                 stock_min_year, sales_share_min_year, service_min_year)
         elif self.sub_type == 'service and efficiency':
             service_min_year = min(self.service_demand.raw_values.index.levels[
@@ -1268,7 +1266,6 @@ class Subsector(DataMapFunctions):
             self.min_year = min(int(cfg.cfgfile.get('case', 'current_year')), driver_min_year, energy_min_year)
             
         elif self.sub_type == 'link':
-            tech_min_year = self.calculate_tech_min_year()
             stock_min_year = min(
                 self.stock.raw_values.index.levels[util.position_in_index(self.stock.raw_values, 'year')])
             sales_share = util.sql_read_table('DemandSalesData', 'vintage', return_iterable=True, subsector_id=self.id)             
@@ -1276,26 +1273,14 @@ class Subsector(DataMapFunctions):
                 sales_share_min_year = min(sales_share)
             else:
                 sales_share_min_year = 9999
-            self.min_year = min(int(cfg.cfgfile.get('case', 'current_year')), driver_min_year, tech_min_year,
+            self.min_year = min(int(cfg.cfgfile.get('case', 'current_year')), driver_min_year,
                                     stock_min_year, sales_share_min_year)
         self.min_year = max(self.min_year, int(cfg.cfgfile.get('case', 'demand_start_year')))
         self.min_year = min(self.shapes_weather_year, self.min_year)
         self.min_year = int(int(cfg.cfgfile.get('case', 'year_step'))*round(float(self.min_year)/int(cfg.cfgfile.get('case', 'year_step'))))
         self.years = range(self.min_year, int(cfg.cfgfile.get('case', 'end_year')) + 1,
                            int(cfg.cfgfile.get('case', 'year_step')))
-        
         self.vintages = self.years
-
-
-    def calculate_tech_min_year(self):
-        """
-        calculates the minimum input years of all subsector technologies
-        """
-        min_years = []
-        if hasattr(self, 'technologies'):
-            for tech in self.technologies:
-                min_years.append(self.technologies[tech].min_year)
-            return min(min_years)
 
 
     def calculate_driver_min_year(self):
