@@ -1359,8 +1359,6 @@ class Supply(object):
                         df.loc[row_indexer,col_indexer] = 0             
         normalized = df.groupby(level=['demand_sector']).transform(lambda x: x/x.sum())
 #        df[df<normalized] = normalized
-        if year == 2050:
-            pdb.set_trace()
         bulk_multiplier = df.sum()
         df = normalized
         df.replace([np.inf,np.nan],0,inplace=True)
