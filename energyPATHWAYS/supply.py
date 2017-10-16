@@ -309,11 +309,10 @@ class Supply(object):
     def _recalculate_stocks_and_io(self, year, loop):
         """ Basic calculation control for the IO
         """
-        
+        self.calculate_coefficients(year, loop)
         # we have just solved the dispatch, so coefficients need to be updated before updating the io
         if loop == 3 and year in self.dispatch_years:
             self.update_coefficients_from_dispatch(year)
-        self.calculate_coefficients(year, loop)
         self.copy_io(year,loop)
         self.update_io_df(year,loop)
         self.calculate_io(year, loop)
@@ -1921,8 +1920,6 @@ class Supply(object):
             loop (int or str) = loop identifier
         """
         for node_id in self.blend_nodes:
-            if node_id==self.bulk_id and loop ==3:
-                pass
             node = self.nodes[node_id]
             node.update_residual(year)
         for node in self.nodes.values():
