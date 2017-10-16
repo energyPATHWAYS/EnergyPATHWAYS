@@ -1348,7 +1348,9 @@ class Supply(object):
             df = pd.concat([df]*len(self.demand_sectors),keys=self.demand_sectors,names=['demand_sector'])
             df = pd.concat([df]*len(self.demand_sectors),keys=self.demand_sectors,names=['demand_sector'],axis=1)
             df = df.reorder_levels([cfg.primary_geography,'demand_sector','supply_node'])
+            df = df.reorder_levels([cfg.primary_geography,'demand_sector'],axis=1)
             df.sort(inplace=True)
+            df.sort(inplace=True, axis=1)
             for row_sector in self.demand_sectors:
                 for col_sector in self.demand_sectors:
                     if row_sector != col_sector:
@@ -1392,7 +1394,6 @@ class Supply(object):
                     primary_geography = resource[0]
                     df.loc[(primary_geography,node_id),(dispatch_geography)] += np.nan_to_num(thermal_dispatch_df.loc[str(resource),:].values)
         self.thermal_totals = df
-        
 
 #    def update_bulk_coefficients(self):
 #        bulk_load = util.DfOper.add([self.bulk_load.groupby(level=cfg.dispatch_geography).sum(), util.DfOper.mult([util.DfOper.subt([self.distribution_load,self.distribution_gen]),self.distribution_losses]).groupby(level=cfg.dispatch_geography).sum()])
