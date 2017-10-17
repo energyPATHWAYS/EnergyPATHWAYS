@@ -580,7 +580,7 @@ class Supply(object):
         self.dispatched_bulk_gen = copy.deepcopy(self.bulk_gen)*0
         self.dispatched_dist_load = copy.deepcopy(self.distribution_load)*0
         self.dispatched_dist_gen = copy.deepcopy(self.distribution_gen)*0
-        for node_id in [x for x in self.dispatch.dispatch_order if x in self.nodes.keys()]:
+        for node_id in [x for x in self.dispatch.dispatch_order if x in self.nodes.keys() ]:
             node = self.nodes[node_id]
             full_energy_shape, p_min_shape, p_max_shape = node.aggregate_flexible_electricity_shapes(year, util.remove_df_levels(util.df_slice(self.dispatch_feeder_allocation.values,year,'year'),year))
             if node_id in self.flexible_gen.keys():

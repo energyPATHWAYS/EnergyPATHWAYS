@@ -95,7 +95,7 @@ class Dispatch(object):
         self.node_config_dict = dict()
         for supply_node in util.sql_read_table('DispatchNodeConfig','supply_node_id'):
             self.node_config_dict[supply_node] = DispatchNodeConfig(supply_node)
-        self.set_dispatch_order()
+        self.set_dispatch_orders()
         self.dispatch_window_dict = dict(util.sql_read_table('DispatchWindows'))  
         self.curtailment_cost = util.unit_convert(0.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.unserved_energy_cost = util.unit_convert(2000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
@@ -114,10 +114,13 @@ class Dispatch(object):
             self.stdout_detail = True
         self.solve_kwargs = {"keepfiles": False, "tee": False}
   
-    def set_dispatch_order(self):
-        order = [x.dispatch_order for x in self.node_config_dict.values()]
+    def set_dispatch_orders(self):
+        order = [x.dispatch_order for x in self.node_config_dict.values() if x.optimized!=True]
         order_index = np.argsort(order)
-        self.dispatch_order = [self.node_config_dict.keys()[i] for i in order_index]
+        self.heuristic_dispatch_order = [self.node_config_dict.keys()[i] for i in order_index]
+        order = [x.dispatch_order for x in self.node_config_dict.values() if x.optimized==True]
+        order_index = np.argsort(order)
+        self.long_duration_dispatch_order = [self.node_config_dict.keys()[i] for i in order_index]
 
     def set_year(self, year):
         self.year = year
@@ -279,6 +282,7 @@ class Dispatch(object):
                      tech_dispatch_id = str((dispatch_geography,zone,feeder,tech))
                      self.storage_technologies.append(tech_dispatch_id)
                      self.geography[tech_dispatch_id ] = dispatch_geography
+                     self.min_capacity[tech_dispatch_id] = 0
                      self.capacity[tech_dispatch_id] = storage_capacity_dict['power'][dispatch_geography][zone][feeder][tech]
                      self.duration[tech_dispatch_id] = storage_capacity_dict['duration'][dispatch_geography][zone][feeder][tech]
                      self.energy[tech_dispatch_id] = self.capacity[tech_dispatch_id] * self.duration[tech_dispatch_id]
@@ -302,6 +306,10 @@ class Dispatch(object):
                      self.discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.charging_efficiency)[tech_dispatch_id] 
                      self.feeder[tech_dispatch_id] = feeder
           self.set_gen_technologies(dispatch_geography,thermal_dispatch_df)
+          self.convert_all_to_period()
+          
+    def convert_all_to_period(self):
+      self.min_capacity = self.convert_to_period(self.min_capacity)
       self.capacity = self.convert_to_period(self.capacity)
       self.duration = self.convert_to_period(self.duration)
       self.energy = self.convert_to_period(self.energy)

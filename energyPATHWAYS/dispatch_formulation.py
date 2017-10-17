@@ -67,6 +67,12 @@ def gas_and_storage_power_rule(model, technology, timepoint):
     """
     return model.Provide_Power[technology, timepoint] <= model.capacity[technology]
 
+
+def ld_energy_rule(model, technology, timepoint):
+    if technology in model.LD_TECHNOLOGIES:
+        sum(model.Provide_Power[technology] for t in model.timepoints) == model.ld_energy[technology]
+
+
 def storage_charge_rule(model, technology, timepoint):
     """
     Storage cannot charge at a higher rate than implied by its total installed power capacity.
@@ -188,7 +194,7 @@ def bulk_system_capacity_need_rule(model, geography, timepoint):
     return (model.BulkSysCapacityNeed[geography, timepoint] +
            model.bulk_net_load_threshold[geography]) \
            >= \
-           sum((model.t_and_d_losses[geography,feeder]) *
+           (model.t_and_d_losses[geography,feeder]) *
            (model.distribution_load[geography, timepoint,feeder] -
            model.distribution_gen[geography, timepoint,feeder] -
            feeder_provide_power(model, geography, timepoint, feeder) +
@@ -247,7 +253,8 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     # ### Technologies ### #
     model.STORAGE_TECHNOLOGIES = Set(initialize=dispatch.storage_technologies)
     model.GENERATION_TECHNOLOGIES = Set(initialize=dispatch.generation_technologies)
-    model.TECHNOLOGIES = model.STORAGE_TECHNOLOGIES | model.GENERATION_TECHNOLOGIES
+    model.LD_TECHNOLOGIES = set(initialize=disapath.ld_technologies)
+    model.TECHNOLOGIES = model.STORAGE_TECHNOLOGIES | model.GENERATION_TECHNOLOGIES | model.LD_TECHNOLOGIES
     model.large_storage = Param(model.STORAGE_TECHNOLOGIES, initialize=dispatch.large_storage, within=Binary)
     model.VERY_LARGE_STORAGE_TECHNOLOGIES = Set(within=model.STORAGE_TECHNOLOGIES, initialize=large_storage_tech_init)
     model.start_state_of_charge = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES, initialize=(dispatch.start_soc_large_storage[period] if len(dispatch.start_soc_large_storage) else dispatch.start_soc_large_storage))
@@ -259,8 +266,13 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     model.variable_cost = Param(model.GENERATION_TECHNOLOGIES, initialize=dispatch.variable_costs)
     model.geography = Param(model.TECHNOLOGIES, within=model.GEOGRAPHIES, initialize=dispatch.geography[period])
     model.feeder = Param(model.TECHNOLOGIES, within=model.FEEDERS, initialize=dispatch.feeder[period])
+    model.min_capacity = Param(model.TECHNOLOGIES, initialize=dispatch.min_capacity[period])    
     model.capacity = Param(model.TECHNOLOGIES, initialize=dispatch.capacity[period])
     model.duration = Param(model.STORAGE_TECHNOLOGIES, initialize= dispatch.duration[period])
+    model.begin_energy = Param(model.LD_TECHNOLOGIES, initialize = (dispatch.begin_energy[period] if len(dispatch.begin_energy) else dispatch.begin_energy))
+    model.end_energy = Param(model.LD_TECHNOLOGIES, initialize = (dispatch.end_energy[period] if len(dispatch.end_energy) else dispatch.end_energy))
+    
+    
     
     # ### System ### #
     # Load
@@ -297,7 +309,7 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     # ### Variables ### #
     #####################
     # Projects
-    model.Provide_Power = Var(model.TECHNOLOGIES, model.TIMEPOINTS, within=NonNegativeReals)
+    model.Provide_Power = Var(model.TECHNOLOGIES, model.TIMEPOINTS, within=Reals)
     model.Charge = Var(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, within=NonNegativeReals)
     model.Energy_in_Storage = Var(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, within=NonNegativeReals)
 
@@ -343,6 +355,8 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     else:
         model.Flex_Load_Capacity_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=zero_flexible_load)
     
+    #ld_energy
+    model.LD_Energy_Constraint = Constraint(model.LD_TECHNOLOGIES, model.TIMEPOINTS, rule=ld_energy_rule)
     # Transmission
 #    model.Transmission_Constraint = Constraint(model.TRANSMISSION_LINES, model.TIMEPOINTS, rule=transmission_rule)
 
@@ -414,9 +428,8 @@ def year_to_period_allocation_formulation(dispatch):
 
     model.GEOGRAPHIES = Set(initialize=dispatch.dispatch_geographies)
     
-
     model.VERY_LARGE_STORAGE_TECHNOLOGIES = Set(initialize =dispatch.alloc_technologies)
-
+    model.TECHNOLOGIES = model.VERY_LARGE_STORAGE_TECHNOLOGIES
     model.geography = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES, initialize=dispatch.alloc_geography)
     # TODO: careful with capacity means in the context of, say, a week instead of an hour
     model.power_capacity = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES,
