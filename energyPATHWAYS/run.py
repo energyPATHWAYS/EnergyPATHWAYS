@@ -216,14 +216,15 @@ if __name__ == "__main__":
     scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
     load_demand   = False,
-    solve_demand  = True,
-    load_supply   = False,
+    solve_demand  = False,
+    load_supply   = True,
     solve_supply  = False,
-    export_results= True,
+    export_results= False,
     load_error    = False,
-    pickle_shapes = False,
+    pickle_shapes = True,
     save_models   = False,
     api_run       = False,
-    clear_results = True)
+    clear_results = False)
+
 
 

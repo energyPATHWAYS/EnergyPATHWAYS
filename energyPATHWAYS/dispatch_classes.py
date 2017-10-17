@@ -24,6 +24,7 @@ import helper_multiprocess
 import cPickle as pickle
 import dispatch_generators
 import dispatch_maintenance
+import dispatch_transmission
 
 class DispatchFeederAllocation(Abstract):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
@@ -108,6 +109,7 @@ class Dispatch(object):
         self.dispatch_geography = dispatch_geography
         self.dispatch_geographies = dispatch_geographies
         self.stdout_detail = cfg.cfgfile.get('opt','stdout_detail')
+        self.transmission = dispatch_transmission.DispatchTransmission(cfg.transmission_constraint_id)
         if self.stdout_detail == 'False':
             self.stdout_detail = False
         else:

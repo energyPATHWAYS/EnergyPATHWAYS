@@ -82,7 +82,7 @@ def storage_energy_rule(model, technology, timepoint):
     
     
 #def storage_simultaneous_rule(model,technology,timepoint):
-    return model.Charge[technology, timepoint] * model.Provide_Power[technology, timepoint] <= 0
+    # return model.Charge[technology, timepoint] * model.Provide_Power[technology, timepoint] <= 0
 
 def storage_energy_tracking_rule(model, technology, timepoint):
     """
@@ -157,7 +157,7 @@ def transmission_rule(model, line, timepoint):
     """
     Transmission line flow is limited by transmission capacity.
     """
-    return -model.transmission_capacity[line] <= model.Transmit_Power[line, timepoint] <= model.transmission_capacity[line]
+    return model.Transmit_Power[line, timepoint] <= model.transmission_capacity[line]
 
 def dist_system_capacity_need_rule(model, geography, timepoint, feeder):
     """
@@ -277,10 +277,9 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     model.max_flex_load = Param(model.GEOGRAPHIES,model.FEEDERS, within=Reals, initialize=dispatch.max_flex_load[period])
     model.min_flex_load = Param(model.GEOGRAPHIES,model.FEEDERS, within=Reals, initialize=dispatch.min_flex_load[period])
     
-#    model.TRANSMISSION_LINES = Set(initialize=dispatch.transmission_lines)
-#    model.transmission_from = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission_from)
-#    model.transmission_to = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission_to)
-#    model.transmission_capacity = Param(model.TRANSMISSION_LINES, initialize=_inputs.transmission_capacity)
+    model.TRANSMISSION_LINES = Set(initialize=dispatch.transmission.list_transmission_lines)
+    model.transmission_capacity = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission.constraints.get_values_as_dict(dispatch.year))
+    model.transmission_hurdle = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission.hurdles.get_values_as_dict(dispatch.year))
 
     model.dist_net_load_threshold = Param(model.GEOGRAPHIES, model.FEEDERS, within=NonNegativeReals, initialize=dispatch.dist_net_load_thresholds)
     model.bulk_net_load_threshold = Param(model.GEOGRAPHIES, within=NonNegativeReals, initialize=dispatch.bulk_net_load_thresholds)
@@ -302,7 +301,7 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     model.Energy_in_Storage = Var(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, within=NonNegativeReals)
 
     # Transmission
-#    model.Transmit_Power = Var(model.TRANSMISSION_LINES, model.TIMEPOINTS, within=Reals)
+    model.Transmit_Power = Var(model.TRANSMISSION_LINES, model.TIMEPOINTS, within=NonNegativeReals)
 
     # System
     model.Flexible_Load = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals)
@@ -344,7 +343,7 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
         model.Flex_Load_Capacity_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=zero_flexible_load)
     
     # Transmission
-#    model.Transmission_Constraint = Constraint(model.TRANSMISSION_LINES, model.TIMEPOINTS, rule=transmission_rule)
+    model.Transmission_Constraint = Constraint(model.TRANSMISSION_LINES, model.TIMEPOINTS, rule=transmission_rule)
 
     # Distribution system penalty
     model.Distribution_System_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=dist_system_capacity_need_rule)
