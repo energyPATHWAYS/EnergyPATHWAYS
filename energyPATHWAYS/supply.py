@@ -726,6 +726,8 @@ class Supply(object):
         self.bulk_gen = util.DfOper.add((self.bulk_gen, storage_discharge.xs(0, level='dispatch_feeder')))
         imports = self.dispatch.transmission_flow_df.groupby(level=['geography_to', 'weather_datetime']).sum()
         exports = self.dispatch.transmission_flow_df.groupby(level=['geography_from', 'weather_datetime']).sum()
+        imports.index.names = [cfg.dispatch_geography, 'weather_datetime']
+        exports.index.names = [cfg.dispatch_geography, 'weather_datetime']
         self.bulk_load = util.DfOper.add((self.bulk_load, exports))
         self.bulk_gen = util.DfOper.add((self.bulk_load, imports))
 

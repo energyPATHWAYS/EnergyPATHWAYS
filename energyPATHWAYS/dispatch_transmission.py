@@ -78,6 +78,11 @@ class DispatchTransmissionConstraint(TransmissionSuper):
         self.sql_id_table = 'DispatchTransmissionConstraint'
         self.sql_data_table = 'DispatchTransmissionConstraintData'
         TransmissionSuper.__init__(self)
+        self.convert_units()
+
+    def convert_units(self):
+        unit_factor = util.unit_convert(1, unit_from_den=self.energy_unit, unit_to_den=cfg.calculation_energy_unit)
+        self.values /= unit_factor
 
 class DispatchTransmissionHurdleRate(TransmissionSuper):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
@@ -86,6 +91,11 @@ class DispatchTransmissionHurdleRate(TransmissionSuper):
         self.sql_id_table = 'DispatchTransmissionConstraint'
         self.sql_data_table = 'DispatchTransmissionHurdleRate'
         TransmissionSuper.__init__(self)
+        self.convert_units()
+
+    def convert_units(self):
+        unit_factor = util.unit_convert(1, unit_from_den=self.energy_unit, unit_to_den=cfg.calculation_energy_unit)
+        self.values *= unit_factor
 
 class DispatchTransmission():
     def __init__(self, id):

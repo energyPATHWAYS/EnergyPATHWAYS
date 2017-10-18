@@ -219,7 +219,7 @@ if __name__ == "__main__":
     solve_demand  = False,
     load_supply   = False,
     solve_supply  = True,
-    export_results= False,
+    export_results= True,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
