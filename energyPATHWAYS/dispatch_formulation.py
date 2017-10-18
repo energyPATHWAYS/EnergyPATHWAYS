@@ -65,7 +65,7 @@ def gas_and_storage_power_rule(model, technology, timepoint):
     Storage cannot discharge at a higher rate than implied by its total installed power capacity.
     Charge and discharge rate limits are currently the same.
     """
-    return model.Provide_Power[technology, timepoint] <= model.capacity[technology]
+    return model.min_capacity[technology]<= model.Provide_Power[technology, timepoint] <= model.capacity[technology]
 
 
 def ld_energy_rule(model, technology, timepoint):

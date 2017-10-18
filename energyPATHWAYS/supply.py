@@ -570,6 +570,86 @@ class Supply(object):
             distribution_df = util.remove_df_levels(distribution_df, 'DISPATCH_FEEDER')
             self.bulk_dispatch = pd.concat([self.bulk_dispatch, distribution_df.reorder_levels(self.bulk_dispatch.index.names)])
 
+    def set_long_duration_opt(self, year):
+        # MOVE
+        """sets input parameters for dispatched nodes (ex. conventional hydro)"""
+        def split_and_apply(array, dispatch_periods, fun):
+            energy_by_block = np.array_split(array, np.where(np.diff(dispatch_periods)!=0)[0]+1)
+            return [fun(block) for block in energy_by_block]   
+        self.dispatch.ld_technologies = []
+        self.dispatch.ld_energy = util.recursivedict()
+        for node_id in [x for x in self.dispatch.long_duration_dispatch_order if x in self.nodes.keys() ]:
+            node = self.nodes[node_id]
+            full_energy_shape, p_min_shape, p_max_shape = node.aggregate_flexible_electricity_shapes(year, util.remove_df_levels(util.df_slice(self.dispatch_feeder_allocation.values,year,'year'),year))
+            if node_id in self.flexible_gen.keys():
+                lookup = self.flexible_gen
+                load_or_gen = 'gen'
+            elif node_id in self.flexible_load.keys():
+                lookup = self.flexible_load
+                load_or_gen = 'load'
+            else:
+                continue       
+            for geography in lookup[node_id].keys():
+                for zone in lookup[node_id][geography].keys():
+                    for feeder in lookup[node_id][geography][zone].keys():
+                        capacity = lookup[node_id][geography][zone][feeder]['capacity']
+                        energy = lookup[node_id][geography][zone][feeder]['energy']
+                        dispatch_periods = self.dispatch.period_repeated
+                        num_years = len(dispatch_periods)/8766.
+                        if load_or_gen=='load':
+                            energy = copy.deepcopy(energy) *-1
+                        if full_energy_shape is not None and 'dispatch_feeder' in full_energy_shape.index.names:
+                            energy_shape = util.df_slice(full_energy_shape, feeder, 'dispatch_feeder')     
+                        else:
+                            energy_shape = full_energy_shape
+                        if energy_shape is None:                            
+                            energy_budgets = util.remove_df_levels(energy,cfg.primary_geography).values * np.diff([0]+list(np.where(np.diff(dispatch_periods)!=0)[0]+1)+[len(dispatch_periods)-1])/8766.*num_years
+                            energy_budgets = energy_budgets[0]
+                        else:
+                            hourly_energy = util.remove_df_levels(util.DfOper.mult([energy,energy_shape]), cfg.primary_geography).values
+                            energy_budgets = split_and_apply(hourly_energy, dispatch_periods, sum)
+                        if p_min_shape is None:   
+                            p_min = 0.0
+                            p_max = capacity.sum().values[0]
+                        else:
+                            hourly_p_min = util.remove_df_levels(util.DfOper.mult([capacity,p_min_shape]),cfg.primary_geography).values
+                            p_min = split_and_apply(hourly_p_min, dispatch_periods, np.mean)
+                            hourly_p_max = util.remove_df_levels(util.DfOper.mult([capacity,p_max_shape]),cfg.primary_geography).values
+                            p_max = split_and_apply(hourly_p_max, dispatch_periods, np.mean)                        
+                        tech_id = ['LD' + str(node_id)]                               
+                        self.dispatch.ld_technologies.append(tech_id) 
+
+                        if load_or_gen == 'gen':    
+                            max_capcity = p_max
+                            min_capacity = p_min
+                        else:
+                            max_capacity = -p_min
+                            min_capacity = -p_max
+                            #reversed sign for load so that pmin always represents greatest load or smallest generation
+                        if zone == self.transmission_node_id:                    
+                                net_indexer = util.level_specific_indexer(self.bulk_net_load,[cfg.dispatch_geography,'timeshift_type'], [geography,2])
+                                if load_or_gen=='load':
+                                    dispatch = np.transpose([dispatch_budget.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
+                                    dispatch = split_and_apply(dispatch, dispatch_periods,np.sum)
+                                else:
+                                    dispatch = np.transpose([dispatch_budget.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),np.array(energy_budgets).flatten(), dispatch_periods, p_min, p_max)])
+                                    dispatch = split_and_apply(dispatch, dispatch_periods,np.sum)
+                        else:
+                                if load_or_gen=='load':
+                                    dispatch =  np.transpose([dispatch_budget.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
+                                    dispatch = split_and_apply(dispatch, dispatch_periods,np.sum)
+                                else:
+                                    dispatch =  np.transpose([dispatch_budget.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
+                                    dispatch = split_and_apply(dispatch, dispatch_periods,np.sum)      
+                        for period in self.dispatch.periods:
+                            self.dispatch.ld_energy[period][tech_id] = dispatch                                
+                            self.dispatch.capacity[period][tech_id] = max_capacity
+                            self.dispatch.min_capacity[period][tech_id] = min_capacity
+                            self.dispatch.geography[period][tech_id] = geography
+                            self.dispatch.feeder[period][tech_id] = feeder   
+
+
+
     def solve_heuristic_load_and_gen(self, year):
         # MOVE
         """solves dispatch shapes for heuristically dispatched nodes (ex. conventional hydro)"""
@@ -580,7 +660,7 @@ class Supply(object):
         self.dispatched_bulk_gen = copy.deepcopy(self.bulk_gen)*0
         self.dispatched_dist_load = copy.deepcopy(self.distribution_load)*0
         self.dispatched_dist_gen = copy.deepcopy(self.distribution_gen)*0
-        for node_id in [x for x in self.dispatch.dispatch_order if x in self.nodes.keys() ]:
+        for node_id in [x for x in self.dispatch.heuristic_dispatch_order if x in self.nodes.keys() ]:
             node = self.nodes[node_id]
             full_energy_shape, p_min_shape, p_max_shape = node.aggregate_flexible_electricity_shapes(year, util.remove_df_levels(util.df_slice(self.dispatch_feeder_allocation.values,year,'year'),year))
             if node_id in self.flexible_gen.keys():
@@ -675,6 +755,7 @@ class Supply(object):
         self.set_net_load_thresholds(year)
         self.dispatch.set_opt_loads(self.distribution_load,self.distribution_gen,self.bulk_load,self.bulk_gen,self.dispatched_bulk_load)
         self.dispatch.set_technologies(self.storage_capacity_dict, self.storage_efficiency_dict, self.active_thermal_dispatch_df)
+        self.set_long_duration_opt(year)
         self.dispatch.set_average_net_loads(self.bulk_net_load)
 
     def set_grid_capacity_factors(self, year):

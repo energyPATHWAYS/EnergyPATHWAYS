@@ -215,15 +215,15 @@ if __name__ == "__main__":
     config = 'config.INI'
     scenario = ['CA_REF']
     run(workingdir, config, scenario,
-    load_demand   = True,
+    load_demand   = False,
     solve_demand  = True,
-    load_supply   = True,
+    load_supply   = False,
     solve_supply  = False,
     export_results= False,
     load_error    = False,
     pickle_shapes = False,
     save_models   = False,
     api_run       = False,
-    clear_results = False)
+    clear_results = True)
 
 
