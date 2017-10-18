@@ -38,22 +38,22 @@ class TransmissionSuper(Abstract):
         self.values = self.clean_timeseries(attr='raw_values', inplace=False, time_index=cfg.supply_years, time_index_name='year', interpolation_method=self.interpolation_method, extrapolation_method=self.extrapolation_method)
 
         # fill in any missing combinations of geographies
-        self.values = util.reindex_df_level_with_new_elements(self.values, 'geography_from_id', cfg.dispatch_geographies)
-        self.values = util.reindex_df_level_with_new_elements(self.values, 'geography_to_id', cfg.dispatch_geographies)
+        self.values = util.reindex_df_level_with_new_elements(self.values, 'geography_from', cfg.dispatch_geographies)
+        self.values = util.reindex_df_level_with_new_elements(self.values, 'geography_to', cfg.dispatch_geographies)
         self.values = self.values.fillna(0)
         self.values = self.values.sort()
 
     def _setup_zero_constraints(self):
-        index = pd.MultiIndex.from_product(cfg.supply_years,cfg.dispatch_geographies, cfg.dispatch_geographies, names=['year', 'geography_from_id', 'geography_to_id'])
+        index = pd.MultiIndex.from_product(cfg.supply_years,cfg.dispatch_geographies, cfg.dispatch_geographies, names=['year', 'geography_from', 'geography_to'])
         self.values = pd.DataFrame(0, index=index, columns=['value'])
 
     def _validate_gaus(self):
         dispatch_geographies = set(cfg.dispatch_geographies)
-        geography_from_ids = self.raw_values.index.get_level_values('geography_from_id')
+        geography_from_ids = self.raw_values.index.get_level_values('geography_from')
         if len(set(geography_from_ids) - dispatch_geographies):
             raise ValueError("gau_from_ids {} are found in transmission constraint id {} "
                              "but not found in the dispatch_geographies {}".format(list(set(geography_from_ids) - dispatch_geographies), self.id, cfg.dispatch_geographies))
-        geography_to_ids = self.raw_values.index.get_level_values('geography_to_id')
+        geography_to_ids = self.raw_values.index.get_level_values('geography_to')
         if len(set(geography_to_ids) - dispatch_geographies):
             raise ValueError("gau_to_ids {} are found in transmission constraint id {} "
                              "but not found in the dispatch_geographies {}".format(list(set(geography_to_ids) - dispatch_geographies), self.id, cfg.dispatch_geographies))
@@ -66,6 +66,9 @@ class TransmissionSuper(Abstract):
         for key in capacity.keys():
             if key[0]==key[1]:
                 del capacity[key]
+        # tuple needs to be a string in the optimization
+        capacity = dict(zip([str((int(key[0]), int(key[1]))) for key in capacity.keys()],
+                            capacity.values()))
         return capacity
 
 class DispatchTransmissionConstraint(TransmissionSuper):
@@ -97,5 +100,5 @@ class DispatchTransmission():
             for t_to in cfg.dispatch_geographies:
                 if t_from==t_to:
                     continue
-                transmission_lines.append((t_from, t_to))
+                transmission_lines.append(str((int(t_from), int(t_to))))
         return transmission_lines

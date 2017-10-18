@@ -46,6 +46,7 @@ def meet_load_rule(model, geography, timepoint):
 
     
     return (feeder_provide_power(model, geography, timepoint, feeder=0) +
+            model.Net_Transmit_Power_by_Geo[geography, timepoint] +
             model.bulk_gen[geography, timepoint] -
             model.bulk_load[geography, timepoint] -
             feeder_charge(model, geography, timepoint, feeder=0) -
@@ -157,7 +158,14 @@ def transmission_rule(model, line, timepoint):
     """
     Transmission line flow is limited by transmission capacity.
     """
+    # if we make transmission capacity vary by hour, we just need to add timepoint to transmission capacity
     return model.Transmit_Power[line, timepoint] <= model.transmission_capacity[line]
+
+def net_transmit_power_by_geo_rule(model, geography, timepoint):
+    # line is constructed as (from, to)
+    # net transmit power = sum of all imports minus the sum of all exports
+    return model.Net_Transmit_Power_by_Geo[geography, timepoint] == sum([model.Transmit_Power[str((g, geography)), timepoint] for g in model.GEOGRAPHIES if g!=geography]) - \
+                                                                    sum([model.Transmit_Power[str((geography, g)), timepoint] for g in model.GEOGRAPHIES if g!=geography])
 
 def dist_system_capacity_need_rule(model, geography, timepoint, feeder):
     """
@@ -214,7 +222,11 @@ def total_cost_rule(model):
     flex_load_use_cost = sum(model.FlexLoadUse[r, t, f] * model.flex_penalty for r in model.GEOGRAPHIES
                                                                              for t in model.TIMEPOINTS
                                                                              for f in model.FEEDERS)
-    total_cost = gen_cost + curtailment_cost + unserved_energy_cost + dist_sys_penalty_cost + bulk_sys_penalty_cost + flex_load_use_cost
+    transmission_hurdles = sum(model.Transmit_Power[str((from_geo, to_geo)), t] * model.transmission_hurdle[str((from_geo, to_geo))]
+                                                                                for from_geo in model.GEOGRAPHIES
+                                                                                for to_geo in model.GEOGRAPHIES
+                                                                                for t in model.TIMEPOINTS if from_geo!=to_geo)
+    total_cost = gen_cost + curtailment_cost + unserved_energy_cost + dist_sys_penalty_cost + bulk_sys_penalty_cost + flex_load_use_cost + transmission_hurdles
     return total_cost
 
 def min_timepoints(model):
@@ -302,6 +314,7 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
 
     # Transmission
     model.Transmit_Power = Var(model.TRANSMISSION_LINES, model.TIMEPOINTS, within=NonNegativeReals)
+    model.Net_Transmit_Power_by_Geo = Var(model.GEOGRAPHIES, model.TIMEPOINTS, within=Reals)
 
     # System
     model.Flexible_Load = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals)
@@ -344,6 +357,7 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     
     # Transmission
     model.Transmission_Constraint = Constraint(model.TRANSMISSION_LINES, model.TIMEPOINTS, rule=transmission_rule)
+    model.Net_Transmit_Power_by_Geo_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, rule=net_transmit_power_by_geo_rule)
 
     # Distribution system penalty
     model.Distribution_System_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=dist_system_capacity_need_rule)

@@ -46,7 +46,8 @@ class DispatchNodeConfig(DataMapFunctions):
 def all_results_to_list(instance):
     return {'Charge':storage_result_to_list(instance.Charge),
             'Provide_Power':storage_result_to_list(instance.Provide_Power),
-            'Flexible_Load':flexible_load_result_to_list(instance.Flexible_Load)}
+            'Flexible_Load':flexible_load_result_to_list(instance.Flexible_Load),
+            'Transmission_Flows':storage_result_to_list(instance.Transmit_Power)}
 
 def storage_result_to_list(charge_or_discharge):
     items = charge_or_discharge.iteritems()
@@ -385,6 +386,22 @@ class Dispatch(object):
             raise ValueError('NaNs in flexible load outputs in dispatch period {}'.format(period))
         return df
 
+    def parse_transmission_flows(self, lists, period):
+        transmission_columns = ['geography_from', 'geography_to', 'hour', self.year]
+        df = pd.DataFrame(lists, columns=transmission_columns)
+        df = df.set_index(['geography_from', 'geography_to', 'hour']).sort_index()
+        if df.squeeze().isnull().any():
+            self.pickle_for_debugging()
+            raise ValueError('NaNs in flexible load outputs in dispatch period {}'.format(period))
+        return df
+
+    def parse_net_transmission_flows(self, transmission_flow_df):
+        imports = transmission_flow_df.groupby(level=['geography_to', 'weather_datetime']).sum()
+        exports = transmission_flow_df.groupby(level=['geography_from', 'weather_datetime']).sum()
+        net_flow = pd.concat([imports, exports], keys=['import flows','export flows'], names=['dispatch_output'])
+        net_flow.index.names = [cfg.dispatch_geography, 'weather_datetime']
+        return net_flow
+
     def _replace_hour_with_weather_datetime(self, df):
         i_h = df.index.names.index('hour')
         df.index.levels = [level if i != i_h else shape.shapes.active_dates_index for i, level in enumerate(df.index.levels)]
@@ -398,11 +415,13 @@ class Dispatch(object):
         charge = pd.concat([self.parse_storage_result(result['Charge'], period) for period, result in enumerate(results)])
         discharge = pd.concat([self.parse_storage_result(result['Provide_Power'], period) for period, result in enumerate(results)])
         flex_load_df = pd.concat([self.parse_flexible_load_result(result['Flexible_Load'], period) for period, result in enumerate(results)])
+        transmission_flow_df = pd.concat([self.parse_transmission_flows(result['Transmission_Flows'], period) for period, result in enumerate(results)])
         storage_df = pd.concat([charge, discharge], keys=['charge','discharge'], names=['charge_discharge'])
         storage_df = self._replace_hour_with_weather_datetime(storage_df)
         storage_df = storage_df.reorder_levels([self.dispatch_geography, 'dispatch_feeder', 'charge_discharge', 'weather_datetime']).sort_index()
         flex_load_df = self._replace_hour_with_weather_datetime(flex_load_df)
-        return storage_df, flex_load_df
+        transmission_flow_df = self._replace_hour_with_weather_datetime(transmission_flow_df)
+        return storage_df, flex_load_df, transmission_flow_df
 
     def solve_optimization_period(self, period, return_model_instance=False):
         model = dispatch_formulation.create_dispatch_model(self, period)
@@ -455,7 +474,7 @@ class Dispatch(object):
                 results = helper_multiprocess.safe_pool(helper_multiprocess.run_optimization, params)
             else:
                 results = [self.solve_optimization_period(period) for period in self.periods]
-            self.storage_df, self.flex_load_df = self.parse_optimization_results(results)
+            self.storage_df, self.flex_load_df, self.transmission_flow_df = self.parse_optimization_results(results)
         except:
             self.pickle_for_debugging()
             raise

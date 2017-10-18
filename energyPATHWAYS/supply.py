@@ -724,11 +724,36 @@ class Supply(object):
         self.distribution_gen = util.DfOper.add((self.distribution_gen, util.df_slice(storage_discharge, self.dispatch_feeders, 'dispatch_feeder')))
         self.bulk_load = util.DfOper.add((self.bulk_load, storage_charge.xs(0, level='dispatch_feeder')))
         self.bulk_gen = util.DfOper.add((self.bulk_gen, storage_discharge.xs(0, level='dispatch_feeder')))
+        imports = self.dispatch.transmission_flow_df.groupby(level=['geography_to', 'weather_datetime']).sum()
+        exports = self.dispatch.transmission_flow_df.groupby(level=['geography_from', 'weather_datetime']).sum()
+        self.bulk_load = util.DfOper.add((self.bulk_load, exports))
+        self.bulk_gen = util.DfOper.add((self.bulk_load, imports))
 
         self.update_net_load_signal()
         self.produce_distributed_storage_outputs(year)
         self.produce_bulk_storage_outputs(year)
         self.produce_flex_load_outputs(year)
+        self.produce_transmission_outputs(year)
+
+    def produce_transmission_outputs(self, year):
+        # MOVE
+        if year in self.dispatch_write_years:
+            df_index_reset = self.dispatch.transmission_flow_df.reset_index()
+            df_index_reset['geography_from'] = map(cfg.outputs_id_map[cfg.dispatch_geography].get, df_index_reset['geography_from'].values)
+            df_index_reset['geography_to'] = map(cfg.outputs_id_map[cfg.dispatch_geography].get, df_index_reset['geography_to'].values)
+            imports = df_index_reset.rename(columns={'geography_to':cfg.dispatch_geography})
+            exports = df_index_reset.rename(columns={'geography_from':cfg.dispatch_geography})
+            exports['geography_to'] = 'TRANSMISSION EXPORT TO ' + exports['geography_to']
+            imports['geography_from'] = 'TRANSMISSION IMPORT FROM ' + imports['geography_from']
+            imports = imports.rename(columns={'geography_from':'DISPATCH_OUTPUT'})
+            exports = exports.rename(columns={'geography_to':'DISPATCH_OUTPUT'})
+            imports = imports.set_index([cfg.dispatch_geography, 'DISPATCH_OUTPUT', 'weather_datetime'])
+            exports = exports.set_index([cfg.dispatch_geography, 'DISPATCH_OUTPUT', 'weather_datetime'])
+            transmission_output = pd.concat((-imports, exports))
+            transmission_output = util.add_and_set_index(transmission_output, 'year', year)
+            transmission_output.columns = [cfg.calculation_energy_unit.upper()]
+            transmission_output = self.outputs.clean_df(transmission_output)
+            self.bulk_dispatch = pd.concat([self.bulk_dispatch, transmission_output.reorder_levels(self.bulk_dispatch.index.names)])
 
     def produce_distributed_storage_outputs(self, year):
         # MOVE
