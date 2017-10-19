@@ -211,20 +211,18 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\CA'
+    workingdir = r'C:\github\ep-supply-curve\inputs\scenarios\census dispatch'
     config = 'config.INI'
-    scenario = ['CA_REF']
+    scenario = ['aeo_2017_reference_sc']
     run(workingdir, config, scenario,
     load_demand   = True,
     solve_demand  = False,
-    load_supply   = True,
+    load_supply   = False,
     solve_supply  = True,
-    export_results= True,
-    load_error    = False,
-    pickle_shapes = False,
-    save_models   = False,
+    export_results= False,
+    load_error    = True,
+    pickle_shapes = True,
+    save_models   = True,
     api_run       = False,
     clear_results = False)
 
-
-#model.solve_storage_and_flex_load_optimization(2015)

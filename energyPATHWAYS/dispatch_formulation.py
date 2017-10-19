@@ -46,6 +46,7 @@ def meet_load_rule(model, geography, timepoint):
 
     
     return (feeder_provide_power(model, geography, timepoint, feeder=0) +
+            model.Net_Transmit_Power_by_Geo[geography, timepoint] +
             model.bulk_gen[geography, timepoint] -
             model.bulk_load[geography, timepoint] -
             feeder_charge(model, geography, timepoint, feeder=0) -
@@ -87,7 +88,7 @@ def storage_energy_rule(model, technology, timepoint):
     
     
 #def storage_simultaneous_rule(model,technology,timepoint):
-    return model.Charge[technology, timepoint] * model.Provide_Power[technology, timepoint] <= 0
+    # return model.Charge[technology, timepoint] * model.Provide_Power[technology, timepoint] <= 0
 
 def storage_energy_tracking_rule(model, technology, timepoint):
     """
@@ -168,7 +169,14 @@ def transmission_rule(model, line, timepoint):
     """
     Transmission line flow is limited by transmission capacity.
     """
-    return -model.transmission_capacity[line] <= model.Transmit_Power[line, timepoint] <= model.transmission_capacity[line]
+    # if we make transmission capacity vary by hour, we just need to add timepoint to transmission capacity
+    return model.Transmit_Power[line, timepoint] <= model.transmission_capacity[line]
+
+def net_transmit_power_by_geo_rule(model, geography, timepoint):
+    # line is constructed as (from, to)
+    # net transmit power = sum of all imports minus the sum of all exports
+    return model.Net_Transmit_Power_by_Geo[geography, timepoint] == sum([model.Transmit_Power[str((g, geography)), timepoint] for g in model.GEOGRAPHIES if g!=geography]) - \
+                                                                    sum([model.Transmit_Power[str((geography, g)), timepoint] for g in model.GEOGRAPHIES if g!=geography])
 
 def dist_system_capacity_need_rule(model, geography, timepoint, feeder):
     """
@@ -225,7 +233,11 @@ def total_cost_rule(model):
     flex_load_use_cost = sum(model.FlexLoadUse[r, t, f] * model.flex_penalty for r in model.GEOGRAPHIES
                                                                              for t in model.TIMEPOINTS
                                                                              for f in model.FEEDERS)
-    total_cost = gen_cost + curtailment_cost + unserved_energy_cost + dist_sys_penalty_cost + bulk_sys_penalty_cost + flex_load_use_cost
+    transmission_hurdles = sum(model.Transmit_Power[str((from_geo, to_geo)), t] * model.transmission_hurdle[str((from_geo, to_geo))]
+                                                                                for from_geo in model.GEOGRAPHIES
+                                                                                for to_geo in model.GEOGRAPHIES
+                                                                                for t in model.TIMEPOINTS if from_geo!=to_geo)
+    total_cost = gen_cost + curtailment_cost + unserved_energy_cost + dist_sys_penalty_cost + bulk_sys_penalty_cost + flex_load_use_cost + transmission_hurdles
     return total_cost
 
 def min_timepoints(model):
@@ -294,10 +306,9 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     model.max_flex_load = Param(model.GEOGRAPHIES,model.FEEDERS, within=Reals, initialize=dispatch.max_flex_load[period])
     model.min_flex_load = Param(model.GEOGRAPHIES,model.FEEDERS, within=Reals, initialize=dispatch.min_flex_load[period])
     
-#    model.TRANSMISSION_LINES = Set(initialize=dispatch.transmission_lines)
-#    model.transmission_from = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission_from)
-#    model.transmission_to = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission_to)
-#    model.transmission_capacity = Param(model.TRANSMISSION_LINES, initialize=_inputs.transmission_capacity)
+    model.TRANSMISSION_LINES = Set(initialize=dispatch.transmission.list_transmission_lines)
+    model.transmission_capacity = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission.constraints.get_values_as_dict(dispatch.year))
+    model.transmission_hurdle = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission.hurdles.get_values_as_dict(dispatch.year))
 
     model.dist_net_load_threshold = Param(model.GEOGRAPHIES, model.FEEDERS, within=NonNegativeReals, initialize=dispatch.dist_net_load_thresholds)
     model.bulk_net_load_threshold = Param(model.GEOGRAPHIES, within=NonNegativeReals, initialize=dispatch.bulk_net_load_thresholds)
@@ -321,7 +332,8 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     model.Energy_in_Storage = Var(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, within=NonNegativeReals)
 
     # Transmission
-#    model.Transmit_Power = Var(model.TRANSMISSION_LINES, model.TIMEPOINTS, within=Reals)
+    model.Transmit_Power = Var(model.TRANSMISSION_LINES, model.TIMEPOINTS, within=NonNegativeReals)
+    model.Net_Transmit_Power_by_Geo = Var(model.GEOGRAPHIES, model.TIMEPOINTS, within=Reals)
 
     # System
     model.Flexible_Load = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals)
@@ -367,7 +379,8 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     #ld_energy
     model.LD_Energy_Constraint = Constraint(model.LD_TECHNOLOGIES, rule=ld_energy_rule)
     # Transmission
-#    model.Transmission_Constraint = Constraint(model.TRANSMISSION_LINES, model.TIMEPOINTS, rule=transmission_rule)
+    model.Transmission_Constraint = Constraint(model.TRANSMISSION_LINES, model.TIMEPOINTS, rule=transmission_rule)
+    model.Net_Transmit_Power_by_Geo_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, rule=net_transmit_power_by_geo_rule)
 
     # Distribution system penalty
     model.Distribution_System_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=dist_system_capacity_need_rule)

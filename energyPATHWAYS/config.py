@@ -70,14 +70,13 @@ supply_years = None
 # shapes
 shape_start_date = None
 shape_years = None
-
-# electricity shapes
 date_lookup = None
 time_slice_col = None
 electricity_energy_type_id = None
 electricity_energy_type_shape_id = None
 opt_period_length = None
 solver_name = None
+transmission_constraint_id = None
 
 # outputs
 output_levels = None
@@ -247,7 +246,7 @@ def init_shapes():
 
 
 def init_date_lookup():
-    global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id, opt_period_length
+    global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id, opt_period_length, transmission_constraint_id
     class DateTimeLookup:
         def __init__(self):
             self.dates = {}
@@ -267,6 +266,8 @@ def init_date_lookup():
     time_slice_col = ['year', 'month', 'week', 'hour', 'day_type']
     electricity_energy_type_id, electricity_energy_type_shape_id = util.sql_read_table('FinalEnergy', column_names=['id', 'shape_id'], name='electricity')
     opt_period_length = int(cfgfile.get('opt', 'period_length'))
+    transmission_constraint_id = cfgfile.get('opt','transmission_constraint_id')
+    transmission_constraint_id = int(transmission_constraint_id) if transmission_constraint_id != "" else None
 
 def init_output_levels():
     global output_demand_levels, output_supply_levels, output_combined_levels
