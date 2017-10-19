@@ -1547,6 +1547,7 @@ class Subsector(DataMapFunctions):
         """
         By adding a new technology specific to a perturbation, it allows us to isolate a single vintage
         """
+        # here we don't want to change the technology name if the sales share is zero... flexible load case
         for tech_id, new_tech_id in self.perturbation.new_techs.items():
             self.technologies[new_tech_id] = copy.deepcopy(self.technologies[tech_id])
             self.technologies[new_tech_id].id = new_tech_id #should be safe to replace the id at this point
