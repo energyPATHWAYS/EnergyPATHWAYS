@@ -257,6 +257,9 @@ def run_thermal_dispatch(params):
     # grabs the technology from the label
     gen_categories = [int(s.split(', ')[1].rstrip('L')) for s in thermal_dispatch_df.index.get_level_values('thermal_generators')]
 
+    # The capacity weights often come in with some really small numbers, which we shouldn't keep here
+    capacity_weights = np.round(capacity_weights, 2)
+
     # TODO: if we have multiple years, we should schedule maintenance for each year one at a time
     scheduling_order = np.argsort(marginal_costs)
     maintenance_rates = dispatch_maintenance.schedule_generator_maintenance_loop(load=load, pmaxs=pmaxs, annual_maintenance_rates=MOR, dispatch_periods=weeks, scheduling_order=scheduling_order)

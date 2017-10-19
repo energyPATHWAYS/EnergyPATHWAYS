@@ -131,7 +131,7 @@ def schedule_generator_maintenance_loop(load, pmaxs, annual_maintenance_rates, d
     for i in scheduling_order:
         energy_allocation = dispatch_budget.dispatch_to_energy_budget(load_scaled, -maintenance_energy[i], pmins=0, pmaxs=pmaxs_clipped[i])
         scheduled_maintenance[:, i] = np.clip(np.array([np.mean(ls) for ls in np.array_split(energy_allocation, np.array(group_cuts))])/pmaxs_clipped[i], 0, 1)
-        load_scaled += np.concatenate([[(1 - sm) * pmaxs[i]]*gl for gl, sm in zip(group_lengths, scheduled_maintenance[:, i])])
+        load_scaled += np.concatenate([[sm * pmaxs[i]]*gl for gl, sm in zip(group_lengths, scheduled_maintenance[:, i])])
 
     if not all(np.isclose(annual_maintenance_rates, (scheduled_maintenance.T * group_lengths).sum(axis=1)/len(load))):
         logging.warning("scheduled maintance rates don't all match the annual maintenance rates")

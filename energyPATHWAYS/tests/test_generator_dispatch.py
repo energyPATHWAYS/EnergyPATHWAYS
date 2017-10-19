@@ -262,6 +262,7 @@ gen_categories = generator_params['gen_categories'].values
 thermal_capacity_multiplier = generator_params['thermal_capacity_multiplier'].values
 return_dispatch_by_category = True
 reserves = 0.05
+capacity_weights = np.round(capacity_weights, 2)
 
 dispatch_periods = pd.DataFrame.from_csv(os.path.join(data_dir, 'dispatch_periods_epsa_error.csv'))
 dispatch_periods = dispatch_periods['week'].values.flatten()
