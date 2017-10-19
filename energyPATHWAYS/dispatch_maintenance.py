@@ -7,6 +7,7 @@ import pdb
 import pandas as pd
 import copy
 import dispatch_budget
+import logging
 
 def surplus_capacity(model):
     return model.surplus_capacity + model.peak_penalty * model.weight_on_peak_penalty
@@ -121,16 +122,17 @@ def schedule_generator_maintenance_loop(load, pmaxs, annual_maintenance_rates, d
     load_scaled = scale_load_to_system(load, pmaxs)
     load_scaled = np.concatenate([[np.max(ls)]*gl for gl, ls in zip(group_lengths, np.array_split(load_scaled, np.array(group_cuts)))])
 
-    pmaxs2 = copy.deepcopy(pmaxs)
-    pmaxs2[pmaxs2==0] = np.mean(pmaxs[pmaxs!=0])
-    maintenance_energy = annual_maintenance_rates*pmaxs2*len(load)
+    pmaxs_clipped = copy.deepcopy(pmaxs)
+    pmaxs_clipped = np.clip(pmaxs_clipped, 1e-5, None)
+    maintenance_energy = annual_maintenance_rates*pmaxs_clipped*len(load)
     scheduled_maintenance = np.zeros((num_groups, len(pmaxs)))
 
     # loop through and schedule maintenance for each generator one at a time. Update the net load after each one.
     for i in scheduling_order:
-        energy_allocation = dispatch_budget.dispatch_to_energy_budget(load_scaled, -maintenance_energy[i], pmins=0, pmaxs=pmaxs2[i])
-        scheduled_maintenance[:, i] = np.array([np.mean(ls) for ls in np.array_split(energy_allocation, np.array(group_cuts))])/pmaxs2[i]
-        if pmaxs[i]>0:
-            load_scaled += energy_allocation
+        energy_allocation = dispatch_budget.dispatch_to_energy_budget(load_scaled, -maintenance_energy[i], pmins=0, pmaxs=pmaxs_clipped[i])
+        scheduled_maintenance[:, i] = np.clip(np.array([np.mean(ls) for ls in np.array_split(energy_allocation, np.array(group_cuts))])/pmaxs_clipped[i], 0, 1)
+        load_scaled += np.concatenate([[(1 - sm) * pmaxs[i]]*gl for gl, sm in zip(group_lengths, scheduled_maintenance[:, i])])
 
+    if not all(np.isclose(annual_maintenance_rates, (scheduled_maintenance.T * group_lengths).sum(axis=1)/len(load))):
+        logging.warning("scheduled maintance rates don't all match the annual maintenance rates")
     return scheduled_maintenance

@@ -242,8 +242,46 @@ class TestGeneratorDispatch(unittest.TestCase):
 # t=time.time()
 # MOR = dispatch_maintenance.schedule_generator_maintenance(load, pmaxs, MORs, dispatch_periods, marginal_costs)
 # t=energyPATHWAYS.util.time_stamp(t)
-# MOR2 = dispatch_maintenance.schedule_generator_maintenance_steady(load, pmaxs, MORs, dispatch_periods, np.argsort(marginal_costs))
+# MOR2 = dispatch_maintenance.schedule_generator_maintenance_loop(load, pmaxs, MORs, dispatch_periods, np.argsort(marginal_costs))
 # t=energyPATHWAYS.util.time_stamp(t)
 #
 # pd.DataFrame(MOR.mean(axis=1)).plot()
 # pd.DataFrame(MOR2.mean(axis=1)).plot()
+
+
+
+data_dir = os.path.join(os.getcwd(), 'test_dispatch_data')
+generator_params = pd.DataFrame.from_csv(os.path.join(data_dir, 'generator_params_epsa_error.csv'))
+pmaxs = generator_params['capacity'].values
+marginal_costs = generator_params['cost'].values
+MORs = generator_params['maintenance_outage_rate'].values
+FOR = generator_params['forced_outage_rate'].values
+must_runs = generator_params['must_run'].values
+capacity_weights = generator_params['capacity_weights'].values
+gen_categories = generator_params['gen_categories'].values
+thermal_capacity_multiplier = generator_params['thermal_capacity_multiplier'].values
+return_dispatch_by_category = True
+reserves = 0.05
+
+dispatch_periods = pd.DataFrame.from_csv(os.path.join(data_dir, 'dispatch_periods_epsa_error.csv'))
+dispatch_periods = dispatch_periods['week'].values.flatten()
+
+load = pd.DataFrame.from_csv(os.path.join(data_dir, 'load_epsa_error.csv'))['load']
+load = load.values.flatten()
+
+scheduling_order = np.argsort(marginal_costs)
+
+t=time.time()
+# maintenance_rates2 = dispatch_maintenance.schedule_generator_maintenance(load, pmaxs, MORs, dispatch_periods, marginal_costs)
+# t=energyPATHWAYS.util.time_stamp(t)
+maintenance_rates = dispatch_maintenance.schedule_generator_maintenance_loop(load, pmaxs, MORs, dispatch_periods, scheduling_order)
+t=energyPATHWAYS.util.time_stamp(t)
+
+dispatch_results = dispatch_generators.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
+                                            FOR=FOR, must_runs=must_runs, dispatch_periods=dispatch_periods, capacity_weights=capacity_weights,
+                                            gen_categories=gen_categories, return_dispatch_by_category=return_dispatch_by_category,
+                                            reserves=reserves, thermal_capacity_multiplier=thermal_capacity_multiplier)
+
+print dispatch_results['stock_changes'].sum()
+
+pd.DataFrame(maintenance_rates.mean(axis=1)).plot()
