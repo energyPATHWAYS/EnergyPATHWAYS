@@ -45,7 +45,7 @@ class DispatchNodeConfig(DataMapFunctions):
 
 def all_results_to_list(instance):
     return {'Charge':storage_result_to_list(instance.Charge),
-            'Transmission_Flows':storage_result_to_list(instance.Transmit_Power)
+            'Transmission_Flows':storage_result_to_list(instance.Transmit_Power),
             'Storage_Provide_Power': storage_result_to_list(instance.Storage_Provide_Power),
             'LD_Provide_Power':storage_result_to_list(instance.LD_Provide_Power),
             'Flexible_Load':flexible_load_result_to_list(instance.Flexible_Load)}
@@ -396,9 +396,9 @@ class Dispatch(object):
         df = pd.DataFrame(lists, columns=columns)
         df = df.set_index(columns[:-1])
         df = df.groupby(level=[self.dispatch_geography, 'supply_node', 'dispatch_feeder', 'hour']).sum()
-        if df.squeeze().isnull().any():
-            self.pickle_for_debugging()
-            raise ValueError('NaNs in long-duration dispatch outputs in dispatch period {}'.format(period))
+#        if df.squeeze().isnull().any():
+#            self.pickle_for_debugging()
+#            raise ValueError('NaNs in long-duration dispatch outputs in dispatch period {}'.format(period))
         return df
 
     def parse_flexible_load_result(self, lists, period):
