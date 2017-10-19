@@ -545,7 +545,9 @@ def ensure_tuple(obj):
         return (obj,)
 
 
-def df_slice(df, elements, levels, drop_level=True, reset_index=False):
+def df_slice(df, elements, levels, drop_level=True, reset_index=False, return_none=False):
+    if df is None:
+        return None
     elements, levels = ensure_iterable_and_not_string(elements), ensure_iterable_and_not_string(levels)
     if not len(levels):
         return None
@@ -554,12 +556,16 @@ def df_slice(df, elements, levels, drop_level=True, reset_index=False):
 
     # special case where we use a different method to handle multiple elements
     if len(levels) == 1 and len(elements) > 1:
-        return df.reset_index().loc[df.reset_index()[levels[0]].isin(elements)].set_index(df.index.names)
+        df =  df.reset_index().loc[df.reset_index()[levels[0]].isin(elements)].set_index(df.index.names)
     else:
         # remove levels if they are not in the df
         elements, levels = zip(*[(e, l) for e, l in zip(elements, levels) if l in df.index.names])
         result = df.xs(elements, level=levels, drop_level=drop_level)
-        return result.reset_index().set_index(result.index.names) if reset_index else result
+        df = result.reset_index().set_index(result.index.names) if reset_index else result
+    if not len(df) and return_none:
+        return None
+    else:
+        return df
 
 
 def intersect(a, b):

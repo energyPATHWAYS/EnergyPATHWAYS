@@ -616,11 +616,10 @@ class Supply(object):
                             p_min = split_and_apply(hourly_p_min, dispatch_periods, np.mean)
                             hourly_p_max = util.remove_df_levels(util.DfOper.mult([capacity,p_max_shape]),cfg.primary_geography).values
                             p_max = split_and_apply(hourly_p_max, dispatch_periods, np.mean)                        
-                        tech_id = ['LD' + str(node_id)]                               
+                        tech_id = str(tuple([geography,node_id, feeder]))          
                         self.dispatch.ld_technologies.append(tech_id) 
-
                         if load_or_gen == 'gen':    
-                            max_capcity = p_max
+                            max_capacity = p_max
                             min_capacity = p_min
                         else:
                             max_capacity = -p_min
@@ -642,9 +641,9 @@ class Supply(object):
                                     dispatch =  np.transpose([dispatch_budget.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
                                     dispatch = split_and_apply(dispatch, dispatch_periods,np.sum)      
                         for period in self.dispatch.periods:
-                            self.dispatch.ld_energy[period][tech_id] = dispatch                                
-                            self.dispatch.capacity[period][tech_id] = max_capacity
-                            self.dispatch.min_capacity[period][tech_id] = min_capacity
+                            self.dispatch.ld_energy[period][tech_id] = dispatch[period]                                
+                            self.dispatch.capacity[period][tech_id] = max_capacity[period]
+                            self.dispatch.min_capacity[period][tech_id] = min_capacity[period]
                             self.dispatch.geography[period][tech_id] = geography
                             self.dispatch.feeder[period][tech_id] = feeder   
 
@@ -795,21 +794,30 @@ class Supply(object):
         logging.info("      solving dispatch for storage and dispatchable load")
         self.dispatch.set_year(year)
         self.dispatch.solve_optimization()
-
         storage_charge = self.dispatch.storage_df.xs('charge', level='charge_discharge')
         storage_discharge = self.dispatch.storage_df.xs('discharge', level='charge_discharge')
+        #load and gen are the same in the ld_df, just with different signs. We want to separate and use absolute values (i.e. *- when it is load)
+        ld_load = util.remove_df_levels(-self.dispatch.ld_df[self.dispatch.ld_df.values<0],'supply_node')
+        ld_gen = util.remove_df_levels(self.dispatch.ld_df[self.dispatch.ld_df.values>0], 'supply_node')
         timeshift_types = list(set(self.distribution_load.index.get_level_values('timeshift_type')))
         dist_storage_charge = util.add_and_set_index(util.df_slice(storage_charge, self.dispatch_feeders, 'dispatch_feeder'), 'timeshift_type', timeshift_types)
         dist_flex_load = util.add_and_set_index(util.df_slice(self.dispatch.flex_load_df, self.dispatch_feeders, 'dispatch_feeder'), 'timeshift_type', timeshift_types)
-        self.distribution_load = util.DfOper.add((self.distribution_load, dist_storage_charge, dist_flex_load))
-        self.distribution_gen = util.DfOper.add((self.distribution_gen, util.df_slice(storage_discharge, self.dispatch_feeders, 'dispatch_feeder')))
-        self.bulk_load = util.DfOper.add((self.bulk_load, storage_charge.xs(0, level='dispatch_feeder')))
-        self.bulk_gen = util.DfOper.add((self.bulk_gen, storage_discharge.xs(0, level='dispatch_feeder')))
-
+        dist_ld_load = util.add_and_set_index(util.df_slice(ld_load, self.dispatch_feeders, 'dispatch_feeder'), 'timeshift_type', timeshift_types)
+        if not len(dist_ld_load):
+            dist_ld_load = None
+        if not len(ld_load):
+            ld_load = None
+        if not len(ld_gen):
+            ld_gen = None
+        self.distribution_load = util.DfOper.add((self.distribution_load, dist_storage_charge, dist_flex_load, dist_ld_load))
+        self.distribution_gen = util.DfOper.add((self.distribution_gen, util.df_slice(storage_discharge, self.dispatch_feeders, 'dispatch_feeder'),util.df_slice(ld_gen, self.dispatch_feeders, 'dispatch_feeder',return_none=True) ))
+        self.bulk_load = util.DfOper.add((self.bulk_load, storage_charge.xs(0, level='dispatch_feeder'), util.df_slice(ld_load, 0, 'dispatch_feeder',return_none=True)))
+        self.bulk_gen = util.DfOper.add((self.bulk_gen, storage_discharge.xs(0, level='dispatch_feeder'),util.df_slice(ld_gen, 0, 'dispatch_feeder',return_none=True)))
         self.update_net_load_signal()
         self.produce_distributed_storage_outputs(year)
         self.produce_bulk_storage_outputs(year)
         self.produce_flex_load_outputs(year)
+        self.produce_ld_outputs(year)
 
     def produce_distributed_storage_outputs(self, year):
         # MOVE
@@ -827,7 +835,36 @@ class Supply(object):
             discharge_df = pd.concat([discharge_df],keys=['DISTRIBUTED STORAGE DISCHARGE'],names=['DISPATCH_OUTPUT'])
             self.bulk_dispatch = pd.concat([self.bulk_dispatch, discharge_df.reorder_levels(self.bulk_dispatch.index.names)])
             # self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, discharge_df])
-
+     
+    def produce_ld_outputs(self,year):
+        # MOVE
+        if year in self.dispatch_write_years and len(self.dispatch.ld_df):
+            #produce distributed long duration outputs
+            #- changes the sign coming out of the dispatch, with is the reverse of what we want for outputs
+        
+            ld_df = -util.df_slice(self.dispatch.ld_df, self.dispatch_feeders, 'dispatch_feeder')
+            if len(ld_df):
+                ld_df = util.add_and_set_index(ld_df, 'year', year)
+                ld_df.columns = [cfg.calculation_energy_unit.upper()]
+                ld_df = DfOper.mult([ld_df, self.distribution_losses,self.transmission_losses])
+                ld_df= self.outputs.clean_df(ld_df)
+                ld_df.reset_index(['SUPPLY_NODE','DISPATCH_FEEDER'],inplace=True)
+                ld_df['DISPATCH_OUTPUT'] = ld_df['DISPATCH_FEEDER'] + " " + ld_df['SUPPLY_NODE']
+                ld_df.set_index('DISPATCH_OUTPUT',inplace=True, append=True)
+                #remove the columns we used to set the dispatch output name
+                ld_df = ld_df.iloc[:,0].to_frame()
+                self.bulk_dispatch = pd.concat([self.bulk_dispatch, ld_df.reorder_levels(self.bulk_dispatch.index.names)])
+            #- changes the sign coming out of the dispatch, with is the reverse of what we want for outputs
+            #produce bulk long duration outputs            
+            ld_df = -util.df_slice(self.dispatch.ld_df, 0, 'dispatch_feeder')
+            if len(ld_df):
+                ld_df = util.add_and_set_index(ld_df, 'year', year)
+                ld_df.columns = [cfg.calculation_energy_unit.upper()]
+                ld_df = util.DfOper.mult([ld_df, self.transmission_losses])
+                ld_df= self.outputs.clean_df(ld_df)
+                util.replace_index_name(ld_df,'DISPATCH_OUTPUT', 'SUPPLY_NODE')
+                self.bulk_dispatch = pd.concat([self.bulk_dispatch, ld_df.reorder_levels(self.bulk_dispatch.index.names)])
+        
     def produce_bulk_storage_outputs(self, year):
         # MOVE
         if year in self.dispatch_write_years:

@@ -60,7 +60,7 @@ def meet_load_rule(model, geography, timepoint):
             for feeder in model.FEEDERS if feeder!=0) - \
             model.Unserved_Energy[geography, timepoint]
 
-def gas_and_storage_power_rule(model, technology, timepoint):
+def power_rule(model, technology, timepoint):
     """
     Storage cannot discharge at a higher rate than implied by its total installed power capacity.
     Charge and discharge rate limits are currently the same.
@@ -68,9 +68,8 @@ def gas_and_storage_power_rule(model, technology, timepoint):
     return model.min_capacity[technology]<= model.Provide_Power[technology, timepoint] <= model.capacity[technology]
 
 
-def ld_energy_rule(model, technology, timepoint):
-    if technology in model.LD_TECHNOLOGIES:
-        sum(model.Provide_Power[technology] for t in model.timepoints) == model.ld_energy[technology]
+def ld_energy_rule(model, technology):
+    return sum(model.Provide_Power[technology,t] for t in model.TIMEPOINTS) == model.ld_energy[technology]
 
 
 def storage_charge_rule(model, technology, timepoint):
@@ -158,6 +157,12 @@ def flex_load_capacity_rule(model, geography, timepoint, feeder):
 
 def zero_flexible_load(model, geography, timepoint, feeder):
     return model.Flexible_Load[geography, timepoint, feeder] == 0
+    
+def storage_power_rule(model, technology, timepoint):
+    return model.Provide_Power[technology, timepoint] == model.Storage_Provide_Power[technology, timepoint]
+    
+def ld_power_rule(model, technology, timepoint):   
+    return model.Provide_Power[technology, timepoint] == model.LD_Provide_Power[technology, timepoint]
 
 def transmission_rule(model, line, timepoint):
     """
@@ -194,7 +199,7 @@ def bulk_system_capacity_need_rule(model, geography, timepoint):
     return (model.BulkSysCapacityNeed[geography, timepoint] +
            model.bulk_net_load_threshold[geography]) \
            >= \
-           (model.t_and_d_losses[geography,feeder]) *
+           sum((model.t_and_d_losses[geography,feeder]) *
            (model.distribution_load[geography, timepoint,feeder] -
            model.distribution_gen[geography, timepoint,feeder] -
            feeder_provide_power(model, geography, timepoint, feeder) +
@@ -253,7 +258,7 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     # ### Technologies ### #
     model.STORAGE_TECHNOLOGIES = Set(initialize=dispatch.storage_technologies)
     model.GENERATION_TECHNOLOGIES = Set(initialize=dispatch.generation_technologies)
-    model.LD_TECHNOLOGIES = set(initialize=disapath.ld_technologies)
+    model.LD_TECHNOLOGIES = Set(initialize=dispatch.ld_technologies)
     model.TECHNOLOGIES = model.STORAGE_TECHNOLOGIES | model.GENERATION_TECHNOLOGIES | model.LD_TECHNOLOGIES
     model.large_storage = Param(model.STORAGE_TECHNOLOGIES, initialize=dispatch.large_storage, within=Binary)
     model.VERY_LARGE_STORAGE_TECHNOLOGIES = Set(within=model.STORAGE_TECHNOLOGIES, initialize=large_storage_tech_init)
@@ -269,8 +274,8 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     model.min_capacity = Param(model.TECHNOLOGIES, initialize=dispatch.min_capacity[period])    
     model.capacity = Param(model.TECHNOLOGIES, initialize=dispatch.capacity[period])
     model.duration = Param(model.STORAGE_TECHNOLOGIES, initialize= dispatch.duration[period])
-    model.begin_energy = Param(model.LD_TECHNOLOGIES, initialize = (dispatch.begin_energy[period] if len(dispatch.begin_energy) else dispatch.begin_energy))
-    model.end_energy = Param(model.LD_TECHNOLOGIES, initialize = (dispatch.end_energy[period] if len(dispatch.end_energy) else dispatch.end_energy))
+    model.ld_energy = Param(model.LD_TECHNOLOGIES, initialize = (dispatch.ld_energy[period] if len(dispatch.ld_energy) else dispatch.ld_energy))
+    
     
     
     
@@ -310,6 +315,8 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     #####################
     # Projects
     model.Provide_Power = Var(model.TECHNOLOGIES, model.TIMEPOINTS, within=Reals)
+    model.LD_Provide_Power = Var(model.LD_TECHNOLOGIES, model.TIMEPOINTS, within=Reals)
+    model.Storage_Provide_Power = Var(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, within=Reals)
     model.Charge = Var(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, within=NonNegativeReals)
     model.Energy_in_Storage = Var(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, within=NonNegativeReals)
 
@@ -338,7 +345,9 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
 
     # ### Project constraints ### #
     # "Gas"
-    model.Power_Constraint = Constraint(model.TECHNOLOGIES, model.TIMEPOINTS, rule=gas_and_storage_power_rule)
+    model.Power_Constraint = Constraint(model.TECHNOLOGIES, model.TIMEPOINTS, rule=power_rule)
+    model.Storage_Power_Constraint = Constraint(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, rule=storage_power_rule)
+    model.LD_Power_Constraint = Constraint(model.LD_TECHNOLOGIES, model.TIMEPOINTS, rule=ld_power_rule)
 
     # Storage
     model.Storage_Charge_Constraint = Constraint(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, rule=storage_charge_rule)
@@ -356,7 +365,7 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
         model.Flex_Load_Capacity_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=zero_flexible_load)
     
     #ld_energy
-    model.LD_Energy_Constraint = Constraint(model.LD_TECHNOLOGIES, model.TIMEPOINTS, rule=ld_energy_rule)
+    model.LD_Energy_Constraint = Constraint(model.LD_TECHNOLOGIES, rule=ld_energy_rule)
     # Transmission
 #    model.Transmission_Constraint = Constraint(model.TRANSMISSION_LINES, model.TIMEPOINTS, rule=transmission_rule)
 
@@ -429,7 +438,6 @@ def year_to_period_allocation_formulation(dispatch):
     model.GEOGRAPHIES = Set(initialize=dispatch.dispatch_geographies)
     
     model.VERY_LARGE_STORAGE_TECHNOLOGIES = Set(initialize =dispatch.alloc_technologies)
-    model.TECHNOLOGIES = model.VERY_LARGE_STORAGE_TECHNOLOGIES
     model.geography = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES, initialize=dispatch.alloc_geography)
     # TODO: careful with capacity means in the context of, say, a week instead of an hour
     model.power_capacity = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES,

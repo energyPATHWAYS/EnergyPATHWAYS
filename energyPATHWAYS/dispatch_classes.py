@@ -44,13 +44,15 @@ class DispatchNodeConfig(DataMapFunctions):
 
 def all_results_to_list(instance):
     return {'Charge':storage_result_to_list(instance.Charge),
-            'Provide_Power':storage_result_to_list(instance.Provide_Power),
+            'Storage_Provide_Power':storage_result_to_list(instance.Storage_Provide_Power),
+            'LD_Provide_Power':storage_result_to_list(instance.LD_Provide_Power),
             'Flexible_Load':flexible_load_result_to_list(instance.Flexible_Load)}
 
 def storage_result_to_list(charge_or_discharge):
     items = charge_or_discharge.iteritems()
     lists = [[int(i) for i in key[0].replace(')','').replace('(','').split(', ')] + [key[1]] + [value.value] for key, value in items]
     return lists
+
 
 def flexible_load_result_to_list(flexible_load):
     items = flexible_load.iteritems()
@@ -116,11 +118,13 @@ class Dispatch(object):
   
     def set_dispatch_orders(self):
         order = [x.dispatch_order for x in self.node_config_dict.values() if x.optimized!=True]
+        nodes = [x for x in self.node_config_dict.keys() if self.node_config_dict[x].optimized!=True]
         order_index = np.argsort(order)
-        self.heuristic_dispatch_order = [self.node_config_dict.keys()[i] for i in order_index]
+        self.heuristic_dispatch_order = [nodes[i] for i in order_index]
         order = [x.dispatch_order for x in self.node_config_dict.values() if x.optimized==True]
+        nodes = [x for x in self.node_config_dict.keys() if self.node_config_dict[x].optimized==True]
         order_index = np.argsort(order)
-        self.long_duration_dispatch_order = [self.node_config_dict.keys()[i] for i in order_index]
+        self.long_duration_dispatch_order = [nodes[i] for i in order_index]
 
     def set_year(self, year):
         self.year = year
@@ -259,6 +263,7 @@ class Dispatch(object):
             large_storage = dictionary of binary flags indicating whether a resource is considered large storage with keys of unique tech_dispatch_id, a tuple of dispatch_geography,zone,feeder,and technology
       """
       self.geography= dict()
+      self.min_capacity = dict()
       self.capacity = dict()
       self.charging_efficiency = dict()
       self.discharging_efficiency = dict()
@@ -306,7 +311,7 @@ class Dispatch(object):
                      self.discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.charging_efficiency)[tech_dispatch_id] 
                      self.feeder[tech_dispatch_id] = feeder
           self.set_gen_technologies(dispatch_geography,thermal_dispatch_df)
-          self.convert_all_to_period()
+      self.convert_all_to_period()
           
     def convert_all_to_period(self):
       self.min_capacity = self.convert_to_period(self.min_capacity)
@@ -331,6 +336,7 @@ class Dispatch(object):
                 self.generation_technologies.append(generator)
             self.geography[generator] = geography
             self.feeder[generator] = 0
+            self.min_capacity[generator] = 0
             self.capacity[generator] = clustered_dict['derated_pmax'][number]
             self.variable_costs[generator] = clustered_dict['marginal_cost'][number]
 
@@ -381,6 +387,16 @@ class Dispatch(object):
             self.pickle_for_debugging()
             raise ValueError('NaNs in storage dispatch outputs in dispatch period {}'.format(period))
         return df
+    
+    def parse_ld_result(self, lists, period):
+        columns = [self.dispatch_geography, 'supply_node', 'dispatch_feeder', 'hour', self.year]
+        df = pd.DataFrame(lists, columns=columns)
+        df = df.set_index(columns[:-1])
+        df = df.groupby(level=[self.dispatch_geography, 'supply_node', 'dispatch_feeder', 'hour']).sum()
+        if df.squeeze().isnull().any():
+            self.pickle_for_debugging()
+            raise ValueError('NaNs in long-duration dispatch outputs in dispatch period {}'.format(period))
+        return df
 
     def parse_flexible_load_result(self, lists, period):
         charge_columns = [self.dispatch_geography, 'hour', 'dispatch_feeder', self.year]
@@ -402,13 +418,15 @@ class Dispatch(object):
         if type(results[0]) is not dict:
             results = [all_results_to_list(instance) for instance in results]
         charge = pd.concat([self.parse_storage_result(result['Charge'], period) for period, result in enumerate(results)])
-        discharge = pd.concat([self.parse_storage_result(result['Provide_Power'], period) for period, result in enumerate(results)])
+        discharge = pd.concat([self.parse_storage_result(result['Storage_Provide_Power'], period) for period, result in enumerate(results)])
         flex_load_df = pd.concat([self.parse_flexible_load_result(result['Flexible_Load'], period) for period, result in enumerate(results)])
+        ld_df = pd.concat([self.parse_ld_result(result['LD_Provide_Power'], period) for period, result in enumerate(results)])
+        ld_df = self._replace_hour_with_weather_datetime(ld_df)
         storage_df = pd.concat([charge, discharge], keys=['charge','discharge'], names=['charge_discharge'])
         storage_df = self._replace_hour_with_weather_datetime(storage_df)
         storage_df = storage_df.reorder_levels([self.dispatch_geography, 'dispatch_feeder', 'charge_discharge', 'weather_datetime']).sort_index()
         flex_load_df = self._replace_hour_with_weather_datetime(flex_load_df)
-        return storage_df, flex_load_df
+        return storage_df, flex_load_df, ld_df
 
     def solve_optimization_period(self, period, return_model_instance=False):
         model = dispatch_formulation.create_dispatch_model(self, period)
@@ -461,7 +479,7 @@ class Dispatch(object):
                 results = helper_multiprocess.safe_pool(helper_multiprocess.run_optimization, params)
             else:
                 results = [self.solve_optimization_period(period) for period in self.periods]
-            self.storage_df, self.flex_load_df = self.parse_optimization_results(results)
+            self.storage_df, self.flex_load_df, self.ld_df = self.parse_optimization_results(results)
         except:
             self.pickle_for_debugging()
             raise
