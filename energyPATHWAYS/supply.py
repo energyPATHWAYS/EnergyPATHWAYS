@@ -1187,12 +1187,12 @@ class Supply(object):
                                     [year in self.dispatch_write_years]*len(cfg.dispatch_geographies),
                                    [float(cfg.cfgfile.get('opt', 'operating_reserves'))]*len(cfg.dispatch_geographies)))
 
-        # if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-        #     dispatch_results = helper_multiprocess.safe_pool(dispatch_generators.run_thermal_dispatch, parallel_params)
-        # else:
-        dispatch_results = []
-        for params in parallel_params:
-            dispatch_results.append(dispatch_generators.run_thermal_dispatch(params))
+        if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
+            dispatch_results = helper_multiprocess.safe_pool(dispatch_generators.run_thermal_dispatch, parallel_params)
+        else:
+            dispatch_results = []
+            for params in parallel_params:
+                dispatch_results.append(dispatch_generators.run_thermal_dispatch(params))
 
         thermal_dispatch_df, detailed_results = zip(*dispatch_results) #both of these are lists by geography
         thermal_dispatch_df = pd.concat(thermal_dispatch_df).sort()
