@@ -78,11 +78,14 @@ class Output(object):
             pickle.dump(obj, outfile, pickle.HIGHEST_PROTOCOL)
 
     @staticmethod
-    def write(df, file_name, path):
+    def write(df, file_name, path, compression=None):
         # roughly follows the solutions here: http://stackoverflow.com/questions/11114492/check-if-a-file-is-not-open-not-used-by-other-process-in-python
         # note that there is still a small, but real chance of a race condition causing an error error, thus this is "safer" but not safe
         if not os.path.exists(path):
             os.mkdir(path)
+
+        if compression == 'gzip':
+            file_name += '.gz'
 
         if os.path.isfile(os.path.join(path, file_name)):
             tries = 1
@@ -92,7 +95,7 @@ class Output(object):
                     os.rename(os.path.join(path, file_name), os.path.join(path, "_" + file_name))
                     os.rename(os.path.join(path, "_" + file_name), os.path.join(path, file_name))
                     # append and don't write header because the file already exists
-                    df.to_csv(os.path.join(path, file_name), header=False, mode='a')
+                    df.to_csv(os.path.join(path, file_name), header=False, mode='a', compression=compression)
                     return
                 except OSError:
                     logging.error('waiting {} seconds to try to write {}...'.format(2 ** tries, file_name))
