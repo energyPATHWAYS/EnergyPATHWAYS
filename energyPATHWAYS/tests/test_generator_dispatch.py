@@ -285,4 +285,8 @@ dispatch_results = dispatch_generators.generator_stack_dispatch(load=load, pmaxs
 
 print dispatch_results['stock_changes'].sum()
 
+group_cuts = list(np.where(np.diff(dispatch_periods) != 0)[0] + 1) if dispatch_periods is not None else None
+group_lengths = np.array([group_cuts[0]] + list(np.diff(group_cuts)) + [len(load) - group_cuts[-1]])
+all(np.isclose(MORs, (maintenance_rates.T * group_lengths).sum(axis=1)/len(load)))
+
 pd.DataFrame(maintenance_rates.mean(axis=1)).plot()

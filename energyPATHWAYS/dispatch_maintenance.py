@@ -123,7 +123,7 @@ def schedule_generator_maintenance_loop(load, pmaxs, annual_maintenance_rates, d
     load_scaled = np.concatenate([[np.max(ls)]*gl for gl, ls in zip(group_lengths, np.array_split(load_scaled, np.array(group_cuts)))])
 
     pmaxs_clipped = copy.deepcopy(pmaxs)
-    pmaxs_clipped = np.clip(pmaxs_clipped, 1e-5, None)
+    pmaxs_clipped = np.clip(pmaxs_clipped, 1e-2, None)
     maintenance_energy = annual_maintenance_rates*pmaxs_clipped*len(load)
     scheduled_maintenance = np.zeros((num_groups, len(pmaxs)))
 
