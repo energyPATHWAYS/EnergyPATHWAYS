@@ -211,17 +211,17 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\HQ'
+    workingdir = r'C:\github\HQ\scenarios'
     config = 'config.INI'
-    scenario = ['HQ_REF']
+    scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
     load_demand   = True,
-    solve_demand  = True,
+    solve_demand  = False,
     load_supply   = False,
     solve_supply  = True,
-    export_results= True,
+    export_results= False,
     load_error    = False,
-    pickle_shapes = True,
+    pickle_shapes = False,
     save_models   = True,
     api_run       = False,
     clear_results = False)

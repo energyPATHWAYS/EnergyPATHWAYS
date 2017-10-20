@@ -92,7 +92,7 @@ class SeriesHourlyDispatch(DispatchSuper):
         pass
 
 class Dispatch(object):
-    def __init__(self, dispatch_feeders, dispatch_geography, dispatch_geographies):
+    def __init__(self, dispatch_feeders, dispatch_geography, dispatch_geographies, scenario):
         #TODO replace 1 with a config parameter
         for col, att in util.object_att_from_table('DispatchConfig', 1):
             setattr(self, col, att)
@@ -112,7 +112,7 @@ class Dispatch(object):
         self.dispatch_geography = dispatch_geography
         self.dispatch_geographies = dispatch_geographies
         self.stdout_detail = cfg.cfgfile.get('opt','stdout_detail')
-        self.transmission = dispatch_transmission.DispatchTransmission(cfg.transmission_constraint_id)
+        self.transmission = dispatch_transmission.DispatchTransmission(cfg.transmission_constraint_id, scenario)
         if self.stdout_detail == 'False':
             self.stdout_detail = False
         else:

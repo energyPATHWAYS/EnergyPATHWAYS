@@ -58,7 +58,7 @@ class Supply(object):
         self.ghgs = util.sql_read_table('GreenhouseGases','id', return_iterable=True)
         self.dispatch_feeder_allocation = DispatchFeederAllocation(id=1)
         self.dispatch_feeders = list(set(self.dispatch_feeder_allocation.values.index.get_level_values('dispatch_feeder')))
-        self.dispatch = Dispatch(self.dispatch_feeders, cfg.dispatch_geography, cfg.dispatch_geographies)
+        self.dispatch = Dispatch(self.dispatch_feeders, cfg.dispatch_geography, cfg.dispatch_geographies, self.scenario)
         self.outputs = Output()
         self.outputs.hourly_dispatch_results = None
         self.outputs.hourly_marginal_cost = None

@@ -73,8 +73,9 @@ class TransmissionSuper(Abstract):
 
 class DispatchTransmissionConstraint(TransmissionSuper):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
-    def __init__(self, id):
+    def __init__(self, id, scenario):
         self.id = id
+        self.scenario = scenario
         self.sql_id_table = 'DispatchTransmissionConstraint'
         self.sql_data_table = 'DispatchTransmissionConstraintData'
         TransmissionSuper.__init__(self)
@@ -86,8 +87,9 @@ class DispatchTransmissionConstraint(TransmissionSuper):
 
 class DispatchTransmissionHurdleRate(TransmissionSuper):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
-    def __init__(self, id):
+    def __init__(self, id, scenario):
         self.id = id
+        self.scenario = scenario
         self.sql_id_table = 'DispatchTransmissionConstraint'
         self.sql_data_table = 'DispatchTransmissionHurdleRate'
         TransmissionSuper.__init__(self)
@@ -98,10 +100,10 @@ class DispatchTransmissionHurdleRate(TransmissionSuper):
         self.values *= unit_factor
 
 class DispatchTransmission():
-    def __init__(self, id):
+    def __init__(self, id, scenario):
         self.id = id
-        self.constraints = DispatchTransmissionConstraint(id)
-        self.hurdles = DispatchTransmissionHurdleRate(id)
+        self.constraints = DispatchTransmissionConstraint(id, scenario)
+        self.hurdles = DispatchTransmissionHurdleRate(id, scenario)
         self.list_transmission_lines = self.get_transmission_lines()
 
     def get_transmission_lines(self):

@@ -59,8 +59,7 @@ def cluster_generators(n_clusters, pmax, marginal_cost, FORs, MORs, must_run, pa
     clustered['pmax'] = np.array([group_sum(c, pmax) for c in range(n_clusters)])[order]
     clustered['FORs'] = np.array([group_wgtav(c, pmax, FORs) for c in range(n_clusters)])[order]
     clustered['MORs'] = np.array([group_wgtav(c, pmax, MORs) for c in range(n_clusters)])[order]
-    clustered['must_run'] = np.array([round(group_wgtav(c, pmax, must_run)) for c in range(n_clusters)], dtype=int)[
-        order]
+    clustered['must_run'] = np.array([round(group_wgtav(c, pmax, must_run)) for c in range(n_clusters)], dtype=int)[order]
 
     # check the result
     #        np.testing.assert_almost_equal(sum(clustered['pmax'][np.where(clustered['must_run']==0)]), sum(pmax[np.where(must_run==0)]))
