@@ -764,12 +764,12 @@ class Supply(object):
             self.bulk_dispatch = pd.concat([self.bulk_dispatch, discharge_df.reorder_levels(self.bulk_dispatch.index.names)])
             # self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, discharge_df])
 
-    def produce_flex_load_outputs(self,year):
+    def produce_flex_load_outputs(self, year):
         # MOVE
         if year in self.dispatch_write_years:
-            flex_load_df = util.DfOper.mult([util.df_slice(self.dispatch.flex_load_df, self.dispatch_feeders, 'dispatch_feeder'), self.distribution_losses])
+            flex_load_df = util.df_slice(self.dispatch.flex_load_df, self.dispatch_feeders, 'dispatch_feeder')
             flex_load_df.columns = [cfg.calculation_energy_unit.upper()]
-            flex_load_df = DfOper.mult([flex_load_df, self.distribution_losses,self.transmission_losses])
+            flex_load_df = DfOper.mult([flex_load_df, self.distribution_losses, self.transmission_losses])
             flex_load_df= self.outputs.clean_df(flex_load_df)
             label_replace_dict = dict(zip(util.elements_in_index_level(flex_load_df,'DISPATCH_FEEDER'),[x+' FLEXIBLE LOAD' for x in util.elements_in_index_level(flex_load_df,'DISPATCH_FEEDER')]))
             util.replace_index_label(flex_load_df,label_replace_dict,'DISPATCH_FEEDER')
@@ -1199,7 +1199,6 @@ class Supply(object):
         self.active_thermal_dispatch_df = thermal_dispatch_df
 
         if year in self.dispatch_write_years:
-
             for x in detailed_results:
                 x['dispatch_by_category'].index = shape.shapes.active_dates_index
 
@@ -1237,20 +1236,17 @@ class Supply(object):
                 dispatch_df = util.df_slice(self.active_thermal_dispatch_df.loc[:,:],[dispatch_geography,node_id], [cfg.dispatch_geography,'supply_node'],drop_level=False)
                 resources = list(set([eval(x) for x in dispatch_df.index.get_level_values('thermal_generators')]))
                 for resource in resources:
-                    capacity_indexer = util.level_specific_indexer(dispatch_df,['thermal_generators','IO'],
-                                                          [str(resource),'capacity'])
+                    capacity_indexer = util.level_specific_indexer(dispatch_df, ['thermal_generators','IO'], [str(resource),'capacity'])
                     if node.stock.values.loc[resource,year] ==0:
                         ratio = 0
                     else:
                         ratio = dispatch_df.loc[capacity_indexer,year]/node.stock.values.loc[resource,year]    
                     ratio = np.nan_to_num(ratio)    
-                    capacity_factor_indexer = util.level_specific_indexer(dispatch_df,['thermal_generators','IO'],
-                                                          [str(resource),'gen_cf'])
+                    capacity_factor_indexer = util.level_specific_indexer(dispatch_df,['thermal_generators','IO'], [str(resource),'gen_cf'])
                     capacity_factor = np.nan_to_num(dispatch_df.loc[capacity_factor_indexer,year]*ratio)
                     node.stock.capacity_factor.loc[resource,year] += capacity_factor
-                    dispatch_capacity_indexer = util.level_specific_indexer(dispatch_df,['thermal_generators','IO'],
-                                                          [str(resource),'stock_changes'])
-                    node.stock.dispatch_cap.loc[resource,year]+= dispatch_df.loc[dispatch_capacity_indexer,year].values
+                    dispatch_capacity_indexer = util.level_specific_indexer(dispatch_df,['thermal_generators','IO'], [str(resource),'stock_changes'])
+                    node.stock.dispatch_cap.loc[resource,year] += dispatch_df.loc[dispatch_capacity_indexer,year].values
 
     def calculate_curtailment(self,year):
         if year == int(cfg.cfgfile.get('case','current_year')):
