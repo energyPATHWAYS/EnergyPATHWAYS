@@ -59,8 +59,11 @@ class FlexibleLoadMeasure2(Abstract):
         raw_values.index = raw_values.index.rename('demand_technology', 'demand_technology_id')
         raw_values = raw_values.groupby(level=['demand_technology', cfg.primary_geography, 'year']).mean()
         raw_values = raw_values.reset_index()
-        raw_values['demand_technology'] = raw_values['demand_technology'].map(perturbation.new_techs)
+        # this is because when we have linked technologies, that technology linkage is not updated with our new tech names
+        if perturbation.sales_share_changes['adoption_achieved'].sum()>0:
+            raw_values['demand_technology'] = raw_values['demand_technology'].map(perturbation.new_techs)
         raw_values = raw_values.set_index(['demand_technology', cfg.primary_geography, 'year'])
+        assert not any(raw_values.values>1)
         return raw_values
 
 class DemandMeasure(StockItem):
