@@ -224,5 +224,5 @@ if __name__ == "__main__":
     pickle_shapes = False,
     save_models   = True,
     api_run       = False,
-    clear_results = False)
+    clear_results = True)
 

@@ -344,11 +344,13 @@ class DataMapFunctions:
 
             if current_geography != converted_geography:
                 # While not on primary geography, geography does have some information we would like to preserve
-                self.geo_map(converted_geography, attr=map_to, inplace=True)
+                df, current_geography = self.account_for_foreign_gaus(map_from, current_data_type, current_geography)
+                setattr(self,map_to,df)                
+                self.geo_map(converted_geography, current_geography=current_geography, attr=map_to, inplace=True)
                 current_geography = converted_geography
-            total_driver = DfOper.mult([self.drivers[id].values for id in denominator_driver_ids])          
+            total_driver = util.DfOper.mult([self.drivers[id].values for id in denominator_driver_ids])          
             self.geo_map(current_geography=current_geography, attr=map_to, converted_geography=cfg.disagg_geography, current_data_type = 'intensity')
-            setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver)))
+            setattr(self, map_to, util.DfOper.mult((getattr(self, map_to), total_driver)))
             self.geo_map(current_geography=cfg.disagg_geography, attr=map_to, converted_geography=current_geography,current_data_type='total')
             # the datatype is now total
             current_data_type = 'total'

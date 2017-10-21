@@ -48,8 +48,8 @@ def meet_load_rule(model, geography, timepoint):
     return (feeder_provide_power(model, geography, timepoint, feeder=0) +
             model.Net_Transmit_Power_by_Geo[geography, timepoint] +
             model.bulk_gen[geography, timepoint] -
-            model.bulk_load[geography, timepoint] -
-            feeder_charge(model, geography, timepoint, feeder=0) -
+            model.bulk_load[geography, timepoint] * model.t_and_d_losses[geography,0] -
+            feeder_charge(model, geography, timepoint, feeder=0) * model.t_and_d_losses[geography,0] -
             model.Curtailment[geography, timepoint]) \
             == \
             sum(model.t_and_d_losses[geography,feeder] * 
@@ -162,6 +162,9 @@ def zero_flexible_load(model, geography, timepoint, feeder):
 def storage_power_rule(model, technology, timepoint):
     return model.Provide_Power[technology, timepoint] == model.Storage_Provide_Power[technology, timepoint]
     
+def generation_power_rule(model, technology, timepoint):
+    return model.Provide_Power[technology, timepoint] == model.Generation_Provide_Power[technology, timepoint]
+    
 def ld_power_rule(model, technology, timepoint):   
     return model.Provide_Power[technology, timepoint] == model.LD_Provide_Power[technology, timepoint]
 
@@ -176,7 +179,7 @@ def net_transmit_power_by_geo_rule(model, geography, timepoint):
     # line is constructed as (from, to)
     # net transmit power = sum of all imports minus the sum of all exports
     return model.Net_Transmit_Power_by_Geo[geography, timepoint] == sum([model.Transmit_Power[str((g, geography)), timepoint] for g in model.GEOGRAPHIES if g!=geography]) - \
-                                                                    sum([model.Transmit_Power[str((geography, g)), timepoint] for g in model.GEOGRAPHIES if g!=geography])
+                                                                    sum([model.Transmit_Power[str((geography, g)), timepoint] for g in model.GEOGRAPHIES if g!=geography]) 
 
 def dist_system_capacity_need_rule(model, geography, timepoint, feeder):
     """
@@ -328,6 +331,7 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     model.Provide_Power = Var(model.TECHNOLOGIES, model.TIMEPOINTS, within=Reals)
     model.LD_Provide_Power = Var(model.LD_TECHNOLOGIES, model.TIMEPOINTS, within=Reals)
     model.Storage_Provide_Power = Var(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, within=Reals)
+    model.Generation_Provide_Power = Var(model.GENERATION_TECHNOLOGIES, model.TIMEPOINTS, within=Reals)
     model.Charge = Var(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, within=NonNegativeReals)
     model.Energy_in_Storage = Var(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, within=NonNegativeReals)
 
@@ -359,6 +363,7 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     # "Gas"
     model.Power_Constraint = Constraint(model.TECHNOLOGIES, model.TIMEPOINTS, rule=power_rule)
     model.Storage_Power_Constraint = Constraint(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, rule=storage_power_rule)
+    model.Generation_Power_Constraint = Constraint(model.GENERATION_TECHNOLOGIES, model.TIMEPOINTS, rule=generation_power_rule)
     model.LD_Power_Constraint = Constraint(model.LD_TECHNOLOGIES, model.TIMEPOINTS, rule=ld_power_rule)
 
     # Storage

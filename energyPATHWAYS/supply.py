@@ -217,6 +217,7 @@ class Supply(object):
         supply_nodes.sort()
         for node_id, name, supply_type_id, is_active  in supply_nodes:
             if is_active:
+                
                 self.all_nodes.append(node_id)
                 logging.info('    {} node {}'.format(supply_type_dict[supply_type_id], name))
                 self.add_node(node_id, supply_type_dict[supply_type_id], self.scenario)
@@ -261,6 +262,8 @@ class Supply(object):
                 self.nodes[id] = SupplyNode(id, supply_type, scenario)
             elif len(util.sql_read_table('SupplyTechs', 'supply_node_id', supply_node_id=id, return_iterable=True)):          
                 self.nodes[id] = SupplyStockNode(id, supply_type, scenario)
+            elif len(util.sql_read_table('SupplyStock', 'supply_node_id', supply_node_id=id, return_iterable=True)):          
+                self.nodes[id] = SupplyNode(id, supply_type, scenario)
             else:
                 logging.debug(ValueError('insufficient data in supply node %s' %id))
 
@@ -592,9 +595,13 @@ class Supply(object):
             for geography in lookup[node_id].keys():
                 for zone in lookup[node_id][geography].keys():
                     for feeder in lookup[node_id][geography][zone].keys():
-                        capacity = lookup[node_id][geography][zone][feeder]['capacity']
+                        capacity = lookup[node_id][geography][zone][feeder]['capacity'] 
+                        if capacity.sum().sum() == 0:
+                            continue
                         energy = lookup[node_id][geography][zone][feeder]['energy']
-                        dispatch_periods = self.dispatch.period_repeated
+                        opt_periods = self.dispatch.period_repeated
+                        dispatch_window = self.dispatch.dispatch_window_dict[self.dispatch.node_config_dict[node_id].dispatch_window_id]
+                        dispatch_periods = getattr(shape.shapes.active_dates_index, dispatch_window)
                         num_years = len(dispatch_periods)/8766.
                         if load_or_gen=='load':
                             energy = copy.deepcopy(energy) *-1
@@ -607,45 +614,63 @@ class Supply(object):
                             energy_budgets = energy_budgets[0]
                         else:
                             hourly_energy = util.remove_df_levels(util.DfOper.mult([energy,energy_shape]), cfg.primary_geography).values
-                            energy_budgets = split_and_apply(hourly_energy, dispatch_periods, sum)
+                            energy_budgets = np.array(split_and_apply(hourly_energy, dispatch_periods, sum))
                         if p_min_shape is None:
-                            p_min = 0.0
-                            p_max = capacity.sum().values[0]
+                            p_min = np.repeat(0.0,len(dispatch_periods))
+                            p_max = np.repeat(capacity.sum().values[0],len(dispatch_periods))
+                            opt_p_min = np.repeat(0.0,len(opt_periods))
+                            opt_p_max = np.repeat(capacity.sum().values[0],len(opt_periods))
                         else:
                             hourly_p_min = util.remove_df_levels(util.DfOper.mult([capacity,p_min_shape]),cfg.primary_geography).values
-                            p_min = split_and_apply(hourly_p_min, dispatch_periods, np.mean)
+                            p_min = np.array(split_and_apply(hourly_p_min, dispatch_periods, np.mean))
+                            opt_p_min = np.array(split_and_apply(hourly_p_min, opt_periods, np.mean))
                             hourly_p_max = util.remove_df_levels(util.DfOper.mult([capacity,p_max_shape]),cfg.primary_geography).values
-                            p_max = split_and_apply(hourly_p_max, dispatch_periods, np.mean)
+                            p_max = np.array(split_and_apply(hourly_p_max, dispatch_periods, np.mean))
+                            opt_p_max = np.array(split_and_apply(hourly_p_max, opt_periods, np.mean))
                         tech_id = str(tuple([geography,node_id, feeder]))
                         self.dispatch.ld_technologies.append(tech_id)
-                        if load_or_gen == 'gen':
-                            max_capacity = p_max
-                            min_capacity = p_min
-                        else:
-                            max_capacity = -p_min
-                            min_capacity = -p_max
                             #reversed sign for load so that pmin always represents greatest load or smallest generation
                         if zone == self.transmission_node_id:
                                 net_indexer = util.level_specific_indexer(self.bulk_net_load,[cfg.dispatch_geography,'timeshift_type'], [geography,2])
                                 if load_or_gen=='load':
-                                    dispatch = np.transpose([dispatch_budget.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
-                                    dispatch = split_and_apply(dispatch, dispatch_periods,np.sum)
+                                    p_min *= self.transmission_losses.loc[geography,:].values[0]
+                                    p_max *= self.transmission_losses.loc[geography,:].values[0]
+                                    opt_p_min *= self.transmission_losses.loc[geography,:].values[0]
+                                    opt_p_max *= self.transmission_losses.loc[geography,:].values[0]
+                                    energy_budgets *= self.transmission_losses.loc[geography,:].values[0]
+                                    dispatch = -np.transpose([dispatch_budget.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
+                                    dispatch = split_and_apply(dispatch, opt_periods,np.sum)
                                 else:
                                     dispatch = np.transpose([dispatch_budget.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),np.array(energy_budgets).flatten(), dispatch_periods, p_min, p_max)])
-                                    dispatch = split_and_apply(dispatch, dispatch_periods,np.sum)
+                                    dispatch = split_and_apply(dispatch, opt_periods,np.sum)
                         else:
                                 if load_or_gen=='load':
-                                    dispatch =  np.transpose([dispatch_budget.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
-                                    dispatch = split_and_apply(dispatch, dispatch_periods,np.sum)
+                                    p_min *= self.transmission_losses.loc[geography,:].values[0] * util.df_slice(self.distribution_losses, [geography,feeder],[cfg.dispatch_geography, 'dispatch_feeder']).values[0][0]
+                                    p_max *= self.transmission_losses.loc[geography,:].values[0] * util.df_slice(self.distribution_losses, [geography,feeder],[cfg.dispatch_geography, 'dispatch_feeder']).values[0][0]
+                                    opt_p_min *= self.transmission_losses.loc[geography,:].values[0] * util.df_slice(self.distribution_losses, [geography,feeder],[cfg.dispatch_geography, 'dispatch_feeder']).values[0][0]
+                                    opt_p_max *= self.transmission_losses.loc[geography,:].values[0] * util.df_slice(self.distribution_losses, [geography,feeder],[cfg.dispatch_geography, 'dispatch_feeder']).values[0][0]
+                                    energy_budgets *= self.transmission_losses.loc[geography,:].values[0] * util.df_slice(self.distribution_losses, [geography,feeder],[cfg.dispatch_geography, 'dispatch_feeder']).values[0][0]                           
+                                    dispatch =  -np.transpose([dispatch_budget.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
+                                    dispatch = split_and_apply(dispatch, opt_periods,np.sum)
+                                    
                                 else:
                                     dispatch =  np.transpose([dispatch_budget.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
-                                    dispatch = split_and_apply(dispatch, dispatch_periods,np.sum)
+                                    dispatch = split_and_apply(dispatch, opt_periods,np.sum)
+                        if load_or_gen == 'gen':
+                            max_capacity = opt_p_max
+                            min_capacity = opt_p_min
+                        else:
+                            max_capacity = -opt_p_min
+                            min_capacity = -opt_p_max
                         for period in self.dispatch.periods:
-                            self.dispatch.ld_energy[period][tech_id] = dispatch[period]
-                            self.dispatch.capacity[period][tech_id] = max_capacity[period]
-                            self.dispatch.min_capacity[period][tech_id] = min_capacity[period]
-                            self.dispatch.geography[period][tech_id] = geography
-                            self.dispatch.feeder[period][tech_id] = feeder
+                            try:
+                                self.dispatch.ld_energy[period][tech_id] = dispatch[period]
+                                self.dispatch.capacity[period][tech_id] = max_capacity[period]
+                                self.dispatch.min_capacity[period][tech_id] = min_capacity[period]
+                                self.dispatch.geography[period][tech_id] = geography
+                                self.dispatch.feeder[period][tech_id] = feeder
+                            except:
+                                pdb.set_trace()
 
 
 
@@ -750,7 +775,7 @@ class Supply(object):
         # MOVE
         logging.info("      preparing optimization inputs")
         self.dispatch.set_timeperiods()
-        self.dispatch.set_losses(self.distribution_losses)
+        self.dispatch.set_losses(self.transmission_losses,self.distribution_losses)
         self.set_net_load_thresholds(year)
         self.dispatch.set_opt_loads(self.distribution_load,self.distribution_gen,self.bulk_load,self.bulk_gen,self.dispatched_bulk_load)
         self.dispatch.set_technologies(self.storage_capacity_dict, self.storage_efficiency_dict, self.active_thermal_dispatch_df)
@@ -815,7 +840,7 @@ class Supply(object):
         exports = self.dispatch.transmission_flow_df.groupby(level=['geography_from', 'weather_datetime']).sum()
         imports.index.names = [cfg.dispatch_geography, 'weather_datetime']
         exports.index.names = [cfg.dispatch_geography, 'weather_datetime']
-        self.bulk_load = util.DfOper.add((self.bulk_load, storage_charge.xs(0, level='dispatch_feeder'), util.df_slice(ld_load, 0, 'dispatch_feeder',return_none=True),exports))
+        self.bulk_load = util.DfOper.add((self.bulk_load, storage_charge.xs(0, level='dispatch_feeder'), DfOper.divi([util.df_slice(ld_load, 0, 'dispatch_feeder',return_none=True),self.transmission_losses]),DfOper.divi([exports,self.transmission_losses])))
         self.bulk_gen = util.DfOper.add((self.bulk_gen, storage_discharge.xs(0, level='dispatch_feeder'),util.df_slice(ld_gen, 0, 'dispatch_feeder',return_none=True),imports))
         self.update_net_load_signal()
         self.produce_distributed_storage_outputs(year)
@@ -843,7 +868,6 @@ class Supply(object):
             transmission_output.columns = [cfg.calculation_energy_unit.upper()]
             transmission_output = self.outputs.clean_df(transmission_output)
             self.bulk_dispatch = pd.concat([self.bulk_dispatch, transmission_output.reorder_levels(self.bulk_dispatch.index.names)])
-        self.produce_ld_outputs(year)
 
     def produce_distributed_storage_outputs(self, year):
         # MOVE
@@ -867,12 +891,10 @@ class Supply(object):
         if year in self.dispatch_write_years and len(self.dispatch.ld_df):
             #produce distributed long duration outputs
             #- changes the sign coming out of the dispatch, with is the reverse of what we want for outputs
-
             ld_df = -util.df_slice(self.dispatch.ld_df, self.dispatch_feeders, 'dispatch_feeder')
             if len(ld_df):
                 ld_df = util.add_and_set_index(ld_df, 'year', year)
                 ld_df.columns = [cfg.calculation_energy_unit.upper()]
-                ld_df = DfOper.mult([ld_df, self.distribution_losses,self.transmission_losses])
                 ld_df= self.outputs.clean_df(ld_df)
                 ld_df.reset_index(['SUPPLY_NODE','DISPATCH_FEEDER'],inplace=True)
                 ld_df['DISPATCH_OUTPUT'] = ld_df['DISPATCH_FEEDER'] + " " + ld_df['SUPPLY_NODE']
@@ -886,7 +908,6 @@ class Supply(object):
             if len(ld_df):
                 ld_df = util.add_and_set_index(ld_df, 'year', year)
                 ld_df.columns = [cfg.calculation_energy_unit.upper()]
-                ld_df = util.DfOper.mult([ld_df, self.transmission_losses])
                 ld_df= self.outputs.clean_df(ld_df)
                 util.replace_index_name(ld_df,'DISPATCH_OUTPUT', 'SUPPLY_NODE')
                 self.bulk_dispatch = pd.concat([self.bulk_dispatch, ld_df.reorder_levels(self.bulk_dispatch.index.names)])
@@ -897,7 +918,7 @@ class Supply(object):
             bulk_df = self.dispatch.storage_df.xs(0, level='dispatch_feeder')
             bulk_df = util.add_and_set_index(bulk_df, 'year', year)
             bulk_df.columns = [cfg.calculation_energy_unit.upper()]
-            charge_df = util.df_slice(bulk_df,'charge','charge_discharge')
+            charge_df = util.DfOper.mult([util.df_slice(bulk_df,'charge','charge_discharge'),self.transmission_losses])
             charge_df = self.outputs.clean_df(charge_df)
             charge_df = pd.concat([charge_df],keys=['BULK STORAGE CHARGE'],names=['DISPATCH_OUTPUT'])
             self.bulk_dispatch = pd.concat([self.bulk_dispatch, charge_df.reorder_levels(self.bulk_dispatch.index.names)])
@@ -976,9 +997,15 @@ class Supply(object):
         for zone in self.dispatch_zones:
             for node_id in self.electricity_load_nodes[zone]['flexible']:
                 node = self.nodes[node_id]
-                indexer =  util.level_specific_indexer(node.stock.coefficients.loc[:,year],'supply_node',[self.electricity_nodes[zone]+[zone]])
-                energy_demand = util.DfOper.mult([util.remove_df_levels(node.stock.values_energy.loc[:,year].to_frame(),['vintage','supply_technology']), util.remove_df_levels(node.stock.coefficients.loc[indexer,year].to_frame(),['vintage','supply_technology'])])
-                capacity = util.DfOper.mult([util.remove_df_levels(node.stock.values.loc[:,year].to_frame(),['vintage','supply_technology']), util.remove_df_levels(node.stock.coefficients.loc[indexer,year].to_frame(),['vintage','supply_technology'])])
+                if hasattr(node.stock, 'coefficients'):
+                    indexer =  util.level_specific_indexer(node.stock.coefficients.loc[:,year],'supply_node',[self.electricity_nodes[zone]+[zone]])
+                    energy_demand = util.DfOper.mult([util.remove_df_levels(node.stock.values_energy.loc[:,year].to_frame(),['vintage','supply_technology']), util.remove_df_levels(node.stock.coefficients.loc[indexer,year].to_frame(),['vintage','supply_technology'])])
+                    capacity = util.DfOper.mult([util.remove_df_levels(node.stock.values.loc[:,year].to_frame(),['vintage','supply_technology']), util.remove_df_levels(node.stock.coefficients.loc[indexer,year].to_frame(),['vintage','supply_technology'])])                
+                else:
+                    indexer =  util.level_specific_indexer(node.active_coefficients_untraded,'supply_node',[self.electricity_nodes[zone]+[zone]])
+                    energy_demand =  util.DfOper.mult([node.active_coefficients_untraded, node.active_supply])
+                    capacity = util.DfOper.divi([energy_demand,node.capacity_factor.values.loc[:,year].to_frame()])/ util.unit_conversion(unit_to_num='hour', unit_from_num = 'year')[0]
+                    capacity.replace([np.nan,np.inf], 0,inplace=True)
                 if zone == self.distribution_node_id and 'demand_sector' not in node.stock.values.index.names:
                     #requires energy on the distribution system to be allocated to feeder for dispatch
                     energy_demand = DfOper.mult([energy_demand, node.active_supply.groupby(level=[cfg.primary_geography,'demand_sector']).transform(lambda x: x/x.sum())])
@@ -2969,8 +2996,11 @@ class Node(DataMapFunctions):
                                              unit_to_num=model_energy_unit, unit_to_den=model_time_step))
         else:
             # if a stock is a capacity unit, the model must convert the unit type to an energy unit for conversion ()
-            setattr(stock, attr, util.unit_convert(getattr(stock, attr), unit_from_num=cfg.ureg.Quantity(stock.capacity_or_energy_unit)*cfg.ureg.Quantity(model_time_step), unit_from_den=model_time_step, 
+            try:
+                setattr(stock, attr, util.unit_convert(getattr(stock, attr), unit_from_num=cfg.ureg.Quantity(stock.capacity_or_energy_unit)*cfg.ureg.Quantity(model_time_step), unit_from_den=model_time_step, 
                                              unit_to_num=model_energy_unit, unit_to_den=model_time_step))
+            except:
+                pdb.set_trace()
 
     def calculate_potential_constraints(self, year):
         """calculates the exceedance factor of a node if the node active supply exceeds the potential in the node. This adjustment factor
@@ -3540,7 +3570,7 @@ class SupplyNode(Node,StockItem):
 #            self.case_stock.remap(map_from='raw_values', map_to='total',fill_timeseries=True, fill_value=np.nan)
         if self.stock.data is True and hasattr(self.case_stock,'total'):
             self.convert_stock('case_stock','total')
-#            self.case_stock.total.fillna(self.stock.total, inplace=True)
+#           self.case_stock.total.fillna(self.stock.total, inplace=True)
             self.stock.total = self.stock.total[self.stock.total.index.get_level_values('year')<=int(cfg.cfgfile.get('case','current_year'))] 
             self.case_stock.total[self.stock.total.index.get_level_values('year')>int(cfg.cfgfile.get('case','current_year'))]
             self.case_stock.total = pd.concat([self.stock.total,self.case_stock.total])
@@ -4049,7 +4079,7 @@ class SupplyPotential(Abstract):
     def convert(self):
         self.values = self.values.unstack(level='year')
         self.values.columns = self.values.columns.droplevel()
-        if self.time_unit is None:
+        if hasattr(self,'time_unit') and self.time_unit is None:
             self.time_unit = 'year'
         if self.conversion is not None:
             # if a conversion is necessary, it means that original input values are in resource and not energy terms
