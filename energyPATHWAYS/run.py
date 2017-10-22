@@ -211,9 +211,9 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\HQ\scenarios'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\HQ'
     config = 'config.INI'
-    scenario = ['aeo_2017_reference']
+    scenario = ['DDP_EX']
     run(workingdir, config, scenario,
     load_demand   = True,
     solve_demand  = False,
@@ -221,8 +221,8 @@ if __name__ == "__main__":
     solve_supply  = True,
     export_results= False,
     load_error    = False,
-    pickle_shapes = False,
+    pickle_shapes = True,
     save_models   = True,
     api_run       = False,
-    clear_results = True)
+    clear_results = False)
 

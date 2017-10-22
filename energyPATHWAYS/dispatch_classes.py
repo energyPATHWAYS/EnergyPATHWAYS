@@ -249,8 +249,9 @@ class Dispatch(object):
 
     def set_average_net_loads(self, total_net_load):
         df = self._convert_weather_datetime_to_hour(total_net_load.xs(2, level='timeshift_type').reset_index(level='year', drop=True))
-        self.period_net_load = df.groupby(level=[self.dispatch_geography, 'period']).mean().to_dict()
-        self.average_net_load = df.groupby(level=[self.dispatch_geography]).mean().to_dict()
+        self.period_net_load = df.groupby(level=[self.dispatch_geography, 'period']).sum().to_dict()
+        self.average_net_load = df.groupby(level=[self.dispatch_geography]).sum()/float(len(self.periods))
+        self.average_net_load = self.average_net_load.to_dict()
     
     def set_technologies(self,storage_capacity_dict, storage_efficiency_dict, thermal_dispatch_df):
       """prepares storage technologies for dispatch optimization
@@ -316,6 +317,15 @@ class Dispatch(object):
                      self.feeder[tech_dispatch_id] = feeder
           self.set_gen_technologies(dispatch_geography,thermal_dispatch_df)
       self.convert_all_to_period()
+      self.set_transmission_energy()
+      
+    def set_transmission_energy(self):
+        self.tx_energy_dict = util.recursivedict()
+        tx_dict = self.transmission.constraints.get_values_as_dict(self.year)
+        for t in tx_dict.keys():
+            for p in self.period_lengths.keys():
+                self.tx_energy_dict[(t,p)] = tx_dict[t] * self.period_lengths[p] 
+        
 
     def convert_all_to_period(self):
       self.min_capacity = self.convert_to_period(self.min_capacity)
@@ -511,8 +521,15 @@ class Dispatch(object):
         hour_discharge.plot(subplots=True, ax=axes, title='AVERAGE STORAGE CHARGE (-) AND DISCHARGE (+) BY HOUR')
 
     def solve_optimization(self):
-        state_of_charge = self.run_year_to_month_allocation()
+        state_of_charge, ld_energy_budgets = self.run_year_to_month_allocation()
         self.start_soc_large_storage, self.end_soc_large_storage = state_of_charge[0], state_of_charge[1]
+        self.ld_energy_budgets = ld_energy_budgets
+        for period in self.periods:
+            for technology in self.ld_technologies:
+                if self.ld_energy_budgets[period][technology]>= self.capacity[period][technology] * self.period_lengths[period]:
+                    self.ld_energy_budgets[period][technology]= self.capacity[period][technology] * self.period_lengths[period]-1
+                if self.ld_energy_budgets[period][technology]<= self.min_capacity[period][technology] * self.period_lengths[period]:
+                    self.ld_energy_budgets[period][technology]= self.min_capacity[period][technology] * self.period_lengths[period]+1
         try:
             if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
                 params = [(dispatch_formulation.create_dispatch_model(self, period), cfg.solver_name) for period in self.periods]
@@ -527,8 +544,8 @@ class Dispatch(object):
     def run_year_to_month_allocation(self):
         model = dispatch_formulation.year_to_period_allocation_formulation(self)
         results = self.run_pyomo_year_to_month(model, None)
-        state_of_charge = self.export_allocation_results(results)
-        return state_of_charge
+        state_of_charge, ld_energy_budgets = self.export_allocation_results(results)
+        return state_of_charge, ld_energy_budgets
 
     @staticmethod
     def nested_dict(dic, keys, value):
@@ -547,8 +564,8 @@ class Dispatch(object):
 
         periods_set = getattr(instance, "PERIODS")
         geographies_set = getattr(instance, "GEOGRAPHIES")
-        tech_set = getattr(instance, "VERY_LARGE_STORAGE_TECHNOLOGIES")
-
+        storage_tech_set = getattr(instance, "VERY_LARGE_STORAGE_TECHNOLOGIES")
+        ld_tech_set = getattr(instance, "LD_TECHNOLOGIES")
         if write_to_file:
             path = os.path.join(cfg.workingdir, 'dispatch_outputs')
 
@@ -564,8 +581,9 @@ class Dispatch(object):
                                     "end_state_of_charge"])
         start_soc = dict()
         end_soc = dict()
+        ld_energy = dict()
 
-        for t in tech_set:
+        for t in storage_tech_set:
             for p in periods_set:
                 if write_to_file:
                     net_charge_writer.writerow([t, p, instance.region[t],
@@ -579,9 +597,11 @@ class Dispatch(object):
 
                 Dispatch.nested_dict(start_soc, [p, t], np.floor(instance.Energy_in_Storage[t, p].value*1E7)/1E7)
                 Dispatch.nested_dict(end_soc, [p, t], np.floor((instance.Energy_in_Storage[t, p].value - (instance.Discharge[t, p].value-instance.Charge[t, p].value))*1E7)/1E77)
-                
+        for t in ld_tech_set:
+            for p in periods_set:
+                Dispatch.nested_dict(ld_energy, [p, t], instance.LD_Dispatch[t, p].value)
         state_of_charge = [start_soc, end_soc]
-        return state_of_charge
+        return state_of_charge, ld_energy
 
 
 

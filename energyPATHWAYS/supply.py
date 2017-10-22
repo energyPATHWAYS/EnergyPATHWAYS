@@ -580,7 +580,9 @@ class Supply(object):
             energy_by_block = np.array_split(array, np.where(np.diff(dispatch_periods)!=0)[0]+1)
             return [fun(block) for block in energy_by_block]
         self.dispatch.ld_technologies = []
-        self.dispatch.ld_energy = util.recursivedict()
+        self.dispatch.max_ld_energy = util.recursivedict()
+        self.dispatch.min_ld_energy = util.recursivedict()
+        self.dispatch.annual_ld_energy = util.recursivedict()
         for node_id in [x for x in self.dispatch.long_duration_dispatch_order if x in self.nodes.keys() ]:
             node = self.nodes[node_id]
             full_energy_shape, p_min_shape, p_max_shape = node.aggregate_flexible_electricity_shapes(year, util.remove_df_levels(util.df_slice(self.dispatch_feeder_allocation.values,year,'year'),year))
@@ -639,10 +641,12 @@ class Supply(object):
                                     opt_p_max *= self.transmission_losses.loc[geography,:].values[0]
                                     energy_budgets *= self.transmission_losses.loc[geography,:].values[0]
                                     dispatch = -np.transpose([dispatch_budget.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
-                                    dispatch = split_and_apply(dispatch, opt_periods,np.sum)
+                                    dispatch = np.array(split_and_apply(dispatch, opt_periods,np.sum))
+                                    dispatch_annual = np.sum(dispatch)
                                 else:
                                     dispatch = np.transpose([dispatch_budget.dispatch_to_energy_budget(self.bulk_net_load.loc[net_indexer,:].values.flatten(),np.array(energy_budgets).flatten(), dispatch_periods, p_min, p_max)])
-                                    dispatch = split_and_apply(dispatch, opt_periods,np.sum)
+                                    dispatch = np.array(split_and_apply(dispatch, opt_periods,np.sum))
+                                    dispatch_annual = np.sum(dispatch)
                         else:
                                 if load_or_gen=='load':
                                     p_min *= self.transmission_losses.loc[geography,:].values[0] * util.df_slice(self.distribution_losses, [geography,feeder],[cfg.dispatch_geography, 'dispatch_feeder']).values[0][0]
@@ -651,20 +655,30 @@ class Supply(object):
                                     opt_p_max *= self.transmission_losses.loc[geography,:].values[0] * util.df_slice(self.distribution_losses, [geography,feeder],[cfg.dispatch_geography, 'dispatch_feeder']).values[0][0]
                                     energy_budgets *= self.transmission_losses.loc[geography,:].values[0] * util.df_slice(self.distribution_losses, [geography,feeder],[cfg.dispatch_geography, 'dispatch_feeder']).values[0][0]                           
                                     dispatch =  -np.transpose([dispatch_budget.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
-                                    dispatch = split_and_apply(dispatch, opt_periods,np.sum)
-                                    
+                                    dispatch = np.array(split_and_apply(dispatch, opt_periods,np.sum))
+                                    dispatch_annual = np.sum(dispatch)
                                 else:
                                     dispatch =  np.transpose([dispatch_budget.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
-                                    dispatch = split_and_apply(dispatch, opt_periods,np.sum)
+                                    dispatch = np.array(split_and_apply(dispatch, opt_periods,np.sum))
+                                    dispatch_annual = np.sum(dispatch)
                         if load_or_gen == 'gen':
                             max_capacity = opt_p_max
                             min_capacity = opt_p_min
                         else:
                             max_capacity = -opt_p_min
                             min_capacity = -opt_p_max
+                        if dispatch_window == 'year':
+                            max_dispatch = max_capacity*np.array(self.dispatch.period_lengths.values())
+                            min_dispatch = min_capacity*np.array(self.dispatch.period_lengths.values())
+                        else:
+                            max_dispatch = dispatch
+                            min_dispatch = dispatch
+                        self.dispatch.annual_ld_energy[tech_id] = dispatch_annual
+                        self.dispatch.alloc_geography[tech_id] = geography
                         for period in self.dispatch.periods:
                             try:
-                                self.dispatch.ld_energy[period][tech_id] = dispatch[period]
+                                self.dispatch.max_ld_energy[(period,tech_id)] = max_dispatch[period]
+                                self.dispatch.min_ld_energy[(period,tech_id)] = min_dispatch[period]
                                 self.dispatch.capacity[period][tech_id] = max_capacity[period]
                                 self.dispatch.min_capacity[period][tech_id] = min_capacity[period]
                                 self.dispatch.geography[period][tech_id] = geography
@@ -815,9 +829,9 @@ class Supply(object):
     def solve_storage_and_flex_load_optimization(self,year):
         # MOVE
         """prepares, solves, and updates the net load with results from the storage and flexible load optimization""" 
+        self.dispatch.set_year(year)
         self.prepare_optimization_inputs(year)
         logging.info("      solving dispatch for storage and dispatchable load")
-        self.dispatch.set_year(year)
         self.dispatch.solve_optimization()
         storage_charge = self.dispatch.storage_df.xs('charge', level='charge_discharge')
         storage_discharge = self.dispatch.storage_df.xs('discharge', level='charge_discharge')

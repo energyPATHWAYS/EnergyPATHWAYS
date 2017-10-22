@@ -289,10 +289,7 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     model.min_capacity = Param(model.TECHNOLOGIES, initialize=dispatch.min_capacity[period])    
     model.capacity = Param(model.TECHNOLOGIES, initialize=dispatch.capacity[period])
     model.duration = Param(model.STORAGE_TECHNOLOGIES, initialize= dispatch.duration[period])
-    model.ld_energy = Param(model.LD_TECHNOLOGIES, initialize = (dispatch.ld_energy[period] if len(dispatch.ld_energy) else dispatch.ld_energy))
-    
-    
-    
+    model.ld_energy = Param(model.LD_TECHNOLOGIES, initialize = (dispatch.ld_energy_budgets[period] if len(dispatch.ld_energy_budgets) else dispatch.ld_energy_budgets))
     
     # ### System ### #
     # Load
@@ -412,10 +409,6 @@ def year_to_period_allocation_formulation(dispatch):
     :return:
     """
 
-    model = AbstractModel()
-
-    model.PERIODS = Set(within=NonNegativeIntegers, ordered=True, initialize=dispatch.periods)
-
     def first_period_init(model):
         """
         Assumes periods are ordered
@@ -424,8 +417,6 @@ def year_to_period_allocation_formulation(dispatch):
         """
         return min(model.PERIODS)
 
-    model.first_period = Param(initialize=first_period_init)
-
     def last_period_init(model):
         """
         Assumes periods are ordered
@@ -433,8 +424,6 @@ def year_to_period_allocation_formulation(dispatch):
         :return:
         """
         return max(model.PERIODS)
-
-    model.last_period = Param(initialize=last_period_init)
 
     def previous_period_init(model):
         """
@@ -451,50 +440,31 @@ def year_to_period_allocation_formulation(dispatch):
                 previous_periods[period] = period - 1
         return previous_periods
 
-    model.previous_period = Param(model.PERIODS, initialize=previous_period_init)
-
-    model.GEOGRAPHIES = Set(initialize=dispatch.dispatch_geographies)
+    def annual_ld_energy_rule_alloc(model, technology):
+        return sum(model.LD_Dispatch[technology,p] for p in model.PERIODS) == model.annual_ld_energy[technology]
     
-    model.VERY_LARGE_STORAGE_TECHNOLOGIES = Set(initialize =dispatch.alloc_technologies)
-    model.geography = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES, initialize=dispatch.alloc_geography)
-    # TODO: careful with capacity means in the context of, say, a week instead of an hour
-    model.power_capacity = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES,
-                                            initialize=dispatch.alloc_capacity)
-    model.energy_capacity = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES,
-                                             initialize=dispatch.alloc_energy)
-    model.charging_efficiency = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES,
-                                             initialize=dispatch.alloc_charging_efficiency)
-    model.discharging_efficiency = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES,
-                                             initialize=dispatch.alloc_discharging_efficiency)
-
-    model.average_net_load = Param(model.GEOGRAPHIES, initialize=dispatch.average_net_load)
-    model.period_net_load = Param(model.GEOGRAPHIES, model.PERIODS,
-                                             initialize=dispatch.period_net_load)
-
-    model.upward_imbalance_penalty = Param(initialize=dispatch.upward_imbalance_penalty)
-    model.downward_imbalance_penalty = Param(initialize=dispatch.downward_imbalance_penalty)
-
-    # Resource variables
-    model.Charge = Var(model.VERY_LARGE_STORAGE_TECHNOLOGIES, model.PERIODS,
-                                  within=NonNegativeReals)
-    model.Discharge = Var(model.VERY_LARGE_STORAGE_TECHNOLOGIES, model.PERIODS,
-                                     within=NonNegativeReals)
-    model.Energy_in_Storage = Var(model.VERY_LARGE_STORAGE_TECHNOLOGIES, model.PERIODS,
-                                             within=NonNegativeReals)
-
-    # System variables
-    model.Upward_Imbalance = Var(model.GEOGRAPHIES, model.PERIODS,
-                                            within=NonNegativeReals)
-    model.Downward_Imbalance = Var(model.GEOGRAPHIES, model.PERIODS,
-                                              within=NonNegativeReals)
+    def ld_energy_rule_alloc(model, technology, period):
+        return model.min_ld_energy_alloc[period,technology]<=model.LD_Dispatch[technology,period] <= model.max_ld_energy_alloc[period,technology]
+        
+    def transmission_rule_alloc(model, line, period):
+        """
+        Transmission line flow is limited by transmission capacity.
+        """
+        # if we make transmission capacity vary by hour, we just need to add timepoint to transmission capacity
+        return model.Transmit_Energy[line,period] <= model.transmission_energy[line,period]
+        
+    def net_transmit_energy_by_geo_rule(model, geography, period):
+        # line is constructed as (from, to)
+        # net transmit power = sum of all imports minus the sum of all exports
+        return model.Net_Transmit_Energy_by_Geo[geography, period] == sum([model.Transmit_Energy[str((g, geography)), period] for g in model.GEOGRAPHIES if g!=geography]) - \
+                                                                    sum([model.Transmit_Energy[str((geography, g)), period] for g in model.GEOGRAPHIES if g!=geography]) 
 
     # Objective function
     def total_imbalance_penalty_rule(model):
         return sum((model.Upward_Imbalance[g, p] * model.upward_imbalance_penalty +
-                    model.Downward_Imbalance[g, p] * model.downward_imbalance_penalty)
-                   for g in model.GEOGRAPHIES
-                   for p in model.PERIODS)
-    model.Total_Imbalance = Objective(rule=total_imbalance_penalty_rule, sense=minimize)
+                    model.Downward_Imbalance[g, p] * model.downward_imbalance_penalty
+                    for g in model.GEOGRAPHIES
+                   for p in model.PERIODS)) + sum(model.Transmit_Energy[l,p]*200 for l in model.TRANSMISSION_LINES for p in model.PERIODS)
 
     # Constraints
     def power_balance_rule(model, geography, period):
@@ -503,54 +473,88 @@ def year_to_period_allocation_formulation(dispatch):
                         if model.geography[technology] == geography)
         charge = sum(model.Charge[technology, period] for technology in model.VERY_LARGE_STORAGE_TECHNOLOGIES
                      if model.geography[technology] == geography)
+        ld_dispatch = sum(model.LD_Dispatch[technology, period] for technology in model.LD_TECHNOLOGIES
+                     if model.geography[technology] == geography)
 
-        return discharge + model.Upward_Imbalance[geography, period] \
+        return discharge + ld_dispatch +  model.Upward_Imbalance[geography, period] \
             == model.period_net_load[geography, period] - model.average_net_load[geography] \
-            + charge + model.Downward_Imbalance[geography, period]
-
-    model.Power_Balance_Constraint = Constraint(model.GEOGRAPHIES,
-                                                           model.PERIODS,
-                                                           rule=power_balance_rule)
+            + charge + model.Downward_Imbalance[geography, period] + model.Net_Transmit_Energy_by_Geo[geography,period]
 
     def storage_energy_tracking_rule(model, technology, period):
         """
         Set starting state of charge for each period.
-        :param model:
-        :param resource:
-        :param period:
-        :return:
         """
         return model.Energy_in_Storage[technology, period] \
             == model.Energy_in_Storage[technology, model.previous_period[period]] \
             - model.Discharge[technology, model.previous_period[period]] \
             + model.Charge[technology, model.previous_period[period]]
 
-    model.Storage_Energy_Tracking_Constraint = Constraint(model.VERY_LARGE_STORAGE_TECHNOLOGIES,
-                                                                     model.PERIODS,
-                                                                     rule=storage_energy_tracking_rule)
-
     def storage_discharge_rule(model, technology, period):
         return model.Discharge[technology, period] <= model.power_capacity[technology]/model.discharging_efficiency[technology]
-
-    model.Storage_Discharge_Constraint = Constraint(model.VERY_LARGE_STORAGE_TECHNOLOGIES,
-                                                               model.PERIODS,
-                                                               rule=storage_discharge_rule)
 
     def storage_charge_rule(model, technology, period):
         return model.Charge[technology, period] <= model.power_capacity[technology] * model.charging_efficiency[technology]
 
-    model.Storage_Charge_Constraint = Constraint(model.VERY_LARGE_STORAGE_TECHNOLOGIES,
-                                                            model.PERIODS,
-                                                            rule=storage_charge_rule)
-                
-
     def storage_energy_rule(model, technology, period):
         return model.Energy_in_Storage[technology, period] <= model.energy_capacity[technology]
 
-    model.Storage_Energy_Constraint = Constraint(model.VERY_LARGE_STORAGE_TECHNOLOGIES,
-                                                            model.PERIODS,
-                                                            rule=storage_energy_rule)
+    model = AbstractModel()
+
+    model.PERIODS = Set(within=NonNegativeIntegers, ordered=True, initialize=dispatch.periods)
+    model.last_period = Param(initialize=last_period_init)
+    model.first_period = Param(initialize=first_period_init)
+    model.previous_period = Param(model.PERIODS, initialize=previous_period_init)
+    model.GEOGRAPHIES = Set(initialize=dispatch.dispatch_geographies)
+    model.TRANSMISSION_LINES = Set(initialize=dispatch.transmission.list_transmission_lines)
+    model.VERY_LARGE_STORAGE_TECHNOLOGIES = Set(initialize =dispatch.alloc_technologies)
+    model.LD_TECHNOLOGIES = Set(initialize=dispatch.ld_technologies)
+    model.TECHNOLOGIES = model.VERY_LARGE_STORAGE_TECHNOLOGIES|model.LD_TECHNOLOGIES
+
+    model.geography = Param(model.TECHNOLOGIES, initialize=dispatch.alloc_geography) # why do we need this???
+
+    # TODO: careful with capacity means in the context of, say, a week instead of an hour
+    model.power_capacity = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES, initialize=dispatch.alloc_capacity)
+    model.energy_capacity = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES, initialize=dispatch.alloc_energy)
+    model.charging_efficiency = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES, initialize=dispatch.alloc_charging_efficiency)
+    model.discharging_efficiency = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES, initialize=dispatch.alloc_discharging_efficiency)
+    model.min_ld_energy_alloc = Param(model.PERIODS,model.LD_TECHNOLOGIES,initialize=dispatch.min_ld_energy)
+    model.max_ld_energy_alloc = Param(model.PERIODS,model.LD_TECHNOLOGIES,initialize=dispatch.max_ld_energy)
+    model.annual_ld_energy = Param(model.LD_TECHNOLOGIES,initialize=dispatch.annual_ld_energy)
+    model.average_net_load = Param(model.GEOGRAPHIES, initialize=dispatch.average_net_load)
+    model.period_net_load = Param(model.GEOGRAPHIES, model.PERIODS, initialize=dispatch.period_net_load)
+
+    model.transmission_energy = Param(model.TRANSMISSION_LINES, model.PERIODS, initialize=dispatch.tx_energy_dict)
+
+    model.upward_imbalance_penalty = Param(initialize=dispatch.upward_imbalance_penalty)
+    model.downward_imbalance_penalty = Param(initialize=dispatch.downward_imbalance_penalty)
+
+    # Resource variables
+    model.LD_Dispatch = Var(model.LD_TECHNOLOGIES, model.PERIODS, within=Reals)
+    model.Charge = Var(model.VERY_LARGE_STORAGE_TECHNOLOGIES, model.PERIODS, within=NonNegativeReals)
+    model.Discharge = Var(model.VERY_LARGE_STORAGE_TECHNOLOGIES, model.PERIODS, within=NonNegativeReals)
+    model.Energy_in_Storage = Var(model.VERY_LARGE_STORAGE_TECHNOLOGIES, model.PERIODS, within=NonNegativeReals)
+    model.Transmit_Energy = Var(model.TRANSMISSION_LINES, model.PERIODS,within=NonNegativeReals)
+    model.Net_Transmit_Energy_by_Geo = Var(model.GEOGRAPHIES, model.PERIODS, within=Reals)
+
+    # System variables
+    model.Upward_Imbalance = Var(model.GEOGRAPHIES, model.PERIODS, within=NonNegativeReals)
+    model.Downward_Imbalance = Var(model.GEOGRAPHIES, model.PERIODS, within=NonNegativeReals)
+
+    #constraints
+    model.Annual_LD_Energy_Constraint = Constraint(model.LD_TECHNOLOGIES,rule=annual_ld_energy_rule_alloc)
+    model.LD_Energy_Constraint = Constraint(model.LD_TECHNOLOGIES, model.PERIODS, rule=ld_energy_rule_alloc)
+
+    model.Transmission_Constraint = Constraint(model.TRANSMISSION_LINES, model.PERIODS, rule=transmission_rule_alloc)
+    model.Net_Transmit_Energy_by_Geo_Constraint = Constraint(model.GEOGRAPHIES, model.PERIODS, rule=net_transmit_energy_by_geo_rule)
+
+    model.Power_Balance_Constraint = Constraint(model.GEOGRAPHIES, model.PERIODS, rule=power_balance_rule)
+    model.Storage_Energy_Tracking_Constraint = Constraint(model.VERY_LARGE_STORAGE_TECHNOLOGIES, model.PERIODS, rule=storage_energy_tracking_rule)
+    model.Storage_Discharge_Constraint = Constraint(model.VERY_LARGE_STORAGE_TECHNOLOGIES, model.PERIODS, rule=storage_discharge_rule)
+    model.Storage_Charge_Constraint = Constraint(model.VERY_LARGE_STORAGE_TECHNOLOGIES, model.PERIODS, rule=storage_charge_rule)
+    model.Storage_Energy_Constraint = Constraint(model.VERY_LARGE_STORAGE_TECHNOLOGIES, model.PERIODS, rule=storage_energy_rule)
 
     # TODO: add charge and discharge efficiencies?
+
+    model.Total_Imbalance = Objective(rule=total_imbalance_penalty_rule, sense=minimize)
 
     return model
