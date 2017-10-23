@@ -261,10 +261,7 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     # ### Sets and params ### #
     ###########################
     # ### Temporal structure ### #
-    model.TIMEPOINTS = Set(within=NonNegativeIntegers, ordered=True, initialize=dispatch.period_timepoints[period])
-    model.previous = Param(model.TIMEPOINTS, within=NonNegativeIntegers, initialize=dispatch.period_previous_timepoints[period])
-    model.first_timepoint = Param(initialize=min_timepoints)
-    model.last_timepoint = Param(initialize=max_timepoints)
+    model.TIMEPOINTS = Set(within=NonNegativeIntegers, ordered=True, initialize=dispatch.timepoints)
 
     # ### Geographic structure ### #
     model.GEOGRAPHIES = Set(initialize=dispatch.dispatch_geographies)
@@ -396,9 +393,261 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     return model
 
 
+def ld_formulation(dispatch):    
+    """
+    Formulation of dispatch problem.
+    If _inputs contains data, the data are initialized with the formulation of the model (concrete model).
+    Model is defined as "abstract," however, so data can also be loaded when create_instance() is called instead.
+    """
+    
+    
+    
+    def feeder_provide_power(model, geography, period, timepoint, feeder):
+        return sum(model.Provide_Power[t, period, timepoint] for t in model.TECHNOLOGIES if (model.geography[t]==geography) and (model.feeder[t]==feeder))
+    
+    def meet_load_rule(model, geography, timepoint):
+        """
+        In each geography and timepoint, net bulk power plus curtailment must equal the bulk load,
+        i.e. the distribution load plus an adjustment for T&D losses.
+    
+        The distribution load is equal to the static load plus flex/EV load plus any other distribution loads (e.g.
+        distribution storage charging) minus any power available at the distribution level.
+    
+        Bulk power is equal to bulk generation plus net bulk storage plus imports/exports.
+    
+        This assumes we won't be charging bulk storage with distribution power -- in that situation this constraint will
+        break, as the direction of losses would need to be reversed.
+        """
+    
+    #        imports_exports = float()
+    #        for tl in model.TRANSMISSION_LINES:
+    #            if model.transmission_to[tl] == geography:
+    #                imports_exports += model.Transmit_Power[tl, timepoint]
+    #            if model.transmission_from[tl] == geography:
+    #                imports_exports -= model.Transmit_Power[tl, timepoint]
+    #            else:
+    #                pass
+        #TODO add back imports/exports
+    
+        
+        return (feeder_provide_power(model, geography, timepoint, feeder=0) +
+                model.Net_Transmit_Power_by_Geo[geography, timepoint] +
+                model.bulk_gen[geography, timepoint] -
+                model.bulk_load[geography, timepoint] * model.t_and_d_losses[geography,0]  -
+                model.Curtailment[geography, timepoint]) \
+                == \
+                sum(model.t_and_d_losses[geography,feeder] * 
+                (model.distribution_load[geography, timepoint,feeder] -
+                model.distribution_gen[geography, timepoint,feeder] -
+                feeder_provide_power(model, geography, timepoint, feeder))
+                for feeder in model.FEEDERS if feeder!=0) - \
+                model.Unserved_Energy[geography, timepoint]
+    
+    def power_rule(model, technology, timepoint):
+        """
+        Storage cannot discharge at a higher rate than implied by its total installed power capacity.
+        Charge and discharge rate limits are currently the same.
+        """
+        return model.min_capacity[technology]<= model.Provide_Power[technology, timepoint] <= model.capacity[technology]
+    
+    
+    def ld_energy_rule(model, technology):
+        return sum(model.Provide_Power[technology, t] for t in model.TIMEPOINTS) == model.annual_ld_energy[technology]
+    
+    def transmission_rule(model, line, timepoint):
+        """
+        Transmission line flow is limited by transmission capacity.
+        """
+        # if we make transmission capacity vary by hour, we just need to add timepoint to transmission capacity
+        return model.Transmit_Power[line, timepoint] <= model.transmission_capacity[line]
+    
+    def net_transmit_power_by_geo_rule(model, geography, timepoint):
+        # line is constructed as (from, to)
+        # net transmit power = sum of all imports minus the sum of all exports
+        return model.Net_Transmit_Power_by_Geo[geography, timepoint] == sum([model.Transmit_Power[str((g, geography)), timepoint] for g in model.GEOGRAPHIES if g!=geography]) - \
+                                                                        sum([model.Transmit_Power[str((geography, g)), timepoint] for g in model.GEOGRAPHIES if g!=geography]) 
+    
+    def dist_system_capacity_need_rule(model, geography, timepoint, feeder):
+        """
+        Apply a penalty whenever distribution net load exceeds a pre-specified threshold
+        """    
+        if feeder ==0:
+            return Constraint.Skip
+        else:
+            return (model.DistSysCapacityNeed[geography, timepoint, feeder] +
+               model.dist_net_load_threshold[geography,feeder]) \
+               >= \
+               (model.distribution_load[geography, timepoint, feeder] -
+               model.distribution_gen[geography, timepoint, feeder] + 
+               feeder_provide_power(model, geography, timepoint, feeder))
+    
+
+    def bulk_system_capacity_need_rule(model, geography, timepoint):
+        """
+        Apply a penalty whenever bulk net load (distribution load + T&D losses) exceeds a pre-specified threshold.
+        """
+        return (model.BulkSysCapacityNeed[geography, timepoint] +
+               model.bulk_net_load_threshold[geography]) \
+               >= \
+               sum((model.t_and_d_losses[geography,feeder]) *
+               (model.distribution_load[geography, timepoint,feeder] -
+               model.distribution_gen[geography, timepoint,feeder] -
+               feeder_provide_power(model, geography, timepoint, feeder)) \
+               for feeder in model.FEEDERS if feeder!=0) - \
+               model.Unserved_Energy[geography, timepoint] + \
+               model.bulk_load[geography, timepoint] - \
+               model.dispatched_bulk_load[geography, timepoint] * .5
+    
+    def total_cost_rule(model):
+        gen_cost = sum(model.Provide_Power[gt, t] * model.variable_cost[gt] for gt in model.GENERATION_TECHNOLOGIES
+                                                                            for t in model.TIMEPOINTS)
+        curtailment_cost = sum(model.Curtailment[r, t] * model.curtailment_cost for r in model.GEOGRAPHIES 
+                                                                                for t in model.TIMEPOINTS)
+        unserved_energy_cost = sum(model.Unserved_Energy[r, t] * model.unserved_energy_cost for r in model.GEOGRAPHIES
+                                                                                            for t in model.TIMEPOINTS)
+        dist_sys_penalty_cost = sum(model.DistSysCapacityNeed[r, t, f] * model.dist_penalty for r in model.GEOGRAPHIES
+                                                                                            for t in model.TIMEPOINTS
+                                                                                            for f in model.FEEDERS)
+        bulk_sys_penalty_cost = sum(model.BulkSysCapacityNeed[r, t] * model.bulk_penalty for r in model.GEOGRAPHIES
+                                                                                         for t in model.TIMEPOINTS)
+        flex_load_use_cost = sum(model.FlexLoadUse[r, t, f] * model.flex_penalty for r in model.GEOGRAPHIES
+                                                                                 for t in model.TIMEPOINTS
+                                                                                 for f in model.FEEDERS)
+        transmission_hurdles = sum(model.Transmit_Power[str((from_geo, to_geo)), t] * model.transmission_hurdle[str((from_geo, to_geo))]
+                                                                                    for from_geo in model.GEOGRAPHIES
+                                                                                    for to_geo in model.GEOGRAPHIES
+                                                                                    for t in model.TIMEPOINTS if from_geo!=to_geo)
+        total_cost = gen_cost + curtailment_cost + unserved_energy_cost + dist_sys_penalty_cost + bulk_sys_penalty_cost + flex_load_use_cost + transmission_hurdles
+        return total_cost   
+    model = AbstractModel() if model_type == 'abstract' else ConcreteModel()
+
+    ###########################
+    # ### Sets and params ### #
+    ###########################
+    # ### Temporal structure ### #
+    model.TIMEPOINTS = Set(within=NonNegativeIntegers, ordered=True, initialize=dispatch.ld_timepoints)
+    # ### Geographic structure ### #
+    model.GEOGRAPHIES = Set(initialize=dispatch.dispatch_geographies)
+    model.FEEDERS = Set(initialize=dispatch.feeders)
+
+    # ### Technologies ### #
+    model.GENERATION_TECHNOLOGIES = Set(initialize=dispatch.generation_technologies)
+    model.LD_TECHNOLOGIES = Set(initialize=dispatch.ld_technologies)
+    model.TECHNOLOGIES =  model.GENERATION_TECHNOLOGIES | model.LD_TECHNOLOGIES
+    # Only "generation" technologys have variable costs; storage does not
+    model.variable_cost = Param(model.GENERATION_TECHNOLOGIES, initialize=dispatch.variable_costs)
+    model.geography = Param(model.TECHNOLOGIES, within=model.GEOGRAPHIES, initialize=dispatch.ld_geography)
+    model.feeder = Param(model.TECHNOLOGIES, within=model.FEEDERS, initialize=dispatch.ld_feeder)
+    model.min_capacity = Param(model.TECHNOLOGIES, initialize=dispatch.ld_min_capacity)    
+    model.capacity = Param(model.TECHNOLOGIES, initialize=dispatch.ld_capacity)
+    model.annual_ld_energy = Param(model.LD_TECHNOLOGIES, initialize = dispatch.annual_ld_energy)
+    
+    # ### System ### #
+    # Load
+    model.distribution_load = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, initialize=dispatch.ld_distribution_load, within=Reals)
+    model.bulk_load = Param(model.GEOGRAPHIES, model.TIMEPOINTS, within=Reals, initialize=dispatch.ld_bulk_load) 
+    model.dispatched_bulk_load = Param(model.GEOGRAPHIES, model.TIMEPOINTS, within=Reals, initialize=dispatch.dispatched_bulk_load[period])     
+    model.distribution_gen = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, initialize=dispatch.distribution_gen[period], within=Reals)
+    model.bulk_gen = Param(model.GEOGRAPHIES, model.TIMEPOINTS, within=NonNegativeReals, initialize=dispatch.bulk_gen[period])                                        
+                                           
+    # Flex  loads
+    model.min_cumulative_flex_load = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.min_cumulative_flex_load[period])
+    model.max_cumulative_flex_load = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.max_cumulative_flex_load[period])
+    model.cumulative_distribution_load = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.cumulative_distribution_load[period])
+    model.max_flex_load = Param(model.GEOGRAPHIES,model.FEEDERS, within=Reals, initialize=dispatch.max_flex_load[period])
+    model.min_flex_load = Param(model.GEOGRAPHIES,model.FEEDERS, within=Reals, initialize=dispatch.min_flex_load[period])
+    
+    model.TRANSMISSION_LINES = Set(initialize=dispatch.transmission.list_transmission_lines)
+    model.transmission_capacity = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission.constraints.get_values_as_dict(dispatch.year))
+    model.transmission_hurdle = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission.hurdles.get_values_as_dict(dispatch.year))
+
+    model.dist_net_load_threshold = Param(model.GEOGRAPHIES, model.FEEDERS, within=NonNegativeReals, initialize=dispatch.dist_net_load_thresholds)
+    model.bulk_net_load_threshold = Param(model.GEOGRAPHIES, within=NonNegativeReals, initialize=dispatch.bulk_net_load_thresholds)
+    model.t_and_d_losses = Param(model.GEOGRAPHIES, model.FEEDERS,within=NonNegativeReals, initialize=dispatch.t_and_d_losses)
+
+    # Imbalance penalties
+    # Not geographyalized, as we don't want arbitrage across geographies
+    model.curtailment_cost = Param(within=NonNegativeReals, initialize= dispatch.curtailment_cost)
+    model.unserved_energy_cost = Param(within=NonNegativeReals, initialize= dispatch.unserved_energy_cost)
+    model.dist_penalty = Param(within=NonNegativeReals, initialize= dispatch.dist_net_load_penalty)
+    model.bulk_penalty = Param(within=NonNegativeReals, initialize= dispatch.bulk_net_load_penalty)
+    model.flex_penalty = Param(within=NonNegativeReals, initialize= dispatch.flex_load_penalty)
+    #####################
+    # ### Variables ### #
+    #####################
+    # Projects
+    model.Provide_Power = Var(model.TECHNOLOGIES, model.TIMEPOINTS, within=Reals)
+    model.LD_Provide_Power = Var(model.LD_TECHNOLOGIES, model.TIMEPOINTS, within=Reals)
+    model.Storage_Provide_Power = Var(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, within=Reals)
+    model.Generation_Provide_Power = Var(model.GENERATION_TECHNOLOGIES, model.TIMEPOINTS, within=Reals)
+    model.Charge = Var(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, within=NonNegativeReals)
+    model.Energy_in_Storage = Var(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, within=NonNegativeReals)
+
+    # Transmission
+    model.Transmit_Power = Var(model.TRANSMISSION_LINES, model.TIMEPOINTS, within=NonNegativeReals)
+    model.Net_Transmit_Power_by_Geo = Var(model.GEOGRAPHIES, model.TIMEPOINTS, within=Reals)
+
+    # System
+    model.Flexible_Load = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals)
+    model.Cumulative_Flexible_Load = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals)
+    model.DistSysCapacityNeed = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=NonNegativeReals)
+    model.BulkSysCapacityNeed = Var(model.GEOGRAPHIES, model.TIMEPOINTS, within=NonNegativeReals)
+    model.FlexLoadUse = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=NonNegativeReals)
+    model.Curtailment = Var(model.GEOGRAPHIES, model.TIMEPOINTS, within=NonNegativeReals)
+    model.Unserved_Energy = Var(model.GEOGRAPHIES, model.TIMEPOINTS,within=NonNegativeReals)
+
+    ##############################
+    # ### Objective function ### #
+    ##############################
+    model.Total_Cost = Objective(rule=total_cost_rule, sense=minimize)
+
+    #######################
+    # ### Constraints ### #
+    #######################
+    # ### Meet load constraint ### #
+    model.Meet_Load_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, rule=meet_load_rule)
+
+    # ### Project constraints ### #
+    # "Gas"
+    model.Power_Constraint = Constraint(model.TECHNOLOGIES, model.TIMEPOINTS, rule=power_rule)
+    model.Storage_Power_Constraint = Constraint(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, rule=storage_power_rule)
+    model.Generation_Power_Constraint = Constraint(model.GENERATION_TECHNOLOGIES, model.TIMEPOINTS, rule=generation_power_rule)
+    model.LD_Power_Constraint = Constraint(model.LD_TECHNOLOGIES, model.TIMEPOINTS, rule=ld_power_rule)
+
+    # Storage
+    model.Storage_Charge_Constraint = Constraint(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, rule=storage_charge_rule)
+    model.Storage_Energy_Constraint = Constraint(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, rule=storage_energy_rule)
+#    model.Storage_Simultaenous_Constraint = Constraint(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, rule=storage_simultaneous_rule)
+    model.Storage_Energy_Tracking_Constraint = Constraint(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, rule=storage_energy_tracking_rule)
+    model.Large_Storage_End_State_of_Charge_Constraint = Constraint(model.STORAGE_TECHNOLOGIES, model.TIMEPOINTS, rule=large_storage_end_state_of_charge_rule)
+    
+    # Flex loads
+    model.Cumulative_Flex_Load_Tracking_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=cumulative_flex_load_tracking_rule)
+    model.Cumulative_Flexible_Load_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=cumulative_flexible_load_rule)
+    if dispatch.has_flexible_load:
+        model.Flex_Load_Capacity_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=flex_load_capacity_rule)
+    else:
+        model.Flex_Load_Capacity_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=zero_flexible_load)
+    
+    #ld_energy
+    model.LD_Energy_Constraint = Constraint(model.LD_TECHNOLOGIES, rule=ld_energy_rule)
+    # Transmission
+    model.Transmission_Constraint = Constraint(model.TRANSMISSION_LINES, model.TIMEPOINTS, rule=transmission_rule)
+    model.Net_Transmit_Power_by_Geo_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, rule=net_transmit_power_by_geo_rule)
+
+    # Distribution system penalty
+    model.Distribution_System_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=dist_system_capacity_need_rule)
+    
+    # flexible load usage penalty
+    model.Flex_Load_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=flex_load_use_rule)
+
+    # Bulk system capacity penalty
+    model.Bulk_System_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, rule=bulk_system_capacity_need_rule)
 
 
-
+    return model
+        
+    
 # TODO: do the geographies need to be linked in the allocation?
 def year_to_period_allocation_formulation(dispatch):
     """
@@ -440,11 +689,7 @@ def year_to_period_allocation_formulation(dispatch):
                 previous_periods[period] = period - 1
         return previous_periods
 
-    def annual_ld_energy_rule_alloc(model, technology):
-        return sum(model.LD_Dispatch[technology,p] for p in model.PERIODS) == model.annual_ld_energy[technology]
-    
-    def ld_energy_rule_alloc(model, technology, period):
-        return model.min_ld_energy_alloc[period,technology]<=model.LD_Dispatch[technology,period] <= model.max_ld_energy_alloc[period,technology]
+
         
     def transmission_rule_alloc(model, line, period):
         """
@@ -458,27 +703,32 @@ def year_to_period_allocation_formulation(dispatch):
         # net transmit power = sum of all imports minus the sum of all exports
         return model.Net_Transmit_Energy_by_Geo[geography, period] == sum([model.Transmit_Energy[str((g, geography)), period] for g in model.GEOGRAPHIES if g!=geography]) - \
                                                                     sum([model.Transmit_Energy[str((geography, g)), period] for g in model.GEOGRAPHIES if g!=geography]) 
+                                                                    
 
     # Objective function
     def total_imbalance_penalty_rule(model):
         return sum((model.Upward_Imbalance[g, p] * model.upward_imbalance_penalty +
                     model.Downward_Imbalance[g, p] * model.downward_imbalance_penalty
                     for g in model.GEOGRAPHIES
-                   for p in model.PERIODS)) + sum(model.Transmit_Energy[l,p]*200 for l in model.TRANSMISSION_LINES for p in model.PERIODS)
+                   for p in model.PERIODS)) 
 
-    # Constraints
-    def power_balance_rule(model, geography, period):
 
+    def upward_imbalance_penalty_rule(model, geography, period):
         discharge = sum(model.Discharge[technology, period] for technology in model.VERY_LARGE_STORAGE_TECHNOLOGIES
                         if model.geography[technology] == geography)
         charge = sum(model.Charge[technology, period] for technology in model.VERY_LARGE_STORAGE_TECHNOLOGIES
                      if model.geography[technology] == geography)
-        ld_dispatch = sum(model.LD_Dispatch[technology, period] for technology in model.LD_TECHNOLOGIES
+        return model.Upward_Imbalance[geography, period]>= model.period_net_load[geography, period] - discharge - ld_dispatch - model.Net_Transmit_Energy_by_Geo[geography, period] + charge
+
+    def downward_imbalance_penalty_rule(model, geography, period):
+        discharge = sum(model.Discharge[technology, period] for technology in model.VERY_LARGE_STORAGE_TECHNOLOGIES
+                        if model.geography[technology] == geography)
+        charge = sum(model.Charge[technology, period] for technology in model.VERY_LARGE_STORAGE_TECHNOLOGIES
                      if model.geography[technology] == geography)
 
-        return discharge + ld_dispatch +  model.Upward_Imbalance[geography, period] \
-            == model.period_net_load[geography, period] - model.average_net_load[geography] \
-            + charge + model.Downward_Imbalance[geography, period] + model.Net_Transmit_Energy_by_Geo[geography,period]
+        return model.Downward_Imbalance[geography, period]>= discharge + ld_dispatch + model.Net_Transmit_Energy_by_Geo[geography, period] - charge -model.period_net_load[geography, period]
+
+
 
     def storage_energy_tracking_rule(model, technology, period):
         """
@@ -507,29 +757,24 @@ def year_to_period_allocation_formulation(dispatch):
     model.GEOGRAPHIES = Set(initialize=dispatch.dispatch_geographies)
     model.TRANSMISSION_LINES = Set(initialize=dispatch.transmission.list_transmission_lines)
     model.VERY_LARGE_STORAGE_TECHNOLOGIES = Set(initialize =dispatch.alloc_technologies)
-    model.LD_TECHNOLOGIES = Set(initialize=dispatch.ld_technologies)
-    model.TECHNOLOGIES = model.VERY_LARGE_STORAGE_TECHNOLOGIES|model.LD_TECHNOLOGIES
-
-    model.geography = Param(model.TECHNOLOGIES, initialize=dispatch.alloc_geography) # why do we need this???
+    model.geography = Param(VERY_LARGE_STORAGE_TECHNOLOGIES , initialize=dispatch.alloc_geography) # why do we need this???
 
     # TODO: careful with capacity means in the context of, say, a week instead of an hour
     model.power_capacity = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES, initialize=dispatch.alloc_capacity)
     model.energy_capacity = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES, initialize=dispatch.alloc_energy)
     model.charging_efficiency = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES, initialize=dispatch.alloc_charging_efficiency)
     model.discharging_efficiency = Param(model.VERY_LARGE_STORAGE_TECHNOLOGIES, initialize=dispatch.alloc_discharging_efficiency)
-    model.min_ld_energy_alloc = Param(model.PERIODS,model.LD_TECHNOLOGIES,initialize=dispatch.min_ld_energy)
-    model.max_ld_energy_alloc = Param(model.PERIODS,model.LD_TECHNOLOGIES,initialize=dispatch.max_ld_energy)
-    model.annual_ld_energy = Param(model.LD_TECHNOLOGIES,initialize=dispatch.annual_ld_energy)
+
     model.average_net_load = Param(model.GEOGRAPHIES, initialize=dispatch.average_net_load)
     model.period_net_load = Param(model.GEOGRAPHIES, model.PERIODS, initialize=dispatch.period_net_load)
 
     model.transmission_energy = Param(model.TRANSMISSION_LINES, model.PERIODS, initialize=dispatch.tx_energy_dict)
 
-    model.upward_imbalance_penalty = Param(initialize=dispatch.upward_imbalance_penalty)
-    model.downward_imbalance_penalty = Param(initialize=dispatch.downward_imbalance_penalty)
+    model.upward_imbalance_penalty = Param(initialize=dispatch.upward_imbalance_penalty,within=NonNegativeReals)
+    model.downward_imbalance_penalty = Param(initialize=dispatch.downward_imbalance_penalty, within=NonNegativeReals)
 
     # Resource variables
-    model.LD_Dispatch = Var(model.LD_TECHNOLOGIES, model.PERIODS, within=Reals)
+
     model.Charge = Var(model.VERY_LARGE_STORAGE_TECHNOLOGIES, model.PERIODS, within=NonNegativeReals)
     model.Discharge = Var(model.VERY_LARGE_STORAGE_TECHNOLOGIES, model.PERIODS, within=NonNegativeReals)
     model.Energy_in_Storage = Var(model.VERY_LARGE_STORAGE_TECHNOLOGIES, model.PERIODS, within=NonNegativeReals)
@@ -541,13 +786,13 @@ def year_to_period_allocation_formulation(dispatch):
     model.Downward_Imbalance = Var(model.GEOGRAPHIES, model.PERIODS, within=NonNegativeReals)
 
     #constraints
-    model.Annual_LD_Energy_Constraint = Constraint(model.LD_TECHNOLOGIES,rule=annual_ld_energy_rule_alloc)
-    model.LD_Energy_Constraint = Constraint(model.LD_TECHNOLOGIES, model.PERIODS, rule=ld_energy_rule_alloc)
+
 
     model.Transmission_Constraint = Constraint(model.TRANSMISSION_LINES, model.PERIODS, rule=transmission_rule_alloc)
     model.Net_Transmit_Energy_by_Geo_Constraint = Constraint(model.GEOGRAPHIES, model.PERIODS, rule=net_transmit_energy_by_geo_rule)
 
-    model.Power_Balance_Constraint = Constraint(model.GEOGRAPHIES, model.PERIODS, rule=power_balance_rule)
+    model.Upward_Imbalance_Constraint = Constraint(model.GEOGRAPHIES, model.PERIODS, rule=upward_imbalance_penalty_rule)
+    model.Downward_Imbalance_Constraint = Constraint(model.GEOGRAPHIES, model.PERIODS, rule=downward_imbalance_penalty_rule)
     model.Storage_Energy_Tracking_Constraint = Constraint(model.VERY_LARGE_STORAGE_TECHNOLOGIES, model.PERIODS, rule=storage_energy_tracking_rule)
     model.Storage_Discharge_Constraint = Constraint(model.VERY_LARGE_STORAGE_TECHNOLOGIES, model.PERIODS, rule=storage_discharge_rule)
     model.Storage_Charge_Constraint = Constraint(model.VERY_LARGE_STORAGE_TECHNOLOGIES, model.PERIODS, rule=storage_charge_rule)

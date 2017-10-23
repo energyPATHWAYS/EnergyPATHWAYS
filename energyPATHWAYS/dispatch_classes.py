@@ -227,7 +227,9 @@ class Dispatch(object):
         distribution_gen = self._add_dispatch_feeder_level_zero(distribution_gen)
         distribution_gen = self._convert_weather_datetime_to_hour(distribution_gen)
         self.distribution_gen = self._timeseries_to_dict(distribution_gen)
+        self.ld_distribution_gen = distribution_gen.to_dict()
         self.distribution_load = self._timeseries_to_dict(distribution_load.xs(2, level='timeshift_type'))
+        self.ld_distribution_load = distribution_load.xs(2, level='timeshift_type').to_dict()       
         self.cumulative_distribution_load = self._timeseries_to_dict(cum_distribution_load.xs(2, level='timeshift_type'))
         self.min_cumulative_flex_load = self._timeseries_to_dict(cum_distribution_load.xs(1, level='timeshift_type')) if 1 in active_timeshift_types else self.cumulative_distribution_load
         self.max_cumulative_flex_load = self._timeseries_to_dict(cum_distribution_load.xs(3, level='timeshift_type')) if 3 in active_timeshift_types else self.cumulative_distribution_load
@@ -244,9 +246,12 @@ class Dispatch(object):
         bulk_gen = self._convert_weather_datetime_to_hour(bulk_gen)
         dispatched_bulk_load = self._convert_weather_datetime_to_hour(dispatched_bulk_load)
         self.bulk_load = self._timeseries_to_dict(bulk_load)
+        self.ld_bulk_load = bulk_load.xs(2, level='timeshift_type').to_dict()
         self.dispatched_bulk_load = self._timeseries_to_dict(dispatched_bulk_load)
+        self.ld_dispatched_bulk_load = dispatched_bulk_load.to_dict()
         self.bulk_gen = self._timeseries_to_dict(bulk_gen)
-
+        self.ld_bulk_gen = bulk_gen.to_dict()
+        
     def set_average_net_loads(self, total_net_load):
         df = self._convert_weather_datetime_to_hour(total_net_load.xs(2, level='timeshift_type').reset_index(level='year', drop=True))
         self.period_net_load = df.groupby(level=[self.dispatch_geography, 'period']).sum().to_dict()
@@ -349,9 +354,12 @@ class Dispatch(object):
             if generator not in self.generation_technologies:
                 self.generation_technologies.append(generator)
             self.geography[generator] = geography
+            self.ld_geography[generator] = geography
             self.feeder[generator] = 0
             self.min_capacity[generator] = 0
+            self.ld_min_capacity[generator] = 0 
             self.capacity[generator] = clustered_dict['derated_pmax'][number]
+            self.ld_capacity[generator] = clustered_dict['derated_pmax'][number]
             self.variable_costs[generator] = clustered_dict['marginal_cost'][number]
 
     def convert_to_period(self, dictionary):

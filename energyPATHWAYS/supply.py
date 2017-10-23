@@ -583,6 +583,7 @@ class Supply(object):
         self.dispatch.max_ld_energy = util.recursivedict()
         self.dispatch.min_ld_energy = util.recursivedict()
         self.dispatch.annual_ld_energy = util.recursivedict()
+        self.dispatch.ld_geography= util.recursivedict()
         for node_id in [x for x in self.dispatch.long_duration_dispatch_order if x in self.nodes.keys() ]:
             node = self.nodes[node_id]
             full_energy_shape, p_min_shape, p_max_shape = node.aggregate_flexible_electricity_shapes(year, util.remove_df_levels(util.df_slice(self.dispatch_feeder_allocation.values,year,'year'),year))
@@ -674,7 +675,7 @@ class Supply(object):
                             max_dispatch = dispatch
                             min_dispatch = dispatch
                         self.dispatch.annual_ld_energy[tech_id] = dispatch_annual
-                        self.dispatch.alloc_geography[tech_id] = geography
+                        self.dispatch.ld_geography[tech_id] = geography
                         for period in self.dispatch.periods:
                             try:
                                 self.dispatch.max_ld_energy[(period,tech_id)] = max_dispatch[period]
