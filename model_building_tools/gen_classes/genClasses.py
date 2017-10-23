@@ -16,7 +16,14 @@ ExtraInitArgs = {
     'SupplyPotential' : [('enforce', 'False')],
 }
 
-AlwaysUseSlots = ('ShapesData')
+# TBD: With just ShapesData using slots, requires ~3GB memory to load
+# TBD: everything, and > 10 min to load and link. Killed it...
+# TBD: Using slots for other tables has little effect; all is dominated
+# TBD: by ShapesData.
+UseSlots = (
+    'ShapesData',               # > 2.8M rows
+    'DemandEnergyDemandsData'   # > 85K rows
+)
 
 def observeLinewidth(args, linewidth, indent=16):
     processed = ''
@@ -33,9 +40,8 @@ def observeLinewidth(args, linewidth, indent=16):
 
 
 class ClassGenerator(object):
-    def __init__(self, dbname, host, linewidth, outfile, password, slots, user):
+    def __init__(self, dbname, host, linewidth, outfile, password, user):
         self.db = PostgresDatabase(host, dbname, user, password, cache_data=False)
-        self.genSlots = slots
         self.outfile = outfile
         self.linewidth = linewidth
         self.generated = []
@@ -57,7 +63,7 @@ class ClassGenerator(object):
         stream.write('class %s(%s):\n' % (table, base_class))
         stream.write('    _instances_by_id = {}\n\n')
 
-        if self.genSlots or table in AlwaysUseSlots:
+        if table in UseSlots:
             slots = ["'%s'" % col for col in cols]
             slots = observeLinewidth(slots, self.linewidth)
             stream.write('    __slots__ = [%s]\n\n' % slots)
@@ -133,14 +139,11 @@ class ClassGenerator(object):
 @click.option('--password', '-p', default='',
               help='PostreSQL password (default="")')
 
-@click.option('--slots/--no-slots', default=False,
-              help='Generate __slots__ for all classes (default=--no-slots)')
-
 @click.option('--user', '-u', default='postgres',
               help='PostgreSQL user name (default="postgres")')
 
-def main(dbname, host, linewidth, outfile, password, slots, user):
-    obj = ClassGenerator(dbname, host, linewidth, outfile, password, slots, user)
+def main(dbname, host, linewidth, outfile, password, user):
+    obj = ClassGenerator(dbname, host, linewidth, outfile, password, user)
 
     # Save foreign keys so they can be used by CSV database
     obj.db.save_foreign_keys('foreign_keys.csv')

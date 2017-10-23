@@ -7,22 +7,30 @@
 from __future__ import print_function
 from collections import defaultdict
 import gzip
+import numpy as np
 import os
 import pandas as pd
 import psycopg2
 import re
 
+# TBD: Class generator should generate fields to hold the string
+# TBD: value, maybe instead of the id column (chop off the "_id")
+# TBD: and check for conflicts with other column names
+
+# TBD: check memory consumption using current approach, and using slots
+# TBD: but with row limit set to zero
+
 pd.set_option('display.width', 200)
 
 # Set to zero to read unlimited rows
-RowLimitForDebugging = 2000
+RowLimitForDebugging = 10000
 
 if RowLimitForDebugging:
     print("\n*** Limiting to %d rows for debugging! ***\n" % RowLimitForDebugging)
 
 from .error import PathwaysException, RowNotFound, DuplicateRowsFound, SubclassProtocolError
 
-# TBD: move these to utils when merging code
+# TBD: move these funcs to utils when merging code
 import pkgutil
 import io
 
@@ -48,33 +56,50 @@ def resourceStream(relpath):
     text = getResource(relpath)
     return io.BytesIO(text)
 
-_Tables_to_ignore = [
-    '.*Type(s)?$'       # anything ending in Type or Types
+_Text_mapping_tables = [
     'CleaningMethods',
     'Currencies',
-    'CurrenciesConversion',
-    'CurrencyYears',
-    'DayHour',
     'DayType',
     'Definitions',
-    'GeographyIntersection',
-    'GreenhouseGases',
-    'IDMap',
-    'IndexLevels',
-    'InflationConversion',
-    'Month',
-    'OptPeriods',
+    'DispatchFeeders',
+    'DispatchWindows',
+    # 'Month',          # doesn't exist
+    # 'OptPeriods',     # doesn't exist
     'ShapesUnits',
     'StockDecayFunctions',
-    'StockRolloverMethods',
-    'TimeZones',
-    'YearHour',
-    'DispatchConfig',
-    'DispatchFeeders',
-    'DispatchFeedersData',
-    'DispatchNodeConfig',
-    'DispatchNodeData',
-    'DispatchWindows'
+
+    'AgeGrowthOrDecayType',
+    'DayType',
+    'DemandTechUnitTypes',
+    'DemandStockUnitTypes',
+    'DemandTechEfficiencyTypes',
+    'FlexibleLoadShiftTypes',
+    'EfficiencyTypes',
+    'DispatchConstraintTypes',
+    'GreenhouseGasEmissionsType',
+    'InputTypes',
+    'ShapesTypes',
+    'SupplyCostTypes',
+    'SupplyTypes',
+]
+
+_Tables_to_ignore = [
+    # '.*Type(s)?$', # anything ending in Type or Types
+    'CurrenciesConversion', # not a string lookup
+    'CurrencyYears',        # only an id col; unclear purpose.
+    'DayHour',              # missing
+    'DispatchConfig',       # 8 cols
+    'DispatchFeedersData',  # missing
+    'DispatchNodeConfig',   # 4 cols
+    'DispatchNodeData',     # missing
+    'GeographyIntersection',# only an id col
+    # 'GreenhouseGases',      # has id, name, longname
+    'IDMap',                # identifier_id, ref_table
+    'IndexLevels',          # id, index_level, data_column_name
+    'InflationConversion',  # currency_year_id, currency_id, value, id
+    'StockRolloverMethods', # missing
+    # 'TimeZones',            # id, name, utc_shift
+    'YearHour',             # missing
 ]
 
 
@@ -114,6 +139,62 @@ class AbstractTable(object):
         :return: (pd.DataFrame) The contents of the table.
         """
         raise SubclassProtocolError(self.__class__, 'load_all')
+
+    def load_data_object(self, cls, scenario):
+        self.data_class = cls
+        df = self.load_all()
+        print("Loaded %d rows for %s" % (df.shape[0], self.name))
+
+        # This is inefficient for Postgres since we go from list(tuple)->DataFrame->Series->tuple,
+        # but eventually, for the CSV "database", it's just DataFrame->Series->tuple
+        for _, row in df.iterrows():
+            cls.from_series(scenario, row)  # adds itself to the classes _instances_by_id dict
+
+    def link_children(self):
+        fk_by_parent = ForeignKey.fk_by_parent
+        missing = {}
+
+        # After loading all "direct" data, link child records via foreign keys
+        parent_tbl = self
+        parent_tbl_name = parent_tbl.name
+        parent_cls = parent_tbl.data_class
+
+        fkeys = fk_by_parent[parent_tbl_name]
+
+        if not fkeys:
+            return
+
+        print("Linking table %s" % parent_tbl_name)
+
+        for parent_obj in parent_cls.instances():
+            for fk in fkeys:
+                parent_col      = fk.column_name
+                child_tbl_name  = fk.foreign_table_name
+                child_col_name  = fk.foreign_column_name
+
+                if missing.get(child_tbl_name):
+                    continue
+
+                child_tbl = self.db.get_table(child_tbl_name)
+                child_cls = child_tbl.data_class
+
+                if not child_cls:
+                    # See if it's a text mapping class
+                    key = getattr(parent_obj, parent_col)
+                    if key is None or np.isnan(key):
+                        continue
+
+                    text = self.db.get_text(child_tbl, int(key))
+                    if text is None:
+                        missing[child_tbl_name] = 1
+                    else:
+                        setattr(parent_obj, parent_col, text)
+                    continue
+
+                # create and save a list of all matching data class instances with matching ids
+                children = [obj for obj in child_cls.instances() if getattr(obj, child_col_name) == getattr(parent_obj, parent_col)]
+                parent_tbl.children_by_fk_col[parent_col] = children
+
 
     def get_row(self, id, raise_error=True):
         """
@@ -261,6 +342,7 @@ class AbstractDatabase(object):
         self.table_class = table_class
         self.table_objs = {}              # dict of table instances keyed by name
         self.table_names = {}             # all known table names
+        self.text_maps = {}               # dict by table name of dicts by id of text mapping tables
 
     @classmethod
     def _get_database(cls, **kwargs):
@@ -269,6 +351,7 @@ class AbstractDatabase(object):
         if not _Database:
             _Database = cls(**kwargs)
             _Database._cache_table_names()
+            _Database._load_text_mappings()
 
         return _Database
 
@@ -293,6 +376,32 @@ class AbstractDatabase(object):
         result = filter(lambda name: not any([re.match(pattern, name) for pattern in _Tables_to_ignore]), tables)
         return result
 
+    def _load_text_mappings(self):
+        for name in _Text_mapping_tables:
+            tbl = self.get_table(name)
+            self.text_maps[name] = {id: name for idx, (id, name) in tbl.data.iterrows()}
+
+        print('Loaded text mappings')
+
+    def get_text(self, tableName, key=None):
+        """
+        Get a value from a given text mapping table or the mapping dict itself,
+        if key is None.
+
+        :param tableName: (str) the name of the table that held this mapping data
+        :param key: (int) the key to map to a text value, or None
+        :return: (str or dict) if the key is None, return the text mapping dict
+           itself, otherwise return the text value for the given key.
+        """
+        try:
+            text_map = self.text_maps[tableName]
+            if key is None:
+                return text_map
+
+            return text_map[key]
+        except KeyError:
+            return None
+
     def _cache_foreign_keys(self):
         raise SubclassProtocolError(self.__class__, '_cache_foreign_keys')
 
@@ -316,6 +425,7 @@ class AbstractDatabase(object):
         tbl = self.get_table(name)
         tup = tbl.get_row(id, raise_error=raise_error)
         return tup
+
 
 # Selects all foreign key information for current database
 ForeignKeyQuery = '''

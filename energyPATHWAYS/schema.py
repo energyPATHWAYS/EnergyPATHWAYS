@@ -3,7 +3,7 @@
 import sys
 from energyPATHWAYS.error import UnknownDataClass
 from energyPATHWAYS.data_object import DataObject
-from energyPATHWAYS.database import get_database, ForeignKey
+from energyPATHWAYS.database import get_database
 
 _Module = sys.modules[__name__]  # get ref to our own module object
 
@@ -22,51 +22,13 @@ def load_data_objects(scenario, load_children=True):
     table_names = db.tables_with_classes()
     table_objs  = [db.get_table(name) for name in table_names]
 
-    fk_by_parent = ForeignKey.fk_by_parent
-
     for tbl in table_objs:
         name = tbl.name
         cls = class_for_table(name)
-        tbl.data_class = cls
-        df = tbl.load_all()
-        print("Loaded %d rows for %s" % (df.shape[0], name))
+        tbl.load_data_object(cls, scenario)
 
-        # This is inefficient for Postgres since we go from list(tuple)->DataFrame->Series->tuple,
-        # but eventually, for the CSV "database", it's just DataFrame->Series->tuple
-        for _, row in df.iterrows():
-            cls.from_series(scenario, row)  # adds itself to the classes _instances_by_id dict
-
-            # could load children at this point, assuming all tables are cached when first encountered
-
-    if load_children:
-        missing = {}
-
-        # After loading all "direct" data, link child records via foreign keys
-        for parent_tbl in table_objs:
-            parent_tbl_name = parent_tbl.name
-            parent_cls = parent_tbl.data_class
-
-            for parent_obj in parent_cls.instances():
-                fkeys = fk_by_parent[parent_tbl_name]
-
-                for fk in fkeys:
-                    parent_col      = fk.column_name
-                    child_tbl_name  = fk.foreign_table_name
-                    child_col_name  = fk.foreign_column_name
-
-                    child_tbl = db.get_table(child_tbl_name)
-                    child_cls = child_tbl.data_class
-
-                    if not child_cls:
-                        missing[child_tbl_name] = 1
-                        continue
-
-                    # create and save a list of all matching data class instances with matching ids
-                    children = [obj for obj in child_cls.instances() if getattr(obj, child_col_name) == getattr(parent_obj, parent_col)]
-                    parent_tbl.children_by_fk_col[parent_col] = children
-
-        if missing.keys():
-            print("** Skipped missing child classes:\n  %s" % '\n  '.join(missing.keys()))
+        if load_children:
+            tbl.link_children()
 
     print("Done loading data objects")
 
@@ -223,6 +185,60 @@ class CleaningMethods(DataObject):
     def __init__(self, scenario, id=None, name=None):
         DataObject.__init__(self, scenario)
         CleaningMethods._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):    
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
+        return obj
+
+class Currencies(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        Currencies._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):    
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
+        return obj
+
+class DayType(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        DayType._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):    
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
+        return obj
+
+class Definitions(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        Definitions._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -397,6 +413,9 @@ class DemandEnergyDemands(DataObject):
 
 class DemandEnergyDemandsData(DataObject):
     _instances_by_id = {}
+
+    __slots__ = ['subsector_id', 'gau_id', 'oth_1_id', 'oth_2_id', 'final_energy_id',
+                 'demand_technology_id', 'year', 'value', 'id', 'sensitivity']
 
     def __init__(self, scenario, subsector_id=None, gau_id=None, oth_1_id=None, oth_2_id=None, final_energy_id=None,
                  demand_technology_id=None, year=None, value=None, id=None, sensitivity=None):
@@ -2191,6 +2210,93 @@ class DispatchConstraintTypes(DataObject):
 
         return obj
 
+class DispatchFeeders(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        DispatchFeeders._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):    
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
+        return obj
+
+class DispatchFeedersAllocation(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, geography_id=None, geography_map_key_id=None, input_type_id=None,
+                 interpolation_method_id=None, extrapolation_method_id=None):
+        DataObject.__init__(self, scenario)
+        DispatchFeedersAllocation._instances_by_id[id] = self
+
+        self.id = id
+        self.geography_id = geography_id
+        self.geography_map_key_id = geography_map_key_id
+        self.input_type_id = input_type_id
+        self.interpolation_method_id = interpolation_method_id
+        self.extrapolation_method_id = extrapolation_method_id
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):    
+        (id, geography_id, geography_map_key_id, input_type_id, interpolation_method_id,
+         extrapolation_method_id) = tup
+
+        obj = cls(scenario, id=id, geography_id=geography_id, geography_map_key_id=geography_map_key_id,
+                  input_type_id=input_type_id, interpolation_method_id=interpolation_method_id,
+                  extrapolation_method_id=extrapolation_method_id)
+
+        return obj
+
+class DispatchFeedersAllocationData(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, parent_id=None, gau_id=None, dispatch_feeder_id=None, demand_sector_id=None, year=None,
+                 value=None, id=None):
+        DataObject.__init__(self, scenario)
+        DispatchFeedersAllocationData._instances_by_id[id] = self
+
+        self.parent_id = parent_id
+        self.gau_id = gau_id
+        self.dispatch_feeder_id = dispatch_feeder_id
+        self.demand_sector_id = demand_sector_id
+        self.year = year
+        self.value = value
+        self.id = id
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):    
+        (parent_id, gau_id, dispatch_feeder_id, demand_sector_id, year, value, id) = tup
+
+        obj = cls(scenario, parent_id=parent_id, gau_id=gau_id, dispatch_feeder_id=dispatch_feeder_id,
+                  demand_sector_id=demand_sector_id, year=year, value=value, id=id)
+
+        return obj
+
+class DispatchWindows(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        DispatchWindows._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):    
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
+        return obj
+
 class EfficiencyTypes(DataObject):
     _instances_by_id = {}
 
@@ -2337,6 +2443,25 @@ class GreenhouseGasEmissionsType(DataObject):
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
+
+        return obj
+
+class GreenhouseGases(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, long_name=None):
+        DataObject.__init__(self, scenario)
+        GreenhouseGases._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+        self.long_name = long_name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):    
+        (id, name, long_name) = tup
+
+        obj = cls(scenario, id=id, name=name, long_name=long_name)
 
         return obj
 
@@ -2538,10 +2663,6 @@ class PrimaryCostData(DataObject):
 class Shapes(DataObject):
     _instances_by_id = {}
 
-    __slots__ = ['id', 'name', 'shape_type_id', 'shape_unit_type_id', 'time_zone_id', 'geography_id',
-                 'other_index_1_id', 'other_index_2_id', 'geography_map_key_id',
-                 'interpolation_method_id', 'extrapolation_method_id', 'input_type_id']
-
     def __init__(self, scenario, id=None, name=None, shape_type_id=None, shape_unit_type_id=None, time_zone_id=None,
                  geography_id=None, other_index_1_id=None, other_index_2_id=None,
                  geography_map_key_id=None, interpolation_method_id=None, extrapolation_method_id=None,
@@ -2622,6 +2743,42 @@ class ShapesTypes(DataObject):
     def __init__(self, scenario, id=None, name=None):
         DataObject.__init__(self, scenario)
         ShapesTypes._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):    
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
+        return obj
+
+class ShapesUnits(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        ShapesUnits._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):    
+        (id, name) = tup
+
+        obj = cls(scenario, id=id, name=name)
+
+        return obj
+
+class StockDecayFunctions(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None):
+        DataObject.__init__(self, scenario)
+        StockDecayFunctions._instances_by_id[id] = self
 
         self.id = id
         self.name = name
@@ -4299,6 +4456,25 @@ class SupplyTypes(DataObject):
         (id, name) = tup
 
         obj = cls(scenario, id=id, name=name)
+
+        return obj
+
+class TimeZones(DataObject):
+    _instances_by_id = {}
+
+    def __init__(self, scenario, id=None, name=None, utc_shift=None):
+        DataObject.__init__(self, scenario)
+        TimeZones._instances_by_id[id] = self
+
+        self.id = id
+        self.name = name
+        self.utc_shift = utc_shift
+
+    @classmethod
+    def from_tuple(cls, scenario, tup, **kwargs):    
+        (id, name, utc_shift) = tup
+
+        obj = cls(scenario, id=id, name=name, utc_shift=utc_shift)
 
         return obj
 
