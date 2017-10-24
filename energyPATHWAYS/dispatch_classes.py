@@ -61,6 +61,13 @@ def flexible_load_result_to_list(flexible_load):
     items = flexible_load.iteritems()
     lists = [key + (value.value,) for key, value in items]
     return lists
+    
+
+def ld_result_to_list(provide_power):
+    items = provide_power.iteritems()
+    ld_list = [[key[0]] + [key[1]] + [value.value] for key, value in items]
+    return ld_list
+
 
 class DispatchSuper(object):
     def __init__(self, dispatch_feeders, dispatch_geography, dispatch_geographies):
@@ -175,11 +182,11 @@ class Dispatch(object):
                 else:
                     self.dist_net_load_thresholds[(geography,feeder)] =  util.df_slice(distribution_stock,[geography, feeder],[self.dispatch_geography, 'dispatch_feeder']).values[0][0]
 
-    def set_opt_loads(self, distribution_load, distribution_gen, bulk_load, bulk_gen, dispatched_bulk_load):
+    def set_opt_loads(self, distribution_load, distribution_gen, bulk_load, bulk_gen, dispatched_bulk_load, bulk_net_load):
         self.distribution_load_input, self.distribution_gen_input, self.bulk_load_input, self.bulk_gen_input, self.dispatched_bulk_load_input = distribution_load, distribution_gen, bulk_load, bulk_gen, dispatched_bulk_load
         self.precision_adjust = dict(zip(self.dispatch_geographies,[x[0] for x in distribution_load.groupby(level=self.dispatch_geography).max().values/1E6]))
         self.set_opt_distribution_net_loads(distribution_load, distribution_gen)
-        self.set_opt_bulk_net_loads(bulk_load, bulk_gen, dispatched_bulk_load)
+        self.set_opt_bulk_net_loads(bulk_load, bulk_gen, dispatched_bulk_load, bulk_net_load)
 
     def _convert_weather_datetime_to_hour(self, input_df):
         df = input_df.copy() # necessary to avoid pass by reference errors
@@ -189,6 +196,16 @@ class Dispatch(object):
         df = df.set_index(['period', 'hour'], append=True)
         df = df.reset_index(level='weather_datetime', drop=True)
         level_order = ['timeshift_type', 'period', self.dispatch_geography, 'hour', 'dispatch_feeder']
+        df = df.reorder_levels([l for l in level_order if l in df.index.names])
+        return df.sort_index().squeeze() # squeeze turns it into a series, which is better when using the to_dict method
+
+    def _convert_ld_weather_datetime_to_hour(self, input_df):
+        df = input_df.copy() # necessary to avoid pass by reference errors
+        repeats = int(df.size / self.num_hours)
+        df['hour'] = self.hours * repeats
+        df = df.set_index(['hour'], append=True)
+        df = df.reset_index(level='weather_datetime', drop=True)
+        level_order = [self.dispatch_geography, 'hour']
         df = df.reorder_levels([l for l in level_order if l in df.index.names])
         return df.sort_index().squeeze() # squeeze turns it into a series, which is better when using the to_dict method
 
@@ -227,9 +244,7 @@ class Dispatch(object):
         distribution_gen = self._add_dispatch_feeder_level_zero(distribution_gen)
         distribution_gen = self._convert_weather_datetime_to_hour(distribution_gen)
         self.distribution_gen = self._timeseries_to_dict(distribution_gen)
-        self.ld_distribution_gen = distribution_gen.to_dict()
         self.distribution_load = self._timeseries_to_dict(distribution_load.xs(2, level='timeshift_type'))
-        self.ld_distribution_load = distribution_load.xs(2, level='timeshift_type').to_dict()       
         self.cumulative_distribution_load = self._timeseries_to_dict(cum_distribution_load.xs(2, level='timeshift_type'))
         self.min_cumulative_flex_load = self._timeseries_to_dict(cum_distribution_load.xs(1, level='timeshift_type')) if 1 in active_timeshift_types else self.cumulative_distribution_load
         self.max_cumulative_flex_load = self._timeseries_to_dict(cum_distribution_load.xs(3, level='timeshift_type')) if 3 in active_timeshift_types else self.cumulative_distribution_load
@@ -241,16 +256,16 @@ class Dispatch(object):
         self.max_flex_load = self._timeseries_to_dict(groups.max())
         self.min_flex_load = self._timeseries_to_dict(groups.min())
 
-    def set_opt_bulk_net_loads(self, bulk_load, bulk_gen, dispatched_bulk_load):
+    def set_opt_bulk_net_loads(self, bulk_load, bulk_gen, dispatched_bulk_load, bulk_net_load):
         bulk_load = self._convert_weather_datetime_to_hour(bulk_load)
         bulk_gen = self._convert_weather_datetime_to_hour(bulk_gen)
         dispatched_bulk_load = self._convert_weather_datetime_to_hour(dispatched_bulk_load)
+        bulk_net_load = util.remove_df_levels(util.df_slice(bulk_net_load,2,'timeshift_type',drop_level=True),'year')
+        bulk_net_load = self._convert_ld_weather_datetime_to_hour(bulk_net_load)
         self.bulk_load = self._timeseries_to_dict(bulk_load)
-        self.ld_bulk_load = bulk_load.xs(2, level='timeshift_type').to_dict()
         self.dispatched_bulk_load = self._timeseries_to_dict(dispatched_bulk_load)
-        self.ld_dispatched_bulk_load = dispatched_bulk_load.to_dict()
         self.bulk_gen = self._timeseries_to_dict(bulk_gen)
-        self.ld_bulk_gen = bulk_gen.to_dict()
+        self.ld_bulk_net_load = util.remove_df_levels(bulk_net_load,'period').to_dict()
         
     def set_average_net_loads(self, total_net_load):
         df = self._convert_weather_datetime_to_hour(total_net_load.xs(2, level='timeshift_type').reset_index(level='year', drop=True))
@@ -290,6 +305,11 @@ class Dispatch(object):
       self.alloc_discharging_efficiency = dict()
       self.generation_technologies = []
       self.variable_costs = {}
+      self.annual_ld_energy= util.recursivedict()
+      self.ld_geography = util.recursivedict()
+      self.ld_capacity=util.recursivedict()
+      self.ld_min_capacity = util.recursivedict()
+      self.ld_feeder = util.recursivedict()      
       for dispatch_geography in storage_capacity_dict['power'].keys():
           for zone in storage_capacity_dict['power'][dispatch_geography].keys():
              for feeder in storage_capacity_dict['power'][dispatch_geography][zone].keys():
@@ -354,12 +374,9 @@ class Dispatch(object):
             if generator not in self.generation_technologies:
                 self.generation_technologies.append(generator)
             self.geography[generator] = geography
-            self.ld_geography[generator] = geography
             self.feeder[generator] = 0
             self.min_capacity[generator] = 0
-            self.ld_min_capacity[generator] = 0 
             self.capacity[generator] = clustered_dict['derated_pmax'][number]
-            self.ld_capacity[generator] = clustered_dict['derated_pmax'][number]
             self.variable_costs[generator] = clustered_dict['marginal_cost'][number]
 
     def convert_to_period(self, dictionary):
@@ -375,6 +392,21 @@ class Dispatch(object):
         return new_dictionary
 
     def run_pyomo_year_to_month(self, model, data, **kwargs):
+        """
+        Pyomo optimization steps: create model instance from model formulation and data,
+        get solver, solve instance, and load solution.
+        """
+        logging.debug("Creating model instance...")
+        instance = model.create_instance(data)
+        logging.debug("Getting solver...")
+        solver = SolverFactory(cfg.solver_name)
+        logging.debug("Solving...")
+        solution = solver.solve(instance, **kwargs)
+        logging.debug("Loading solution...")
+        instance.solutions.load_from(solution)
+        return instance
+        
+    def run_pyomo_ld(self, model, data, **kwargs):
         """
         Pyomo optimization steps: create model instance from model formulation and data,
         get solver, solve instance, and load solution.
@@ -434,6 +466,12 @@ class Dispatch(object):
 #        if df.squeeze().isnull().any():
 #            self.pickle_for_debugging()
 #            raise ValueError('NaNs in long-duration dispatch outputs in dispatch period {}'.format(period))
+        return df
+
+    def parse_ld_opt_result(self, list):
+        columns = ['ld_technology','hour', self.year]
+        df = pd.DataFrame(list, columns=columns)
+        df = df.set_index(columns[:-1])
         return df
 
     def parse_flexible_load_result(self, lists, period):
@@ -529,9 +567,9 @@ class Dispatch(object):
         hour_discharge.plot(subplots=True, ax=axes, title='AVERAGE STORAGE CHARGE (-) AND DISCHARGE (+) BY HOUR')
 
     def solve_optimization(self):
-        state_of_charge, ld_energy_budgets = self.run_year_to_month_allocation()
+        self.ld_energy_budgets= self.solve_ld_optimization()
+        state_of_charge = self.run_year_to_month_allocation()
         self.start_soc_large_storage, self.end_soc_large_storage = state_of_charge[0], state_of_charge[1]
-        self.ld_energy_budgets = ld_energy_budgets
         for period in self.periods:
             for technology in self.ld_technologies:
                 if self.ld_energy_budgets[period][technology]>= self.capacity[period][technology] * self.period_lengths[period]:
@@ -554,6 +592,24 @@ class Dispatch(object):
         results = self.run_pyomo_year_to_month(model, None)
         state_of_charge, ld_energy_budgets = self.export_allocation_results(results)
         return state_of_charge, ld_energy_budgets
+    
+    
+    def solve_ld_optimization(self):
+        model = dispatch_formulation.ld_formulation(self)
+        results = self.run_pyomo_ld(model,None)
+        ld_opt_df = self.parse_ld_opt_result(ld_result_to_list(results.Provide_Power))
+        ld_energy_budgets = util.recursivedict()
+        def split_and_apply(array, dispatch_periods, fun):
+            energy_by_block = np.array_split(array, np.where(np.diff(dispatch_periods)!=0)[0]+1)
+            return [fun(block) for block in energy_by_block]
+        for tech in self.ld_technologies:
+            energy_budgets = split_and_apply(util.df_slice(ld_opt_df, tech, 'ld_technology').values,self.period_repeated, sum)
+            for period in self.periods:
+                ld_energy_budgets[period][tech] = energy_budgets[period][0]
+        return ld_energy_budgets
+
+
+
 
     @staticmethod
     def nested_dict(dic, keys, value):
@@ -573,7 +629,6 @@ class Dispatch(object):
         periods_set = getattr(instance, "PERIODS")
         geographies_set = getattr(instance, "GEOGRAPHIES")
         storage_tech_set = getattr(instance, "VERY_LARGE_STORAGE_TECHNOLOGIES")
-        ld_tech_set = getattr(instance, "LD_TECHNOLOGIES")
         if write_to_file:
             path = os.path.join(cfg.workingdir, 'dispatch_outputs')
 
@@ -589,8 +644,6 @@ class Dispatch(object):
                                     "end_state_of_charge"])
         start_soc = dict()
         end_soc = dict()
-        ld_energy = dict()
-
         for t in storage_tech_set:
             for p in periods_set:
                 if write_to_file:
@@ -605,13 +658,8 @@ class Dispatch(object):
 
                 Dispatch.nested_dict(start_soc, [p, t], np.floor(instance.Energy_in_Storage[t, p].value*1E7)/1E7)
                 Dispatch.nested_dict(end_soc, [p, t], np.floor((instance.Energy_in_Storage[t, p].value - (instance.Discharge[t, p].value-instance.Charge[t, p].value))*1E7)/1E77)
-        for t in ld_tech_set:
-            for p in periods_set:
-                Dispatch.nested_dict(ld_energy, [p, t], instance.LD_Dispatch[t, p].value)
+
         state_of_charge = [start_soc, end_soc]
-        return state_of_charge, ld_energy
-
-
-
+        return state_of_charge
 
 
