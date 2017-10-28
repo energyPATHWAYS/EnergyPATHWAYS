@@ -502,7 +502,9 @@ class Sector(object):
                 self.reset_subsector_for_perdubation(dependent_subsector_id)
 
     def add_energy_system_data_after_reset(self, subsector_id):
-        self.subsectors[subsector_id].add_energy_system_data()
+        if hasattr(self.subsectors[subsector_id], 'energy_system_data_has_been_added') and not self.subsectors[subsector_id].energy_system_data_has_been_added:
+            self.subsectors[subsector_id].add_energy_system_data()
+            self.subsectors[subsector_id].energy_system_data_has_been_added = True
         if subsector_id in self.subsector_precursers_reversed:
             for dependent_subsector_id in self.subsector_precursers_reversed[subsector_id]:
                 self.add_energy_system_data_after_reset(dependent_subsector_id)
@@ -654,6 +656,7 @@ class Subsector(DataMapFunctions):
         self.linked_service_demand_drivers = {}
         self.linked_stock = {}
         self.perturbation = None
+        self.energy_system_data_has_been_added = False
 
     def set_electricity_reconciliation(self, electricity_reconciliation):
         self.electricity_reconciliation = electricity_reconciliation
