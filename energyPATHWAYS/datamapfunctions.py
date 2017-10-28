@@ -306,7 +306,10 @@ class DataMapFunctions:
                                               fill_value=fill_value, filter_geo=False)
                                         
             if current_data_type == 'total':
-                df_intensity = DfOper.divi((getattr(self, map_to), total_driver_current_geo), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf,np.nan,-np.nan],0)
+                if fill_value is np.nan:
+                    df_intensity = DfOper.divi((getattr(self, map_to), total_driver_current_geo), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf],0)
+                else:
+                    df_intensity = DfOper.divi((getattr(self, map_to), total_driver_current_geo), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf,np.nan,-np.nan],0)
                 setattr(self, map_to, df_intensity)
 
             # Clean the timeseries as an intensity

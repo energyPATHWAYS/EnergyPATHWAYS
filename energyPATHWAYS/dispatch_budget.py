@@ -3,6 +3,7 @@ import util
 import numpy as np 
 from scipy import optimize
 import logging
+import pdb 
 
 ##################################################################
 ##################################################################
@@ -33,6 +34,8 @@ def solve_for_load_cutoff(load, energy_budget, pmin=0, pmax=None):
     lowest = min(load) - pmax - 1
     highest = max(load) + pmax + 1
     load_cutoff = optimize.bisect(residual_energy, lowest, highest, args=(load, energy_budget, pmin, pmax))
+    if lowest == highest:
+        return lowest
     return load_cutoff
 
 

@@ -2230,7 +2230,7 @@ class Subsector(DataMapFunctions):
         for demand_technology in self.technologies.values():
             if len(demand_technology.specified_stocks) and reference_run==False:
                for specified_stock in demand_technology.specified_stocks.values():
-                   specified_stock.remap(map_from='values', current_geography = cfg.primary_geography, drivers=self.stock.total, driver_geography=cfg.primary_geography)
+                   specified_stock.remap(map_from='values', current_geography = cfg.primary_geography, drivers=self.stock.total, driver_geography=cfg.primary_geography, fill_value=np.nan)
                    self.stock.technology.sort(inplace=True)
                    indexer = util.level_specific_indexer(self.stock.technology,'demand_technology',demand_technology.id)
                    df = util.remove_df_levels(self.stock.technology.loc[indexer,:],'demand_technology')

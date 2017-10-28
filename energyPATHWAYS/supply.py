@@ -1370,7 +1370,8 @@ class Supply(object):
         self.nodes[self.bulk_id].values.loc[indexer, year] =0
         #don't normalize these if it's an evolved run. Leave curtailment. Simplifies per-unit accounting
         if cfg.evolved_run == 'false':
-            self.nodes[self.bulk_id].values.loc[:, year] = util.DfOper.mult([self.nodes[self.bulk_id].values.loc[:, year].to_frame().groupby(level=[cfg.primary_geography,'demand_sector']).transform(lambda x: x/x.sum()),1-util.remove_df_levels(thermal_df,'supply_node').to_frame()],expandable=True)
+            pass
+            #self.nodes[self.bulk_id].values.loc[:, year] = util.DfOper.mult([self.nodes[self.bulk_id].values.loc[:, year].to_frame().groupby(level=[cfg.primary_geography,'demand_sector']).transform(lambda x: x/x.sum()),1-util.remove_df_levels(thermal_df,'supply_node').to_frame()],expandable=True)
         self.nodes[self.bulk_id].values.loc[indexer, year] = thermal_df
         self.nodes[self.bulk_id].calculate_active_coefficients(year, 3)
 
