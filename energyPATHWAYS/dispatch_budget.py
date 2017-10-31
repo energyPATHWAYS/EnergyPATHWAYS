@@ -33,10 +33,11 @@ def dispatch_shape(load, load_cutoff, dct, pmin=0, pmax=None):
 def solve_for_load_cutoff(load, energy_budget, pmin=0, pmax=None):
     lowest = min(load) - pmax - 1
     highest = max(load) + pmax + 1
-    load_cutoff = optimize.bisect(residual_energy, lowest, highest, args=(load, energy_budget, pmin, pmax))
     if lowest == highest:
         return lowest
-    return load_cutoff
+    else:
+        load_cutoff = optimize.bisect(residual_energy, lowest, highest, args=(load, energy_budget, pmin, pmax))
+        return load_cutoff
 
 
 def solve_for_dispatch_shape(load, energy_budget, pmin=0, pmax=None):

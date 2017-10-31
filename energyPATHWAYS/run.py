@@ -213,13 +213,13 @@ class SubsectorPerturbation(object):
 if __name__ == "__main__":
     workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\CA'
     config = 'config.INI'
-    scenario = ['CA_REF', 'CA_REF_INN']
+    scenario = ['CA_RP']
     run(workingdir, config, scenario,
     load_demand   = True,
-    solve_demand  = True,
-    load_supply   = True,
+    solve_demand  = False,
+    load_supply   = False,
     solve_supply  = True,
-    export_results= True,
+    export_results= False,
     load_error    = False,
     pickle_shapes = False,
     save_models   = False,
