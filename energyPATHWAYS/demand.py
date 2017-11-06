@@ -1643,7 +1643,6 @@ class Subsector(DataMapFunctions):
                tech_class.definition == 'absolute'
 
 
-
     def project_measure_stocks(self):
         """ projects the 'stock' of measures for use in cost calculation """
         if self.sub_type == 'service and efficiency' or self.sub_type == 'service and energy':
@@ -2971,11 +2970,7 @@ class Subsector(DataMapFunctions):
             self.stock.levelized_costs['fuel_switching']['replacement'] = self.stock.levelized_costs['fuel_switching']['new'] *0
         year_df = util.vintage_year_matrix(self.years,self.vintages)
         self.stock.annual_costs['fixed_om']['new'] = self.rollover_output(tech_class='fixed_om', tech_att='values', stock_att='values_new').stack().to_frame()
-        self.stock.annual_costs['fixed_om']['replacement'] = self.rollover_output(tech_class='fixed_om', tech_att='values', stock_att='values_replacement').stack().to_frame()    
-        self.stock.annual_costs['fixed_om']['new'].columns = ['value']
-        util.replace_index_name(self.stock.annual_costs['fixed_om']['new'],'year')
-        self.stock.annual_costs['fixed_om']['replacement'].columns = ['value']
-        util.replace_index_name(self.stock.annual_costs['fixed_om']['replacement'],'year')
+        self.stock.annual_costs['fixed_om']['replacement'] = self.rollover_output(tech_class='fixed_om', tech_att='values', stock_att='values_replacement')
         self.stock.annual_costs['capital']['new'] = util.DfOper.mult([self.rollover_output(tech_class='capital_cost_new', tech_att='values', stock_att='sales_new'),year_df])
         self.stock.annual_costs['capital']['replacement'] = util.DfOper.mult([self.rollover_output(tech_class='capital_cost_replacement', tech_att='values', stock_att='sales_replacement'),year_df])
         self.stock.annual_costs['installation']['new'] = util.DfOper.mult([self.rollover_output(tech_class='installation_cost_new', tech_att='values', stock_att='sales_new'),year_df])
@@ -2997,7 +2992,7 @@ class Subsector(DataMapFunctions):
         """
         Calculate rollover efficiency outputs for the whole stock or stock groups by final energy and demand_technology.
         Efficiency values are all stock-weighted by indexed inputs. Ex. if the other_index input equals 'all', multiplying
-        these efficiency values by total service demand would equal total energy. 
+        these efficiency values by total service demand would equal total energy.
         """
         if other_index is not None:
             index = util.ensure_iterable_and_not_string(other_index)

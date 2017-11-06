@@ -80,8 +80,8 @@ class DemandTechCost(Abstract):
                                  vintages=self.vintages, years=self.years)
                 self.values = np.pv(rate, self.book_life, -1, 0, 'end') * self.values
         else:
-            util.convert_age(self, reverse=False, vintages=self.vintages, years=self.years)
-            self.values_level = self.values.copy()
+            util.convert_age(self, attr_from='values', attr_to='values_level', reverse=False, vintages=self.vintages, years=self.years)
+
 
 
 class ParasiticEnergy(Abstract):

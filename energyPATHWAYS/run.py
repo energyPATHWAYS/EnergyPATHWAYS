@@ -211,14 +211,14 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\CA'
+    workingdir = r'C:\github\EnergyPATHWAYS_scenarios\US_DDPP'
     config = 'config.INI'
-    scenario = ['CA_RP']
+    scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
-    load_demand   = True,
-    solve_demand  = False,
+    load_demand   = False,
+    solve_demand  = True,
     load_supply   = False,
-    solve_supply  = True,
+    solve_supply  = False,
     export_results= False,
     load_error    = False,
     pickle_shapes = False,
