@@ -128,17 +128,17 @@ def solve_gen_dispatch(load, pmax, marginal_cost, FORs, MORs, must_run, gen_cate
     return market_prices, production_cost, dispatch_by_generator, gen_dispatch_shape, dispatch_by_category
 
 
-def _format_gen_dispatch_inputs(num_groups, pmaxs, marginal_costs, FOR=None, MOR=None, must_runs=None, capacity_weights=None):
+def _format_gen_dispatch_inputs(num_groups, pmaxs, marginal_costs, FOR=None, MOR=None, must_runs=None, capacity_weights=None, thermal_capacity_multiplier=None):
     zero_clip = lambda x: np.clip(x, 0, None)
     pmaxs, marginal_costs, FOR, MOR = zero_clip(pmaxs), zero_clip(marginal_costs), zero_clip(FOR), zero_clip(MOR)
     marginal_costs = np.tile(marginal_costs, (num_groups, 1)) if len(marginal_costs.shape) == 1 else marginal_costs
     pmaxs = np.tile(pmaxs, (num_groups, 1)) if len(pmaxs.shape) == 1 else pmaxs
     FOR = np.zeros_like(pmaxs) if FOR is None else (np.tile(FOR, (num_groups, 1)) if len(FOR.shape) == 1 else FOR)
     MOR = np.zeros_like(pmaxs) if MOR is None else (np.tile(MOR, (num_groups, 1)) if len(MOR.shape) == 1 else MOR)
-    must_runs = np.ones_like(pmaxs, dtype=bool) if must_runs is None else np.array(
-        np.tile(must_runs, (num_groups, 1)) if len(must_runs.shape) == 1 else must_runs, dtype=bool)
+    must_runs = np.ones_like(pmaxs, dtype=bool) if must_runs is None else np.array(np.tile(must_runs, (num_groups, 1)) if len(must_runs.shape) == 1 else must_runs, dtype=bool)
     capacity_weights = np.full(pmaxs.shape[1], 1 / float(len(pmaxs.T)), dtype=float) if capacity_weights is None else np.array(capacity_weights, dtype=float)
-    return marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights
+    thermal_capacity_multiplier = np.ones_like(pmaxs) if thermal_capacity_multiplier is None else (np.tile(thermal_capacity_multiplier, (num_groups, 1)) if len(thermal_capacity_multiplier.shape) == 1 else thermal_capacity_multiplier)
+    return marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights, thermal_capacity_multiplier
 
 
 def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, reserves, thermal_capacity_multiplier):
@@ -150,7 +150,7 @@ def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, reserves,
 
     stock_changes = np.zeros(len(capacity_weights))
     for i in order:
-        derated_capacity = sum((pmaxs[i] + stock_changes) * (1 - combined_rates[i]))
+        derated_capacity = sum((pmaxs[i] + stock_changes) * thermal_capacity_multiplier[i] * (1 - combined_rates[i]))
         residual_for_load_balance = max_by_load_group[i] - derated_capacity
         # we need more capacity
         if residual_for_load_balance > 0:
@@ -159,7 +159,7 @@ def _get_stock_changes(load_groups, pmaxs, FOR, MOR, capacity_weights, reserves,
             ncwi = np.nonzero((capacity_weights!=0) & (combined_rates[i]<1))[0]
             normed_capacity_weights = capacity_weights[ncwi] / sum(capacity_weights[ncwi])
             stock_changes[ncwi] += normed_capacity_weights * residual_for_load_balance / (1 - combined_rates[i][ncwi])
-    cap_by_load_group = np.array([sum((pmaxs[i] + stock_changes) * (1 - combined_rates[i])) for i in range(len(max_by_load_group))])
+    cap_by_load_group = np.array([sum((pmaxs[i] + stock_changes) * thermal_capacity_multiplier[i] * (1 - combined_rates[i])) for i in range(len(max_by_load_group))])
     final_shortage_by_group = max_by_load_group - cap_by_load_group
     if not all(np.round(final_shortage_by_group, 7) <= 0):
         logging.error('_get_stock_changes did not build enough capacity')
@@ -195,7 +195,7 @@ def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None,
     load_groups = (load,) if dispatch_periods is None else np.array_split(load, np.where(np.diff(dispatch_periods) != 0)[0] + 1)
     num_groups = len(load_groups)
 
-    marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights = _format_gen_dispatch_inputs(num_groups, pmaxs, marginal_costs, FOR, MOR, must_runs, capacity_weights)
+    marginal_costs, pmaxs, FOR, MOR, must_runs, capacity_weights, thermal_capacity_multiplier = _format_gen_dispatch_inputs(num_groups, pmaxs, marginal_costs, FOR, MOR, must_runs, capacity_weights, thermal_capacity_multiplier)
 
     market_prices, production_costs, gen_dispatch_shape, dispatch_by_category_df = [], [], [], []
     gen_energies = np.zeros(pmaxs.shape[1])
@@ -250,10 +250,14 @@ def run_thermal_dispatch(params):
     must_runs = thermal_dispatch_df['must_run'].values
     capacity_weights = thermal_dispatch_df['capacity_weights'].values
     thermal_capacity_multiplier = thermal_dispatch_df['thermal_capacity_multiplier'].values
+    # #TODO we are setting these to 1 because sometimes it is incorrectly not 1 upstream, and if it is not 1 it can cause issues
+    # thermal_capacity_multiplier[:] = 1
     # grabs the technology from the label
     gen_categories = [int(s.split(', ')[1].rstrip('L')) for s in thermal_dispatch_df.index.get_level_values('thermal_generators')]
 
     if schedule_maintenance:
+        # The capacity weights often come in with some really small numbers, which we shouldn't keep here
+        capacity_weights = np.round(capacity_weights, 2)
         # TODO: if we have multiple years, we should schedule maintenance for each year one at a time
         scheduling_order = np.argsort(marginal_costs)
         maintenance_rates = dispatch_maintenance.schedule_generator_maintenance_loop(load=load, pmaxs=pmaxs, annual_maintenance_rates=MOR, dispatch_periods=weeks, scheduling_order=scheduling_order)
@@ -261,11 +265,14 @@ def run_thermal_dispatch(params):
         maintenance_rates[:, np.nonzero(capacity_weights)] = MOR[np.nonzero(capacity_weights)]
     else:
         maintenance_rates = MOR
-
     dispatch_results = generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
                                                                     FOR=FOR, must_runs=must_runs, dispatch_periods=weeks, capacity_weights=capacity_weights,
                                                                     gen_categories=gen_categories, return_dispatch_by_category=return_dispatch_by_category,
                                                                     reserves=reserves, thermal_capacity_multiplier=thermal_capacity_multiplier)
+
+    if sum(dispatch_results['stock_changes']) > np.max(load):
+        logging.error("we've built too much capacity")
+        pdb.set_trace()
 
     for output in ['gen_cf', 'generation', 'stock_changes']:
         thermal_dispatch_df[output] = dispatch_results[output]
