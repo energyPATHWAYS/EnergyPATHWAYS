@@ -167,6 +167,9 @@ class TimeSeries:
             firstx, lastx = min(x), max(x)
             firsty, lasty = fill_dict[firstx], fill_dict[lastx]
             growth_rate = (lasty / firsty) ** (1. / (lastx - firstx))
+        else:
+            # the growth rates in the DB come in as 0.05, for example, and we need to add 1 before we use it
+            growth_rate += 1
 
         gapindex = np.nonzero(~np.isfinite(fill))[0]
         gapgroups = np.array_split(gapindex, np.where(np.diff(gapindex) != 1)[0] + 1)
