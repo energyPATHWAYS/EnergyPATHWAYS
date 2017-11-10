@@ -4235,7 +4235,6 @@ class SupplyStockNode(Node):
                     #if the previous test is passed we reindex the case stock for unspecified technologies
                     self.case_stock.technology = self.case_stock.technology.reorder_levels(names)
                     structure_df = pd.DataFrame(1,index=index,columns=['value'])
-                    self.case_stock.total = DfOper.mult([self.case_stock.total,structure_df],fill_value=np.nan)
                     self.case_stock.technology = self.case_stock.technology.reindex(index)
                     self.stock.technology = self.case_stock.technology
                 self.stock.technology = self.stock.technology.unstack('year')
@@ -4287,7 +4286,6 @@ class SupplyStockNode(Node):
                 if len([x for x in names if x not in self.case_stock.total.index.names]) :
                     raise ValueError("total stock levels in node %s do not match other node input data" %self.id)
                 else:
-                    #if the previous test is passed we reindex the case stock for unspecified technologies
                     self.case_stock.total= self.case_stock.total.reorder_levels(names)                    
                     self.case_stock.total = self.case_stock.total.reindex(index)
                     self.stock.total = self.case_stock.total
@@ -4330,7 +4328,7 @@ class SupplyStockNode(Node):
                    tech_stocks.append(stock.values)
        if len(tech_stocks):
             self.case_stock.data = True
-            self.case_stock.technology = DfOper.add(tech_stocks, expandable=False)
+            self.case_stock.technology = util.DfOper.add(tech_stocks, expandable=False)
             self.case_stock.technology[self.case_stock.technology.index.get_level_values('year')<int(cfg.cfgfile.get('case','current_year'))] = np.nan
        total_stocks = []
        for stock in self.total_stocks.values():

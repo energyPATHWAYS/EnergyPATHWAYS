@@ -159,11 +159,13 @@ class DataMapFunctions:
             time_index=cfg.cfgfile.get('case', 'years')
         interpolation_method = self.interpolation_method if interpolation_method is 'missing' else interpolation_method
         extrapolation_method = self.extrapolation_method if extrapolation_method is 'missing' else extrapolation_method
+        exp_growth_rate = self.extrapolation_growth if hasattr(self, 'extrapolation_growth') else None
 
         data = getattr(self, attr)
         clean_data = TimeSeries.clean(data=data, newindex=time_index, time_index_name=time_index_name,
                                       interpolation_method=interpolation_method,
-                                      extrapolation_method=extrapolation_method).clip(lower=lower, upper=upper)
+                                      extrapolation_method=extrapolation_method,
+                                      exp_growth_rate=exp_growth_rate).clip(lower=lower, upper=upper)
 
         if inplace:
             setattr(self, attr, clean_data)
@@ -293,7 +295,7 @@ class DataMapFunctions:
             # turns out we don't always have a year or vintage column for drivers. For instance when linked_demand_technology gets remapped
             if time_index_name in self.total_driver.index.names:
                 # sometimes when we have a linked service demand driver in a demand subsector it will come in on a fewer number of years than self.years, making this clean timeseries necesary
-                self.clean_timeseries(attr='total_driver', inplace=True, time_index_name=time_index_name,
+                self.clean_timeseries(attr='total_driver', inplace=True, time_index_name=time_index_name, 
                                       time_index=time_index, lower=None, upper=None, interpolation_method='missing', extrapolation_method='missing')
 
             # While not on primary geography, geography does have some information we would like to preserve
@@ -316,14 +318,14 @@ class DataMapFunctions:
             if fill_timeseries:
                 self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method)
 
-            self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='intensity', fill_value=fill_value, filter_geo=filter_geo)
-            total_driver_converted_geo = self.geo_map(converted_geography, attr='total_driver', inplace=False, current_geography=driver_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=filter_geo)
+#            self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='intensity', fill_value=fill_value, filter_geo=filter_geo)
+#            total_driver_converted_geo = self.geo_map(converted_geography, attr='total_driver', inplace=False, current_geography=driver_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=filter_geo)
 
             if current_data_type == 'total':
-                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_converted_geo), fill_value=fill_value))
+                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo), fill_value=fill_value))
             else:
-                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_converted_geo), expandable=(True, False), collapsible=(False, True), fill_value=fill_value))
-
+                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo), expandable=(True, False), collapsible=(False, True), fill_value=fill_value))
+            self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='total', fill_value=fill_value, filter_geo=filter_geo)
             # we don't want to keep this around
             del self.total_driver
 
@@ -340,7 +342,6 @@ class DataMapFunctions:
 
         current_geography = self.geography if current_geography is None else current_geography
         setattr(self, map_to, getattr(self, map_from).copy())
-
         if len(denominator_driver_ids):
             if current_data_type != 'intensity':
                 raise ValueError(str(self.__class__) + ' id ' + str(self.id) + ': type must be intensity if variable has denominator drivers')

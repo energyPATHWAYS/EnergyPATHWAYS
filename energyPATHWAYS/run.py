@@ -213,13 +213,13 @@ class SubsectorPerturbation(object):
 if __name__ == "__main__":
     workingdir = r'C:\github\EnergyPATHWAYS_scenarios\US_DDPP'
     config = 'config.INI'
-    scenario = ['aeo_2017_reference']
+    scenario = ['aeo_2017_reference_HT']
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
     solve_supply  = False,
-    export_results= False,
+    export_results= True,
     load_error    = False,
     pickle_shapes = False,
     save_models   = False,
