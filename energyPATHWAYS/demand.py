@@ -502,7 +502,9 @@ class Sector(object):
                 self.reset_subsector_for_perdubation(dependent_subsector_id)
 
     def add_energy_system_data_after_reset(self, subsector_id):
-        self.subsectors[subsector_id].add_energy_system_data()
+        if hasattr(self.subsectors[subsector_id], 'energy_system_data_has_been_added') and not self.subsectors[subsector_id].energy_system_data_has_been_added:
+            self.subsectors[subsector_id].add_energy_system_data()
+            self.subsectors[subsector_id].energy_system_data_has_been_added = True
         if subsector_id in self.subsector_precursers_reversed:
             for dependent_subsector_id in self.subsector_precursers_reversed[subsector_id]:
                 self.add_energy_system_data_after_reset(dependent_subsector_id)
@@ -654,6 +656,7 @@ class Subsector(DataMapFunctions):
         self.linked_service_demand_drivers = {}
         self.linked_stock = {}
         self.perturbation = None
+        self.energy_system_data_has_been_added = False
 
     def set_electricity_reconciliation(self, electricity_reconciliation):
         self.electricity_reconciliation = electricity_reconciliation
@@ -1629,7 +1632,6 @@ class Subsector(DataMapFunctions):
                tech_class.definition == 'absolute'
 
 
-
     def project_measure_stocks(self):
         """ projects the 'stock' of measures for use in cost calculation """
         if self.sub_type == 'service and efficiency' or self.sub_type == 'service and energy':
@@ -2216,7 +2218,7 @@ class Subsector(DataMapFunctions):
         for demand_technology in self.technologies.values():
             if len(demand_technology.specified_stocks) and reference_run==False:
                for specified_stock in demand_technology.specified_stocks.values():
-                   specified_stock.remap(map_from='values', current_geography = cfg.primary_geography, drivers=self.stock.total, driver_geography=cfg.primary_geography)
+                   specified_stock.remap(map_from='values', current_geography = cfg.primary_geography, drivers=self.stock.total, driver_geography=cfg.primary_geography, fill_value=np.nan)
                    self.stock.technology.sort(inplace=True)
                    indexer = util.level_specific_indexer(self.stock.technology,'demand_technology',demand_technology.id)
                    df = util.remove_df_levels(self.stock.technology.loc[indexer,:],'demand_technology')
@@ -2957,11 +2959,7 @@ class Subsector(DataMapFunctions):
             self.stock.levelized_costs['fuel_switching']['replacement'] = self.stock.levelized_costs['fuel_switching']['new'] *0
         year_df = util.vintage_year_matrix(self.years,self.vintages)
         self.stock.annual_costs['fixed_om']['new'] = self.rollover_output(tech_class='fixed_om', tech_att='values', stock_att='values_new').stack().to_frame()
-        self.stock.annual_costs['fixed_om']['replacement'] = self.rollover_output(tech_class='fixed_om', tech_att='values', stock_att='values_replacement').stack().to_frame()    
-        self.stock.annual_costs['fixed_om']['new'].columns = ['value']
-        util.replace_index_name(self.stock.annual_costs['fixed_om']['new'],'year')
-        self.stock.annual_costs['fixed_om']['replacement'].columns = ['value']
-        util.replace_index_name(self.stock.annual_costs['fixed_om']['replacement'],'year')
+        self.stock.annual_costs['fixed_om']['replacement'] = self.rollover_output(tech_class='fixed_om', tech_att='values', stock_att='values_replacement')
         self.stock.annual_costs['capital']['new'] = util.DfOper.mult([self.rollover_output(tech_class='capital_cost_new', tech_att='values', stock_att='sales_new'),year_df])
         self.stock.annual_costs['capital']['replacement'] = util.DfOper.mult([self.rollover_output(tech_class='capital_cost_replacement', tech_att='values', stock_att='sales_replacement'),year_df])
         self.stock.annual_costs['installation']['new'] = util.DfOper.mult([self.rollover_output(tech_class='installation_cost_new', tech_att='values', stock_att='sales_new'),year_df])
@@ -2983,7 +2981,7 @@ class Subsector(DataMapFunctions):
         """
         Calculate rollover efficiency outputs for the whole stock or stock groups by final energy and demand_technology.
         Efficiency values are all stock-weighted by indexed inputs. Ex. if the other_index input equals 'all', multiplying
-        these efficiency values by total service demand would equal total energy. 
+        these efficiency values by total service demand would equal total energy.
         """
         if other_index is not None:
             index = util.ensure_iterable_and_not_string(other_index)

@@ -217,11 +217,8 @@ def generator_stack_dispatch(load, pmaxs, marginal_costs, dispatch_periods=None,
 
     gen_cf = gen_energies / np.max((pmaxs + stock_changes), axis=0) / float(len(load))
     gen_cf[np.nonzero(np.max((pmaxs + stock_changes), axis=0) == 0)] = 0
-    dispatch_results = dict(zip(
-        ['market_price', 'production_cost', 'generation', 'gen_cf', 'gen_dispatch_shape', 'stock_changes',
-         'dispatch_by_category'],
-        [market_prices, production_costs, gen_energies, gen_cf, gen_dispatch_shape, stock_changes,
-         dispatch_by_category_df]))
+    dispatch_results = dict(zip(['market_price', 'production_cost', 'generation', 'gen_cf', 'gen_dispatch_shape', 'stock_changes', 'dispatch_by_category'],
+                                [market_prices, production_costs, gen_energies, gen_cf, gen_dispatch_shape, stock_changes, dispatch_by_category_df]))
 
     for key, value in dispatch_results.items():
         if key == 'dispatch_by_category' and return_dispatch_by_category == False:
@@ -241,6 +238,7 @@ def run_thermal_dispatch(params):
 
     return_dispatch_by_category = params[4]
     reserves = params[5]
+    schedule_maintenance = params[6]
     months = load.index.get_level_values('weather_datetime').month
     weeks = load.index.get_level_values('weather_datetime').week
     load = load.values.flatten()
@@ -251,17 +249,21 @@ def run_thermal_dispatch(params):
     must_runs = thermal_dispatch_df['must_run'].values
     capacity_weights = thermal_dispatch_df['capacity_weights'].values
     thermal_capacity_multiplier = thermal_dispatch_df['thermal_capacity_multiplier'].values
-    #TODO we are setting these to 1 because sometimes it is incorrectly not 1 upstream, and if it is not 1 it can cause issues
-    thermal_capacity_multiplier[:] = 1
+    # #TODO we are setting these to 1 because sometimes it is incorrectly not 1 upstream, and if it is not 1 it can cause issues
+    # thermal_capacity_multiplier[:] = 1
     # grabs the technology from the label
     gen_categories = [int(s.split(', ')[1].rstrip('L')) for s in thermal_dispatch_df.index.get_level_values('thermal_generators')]
 
-    # The capacity weights often come in with some really small numbers, which we shouldn't keep here
-    capacity_weights = np.round(capacity_weights, 2)
-
-    # TODO: if we have multiple years, we should schedule maintenance for each year one at a time
-    scheduling_order = np.argsort(marginal_costs)
-    maintenance_rates = dispatch_maintenance.schedule_generator_maintenance_loop(load=load, pmaxs=pmaxs, annual_maintenance_rates=MOR, dispatch_periods=weeks, scheduling_order=scheduling_order)
+    if schedule_maintenance:
+        # The capacity weights often come in with some really small numbers, which we shouldn't keep here
+        capacity_weights = np.round(capacity_weights, 2)
+        # TODO: if we have multiple years, we should schedule maintenance for each year one at a time
+        scheduling_order = np.argsort(marginal_costs)
+        maintenance_rates = dispatch_maintenance.schedule_generator_maintenance_loop(load=load, pmaxs=pmaxs, annual_maintenance_rates=MOR, dispatch_periods=weeks, scheduling_order=scheduling_order)
+        # if we have capacity weights on a generator, we don't schedule maintenance for it to prevent errors in solving for generator stack changes
+        maintenance_rates[:, np.nonzero(capacity_weights)] = MOR[np.nonzero(capacity_weights)]
+    else:
+        maintenance_rates = MOR
     dispatch_results = generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
                                                                     FOR=FOR, must_runs=must_runs, dispatch_periods=weeks, capacity_weights=capacity_weights,
                                                                     gen_categories=gen_categories, return_dispatch_by_category=return_dispatch_by_category,
