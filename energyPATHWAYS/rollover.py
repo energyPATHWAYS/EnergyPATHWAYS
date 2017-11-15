@@ -133,7 +133,10 @@ class Rollover(object):
     def calc_initial_stock_rolloff(self, prinxy, mode='rolloff'):
         i = self.i  # make an int
         if mode == 'rolloff':
-            return (self.initial_stock if i == 0 else self.stock[:, 0, i - 1]) * (1 - self.initial_markov_matrix[self.all_techs, i, prinxy])
+            try:
+                return (self.initial_stock if i == 0 else self.stock[:, 0, i - 1]) * (1 - self.initial_markov_matrix[self.all_techs, i, prinxy])
+            except:
+                pdb.set_trace()
         elif mode == 'remaining':
             return (self.initial_stock if i == 0 else self.stock[:, 0, i - 1]) * self.initial_markov_matrix[self.all_techs, i, prinxy]
 
@@ -175,17 +178,15 @@ class Rollover(object):
         temp_prinxy = np.copy(self.prinxy)
 
         inc = 1 if incremental_retirement > 0 else -1
-        temp_prinxy[retireable] = np.floor(temp_prinxy[retireable]) if incremental_retirement > 0 else np.ceil(
-            temp_prinxy[retireable])
+        temp_prinxy[retireable] = np.floor(temp_prinxy[retireable]) if incremental_retirement > 0 else np.ceil(temp_prinxy[retireable])
         while inc * incremental_retirement > inc * (new_rolloff - starting_rolloff):
-            if (np.all(temp_prinxy[retireable] == 0) and inc == -1) or (
-                        np.all(temp_prinxy[retireable] == self.num_years - 1) and inc == 1):
+            if (np.all(temp_prinxy[retireable] == 0) and inc == -1) or (np.all(temp_prinxy[retireable] == self.num_years - 1) and inc == 1):
                 self.prinxy = temp_prinxy
                 return
             temp_prinxy[retireable] = np.clip(temp_prinxy[retireable] + inc, 0, self.num_years - 1)
             old_rolloff, new_rolloff = new_rolloff, np.sum(self.calc_stock_rolloff(temp_prinxy))
-        temp_prinxy[retireable] -= inc * (
-            1. - (incremental_retirement + starting_rolloff - old_rolloff) / (new_rolloff - old_rolloff))
+        temp_prinxy[retireable] -= inc * (1. - (incremental_retirement + starting_rolloff - old_rolloff) / (new_rolloff - old_rolloff))
+        temp_prinxy[retireable] = np.clip(temp_prinxy[retireable], 0, self.num_years - 1)
         self.prinxy = temp_prinxy
 
     def calc_remaining_stock_initial(self):

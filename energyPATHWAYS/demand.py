@@ -2820,6 +2820,8 @@ class Subsector(DataMapFunctions):
         #Best way is if we have all demand_technology stocks specified
         if (np.nansum(self.stock.technology.loc[elements,:].values[0])/self.stock.total.loc[elements,:].values[0])>.99:
             initial_stock = self.stock.technology.loc[elements,:].values[0]
+            # gross up if it is just under 100% of the stock represented
+            initial_stock /= np.nansum(self.stock.technology.loc[elements,:].values[0])/initial_total
             rerun_sales_shares = False
         #Second best way is if we have all demand_technology stocks specified in some year before the current year
         elif min_demand_technology_year is not None and min_demand_technology_year<=int(cfg.cfgfile.get('case','current_year')) and np.nansum(self.stock.technology.loc[elements+(min_demand_technology_year,),:].values)==self.stock.total.loc[elements+(min_demand_technology_year,),:].values:
