@@ -133,10 +133,7 @@ class Rollover(object):
     def calc_initial_stock_rolloff(self, prinxy, mode='rolloff'):
         i = self.i  # make an int
         if mode == 'rolloff':
-            try:
-                return (self.initial_stock if i == 0 else self.stock[:, 0, i - 1]) * (1 - self.initial_markov_matrix[self.all_techs, i, prinxy])
-            except:
-                pdb.set_trace()
+            return (self.initial_stock if i == 0 else self.stock[:, 0, i - 1]) * (1 - self.initial_markov_matrix[self.all_techs, i, prinxy])
         elif mode == 'remaining':
             return (self.initial_stock if i == 0 else self.stock[:, 0, i - 1]) * self.initial_markov_matrix[self.all_techs, i, prinxy]
 
