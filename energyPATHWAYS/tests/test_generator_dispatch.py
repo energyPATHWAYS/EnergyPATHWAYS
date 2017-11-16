@@ -13,6 +13,7 @@ import copy
 from ddt import ddt, data, unpack
 from energyPATHWAYS import dispatch_generators
 from energyPATHWAYS import dispatch_maintenance
+import pandas as pd
 
 class TestGeneratorDispatch(unittest.TestCase):
     # def __init__(self):
@@ -230,14 +231,62 @@ class TestGeneratorDispatch(unittest.TestCase):
 # generator_params = pd.DataFrame.from_csv(os.path.join(data_dir, 'generator_params_pge_error.csv'))
 # pmaxs = generator_params['pmaxs'].values
 # MORs = generator_params['MOR'].values
+# marginal_costs = np.arange(0,.01*len(MORs),.01)
 #
 # dispatch_periods = pd.DataFrame.from_csv(os.path.join(data_dir, 'dispatch_periods_pge_error.csv'))
 # dispatch_periods = dispatch_periods['week'].values.flatten()
 #
 # load = pd.DataFrame.from_csv(os.path.join(data_dir, 'load_pge_error.csv'))['load']
 # load = load.values.flatten()
-
-# MOR = dispatch_maintenance.schedule_generator_maintenance(load, pmaxs, MORs, dispatch_periods=dispatch_periods)
-# MOR = dispatch_maintenance.schedule_generator_maintenance(load, pmaxs, MORs, dispatch_periods=dispatch_periods)
-
+#
+# t=time.time()
+# MOR = dispatch_maintenance.schedule_generator_maintenance(load, pmaxs, MORs, dispatch_periods, marginal_costs)
+# t=energyPATHWAYS.util.time_stamp(t)
+# MOR2 = dispatch_maintenance.schedule_generator_maintenance_loop(load, pmaxs, MORs, dispatch_periods, np.argsort(marginal_costs))
+# t=energyPATHWAYS.util.time_stamp(t)
+#
 # pd.DataFrame(MOR.mean(axis=1)).plot()
+# pd.DataFrame(MOR2.mean(axis=1)).plot()
+
+
+
+data_dir = os.path.join(os.getcwd(), 'test_dispatch_data')
+generator_params = pd.DataFrame.from_csv(os.path.join(data_dir, 'generator_params_epsa_error.csv'))
+pmaxs = generator_params['capacity'].values
+marginal_costs = generator_params['cost'].values
+MORs = generator_params['maintenance_outage_rate'].values
+FOR = generator_params['forced_outage_rate'].values
+must_runs = generator_params['must_run'].values
+capacity_weights = generator_params['capacity_weights'].values
+gen_categories = generator_params['gen_categories'].values
+thermal_capacity_multiplier = generator_params['thermal_capacity_multiplier'].values
+return_dispatch_by_category = True
+reserves = 0.05
+capacity_weights = np.round(capacity_weights, 2)
+
+dispatch_periods = pd.DataFrame.from_csv(os.path.join(data_dir, 'dispatch_periods_epsa_error.csv'))
+dispatch_periods = dispatch_periods['week'].values.flatten()
+
+load = pd.DataFrame.from_csv(os.path.join(data_dir, 'load_epsa_error.csv'))['load']
+load = load.values.flatten()
+
+scheduling_order = np.argsort(marginal_costs)
+
+t=time.time()
+# maintenance_rates2 = dispatch_maintenance.schedule_generator_maintenance(load, pmaxs, MORs, dispatch_periods, marginal_costs)
+# t=energyPATHWAYS.util.time_stamp(t)
+maintenance_rates = dispatch_maintenance.schedule_generator_maintenance_loop(load, pmaxs, MORs, dispatch_periods, scheduling_order)
+t=energyPATHWAYS.util.time_stamp(t)
+
+dispatch_results = dispatch_generators.generator_stack_dispatch(load=load, pmaxs=pmaxs, marginal_costs=marginal_costs, MOR=maintenance_rates,
+                                            FOR=FOR, must_runs=must_runs, dispatch_periods=dispatch_periods, capacity_weights=capacity_weights,
+                                            gen_categories=gen_categories, return_dispatch_by_category=return_dispatch_by_category,
+                                            reserves=reserves, thermal_capacity_multiplier=thermal_capacity_multiplier)
+
+print dispatch_results['stock_changes'].sum()
+
+group_cuts = list(np.where(np.diff(dispatch_periods) != 0)[0] + 1) if dispatch_periods is not None else None
+group_lengths = np.array([group_cuts[0]] + list(np.diff(group_cuts)) + [len(load) - group_cuts[-1]])
+all(np.isclose(MORs, (maintenance_rates.T * group_lengths).sum(axis=1)/len(load)))
+
+pd.DataFrame(maintenance_rates.mean(axis=1)).plot()

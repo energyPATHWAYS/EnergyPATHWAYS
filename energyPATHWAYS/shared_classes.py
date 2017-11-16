@@ -180,7 +180,7 @@ class SpecifiedStock(Abstract, DataMapFunctions):
         self.years = years
         if self.raw_values is not None:
             try:
-                self.remap()
+                self.remap(fill_value=np.nan)
             except:
                 print self.raw_values
                 raise

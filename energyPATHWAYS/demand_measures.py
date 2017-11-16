@@ -33,27 +33,38 @@ class FlexibleLoadMeasure(Abstract):
         return FlexibleLoadMeasure()
 
     @classmethod
-    def make_from_pertubation(cls, pertubation):
+    def make_from_perturbation(cls, perturbation):
         # set up here
         return FlexibleLoadMeasure()
 
 # this class really should be combined with the top flexible load measure class but the constructor is not flexible enough
 class FlexibleLoadMeasure2(Abstract):
-    def __init__(self, pertubation):
-        self.raw_values = util.remove_df_levels(pertubation.sales_share_changes, 'replaced_demand_technology_id')
-        self.raw_values.index = self.raw_values.index.rename('demand_technology', 'demand_technology_id')
-        self.raw_values[:] = 1
-        self.name = 'pertubation'
+    def __init__(self, perturbation):
+        self.raw_values = self.perturbation_to_raw_values(perturbation)
+        self.name = 'perturbation'
         self.interpolation_method = 'nearest'
         self.extrapolation_method = 'nearest'
         self.input_type = 'intensity'
-        self.geography = cfg.primary_geography # the pertubations come in already geomapped
+        self.geography = cfg.primary_geography # the perturbations come in already geomapped
         self.remap()
         org_index = self.values.index.names
         temp = self.values.reset_index()
         start_year = self.raw_values.index.get_level_values('year').min()
         temp.loc[temp['year'] < start_year, 'value'] = 0
         self.values = temp.set_index(org_index).sort()
+
+    def perturbation_to_raw_values(self, perturbation):
+        raw_values = perturbation.sales_share_changes['percent_of_load_that_is_flexible'].to_frame()
+        raw_values.columns = ['value']
+        raw_values.index = raw_values.index.rename('demand_technology', 'demand_technology_id')
+        raw_values = raw_values.groupby(level=['demand_technology', cfg.primary_geography, 'year']).mean()
+        raw_values = raw_values.reset_index()
+        # this is because when we have linked technologies, that technology linkage is not updated with our new tech names
+        if perturbation.sales_share_changes['adoption_achieved'].sum()>0:
+            raw_values['demand_technology'] = raw_values['demand_technology'].map(perturbation.new_techs)
+        raw_values = raw_values.set_index(['demand_technology', cfg.primary_geography, 'year'])
+        assert not any(raw_values.values>1)
+        return raw_values
 
 class DemandMeasure(StockItem):
     def __init__(self):

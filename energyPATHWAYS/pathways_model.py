@@ -358,7 +358,6 @@ class PathwaysModel(object):
         self.demand.outputs.d_payback = self.demand.outputs.return_cleaned_output('d_payback')
    
     def calculate_d_payback_energy(self):
-        energy_unit = cfg.cfgfile.get('case','calculation_energy_unit')
         initial_vintage = min(cfg.supply_years)
         demand_side_df = self.demand.d_all_energy_demand_payback
         demand_side_df.columns = ['value']
@@ -379,12 +378,12 @@ class PathwaysModel(object):
                     indexer = util.level_specific_indexer(self.demand.outputs.d_payback_energy,'subsector',subsector.id)
                     self.demand.outputs.d_payback_energy.loc[indexer,'unit'] = subsector.stock.unit.upper()
         self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy.set_index('unit', append=True)
-        self.demand.outputs.d_payback_energy.columns = [energy_unit.upper()]
+        self.demand.outputs.d_payback_energy.columns = [cfg.calculation_energy_unit.upper()]
         self.demand.outputs.d_payback_energy['lifetime_year'] = self.demand.outputs.d_payback_energy.index.get_level_values('year')-self.demand.outputs.d_payback_energy.index.get_level_values('vintage')+1    
         self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy.set_index('lifetime_year',append=True)
         self.demand.outputs.d_payback_energy = util.remove_df_levels(self.demand.outputs.d_payback_energy,'year')
         self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy.groupby(level = [x for x in self.demand.outputs.d_payback_energy.index.names if x !='lifetime_year']).transform(lambda x: x.cumsum())
-        self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy[self.demand.outputs.d_payback_energy[energy_unit.upper()]!=0]
+        self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy[self.demand.outputs.d_payback_energy[cfg.calculation_energy_unit.upper()]!=0]
         self.demand.outputs.d_payback_energy = self.demand.outputs.return_cleaned_output('d_payback_energy')
             
         

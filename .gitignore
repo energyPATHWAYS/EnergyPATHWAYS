@@ -87,6 +87,7 @@ target/
 /model building tools/aggregate results/inputs/*
 /model building tools/aggregate results/outputs/*
 scenario_builder_config.txt
+*~$*.xlsm
 
 # profiler
 /model runs/*.profile

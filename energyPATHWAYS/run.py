@@ -204,26 +204,26 @@ def send_gmail(scenario_id, subject, body):
     server.sendmail(fromaddr, toaddr, text)
     server.quit()
 
-class SubsectorPertubation(object):
+class SubsectorPerturbation(object):
     def __init__(self, sales_share_changes, flexible_operation, subsector):
         self.sales_share_changes = sales_share_changes
         self.flexible_operation = flexible_operation
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\US_DDPP'
+    workingdir = r'C:\github\EP_runs\NREL'
     config = 'config.INI'
-    scenario = ['aeo_2017_reference']
+    scenario = ['EE_moder_aeo']
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
     solve_supply  = False,
-    export_results= True,
+    export_results= False,
     load_error    = False,
-    pickle_shapes = True,
-    save_models   = True,
+    pickle_shapes = False,
+    save_models   = False,
     api_run       = False,
-    clear_results = True)
+    clear_results = False)
 
 

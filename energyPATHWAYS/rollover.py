@@ -14,7 +14,7 @@ class Rollover(object):
     def __init__(self, vintaged_markov_matrix, initial_markov_matrix, num_years, num_vintages, num_techs,
                  initial_stock=None, sales_share=None, stock_changes=None, specified_stock=None,
                  specified_retirements=None, specified_sales=None, steps_per_year=1, stock_changes_as_min=False,
-                 exceedance_tolerance=0.01, index_current_year=0):
+                 exceedance_tolerance=0.01, index_current_year=0,lifetimes=None):
         """
         initial stock of NaN is assumed to be zero
         """
@@ -32,6 +32,7 @@ class Rollover(object):
         self.exceedance_tolerance = exceedance_tolerance
         self.index_current_year = index_current_year
 
+
         # additional inputs
         self.initialize_initial_stock(initial_stock)
         self.initialize_sales_share(sales_share)
@@ -39,6 +40,8 @@ class Rollover(object):
         self.initialize_specified_retirements(specified_retirements)
         self.initialize_specified_stock(specified_stock)
         self.initialize_specified_sales(specified_sales)
+        self.lifetimes = lifetimes if lifetimes is not None else np.ones(self.num_techs)
+        
         
         self.stock_changes_as_min = stock_changes_as_min
         self.all_techs = np.arange(self.num_techs, dtype=int)
@@ -172,17 +175,15 @@ class Rollover(object):
         temp_prinxy = np.copy(self.prinxy)
 
         inc = 1 if incremental_retirement > 0 else -1
-        temp_prinxy[retireable] = np.floor(temp_prinxy[retireable]) if incremental_retirement > 0 else np.ceil(
-            temp_prinxy[retireable])
+        temp_prinxy[retireable] = np.floor(temp_prinxy[retireable]) if incremental_retirement > 0 else np.ceil(temp_prinxy[retireable])
         while inc * incremental_retirement > inc * (new_rolloff - starting_rolloff):
-            if (np.all(temp_prinxy[retireable] == 0) and inc == -1) or (
-                        np.all(temp_prinxy[retireable] == self.num_years - 1) and inc == 1):
+            if (np.all(temp_prinxy[retireable] == 0) and inc == -1) or (np.all(temp_prinxy[retireable] == self.num_years - 1) and inc == 1):
                 self.prinxy = temp_prinxy
                 return
             temp_prinxy[retireable] = np.clip(temp_prinxy[retireable] + inc, 0, self.num_years - 1)
             old_rolloff, new_rolloff = new_rolloff, np.sum(self.calc_stock_rolloff(temp_prinxy))
-        temp_prinxy[retireable] -= inc * (
-            1. - (incremental_retirement + starting_rolloff - old_rolloff) / (new_rolloff - old_rolloff))
+        temp_prinxy[retireable] -= inc * (1. - (incremental_retirement + starting_rolloff - old_rolloff) / (new_rolloff - old_rolloff))
+        temp_prinxy[retireable] = np.clip(temp_prinxy[retireable], 0, self.num_years - 1)
         self.prinxy = temp_prinxy
 
     def calc_remaining_stock_initial(self):
@@ -300,14 +301,18 @@ class Rollover(object):
                 return prior_year_stock
         return self.initial_stock #last resort, even if it is zeros
 
-    def pick_allocation_option(self, _solvable, i):
+    def pick_allocation_option(self, _solvable, i, growth):
         i = min(i, self.i)
         allocation = np.zeros(self.num_techs)
         prior_year_stock = self.get_stock_from_last_nonzero_year(i)
         rolloff = np.nanmax((self.rolloff, self.defined_sales), axis=0) if i == self.i else self.natural_rolloff[i]
         if np.sum(rolloff[_solvable]):
             # max between the stock that is rolling off and any specified stocks that we have is used for the allocation
-            allocation[_solvable] = rolloff[_solvable] / sum(rolloff[_solvable])
+            if growth:
+                temp = rolloff * self.lifetimes          
+            else:
+                temp = rolloff
+            allocation[_solvable] = temp[_solvable] / sum(temp[_solvable])     
         elif not self.stock_changes[i] or len(_solvable)==1:
             # we just need a placeholder because we have no new sales and no existing stock or we only have 1 technology
             allocation[_solvable] = 1. / len(_solvable)
@@ -317,7 +322,11 @@ class Rollover(object):
             allocation[_solvable] = sales_share_allocation[_solvable] / sum(sales_share_allocation[_solvable])
         elif sum(prior_year_stock[_solvable]):
             # we will allocate new sales based on the last year's stock ratio
-            allocation[_solvable] = prior_year_stock[_solvable] / sum(prior_year_stock[_solvable])
+            if growth:
+                temp = prior_year_stock * self.lifetimes          
+            else:
+                temp = prior_year_stock
+            allocation[_solvable] = temp[_solvable] / sum(temp[_solvable])
         elif np.sum(rolloff)==0:
             #no sales to allocate
             return allocation
@@ -326,16 +335,16 @@ class Rollover(object):
         return allocation
 
     def get_stock_replacement_allocation(self, _solvable):
-        stock_replacement_allocation = self.pick_allocation_option(_solvable, self.i)
+        stock_replacement_allocation = self.pick_allocation_option(_solvable, self.i, growth=False)
         return stock_replacement_allocation
 
     def get_stock_growth_allocation(self, stock_replacement_allocation, _solvable):
         i = self.i
         # here, this indicates that we have a service demand modifier and need to take it into account when stock grows
         if not np.all(np.round(np.sum(self.sales_share[i], axis=0), 5)==1):
-            stock_growth_allocation = self.pick_allocation_option(_solvable, self.index_current_year)
+            stock_growth_allocation = self.pick_allocation_option(_solvable, self.index_current_year, growth=True)
         else:
-            stock_growth_allocation = stock_replacement_allocation        
+            stock_growth_allocation = self.pick_allocation_option(_solvable, self.i, growth=True) 
         return stock_growth_allocation
 
 #    def all_specified_stock_changes(self):
@@ -410,9 +419,12 @@ class Rollover(object):
         natural_replacements = min(self.rolloff_summed - self.sum_defined_sales, sales_to_allocate)
         # this is the portion of sales that is from stock growth, and we may want to allocate it differently
         stock_growth = sales_to_allocate - natural_replacements
-
-        replacements_by_tech = np.dot(self.sales_share[i], natural_replacements * stock_replacement_allocation)
-        growth_by_tech = np.dot(self.sales_share[i], stock_growth * stock_growth_allocation)
+        if natural_replacements<0: 
+            replacements_by_tech = np.dot(self.sales_share[i], natural_replacements * stock_replacement_allocation)
+            growth_by_tech = np.dot(self.sales_share[i], stock_growth * stock_replacement_allocation)
+        else:
+            replacements_by_tech = np.dot(self.sales_share[i], natural_replacements * stock_replacement_allocation)
+            growth_by_tech = np.dot(self.sales_share[i], stock_growth * stock_growth_allocation)
         solveable_by_tech = replacements_by_tech + growth_by_tech
         
         if min(solveable_by_tech)<(-0.0001*self.rolloff_summed):
@@ -541,7 +553,7 @@ class Rollover(object):
         if self.spy==1:
             return x
         else:
-            return util.sum_chunk(util.sum_chunk_vintage(x, self.spy, axis=1), self.spy, axis=2)
+            return util.mean_chunk(util.sum_chunk_vintage(x, self.spy, axis=1), self.spy, axis=2)
 
     def _aggregate_tech_year_shape(self, x):
         if self.spy==1:
