@@ -2,7 +2,7 @@
 from __future__ import print_function
 import click
 import os
-from energyPATHWAYS.database import PostgresDatabase, Text_mapping_tables
+from energyPATHWAYS.database import PostgresDatabase
 
 # TODO: Move this to util.py?
 def mkdirs(newdir, mode=0o770):
@@ -46,16 +46,15 @@ def main(dbname, db_dir, host, user, password):
 
     db.load_text_mappings()    # to replace ids with strings
 
-    table_names = db.tables_with_classes(include_on_demand=True)
-    table_objs  = [db.get_table(name) for name in table_names]
+    #table_names = db.tables_with_classes(include_on_demand=True)
 
-    geographies = ['Geographies', 'GeographiesData', 'GeographyIntersection', 'GeographyIntersectionData']
-    tables_to_skip = Text_mapping_tables + geographies
+    tables_to_skip = ['GeographyIntersection', 'GeographyIntersectionData']
+    table_names = [name for name in db.get_tables_names() if name not in tables_to_skip]
+    table_objs  = [db.get_table(name) for name in table_names]
 
     for tbl in table_objs:
         tbl.load_all()
-        if tbl.name not in tables_to_skip:
-            tbl.to_csv(db_dir)
+        tbl.to_csv(db_dir)
 
     # Save foreign keys so they can be used by CSV database
     foreign_keys_path = os.path.join(db_dir, 'foreign_keys.csv')

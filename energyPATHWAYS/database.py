@@ -54,54 +54,102 @@ def resourceStream(relpath):
 
 Text_mapping_tables = [
     'AgeGrowthOrDecayType',
+    'BlendNodeBlendMeasures',
+    'CO2PriceMeasures',
     'CleaningMethods',
     'Currencies',
     'DayType',
     'Definitions',
+    'DemandCO2CaptureMeasures',
+    'DemandDrivers',
+    'DemandEnergyEfficiencyMeasures',
+    'DemandFlexibleLoadMeasures',
+    'DemandFuelSwitchingMeasures',
+    'DemandSalesShareMeasures',
+    'DemandSectors',
+    'DemandServiceDemandMeasures',
+    'DemandStockMeasures',
     'DemandStockUnitTypes',
+    'DemandSubsectors',
     'DemandTechEfficiencyTypes',
     'DemandTechUnitTypes',
+    'DemandTechs',
     'DispatchConstraintTypes',
     'DispatchFeeders',
+    'DispatchTransmissionConstraint',
     'DispatchWindows',
     'EfficiencyTypes',
+    'FinalEnergy',
     'FlexibleLoadShiftTypes',
-    'Geographies',              # added 11/14/17
-    'GeographyMapKeys',         # added 11/14/17
+    'Geographies',
+    'GeographiesData',
+    'GeographyMapKeys',
     'GreenhouseGasEmissionsType',
+    'GreenhouseGases',
     'InputTypes',
-    'OtherIndexes',             # added 11/14/17
+    'OtherIndexes',
+    'OtherIndexesData',
+    'Shapes',
     'ShapesTypes',
     'ShapesUnits',
     'StockDecayFunctions',
+    'SupplyCost',
     'SupplyCostTypes',
+    'SupplyExportMeasures',
+    'SupplyNodes',
+    'SupplySalesMeasures',
+    'SupplySalesShareMeasures',
+    'SupplyStockMeasures',
+    'SupplyTechs',
     'SupplyTypes',
 ]
 
-_Tables_to_ignore = [
-    'CurrenciesConversion', # not a string lookup
-    'CurrencyYears',        # only an id col; unclear purpose.
-    'DayHour',              # missing
-    # 'DispatchConfig',       # 8 cols
-    'DispatchFeedersData',  # missing
-    'DispatchNodeConfig',   # 4 cols
-    'DispatchNodeData',     # missing
-    'GeographyIntersection',# only an id col
+Tables_to_ignore = [
+    'GeographyIntersection', # only an id col
     'GeographyIntersectionData',
     'GeographyMap',
-    # 'GreenhouseGases',    # has id, name, longname
-    'IDMap',                # identifier_id, ref_table
-    'IndexLevels',          # id, index_level, data_column_name
-    'InflationConversion',  # currency_year_id, currency_id, value, id
-    'StockRolloverMethods', # missing
-    # 'TimeZones',          # id, name, utc_shift
-    'YearHour',             # missing
+
+    # 'CurrenciesConversion', # not a string lookup
+    # 'CurrencyYears',        # only an id col; unclear purpose.
+    # 'DayHour',              # missing
+    # 'DispatchConfig',       # 8 cols
+    # 'DispatchFeedersData',  # missing
+    # 'DispatchNodeConfig',   # 4 cols
+    # 'DispatchNodeData',     # missing
+    # 'GreenhouseGases',      # id, name, longname
+    # 'IDMap',                # canonical list of columns in the parent tables that get turned from integers to strings and have "_id" dropped
+    # 'IndexLevels',          # id, index_level, data_column_name
+    # 'InflationConversion',  # currency_year_id, currency_id, value, id
+    # 'StockRolloverMethods', # missing
+    # 'TimeZones',            # id, name, utc_shift
+    # 'YearHour',             # missing
 ]
 
 Tables_to_load_on_demand = [
     'ShapesData',
 ]
 
+# This tells us what id:name lookup table to use for a given column name
+LOOKUP_MAP = {
+    'gau_id'                : 'GeographiesData',
+    'oth_1_id'              : 'OtherIndexesData',
+    'oth_2_id'              : 'OtherIndexesData',
+    'final_energy'          : 'FinalEnergy',
+    'final_energy_id'       : 'FinalEnergy',
+    'demand_tech_id'        : 'DemandTechs',
+    'demand_technology_id'  : 'DemandTechs',
+    'supply_tech_id'        : 'SupplyTechs',
+    'supply_technology_id'  : 'SupplyTechs',
+    'efficiency_type_id'    : 'EfficiencyTypes',
+    'supply_node_id'        : 'SupplyNodes',
+    'demand_sector_id'      : 'DemandSectors',
+    'ghg_type_id'           : 'GreenhouseGasEmissionsType',
+    'ghg_id'                : 'GreenhouseGases',
+    'dispatch_feeder_id'    : 'DispatchFeeders',
+    'dispatch_constraint_id': 'DispatchConstraintTypes',
+    'day_type_id'           : 'DayType',
+    'timeshift_type_id'     : 'FlexibleLoadShiftTypes'
+}
 
 class StringMap(object):
     """
@@ -303,10 +351,10 @@ class PostgresTable(AbstractTable):
         rows, cols = self.data.shape
         print("Cached %d rows, %d cols for table '%s'" % (rows, cols, tbl_name))
 
-        self.map_strings(prefix=prefix)
+        self.map_strings()
         return self.data
 
-    def map_strings(self, prefix='_'):
+    def map_strings(self):
         tbl_name = self.name
         df = self.data
         text_maps = self.db.text_maps
@@ -320,8 +368,6 @@ class PostgresTable(AbstractTable):
 
                 if str_col.endswith('_id'):
                     str_col = str_col[:-3]    # strip off "_id"
-
-                str_col = prefix + str_col    # prepend "_" so it's identifiable when slicing dataframes
 
                 # add a column with the corresponding string value
                 df[str_col] = df[id_col].map(text_map.get)
@@ -343,6 +389,10 @@ class PostgresTable(AbstractTable):
 
         # since we map the originals (to maintain order) we don't include these again
         skip = mapped.values()
+
+        # Save text mapping tables for validation purposes, but drop the id col
+        if self.name in Text_mapping_tables:
+            skip.append('id')
 
         # Swap out str cols for id cols where they exist
         cols_to_save = [mapped.get(col, col) for col in data.columns if col not in skip]
@@ -482,8 +532,9 @@ class AbstractDatabase(object):
             return tbl
 
     def tables_with_classes(self, include_on_demand=False):
-        tables = self.get_tables_names()
-        ignore = _Tables_to_ignore + (Tables_to_load_on_demand if not include_on_demand else [])
+        # Don't create classes for "Data" tables; these are rendered as DataFrames only
+        tables = [name for name in self.get_tables_names() if not name.endswith('Data')]
+        ignore = Tables_to_ignore + (Tables_to_load_on_demand if not include_on_demand else [])
         result = sorted(list(set(tables) - set(ignore)))
         return result
 
@@ -495,7 +546,15 @@ class AbstractDatabase(object):
             if tbl.data is None:
                 tbl.load_all()
 
-            self.text_maps[name] = {id: name for idx, (id, name) in tbl.data.iterrows()}
+            # some mapping tables have other columns, but we need just id and name
+            id_col = 'id'
+            name_col = 'name'
+
+            # if name == 'ImportCost':
+            #     id_col = 'import_node_id'
+
+            df = tbl.data[[id_col, name_col]]
+            self.text_maps[name] = {id: name for idx, (id, name) in df.iterrows()}
 
         print('Loaded text mappings')
 

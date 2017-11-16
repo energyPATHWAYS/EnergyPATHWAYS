@@ -94,3 +94,4 @@ scenario_builder_config.txt
 /model_building_tools/gen_classes/schema.py
 foreign_keys.csv
 model_building_tools/gen_classes/170817_US.db
+model_building_tools/gen_classes/171112_US.db
