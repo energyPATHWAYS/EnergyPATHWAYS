@@ -11,19 +11,15 @@ import numpy as np
 import os
 import pandas as pd
 import psycopg2
-import re
 
 # TBD: Class generator should generate fields to hold the string
 # TBD: value, maybe instead of the id column (chop off the "_id")
 # TBD: and check for conflicts with other column names
 
-# TBD: check memory consumption using current approach, and using slots
-# TBD: but with row limit set to zero
-
 pd.set_option('display.width', 200)
 
 # Set to zero to read unlimited rows
-RowLimitForDebugging = 10000
+RowLimitForDebugging = 0 # 1000
 
 if RowLimitForDebugging:
     print("\n*** Limiting to %d rows for debugging! ***\n" % RowLimitForDebugging)
@@ -56,52 +52,55 @@ def resourceStream(relpath):
     text = getResource(relpath)
     return io.BytesIO(text)
 
-_Text_mapping_tables = [
+Text_mapping_tables = [
+    'AgeGrowthOrDecayType',
     'CleaningMethods',
     'Currencies',
     'DayType',
     'Definitions',
-    'DispatchFeeders',
-    'DispatchWindows',
-    # 'Month',          # doesn't exist
-    # 'OptPeriods',     # doesn't exist
-    'ShapesUnits',
-    'StockDecayFunctions',
-
-    'AgeGrowthOrDecayType',
-    'DayType',
-    'DemandTechUnitTypes',
     'DemandStockUnitTypes',
     'DemandTechEfficiencyTypes',
-    'FlexibleLoadShiftTypes',
-    'EfficiencyTypes',
+    'DemandTechUnitTypes',
     'DispatchConstraintTypes',
+    'DispatchFeeders',
+    'DispatchWindows',
+    'EfficiencyTypes',
+    'FlexibleLoadShiftTypes',
+    'Geographies',              # added 11/14/17
+    'GeographyMapKeys',         # added 11/14/17
     'GreenhouseGasEmissionsType',
     'InputTypes',
+    'OtherIndexes',             # added 11/14/17
     'ShapesTypes',
+    'ShapesUnits',
+    'StockDecayFunctions',
     'SupplyCostTypes',
     'SupplyTypes',
 ]
 
 _Tables_to_ignore = [
-    # '.*Type(s)?$', # anything ending in Type or Types
     'CurrenciesConversion', # not a string lookup
     'CurrencyYears',        # only an id col; unclear purpose.
     'DayHour',              # missing
-    'DispatchConfig',       # 8 cols
+    # 'DispatchConfig',       # 8 cols
     'DispatchFeedersData',  # missing
     'DispatchNodeConfig',   # 4 cols
     'DispatchNodeData',     # missing
     'GeographyIntersection',# only an id col
-    # 'GreenhouseGases',      # has id, name, longname
+    'GeographyIntersectionData',
+    'GeographyMap',
+    # 'GreenhouseGases',    # has id, name, longname
     'IDMap',                # identifier_id, ref_table
     'IndexLevels',          # id, index_level, data_column_name
     'InflationConversion',  # currency_year_id, currency_id, value, id
     'StockRolloverMethods', # missing
-    # 'TimeZones',            # id, name, utc_shift
+    # 'TimeZones',          # id, name, utc_shift
     'YearHour',             # missing
 ]
 
+Tables_to_load_on_demand = [
+    'ShapesData',
+]
 
 class AbstractTable(object):
     def __init__(self, db, tbl_name, cache_data=False):
@@ -150,9 +149,8 @@ class AbstractTable(object):
         for _, row in df.iterrows():
             cls.from_series(scenario, row)  # adds itself to the classes _instances_by_id dict
 
-    def link_children(self):
+    def link_children(self, missing):
         fk_by_parent = ForeignKey.fk_by_parent
-        missing = {}
 
         # After loading all "direct" data, link child records via foreign keys
         parent_tbl = self
@@ -184,11 +182,12 @@ class AbstractTable(object):
                     if key is None or np.isnan(key):
                         continue
 
-                    text = self.db.get_text(child_tbl, int(key))
+                    text = self.db.get_text(child_tbl_name, int(key))
                     if text is None:
                         missing[child_tbl_name] = 1
+                        print("** Skipping missing table '%s'" % child_tbl_name)
                     else:
-                        setattr(parent_obj, parent_col, text)
+                        setattr(parent_obj, parent_col, text)       # Never encountered this line!
                     continue
 
                 # create and save a list of all matching data class instances with matching ids
@@ -200,7 +199,7 @@ class AbstractTable(object):
         """
         Get a tuple for the row with the given id in the table associated with this class.
         Expects to find exactly one row with the given id. User must instantiate the database
-        prior before calling this method.
+        before calling this method.
 
         :param id: (int) the unique id of a row in `table`
         :param raise_error: (bool) whether to raise an error or return None if the id
@@ -240,13 +239,14 @@ class PostgresTable(AbstractTable):
     """
     def __init__(self, db, tbl_name, cache_data=False):
         super(PostgresTable, self).__init__(db, tbl_name, cache_data=cache_data)
+        self.mapped_cols = {}    # maps original columns with IDs to added columns with strings
 
     def load_rows(self, id):
         query = 'select * from "{}" where id={}'.format(self.name, id)
         tups = self.db.fetchall(query)
         return tups
 
-    def load_all(self):
+    def load_all(self, prefix='_'):
         if self.cache_data and self.data is not None:
             return self.data
 
@@ -263,7 +263,55 @@ class PostgresTable(AbstractTable):
         self.data = pd.DataFrame.from_records(data=rows, columns=self.columns, index=None)
         rows, cols = self.data.shape
         print("Cached %d rows, %d cols for table '%s'" % (rows, cols, tbl_name))
+
+        self.map_strings(prefix=prefix)
         return self.data
+
+    def map_strings(self, prefix='_'):
+        tbl_name = self.name
+        df = self.data
+        text_maps = self.db.text_maps
+
+        fkeys = ForeignKey.fk_by_parent.get(tbl_name) or []
+        for fk in fkeys:
+            ftable = fk.foreign_table_name
+            text_map = text_maps.get(ftable)
+            if text_map:
+                str_col = id_col = fk.column_name
+
+                if str_col.endswith('_id'):
+                    str_col = str_col[:-3]    # strip off "_id"
+
+                str_col = prefix + str_col    # prepend "_" so it's identifiable when slicing dataframes
+
+                # add a column with the corresponding string value
+                df[str_col] = df[id_col].map(text_map.get)
+
+                # and record the mapping
+                self.mapped_cols[id_col] = str_col
+
+    def to_csv(self, db_dir):
+        """
+        Save the cached data to a CSV file in the given "db", which is just a
+        directory named with a ".db" extension, containing CSV "table" files.
+        String ID columns are not saved; string columns are saved instead.
+
+        :param db_dir: (str) the directory in which to write the CSV file
+        :return: none
+        """
+        data = self.data
+        mapped = self.mapped_cols
+
+        # since we map the originals (to maintain order) we don't include these again
+        skip = mapped.values()
+
+        # Swap out str cols for id cols where they exist
+        cols_to_save = [mapped.get(col, col) for col in data.columns if col not in skip]
+
+        df = data[cols_to_save]
+        pathname = os.path.join(db_dir, self.name + '.csv')
+        df.to_csv(pathname, index=None)
+
 
 class CsvTable(AbstractTable):
     """
@@ -310,6 +358,39 @@ def forget_database():
     _Database = None
 
 
+class StringMap(object):
+    """
+    A simple class to map strings to integer IDs and back again.
+    """
+    instance = None
+
+    @classmethod
+    def getInstance(cls):
+        if not cls.instance:
+            cls.instance = cls()
+
+        return cls.instance
+
+    def __init__(self):
+        self.txt_to_id = {}     # maps text to integer id
+        self.id_to_txt = {}     # maps id back to text
+        self.next_id = 1        # the next id to assign
+
+    def store(self, txt):
+        id = self.next_id
+        self.next_id += 1
+
+        self.txt_to_id[txt] = id
+        self.id_to_txt[id] = txt
+        return id
+
+    def get_id(self, txt, raise_error=True):
+        return self.txt_to_id[txt] if raise_error else self.txt_to_id.get(txt, None)
+
+    def get_txt(self, id, raise_error=True):
+        return self.id_to_txt[id] if raise_error else self.id_to_txt.get(id, None)
+
+
 class ForeignKey(object):
     """"
     A simple data-only class to store foreign key information
@@ -351,7 +432,7 @@ class AbstractDatabase(object):
         if not _Database:
             _Database = cls(**kwargs)
             _Database._cache_table_names()
-            _Database._load_text_mappings()
+            _Database.load_text_mappings()
 
         return _Database
 
@@ -371,14 +452,20 @@ class AbstractDatabase(object):
             tbl = self.table_objs[name] = self.table_class(self, name, cache_data=self.cache_data)
             return tbl
 
-    def tables_with_classes(self):
+    def tables_with_classes(self, include_on_demand=False):
         tables = self.get_tables_names()
-        result = filter(lambda name: not any([re.match(pattern, name) for pattern in _Tables_to_ignore]), tables)
+        ignore = _Tables_to_ignore + (Tables_to_load_on_demand if not include_on_demand else [])
+        result = sorted(list(set(tables) - set(ignore)))
         return result
 
-    def _load_text_mappings(self):
-        for name in _Text_mapping_tables:
+    def load_text_mappings(self):
+        for name in Text_mapping_tables:
             tbl = self.get_table(name)
+
+            # class generator needs this since we don't load entire DB
+            if tbl.data is None:
+                tbl.load_all()
+
             self.text_maps[name] = {id: name for idx, (id, name) in tbl.data.iterrows()}
 
         print('Loaded text mappings')

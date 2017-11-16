@@ -27,8 +27,10 @@ def load_data_objects(scenario, load_children=True):
         cls = class_for_table(name)
         tbl.load_data_object(cls, scenario)
 
-        if load_children:
-            tbl.link_children()
+    if load_children:
+        missing = {}
+        for tbl in table_objs:
+            tbl.link_children(missing)
 
     print("Done loading data objects")
 

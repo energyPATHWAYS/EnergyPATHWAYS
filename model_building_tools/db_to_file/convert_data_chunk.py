@@ -18,7 +18,7 @@ class DataTableChunk:
 
     # Note that the order matters here; if we find one of the longer suffixes, we want to drop those first, and
     # only assume that the suffix is a simple 'Data' if we don't find anything earlier in the list.
-    SUFFIXES = ('NewData', 'RelpacementData', 'Data')
+    SUFFIXES = ('NewData', 'ReplacementData', 'Data')
 
     # This tells us what id:name lookup table to use for a given column name
     LOOKUP_MAP = {

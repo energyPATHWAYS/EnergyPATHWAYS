@@ -3,8 +3,7 @@ import pandas as pd
 import sys
 
 from energyPATHWAYS.database import PostgresDatabase, CsvDatabase, forget_database
-
-from energyPATHWAYS.schema import BlendNodeBlendMeasures, BlendNodeBlendMeasuresData, class_for_table
+from energyPATHWAYS.schema import BlendNodeBlendMeasures, BlendNodeBlendMeasuresData, class_for_table, load_data_objects
 
 pd.set_option('display.width', 200)
 
@@ -34,6 +33,8 @@ def test_with_db(db):
 
 db = PostgresDatabase.get_database(dbname='170817_US', user='rjp', cache_data=True)
 test_with_db(db)
+
+load_data_objects(scenario)
 
 forget_database()
 
