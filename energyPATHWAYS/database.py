@@ -102,6 +102,45 @@ Tables_to_load_on_demand = [
     'ShapesData',
 ]
 
+
+class StringMap(object):
+    """
+    A simple class to map strings to integer IDs and back again.
+    """
+    instance = None
+
+    @classmethod
+    def getInstance(cls):
+        if not cls.instance:
+            cls.instance = cls()
+
+        return cls.instance
+
+    def __init__(self):
+        self.txt_to_id = {}     # maps text to integer id
+        self.id_to_txt = {}     # maps id back to text
+        self.next_id = 1        # the next id to assign
+
+    def store(self, txt):
+        # If already known, return it
+        id = self.get_id(txt, raise_error=False)
+        if id is not None:
+            return id
+
+        id = self.next_id
+        self.next_id += 1
+
+        self.txt_to_id[txt] = id
+        self.id_to_txt[id] = txt
+        return id
+
+    def get_id(self, txt, raise_error=True):
+        return self.txt_to_id[txt] if raise_error else self.txt_to_id.get(txt, None)
+
+    def get_txt(self, id, raise_error=True):
+        return self.id_to_txt[id] if raise_error else self.id_to_txt.get(id, None)
+
+
 class AbstractTable(object):
     def __init__(self, db, tbl_name, cache_data=False):
         self.db = db
@@ -325,7 +364,7 @@ class CsvTable(AbstractTable):
     def load_rows(self, id):
         raise PathwaysException("CsvTable.load_rows should not be called since the CSV file is always cached")
 
-    def load_all(self):
+    def load_all(self, drop_str_cols=True):
         if self.data is not None:
             return self.data
 
@@ -340,8 +379,31 @@ class CsvTable(AbstractTable):
         else:
             df = pd.read_csv(filename, index_col=index_col)
 
+        mapper = StringMap.getInstance()
+
+        # String mapped columns are prefixed with "_"
+        str_cols = [col for col in df.columns if col[0] == '_']
+
+        for col in str_cols:
+            # Ensure that all values are in the StringMap
+            values = df[col].unique()
+            for value in values:
+                mapper.store(value)
+
+            # change "_foo" to "foo_id"
+            id_col = col[1:] + '_id'
+
+            # create a column with integer ids
+            df[id_col] = df[col].map(mapper.txt_to_id)
+
+        if drop_str_cols:
+            df.drop(str_cols, axis=1, inplace=True)
+
         self.data = df
-        # self.data.fillna(value=None, inplace=True)        # TBD: can't fill with None; check preferred handling
+
+        # TBD: can't fill with None; check preferred handling
+        # self.data.fillna(value=None, inplace=True)
+
         rows, cols = self.data.shape
         print("Cached %d rows, %d cols for table '%s' from %s" % (rows, cols, tbl_name, filename))
         return self.data
@@ -356,39 +418,6 @@ def get_database():
 def forget_database():
     global _Database
     _Database = None
-
-
-class StringMap(object):
-    """
-    A simple class to map strings to integer IDs and back again.
-    """
-    instance = None
-
-    @classmethod
-    def getInstance(cls):
-        if not cls.instance:
-            cls.instance = cls()
-
-        return cls.instance
-
-    def __init__(self):
-        self.txt_to_id = {}     # maps text to integer id
-        self.id_to_txt = {}     # maps id back to text
-        self.next_id = 1        # the next id to assign
-
-    def store(self, txt):
-        id = self.next_id
-        self.next_id += 1
-
-        self.txt_to_id[txt] = id
-        self.id_to_txt[id] = txt
-        return id
-
-    def get_id(self, txt, raise_error=True):
-        return self.txt_to_id[txt] if raise_error else self.txt_to_id.get(txt, None)
-
-    def get_txt(self, id, raise_error=True):
-        return self.id_to_txt[id] if raise_error else self.id_to_txt.get(id, None)
 
 
 class ForeignKey(object):
