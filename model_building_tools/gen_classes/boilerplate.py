@@ -2,7 +2,6 @@
 
 import sys
 from energyPATHWAYS.error import UnknownDataClass
-from energyPATHWAYS.data_object import DataObject
 from energyPATHWAYS.database import get_database
 
 _Module = sys.modules[__name__]  # get ref to our own module object
@@ -35,4 +34,3 @@ def load_data_objects(scenario, load_children=True):
     print("Done loading data objects")
 
 ## End of boilerplate.py ##
-

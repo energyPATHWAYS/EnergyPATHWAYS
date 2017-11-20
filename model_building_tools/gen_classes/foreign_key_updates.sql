@@ -73,6 +73,10 @@ alter table "DispatchFeedersAllocationData"
   add constraint "DispatchFeedersAllocationData_parent_id_fkey"
   foreign key (parent_id) references "DispatchFeedersAllocation"(id);
 
+alter table "DispatchFeedersAllocationData"
+  add constraint "DispatchFeedersAllocationData_dispatch_feeder_id_fkey"
+  foreign key (dispatch_feeder_id) references "DispatchFeeders"(id);
+
 alter table "ImportCostData" drop constraint "ImportCostData_import_node_id_fkey";
 alter table "ImportCostData"
   add constraint "ImportCostData_import_node_id_fkey"
@@ -107,6 +111,11 @@ alter table "SupplyCapacityFactorData" drop constraint "SupplyCapacityFactorData
 alter table "SupplyCapacityFactorData"
   add constraint "SupplyCapacityFactorData_supply_node_id_fkey"
   foreign key (supply_node_id) references "SupplyNodes"(id);
+
+alter table "SupplyEfficiencyData" drop constraint "SupplyEfficiencyData_parent_id_fkey";
+alter table "SupplyEfficiencyData"
+  add constraint "SupplyEfficiencyData_parent_id_fkey"
+  foreign key (parent_id) references "SupplyNodes"(id);
 
 alter table "SupplyEmissionsData" drop constraint "SupplyEmissionsData_supply_node_id_fkey";
 alter table "SupplyEmissionsData"
@@ -167,6 +176,11 @@ alter table "SupplyTechsEfficiencyData" drop constraint "SupplyTechsEfficiencyDa
 alter table "SupplyTechsEfficiencyData"
   add constraint "SupplyTechsEfficiencyData_supply_tech_id_fkey"
   foreign key (supply_tech_id) references "SupplyTechs"(id);
+
+alter table "SupplyTechsEfficiency" drop constraint "SupplyTechsEfficiency_reference_tech_id_fkey";
+alter table "SupplyTechsEfficiency"
+  add constraint "SupplyTechsEfficiency_reference_tech_id_fkey"
+  foreign key (reference_tech_id) references "SupplyTechs"(id);
 
 alter table "SupplyTechsFixedMaintenanceCostData" drop constraint "SupplyTechsFixedMaintenanceCostData_supply_tech_id_fkey";
 alter table "SupplyTechsFixedMaintenanceCostData"

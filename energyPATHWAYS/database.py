@@ -6,60 +6,85 @@
 #
 from __future__ import print_function
 from collections import defaultdict
+import glob
 import gzip
 import numpy as np
 import os
 import pandas as pd
 import psycopg2
 
-# TBD: Class generator should generate fields to hold the string
-# TBD: value, maybe instead of the id column (chop off the "_id")
-# TBD: and check for conflicts with other column names
-
 pd.set_option('display.width', 200)
-
-# Set to zero to read unlimited rows
-RowLimitForDebugging = 0 # 1000
-
-if RowLimitForDebugging:
-    print("\n*** Limiting to %d rows for debugging! ***\n" % RowLimitForDebugging)
 
 from .error import PathwaysException, RowNotFound, DuplicateRowsFound, SubclassProtocolError
 
-# TBD: move these funcs to utils when merging code
-import pkgutil
-import io
-
-def getResource(relpath):
+def mkdirs(newdir, mode=0o770):
     """
-    Extract a resource (e.g., file) from the given relative path in
-    the energyPATHWAYS package.
+    Try to create the full path `newdir` and ignore the error if it already exists.
 
-    :param relpath: (str) a path relative to the energyPATHWAYS package
-    :return: the file contents
+    :param newdir: the directory to create (along with any needed parent directories)
+    :return: nothing
     """
-    contents = pkgutil.get_data('energyPATHWAYS', relpath)
-    return contents
+    from errno import EEXIST
 
-def resourceStream(relpath):
-    """
-    Return a stream on the resource found on the given path relative
-    to the pygcam package.
+    try:
+        os.makedirs(newdir, mode)
+    except OSError as e:
+        if e.errno != EEXIST:
+            raise
 
-    :param relpath: (str) a path relative to the pygcam package
-    :return: (file-like stream) a file-like buffer opened on the desired resource.
-    """
-    text = getResource(relpath)
-    return io.BytesIO(text)
+def find_col(candidates, cols):
+    for col in candidates:
+        if col in cols:
+            return col
+    return None
 
-Text_mapping_tables = [
+def find_key_col(cols):
+    '''
+    Find the key column.
+    '''
+    key_cols = ('name', 'parent', 'subsector', 'demand_technology', 'supply_node',
+                'supply_tech', 'import_node', 'primary_node', 'index_level')
+    return find_col(key_cols, cols)
+
+def find_parent_col(cols):
+    '''
+    Find the column identifying the parent record.
+    '''
+    parent_cols = ('parent', 'subsector', 'demand_technology', 'supply_node', 'supply_tech')
+    return find_col(parent_cols, cols)
+
+
+# Tables with only one column
+Simple_mapping_tables = [
     'AgeGrowthOrDecayType',
-    'BlendNodeBlendMeasures',
-    'CO2PriceMeasures',
     'CleaningMethods',
     'Currencies',
     'DayType',
     'Definitions',
+    'DemandStockUnitTypes',
+    'DemandTechEfficiencyTypes',
+    'DemandTechUnitTypes',
+    'DispatchConstraintTypes',
+    'DispatchFeeders',
+    'DispatchWindows',
+    'EfficiencyTypes',
+    'FlexibleLoadShiftTypes',
+    'Geographies',
+    'GeographyMapKeys',
+    'GreenhouseGasEmissionsType',
+    'InputTypes',
+    'OtherIndexes',
+    'ShapesTypes',
+    'ShapesUnits',
+    'StockDecayFunctions',
+    'SupplyCostTypes',
+    'SupplyTypes'
+]
+
+# Tables that map strings but have other columns as well
+Text_mapping_tables = Simple_mapping_tables + [
+    'BlendNodeBlendMeasures',
+    'CO2PriceMeasures',
     'DemandCO2CaptureMeasures',
     'DemandDrivers',
     'DemandEnergyEfficiencyMeasures',
@@ -68,88 +93,36 @@ Text_mapping_tables = [
     'DemandSalesShareMeasures',
     'DemandSectors',
     'DemandServiceDemandMeasures',
+    'DemandServiceLink',
     'DemandStockMeasures',
-    'DemandStockUnitTypes',
     'DemandSubsectors',
-    'DemandTechEfficiencyTypes',
-    'DemandTechUnitTypes',
     'DemandTechs',
-    'DispatchConstraintTypes',
-    'DispatchFeeders',
     'DispatchTransmissionConstraint',
-    'DispatchWindows',
-    'EfficiencyTypes',
     'FinalEnergy',
-    'FlexibleLoadShiftTypes',
-    'Geographies',
     'GeographiesData',
-    'GeographyMapKeys',
-    'GreenhouseGasEmissionsType',
     'GreenhouseGases',
-    'InputTypes',
-    'OtherIndexes',
     'OtherIndexesData',
     'Shapes',
-    'ShapesTypes',
-    'ShapesUnits',
-    'StockDecayFunctions',
     'SupplyCost',
-    'SupplyCostTypes',
     'SupplyExportMeasures',
     'SupplyNodes',
     'SupplySalesMeasures',
     'SupplySalesShareMeasures',
     'SupplyStockMeasures',
     'SupplyTechs',
-    'SupplyTypes',
 ]
 
 Tables_to_ignore = [
-    'GeographyIntersection', # only an id col
+    'CurrencyYears',
+    'DispatchConfig',
+    'GeographyIntersection',
     'GeographyIntersectionData',
     'GeographyMap',
-
-    # 'CurrenciesConversion', # not a string lookup
-    # 'CurrencyYears',        # only an id col; unclear purpose.
-    # 'DayHour',              # missing
-    # 'DispatchConfig',       # 8 cols
-    # 'DispatchFeedersData',  # missing
-    # 'DispatchNodeConfig',   # 4 cols
-    # 'DispatchNodeData',     # missing
-    # 'GreenhouseGases',      # id, name, longname
-    # 'IDMap',                # canonical list of columns in the parent tables that get turned from integers to strings and have "_id" dropped
-    # 'IndexLevels',          # id, index_level, data_column_name
-    # 'InflationConversion',  # currency_year_id, currency_id, value, id
-    # 'StockRolloverMethods', # missing
-    # 'TimeZones',            # id, name, utc_shift
-    # 'YearHour',             # missing
 ]
 
 Tables_to_load_on_demand = [
     'ShapesData',
 ]
-
-# This tells us what id:name lookup table to use for a given column name
-LOOKUP_MAP = {
-    'gau_id'                : 'GeographiesData',
-    'oth_1_id'              : 'OtherIndexesData',
-    'oth_2_id'              : 'OtherIndexesData',
-    'final_energy'          : 'FinalEnergy',
-    'final_energy_id'       : 'FinalEnergy',
-    'demand_tech_id'        : 'DemandTechs',
-    'demand_technology_id'  : 'DemandTechs',
-    'supply_tech_id'        : 'SupplyTechs',
-    'supply_technology_id'  : 'SupplyTechs',
-    'efficiency_type_id'    : 'EfficiencyTypes',
-    'supply_node_id'        : 'SupplyNodes',
-    'demand_sector_id'      : 'DemandSectors',
-    'ghg_type_id'           : 'GreenhouseGasEmissionsType',
-    'ghg_id'                : 'GreenhouseGases',
-    'dispatch_feeder_id'    : 'DispatchFeeders',
-    'dispatch_constraint_id': 'DispatchConstraintTypes',
-    'day_type_id'           : 'DayType',
-    'timeshift_type_id'     : 'FlexibleLoadShiftTypes'
-}
 
 class StringMap(object):
     """
@@ -205,15 +178,13 @@ class AbstractTable(object):
     def __str__(self):
         return "<%s %s>" % (self.__class__.__name__, self.name)
 
-    def load_rows(self, id, raise_error=True):
+    def load_rows(self, id):
         """
         Load row(s) of data for the given id from the external storage (database, csv file).
         This method will differ by subclass, whereas getting data from an internal cache
         will not.
 
         :param id: (int) primary key for the data in `table`
-        :param raise_error: (bool) whether to raise an error or return None
-           if the id is not found.
         :return:
         """
         raise SubclassProtocolError(self.__class__, 'load_rows')
@@ -236,6 +207,7 @@ class AbstractTable(object):
         for _, row in df.iterrows():
             cls.from_series(scenario, row)  # adds itself to the classes _instances_by_id dict
 
+    # TBD: obsolete once psql-to-csv conversion is complete
     def link_children(self, missing):
         fk_by_parent = ForeignKey.fk_by_parent
 
@@ -282,40 +254,42 @@ class AbstractTable(object):
                 parent_tbl.children_by_fk_col[parent_col] = children
 
 
-    def get_row(self, id, raise_error=True):
+    def get_row(self, key_col, key, raise_error=True):
         """
         Get a tuple for the row with the given id in the table associated with this class.
         Expects to find exactly one row with the given id. User must instantiate the database
         before calling this method.
 
-        :param id: (int) the unique id of a row in `table`
+        :param key_col: (str) the name of the column holding the key value
+        :param key: (str) the unique id of a row in `table`
         :param raise_error: (bool) whether to raise an error or return None if the id
            is not found.
         :return: (tuple) of values in the order the columns are defined in the table
         :raises RowNotFound: if raise_error is True and `id` is not present in `table`.
         """
         name = self.name
+        query = "{} == '{}'".format(key_col, key)
 
         if self.data is not None:
-            print('Getting row for %s id=%d from cache' % (name, id))
-            rows = self.data.query("id == %d" % id)
+            print('Getting row {} from cache'.format(query))
+            rows = self.data.query(query)
             print(rows)
             tups = []
             for idx, row in rows.iterrows():
                 tups.append(tuple(row))
         else:
-            print('Getting row for %s id=%d from database' % (name, id))
-            tups = self.load_rows(id, raise_error=raise_error)
+            print('Getting row {} from database'.format(query))
+            tups = self.load_rows(key)
 
         count = len(tups)
         if count == 0:
             if raise_error:
-                raise RowNotFound(name, id)
+                raise RowNotFound(name, key)
             else:
                 return None
 
         if count > 1:
-            raise DuplicateRowsFound(name, id)
+            raise DuplicateRowsFound(name, key)
 
         return tups[0]
 
@@ -328,28 +302,28 @@ class PostgresTable(AbstractTable):
         super(PostgresTable, self).__init__(db, tbl_name, cache_data=cache_data)
         self.mapped_cols = {}    # maps original columns with IDs to added columns with strings
 
-    def load_rows(self, id):
-        query = 'select * from "{}" where id={}'.format(self.name, id)
+    def load_rows(self, key):
+        query = 'select * from "{}" where key="{}"'.format(self.name, key)
         tups = self.db.fetchall(query)
         return tups
 
-    def load_all(self, prefix='_'):
+    def load_all(self, limit=0, prefix='_'):
         if self.cache_data and self.data is not None:
             return self.data
 
         tbl_name = self.name
         query = """select column_name, data_type from INFORMATION_SCHEMA.COLUMNS 
-                   where table_name = '%s' and table_schema = 'public'""" % tbl_name
+                   where table_name = '{}' and table_schema = 'public'""".format(tbl_name)
         self.columns = self.db.fetchcolumn(query)
 
         query = 'select * from "%s"' % tbl_name
-        if RowLimitForDebugging:
-            query += ' limit %d' % RowLimitForDebugging
+        if limit:
+            query += ' limit %d' % limit
 
         rows = self.db.fetchall(query)
         self.data = pd.DataFrame.from_records(data=rows, columns=self.columns, index=None)
         rows, cols = self.data.shape
-        print("Cached %d rows, %d cols for table '%s'" % (rows, cols, tbl_name))
+        print("Cached {} rows, {} cols for table '{}'".format(rows, cols, tbl_name))
 
         self.map_strings()
         return self.data
@@ -363,10 +337,13 @@ class PostgresTable(AbstractTable):
         for fk in fkeys:
             ftable = fk.foreign_table_name
             text_map = text_maps.get(ftable)
-            if text_map:
+            if text_map is not None:
                 str_col = id_col = fk.column_name
 
-                if str_col.endswith('_id'):
+                # Special case for SupplyEfficiency (and others?)
+                if str_col == 'id':
+                    str_col = 'name'
+                elif str_col.endswith('_id'):
                     str_col = str_col[:-3]    # strip off "_id"
 
                 # add a column with the corresponding string value
@@ -374,6 +351,21 @@ class PostgresTable(AbstractTable):
 
                 # and record the mapping
                 self.mapped_cols[id_col] = str_col
+
+    col_renames = {
+        'CurrenciesConversion':
+            {'currency_year_id' : 'currency_year'},
+        # 'DemandTechsServiceLink':
+        #     {'service_link' : 'name'},
+        'DemandTechsServiceLinkData':
+            {'parent_id' : 'service_link'},
+        'DispatchFeedersAllocationData':
+            {'parent_id' : 'name'},
+        'DispatchFeedersAllocation':
+            {'id': 'name'},
+        'SupplyEfficiency':
+            {'id': 'name'},
+    }
 
     def to_csv(self, db_dir):
         """
@@ -384,22 +376,47 @@ class PostgresTable(AbstractTable):
         :param db_dir: (str) the directory in which to write the CSV file
         :return: none
         """
+        name = self.name
         data = self.data
         mapped = self.mapped_cols
+
+        renames = self.col_renames.get(name)
 
         # since we map the originals (to maintain order) we don't include these again
         skip = mapped.values()
 
-        # Save text mapping tables for validation purposes, but drop the id col
-        if self.name in Text_mapping_tables:
+        # Save text mapping tables for validation purposes, but drop the id col (unless we're renaming it)
+        if name in Text_mapping_tables and not (renames and renames.get('id')):
             skip.append('id')
 
         # Swap out str cols for id cols where they exist
         cols_to_save = [mapped.get(col, col) for col in data.columns if col not in skip]
 
         df = data[cols_to_save]
-        pathname = os.path.join(db_dir, self.name + '.csv')
-        df.to_csv(pathname, index=None)
+
+        if renames:
+            print("Renaming columns for %s: %s" % (name, renames))
+            df.rename(columns=renames, inplace=True)
+
+        # Handle special case for ShapesData. Split this 3.5 GB data file
+        # into individual files for each Shape ID (translated to name)
+        if name == 'ShapesData':
+            dirname = os.path.join(db_dir, 'ShapeData')
+            mkdirs(dirname)
+
+            shapes = self.db.get_table('Shapes')
+            shape_names = list(shapes.data.name)
+
+            for shape_name in shape_names:
+                filename = shape_name.replace(' ', '_') + '.csv.gz'
+                pathname = os.path.join(dirname, filename)
+                chunk = df.query('parent == "{}"'.format(shape_name))
+                print("Writing {} rows to {}".format(len(chunk), pathname))
+                with gzip.open(pathname, 'wb') as f:
+                    chunk.to_csv(f, index=None)
+        else:
+            pathname = os.path.join(db_dir, name + '.csv')
+            df.to_csv(pathname, index=None)
 
 
 class CsvTable(AbstractTable):
@@ -431,6 +448,7 @@ class CsvTable(AbstractTable):
 
         mapper = StringMap.getInstance()
 
+        # TBD: redo this using a dict of table.column keys
         # String mapped columns are prefixed with "_"
         str_cols = [col for col in df.columns if col[0] == '_']
 
@@ -455,9 +473,40 @@ class CsvTable(AbstractTable):
         # self.data.fillna(value=None, inplace=True)
 
         rows, cols = self.data.shape
-        print("Cached %d rows, %d cols for table '%s' from %s" % (rows, cols, tbl_name, filename))
+        print("Cached {} rows, {} cols for table '{}' from {}".format(rows, cols, tbl_name, filename))
         return self.data
 
+
+class ShapeDataMgr(object):
+    """
+    Handles the special case of the pre-sliced ShapesData
+    """
+    def __init__(self, db_path):
+        self.db_path = db_path
+        self.tbl_name = 'ShapeData'
+        self.slices = {}        # maps shape name to DF containing that shape's data rows
+        self.file_map = {}
+
+    def load_all(self):
+        if self.slices:
+            return self.slices
+
+        # ShapeData is stored in gzipped slices of original 3.5 GB table.
+        # The files are in a "{db_name}.db/ShapeData/{shape_name}.csv.gz"
+        shape_files = glob.glob(os.path.join(self.db_path, self.tbl_name, '*.csv.gz'))
+
+        for filename in shape_files:
+            basename = os.path.basename(filename)
+            shape_name = basename.split('.')[0]
+
+            with gzip.open(filename, 'rb') as f:
+                print("Reading shape data for {}".format(shape_name))
+                df = pd.read_csv(f, index_col=None)
+                self.slice[shape_name] = df
+
+    def get_slice(self, name):
+        name = name.replace(' ', '_')
+        return self.slice[name]
 
 # The singleton object
 _Database = None
@@ -489,8 +538,8 @@ class ForeignKey(object):
         ForeignKey.fk_by_parent[tbl_name].append(self)
 
     def __str__(self):
-        return "<ForeignKey %s.%s -> %s.%s>" % (self.table_name, self.column_name,
-                                               self.foreign_table_name, self.foreign_column_name)
+        return "<ForeignKey {}.{} -> {}.{}>".format(self.table_name, self.column_name,
+                                                    self.foreign_table_name, self.foreign_column_name)
 
 class AbstractDatabase(object):
     """
@@ -511,7 +560,6 @@ class AbstractDatabase(object):
         if not _Database:
             _Database = cls(**kwargs)
             _Database._cache_table_names()
-            _Database.load_text_mappings()
 
         return _Database
 
@@ -532,8 +580,10 @@ class AbstractDatabase(object):
             return tbl
 
     def tables_with_classes(self, include_on_demand=False):
+        exclude = ['CurrenciesConversion', 'GeographyMap', 'IDMap', 'InflationConversion', 'Version', 'foreign_keys'] + Simple_mapping_tables
+
         # Don't create classes for "Data" tables; these are rendered as DataFrames only
-        tables = [name for name in self.get_tables_names() if not name.endswith('Data')]
+        tables = [name for name in self.get_tables_names() if not (name in exclude or name.endswith('Data'))]
         ignore = Tables_to_ignore + (Tables_to_load_on_demand if not include_on_demand else [])
         result = sorted(list(set(tables) - set(ignore)))
         return result
@@ -554,7 +604,8 @@ class AbstractDatabase(object):
             #     id_col = 'import_node_id'
 
             df = tbl.data[[id_col, name_col]]
-            self.text_maps[name] = {id: name for idx, (id, name) in df.iterrows()}
+            # coerce names to str since we use numeric ids in some cases
+            self.text_maps[name] = {id: str(name) for idx, (id, name) in df.iterrows()}
 
         print('Loaded text mappings')
 
@@ -596,9 +647,12 @@ class AbstractDatabase(object):
     def fetchall(self, sql):
         raise SubclassProtocolError(self.__class__, 'fetchall')
 
-    def get_row_from_table(self, name, id, raise_error=True):
+    def get_columns(self, table):
+        raise SubclassProtocolError(self.__class__, 'get_columns')
+
+    def get_row_from_table(self, name, key_col, key, raise_error=True):
         tbl = self.get_table(name)
-        tup = tbl.get_row(id, raise_error=raise_error)
+        tup = tbl.get_row(key_col, key, raise_error=raise_error)
         return tup
 
 
@@ -623,9 +677,9 @@ class PostgresDatabase(AbstractDatabase):
                  cache_data=False):
         super(PostgresDatabase, self).__init__(table_class=PostgresTable, cache_data=cache_data)
 
-        conn_str = "host='%s' dbname='%s' user='%s'" % (host, dbname, user)
+        conn_str = "host='{}' dbname='{}' user='{}'".format(host, dbname, user)
         if password:
-            conn_str += " password='%s'" % password
+            conn_str += " password='{}'".format(password)
 
         self.con = psycopg2.connect(conn_str)
         self.cur = self.con.cursor()
@@ -652,6 +706,7 @@ class PostgresDatabase(AbstractDatabase):
                      cache_data=False):
         db = cls._get_database(host=host, dbname=dbname, user=user, password=password,
                                cache_data=cache_data)
+        db.load_text_mappings()
         return db
 
     def _cache_foreign_keys(self):
@@ -690,24 +745,42 @@ class CsvDatabase(AbstractDatabase):
         self.pathname = pathname
         self.create_file_map()
         self._cache_foreign_keys()
+        self.shapes = ShapeDataMgr(pathname)
+
+    def get_slice(self, name):
+        '''
+        Pass thru to ShapeDataMgr
+        '''
+        return self.shapes.get_slice(name)
 
     def get_tables_names(self):
         return self.file_map.keys()
 
     @classmethod
     def get_database(cls, pathname=None):
+        # Add ".db" if missing
+        if pathname:
+            pathname += ('' if pathname.endswith('.db') else '.db')
+
         db = cls._get_database(pathname=pathname)
         return db
+
+    def get_columns(self, table):
+        pathname = self.file_for_table(table)
+        with open(pathname, 'r') as f:
+            headers = f.readline().strip()
+        result = headers.split(',')
+        return result
 
     def _cache_foreign_keys(self):
         """
         The CSV database reads the foreign key data that was exported from postgres.
         """
-        stream = resourceStream('data/foreign_keys.csv')
-        df = pd.read_csv(stream, index_col=None)
+        pathname = self.file_for_table('foreign_keys')
+        df = pd.read_csv(pathname, index_col=None)
         for _, row in df.iterrows():
-            row = tuple(row)
-            ForeignKey(*row)
+            tbl_name, col_name, for_tbl_name, for_col_name = tuple(row)
+            ForeignKey(tbl_name, col_name, for_tbl_name, for_col_name)
 
     def create_file_map(self):
         pathname = self.pathname
@@ -718,17 +791,16 @@ class CsvDatabase(AbstractDatabase):
         if not os.path.isdir(pathname):
             raise PathwaysException('Database path "%s" is not a directory')
 
-        for root, dir, files in os.walk(pathname):
-            csv_files = filter(lambda fn: fn.endswith('.csv') or fn.endswith('csv.gz'), files)
-            for csv in csv_files:
-                basename = os.path.basename(csv)
-                tbl_name = basename.split('.')[0]
-                path = os.path.join(root, csv)
-                self.file_map[tbl_name] = path
+        all_csv = os.path.join(pathname, '*.csv')
+        all_gz  = all_csv + '.gz'
+        all_files = glob.glob(all_csv) + glob.glob(all_gz)
+
+        for filename in all_files:
+            basename = os.path.basename(filename)
+            tbl_name = basename.split('.')[0]
+            self.file_map[tbl_name] = os.path.abspath(filename)
 
         print("Found %d .CSV files for '%s'" % (len(self.file_map), pathname))
 
     def file_for_table(self, tbl_name):
         return self.file_map.get(tbl_name)
-
-

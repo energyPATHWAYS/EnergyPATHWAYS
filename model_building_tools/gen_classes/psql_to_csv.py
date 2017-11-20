@@ -2,23 +2,7 @@
 from __future__ import print_function
 import click
 import os
-from energyPATHWAYS.database import PostgresDatabase
-
-# TODO: Move this to util.py?
-def mkdirs(newdir, mode=0o770):
-    """
-    Try to create the full path `newdir` and ignore the error if it already exists.
-
-    :param newdir: the directory to create (along with any needed parent directories)
-    :return: nothing
-    """
-    from errno import EEXIST
-
-    try:
-        os.makedirs(newdir, mode)
-    except OSError as e:
-        if e.errno != EEXIST:
-            raise
+from energyPATHWAYS.database import PostgresDatabase, Tables_to_ignore, mkdirs
 
 @click.command()
 @click.option('--dbname', '-d', default='pathways',
@@ -37,7 +21,10 @@ def mkdirs(newdir, mode=0o770):
 @click.option('--password', '-p', default='',
               help='PostreSQL password (default="")')
 
-def main(dbname, db_dir, host, user, password):
+@click.option('--limit', '-l', type=int, default=0,
+              help='Limit the number of rows read (useful for debugging; default=0, which means unlimited)')
+
+def main(dbname, db_dir, host, user, password, limit):
     db = PostgresDatabase(host=host, dbname=dbname, user=user, password=password, cache_data=False)
 
     db_dir = db_dir or dbname + '.db'
@@ -48,12 +35,15 @@ def main(dbname, db_dir, host, user, password):
 
     #table_names = db.tables_with_classes(include_on_demand=True)
 
-    tables_to_skip = ['GeographyIntersection', 'GeographyIntersectionData']
+    tables_to_skip = Tables_to_ignore + ['GeographyIntersection', 'GeographyIntersectionData']
     table_names = [name for name in db.get_tables_names() if name not in tables_to_skip]
     table_objs  = [db.get_table(name) for name in table_names]
 
+    if limit:
+        print("\n*** Limiting reads to %d rows per table! ***\n" % limit)
+
     for tbl in table_objs:
-        tbl.load_all()
+        tbl.load_all(limit=limit)
         tbl.to_csv(db_dir)
 
     # Save foreign keys so they can be used by CSV database

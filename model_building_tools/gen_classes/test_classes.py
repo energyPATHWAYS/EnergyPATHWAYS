@@ -2,13 +2,16 @@ from energyPATHWAYS.database import CsvDatabase, PostgresDatabase
 from energyPATHWAYS.schema import load_data_objects
 
 if __name__ == '__main__':
-    testPostgres = True
+    dbname = '171112_US'
+
+    testPostgres = False
 
     if testPostgres:
-        db = PostgresDatabase.get_database(dbname='170817_US', user='rjp', cache_data=True)
+        db = PostgresDatabase.get_database(dbname=dbname, user='rjp', cache_data=True)
     else:
-        db = CsvDatabase.get_database(pathname='/Users/rjp/Projects/EvolvedEnergy/us_pathways.db')
+        db = CsvDatabase.get_database(pathname=dbname)
 
-    scenario = 'foo'
+    scenario = 'foo'    # TBD: not yet implemented
     load_data_objects(scenario)
+
     print("Done.")
