@@ -71,6 +71,9 @@ class TransmissionSuper(Abstract):
                             capacity.values()))
         return capacity
 
+    def get_values(self, year):
+        return self.values.loc[year]
+
 class DispatchTransmissionConstraint(TransmissionSuper):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
     def __init__(self, id, scenario):
@@ -99,11 +102,21 @@ class DispatchTransmissionHurdleRate(TransmissionSuper):
         unit_factor = util.unit_convert(1, unit_from_den=self.energy_unit, unit_to_den=cfg.calculation_energy_unit)
         self.values *= unit_factor
 
+class DispatchTransmissionLosses(TransmissionSuper):
+    """loads and cleans the data that allocates demand sectors to dispatch feeders"""
+    def __init__(self, id, scenario):
+        self.id = id
+        self.scenario = scenario
+        self.sql_id_table = 'DispatchTransmissionConstraint'
+        self.sql_data_table = 'DispatchTransmissionLosses'
+        TransmissionSuper.__init__(self)
+
 class DispatchTransmission():
     def __init__(self, id, scenario):
         self.id = id
         self.constraints = DispatchTransmissionConstraint(id, scenario)
         self.hurdles = DispatchTransmissionHurdleRate(id, scenario)
+        self.losses = DispatchTransmissionLosses(id, scenario)
         self.list_transmission_lines = self.get_transmission_lines()
 
     def get_transmission_lines(self):

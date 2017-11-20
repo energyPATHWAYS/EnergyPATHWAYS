@@ -82,11 +82,15 @@ SENSITIVITIES = {"DemandDriversData":
                      {'side': 's', 'parent_table': "SupplyNodes"},
                  "SupplyEmissionsData":
                      {'side': 's', 'parent_table': "SupplyNodes"},
+                 "SupplyStockData":
+                     {'side': 's', 'parent_table': "SupplyNodes"},
                  "StorageTechsCapacityCapitalCostNewData":
                      {'side': 's', 'parent_table': "SupplyTechs"},
                  "DispatchTransmissionConstraintData":
                      {'side': 's', 'parent_table': "DispatchTransmissionConstraint"},
                  "DispatchTransmissionHurdleRate":
+                     {'side': 's', 'parent_table': "DispatchTransmissionConstraint"},
+                 "DispatchTransmissionLosses":
                      {'side': 's', 'parent_table': "DispatchTransmissionConstraint"}
                  }
 

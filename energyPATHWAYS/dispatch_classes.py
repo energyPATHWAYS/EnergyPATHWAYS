@@ -25,6 +25,7 @@ import cPickle as pickle
 import dispatch_generators
 import dispatch_maintenance
 import dispatch_transmission
+import dispatch_long_duration
 
 class DispatchFeederAllocation(Abstract):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
@@ -109,12 +110,13 @@ class Dispatch(object):
             self.node_config_dict[supply_node] = DispatchNodeConfig(supply_node)
         self.set_dispatch_orders()
         self.dispatch_window_dict = dict(util.sql_read_table('DispatchWindows'))  
-        self.curtailment_cost = util.unit_convert(0.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.curtailment_cost = util.unit_convert(1.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.unserved_energy_cost = util.unit_convert(2000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.dist_net_load_penalty = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.bulk_net_load_penalty = util.unit_convert(500.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.upward_imbalance_penalty = util.unit_convert(2000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.downward_imbalance_penalty = util.unit_convert(100.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.ld_imbalance_penalty = util.unit_convert(40.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.downward_imbalance_penalty = util.unit_convert(10.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.dispatch_feeders = dispatch_feeders
         self.feeders = [0] + dispatch_feeders
         self.dispatch_geography = dispatch_geography
@@ -182,11 +184,11 @@ class Dispatch(object):
                 else:
                     self.dist_net_load_thresholds[(geography,feeder)] =  util.df_slice(distribution_stock,[geography, feeder],[self.dispatch_geography, 'dispatch_feeder']).values[0][0]
 
-    def set_opt_loads(self, distribution_load, distribution_gen, bulk_load, bulk_gen, dispatched_bulk_load, bulk_net_load):
+    def set_opt_loads(self, distribution_load, distribution_gen, bulk_load, bulk_gen, dispatched_bulk_load, bulk_net_load, active_thermal_dispatch_df):
         self.distribution_load_input, self.distribution_gen_input, self.bulk_load_input, self.bulk_gen_input, self.dispatched_bulk_load_input = distribution_load, distribution_gen, bulk_load, bulk_gen, dispatched_bulk_load
         self.precision_adjust = dict(zip(self.dispatch_geographies,[x[0] for x in distribution_load.groupby(level=self.dispatch_geography).max().values/1E6]))
         self.set_opt_distribution_net_loads(distribution_load, distribution_gen)
-        self.set_opt_bulk_net_loads(bulk_load, bulk_gen, dispatched_bulk_load, bulk_net_load)
+        self.set_opt_bulk_net_loads(bulk_load, bulk_gen, dispatched_bulk_load, bulk_net_load, active_thermal_dispatch_df)
 
     def _convert_weather_datetime_to_hour(self, input_df):
         df = input_df.copy() # necessary to avoid pass by reference errors
@@ -256,7 +258,7 @@ class Dispatch(object):
         self.max_flex_load = self._timeseries_to_dict(groups.max())
         self.min_flex_load = self._timeseries_to_dict(groups.min())
 
-    def set_opt_bulk_net_loads(self, bulk_load, bulk_gen, dispatched_bulk_load, bulk_net_load):
+    def set_opt_bulk_net_loads(self, bulk_load, bulk_gen, dispatched_bulk_load, bulk_net_load, active_thermal_dispatch_df):
         bulk_load = self._convert_weather_datetime_to_hour(bulk_load)
         bulk_gen = self._convert_weather_datetime_to_hour(bulk_gen)
         dispatched_bulk_load = self._convert_weather_datetime_to_hour(dispatched_bulk_load)
@@ -265,13 +267,19 @@ class Dispatch(object):
         self.bulk_load = self._timeseries_to_dict(bulk_load)
         self.dispatched_bulk_load = self._timeseries_to_dict(dispatched_bulk_load)
         self.bulk_gen = self._timeseries_to_dict(bulk_gen)
-        self.ld_bulk_net_load = util.remove_df_levels(bulk_net_load,'period').to_dict()
+        thermal_unstacked = active_thermal_dispatch_df.squeeze().unstack('IO')
+        must_run_sum = thermal_unstacked[thermal_unstacked['must_run']==1]['capacity'].groupby(level=cfg.dispatch_geography).sum().to_frame()
+        # this includes must run generation
+        self.ld_bulk_net_load_df = util.DfOper.subt((util.remove_df_levels(bulk_net_load,'period').to_frame(), must_run_sum))
+        self.ld_bulk_net_load = self.ld_bulk_net_load_df.squeeze().to_dict()
         
     def set_average_net_loads(self, total_net_load):
-        df = self._convert_weather_datetime_to_hour(total_net_load.xs(2, level='timeshift_type').reset_index(level='year', drop=True))
-        self.period_net_load = df.groupby(level=[self.dispatch_geography, 'period']).sum().to_dict()
+        df = total_net_load.copy()
+        df['period'] = util.flatten_list([[p]*self.period_lengths[p] for p in self.periods])*len(cfg.dispatch_geographies)
+        df = df.set_index(['period'], append=True)
+        self.period_net_load = df.groupby(level=[self.dispatch_geography, 'period']).sum().squeeze().to_dict()
         self.average_net_load = df.groupby(level=[self.dispatch_geography]).sum()/float(len(self.periods))
-        self.average_net_load = self.average_net_load.to_dict()
+        self.average_net_load = self.average_net_load.squeeze().to_dict()
     
     def set_technologies(self,storage_capacity_dict, storage_efficiency_dict, thermal_dispatch_df):
       """prepares storage technologies for dispatch optimization
@@ -307,7 +315,7 @@ class Dispatch(object):
       self.variable_costs = {}
       self.annual_ld_energy= util.recursivedict()
       self.ld_geography = util.recursivedict()
-      self.ld_capacity=util.recursivedict()
+      self.ld_capacity = util.recursivedict()
       self.ld_min_capacity = util.recursivedict()
       self.ld_feeder = util.recursivedict()      
       for dispatch_geography in storage_capacity_dict['power'].keys():
@@ -321,7 +329,7 @@ class Dispatch(object):
                      self.capacity[tech_dispatch_id] = storage_capacity_dict['power'][dispatch_geography][zone][feeder][tech]
                      self.duration[tech_dispatch_id] = storage_capacity_dict['duration'][dispatch_geography][zone][feeder][tech]
                      self.energy[tech_dispatch_id] = self.capacity[tech_dispatch_id] * self.duration[tech_dispatch_id]
-                     if self.duration[tech_dispatch_id ]>=self.large_storage_duration:
+                     if self.duration[tech_dispatch_id] >= self.large_storage_duration:
                         self.alloc_technologies.append(tech_dispatch_id)
                         self.large_storage[tech_dispatch_id] = 1
                         self.alloc_geography[tech_dispatch_id] = dispatch_geography
@@ -367,7 +375,7 @@ class Dispatch(object):
         FORs = np.array(util.df_slice(thermal_dispatch_df,['forced_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
         must_run = np.array(util.df_slice(thermal_dispatch_df,['must_run',geography],['IO',self.dispatch_geography]).values).T[0]
         clustered_dict = dispatch_generators.cluster_generators(n_clusters = int(cfg.cfgfile.get('opt','generator_steps')), pmax=pmax, marginal_cost=marginal_cost, FORs=FORs,
-                                     MORs=MORs, must_run=must_run, pad_stack=False, zero_mc_4_must_run=True)
+                                                                MORs=MORs, must_run=must_run, pad_stack=False, zero_mc_4_must_run=True)
         generator_numbers = range(len(clustered_dict['derated_pmax']))
         for number in generator_numbers:
             generator = str(((max(generator_numbers)+1)* (self.dispatch_geographies.index(geography))) + (number)+1)
@@ -391,22 +399,7 @@ class Dispatch(object):
             new_dictionary[period] = dictionary
         return new_dictionary
 
-    def run_pyomo_year_to_month(self, model, data, **kwargs):
-        """
-        Pyomo optimization steps: create model instance from model formulation and data,
-        get solver, solve instance, and load solution.
-        """
-        logging.debug("Creating model instance...")
-        instance = model.create_instance(data)
-        logging.debug("Getting solver...")
-        solver = SolverFactory(cfg.solver_name)
-        logging.debug("Solving...")
-        solution = solver.solve(instance, **kwargs)
-        logging.debug("Loading solution...")
-        instance.solutions.load_from(solution)
-        return instance
-        
-    def run_pyomo_ld(self, model, data, **kwargs):
+    def run_pyomo(self, model, data, **kwargs):
         """
         Pyomo optimization steps: create model instance from model formulation and data,
         get solver, solve instance, and load solution.
@@ -568,6 +561,7 @@ class Dispatch(object):
 
     def solve_optimization(self):
         self.ld_energy_budgets= self.solve_ld_optimization()
+        self.set_average_net_loads(self.ld_bulk_net_load_df_updated)
         state_of_charge = self.run_year_to_month_allocation()
         self.start_soc_large_storage, self.end_soc_large_storage = state_of_charge[0], state_of_charge[1]
         for period in self.periods:
@@ -588,16 +582,22 @@ class Dispatch(object):
             raise
                 
     def run_year_to_month_allocation(self):
-        model = dispatch_formulation.year_to_period_allocation_formulation(self)
-        results = self.run_pyomo_year_to_month(model, None)
+        model = dispatch_long_duration.ld_storage_formulation(self)
+        results = self.run_pyomo(model, None)
         state_of_charge, ld_energy_budgets = self.export_allocation_results(results)
         return state_of_charge, ld_energy_budgets
     
     
     def solve_ld_optimization(self):
-        model = dispatch_formulation.ld_formulation(self)
-        results = self.run_pyomo_ld(model,None)
+        model = dispatch_long_duration.ld_energy_formulation(self)
+        results = self.run_pyomo(model, None)
         ld_opt_df = self.parse_ld_opt_result(ld_result_to_list(results.Provide_Power))
+        temp_df = pd.DataFrame([[r[0], r[-2], r[-1]] for r in storage_result_to_list(results.Provide_Power)], columns=[cfg.dispatch_geography, 'hour', self.year])
+        temp_df = temp_df.set_index([cfg.dispatch_geography, 'hour']).groupby(level=[cfg.dispatch_geography, 'hour']).sum()
+        # this doesn't have transmission losses, so it is an approximation
+        transmit_power = pd.DataFrame([[key[0], key[1], value.value] for key, value in results.Net_Transmit_Power_by_Geo.iteritems()], columns=[cfg.dispatch_geography, 'hour', self.year])
+        self.ld_bulk_net_load_df_updated = self.ld_bulk_net_load_df - temp_df - transmit_power.set_index([cfg.dispatch_geography, 'hour'])
+
         ld_energy_budgets = util.recursivedict()
         def split_and_apply(array, dispatch_periods, fun):
             energy_by_block = np.array_split(array, np.where(np.diff(dispatch_periods)!=0)[0]+1)
@@ -607,8 +607,6 @@ class Dispatch(object):
             for period in self.periods:
                 ld_energy_budgets[period][tech] = energy_budgets[period][0]
         return ld_energy_budgets
-
-
 
 
     @staticmethod

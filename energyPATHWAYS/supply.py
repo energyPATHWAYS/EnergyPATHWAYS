@@ -763,10 +763,9 @@ class Supply(object):
         self.dispatch.set_losses(self.transmission_losses,self.distribution_losses)
         self.set_net_load_thresholds(year)
         #freeze the bulk net load as opt bulk net load just in case we want to rerun a year. If we don't do this, bulk_net_load would be updated with optimization results
-        self.dispatch.set_opt_loads(self.distribution_load,self.distribution_gen,self.bulk_load,self.bulk_gen,self.dispatched_bulk_load, self.bulk_net_load)
+        self.dispatch.set_opt_loads(self.distribution_load,self.distribution_gen,self.bulk_load,self.bulk_gen,self.dispatched_bulk_load, self.bulk_net_load, self.active_thermal_dispatch_df)
         self.dispatch.set_technologies(self.storage_capacity_dict, self.storage_efficiency_dict, self.active_thermal_dispatch_df)
         self.set_long_duration_opt(year)
-        self.dispatch.set_average_net_loads(self.bulk_net_load)
 
     def set_grid_capacity_factors(self, year):
         max_year = max(self.years)
@@ -822,8 +821,9 @@ class Supply(object):
             ld_gen = None
         self.distribution_load = util.DfOper.add((self.distribution_load, dist_storage_charge, dist_flex_load, dist_ld_load))
         self.distribution_gen = util.DfOper.add((self.distribution_gen, util.df_slice(storage_discharge, self.dispatch_feeders, 'dispatch_feeder'),util.df_slice(ld_gen, self.dispatch_feeders, 'dispatch_feeder',return_none=True) ))
+        flow_with_losses = DfOper.divi((self.dispatch.transmission_flow_df, 1 - self.dispatch.transmission.losses.get_values(year)))
         imports = self.dispatch.transmission_flow_df.groupby(level=['geography_to', 'weather_datetime']).sum()
-        exports = self.dispatch.transmission_flow_df.groupby(level=['geography_from', 'weather_datetime']).sum()
+        exports = flow_with_losses.groupby(level=['geography_from', 'weather_datetime']).sum()
         imports.index.names = [cfg.dispatch_geography, 'weather_datetime']
         exports.index.names = [cfg.dispatch_geography, 'weather_datetime']
         self.bulk_load = util.DfOper.add((self.bulk_load, storage_charge.xs(0, level='dispatch_feeder'), DfOper.divi([util.df_slice(ld_load, 0, 'dispatch_feeder',return_none=True),self.transmission_losses]),DfOper.divi([exports,self.transmission_losses])))
@@ -842,8 +842,13 @@ class Supply(object):
             df_index_reset = self.dispatch.transmission_flow_df.reset_index()
             df_index_reset['geography_from'] = map(cfg.outputs_id_map[cfg.dispatch_geography].get, df_index_reset['geography_from'].values)
             df_index_reset['geography_to'] = map(cfg.outputs_id_map[cfg.dispatch_geography].get, df_index_reset['geography_to'].values)
+
+            df_index_reset_with_losses = DfOper.divi((self.dispatch.transmission_flow_df, 1 - self.dispatch.transmission.losses.get_values(year))).reset_index()
+            df_index_reset_with_losses['geography_from'] = map(cfg.outputs_id_map[cfg.dispatch_geography].get, df_index_reset_with_losses['geography_from'].values)
+            df_index_reset_with_losses['geography_to'] = map(cfg.outputs_id_map[cfg.dispatch_geography].get, df_index_reset_with_losses['geography_to'].values)
+
             imports = df_index_reset.rename(columns={'geography_to':cfg.dispatch_geography})
-            exports = df_index_reset.rename(columns={'geography_from':cfg.dispatch_geography})
+            exports = df_index_reset_with_losses.rename(columns={'geography_from':cfg.dispatch_geography})
             exports['geography_to'] = 'TRANSMISSION EXPORT TO ' + exports['geography_to']
             imports['geography_from'] = 'TRANSMISSION IMPORT FROM ' + imports['geography_from']
             imports = imports.rename(columns={'geography_from':'DISPATCH_OUTPUT'})
