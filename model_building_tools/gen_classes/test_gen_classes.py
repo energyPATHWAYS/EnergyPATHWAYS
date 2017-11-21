@@ -1,9 +1,9 @@
+#!/usr/bin/env python
 from __future__ import print_function
 import pandas as pd
-import sys
 
 from energyPATHWAYS.database import CsvDatabase
-from energyPATHWAYS.schema import DemandStock, class_for_table
+from energyPATHWAYS.schema import class_for_table
 
 pd.set_option('display.width', 200)
 

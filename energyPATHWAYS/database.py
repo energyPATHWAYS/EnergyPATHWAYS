@@ -32,7 +32,11 @@ def mkdirs(newdir, mode=0o770):
         if e.errno != EEXIST:
             raise
 
-def find_col(candidates, cols):
+def _find_col(table, exceptions, candidates, cols):
+    col = exceptions.get(table)
+    if col:
+        return col
+
     for col in candidates:
         if col in cols:
             return col
@@ -46,21 +50,27 @@ def find_key_col(table, cols):
         'DemandFlexibleLoadMeasures': 'subsector', # has 'name' col that isn't the key
     }
 
-    key_col = exceptions.get(table)
-    if key_col:
-        return key_col
-
     key_cols = ('name', 'parent', 'subsector', 'demand_technology', 'supply_node',
                 'supply_tech', 'import_node', 'primary_node', 'index_level')
-    return find_col(key_cols, cols)
+    return _find_col(table, exceptions, key_cols, cols)
 
-def find_parent_col(cols):
+def find_parent_col(table, cols):
     '''
     Find the column identifying the parent record.
     '''
-    parent_cols = ('parent', 'subsector', 'demand_technology', 'supply_node',
-                   'supply_tech', 'import_node', 'primary_node')
-    return find_col(parent_cols, cols)
+    exceptions = {
+        'DemandSalesData'           : 'demand_technology',
+        'SupplyTechsEfficiencyData' : 'supply_tech',
+        'SupplySalesData'           : 'supply_technology',
+        'SupplySalesShareData'      : 'supply_technology',
+    }
+
+    # List adapted from scenario_loader.PARENT_COLUMN_NAMES. We don't reference that
+    # and replace "_id" with "" since that list will become obsolete at some point.
+    parent_cols = ('parent', 'subsector', 'supply_node', 'primary_node', 'import_node',
+                   'demand_tech', 'demand_technology', 'supply_tech', 'supply_technology')
+
+    return _find_col(table, exceptions, parent_cols, cols)
 
 
 # Tables with only one column

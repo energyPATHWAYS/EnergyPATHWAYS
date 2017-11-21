@@ -92,6 +92,6 @@ class DataObject(object):
 
         if self._data_table_name:
             child_tbl = db.get_table(self._data_table_name)
-            parent_col = find_parent_col(child_tbl.data.columns)
+            parent_col = find_parent_col(self._data_table_name, child_tbl.data.columns)
             slice = child_tbl.data.query("{} == '{}'".format(parent_col, self._key))
             self._child_data = slice.copy() if copy else slice

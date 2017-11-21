@@ -64,6 +64,7 @@ class ClassGenerator(object):
             raise Exception("Failed to guess key col in {}; columns are: {}".format(table, cols))
 
         stream.write('    _key_col = "{}"\n'.format(key_col))  # save as a class variable
+        stream.write('    _cols = {}'.format(cols))
         stream.write('\n')
 
         # TBD: unnecessary?
@@ -79,7 +80,7 @@ class ClassGenerator(object):
 
         stream.write('    def __init__(self, scenario, {}):\n'.format(params))
         stream.write('\n')
-        stream.write('        {}.__init__(self, scenario, key={}, data_table_name="{}")\n'.format(base_class, key_col, data_table))
+        stream.write('        {}.__init__(self, scenario, {}, "{}")\n'.format(base_class, key_col, data_table))
         stream.write('        {}._instances_by_key[self._key] = self\n'.format(table))
         stream.write('\n')
 

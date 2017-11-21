@@ -40,11 +40,11 @@ from energyPATHWAYS.data_object import DataObject
 class BlendNodeBlendMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'blend_node', 'supply_node', 'geography', 'other_index_1', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth']
     def __init__(self, scenario, name=None, blend_node=None, supply_node=None, geography=None, other_index_1=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="BlendNodeBlendMeasuresData")
+        DataObject.__init__(self, scenario, name, "BlendNodeBlendMeasuresData")
         BlendNodeBlendMeasures._instances_by_key[self._key] = self
 
         self.name = name
@@ -70,11 +70,11 @@ class BlendNodeBlendMeasures(DataObject):
 class CO2PriceMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'geography', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'geography_map_key', 'supply_node_id']
     def __init__(self, scenario, name=None, geography=None, interpolation_method=None, extrapolation_method=None,
                  extrapolation_growth=None, geography_map_key=None, supply_node_id=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="CO2PriceMeasuresData")
+        DataObject.__init__(self, scenario, name, "CO2PriceMeasuresData")
         CO2PriceMeasures._instances_by_key[self._key] = self
 
         self.name = name
@@ -99,13 +99,13 @@ class CO2PriceMeasures(DataObject):
 class DemandCO2CaptureMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'subsector', 'input_type', 'unit', 'geography', 'other_index_1', 'other_index_2', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'stock_decay_function', 'min_lifetime', 'max_lifetime', 'mean_lifetime', 'lifetime_variance']
     def __init__(self, scenario, name=None, subsector=None, input_type=None, unit=None, geography=None, other_index_1=None,
                  other_index_2=None, interpolation_method=None, extrapolation_method=None,
                  extrapolation_growth=None, stock_decay_function=None, min_lifetime=None,
                  max_lifetime=None, mean_lifetime=None, lifetime_variance=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="")
+        DataObject.__init__(self, scenario, name, "")
         DemandCO2CaptureMeasures._instances_by_key[self._key] = self
 
         self.name = name
@@ -142,13 +142,13 @@ class DemandCO2CaptureMeasures(DataObject):
 class DemandDrivers(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'base_driver', 'input_type', 'unit_prefix', 'unit_base', 'geography', 'other_index_1', 'other_index_2', 'geography_map_key', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'source']
     def __init__(self, scenario, name=None, base_driver=None, input_type=None, unit_prefix=None, unit_base=None,
                  geography=None, other_index_1=None, other_index_2=None, geography_map_key=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
                  source=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="DemandDriversData")
+        DataObject.__init__(self, scenario, name, "DemandDriversData")
         DemandDrivers._instances_by_key[self._key] = self
 
         self.name = name
@@ -182,14 +182,14 @@ class DemandDrivers(DataObject):
 class DemandEnergyDemands(DataObject):
     _instances_by_key = {}
     _key_col = "subsector"
-
+    _cols = ['subsector', 'is_stock_dependent', 'input_type', 'unit', 'driver_denominator_1', 'driver_denominator_2', 'driver_1', 'driver_2', 'geography', 'final_energy_index', 'demand_technology_index', 'other_index_1', 'other_index_2', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'geography_map_key']
     def __init__(self, scenario, subsector=None, is_stock_dependent=None, input_type=None, unit=None,
                  driver_denominator_1=None, driver_denominator_2=None, driver_1=None, driver_2=None,
                  geography=None, final_energy_index=None, demand_technology_index=None,
                  other_index_1=None, other_index_2=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None, geography_map_key=None):
 
-        DataObject.__init__(self, scenario, key=subsector, data_table_name="DemandEnergyDemandsData")
+        DataObject.__init__(self, scenario, subsector, "DemandEnergyDemandsData")
         DemandEnergyDemands._instances_by_key[self._key] = self
 
         self.subsector = subsector
@@ -231,13 +231,13 @@ class DemandEnergyDemands(DataObject):
 class DemandEnergyEfficiencyMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'subsector', 'input_type', 'unit', 'geography', 'other_index_1', 'other_index_2', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'stock_decay_function', 'min_lifetime', 'max_lifetime', 'mean_lifetime', 'lifetime_variance']
     def __init__(self, scenario, name=None, subsector=None, input_type=None, unit=None, geography=None, other_index_1=None,
                  other_index_2=None, interpolation_method=None, extrapolation_method=None,
                  extrapolation_growth=None, stock_decay_function=None, min_lifetime=None,
                  max_lifetime=None, mean_lifetime=None, lifetime_variance=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="DemandEnergyEfficiencyMeasuresData")
+        DataObject.__init__(self, scenario, name, "DemandEnergyEfficiencyMeasuresData")
         DemandEnergyEfficiencyMeasures._instances_by_key[self._key] = self
 
         self.name = name
@@ -274,13 +274,13 @@ class DemandEnergyEfficiencyMeasures(DataObject):
 class DemandEnergyEfficiencyMeasuresCost(DataObject):
     _instances_by_key = {}
     _key_col = "parent"
-
+    _cols = ['parent', 'currency', 'currency_year_id', 'cost_denominator_unit', 'cost_of_capital', 'is_levelized', 'geography', 'other_index_1', 'other_index_2', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth']
     def __init__(self, scenario, parent=None, currency=None, currency_year_id=None, cost_denominator_unit=None,
                  cost_of_capital=None, is_levelized=None, geography=None, other_index_1=None,
                  other_index_2=None, interpolation_method=None, extrapolation_method=None,
                  extrapolation_growth=None):
 
-        DataObject.__init__(self, scenario, key=parent, data_table_name="DemandEnergyEfficiencyMeasuresCostData")
+        DataObject.__init__(self, scenario, parent, "DemandEnergyEfficiencyMeasuresCostData")
         DemandEnergyEfficiencyMeasuresCost._instances_by_key[self._key] = self
 
         self.parent = parent
@@ -313,11 +313,11 @@ class DemandEnergyEfficiencyMeasuresCost(DataObject):
 class DemandFlexibleLoadMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "subsector"
-
+    _cols = ['subsector', 'geography', 'other_index_1', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'name']
     def __init__(self, scenario, subsector=None, geography=None, other_index_1=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None, name=None):
 
-        DataObject.__init__(self, scenario, key=subsector, data_table_name="DemandFlexibleLoadMeasuresData")
+        DataObject.__init__(self, scenario, subsector, "DemandFlexibleLoadMeasuresData")
         DemandFlexibleLoadMeasures._instances_by_key[self._key] = self
 
         self.subsector = subsector
@@ -342,12 +342,12 @@ class DemandFlexibleLoadMeasures(DataObject):
 class DemandFuelSwitchingMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'subsector', 'final_energy_from', 'final_energy_to', 'stock_decay_function', 'max_lifetime', 'min_lifetime', 'mean_lifetime', 'lifetime_variance']
     def __init__(self, scenario, name=None, subsector=None, final_energy_from=None, final_energy_to=None,
                  stock_decay_function=None, max_lifetime=None, min_lifetime=None, mean_lifetime=None,
                  lifetime_variance=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="")
+        DataObject.__init__(self, scenario, name, "")
         DemandFuelSwitchingMeasures._instances_by_key[self._key] = self
 
         self.name = name
@@ -375,13 +375,13 @@ class DemandFuelSwitchingMeasures(DataObject):
 class DemandFuelSwitchingMeasuresCost(DataObject):
     _instances_by_key = {}
     _key_col = "parent"
-
+    _cols = ['parent', 'currency', 'currency_year_id', 'cost_denominator_unit', 'cost_of_capital', 'is_levelized', 'geography', 'other_index_1', 'other_index_2', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth']
     def __init__(self, scenario, parent=None, currency=None, currency_year_id=None, cost_denominator_unit=None,
                  cost_of_capital=None, is_levelized=None, geography=None, other_index_1=None,
                  other_index_2=None, interpolation_method=None, extrapolation_method=None,
                  extrapolation_growth=None):
 
-        DataObject.__init__(self, scenario, key=parent, data_table_name="DemandFuelSwitchingMeasuresCostData")
+        DataObject.__init__(self, scenario, parent, "DemandFuelSwitchingMeasuresCostData")
         DemandFuelSwitchingMeasuresCost._instances_by_key[self._key] = self
 
         self.parent = parent
@@ -414,11 +414,11 @@ class DemandFuelSwitchingMeasuresCost(DataObject):
 class DemandFuelSwitchingMeasuresEnergyIntensity(DataObject):
     _instances_by_key = {}
     _key_col = "parent"
-
+    _cols = ['parent', 'geography', 'other_index_1', 'other_index_2', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth']
     def __init__(self, scenario, parent=None, geography=None, other_index_1=None, other_index_2=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None):
 
-        DataObject.__init__(self, scenario, key=parent, data_table_name="DemandFuelSwitchingMeasuresEnergyIntensityData")
+        DataObject.__init__(self, scenario, parent, "DemandFuelSwitchingMeasuresEnergyIntensityData")
         DemandFuelSwitchingMeasuresEnergyIntensity._instances_by_key[self._key] = self
 
         self.parent = parent
@@ -443,12 +443,12 @@ class DemandFuelSwitchingMeasuresEnergyIntensity(DataObject):
 class DemandFuelSwitchingMeasuresImpact(DataObject):
     _instances_by_key = {}
     _key_col = "parent"
-
+    _cols = ['parent', 'input_type', 'unit', 'geography', 'other_index_1', 'other_index_2', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth']
     def __init__(self, scenario, parent=None, input_type=None, unit=None, geography=None, other_index_1=None,
                  other_index_2=None, interpolation_method=None, extrapolation_method=None,
                  extrapolation_growth=None):
 
-        DataObject.__init__(self, scenario, key=parent, data_table_name="DemandFuelSwitchingMeasuresImpactData")
+        DataObject.__init__(self, scenario, parent, "DemandFuelSwitchingMeasuresImpactData")
         DemandFuelSwitchingMeasuresImpact._instances_by_key[self._key] = self
 
         self.parent = parent
@@ -476,11 +476,11 @@ class DemandFuelSwitchingMeasuresImpact(DataObject):
 class DemandSales(DataObject):
     _instances_by_key = {}
     _key_col = "subsector"
-
+    _cols = ['subsector', 'geography', 'other_index_1', 'other_index_2', 'input_type', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth']
     def __init__(self, scenario, subsector=None, geography=None, other_index_1=None, other_index_2=None, input_type=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None):
 
-        DataObject.__init__(self, scenario, key=subsector, data_table_name="DemandSalesData")
+        DataObject.__init__(self, scenario, subsector, "DemandSalesData")
         DemandSales._instances_by_key[self._key] = self
 
         self.subsector = subsector
@@ -507,12 +507,12 @@ class DemandSales(DataObject):
 class DemandSalesShareMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['subsector', 'geography', 'other_index_1', 'demand_technology', 'replaced_demand_tech', 'input_type', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'name']
     def __init__(self, scenario, subsector=None, geography=None, other_index_1=None, demand_technology=None,
                  replaced_demand_tech=None, input_type=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None, name=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="DemandSalesShareMeasuresData")
+        DataObject.__init__(self, scenario, name, "DemandSalesShareMeasuresData")
         DemandSalesShareMeasures._instances_by_key[self._key] = self
 
         self.subsector = subsector
@@ -542,10 +542,10 @@ class DemandSalesShareMeasures(DataObject):
 class DemandSectors(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'shape', 'max_lead_hours', 'max_lag_hours']
     def __init__(self, scenario, name=None, shape=None, max_lead_hours=None, max_lag_hours=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="")
+        DataObject.__init__(self, scenario, name, "")
         DemandSectors._instances_by_key[self._key] = self
 
         self.name = name
@@ -564,13 +564,13 @@ class DemandSectors(DataObject):
 class DemandServiceDemandMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'subsector', 'input_type', 'unit', 'geography', 'other_index_1', 'other_index_2', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'stock_decay_function', 'min_lifetime', 'max_lifetime', 'mean_lifetime', 'lifetime_variance']
     def __init__(self, scenario, name=None, subsector=None, input_type=None, unit=None, geography=None, other_index_1=None,
                  other_index_2=None, interpolation_method=None, extrapolation_method=None,
                  extrapolation_growth=None, stock_decay_function=None, min_lifetime=None,
                  max_lifetime=None, mean_lifetime=None, lifetime_variance=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="DemandServiceDemandMeasuresData")
+        DataObject.__init__(self, scenario, name, "DemandServiceDemandMeasuresData")
         DemandServiceDemandMeasures._instances_by_key[self._key] = self
 
         self.name = name
@@ -607,13 +607,13 @@ class DemandServiceDemandMeasures(DataObject):
 class DemandServiceDemandMeasuresCost(DataObject):
     _instances_by_key = {}
     _key_col = "parent"
-
+    _cols = ['parent', 'currency', 'currency_year_id', 'cost_denominator_unit', 'cost_of_capital', 'is_levelized', 'geography', 'other_index_1', 'other_index_2', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth']
     def __init__(self, scenario, parent=None, currency=None, currency_year_id=None, cost_denominator_unit=None,
                  cost_of_capital=None, is_levelized=None, geography=None, other_index_1=None,
                  other_index_2=None, interpolation_method=None, extrapolation_method=None,
                  extrapolation_growth=None):
 
-        DataObject.__init__(self, scenario, key=parent, data_table_name="DemandServiceDemandMeasuresCostData")
+        DataObject.__init__(self, scenario, parent, "DemandServiceDemandMeasuresCostData")
         DemandServiceDemandMeasuresCost._instances_by_key[self._key] = self
 
         self.parent = parent
@@ -646,14 +646,14 @@ class DemandServiceDemandMeasuresCost(DataObject):
 class DemandServiceDemands(DataObject):
     _instances_by_key = {}
     _key_col = "subsector"
-
+    _cols = ['subsector', 'is_stock_dependent', 'input_type', 'unit', 'driver_denominator_1', 'driver_denominator_2', 'driver_1', 'driver_2', 'geography', 'final_energy_index', 'demand_technology_index', 'other_index_1', 'other_index_2', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'geography_map_key']
     def __init__(self, scenario, subsector=None, is_stock_dependent=None, input_type=None, unit=None,
                  driver_denominator_1=None, driver_denominator_2=None, driver_1=None, driver_2=None,
                  geography=None, final_energy_index=None, demand_technology_index=None,
                  other_index_1=None, other_index_2=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None, geography_map_key=None):
 
-        DataObject.__init__(self, scenario, key=subsector, data_table_name="DemandServiceDemandsData")
+        DataObject.__init__(self, scenario, subsector, "DemandServiceDemandsData")
         DemandServiceDemands._instances_by_key[self._key] = self
 
         self.subsector = subsector
@@ -695,12 +695,12 @@ class DemandServiceDemands(DataObject):
 class DemandServiceEfficiency(DataObject):
     _instances_by_key = {}
     _key_col = "subsector"
-
+    _cols = ['subsector', 'energy_unit', 'denominator_unit', 'geography', 'other_index_1', 'other_index_2', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'geography_map_key']
     def __init__(self, scenario, subsector=None, energy_unit=None, denominator_unit=None, geography=None,
                  other_index_1=None, other_index_2=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None, geography_map_key=None):
 
-        DataObject.__init__(self, scenario, key=subsector, data_table_name="DemandServiceEfficiencyData")
+        DataObject.__init__(self, scenario, subsector, "DemandServiceEfficiencyData")
         DemandServiceEfficiency._instances_by_key[self._key] = self
 
         self.subsector = subsector
@@ -729,10 +729,10 @@ class DemandServiceEfficiency(DataObject):
 class DemandServiceLink(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['subsector', 'linked_subsector', 'service_demand_share', 'year', 'name']
     def __init__(self, scenario, subsector=None, linked_subsector=None, service_demand_share=None, year=None, name=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="")
+        DataObject.__init__(self, scenario, name, "")
         DemandServiceLink._instances_by_key[self._key] = self
 
         self.subsector = subsector
@@ -753,14 +753,14 @@ class DemandServiceLink(DataObject):
 class DemandStock(DataObject):
     _instances_by_key = {}
     _key_col = "subsector"
-
+    _cols = ['subsector', 'is_service_demand_dependent', 'driver_denominator_1', 'driver_denominator_2', 'driver_1', 'driver_2', 'geography', 'other_index_1', 'other_index_2', 'geography_map_key', 'input_type', 'demand_stock_unit_type', 'unit', 'time_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth']
     def __init__(self, scenario, subsector=None, is_service_demand_dependent=None, driver_denominator_1=None,
                  driver_denominator_2=None, driver_1=None, driver_2=None, geography=None,
                  other_index_1=None, other_index_2=None, geography_map_key=None, input_type=None,
                  demand_stock_unit_type=None, unit=None, time_unit=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None):
 
-        DataObject.__init__(self, scenario, key=subsector, data_table_name="DemandStockData")
+        DataObject.__init__(self, scenario, subsector, "DemandStockData")
         DemandStock._instances_by_key[self._key] = self
 
         self.subsector = subsector
@@ -801,12 +801,12 @@ class DemandStock(DataObject):
 class DemandStockMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['subsector', 'geography', 'other_index_1', 'demand_technology', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'name']
     def __init__(self, scenario, subsector=None, geography=None, other_index_1=None, demand_technology=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
                  name=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="DemandStockMeasuresData")
+        DataObject.__init__(self, scenario, name, "DemandStockMeasuresData")
         DemandStockMeasures._instances_by_key[self._key] = self
 
         self.subsector = subsector
@@ -833,11 +833,11 @@ class DemandStockMeasures(DataObject):
 class DemandSubsectors(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['sector', 'name', 'cost_of_capital', 'is_active', 'shape', 'max_lead_hours', 'max_lag_hours']
     def __init__(self, scenario, sector=None, name=None, cost_of_capital=None, is_active=None, shape=None,
                  max_lead_hours=None, max_lag_hours=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="")
+        DataObject.__init__(self, scenario, name, "")
         DemandSubsectors._instances_by_key[self._key] = self
 
         self.sector = sector
@@ -860,14 +860,14 @@ class DemandSubsectors(DataObject):
 class DemandTechs(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['linked', 'stock_link_ratio', 'subsector', 'name', 'min_lifetime', 'max_lifetime', 'source', 'additional_description', 'demand_tech_unit_type', 'unit', 'time_unit', 'cost_of_capital', 'stock_decay_function', 'mean_lifetime', 'lifetime_variance', 'shape', 'max_lead_hours', 'max_lag_hours']
     def __init__(self, scenario, linked=None, stock_link_ratio=None, subsector=None, name=None, min_lifetime=None,
                  max_lifetime=None, source=None, additional_description=None, demand_tech_unit_type=None,
                  unit=None, time_unit=None, cost_of_capital=None, stock_decay_function=None,
                  mean_lifetime=None, lifetime_variance=None, shape=None, max_lead_hours=None,
                  max_lag_hours=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="")
+        DataObject.__init__(self, scenario, name, "")
         DemandTechs._instances_by_key[self._key] = self
 
         self.linked = linked
@@ -909,7 +909,7 @@ class DemandTechs(DataObject):
 class DemandTechsAuxEfficiency(DataObject):
     _instances_by_key = {}
     _key_col = "demand_technology"
-
+    _cols = ['demand_technology', 'definition', 'reference_tech_id', 'geography', 'other_index_1', 'other_index_2', 'final_energy', 'demand_tech_efficiency_types', 'is_numerator_service', 'numerator_unit', 'denominator_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'age_growth_or_decay_type', 'age_growth_or_decay', 'shape']
     def __init__(self, scenario, demand_technology=None, definition=None, reference_tech_id=None, geography=None,
                  other_index_1=None, other_index_2=None, final_energy=None,
                  demand_tech_efficiency_types=None, is_numerator_service=None, numerator_unit=None,
@@ -917,7 +917,7 @@ class DemandTechsAuxEfficiency(DataObject):
                  extrapolation_growth=None, age_growth_or_decay_type=None, age_growth_or_decay=None,
                  shape=None):
 
-        DataObject.__init__(self, scenario, key=demand_technology, data_table_name="DemandTechsAuxEfficiencyData")
+        DataObject.__init__(self, scenario, demand_technology, "DemandTechsAuxEfficiencyData")
         DemandTechsAuxEfficiency._instances_by_key[self._key] = self
 
         self.demand_technology = demand_technology
@@ -960,13 +960,13 @@ class DemandTechsAuxEfficiency(DataObject):
 class DemandTechsCapitalCost(DataObject):
     _instances_by_key = {}
     _key_col = "demand_technology"
-
+    _cols = ['demand_technology', 'definition', 'reference_tech_id', 'geography', 'other_index_1', 'other_index_2', 'currency', 'currency_year_id', 'is_levelized', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'reference_tech_operation']
     def __init__(self, scenario, demand_technology=None, definition=None, reference_tech_id=None, geography=None,
                  other_index_1=None, other_index_2=None, currency=None, currency_year_id=None,
                  is_levelized=None, interpolation_method=None, extrapolation_method=None,
                  extrapolation_growth=None, reference_tech_operation=None):
 
-        DataObject.__init__(self, scenario, key=demand_technology, data_table_name="")
+        DataObject.__init__(self, scenario, demand_technology, "")
         DemandTechsCapitalCost._instances_by_key[self._key] = self
 
         self.demand_technology = demand_technology
@@ -1001,13 +1001,13 @@ class DemandTechsCapitalCost(DataObject):
 class DemandTechsFixedMaintenanceCost(DataObject):
     _instances_by_key = {}
     _key_col = "demand_technology"
-
+    _cols = ['demand_technology', 'definition', 'reference_tech_id', 'geography', 'other_index_1', 'other_index_2', 'currency', 'currency_year_id', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'age_growth_or_decay_type', 'age_growth_or_decay', 'additional_description']
     def __init__(self, scenario, demand_technology=None, definition=None, reference_tech_id=None, geography=None,
                  other_index_1=None, other_index_2=None, currency=None, currency_year_id=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
                  age_growth_or_decay_type=None, age_growth_or_decay=None, additional_description=None):
 
-        DataObject.__init__(self, scenario, key=demand_technology, data_table_name="DemandTechsFixedMaintenanceCostData")
+        DataObject.__init__(self, scenario, demand_technology, "DemandTechsFixedMaintenanceCostData")
         DemandTechsFixedMaintenanceCost._instances_by_key[self._key] = self
 
         self.demand_technology = demand_technology
@@ -1045,13 +1045,13 @@ class DemandTechsFixedMaintenanceCost(DataObject):
 class DemandTechsFuelSwitchCost(DataObject):
     _instances_by_key = {}
     _key_col = "demand_technology"
-
+    _cols = ['demand_technology', 'definition', 'reference_tech_id', 'geography', 'other_index_1', 'other_index_2', 'currency', 'currency_year_id', 'is_levelized', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth']
     def __init__(self, scenario, demand_technology=None, definition=None, reference_tech_id=None, geography=None,
                  other_index_1=None, other_index_2=None, currency=None, currency_year_id=None,
                  is_levelized=None, interpolation_method=None, extrapolation_method=None,
                  extrapolation_growth=None):
 
-        DataObject.__init__(self, scenario, key=demand_technology, data_table_name="DemandTechsFuelSwitchCostData")
+        DataObject.__init__(self, scenario, demand_technology, "DemandTechsFuelSwitchCostData")
         DemandTechsFuelSwitchCost._instances_by_key[self._key] = self
 
         self.demand_technology = demand_technology
@@ -1084,13 +1084,13 @@ class DemandTechsFuelSwitchCost(DataObject):
 class DemandTechsInstallationCost(DataObject):
     _instances_by_key = {}
     _key_col = "demand_technology"
-
+    _cols = ['demand_technology', 'definition', 'reference_tech_id', 'geography', 'other_index_1', 'other_index_2', 'currency', 'currency_year_id', 'is_levelized', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth']
     def __init__(self, scenario, demand_technology=None, definition=None, reference_tech_id=None, geography=None,
                  other_index_1=None, other_index_2=None, currency=None, currency_year_id=None,
                  is_levelized=None, interpolation_method=None, extrapolation_method=None,
                  extrapolation_growth=None):
 
-        DataObject.__init__(self, scenario, key=demand_technology, data_table_name="")
+        DataObject.__init__(self, scenario, demand_technology, "")
         DemandTechsInstallationCost._instances_by_key[self._key] = self
 
         self.demand_technology = demand_technology
@@ -1123,14 +1123,14 @@ class DemandTechsInstallationCost(DataObject):
 class DemandTechsMainEfficiency(DataObject):
     _instances_by_key = {}
     _key_col = "demand_technology"
-
+    _cols = ['demand_technology', 'definition', 'reference_tech_id', 'geography', 'other_index_1', 'other_index_2', 'final_energy', 'utility_factor', 'is_numerator_service', 'numerator_unit', 'denominator_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'age_growth_or_decay_type', 'age_growth_or_decay', 'geography_map_key']
     def __init__(self, scenario, demand_technology=None, definition=None, reference_tech_id=None, geography=None,
                  other_index_1=None, other_index_2=None, final_energy=None, utility_factor=None,
                  is_numerator_service=None, numerator_unit=None, denominator_unit=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
                  age_growth_or_decay_type=None, age_growth_or_decay=None, geography_map_key=None):
 
-        DataObject.__init__(self, scenario, key=demand_technology, data_table_name="DemandTechsMainEfficiencyData")
+        DataObject.__init__(self, scenario, demand_technology, "DemandTechsMainEfficiencyData")
         DemandTechsMainEfficiency._instances_by_key[self._key] = self
 
         self.demand_technology = demand_technology
@@ -1172,13 +1172,13 @@ class DemandTechsMainEfficiency(DataObject):
 class DemandTechsParasiticEnergy(DataObject):
     _instances_by_key = {}
     _key_col = "demand_technology"
-
+    _cols = ['demand_technology', 'definition', 'reference_tech_id', 'geography', 'other_index_1', 'other_index_2', 'energy_unit', 'time_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'age_growth_or_decay_type', 'age_growth_or_decay']
     def __init__(self, scenario, demand_technology=None, definition=None, reference_tech_id=None, geography=None,
                  other_index_1=None, other_index_2=None, energy_unit=None, time_unit=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
                  age_growth_or_decay_type=None, age_growth_or_decay=None):
 
-        DataObject.__init__(self, scenario, key=demand_technology, data_table_name="DemandTechsParasiticEnergyData")
+        DataObject.__init__(self, scenario, demand_technology, "DemandTechsParasiticEnergyData")
         DemandTechsParasiticEnergy._instances_by_key[self._key] = self
 
         self.demand_technology = demand_technology
@@ -1214,12 +1214,12 @@ class DemandTechsParasiticEnergy(DataObject):
 class DemandTechsServiceDemandModifier(DataObject):
     _instances_by_key = {}
     _key_col = "demand_technology"
-
+    _cols = ['demand_technology', 'geography', 'other_index_1', 'other_index_2', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'age_growth_or_decay_type', 'age_growth_or_decay']
     def __init__(self, scenario, demand_technology=None, geography=None, other_index_1=None, other_index_2=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
                  age_growth_or_decay_type=None, age_growth_or_decay=None):
 
-        DataObject.__init__(self, scenario, key=demand_technology, data_table_name="DemandTechsServiceDemandModifierData")
+        DataObject.__init__(self, scenario, demand_technology, "DemandTechsServiceDemandModifierData")
         DemandTechsServiceDemandModifier._instances_by_key[self._key] = self
 
         self.demand_technology = demand_technology
@@ -1248,13 +1248,13 @@ class DemandTechsServiceDemandModifier(DataObject):
 class DemandTechsServiceLink(DataObject):
     _instances_by_key = {}
     _key_col = "demand_technology"
-
+    _cols = ['id', 'service_link', 'demand_technology', 'definition', 'reference_id', 'geography', 'other_index_1', 'other_index_2', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'age_growth_or_decay_type', 'age_growth_or_decay']
     def __init__(self, scenario, id=None, service_link=None, demand_technology=None, definition=None, reference_id=None,
                  geography=None, other_index_1=None, other_index_2=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None, age_growth_or_decay_type=None,
                  age_growth_or_decay=None):
 
-        DataObject.__init__(self, scenario, key=demand_technology, data_table_name="DemandTechsServiceLinkData")
+        DataObject.__init__(self, scenario, demand_technology, "DemandTechsServiceLinkData")
         DemandTechsServiceLink._instances_by_key[self._key] = self
 
         self.id = id
@@ -1290,11 +1290,11 @@ class DemandTechsServiceLink(DataObject):
 class DispatchFeedersAllocation(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'geography', 'geography_map_key', 'input_type', 'interpolation_method', 'extrapolation_method']
     def __init__(self, scenario, name=None, geography=None, geography_map_key=None, input_type=None,
                  interpolation_method=None, extrapolation_method=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="DispatchFeedersAllocationData")
+        DataObject.__init__(self, scenario, name, "DispatchFeedersAllocationData")
         DispatchFeedersAllocation._instances_by_key[self._key] = self
 
         self.name = name
@@ -1317,10 +1317,10 @@ class DispatchFeedersAllocation(DataObject):
 class DispatchNodeConfig(DataObject):
     _instances_by_key = {}
     _key_col = "supply_node"
-
+    _cols = ['supply_node', 'dispatch_order', 'dispatch_window', 'geography']
     def __init__(self, scenario, supply_node=None, dispatch_order=None, dispatch_window=None, geography=None):
 
-        DataObject.__init__(self, scenario, key=supply_node, data_table_name="")
+        DataObject.__init__(self, scenario, supply_node, "")
         DispatchNodeConfig._instances_by_key[self._key] = self
 
         self.supply_node = supply_node
@@ -1340,12 +1340,12 @@ class DispatchNodeConfig(DataObject):
 class DispatchTransmissionConstraint(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'description', 'geography_description', 'time_zone_id', 'interpolation_method', 'extrapolation_method', 'hurdle_currency_id', 'hurdle_currency_year_id', 'energy_unit']
     def __init__(self, scenario, name=None, description=None, geography_description=None, time_zone_id=None,
                  interpolation_method=None, extrapolation_method=None, hurdle_currency_id=None,
                  hurdle_currency_year_id=None, energy_unit=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="DispatchTransmissionConstraintData")
+        DataObject.__init__(self, scenario, name, "DispatchTransmissionConstraintData")
         DispatchTransmissionConstraint._instances_by_key[self._key] = self
 
         self.name = name
@@ -1373,11 +1373,11 @@ class DispatchTransmissionConstraint(DataObject):
 class DispatchTransmissionHurdleRate(DataObject):
     _instances_by_key = {}
     _key_col = "parent"
-
+    _cols = ['id', 'parent', 'gau_from', 'gau_to', 'year', 'month', 'hour', 'day_type', 'value', 'sensitivity']
     def __init__(self, scenario, id=None, parent=None, gau_from=None, gau_to=None, year=None, month=None, hour=None,
                  day_type=None, value=None, sensitivity=None):
 
-        DataObject.__init__(self, scenario, key=parent, data_table_name="")
+        DataObject.__init__(self, scenario, parent, "")
         DispatchTransmissionHurdleRate._instances_by_key[self._key] = self
 
         self.id = id
@@ -1403,10 +1403,10 @@ class DispatchTransmissionHurdleRate(DataObject):
 class FinalEnergy(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'shape']
     def __init__(self, scenario, name=None, shape=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="")
+        DataObject.__init__(self, scenario, name, "")
         FinalEnergy._instances_by_key[self._key] = self
 
         self.name = name
@@ -1423,10 +1423,10 @@ class FinalEnergy(DataObject):
 class GreenhouseGases(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'long_name']
     def __init__(self, scenario, name=None, long_name=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="")
+        DataObject.__init__(self, scenario, name, "")
         GreenhouseGases._instances_by_key[self._key] = self
 
         self.name = name
@@ -1443,12 +1443,12 @@ class GreenhouseGases(DataObject):
 class ImportCost(DataObject):
     _instances_by_key = {}
     _key_col = "import_node"
-
+    _cols = ['import_node', 'source', 'notes', 'geography', 'currency', 'currency_year_id', 'denominator_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'cost_method_id']
     def __init__(self, scenario, import_node=None, source=None, notes=None, geography=None, currency=None,
                  currency_year_id=None, denominator_unit=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None, cost_method_id=None):
 
-        DataObject.__init__(self, scenario, key=import_node, data_table_name="ImportCostData")
+        DataObject.__init__(self, scenario, import_node, "ImportCostData")
         ImportCost._instances_by_key[self._key] = self
 
         self.import_node = import_node
@@ -1478,10 +1478,10 @@ class ImportCost(DataObject):
 class ImportPrimaryCostMethod(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['id', 'name']
     def __init__(self, scenario, id=None, name=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="")
+        DataObject.__init__(self, scenario, name, "")
         ImportPrimaryCostMethod._instances_by_key[self._key] = self
 
         self.id = id
@@ -1498,10 +1498,10 @@ class ImportPrimaryCostMethod(DataObject):
 class IndexLevels(DataObject):
     _instances_by_key = {}
     _key_col = "index_level"
-
+    _cols = ['id', 'index_level', 'data_column_name']
     def __init__(self, scenario, id=None, index_level=None, data_column_name=None):
 
-        DataObject.__init__(self, scenario, key=index_level, data_table_name="")
+        DataObject.__init__(self, scenario, index_level, "")
         IndexLevels._instances_by_key[self._key] = self
 
         self.id = id
@@ -1519,10 +1519,10 @@ class IndexLevels(DataObject):
 class OtherIndexesData_copy(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['id', 'name', 'other_index']
     def __init__(self, scenario, id=None, name=None, other_index=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="")
+        DataObject.__init__(self, scenario, name, "")
         OtherIndexesData_copy._instances_by_key[self._key] = self
 
         self.id = id
@@ -1540,12 +1540,12 @@ class OtherIndexesData_copy(DataObject):
 class PrimaryCost(DataObject):
     _instances_by_key = {}
     _key_col = "primary_node"
-
+    _cols = ['primary_node', 'geography', 'other_index_1', 'currency', 'currency_year_id', 'denominator_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'cost_method_id']
     def __init__(self, scenario, primary_node=None, geography=None, other_index_1=None, currency=None,
                  currency_year_id=None, denominator_unit=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None, cost_method_id=None):
 
-        DataObject.__init__(self, scenario, key=primary_node, data_table_name="PrimaryCostData")
+        DataObject.__init__(self, scenario, primary_node, "PrimaryCostData")
         PrimaryCost._instances_by_key[self._key] = self
 
         self.primary_node = primary_node
@@ -1574,12 +1574,12 @@ class PrimaryCost(DataObject):
 class Shapes(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'shape_type', 'shape_unit_type', 'time_zone_id', 'geography', 'other_index_1', 'other_index_2', 'geography_map_key', 'interpolation_method', 'extrapolation_method', 'input_type']
     def __init__(self, scenario, name=None, shape_type=None, shape_unit_type=None, time_zone_id=None, geography=None,
                  other_index_1=None, other_index_2=None, geography_map_key=None,
                  interpolation_method=None, extrapolation_method=None, input_type=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="")
+        DataObject.__init__(self, scenario, name, "")
         Shapes._instances_by_key[self._key] = self
 
         self.name = name
@@ -1610,13 +1610,13 @@ class Shapes(DataObject):
 class StorageTechsCapacityCapitalCost(DataObject):
     _instances_by_key = {}
     _key_col = "supply_tech"
-
+    _cols = ['supply_tech', 'definition', 'reference_tech', 'currency', 'geography', 'currency_year_id', 'capacity_or_energy_unit', 'is_levelized', 'cost_of_capital', 'interpolation_method', 'extrapolation_method', 'time_unit']
     def __init__(self, scenario, supply_tech=None, definition=None, reference_tech=None, currency=None, geography=None,
                  currency_year_id=None, capacity_or_energy_unit=None, is_levelized=None,
                  cost_of_capital=None, interpolation_method=None, extrapolation_method=None,
                  time_unit=None):
 
-        DataObject.__init__(self, scenario, key=supply_tech, data_table_name="")
+        DataObject.__init__(self, scenario, supply_tech, "")
         StorageTechsCapacityCapitalCost._instances_by_key[self._key] = self
 
         self.supply_tech = supply_tech
@@ -1649,12 +1649,12 @@ class StorageTechsCapacityCapitalCost(DataObject):
 class StorageTechsEnergyCapitalCost(DataObject):
     _instances_by_key = {}
     _key_col = "supply_tech"
-
+    _cols = ['supply_tech', 'definition', 'reference_tech', 'currency', 'geography', 'currency_year_id', 'energy_unit', 'is_levelized', 'cost_of_capital', 'interpolation_method', 'extrapolation_method']
     def __init__(self, scenario, supply_tech=None, definition=None, reference_tech=None, currency=None, geography=None,
                  currency_year_id=None, energy_unit=None, is_levelized=None, cost_of_capital=None,
                  interpolation_method=None, extrapolation_method=None):
 
-        DataObject.__init__(self, scenario, key=supply_tech, data_table_name="")
+        DataObject.__init__(self, scenario, supply_tech, "")
         StorageTechsEnergyCapitalCost._instances_by_key[self._key] = self
 
         self.supply_tech = supply_tech
@@ -1684,12 +1684,12 @@ class StorageTechsEnergyCapitalCost(DataObject):
 class SupplyCapacityFactor(DataObject):
     _instances_by_key = {}
     _key_col = "supply_node"
-
+    _cols = ['supply_node', 'geography', 'unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'age_growth_or_decay_type', 'age_growth_or_decay']
     def __init__(self, scenario, supply_node=None, geography=None, unit=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None, age_growth_or_decay_type=None,
                  age_growth_or_decay=None):
 
-        DataObject.__init__(self, scenario, key=supply_node, data_table_name="SupplyCapacityFactorData")
+        DataObject.__init__(self, scenario, supply_node, "SupplyCapacityFactorData")
         SupplyCapacityFactor._instances_by_key[self._key] = self
 
         self.supply_node = supply_node
@@ -1717,14 +1717,14 @@ class SupplyCapacityFactor(DataObject):
 class SupplyCost(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'source', 'additional_notes', 'supply_node', 'geography', 'supply_cost_type_id', 'currency', 'currency_year_id', 'energy_or_capacity_unit', 'time_unit', 'is_capital_cost', 'cost_of_capital', 'book_life', 'throughput_correlation', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth']
     def __init__(self, scenario, name=None, source=None, additional_notes=None, supply_node=None, geography=None,
                  supply_cost_type_id=None, currency=None, currency_year_id=None,
                  energy_or_capacity_unit=None, time_unit=None, is_capital_cost=None, cost_of_capital=None,
                  book_life=None, throughput_correlation=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="SupplyCostData")
+        DataObject.__init__(self, scenario, name, "SupplyCostData")
         SupplyCost._instances_by_key[self._key] = self
 
         self.name = name
@@ -1765,11 +1765,11 @@ class SupplyCost(DataObject):
 class SupplyEfficiency(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'geography', 'source', 'notes', 'input_unit', 'output_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth']
     def __init__(self, scenario, name=None, geography=None, source=None, notes=None, input_unit=None, output_unit=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="SupplyEfficiencyData")
+        DataObject.__init__(self, scenario, name, "SupplyEfficiencyData")
         SupplyEfficiency._instances_by_key[self._key] = self
 
         self.name = name
@@ -1796,12 +1796,12 @@ class SupplyEfficiency(DataObject):
 class SupplyEmissions(DataObject):
     _instances_by_key = {}
     _key_col = "supply_node"
-
+    _cols = ['supply_node', 'geography', 'other_index_1', 'mass_unit', 'denominator_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'source', 'notes']
     def __init__(self, scenario, supply_node=None, geography=None, other_index_1=None, mass_unit=None,
                  denominator_unit=None, interpolation_method=None, extrapolation_method=None,
                  extrapolation_growth=None, source=None, notes=None):
 
-        DataObject.__init__(self, scenario, key=supply_node, data_table_name="SupplyEmissionsData")
+        DataObject.__init__(self, scenario, supply_node, "SupplyEmissionsData")
         SupplyEmissions._instances_by_key[self._key] = self
 
         self.supply_node = supply_node
@@ -1830,11 +1830,11 @@ class SupplyEmissions(DataObject):
 class SupplyExport(DataObject):
     _instances_by_key = {}
     _key_col = "supply_node"
-
+    _cols = ['supply_node', 'geography', 'other_index_1', 'unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth']
     def __init__(self, scenario, supply_node=None, geography=None, other_index_1=None, unit=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None):
 
-        DataObject.__init__(self, scenario, key=supply_node, data_table_name="SupplyExportData")
+        DataObject.__init__(self, scenario, supply_node, "SupplyExportData")
         SupplyExport._instances_by_key[self._key] = self
 
         self.supply_node = supply_node
@@ -1859,11 +1859,11 @@ class SupplyExport(DataObject):
 class SupplyExportMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['supply_node', 'name', 'geography', 'other_index_1', 'interpolation_method', 'extrapolation_method', 'unit']
     def __init__(self, scenario, supply_node=None, name=None, geography=None, other_index_1=None,
                  interpolation_method=None, extrapolation_method=None, unit=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="SupplyExportMeasuresData")
+        DataObject.__init__(self, scenario, name, "SupplyExportMeasuresData")
         SupplyExportMeasures._instances_by_key[self._key] = self
 
         self.supply_node = supply_node
@@ -1888,7 +1888,7 @@ class SupplyExportMeasures(DataObject):
 class SupplyNodes(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'supply_type', 'tradable_geography', 'is_active', 'is_curtailable', 'is_exportable', 'is_flexible', 'residual_supply_node', 'mean_lifetime', 'lifetime_variance', 'max_lifetime', 'min_lifetime', 'stock_decay_function', 'cost_of_capital', 'book_life', 'geography_map_key', 'shape', 'max_lag_hours', 'max_lead_hours', 'enforce_potential_constraint', 'overflow_node']
     def __init__(self, scenario, name=None, supply_type=None, tradable_geography=None, is_active=None, is_curtailable=None,
                  is_exportable=None, is_flexible=None, residual_supply_node=None, mean_lifetime=None,
                  lifetime_variance=None, max_lifetime=None, min_lifetime=None, stock_decay_function=None,
@@ -1896,7 +1896,7 @@ class SupplyNodes(DataObject):
                  max_lag_hours=None, max_lead_hours=None, enforce_potential_constraint=None,
                  overflow_node=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="")
+        DataObject.__init__(self, scenario, name, "")
         SupplyNodes._instances_by_key[self._key] = self
 
         self.name = name
@@ -1943,12 +1943,12 @@ class SupplyNodes(DataObject):
 class SupplyPotential(DataObject):
     _instances_by_key = {}
     _key_col = "supply_node"
-
+    _cols = ['supply_node', 'geography', 'other_index_1', 'unit', 'time_unit', 'interpolation_method', 'extrapolation_growth', 'extrapolation_method', 'geography_map_key']
     def __init__(self, scenario, enforce=False, supply_node=None, geography=None, other_index_1=None, unit=None,
                  time_unit=None, interpolation_method=None, extrapolation_growth=None,
                  extrapolation_method=None, geography_map_key=None):
 
-        DataObject.__init__(self, scenario, key=supply_node, data_table_name="SupplyPotentialData")
+        DataObject.__init__(self, scenario, supply_node, "SupplyPotentialData")
         SupplyPotential._instances_by_key[self._key] = self
 
         self.enforce = enforce
@@ -1977,12 +1977,12 @@ class SupplyPotential(DataObject):
 class SupplyPotentialConversion(DataObject):
     _instances_by_key = {}
     _key_col = "supply_node"
-
+    _cols = ['supply_node', 'geography', 'other_index_1', 'energy_unit_numerator', 'resource_unit_denominator', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth']
     def __init__(self, scenario, supply_node=None, geography=None, other_index_1=None, energy_unit_numerator=None,
                  resource_unit_denominator=None, interpolation_method=None, extrapolation_method=None,
                  extrapolation_growth=None):
 
-        DataObject.__init__(self, scenario, key=supply_node, data_table_name="SupplyPotentialConversionData")
+        DataObject.__init__(self, scenario, supply_node, "SupplyPotentialConversionData")
         SupplyPotentialConversion._instances_by_key[self._key] = self
 
         self.supply_node = supply_node
@@ -2010,12 +2010,12 @@ class SupplyPotentialConversion(DataObject):
 class SupplySales(DataObject):
     _instances_by_key = {}
     _key_col = "supply_node"
-
+    _cols = ['supply_node', 'geography', 'capacity_or_energy_unit', 'time_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'geography_map_key']
     def __init__(self, scenario, supply_node=None, geography=None, capacity_or_energy_unit=None, time_unit=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
                  geography_map_key=None):
 
-        DataObject.__init__(self, scenario, key=supply_node, data_table_name="SupplySalesData")
+        DataObject.__init__(self, scenario, supply_node, "SupplySalesData")
         SupplySales._instances_by_key[self._key] = self
 
         self.supply_node = supply_node
@@ -2042,12 +2042,12 @@ class SupplySales(DataObject):
 class SupplySalesMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'supply_technology', 'supply_node', 'geography', 'other_index_1', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'geography_map_key']
     def __init__(self, scenario, name=None, supply_technology=None, supply_node=None, geography=None, other_index_1=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
                  geography_map_key=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="SupplySalesMeasuresData")
+        DataObject.__init__(self, scenario, name, "SupplySalesMeasuresData")
         SupplySalesMeasures._instances_by_key[self._key] = self
 
         self.name = name
@@ -2075,11 +2075,11 @@ class SupplySalesMeasures(DataObject):
 class SupplySalesShare(DataObject):
     _instances_by_key = {}
     _key_col = "supply_node"
-
+    _cols = ['supply_node', 'geography', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth']
     def __init__(self, scenario, supply_node=None, geography=None, interpolation_method=None, extrapolation_method=None,
                  extrapolation_growth=None):
 
-        DataObject.__init__(self, scenario, key=supply_node, data_table_name="SupplySalesShareData")
+        DataObject.__init__(self, scenario, supply_node, "SupplySalesShareData")
         SupplySalesShare._instances_by_key[self._key] = self
 
         self.supply_node = supply_node
@@ -2100,12 +2100,12 @@ class SupplySalesShare(DataObject):
 class SupplySalesShareMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'supply_node', 'supply_technology', 'replaced_supply_technology', 'geography', 'capacity_or_energy_unit', 'time_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'other_index_1']
     def __init__(self, scenario, name=None, supply_node=None, supply_technology=None, replaced_supply_technology=None,
                  geography=None, capacity_or_energy_unit=None, time_unit=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None, other_index_1=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="SupplySalesShareMeasuresData")
+        DataObject.__init__(self, scenario, name, "SupplySalesShareMeasuresData")
         SupplySalesShareMeasures._instances_by_key[self._key] = self
 
         self.name = name
@@ -2137,12 +2137,12 @@ class SupplySalesShareMeasures(DataObject):
 class SupplyStock(DataObject):
     _instances_by_key = {}
     _key_col = "supply_node"
-
+    _cols = ['supply_node', 'geography', 'capacity_or_energy_unit', 'time_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'geography_map_key']
     def __init__(self, scenario, supply_node=None, geography=None, capacity_or_energy_unit=None, time_unit=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
                  geography_map_key=None):
 
-        DataObject.__init__(self, scenario, key=supply_node, data_table_name="SupplyStockData")
+        DataObject.__init__(self, scenario, supply_node, "SupplyStockData")
         SupplyStock._instances_by_key[self._key] = self
 
         self.supply_node = supply_node
@@ -2169,12 +2169,12 @@ class SupplyStock(DataObject):
 class SupplyStockMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'supply_technology', 'supply_node', 'geography', 'other_index_1', 'capacity_or_energy_unit', 'time_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'geography_map_key']
     def __init__(self, scenario, name=None, supply_technology=None, supply_node=None, geography=None, other_index_1=None,
                  capacity_or_energy_unit=None, time_unit=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None, geography_map_key=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="SupplyStockMeasuresData")
+        DataObject.__init__(self, scenario, name, "SupplyStockMeasuresData")
         SupplyStockMeasures._instances_by_key[self._key] = self
 
         self.name = name
@@ -2206,13 +2206,13 @@ class SupplyStockMeasures(DataObject):
 class SupplyTechs(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['name', 'supply_node', 'source', 'additional_description', 'stock_decay_function', 'book_life', 'mean_lifetime', 'lifetime_variance', 'min_lifetime', 'max_lifetime', 'discharge_duration', 'cost_of_capital', 'shape', 'max_lag_hours', 'max_lead_hours', 'thermal_capacity_multiplier']
     def __init__(self, scenario, name=None, supply_node=None, source=None, additional_description=None,
                  stock_decay_function=None, book_life=None, mean_lifetime=None, lifetime_variance=None,
                  min_lifetime=None, max_lifetime=None, discharge_duration=None, cost_of_capital=None,
                  shape=None, max_lag_hours=None, max_lead_hours=None, thermal_capacity_multiplier=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="")
+        DataObject.__init__(self, scenario, name, "")
         SupplyTechs._instances_by_key[self._key] = self
 
         self.name = name
@@ -2251,12 +2251,12 @@ class SupplyTechs(DataObject):
 class SupplyTechsCO2Capture(DataObject):
     _instances_by_key = {}
     _key_col = "supply_tech"
-
+    _cols = ['supply_tech', 'definition', 'geography', 'reference_tech_id', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'age_growth_or_decay_type', 'age_growth_or_decay']
     def __init__(self, scenario, supply_tech=None, definition=None, geography=None, reference_tech_id=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
                  age_growth_or_decay_type=None, age_growth_or_decay=None):
 
-        DataObject.__init__(self, scenario, key=supply_tech, data_table_name="SupplyTechsCO2CaptureData")
+        DataObject.__init__(self, scenario, supply_tech, "SupplyTechsCO2CaptureData")
         SupplyTechsCO2Capture._instances_by_key[self._key] = self
 
         self.supply_tech = supply_tech
@@ -2285,12 +2285,12 @@ class SupplyTechsCO2Capture(DataObject):
 class SupplyTechsCapacityFactor(DataObject):
     _instances_by_key = {}
     _key_col = "supply_tech"
-
+    _cols = ['supply_tech', 'geography', 'reference_tech_id', 'definition', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'age_growth_or_decay_type', 'age_growth_or_decay']
     def __init__(self, scenario, supply_tech=None, geography=None, reference_tech_id=None, definition=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
                  age_growth_or_decay_type=None, age_growth_or_decay=None):
 
-        DataObject.__init__(self, scenario, key=supply_tech, data_table_name="SupplyTechsCapacityFactorData")
+        DataObject.__init__(self, scenario, supply_tech, "SupplyTechsCapacityFactorData")
         SupplyTechsCapacityFactor._instances_by_key[self._key] = self
 
         self.supply_tech = supply_tech
@@ -2319,13 +2319,13 @@ class SupplyTechsCapacityFactor(DataObject):
 class SupplyTechsCapitalCost(DataObject):
     _instances_by_key = {}
     _key_col = "supply_tech"
-
+    _cols = ['supply_tech', 'definition', 'reference_tech_id', 'geography', 'currency', 'currency_year_id', 'capacity_or_energy_unit', 'time_unit', 'is_levelized', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'source', 'notes', 'geography_map_key']
     def __init__(self, scenario, supply_tech=None, definition=None, reference_tech_id=None, geography=None, currency=None,
                  currency_year_id=None, capacity_or_energy_unit=None, time_unit=None, is_levelized=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
                  source=None, notes=None, geography_map_key=None):
 
-        DataObject.__init__(self, scenario, key=supply_tech, data_table_name="")
+        DataObject.__init__(self, scenario, supply_tech, "")
         SupplyTechsCapitalCost._instances_by_key[self._key] = self
 
         self.supply_tech = supply_tech
@@ -2362,13 +2362,13 @@ class SupplyTechsCapitalCost(DataObject):
 class SupplyTechsEfficiency(DataObject):
     _instances_by_key = {}
     _key_col = "supply_tech"
-
+    _cols = ['supply_tech', 'geography', 'definition', 'reference_tech', 'input_unit', 'output_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'age_growth_or_decay_type', 'age_growth_or_decay', 'source', 'notes']
     def __init__(self, scenario, supply_tech=None, geography=None, definition=None, reference_tech=None, input_unit=None,
                  output_unit=None, interpolation_method=None, extrapolation_method=None,
                  extrapolation_growth=None, age_growth_or_decay_type=None, age_growth_or_decay=None,
                  source=None, notes=None):
 
-        DataObject.__init__(self, scenario, key=supply_tech, data_table_name="SupplyTechsEfficiencyData")
+        DataObject.__init__(self, scenario, supply_tech, "SupplyTechsEfficiencyData")
         SupplyTechsEfficiency._instances_by_key[self._key] = self
 
         self.supply_tech = supply_tech
@@ -2403,13 +2403,13 @@ class SupplyTechsEfficiency(DataObject):
 class SupplyTechsFixedMaintenanceCost(DataObject):
     _instances_by_key = {}
     _key_col = "supply_tech"
-
+    _cols = ['supply_tech', 'definition', 'reference_tech_id', 'geography', 'currency', 'currency_year_id', 'capacity_or_energy_unit', 'time_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'age_growth_or_decay_type', 'age_growth_or_decay', 'source', 'notes']
     def __init__(self, scenario, supply_tech=None, definition=None, reference_tech_id=None, geography=None, currency=None,
                  currency_year_id=None, capacity_or_energy_unit=None, time_unit=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
                  age_growth_or_decay_type=None, age_growth_or_decay=None, source=None, notes=None):
 
-        DataObject.__init__(self, scenario, key=supply_tech, data_table_name="SupplyTechsFixedMaintenanceCostData")
+        DataObject.__init__(self, scenario, supply_tech, "SupplyTechsFixedMaintenanceCostData")
         SupplyTechsFixedMaintenanceCost._instances_by_key[self._key] = self
 
         self.supply_tech = supply_tech
@@ -2447,13 +2447,13 @@ class SupplyTechsFixedMaintenanceCost(DataObject):
 class SupplyTechsInstallationCost(DataObject):
     _instances_by_key = {}
     _key_col = "supply_tech"
-
+    _cols = ['supply_tech', 'definition', 'geography', 'reference_tech_id', 'currency', 'currency_year_id', 'capacity_or_energy_unit', 'time_unit', 'is_levelized', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'source', 'notes']
     def __init__(self, scenario, supply_tech=None, definition=None, geography=None, reference_tech_id=None, currency=None,
                  currency_year_id=None, capacity_or_energy_unit=None, time_unit=None, is_levelized=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
                  source=None, notes=None):
 
-        DataObject.__init__(self, scenario, key=supply_tech, data_table_name="")
+        DataObject.__init__(self, scenario, supply_tech, "")
         SupplyTechsInstallationCost._instances_by_key[self._key] = self
 
         self.supply_tech = supply_tech
@@ -2489,13 +2489,13 @@ class SupplyTechsInstallationCost(DataObject):
 class SupplyTechsVariableMaintenanceCost(DataObject):
     _instances_by_key = {}
     _key_col = "supply_tech"
-
+    _cols = ['supply_tech', 'definition', 'reference_tech_id', 'currency', 'geography', 'currency_year_id', 'energy_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'age_growth_or_decay_type', 'age_growth_or_decay', 'source', 'notes']
     def __init__(self, scenario, supply_tech=None, definition=None, reference_tech_id=None, currency=None, geography=None,
                  currency_year_id=None, energy_unit=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None, age_growth_or_decay_type=None,
                  age_growth_or_decay=None, source=None, notes=None):
 
-        DataObject.__init__(self, scenario, key=supply_tech, data_table_name="SupplyTechsVariableMaintenanceCostData")
+        DataObject.__init__(self, scenario, supply_tech, "SupplyTechsVariableMaintenanceCostData")
         SupplyTechsVariableMaintenanceCost._instances_by_key[self._key] = self
 
         self.supply_tech = supply_tech
@@ -2531,10 +2531,10 @@ class SupplyTechsVariableMaintenanceCost(DataObject):
 class TimeZones(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-
+    _cols = ['id', 'name', 'utc_shift']
     def __init__(self, scenario, id=None, name=None, utc_shift=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="")
+        DataObject.__init__(self, scenario, name, "")
         TimeZones._instances_by_key[self._key] = self
 
         self.id = id
