@@ -38,10 +38,18 @@ def find_col(candidates, cols):
             return col
     return None
 
-def find_key_col(cols):
+def find_key_col(table, cols):
     '''
     Find the key column.
     '''
+    exceptions = {
+        'DemandFlexibleLoadMeasures': 'subsector', # has 'name' col that isn't the key
+    }
+
+    key_col = exceptions.get(table)
+    if key_col:
+        return key_col
+
     key_cols = ('name', 'parent', 'subsector', 'demand_technology', 'supply_node',
                 'supply_tech', 'import_node', 'primary_node', 'index_level')
     return find_col(key_cols, cols)
@@ -50,7 +58,8 @@ def find_parent_col(cols):
     '''
     Find the column identifying the parent record.
     '''
-    parent_cols = ('parent', 'subsector', 'demand_technology', 'supply_node', 'supply_tech')
+    parent_cols = ('parent', 'subsector', 'demand_technology', 'supply_node',
+                   'supply_tech', 'import_node', 'primary_node')
     return find_col(parent_cols, cols)
 
 
@@ -176,7 +185,7 @@ class AbstractTable(object):
             self.load_all()
 
     def __str__(self):
-        return "<%s %s>" % (self.__class__.__name__, self.name)
+        return "<{} {}>".format(self.__class__.__name__, self.name)
 
     def load_rows(self, id):
         """
@@ -200,7 +209,7 @@ class AbstractTable(object):
     def load_data_object(self, cls, scenario):
         self.data_class = cls
         df = self.load_all()
-        print("Loaded %d rows for %s" % (df.shape[0], self.name))
+        print("Loaded {} rows for {}".format(df.shape[0], self.name))
 
         # This is inefficient for Postgres since we go from list(tuple)->DataFrame->Series->tuple,
         # but eventually, for the CSV "database", it's just DataFrame->Series->tuple
@@ -221,7 +230,7 @@ class AbstractTable(object):
         if not fkeys:
             return
 
-        print("Linking table %s" % parent_tbl_name)
+        print("Linking table {}".format(parent_tbl_name))
 
         for parent_obj in parent_cls.instances():
             for fk in fkeys:
@@ -244,7 +253,7 @@ class AbstractTable(object):
                     text = self.db.get_text(child_tbl_name, int(key))
                     if text is None:
                         missing[child_tbl_name] = 1
-                        print("** Skipping missing table '%s'" % child_tbl_name)
+                        print("** Skipping missing table '{}'".format(child_tbl_name))
                     else:
                         setattr(parent_obj, parent_col, text)       # Never encountered this line!
                     continue
@@ -271,14 +280,14 @@ class AbstractTable(object):
         query = "{} == '{}'".format(key_col, key)
 
         if self.data is not None:
-            print('Getting row {} from cache'.format(query))
             rows = self.data.query(query)
-            print(rows)
+            # print('Getting row {} from cache'.format(query))
+            # print(rows)
             tups = []
             for idx, row in rows.iterrows():
                 tups.append(tuple(row))
         else:
-            print('Getting row {} from database'.format(query))
+            # print('Getting row {} from database'.format(query))
             tups = self.load_rows(key)
 
         count = len(tups)
@@ -316,9 +325,9 @@ class PostgresTable(AbstractTable):
                    where table_name = '{}' and table_schema = 'public'""".format(tbl_name)
         self.columns = self.db.fetchcolumn(query)
 
-        query = 'select * from "%s"' % tbl_name
+        query = 'select * from "{}"'.format(tbl_name)
         if limit:
-            query += ' limit %d' % limit
+            query += ' limit {}'.format(limit)
 
         rows = self.db.fetchall(query)
         self.data = pd.DataFrame.from_records(data=rows, columns=self.columns, index=None)
@@ -395,7 +404,7 @@ class PostgresTable(AbstractTable):
         df = data[cols_to_save]
 
         if renames:
-            print("Renaming columns for %s: %s" % (name, renames))
+            print("Renaming columns for {}: {}".format(name, renames))
             df.rename(columns=renames, inplace=True)
 
         # Handle special case for ShapesData. Split this 3.5 GB data file
@@ -631,12 +640,6 @@ class AbstractDatabase(object):
     def _cache_foreign_keys(self):
         raise SubclassProtocolError(self.__class__, '_cache_foreign_keys')
 
-    # def fk_from_table(self, table_name):
-    #     return self.foreign_keys.query('table_name == "%s"' % table_name)
-
-    # def fk_to_table(self, table_name):
-    #     return self.foreign_keys.query('foreign_table_name == "%s"' % table_name)
-
     def fetchcolumn(self, sql):
         rows = self.fetchall(sql)
         return [row[0] for row in rows]
@@ -686,7 +689,7 @@ class PostgresDatabase(AbstractDatabase):
         self._cache_foreign_keys()
 
     def _get_tables_of_type(self, tableType):
-        query = "select table_name from INFORMATION_SCHEMA.TABLES where table_schema = 'public' and table_type = '%s'" % tableType
+        query = "select table_name from INFORMATION_SCHEMA.TABLES where table_schema = 'public' and table_type = '{}'".format(tableType)
         result = self.fetchcolumn(query)
         return result
 
@@ -697,7 +700,7 @@ class PostgresDatabase(AbstractDatabase):
         return self._get_tables_of_type('VIEW')
 
     def get_columns(self, table):
-        query = "select column_name from INFORMATION_SCHEMA.COLUMNS where table_name = '%s' and table_schema = 'public'" % table
+        query = "select column_name from INFORMATION_SCHEMA.COLUMNS where table_name = '{}' and table_schema = 'public'".format(table)
         result = self.fetchcolumn(query)
         return result
 
@@ -786,10 +789,10 @@ class CsvDatabase(AbstractDatabase):
         pathname = self.pathname
 
         if not os.path.exists(pathname):
-            raise PathwaysException('Database path "%s" does not exist')
+            raise PathwaysException('Database path "{}" does not exist'.format(pathname))
 
         if not os.path.isdir(pathname):
-            raise PathwaysException('Database path "%s" is not a directory')
+            raise PathwaysException('Database path "{}" is not a directory'.format(pathname))
 
         all_csv = os.path.join(pathname, '*.csv')
         all_gz  = all_csv + '.gz'
@@ -800,7 +803,7 @@ class CsvDatabase(AbstractDatabase):
             tbl_name = basename.split('.')[0]
             self.file_map[tbl_name] = os.path.abspath(filename)
 
-        print("Found %d .CSV files for '%s'" % (len(self.file_map), pathname))
+        print("Found {} .CSV files for '{}'".format(len(self.file_map), pathname))
 
     def file_for_table(self, tbl_name):
         return self.file_map.get(tbl_name)

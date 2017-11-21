@@ -47,7 +47,7 @@ class ClassGenerator(object):
     def generateClass(self, stream, table):
         db = self.db
 
-        # print("Creating class for %s" % table)
+        # print("Creating class for {}".format(table))
         cols = db.get_columns(table)
 
         self.generated.append(table)
@@ -56,10 +56,10 @@ class ClassGenerator(object):
         # to uses of the class will be recognized properly in the IDE.
         base_class = DataObject.__name__
 
-        stream.write('class %s(%s):\n' % (table, base_class))
+        stream.write('class {}({}):\n'.format(table, base_class))
         stream.write('    _instances_by_key = {}\n')
 
-        key_col = find_key_col(cols)
+        key_col = find_key_col(table, cols)
         if not key_col:
             raise Exception("Failed to guess key col in {}; columns are: {}".format(table, cols))
 
@@ -68,7 +68,7 @@ class ClassGenerator(object):
 
         # TBD: unnecessary?
         extraArgs = ExtraInitArgs.get(table, [])
-        extra1 = [name + ('=%s' % default  if default else '') for name, default in extraArgs]
+        extra1 = [name + ('={}'.format(default) if default else '') for name, default in extraArgs]
 
         params = extra1 + [col + '=None' for col in cols]
         params = observeLinewidth(params, self.linewidth)
@@ -77,7 +77,7 @@ class ClassGenerator(object):
         if data_table not in self.all_tables:
             data_table = ''
 
-        stream.write('    def __init__(self, scenario, %s):\n' % params)
+        stream.write('    def __init__(self, scenario, {}):\n'.format(params))
         stream.write('\n')
         stream.write('        {}.__init__(self, scenario, key={}, data_table_name="{}")\n'.format(base_class, key_col, data_table))
         stream.write('        {}._instances_by_key[self._key] = self\n'.format(table))
@@ -87,11 +87,7 @@ class ClassGenerator(object):
         for col in extra2 + cols:
             stream.write('        self.{col} = {col}\n'.format(col=col))
 
-        # stream.write('\n        # ints mapped to strings\n')
-        # for col in mapped_cols:
-        #     stream.write('        self.%s = None\n' % col)
-
-        extra3 = [('kwargs.get("%s", %s)' % (name, default if default else "None")) for name, default in extraArgs]
+        extra3 = [('kwargs.get("{}", {})'.format(name, default if default else "None")) for name, default in extraArgs]
         args  = extra3 + [col + '=' + col for col in cols]
         args  = observeLinewidth(args, self.linewidth, indent=17)
         names = observeLinewidth(cols, self.linewidth, indent=8)
@@ -124,7 +120,7 @@ class ClassGenerator(object):
         for name in tables:
             self.generateClass(stream, name)
 
-        sys.stderr.write('Generated %d classes\n' % len(self.generated))
+        sys.stderr.write('Generated {} classes\n'.format(len(self.generated)))
         if stream != sys.stdout:
             stream.close()
 

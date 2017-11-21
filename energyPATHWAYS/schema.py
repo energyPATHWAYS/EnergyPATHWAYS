@@ -312,12 +312,12 @@ class DemandEnergyEfficiencyMeasuresCost(DataObject):
 
 class DemandFlexibleLoadMeasures(DataObject):
     _instances_by_key = {}
-    _key_col = "name"
+    _key_col = "subsector"
 
     def __init__(self, scenario, subsector=None, geography=None, other_index_1=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None, name=None):
 
-        DataObject.__init__(self, scenario, key=name, data_table_name="DemandFlexibleLoadMeasuresData")
+        DataObject.__init__(self, scenario, key=subsector, data_table_name="DemandFlexibleLoadMeasuresData")
         DemandFlexibleLoadMeasures._instances_by_key[self._key] = self
 
         self.subsector = subsector
