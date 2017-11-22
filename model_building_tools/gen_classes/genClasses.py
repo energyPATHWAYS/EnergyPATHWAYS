@@ -3,8 +3,9 @@ from __future__ import print_function
 import click
 import sys
 
-from energyPATHWAYS.database import PostgresDatabase, CsvDatabase, find_key_col
+from energyPATHWAYS.database import CsvDatabase, find_key_col
 from energyPATHWAYS.data_object import DataObject
+from postgres import PostgresDatabase
 
 #
 # This dict provides extra args to include in init method of the classes that are

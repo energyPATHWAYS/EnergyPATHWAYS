@@ -1370,36 +1370,6 @@ class DispatchTransmissionConstraint(DataObject):
 
         return obj
 
-class DispatchTransmissionHurdleRate(DataObject):
-    _instances_by_key = {}
-    _key_col = "parent"
-    _cols = ['id', 'parent', 'gau_from', 'gau_to', 'year', 'month', 'hour', 'day_type', 'value', 'sensitivity']
-    def __init__(self, scenario, id=None, parent=None, gau_from=None, gau_to=None, year=None, month=None, hour=None,
-                 day_type=None, value=None, sensitivity=None):
-
-        DataObject.__init__(self, scenario, parent, "")
-        DispatchTransmissionHurdleRate._instances_by_key[self._key] = self
-
-        self.id = id
-        self.parent = parent
-        self.gau_from = gau_from
-        self.gau_to = gau_to
-        self.year = year
-        self.month = month
-        self.hour = hour
-        self.day_type = day_type
-        self.value = value
-        self.sensitivity = sensitivity
-
-    @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):    
-        (id, parent, gau_from, gau_to, year, month, hour, day_type, value, sensitivity) = tup
-
-        obj = cls(scenario, id=id, parent=parent, gau_from=gau_from, gau_to=gau_to, year=year, month=month, hour=hour,
-                  day_type=day_type, value=value, sensitivity=sensitivity)
-
-        return obj
-
 class FinalEnergy(DataObject):
     _instances_by_key = {}
     _key_col = "name"

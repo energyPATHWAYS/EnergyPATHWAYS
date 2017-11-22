@@ -1,6 +1,47 @@
 from collections import defaultdict
 from .database import get_database, find_parent_col
 from .error import SubclassProtocolError
+from .text_mappings import MappedCols
+
+DropStrCols = True
+
+class StringMap(object):
+    """
+    A simple class to map strings to integer IDs and back again.
+    """
+    instance = None
+
+    @classmethod
+    def getInstance(cls):
+        if not cls.instance:
+            cls.instance = cls()
+
+        return cls.instance
+
+    def __init__(self):
+        self.txt_to_id = {}     # maps text to integer id
+        self.id_to_txt = {}     # maps id back to text
+        self.next_id = 1        # the next id to assign
+
+    def store(self, txt):
+        # If already known, return it
+        id = self.get_id(txt, raise_error=False)
+        if id is not None:
+            return id
+
+        id = self.next_id
+        self.next_id += 1
+
+        self.txt_to_id[txt] = id
+        self.id_to_txt[id] = txt
+        return id
+
+    def get_id(self, txt, raise_error=True):
+        return self.txt_to_id[txt] if raise_error else (None if id is None else self.txt_to_id.get(txt, None))
+
+    def get_txt(self, id, raise_error=True):
+        return self.id_to_txt[id] if raise_error else (None if id is None else self.id_to_txt.get(id, None))
+
 
 BASE_CLASS = 'DataObject'
 
@@ -81,7 +122,7 @@ class DataObject(object):
     # TBD: decide whether the default should be copy=True or False
     def load_child_data(self, copy=True):
         """
-        If self._data_table is not None, load the data corresponding to this object
+        If self._data_table_name is set, load the data corresponding to this object
         in a DataFrame as self._child_data
 
         :param id: (.database.CsvDatabase) the database object
@@ -93,5 +134,35 @@ class DataObject(object):
         if self._data_table_name:
             child_tbl = db.get_table(self._data_table_name)
             parent_col = find_parent_col(self._data_table_name, child_tbl.data.columns)
-            slice = child_tbl.data.query("{} == '{}'".format(parent_col, self._key))
-            self._child_data = slice.copy() if copy else slice
+            query = "{} == '{}'".format(parent_col, self._key)
+            slice = child_tbl.data.query(query)
+
+            # TBD: discuss with Ryan & Ben whether to operate on the whole child_data DF or just copy slices
+            slice = slice.copy(deep=True) if copy else slice
+            self.map_strings(slice)
+            self._child_data = slice
+
+    def map_strings(self, df):
+        tbl_name = self._data_table_name
+
+        mapper = StringMap.getInstance()
+        str_cols = MappedCols.get(tbl_name, [])
+
+        for col in str_cols:
+            # Ensure that all values are in the StringMap
+            values = df[col].unique()
+            for value in values:
+                mapper.store(value)
+
+            # mapped column "foo" becomes "foo_id"
+            id_col = col + '_id'
+
+            # Force string cols to str and replace 'nan' with None
+            df[col] = df[col].astype(str)
+            df.loc[df[col] == 'nan', col] = None
+
+            # create a column with integer ids
+            df[id_col] = df[col].map(lambda txt: mapper.get_id(txt, raise_error=False))
+
+        if DropStrCols:
+            df.drop(str_cols, axis=1, inplace=True)

@@ -2,7 +2,7 @@
 # Created 19 Sep 2017
 # @author: Rich Plevin
 #
-# Database abstraction layer. Postgres for now, CSV files later, probably.
+# Database abstraction layer.
 #
 from __future__ import print_function
 from collections import defaultdict
@@ -11,7 +11,6 @@ import gzip
 import numpy as np
 import os
 import pandas as pd
-import psycopg2
 
 pd.set_option('display.width', 200)
 
@@ -59,10 +58,11 @@ def find_parent_col(table, cols):
     Find the column identifying the parent record.
     '''
     exceptions = {
-        'DemandSalesData'           : 'demand_technology',
-        'SupplyTechsEfficiencyData' : 'supply_tech',
-        'SupplySalesData'           : 'supply_technology',
-        'SupplySalesShareData'      : 'supply_technology',
+        'DemandSalesData'               : 'demand_technology',
+        'DispatchFeedersAllocationData' : 'name',
+        'SupplyTechsEfficiencyData'     : 'supply_tech',
+        'SupplySalesData'               : 'supply_technology',
+        'SupplySalesShareData'          : 'supply_technology',
     }
 
     # List adapted from scenario_loader.PARENT_COLUMN_NAMES. We don't reference that
@@ -143,43 +143,6 @@ Tables_to_load_on_demand = [
     'ShapesData',
 ]
 
-class StringMap(object):
-    """
-    A simple class to map strings to integer IDs and back again.
-    """
-    instance = None
-
-    @classmethod
-    def getInstance(cls):
-        if not cls.instance:
-            cls.instance = cls()
-
-        return cls.instance
-
-    def __init__(self):
-        self.txt_to_id = {}     # maps text to integer id
-        self.id_to_txt = {}     # maps id back to text
-        self.next_id = 1        # the next id to assign
-
-    def store(self, txt):
-        # If already known, return it
-        id = self.get_id(txt, raise_error=False)
-        if id is not None:
-            return id
-
-        id = self.next_id
-        self.next_id += 1
-
-        self.txt_to_id[txt] = id
-        self.id_to_txt[id] = txt
-        return id
-
-    def get_id(self, txt, raise_error=True):
-        return self.txt_to_id[txt] if raise_error else self.txt_to_id.get(txt, None)
-
-    def get_txt(self, id, raise_error=True):
-        return self.id_to_txt[id] if raise_error else self.id_to_txt.get(id, None)
-
 
 class AbstractTable(object):
     def __init__(self, db, tbl_name, cache_data=False):
@@ -187,7 +150,6 @@ class AbstractTable(object):
         self.name = tbl_name
         self.cache_data = cache_data
         self.data = None
-        self.columns = None
         self.children_by_fk_col = {}
         self.data_class = None
 
@@ -265,7 +227,7 @@ class AbstractTable(object):
                         missing[child_tbl_name] = 1
                         print("** Skipping missing table '{}'".format(child_tbl_name))
                     else:
-                        setattr(parent_obj, parent_col, text)       # Never encountered this line!
+                        setattr(parent_obj, parent_col, text)       # Never encountered this line
                     continue
 
                 # create and save a list of all matching data class instances with matching ids
@@ -313,131 +275,6 @@ class AbstractTable(object):
         return tups[0]
 
 
-class PostgresTable(AbstractTable):
-    """
-    Implementation of AbstractTable based on the postgres database.
-    """
-    def __init__(self, db, tbl_name, cache_data=False):
-        super(PostgresTable, self).__init__(db, tbl_name, cache_data=cache_data)
-        self.mapped_cols = {}    # maps original columns with IDs to added columns with strings
-
-    def load_rows(self, key):
-        query = 'select * from "{}" where key="{}"'.format(self.name, key)
-        tups = self.db.fetchall(query)
-        return tups
-
-    def load_all(self, limit=0, prefix='_'):
-        if self.cache_data and self.data is not None:
-            return self.data
-
-        tbl_name = self.name
-        query = """select column_name, data_type from INFORMATION_SCHEMA.COLUMNS 
-                   where table_name = '{}' and table_schema = 'public'""".format(tbl_name)
-        self.columns = self.db.fetchcolumn(query)
-
-        query = 'select * from "{}"'.format(tbl_name)
-        if limit:
-            query += ' limit {}'.format(limit)
-
-        rows = self.db.fetchall(query)
-        self.data = pd.DataFrame.from_records(data=rows, columns=self.columns, index=None)
-        rows, cols = self.data.shape
-        print("Cached {} rows, {} cols for table '{}'".format(rows, cols, tbl_name))
-
-        self.map_strings()
-        return self.data
-
-    def map_strings(self):
-        tbl_name = self.name
-        df = self.data
-        text_maps = self.db.text_maps
-
-        fkeys = ForeignKey.fk_by_parent.get(tbl_name) or []
-        for fk in fkeys:
-            ftable = fk.foreign_table_name
-            text_map = text_maps.get(ftable)
-            if text_map is not None:
-                str_col = id_col = fk.column_name
-
-                # Special case for SupplyEfficiency (and others?)
-                if str_col == 'id':
-                    str_col = 'name'
-                elif str_col.endswith('_id'):
-                    str_col = str_col[:-3]    # strip off "_id"
-
-                # add a column with the corresponding string value
-                df[str_col] = df[id_col].map(text_map.get)
-
-                # and record the mapping
-                self.mapped_cols[id_col] = str_col
-
-    col_renames = {
-        'CurrenciesConversion':
-            {'currency_year_id' : 'currency_year'},
-        # 'DemandTechsServiceLink':
-        #     {'service_link' : 'name'},
-        'DemandTechsServiceLinkData':
-            {'parent_id' : 'service_link'},
-        'DispatchFeedersAllocationData':
-            {'parent_id' : 'name'},
-        'DispatchFeedersAllocation':
-            {'id': 'name'},
-        'SupplyEfficiency':
-            {'id': 'name'},
-    }
-
-    def to_csv(self, db_dir):
-        """
-        Save the cached data to a CSV file in the given "db", which is just a
-        directory named with a ".db" extension, containing CSV "table" files.
-        String ID columns are not saved; string columns are saved instead.
-
-        :param db_dir: (str) the directory in which to write the CSV file
-        :return: none
-        """
-        name = self.name
-        data = self.data
-        mapped = self.mapped_cols
-
-        renames = self.col_renames.get(name)
-
-        # since we map the originals (to maintain order) we don't include these again
-        skip = mapped.values()
-
-        # Save text mapping tables for validation purposes, but drop the id col (unless we're renaming it)
-        if name in Text_mapping_tables and not (renames and renames.get('id')):
-            skip.append('id')
-
-        # Swap out str cols for id cols where they exist
-        cols_to_save = [mapped.get(col, col) for col in data.columns if col not in skip]
-
-        df = data[cols_to_save]
-
-        if renames:
-            print("Renaming columns for {}: {}".format(name, renames))
-            df.rename(columns=renames, inplace=True)
-
-        # Handle special case for ShapesData. Split this 3.5 GB data file
-        # into individual files for each Shape ID (translated to name)
-        if name == 'ShapesData':
-            dirname = os.path.join(db_dir, 'ShapeData')
-            mkdirs(dirname)
-
-            shapes = self.db.get_table('Shapes')
-            shape_names = list(shapes.data.name)
-
-            for shape_name in shape_names:
-                filename = shape_name.replace(' ', '_') + '.csv.gz'
-                pathname = os.path.join(dirname, filename)
-                chunk = df.query('parent == "{}"'.format(shape_name))
-                print("Writing {} rows to {}".format(len(chunk), pathname))
-                with gzip.open(pathname, 'wb') as f:
-                    chunk.to_csv(f, index=None)
-        else:
-            pathname = os.path.join(db_dir, name + '.csv')
-            df.to_csv(pathname, index=None)
-
-
 class CsvTable(AbstractTable):
     """
     Implementation of AbstractTable based on a directory of CSV files.
@@ -445,51 +282,34 @@ class CsvTable(AbstractTable):
     """
     def __init__(self, db, tbl_name, cache_data=None):
         super(CsvTable, self).__init__(db, tbl_name, cache_data=True)
-        self.columns = self.data.columns
 
     def load_rows(self, id):
         raise PathwaysException("CsvTable.load_rows should not be called since the CSV file is always cached")
 
-    def load_all(self, drop_str_cols=True):
+    def load_all(self):
         if self.data is not None:
             return self.data
 
         tbl_name = self.name
         filename = self.db.file_for_table(tbl_name)
 
-        index_col = None    # or should it be 'id'?
-
         if filename.endswith('.gz'):
             with gzip.open(filename, 'rb') as f:
-                df = pd.read_csv(f, index_col=index_col)
+                df = pd.read_csv(f, index_col=None)
         else:
-            df = pd.read_csv(filename, index_col=index_col)
+            df = pd.read_csv(filename, index_col=None)
 
-        mapper = StringMap.getInstance()
+        # ensure that keys are read as strings
+        col = find_key_col(tbl_name, df.columns)
+        df[col] = df[col].astype(str)
 
-        # TBD: redo this using a dict of table.column keys
-        # String mapped columns are prefixed with "_"
-        str_cols = [col for col in df.columns if col[0] == '_']
-
-        for col in str_cols:
-            # Ensure that all values are in the StringMap
-            values = df[col].unique()
-            for value in values:
-                mapper.store(value)
-
-            # change "_foo" to "foo_id"
-            id_col = col[1:] + '_id'
-
-            # create a column with integer ids
-            df[id_col] = df[col].map(mapper.txt_to_id)
-
-        if drop_str_cols:
-            df.drop(str_cols, axis=1, inplace=True)
+        # ditto for parent id columns
+        if tbl_name.endswith('Data'):
+            col = find_parent_col(tbl_name, df.columns)
+            if col:
+                df[col] = df[col].astype(str)
 
         self.data = df
-
-        # TBD: can't fill with None; check preferred handling
-        # self.data.fillna(value=None, inplace=True)
 
         rows, cols = self.data.shape
         print("Cached {} rows, {} cols for table '{}' from {}".format(rows, cols, tbl_name, filename))
@@ -521,11 +341,11 @@ class ShapeDataMgr(object):
             with gzip.open(filename, 'rb') as f:
                 print("Reading shape data for {}".format(shape_name))
                 df = pd.read_csv(f, index_col=None)
-                self.slice[shape_name] = df
+                self.slices[shape_name] = df
 
     def get_slice(self, name):
         name = name.replace(' ', '_')
-        return self.slice[name]
+        return self.slices[name]
 
 # The singleton object
 _Database = None
@@ -594,12 +414,16 @@ class AbstractDatabase(object):
     def get_table(self, name):
         try:
             return self.table_objs[name]
+
         except KeyError:
-            tbl = self.table_objs[name] = self.table_class(self, name, cache_data=self.cache_data)
+            tbl = self.table_class(self, name, cache_data=self.cache_data)
+            self.table_objs[name] = tbl
             return tbl
 
     def tables_with_classes(self, include_on_demand=False):
-        exclude = ['CurrenciesConversion', 'GeographyMap', 'IDMap', 'InflationConversion', 'Version', 'foreign_keys'] + Simple_mapping_tables
+        exclude = ['CurrenciesConversion', 'GeographyMap', 'IDMap', 'InflationConversion',
+                   'DispatchTransmissionHurdleRate', 'DispatchTransmissionLosses',
+                   'Version', 'foreign_keys'] + Simple_mapping_tables
 
         # Don't create classes for "Data" tables; these are rendered as DataFrames only
         tables = [name for name in self.get_tables_names() if not (name in exclude or name.endswith('Data'))]
@@ -667,85 +491,6 @@ class AbstractDatabase(object):
         tbl = self.get_table(name)
         tup = tbl.get_row(key_col, key, raise_error=raise_error)
         return tup
-
-
-# Selects all foreign key information for current database
-ForeignKeyQuery = '''
-SELECT
-    x.table_name,
-    x.column_name,
-    y.table_name AS foreign_table_name,
-    y.column_name AS foreign_column_name
-FROM information_schema.referential_constraints c
-JOIN information_schema.key_column_usage x
-    ON x.constraint_name = c.constraint_name
-JOIN information_schema.key_column_usage y
-    ON y.ordinal_position = x.position_in_unique_constraint
-    AND y.constraint_name = c.unique_constraint_name
-ORDER BY c.constraint_name, x.ordinal_position;
-'''
-
-class PostgresDatabase(AbstractDatabase):
-    def __init__(self, host='localhost', dbname='pathways', user='postgres', password='',
-                 cache_data=False):
-        super(PostgresDatabase, self).__init__(table_class=PostgresTable, cache_data=cache_data)
-
-        conn_str = "host='{}' dbname='{}' user='{}'".format(host, dbname, user)
-        if password:
-            conn_str += " password='{}'".format(password)
-
-        self.con = psycopg2.connect(conn_str)
-        self.cur = self.con.cursor()
-        self._cache_foreign_keys()
-
-    def _get_tables_of_type(self, tableType):
-        query = "select table_name from INFORMATION_SCHEMA.TABLES where table_schema = 'public' and table_type = '{}'".format(tableType)
-        result = self.fetchcolumn(query)
-        return result
-
-    def get_tables_names(self):
-        return self._get_tables_of_type('BASE TABLE')
-
-    def get_views(self):
-        return self._get_tables_of_type('VIEW')
-
-    def get_columns(self, table):
-        query = "select column_name from INFORMATION_SCHEMA.COLUMNS where table_name = '{}' and table_schema = 'public'".format(table)
-        result = self.fetchcolumn(query)
-        return result
-
-    @classmethod
-    def get_database(cls, host='localhost', dbname='pathways', user='postgres', password='',
-                     cache_data=False):
-        db = cls._get_database(host=host, dbname=dbname, user=user, password=password,
-                               cache_data=cache_data)
-        db.load_text_mappings()
-        return db
-
-    def _cache_foreign_keys(self):
-        rows = self.fetchall(ForeignKeyQuery)
-        for row in rows:
-            ForeignKey(*row)
-
-    def save_foreign_keys(self, pathname):
-        rows = self.fetchall(ForeignKeyQuery)
-        columns = ['table_name', 'column_name', 'foreign_table_name', 'foreign_column_name']
-        df = pd.DataFrame(data=rows, columns=columns)
-        df.to_csv(pathname, index=None)
-
-    def fetchone(self, sql):
-        self.cur.execute(sql)
-        tup = self.cur.fetchone()
-        return tup
-
-    def fetchcolumn(self, sql):
-        rows = self.fetchall(sql)
-        return [row[0] for row in rows]
-
-    def fetchall(self, sql):
-        self.cur.execute(sql)
-        rows = self.cur.fetchall()
-        return rows
 
 
 class CsvDatabase(AbstractDatabase):

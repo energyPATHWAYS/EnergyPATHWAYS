@@ -24,7 +24,7 @@ def test_with_db(db):
 
         rowNum = min(3, rows-1)
         print("Grabbing key for row {}".format(rowNum))
-        row = tbl.data.iloc[rowNum]     # grab a row from the table
+        row = data.iloc[rowNum]     # grab a row from the table
 
         cls = class_for_table(tbl_name) # DataObject
         key_col = cls._key_col
@@ -32,7 +32,7 @@ def test_with_db(db):
         print("Key for row {} in {} is '{}'".format(rowNum, cls.__name__, key))
 
         try:
-            if tbl_name == 'ImportCost':
+            if tbl_name == 'DispatchFeedersAllocation':
                 pass    # just to set breakpoint for a specific table
 
             obj = cls.from_db(scenario, key)

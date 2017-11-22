@@ -17,7 +17,7 @@ class RowNotFound(PathwaysException):
 
 class DuplicateRowsFound(PathwaysException):
     def __init__(self, table, key):
-        msg = "Duplicate rows found for key {} in table '{}'".format(key, table)
+        msg = "Duplicate rows found for key '{}' in table '{}'".format(key, table)
         super(DuplicateRowsFound, self).__init__(msg)
 
 

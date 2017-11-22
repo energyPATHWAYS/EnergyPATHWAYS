@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-from energyPATHWAYS.database import StringMap
+from energyPATHWAYS.data_object import StringMap
 
 if __name__ == "__main__":
     mapper = StringMap.getInstance()

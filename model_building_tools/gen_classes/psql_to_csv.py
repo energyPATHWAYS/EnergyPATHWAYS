@@ -2,7 +2,8 @@
 from __future__ import print_function
 import click
 import os
-from energyPATHWAYS.database import PostgresDatabase, Tables_to_ignore, mkdirs
+from energyPATHWAYS.database import Tables_to_ignore, mkdirs
+from postgres import PostgresDatabase
 
 @click.command()
 @click.option('--dbname', '-d', default='pathways',
@@ -33,8 +34,6 @@ def main(dbname, db_dir, host, user, password, limit):
 
     db.load_text_mappings()    # to replace ids with strings
 
-    #table_names = db.tables_with_classes(include_on_demand=True)
-
     tables_to_skip = Tables_to_ignore + ['GeographyIntersection', 'GeographyIntersectionData']
     table_names = [name for name in db.get_tables_names() if name not in tables_to_skip]
     table_objs  = [db.get_table(name) for name in table_names]
@@ -49,6 +48,17 @@ def main(dbname, db_dir, host, user, password, limit):
     # Save foreign keys so they can be used by CSV database
     foreign_keys_path = os.path.join(db_dir, 'foreign_keys.csv')
     db.save_foreign_keys(foreign_keys_path)
+
+    filename = 'text_mappings.py'
+    print("Writing", filename)
+
+    with open(filename, 'w') as f:
+        f.write('MappedCols = {\n')
+        for tbl in table_objs:
+            cols = tbl.mapped_cols.values()
+            if cols:
+                f.write('    "{}" : {},\n'.format(tbl.name, cols))
+        f.write('}\n')
 
 
 if __name__ == '__main__':
