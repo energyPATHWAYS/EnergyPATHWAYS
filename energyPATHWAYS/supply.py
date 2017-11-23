@@ -580,7 +580,7 @@ class Supply(object):
             energy_by_block = np.array_split(array, np.where(np.diff(dispatch_periods)!=0)[0]+1)
             return [fun(block) for block in energy_by_block]
         self.dispatch.ld_technologies = []
-        for node_id in [x for x in self.dispatch.long_duration_dispatch_order if x in self.nodes.keys() ]:
+        for node_id in [x for x in self.dispatch.long_duration_dispatch_order if x in self.nodes.keys()]:
             node = self.nodes[node_id]
             full_energy_shape, p_min_shape, p_max_shape = node.aggregate_flexible_electricity_shapes(year, util.remove_df_levels(util.df_slice(self.dispatch_feeder_allocation.values,year,'year'),year))
             if node_id in self.flexible_gen.keys():
@@ -594,7 +594,7 @@ class Supply(object):
             for geography in lookup[node_id].keys():
                 for zone in lookup[node_id][geography].keys():
                     for feeder in lookup[node_id][geography][zone].keys():
-                        capacity = lookup[node_id][geography][zone][feeder]['capacity'] 
+                        capacity = util.remove_df_levels(lookup[node_id][geography][zone][feeder]['capacity'], 'resource_bin')
                         if capacity.sum().sum() == 0:
                             continue
                         annual_energy = lookup[node_id][geography][zone][feeder]['energy'].values.sum()
@@ -611,10 +611,10 @@ class Supply(object):
                             opt_p_max = np.repeat(capacity.sum().values[0],len(opt_periods))
                             hourly_p_max = np.repeat(capacity,len(self.dispatch.hours))
                         else:
-                            hourly_p_min = util.remove_df_levels(util.DfOper.mult([capacity,p_min_shape]),cfg.primary_geography).values
+                            hourly_p_min = util.remove_df_levels(util.DfOper.mult([capacity, p_min_shape]), cfg.primary_geography).values
                             p_min = np.array(split_and_apply(hourly_p_min, dispatch_periods, np.mean))
                             opt_p_min = np.array(split_and_apply(hourly_p_min, opt_periods, np.mean))
-                            hourly_p_max = util.remove_df_levels(util.DfOper.mult([capacity,p_max_shape]),cfg.primary_geography).values
+                            hourly_p_max = util.remove_df_levels(util.DfOper.mult([capacity, p_max_shape]),cfg.primary_geography).values
                             p_max = np.array(split_and_apply(hourly_p_max, dispatch_periods, np.mean))
                             opt_p_max = np.array(split_and_apply(hourly_p_max, opt_periods, np.mean))
                         tech_id = str(tuple([geography,node_id, feeder]))
@@ -991,8 +991,8 @@ class Supply(object):
                 node = self.nodes[node_id]
                 if hasattr(node.stock, 'coefficients'):
                     indexer =  util.level_specific_indexer(node.stock.coefficients.loc[:,year],'supply_node',[self.electricity_nodes[zone]+[zone]])
-                    energy_demand = util.DfOper.mult([util.remove_df_levels(node.stock.values_energy.loc[:,year].to_frame(),['vintage','supply_technology']), util.remove_df_levels(node.stock.coefficients.loc[indexer,year].to_frame(),['vintage','supply_technology'])])
-                    capacity = util.DfOper.mult([util.remove_df_levels(node.stock.values.loc[:,year].to_frame(),['vintage','supply_technology']), util.remove_df_levels(node.stock.coefficients.loc[indexer,year].to_frame(),['vintage','supply_technology'])])                
+                    energy_demand = util.DfOper.mult([util.remove_df_levels(node.stock.values_energy.loc[:,year].to_frame(),['vintage','supply_technology']), util.remove_df_levels(node.stock.coefficients.loc[indexer,year].to_frame(),['vintage','supply_technology','resource_bin'])])
+                    capacity = util.DfOper.mult([util.remove_df_levels(node.stock.values.loc[:,year].to_frame(),['vintage','supply_technology']), util.remove_df_levels(node.stock.coefficients.loc[indexer,year].to_frame(),['vintage','supply_technology','resource_bin'])])
                 else:
                     indexer =  util.level_specific_indexer(node.active_coefficients_untraded,'supply_node',[self.electricity_nodes[zone]+[zone]])
                     energy_demand =  util.DfOper.mult([node.active_coefficients_untraded, node.active_supply])
