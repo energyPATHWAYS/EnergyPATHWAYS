@@ -32,8 +32,10 @@ def cluster_generators(n_clusters, pmax, marginal_cost, FORs, MORs, must_run, pa
     FORs = FORs[ind]
     MORs = MORs[ind]
     must_run = must_run[ind]
-    assert n_clusters>= 1
-    assert n_clusters <= len(pmax)
+    if len(pmax) == 0:
+        return {'FORs':np.array([0]), 'MORs':np.array([0]), 'must_run':np.array([0]),
+                'derated_pmax':np.array([0]), 'pmax':np.array([0]), 'marginal_cost':np.array([0])}
+    n_clusters = min(n_clusters, len(pmax))
     new_mc = copy.deepcopy(marginal_cost)  # copy mc before changing it
     if zero_mc_4_must_run:
         new_mc[np.nonzero(must_run)] = 0
