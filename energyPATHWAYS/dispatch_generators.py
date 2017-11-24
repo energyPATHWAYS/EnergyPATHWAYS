@@ -269,7 +269,7 @@ def run_thermal_dispatch(params):
                                                                     gen_categories=gen_categories, return_dispatch_by_category=return_dispatch_by_category,
                                                                     reserves=reserves, thermal_capacity_multiplier=thermal_capacity_multiplier)
 
-    if sum(dispatch_results['stock_changes']) > np.max(load):
+    if sum(dispatch_results['stock_changes']) > np.max(load)*1.15 and np.max(load) > 0:
         logging.error("we've built too much capacity")
         pdb.set_trace()
 

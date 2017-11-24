@@ -560,17 +560,17 @@ class Dispatch(object):
         hour_discharge.plot(subplots=True, ax=axes, title='AVERAGE STORAGE CHARGE (-) AND DISCHARGE (+) BY HOUR')
 
     def solve_optimization(self):
-        self.ld_energy_budgets= self.solve_ld_optimization()
-        self.set_average_net_loads(self.ld_bulk_net_load_df_updated)
-        state_of_charge = self.run_year_to_month_allocation()
-        self.start_soc_large_storage, self.end_soc_large_storage = state_of_charge[0], state_of_charge[1]
-        for period in self.periods:
-            for technology in self.ld_technologies:
-                if self.ld_energy_budgets[period][technology]>= self.capacity[period][technology] * self.period_lengths[period]:
-                    self.ld_energy_budgets[period][technology]= self.capacity[period][technology] * self.period_lengths[period]-1
-                if self.ld_energy_budgets[period][technology]<= self.min_capacity[period][technology] * self.period_lengths[period]:
-                    self.ld_energy_budgets[period][technology]= self.min_capacity[period][technology] * self.period_lengths[period]+1
         try:
+            self.ld_energy_budgets= self.solve_ld_optimization()
+            self.set_average_net_loads(self.ld_bulk_net_load_df_updated)
+            state_of_charge = self.run_year_to_month_allocation()
+            self.start_soc_large_storage, self.end_soc_large_storage = state_of_charge[0], state_of_charge[1]
+            for period in self.periods:
+                for technology in self.ld_technologies:
+                    if self.ld_energy_budgets[period][technology]>= self.capacity[period][technology] * self.period_lengths[period]:
+                        self.ld_energy_budgets[period][technology]= self.capacity[period][technology] * self.period_lengths[period]-1
+                    if self.ld_energy_budgets[period][technology]<= self.min_capacity[period][technology] * self.period_lengths[period]:
+                        self.ld_energy_budgets[period][technology]= self.min_capacity[period][technology] * self.period_lengths[period]+1
             if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
                 params = [(dispatch_formulation.create_dispatch_model(self, period), cfg.solver_name) for period in self.periods]
                 results = helper_multiprocess.safe_pool(helper_multiprocess.run_optimization, params)

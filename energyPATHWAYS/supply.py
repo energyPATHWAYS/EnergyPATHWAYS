@@ -2127,11 +2127,7 @@ class Supply(object):
         """
         for node in self.nodes.values():
             if hasattr(node, 'stock'):
-                if loop == 3 and node.id in self.nodes[self.bulk_id].values.index.get_level_values('supply_node'):
-                    #don't update stocks after dispatch, otherwise curtailment would get overridden
-                    pass
-                else:
-                    node.update_stock(year,loop)        
+                node.update_stock(year,loop)
                 
     def reconcile_trades(self,year,loop):
         """Reconciles internal trades. These are instances where the geographic location of supply in a node is divorced from
@@ -3878,7 +3874,7 @@ class SupplyNode(Node,StockItem):
     def calculate_oversupply(self, year, loop):
         """calculates whether the stock would oversupply the IO requirement and returns an oversupply adjustment factor."""  
         if hasattr(self,'stock'):
-            oversupply_factor = DfOper.divi([self.stock.values_energy.loc[:,year].to_frame(), self.throughput], expandable=(False,False), collapsible=(True,True)).fillna(1)
+            oversupply_factor = util.DfOper.divi([self.stock.values_energy.loc[:,year].to_frame(), self.throughput], expandable=(False,False), collapsible=(True,True)).fillna(1)
             oversupply_factor.replace(np.inf,1,inplace=True)
             oversupply_factor[oversupply_factor<1] = 1
             if (oversupply_factor.values>1).any():
@@ -4090,10 +4086,10 @@ class SupplyPotential(Abstract):
 
     def remap_to_potential(self, active_throughput, year, tradable_geography=None):
         """remaps throughput to potential bins"""    
-        #original supply curve represents an annual timeslice 
+        #original supply curve represents an annual timeslice
         primary_geography = cfg.primary_geography
-        self.active_throughput = active_throughput    
-        self.active_throughput[self.active_throughput<=0] = 1E-25
+        self.active_throughput = active_throughput
+        #self.active_throughput[self.active_throughput<=0] = 1E-25
         original_supply_curve = util.remove_df_levels(self.supply_curve.loc[:,year].to_frame().sort(),[x for x in self.supply_curve.loc[:,year].index.names if x not in [primary_geography, 'resource_bin', 'demand_sector']])
         self.active_supply_curve = util.remove_df_levels(original_supply_curve,[x for x in self.supply_curve.loc[:,year].index.names if x not in [primary_geography, 'resource_bin', 'demand_sector']])
         if tradable_geography is not None and tradable_geography!=primary_geography:
@@ -5663,7 +5659,7 @@ class PrimaryNode(Node):
         filter_geo_potential_normal = util.remove_df_elements(self.potential.active_supply_curve_normal, [x for x in cfg.geo.geographies_unfiltered[cfg.primary_geography] if x not in cfg.geographies],cfg.primary_geography)
         filter_geo_potential_normal = filter_geo_potential_normal.reset_index().set_index(filter_geo_potential_normal.index.names)
         supply_curve = filter_geo_potential_normal
-        supply_curve = supply_curve[supply_curve.values>0]
+        supply_curve = supply_curve[supply_curve.values>=0]
         supply_curve = util.DfOper.mult([util.DfOper.divi([self.potential.values.loc[:,year].to_frame(),
                                                            util.remove_df_levels(self.potential.values.loc[:,year].to_frame(),[x for x in self.potential.values.index.names if x not in ['demand_sector',cfg.primary_geography,'resource_bin']])]),
                                                         supply_curve])

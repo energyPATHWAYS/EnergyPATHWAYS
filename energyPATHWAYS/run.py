@@ -219,14 +219,16 @@ if __name__ == "__main__":
     # scenario = ['REF_EX']
     # scenario = ['REF_NOEX']
     run(workingdir, config, scenario,
-    load_demand   = False,
+    load_demand   = True,
     solve_demand  = False,
     load_supply   = False,
-    solve_supply  = False,
-    export_results= False,
+    solve_supply  = True,
+    export_results= True,
     load_error    = True,
     pickle_shapes = True,
-    save_models   = False,
+    save_models   = True,
     api_run       = False,
     clear_results = False)
+
+    # model.supply.solve_storage_and_flex_load_optimization(2050)
 

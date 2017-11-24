@@ -100,7 +100,7 @@ class GeoMapper:
         self.values = self.values.set_index('intersection_id', append=True)
         # sortlevel sorts all of the indicies so that we can slice the dataframe
         self.values = self.values.sort()
-        self.values.replace(0,1e-10,inplace=True)
+        # self.values.replace(0,1e-10,inplace=True)
         # self.values = self.values.groupby(level=[x for x in self.values.index.names if x not in ['intersection_id']]).first()
 
     def log_geo(self):
@@ -138,6 +138,7 @@ class GeoMapper:
     def _normalize(self, table, levels):
         if table.index.nlevels>1:
             table = table.groupby(level=levels).transform(lambda x: x / (x.sum()))
+            table = table.fillna(0)
         else:
             table[:] = 1
         return table
@@ -361,7 +362,7 @@ class GeoMapper:
             if data_type=='total':
                 df = self._update_dataframe_totals_after_foreign_gau(df, current_geography, foreign_geography, impacted_gaus, foreign_gau, map_key, zero_out_negatives)
             elif data_type == 'intensity':
-                logging.warning('Foreign GAUs with intensities is not yet implemented, totals will not be conserved')
+                logging.debug('Foreign GAUs with intensities is not yet implemented, totals will not be conserved')
         
         assert not any([any(np.isnan(row)) for row in df.index.get_values()])
         new_geography_name = self.make_new_geography_name(current_geography, list(foreign_gaus))
