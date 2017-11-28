@@ -211,21 +211,19 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\HQ\scenarios'
+    workingdir = r'C:\github\EnergyPATHWAYS_scenarios\HQ'
     config = 'config.INI'
-    scenario = ['DDP_EX']
-    # scenario = ['DDP_2040EX']
-    # scenario = ['DDP_NOEX']
-    # scenario = ['REF_EX']
-    # scenario = ['REF_NOEX']
+    scenario = ['DDP_NO_EX']
     run(workingdir, config, scenario,
     load_demand   = False,
-    solve_demand  = False,
+    solve_demand  = True,
     load_supply   = False,
-    solve_supply  = False,
-    export_results= False,
-    load_error    = True,
+    solve_supply  = True,
+    export_results= True,
+    load_error    = False,
     pickle_shapes = True,
-    save_models   = False,
+    save_models   = True,
     api_run       = False,
-    clear_results = False)
+    clear_results = True)
+
+
