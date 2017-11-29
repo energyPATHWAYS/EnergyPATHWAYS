@@ -20,6 +20,8 @@ import pdb
 from scenario_loader import Scenario
 import copy
 import numpy as np
+import schema
+import database
 
 class PathwaysModel(object):
     """
@@ -36,6 +38,8 @@ class PathwaysModel(object):
 
     def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, export_results, save_models, append_results):
         try:
+            db = database.CsvDatabase.get_database(pathname=r"C:\github\EnergyPATHWAYS\model_building_tools\gen_classes\171112_US.db")
+            schema.load_data_objects(self.scenario)
             if solve_demand and not (load_demand or load_supply):
                 self.calculate_demand(save_models)
             

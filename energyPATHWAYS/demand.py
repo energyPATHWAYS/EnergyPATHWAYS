@@ -21,9 +21,10 @@ import energyPATHWAYS.helper_multiprocess as helper_multiprocess
 import pdb
 import logging
 import time
+import schema
 
 
-class Driver(object, DataMapFunctions):
+class Driver(schema.DemandDrivers, DataMapFunctions):
     def __init__(self, id, scenario):
         self.id = id
         self.scenario = scenario

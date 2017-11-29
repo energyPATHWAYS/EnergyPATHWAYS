@@ -2332,9 +2332,9 @@ class SupplyTechsCapitalCost(DataObject):
 class SupplyTechsEfficiency(DataObject):
     _instances_by_key = {}
     _key_col = "supply_tech"
-    _cols = ['supply_tech', 'geography', 'definition', 'reference_tech', 'input_unit', 'output_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'age_growth_or_decay_type', 'age_growth_or_decay', 'source', 'notes']
-    def __init__(self, scenario, supply_tech=None, geography=None, definition=None, reference_tech=None, input_unit=None,
-                 output_unit=None, interpolation_method=None, extrapolation_method=None,
+    _cols = ['supply_tech', 'geography', 'definition', 'reference_tech_id', 'input_unit', 'output_unit', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth', 'age_growth_or_decay_type', 'age_growth_or_decay', 'source', 'notes']
+    def __init__(self, scenario, supply_tech=None, geography=None, definition=None, reference_tech_id=None,
+                 input_unit=None, output_unit=None, interpolation_method=None, extrapolation_method=None,
                  extrapolation_growth=None, age_growth_or_decay_type=None, age_growth_or_decay=None,
                  source=None, notes=None):
 
@@ -2344,7 +2344,7 @@ class SupplyTechsEfficiency(DataObject):
         self.supply_tech = supply_tech
         self.geography = geography
         self.definition = definition
-        self.reference_tech = reference_tech
+        self.reference_tech_id = reference_tech_id
         self.input_unit = input_unit
         self.output_unit = output_unit
         self.interpolation_method = interpolation_method
@@ -2357,12 +2357,12 @@ class SupplyTechsEfficiency(DataObject):
 
     @classmethod
     def from_tuple(cls, scenario, tup, **kwargs):    
-        (supply_tech, geography, definition, reference_tech, input_unit, output_unit,
+        (supply_tech, geography, definition, reference_tech_id, input_unit, output_unit,
          interpolation_method, extrapolation_method, extrapolation_growth,
          age_growth_or_decay_type, age_growth_or_decay, source, notes) = tup
 
         obj = cls(scenario, supply_tech=supply_tech, geography=geography, definition=definition,
-                  reference_tech=reference_tech, input_unit=input_unit, output_unit=output_unit,
+                  reference_tech_id=reference_tech_id, input_unit=input_unit, output_unit=output_unit,
                   interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
                   extrapolation_growth=extrapolation_growth,
                   age_growth_or_decay_type=age_growth_or_decay_type,
