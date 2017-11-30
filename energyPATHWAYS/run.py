@@ -158,7 +158,8 @@ def load_model(load_demand, load_supply, load_error, scenario_id, api_run):
     # (with load_supply or load_demand); the model's api_run property will be set to whatever it was when the model
     # was pickled.
     if load_error:
-        with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.model_error_append_name), 'rb') as infile:
+        with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.model_error_append_name), 'rb+') as infile:
+#        with open(os.path.join(cfg.workingdir, 'dispatch_class.p'), 'rb') as infile:
             model = pickle.load(infile)
         logging.info('Loaded crashed EnergyPATHWAYS model from pickle')
     elif load_supply:
@@ -211,9 +212,9 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EnergyPATHWAYS_scenarios\HQ'
+    workingdir = r'C:\github\EnergyPATHWAYS_scenarios\PGE'
     config = 'config.INI'
-    scenario = ['DDP_NO_EX']
+    scenario = ['pge_reference']
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,

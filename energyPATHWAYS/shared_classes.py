@@ -10,6 +10,7 @@ import pandas as pd
 from datamapfunctions import Abstract, DataMapFunctions
 import config as cfg
 import pdb
+import logging
 
 class StockItem(object):
     def __init__(self):
@@ -207,6 +208,8 @@ class SalesShare(Abstract, DataMapFunctions):
             self.replaced_demand_tech_id = None
             # measure specific sales share does not require technology filtering
             Abstract.__init__(self, self.id, primary_key=primary_key, data_id_key=data_id_key)
+            if self.raw_values is None:           
+                raise ValueError('error encountered in sales share measure ' + str(self.id))
 
     def calculate(self, vintages, years):
         self.vintages = vintages

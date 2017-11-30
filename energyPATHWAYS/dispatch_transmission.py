@@ -44,7 +44,7 @@ class TransmissionSuper(Abstract):
         self.values = self.values.sort()
 
     def _setup_zero_constraints(self):
-        index = pd.MultiIndex.from_product(cfg.supply_years,cfg.dispatch_geographies, cfg.dispatch_geographies, names=['year', 'geography_from', 'geography_to'])
+        index = pd.MultiIndex.from_product([cfg.supply_years,cfg.dispatch_geographies, cfg.dispatch_geographies], names=['year', 'geography_from', 'geography_to'])
         self.values = pd.DataFrame(0, index=index, columns=['value'])
 
     def _validate_gaus(self):
@@ -85,8 +85,9 @@ class DispatchTransmissionConstraint(TransmissionSuper):
         self.convert_units()
 
     def convert_units(self):
-        unit_factor = util.unit_convert(1, unit_from_den=self.energy_unit, unit_to_den=cfg.calculation_energy_unit)
-        self.values /= unit_factor
+        if hasattr(self,'energy_unit'):
+            unit_factor = util.unit_convert(1, unit_from_den=self.energy_unit, unit_to_den=cfg.calculation_energy_unit)
+            self.values /= unit_factor
 
 class DispatchTransmissionHurdleRate(TransmissionSuper):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
@@ -99,8 +100,9 @@ class DispatchTransmissionHurdleRate(TransmissionSuper):
         self.convert_units()
 
     def convert_units(self):
-        unit_factor = util.unit_convert(1, unit_from_den=self.energy_unit, unit_to_den=cfg.calculation_energy_unit)
-        self.values *= unit_factor
+        if hasattr(self,'energy_unit'):
+            unit_factor = util.unit_convert(1, unit_from_den=self.energy_unit, unit_to_den=cfg.calculation_energy_unit)
+            self.values *= unit_factor
 
 class DispatchTransmissionLosses(TransmissionSuper):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""

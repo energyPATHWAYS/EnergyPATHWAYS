@@ -506,8 +506,11 @@ class Dispatch(object):
         discharge = pd.concat([self.parse_storage_result(result['Storage_Provide_Power'], period) for period, result in enumerate(results)])
         flex_load_df = pd.concat([self.parse_flexible_load_result(result['Flexible_Load'], period) for period, result in enumerate(results)])
         generator_df = pd.concat([self.parse_generator_result(result['Generator_Provide_Power'], period) for period, result in enumerate(results)])   
-        ld_df = pd.concat([self.parse_ld_result(result['LD_Provide_Power'], period) for period, result in enumerate(results)])
-        ld_df = self._replace_hour_with_weather_datetime(ld_df)
+        if len(self.ld_technologies):
+            ld_df = pd.concat([self.parse_ld_result(result['LD_Provide_Power'], period) for period, result in enumerate(results)])
+            ld_df = self._replace_hour_with_weather_datetime(ld_df)
+        else:
+            ld_df = None
         transmission_flow_df = pd.concat([self.parse_transmission_flows(result['Transmission_Flows'], period) for period, result in enumerate(results)])
         storage_df = pd.concat([charge, discharge], keys=['charge','discharge'], names=['charge_discharge'])
         storage_df = self._replace_hour_with_weather_datetime(storage_df)
@@ -589,24 +592,27 @@ class Dispatch(object):
     
     
     def solve_ld_optimization(self):
-        model = dispatch_long_duration.ld_energy_formulation(self)
-        results = self.run_pyomo(model, None)
-        ld_opt_df = self.parse_ld_opt_result(ld_result_to_list(results.Provide_Power))
-        temp_df = pd.DataFrame([[r[0], r[-2], r[-1]] for r in storage_result_to_list(results.Provide_Power)], columns=[cfg.dispatch_geography, 'hour', self.year])
-        temp_df = temp_df.set_index([cfg.dispatch_geography, 'hour']).groupby(level=[cfg.dispatch_geography, 'hour']).sum()
-        # this doesn't have transmission losses, so it is an approximation
-        transmit_power = pd.DataFrame([[key[0], key[1], value.value] for key, value in results.Net_Transmit_Power_by_Geo.iteritems()], columns=[cfg.dispatch_geography, 'hour', self.year])
-        self.ld_bulk_net_load_df_updated = self.ld_bulk_net_load_df - temp_df - transmit_power.set_index([cfg.dispatch_geography, 'hour'])
-
-        ld_energy_budgets = util.recursivedict()
-        def split_and_apply(array, dispatch_periods, fun):
-            energy_by_block = np.array_split(array, np.where(np.diff(dispatch_periods)!=0)[0]+1)
-            return [fun(block) for block in energy_by_block]
-        for tech in self.ld_technologies:
-            energy_budgets = split_and_apply(util.df_slice(ld_opt_df, tech, 'ld_technology').values,self.period_repeated, sum)
-            for period in self.periods:
-                ld_energy_budgets[period][tech] = energy_budgets[period][0]
-        return ld_energy_budgets
+        if len(self.ld_technologies):
+            model = dispatch_long_duration.ld_energy_formulation(self)
+            results = self.run_pyomo(model, None)
+            ld_opt_df = self.parse_ld_opt_result(ld_result_to_list(results.Provide_Power))
+            temp_df = pd.DataFrame([[r[0], r[-2], r[-1]] for r in storage_result_to_list(results.Provide_Power)], columns=[cfg.dispatch_geography, 'hour', self.year])
+            temp_df = temp_df.set_index([cfg.dispatch_geography, 'hour']).groupby(level=[cfg.dispatch_geography, 'hour']).sum()
+            # this doesn't have transmission losses, so it is an approximation
+            transmit_power = pd.DataFrame([[key[0], key[1], value.value] for key, value in results.Net_Transmit_Power_by_Geo.iteritems()], columns=[cfg.dispatch_geography, 'hour', self.year])
+            self.ld_bulk_net_load_df_updated = self.ld_bulk_net_load_df - temp_df - transmit_power.set_index([cfg.dispatch_geography, 'hour'])
+            ld_energy_budgets = util.recursivedict()
+            def split_and_apply(array, dispatch_periods, fun):
+                energy_by_block = np.array_split(array, np.where(np.diff(dispatch_periods)!=0)[0]+1)
+                return [fun(block) for block in energy_by_block]
+            for tech in self.ld_technologies:
+                energy_budgets = split_and_apply(util.df_slice(ld_opt_df, tech, 'ld_technology').values,self.period_repeated, sum)
+                for period in self.periods:
+                    ld_energy_budgets[period][tech] = energy_budgets[period][0]
+            return ld_energy_budgets
+        else:
+            self.ld_bulk_net_load_df_updated = self.ld_bulk_net_load_df
+            return util.recursivedict()
 
 
     @staticmethod

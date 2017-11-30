@@ -807,26 +807,32 @@ class Supply(object):
         storage_charge = self.dispatch.storage_df.xs('charge', level='charge_discharge')
         storage_discharge = self.dispatch.storage_df.xs('discharge', level='charge_discharge')
         #load and gen are the same in the ld_df, just with different signs. We want to separate and use absolute values (i.e. *- when it is load)
-        ld_load = util.remove_df_levels(-self.dispatch.ld_df[self.dispatch.ld_df.values<0],'supply_node')
-        ld_gen = util.remove_df_levels(self.dispatch.ld_df[self.dispatch.ld_df.values>0], 'supply_node')
         timeshift_types = list(set(self.distribution_load.index.get_level_values('timeshift_type')))
+        if len(self.dispatch.ld_technologies):
+            ld_load = util.remove_df_levels(-self.dispatch.ld_df[self.dispatch.ld_df.values<0],'supply_node')
+            ld_gen = util.remove_df_levels(self.dispatch.ld_df[self.dispatch.ld_df.values>0], 'supply_node')
+
+            dist_ld_load = util.add_and_set_index(util.df_slice(ld_load, self.dispatch_feeders, 'dispatch_feeder'), 'timeshift_type', timeshift_types)
+            if not len(dist_ld_load):
+                dist_ld_load = None
+            if not len(ld_load):
+                ld_load = None
+            if not len(ld_gen):
+                ld_gen = None
+        else:
+            ld_load = None
+            ld_gen = None
+            dist_ld_load = None
         dist_storage_charge = util.add_and_set_index(util.df_slice(storage_charge, self.dispatch_feeders, 'dispatch_feeder'), 'timeshift_type', timeshift_types)
         dist_flex_load = util.add_and_set_index(util.df_slice(self.dispatch.flex_load_df, self.dispatch_feeders, 'dispatch_feeder'), 'timeshift_type', timeshift_types)
-        dist_ld_load = util.add_and_set_index(util.df_slice(ld_load, self.dispatch_feeders, 'dispatch_feeder'), 'timeshift_type', timeshift_types)
-        if not len(dist_ld_load):
-            dist_ld_load = None
-        if not len(ld_load):
-            ld_load = None
-        if not len(ld_gen):
-            ld_gen = None
         self.distribution_load = util.DfOper.add((self.distribution_load, dist_storage_charge, dist_flex_load, dist_ld_load))
         self.distribution_gen = util.DfOper.add((self.distribution_gen, util.df_slice(storage_discharge, self.dispatch_feeders, 'dispatch_feeder'),util.df_slice(ld_gen, self.dispatch_feeders, 'dispatch_feeder',return_none=True) ))
-        flow_with_losses = DfOper.divi((self.dispatch.transmission_flow_df, 1 - self.dispatch.transmission.losses.get_values(year)))
+        flow_with_losses = util.DfOper.divi((self.dispatch.transmission_flow_df, 1 - self.dispatch.transmission.losses.get_values(year)))
         imports = self.dispatch.transmission_flow_df.groupby(level=['geography_to', 'weather_datetime']).sum()
         exports = flow_with_losses.groupby(level=['geography_from', 'weather_datetime']).sum()
         imports.index.names = [cfg.dispatch_geography, 'weather_datetime']
         exports.index.names = [cfg.dispatch_geography, 'weather_datetime']
-        self.bulk_load = util.DfOper.add((self.bulk_load, storage_charge.xs(0, level='dispatch_feeder'), DfOper.divi([util.df_slice(ld_load, 0, 'dispatch_feeder',return_none=True),self.transmission_losses]),DfOper.divi([exports,self.transmission_losses])))
+        self.bulk_load = util.DfOper.add((self.bulk_load, storage_charge.xs(0, level='dispatch_feeder'), util.DfOper.divi([util.df_slice(ld_load, 0, 'dispatch_feeder',return_none=True),self.transmission_losses]),util.DfOper.divi([exports,self.transmission_losses])))
         self.bulk_gen = util.DfOper.add((self.bulk_gen, storage_discharge.xs(0, level='dispatch_feeder'),util.df_slice(ld_gen, 0, 'dispatch_feeder',return_none=True),imports))
         self.opt_bulk_net_load = copy.deepcopy(self.bulk_net_load)
         self.update_net_load_signal()
@@ -880,7 +886,7 @@ class Supply(object):
 
     def produce_ld_outputs(self,year):
         # MOVE
-        if year in self.dispatch_write_years and len(self.dispatch.ld_df):
+        if year in self.dispatch_write_years and self.dispatch.ld_df is not None:
             #produce distributed long duration outputs
             #- changes the sign coming out of the dispatch, with is the reverse of what we want for outputs
             ld_df = -util.df_slice(self.dispatch.ld_df, self.dispatch_feeders, 'dispatch_feeder')
@@ -1187,7 +1193,6 @@ class Supply(object):
         self.solve_hourly_curtailment()
         if year in self.dispatch_write_years and not self.api_run:
             self.outputs.hourly_dispatch_results = pd.concat([self.outputs.hourly_dispatch_results, self.bulk_dispatch])
-
         self.calculate_thermal_totals(year)
         self.calculate_curtailment(year)
                 
@@ -3695,7 +3700,6 @@ class SupplyNode(Node,StockItem):
                 self.rollover_dict[elements].use_stock_changes = True
                 self.rollover_dict[elements].run(1, stock_changes.loc[elements],np.array(self.stock.total_rollover.loc[elements+(year,)]))
             except:
-                pdb.set_trace()
                 logging.error('error encountered in rollover for node ' + str(self.id) + ' in elements '+ str(elements) + ' year ' + str(year))
                 raise
             stock_total, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover_dict[(elements)].return_formatted_outputs(year_offset=0)

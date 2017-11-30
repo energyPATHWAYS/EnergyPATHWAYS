@@ -2785,8 +2785,6 @@ class Subsector(DataMapFunctions):
             demand_technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names)
             if cfg.evolved_run=='true':
                 sales_share[len(self.years) -len(cfg.supply_years):] = 1/float(len(self.tech_ids))
-
-            demand_technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names)
             annual_stock_change = util.df_slice(self.stock.annual_stock_changes, elements, self.stock.rollover_group_names)
             self.rollover = Rollover(vintaged_markov_matrix=self.stock.vintaged_markov_matrix,
                                          initial_markov_matrix=self.stock.initial_markov_matrix,
