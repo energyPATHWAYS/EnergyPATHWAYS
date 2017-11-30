@@ -35,7 +35,8 @@ def test_with_db(db):
             if tbl_name == 'DispatchFeedersAllocation':
                 pass    # just to set breakpoint for a specific table
 
-            obj = cls.from_db(scenario, key)
+            obj = cls(key, scenario)
+            obj.init_from_db(key, scenario)
 
         except Exception as e:
             print("\n>>> {}\n".format(e))
@@ -49,7 +50,6 @@ def main():
     db = CsvDatabase.get_database(pathname=dbname)
     print("Using db {}".format(db))
     test_with_db(db)
-
 
 if __name__ == '__main__':
     main()

@@ -5,7 +5,7 @@ Created on Mon Feb 15 22:06:19 2016
 @author: Ben
 """
 import util
-import numpy as np 
+import numpy as np
 from datamapfunctions import Abstract,DataMapFunctions
 import copy
 import pandas as pd
@@ -25,7 +25,9 @@ import cPickle as pickle
 import dispatch_generators
 import dispatch_maintenance
 
-class DispatchFeederAllocation(Abstract):
+import schema
+
+class DispatchFeederAllocation(schema.DispatchFeedersAllocation, Abstract):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
     def __init__(self, id,**kwargs):
         self.id = id
@@ -96,7 +98,7 @@ class Dispatch(object):
         for supply_node in util.sql_read_table('DispatchNodeConfig','supply_node_id'):
             self.node_config_dict[supply_node] = DispatchNodeConfig(supply_node)
         self.set_dispatch_order()
-        self.dispatch_window_dict = dict(util.sql_read_table('DispatchWindows'))  
+        self.dispatch_window_dict = dict(util.sql_read_table('DispatchWindows'))
         self.curtailment_cost = util.unit_convert(0.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.unserved_energy_cost = util.unit_convert(2000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.dist_net_load_penalty = util.unit_convert(1000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
@@ -113,7 +115,7 @@ class Dispatch(object):
         else:
             self.stdout_detail = True
         self.solve_kwargs = {"keepfiles": False, "tee": False}
-  
+
     def set_dispatch_order(self):
         order = [x.dispatch_order for x in self.node_config_dict.values()]
         order_index = np.argsort(order)
@@ -160,7 +162,7 @@ class Dispatch(object):
             self.bulk_net_load_thresholds[geography] = transmission_stock.loc[geography].values[0]
             for feeder in self.feeders:
                 if feeder == 0:
-                    self.dist_net_load_thresholds[(geography,feeder)] = 0 
+                    self.dist_net_load_thresholds[(geography,feeder)] = 0
                 else:
                     self.dist_net_load_thresholds[(geography,feeder)] =  util.df_slice(distribution_stock,[geography, feeder],[self.dispatch_geography, 'dispatch_feeder']).values[0][0]
 
@@ -240,12 +242,12 @@ class Dispatch(object):
         df = self._convert_weather_datetime_to_hour(total_net_load.xs(2, level='timeshift_type').reset_index(level='year', drop=True))
         self.period_net_load = df.groupby(level=[self.dispatch_geography, 'period']).mean().to_dict()
         self.average_net_load = df.groupby(level=[self.dispatch_geography]).mean().to_dict()
-    
+
     def set_technologies(self,storage_capacity_dict, storage_efficiency_dict, thermal_dispatch_df):
       """prepares storage technologies for dispatch optimization
         args:
             storage_capacity_dict = dictionary of storage discharge capacity and storage discharge duration
-            storage_efficiency_dict = dictionary of storage efficiency 
+            storage_efficiency_dict = dictionary of storage efficiency
         sets:
             capacity = dictionary of storage discharge capacity with keys of dispatch period and unique tech_dispatch_id, a tuple of dispatch_geography,zone,feeder,and technology
             duration = dictionary of storage discharge duration with keys of dispatch period and unique tech_dispatch_id, a tuple of dispatch_geography,zone,feeder,and technology
@@ -292,14 +294,14 @@ class Dispatch(object):
                         if not np.isfinite(x):
                             x = 1
                         self.alloc_charging_efficiency[tech_dispatch_id] = x
-                        self.alloc_discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.alloc_charging_efficiency)[tech_dispatch_id] 
+                        self.alloc_discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.alloc_charging_efficiency)[tech_dispatch_id]
                      else:
                         self.large_storage[tech_dispatch_id] = 0
                      x = 1/np.sqrt(storage_efficiency_dict[dispatch_geography][zone][feeder][tech])
                      if not np.isfinite(x):
                          x = 1
                      self.charging_efficiency[tech_dispatch_id] = x
-                     self.discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.charging_efficiency)[tech_dispatch_id] 
+                     self.discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.charging_efficiency)[tech_dispatch_id]
                      self.feeder[tech_dispatch_id] = feeder
           self.set_gen_technologies(dispatch_geography,thermal_dispatch_df)
       self.capacity = self.convert_to_period(self.capacity)
@@ -307,7 +309,7 @@ class Dispatch(object):
       self.energy = self.convert_to_period(self.energy)
       self.feeder = self.convert_to_period(self.feeder)
       self.geography = self.convert_to_period(self.geography)
-    
+
     def set_gen_technologies(self, geography, thermal_dispatch_df):
         pmax = np.array(util.df_slice(thermal_dispatch_df,['capacity',geography],['IO',self.dispatch_geography]).values).T[0]
         marginal_cost = np.array(util.df_slice(thermal_dispatch_df,['cost',geography],['IO',self.dispatch_geography]).values).T[0]
@@ -331,7 +333,7 @@ class Dispatch(object):
         args:
             dictionary
         returns:
-            new_dictionary 
+            new_dictionary
         """
         new_dictionary = dict()
         for period in self.periods:
@@ -457,7 +459,7 @@ class Dispatch(object):
         except:
             self.pickle_for_debugging()
             raise
-                
+
     def run_year_to_month_allocation(self):
         model = dispatch_formulation.year_to_period_allocation_formulation(self)
         results = self.run_pyomo_year_to_month(model, None)
@@ -513,7 +515,7 @@ class Dispatch(object):
 
                 Dispatch.nested_dict(start_soc, [p, t], np.floor(instance.Energy_in_Storage[t, p].value*1E7)/1E7)
                 Dispatch.nested_dict(end_soc, [p, t], np.floor((instance.Energy_in_Storage[t, p].value - (instance.Discharge[t, p].value-instance.Charge[t, p].value))*1E7)/1E77)
-                
+
         state_of_charge = [start_soc, end_soc]
         return state_of_charge
 

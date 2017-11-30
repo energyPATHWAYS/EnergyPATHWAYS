@@ -211,7 +211,11 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\test'
+    if os.getenv('USER') == 'rjp':
+        workingdir = '/Users/rjp/Projects/EvolvedEnergy/integration'
+    else:
+        workingdir = r'C:\github\EP_runs\test'
+
     config = 'config.INI'
     scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,

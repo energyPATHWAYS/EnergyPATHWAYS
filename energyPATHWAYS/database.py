@@ -183,10 +183,11 @@ class AbstractTable(object):
         df = self.load_all()
         print("Loaded {} rows for {}".format(df.shape[0], self.name))
 
-        # This is inefficient for Postgres since we go from list(tuple)->DataFrame->Series->tuple,
-        # but eventually, for the CSV "database", it's just DataFrame->Series->tuple
+        key_col = cls._key_col
         for _, row in df.iterrows():
-            cls.from_series(scenario, row)  # adds itself to the classes _instances_by_id dict
+            key = row[key_col]
+            obj = cls(key, scenario)  # adds itself to the classes _instances_by_id dict
+            obj.init_from_series(row, scenario)
 
     # TBD: obsolete once psql-to-csv conversion is complete
     def link_children(self, missing):
@@ -292,6 +293,9 @@ class CsvTable(AbstractTable):
 
         tbl_name = self.name
         filename = self.db.file_for_table(tbl_name)
+
+        if not filename:
+            raise PathwaysException('Missing filename for table "{}"'.format(tbl_name))
 
         if filename.endswith('.gz'):
             with gzip.open(filename, 'rb') as f:
@@ -498,12 +502,19 @@ class CsvDatabase(AbstractDatabase):
     # Dict keyed by table name of filenames under the database root folder
     file_map = {}
 
-    def __init__(self, pathname=None):
+    def __init__(self, pathname=None, load=True, exclude=[]):
         super(CsvDatabase, self).__init__(table_class=CsvTable, cache_data=True)
         self.pathname = pathname
         self.create_file_map()
         self._cache_foreign_keys()
         self.shapes = ShapeDataMgr(pathname)
+
+        # cache data for all tables for which there are generated classes
+        if load:
+            table_names = self.tables_with_classes()
+            for name in table_names:
+                if name not in exclude:
+                    self.get_table(name)
 
     def get_slice(self, name):
         '''
@@ -515,12 +526,12 @@ class CsvDatabase(AbstractDatabase):
         return self.file_map.keys()
 
     @classmethod
-    def get_database(cls, pathname=None):
+    def get_database(cls, pathname=None, load=True, exclude=[]):
         # Add ".db" if missing
         if pathname:
             pathname += ('' if pathname.endswith('.db') else '.db')
 
-        db = cls._get_database(pathname=pathname)
+        db = cls._get_database(pathname=pathname, load=load, exclude=[])
         return db
 
     def get_columns(self, table):

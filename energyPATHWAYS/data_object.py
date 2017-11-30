@@ -50,8 +50,10 @@ class DataObject(object):
     instancesByClass = defaultdict(list)
 
     _instances_by_key = {}  # here for completeness; shadowed in generated subclasses
+    _table_name = None      # ditto
+    _data_table_name = None # ditto
 
-    def __init__(self, scenario, key, data_table_name):
+    def __init__(self, key, scenario):
         """
         Append self to a list for our subclass
         """
@@ -59,12 +61,11 @@ class DataObject(object):
         self.instancesByClass[cls].append(self)
         self.scenario = scenario
         self._key = key
-        self._data_table_name = data_table_name
         self._child_data = None
         self.children_by_fk_col = {}
 
     def __str__(self):
-        return "<{} {}='{}'>".format(self.__class__.__name__, self._key_col, self._key)
+        return "<{} {}='{}'>".format(self.__class__._table_name, self._key_col, self._key)
 
     @classmethod
     def instances(cls):
@@ -77,24 +78,49 @@ class DataObject(object):
     def get_instance(cls, key):
         cls._instances_by_key.get(key, None)  # uses each class' internal dict
 
-    @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):
+    def init_from_tuple(self, tup, scenario, **kwargs):
         """
         Generated method
         """
-        raise SubclassProtocolError(cls, 'from_tuple')
+        raise SubclassProtocolError(self.__class__, 'init_from_tuple')
 
-    # TBD: test this
-    @classmethod
-    def from_series(cls, scenario, series, **kwargs):
-        return cls.from_tuple(scenario, tuple(series), **kwargs)
+    def init_from_series(self, series, scenario, **kwargs):
+        self.init_from_tuple(tuple(series), scenario, **kwargs)
 
-    @classmethod
-    def from_db(cls, scenario, key, **kwargs):
-        tup = cls.get_row(key)
-        obj = cls.from_tuple(scenario, tup, **kwargs)
-        obj.load_child_data()
-        return obj
+    def init_from_db(self, key, scenario, **kwargs):
+        tup = self.__class__.get_row(key)
+        self.init_from_tuple(tup, scenario, **kwargs)
+
+    # deprecated?
+    # @classmethod
+    # def from_tuple(cls, scenario, tup, **kwargs):
+    #     """
+    #     Generated method
+    #     """
+    #     raise SubclassProtocolError(cls, 'from_tuple')
+    #
+    # @classmethod
+    # def from_series(cls, scenario, series, **kwargs):
+    #     return cls.from_tuple(scenario, tuple(series), **kwargs)
+    #
+    # @classmethod
+    # def from_db(cls, scenario, key, **kwargs):
+    #     tup = cls.get_row(key)
+    #     obj = cls.from_tuple(scenario, tup, **kwargs)
+    #     return obj
+    #
+    # @classmethod
+    # def from_dataframe(cls, scenario, df, **kwargs):
+    #     nodes = [cls.from_series(scenario, row, **kwargs) for idx, row in df.iterrows()]
+    #     return nodes
+    #
+    # @classmethod
+    # def load_all(cls):
+    #     db = get_database()
+    #     tbl_name = cls.__name__
+    #     tbl = db.get_table(tbl_name)
+    #     nodes = cls.from_dataframe(tbl.data)
+    #     return nodes
 
     @classmethod
     def get_row(cls, key, raise_error=True):
@@ -110,14 +136,8 @@ class DataObject(object):
         :raises RowNotFound: if `id` is not present in `table`.
         """
         db = get_database()
-        tbl_name = cls.__name__
-        tup = db.get_row_from_table(tbl_name, cls._key_col, key, raise_error=raise_error)
+        tup = db.get_row_from_table(cls._table_name, cls._key_col, key, raise_error=raise_error)
         return tup
-
-    @classmethod
-    def from_dataframe(cls, scenario, df, **kwargs):
-        nodes = [cls.from_series(scenario, row, **kwargs) for idx, row in df.iterrows()]
-        return nodes
 
     # TBD: decide whether the default should be copy=True or False
     def load_child_data(self, copy=True):

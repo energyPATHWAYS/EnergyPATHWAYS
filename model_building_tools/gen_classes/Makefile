@@ -18,9 +18,8 @@ schema.py: genClasses.py $(SRCDIR)/data_object.py $(SRCDIR)/database.py
 $(SRCDIR)/text_mappings.py: text_mappings.py
 	cp -p $< $@
 
-text_mappings.py : psql_to_csv.py $(SRCDIR)/data_object.py $(SRCDIR)/database.py
-	psql_to_csv.py -d $(DATABASE)
-
+#text_mappings.py : psql_to_csv.py $(SRCDIR)/data_object.py $(SRCDIR)/database.py
+#	psql_to_csv.py -d $(DATABASE)
 
 clean: clean_schema clean_map
 

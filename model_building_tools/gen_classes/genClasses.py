@@ -30,11 +30,29 @@ def observeLinewidth(args, linewidth, indent=16):
     processed += unprocessed
     return processed
 
+StartOfFile = '''#
+# This is a generated file. Manual edits may be lost!
+#
+import sys
+from energyPATHWAYS.error import UnknownDataClass
+from energyPATHWAYS.data_object import DataObject
+
+_Module = sys.modules[__name__]  # get ref to our own module object
+
+def class_for_table(tbl_name):
+    try:
+        cls = getattr(_Module, tbl_name)
+    except AttributeError:
+        raise UnknownDataClass(tbl_name)
+
+    return cls
+
+'''
 
 class ClassGenerator(object):
     def __init__(self, dbdir, dbname, host, linewidth, outfile, password, user):
         if dbdir:
-            db = CsvDatabase.get_database(dbdir)
+            db = CsvDatabase.get_database(dbdir, load=False)
         else:
             db = PostgresDatabase.get_database(host, dbname, user, password, cache_data=False)
 
@@ -54,7 +72,7 @@ class ClassGenerator(object):
         self.generated.append(table)
 
         # Using DataObject.__name__ rather than "DataObject" so references
-        # to uses of the class will be recognized properly in the IDE.
+        # the class will be found in the IDE.
         base_class = DataObject.__name__
 
         stream.write('class {}({}):\n'.format(table, base_class))
@@ -65,7 +83,14 @@ class ClassGenerator(object):
             raise Exception("Failed to guess key col in {}; columns are: {}".format(table, cols))
 
         stream.write('    _key_col = "{}"\n'.format(key_col))  # save as a class variable
-        stream.write('    _cols = {}'.format(cols))
+        col_strs = map(lambda s: '"{}"'.format(s), cols)
+        stream.write('    _cols = [{}]\n'.format(observeLinewidth(col_strs, self.linewidth, indent=12)))
+        stream.write('    _table_name = "{}"\n'.format(table))
+
+        data_table = table + 'Data'
+        if data_table not in self.all_tables:
+            data_table = ''
+        stream.write('    _data_table_name = {!r}\n'.format(str(data_table) or None))
         stream.write('\n')
 
         # TBD: unnecessary?
@@ -75,19 +100,26 @@ class ClassGenerator(object):
         params = extra1 + [col + '=None' for col in cols]
         params = observeLinewidth(params, self.linewidth)
 
-        data_table = table + 'Data'
-        if data_table not in self.all_tables:
-            data_table = ''
+        extra2 = [tup[0] for tup in extraArgs]
 
-        stream.write('    def __init__(self, scenario, {}):\n'.format(params))
+        stream.write('    def __init__(self, {}, scenario):\n'.format(key_col))
+        stream.write('        {}.__init__(self, {}, scenario)\n'.format(base_class, key_col))
         stream.write('\n')
-        stream.write('        {}.__init__(self, scenario, {}, "{}")\n'.format(base_class, key_col, data_table))
         stream.write('        {}._instances_by_key[self._key] = self\n'.format(table))
         stream.write('\n')
 
-        extra2 = [tup[0] for tup in extraArgs]
+        for col in extra2 + cols:
+            stream.write('        self.{col} = None\n'.format(col=col))
+
+        stream.write('\n')
+
+        stream.write('    def set_args(self, scenario, {}):\n'.format(params))
+
         for col in extra2 + cols:
             stream.write('        self.{col} = {col}\n'.format(col=col))
+
+        stream.write('\n')
+        stream.write('        self.load_child_data(scenario)\n')
 
         extra3 = [('kwargs.get("{}", {})'.format(name, default if default else "None")) for name, default in extraArgs]
         args  = extra3 + [col + '=' + col for col in cols]
@@ -95,13 +127,10 @@ class ClassGenerator(object):
         names = observeLinewidth(cols, self.linewidth, indent=8)
 
         template = """
-    @classmethod
-    def from_tuple(cls, scenario, tup, **kwargs):    
+    def init_from_tuple(self, tup, scenario, **kwargs):    
         ({names}) = tup
 
-        obj = cls(scenario, {args})
-
-        return obj
+        self.set_args(scenario, {args})
 
 """
         stream.write(template.format(names=names, args=args))
@@ -110,11 +139,9 @@ class ClassGenerator(object):
     def generateClasses(self):
         stream = open(self.outfile, 'w') if self.outfile else sys.stdout
 
-        with open('boilerplate.py') as header:
-            stream.write(header.read())
+        stream.write(StartOfFile)
 
         db = self.db
-        stream.write('\nfrom energyPATHWAYS.data_object import DataObject\n\n')
 
         # filter out tables that don't need classes
         tables = self.tables = db.tables_with_classes(include_on_demand=True)

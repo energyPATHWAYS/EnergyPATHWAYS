@@ -31,6 +31,7 @@ class DataMapFunctions:
         self.index_levels = OrderedDict()
         self.column_names = OrderedDict()
         self.df_index_names = []
+        self.sql_data_table = self._table_name  # get this from the generated class
 
     def inspect_index_levels(self, headers, read_data):
         """
@@ -153,7 +154,7 @@ class DataMapFunctions:
                                          other_index_names[index_attr_value]
                         ))
 
-    def clean_timeseries(self, attr='values', inplace=True, time_index_name='year', 
+    def clean_timeseries(self, attr='values', inplace=True, time_index_name='year',
                          time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing'):
         if time_index is None:
             time_index=cfg.cfgfile.get('case', 'years')
@@ -204,10 +205,10 @@ class DataMapFunctions:
         mapped_data = DfOper.mult([getattr(self, attr), map_df], fill_value=fill_value)
         if current_geography!=converted_geography:
             mapped_data = util.remove_df_levels(mapped_data, current_geography)
-            
+
         if hasattr(mapped_data.index, 'swaplevel'):
             mapped_data = DataMapFunctions.reorder_df_geo_left_year_right(mapped_data, converted_geography)
-        
+
         if inplace:
             setattr(self, attr, mapped_data.sort())
         else:
@@ -281,7 +282,7 @@ class DataMapFunctions:
 
         if (drivers is None) or (not len(drivers)):
             # we have no drivers, just need to do a clean timeseries and a geomap
-            if fill_timeseries:     
+            if fill_timeseries:
                 self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, time_index_name=time_index_name,
                                       interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
                                       lower=lower, upper=upper)
@@ -295,7 +296,7 @@ class DataMapFunctions:
             # turns out we don't always have a year or vintage column for drivers. For instance when linked_demand_technology gets remapped
             if time_index_name in self.total_driver.index.names:
                 # sometimes when we have a linked service demand driver in a demand subsector it will come in on a fewer number of years than self.years, making this clean timeseries necesary
-                self.clean_timeseries(attr='total_driver', inplace=True, time_index_name=time_index_name, 
+                self.clean_timeseries(attr='total_driver', inplace=True, time_index_name=time_index_name,
                                       time_index=time_index, lower=None, upper=None, interpolation_method='missing', extrapolation_method='missing')
 
             # While not on primary geography, geography does have some information we would like to preserve
@@ -306,7 +307,7 @@ class DataMapFunctions:
             total_driver_current_geo = self.geo_map(current_geography, attr='total_driver', inplace=False,
                                               current_geography=driver_geography, current_data_type=driver_mapping_data_type,
                                               fill_value=fill_value, filter_geo=False)
-                                        
+
             if current_data_type == 'total':
                 if fill_value is np.nan:
                     df_intensity = DfOper.divi((getattr(self, map_to), total_driver_current_geo), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf],0)
@@ -332,7 +333,7 @@ class DataMapFunctions:
 
     def project(self, map_from='raw_values', map_to='values', additional_drivers=None, interpolation_method='missing',extrapolation_method='missing',
                 time_index_name='year', fill_timeseries=True, converted_geography=None, current_geography=None, current_data_type=None, fill_value=0.,projected=False,filter_geo=True):
-        
+
         converted_geography = cfg.primary_geography if converted_geography is None else converted_geography
         current_data_type = self.input_type if current_data_type is None else current_data_type
         if map_from != 'raw_values' and current_data_type == 'total':
@@ -350,7 +351,7 @@ class DataMapFunctions:
                 # While not on primary geography, geography does have some information we would like to preserve
                 self.geo_map(converted_geography, attr=map_to, inplace=True)
                 current_geography = converted_geography
-            total_driver = DfOper.mult([self.drivers[id].values for id in denominator_driver_ids])          
+            total_driver = DfOper.mult([self.drivers[id].values for id in denominator_driver_ids])
             self.geo_map(current_geography=current_geography, attr=map_to, converted_geography=cfg.disagg_geography, current_data_type = 'intensity')
             setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver)))
             self.geo_map(current_geography=cfg.disagg_geography, attr=map_to, converted_geography=current_geography,current_data_type='total')
