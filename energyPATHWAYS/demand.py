@@ -25,7 +25,7 @@ import schema
 from .database import get_database
 
 
-class Driver(schema.DemandDrivers, DataMapFunctions):
+class Driver(schema.DemandDrivers):
     def __init__(self, id, scenario):
         # self.id = id
         # self.scenario = scenario
@@ -37,7 +37,6 @@ class Driver(schema.DemandDrivers, DataMapFunctions):
         # creates the index_levels dictionary
         schema.DemandDrivers.__init__(self, id, scenario)
         self.init_from_db(id, scenario)
-        DataMapFunctions.__init__(self, data_id_key='parent_id')
         self.read_timeseries_data()
 
 

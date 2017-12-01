@@ -31,7 +31,6 @@ class DataMapFunctions:
         self.index_levels = OrderedDict()
         self.column_names = OrderedDict()
         self.df_index_names = []
-        self.sql_data_table = self._table_name  # get this from the generated class
 
     def inspect_index_levels(self, headers, read_data):
         """
