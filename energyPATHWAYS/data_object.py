@@ -232,7 +232,7 @@ class DataObject(object):
         tbl = db.get_table(self.sql_data_table)
         headers = list(tbl.data.columns)
 
-        filters[self.data_id_key] = self.id
+        key = filters[self.data_id_key] = self._key
 
         # Check for a sensitivity specification for this table and id. If there is no relevant sensitivity specified
         # but the data table has a sensitivity column, we set the sensitivity filter to "None", which will filter
@@ -240,15 +240,17 @@ class DataObject(object):
         if 'sensitivity' in headers:
             filters['sensitivity'] = None
             if hasattr(self, 'scenario'):
-                # Note that this will return None if the scenario doesn't specify a sensitivity for this table and id
-                filters['sensitivity'] = self.scenario.get_sensitivity(self.sql_data_table, self.id)
+                # Note that this will return None if the scenario doesn't specify a sensitivity for this table and key
+                filters['sensitivity'] = self.scenario.get_sensitivity(self.sql_data_table, key)
 
         # TODO: use this to read child data, possibly adding filter treatment via df.query(), unless
         # TODO: this is just to isolate parent's children, which is already handled in load_child_data.
         self.load_child_data(copy=True)
+        read_data = self._child_data
 
         # read each line of the data_table matching an id and assign the value to self.raw_values
-        read_data = sql_read_table(self.sql_data_table, return_iterable=True, **filters)
+        #read_data = sql_read_table(self.sql_data_table, return_iterable=True, **filters)
+
         self.inspect_index_levels(headers, read_data)
         self._validate_other_indexes(headers, read_data)
 

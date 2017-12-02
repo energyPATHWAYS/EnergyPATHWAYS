@@ -403,7 +403,6 @@ class AbstractDatabase(object):
 
     @classmethod
     def _get_database(cls, **kwargs):
-
         if not AbstractDatabase.instance:
             instance = AbstractDatabase.instance = cls(**kwargs)
             instance._cache_table_names()
