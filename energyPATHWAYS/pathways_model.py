@@ -20,8 +20,7 @@ import pdb
 from scenario_loader import Scenario
 import copy
 import numpy as np
-import schema
-import database
+from database import CsvDatabase
 
 class PathwaysModel(object):
     """
@@ -44,7 +43,8 @@ class PathwaysModel(object):
                 db_pathname = r"C:\github\EnergyPATHWAYS\model_building_tools\gen_classes\171112_US.db"
 
             # TODO: DemandTechsServiceLink still needs to be resolved (has duplicate key)
-            db = database.CsvDatabase.get_database(pathname=db_pathname, exclude=['DemandTechsServiceLink'])
+            db = CsvDatabase.get_database(pathname=db_pathname, exclude=['DemandTechsServiceLink'])
+            print("Using database {}".format(db))
 
             if solve_demand and not (load_demand or load_supply):
                 self.calculate_demand(save_models)

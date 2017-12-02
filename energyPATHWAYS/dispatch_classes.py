@@ -27,7 +27,7 @@ import dispatch_maintenance
 
 import schema
 
-class DispatchFeederAllocation(schema.DispatchFeedersAllocation, Abstract):
+class DispatchFeederAllocation(Abstract):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
     def __init__(self, id,**kwargs):
         self.id = id

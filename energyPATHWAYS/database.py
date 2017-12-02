@@ -14,7 +14,7 @@ import pandas as pd
 
 pd.set_option('display.width', 200)
 
-from .error import PathwaysException, RowNotFound, DuplicateRowsFound, SubclassProtocolError
+from energyPATHWAYS.error import PathwaysException, RowNotFound, DuplicateRowsFound, SubclassProtocolError
 
 def mkdirs(newdir, mode=0o770):
     """
@@ -351,15 +351,18 @@ class ShapeDataMgr(object):
         name = name.replace(' ', '_')
         return self.slices[name]
 
+# TBD: moved to AbstractDatabase.instance (delete)
 # The singleton object
-_Database = None
+# _Database = None
 
 def get_database():
-    return _Database
+    instance = AbstractDatabase.instance
+    if not instance:
+        raise PathwaysException("Must call CsvDatabase.get_database() before using the global get_database() function")
+    return instance
 
-def forget_database():
-    global _Database
-    _Database = None
+# def forget_database():
+#     AbstractDatabase.instance = None
 
 
 class ForeignKey(object):
@@ -389,6 +392,8 @@ class AbstractDatabase(object):
     A simple Database class that caches table data and provides a few fetch methods.
     Serves as a base for a CSV-based subclass and a PostgreSQL-based subclass.
     """
+    instance = None
+
     def __init__(self, table_class, cache_data=False):
         self.cache_data = cache_data
         self.table_class = table_class
@@ -398,13 +403,12 @@ class AbstractDatabase(object):
 
     @classmethod
     def _get_database(cls, **kwargs):
-        global _Database
 
-        if not _Database:
-            _Database = cls(**kwargs)
-            _Database._cache_table_names()
+        if not AbstractDatabase.instance:
+            instance = AbstractDatabase.instance = cls(**kwargs)
+            instance._cache_table_names()
 
-        return _Database
+        return instance
 
     def get_tables_names(self):
         raise SubclassProtocolError(self.__class__, 'get_table_names')

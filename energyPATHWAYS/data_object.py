@@ -9,10 +9,11 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 
-import config as cfg
-import util
+from . import config as cfg
 from .time_series import TimeSeries
-from .util import DfOper
+from .util import (DfOper, sql_read_table, sql_read_dict, put_in_list,
+                   id_to_name, remove_df_levels, get_elements_from_level,
+                   reindex_df_level_with_new_elements)
 from .database import get_database, find_parent_col
 from .error import SubclassProtocolError
 from .text_mappings import MappedCols
@@ -188,7 +189,7 @@ class DataObject(object):
         # TODO: attaching attributes to methods is pretty unorthodox. Why not just use a class variable?
         # this_method = DataObject._other_indexes_dict
         # if not hasattr(this_method, 'memoized_result'):
-        #     other_indexes_data = util.sql_read_table('OtherIndexesData', ('id', 'other_index_id'))
+        #     other_indexes_data = sql_read_table('OtherIndexesData', ('id', 'other_index_id'))
         #     this_method.memoized_result = {row[0]: row[1] for row in other_indexes_data}
         # return this_method.memoized_result
 
@@ -218,7 +219,7 @@ class DataObject(object):
             self.index_levels = OrderedDict(
                 [(index_level, elements[headers.index(column_name)]) for index_level, column_name in cfg.index_levels if
                  column_name in self.column_names.values()])
-            self.df_index_names = [util.id_to_name(level, getattr(self, level)) if hasattr(self, level) else level for
+            self.df_index_names = [id_to_name(level, getattr(self, level)) if hasattr(self, level) else level for
                                    level in self.index_levels]
 
     # TODO: This function needs to be sped up
@@ -247,12 +248,12 @@ class DataObject(object):
         self.load_child_data(copy=True)
 
         # read each line of the data_table matching an id and assign the value to self.raw_values
-        read_data = util.sql_read_table(self.sql_data_table, return_iterable=True, **filters)
+        read_data = sql_read_table(self.sql_data_table, return_iterable=True, **filters)
         self.inspect_index_levels(headers, read_data)
         self._validate_other_indexes(headers, read_data)
 
         rowmap = [headers.index(self.column_names[level]) for level in self.index_levels]
-        data_col_ind = [headers.index(data_col) for data_col in util.put_in_list(data_column_names)]
+        data_col_ind = [headers.index(data_col) for data_col in put_in_list(data_column_names)]
 
         # TODO: Add unit prefix to __init__?
         unit_prefix = self.unit_prefix if hasattr(self, 'unit_prefix') else 1
@@ -267,7 +268,7 @@ class DataObject(object):
                 except:
                     logging.warning('error reading table: {}, row: {}'.format(self.sql_data_table, row))
                     raise
-            column_names = self.df_index_names + util.put_in_list(data_column_names)
+            column_names = self.df_index_names + put_in_list(data_column_names)
             self.raw_values = pd.DataFrame(data, columns=column_names).set_index(keys=self.df_index_names).sort()
             # print the duplicate values
             duplicate_index = self.raw_values.index.duplicated(
@@ -308,9 +309,9 @@ class DataObject(object):
            belong to.
         3. All other index data values belong to the other index specified by the parent object.
         """
-        other_indexes_dict = util.sql_read_dict('OtherIndexesData', 'id', 'other_index_id')
-        other_index_names = util.sql_read_dict('OtherIndexes', 'id', 'name')
-        other_index_data_names = util.sql_read_dict('OtherIndexesData', 'id', 'name')
+        other_indexes_dict = sql_read_dict('OtherIndexesData', 'id', 'other_index_id')
+        other_index_names = sql_read_dict('OtherIndexes', 'id', 'name')
+        other_index_data_names = sql_read_dict('OtherIndexesData', 'id', 'name')
 
         for index_num in ('1', '2'):
             index_col = 'oth_%s_id' % index_num
@@ -400,7 +401,7 @@ class DataObject(object):
                                 map_key=geography_map_key, filter_geo=filter_geo)
         mapped_data = DfOper.mult([getattr(self, attr), map_df], fill_value=fill_value)
         if current_geography != converted_geography:
-            mapped_data = util.remove_df_levels(mapped_data, current_geography)
+            mapped_data = remove_df_levels(mapped_data, current_geography)
 
         if hasattr(mapped_data.index, 'swaplevel'):
             mapped_data = DataObject.reorder_df_geo_left_year_right(mapped_data, converted_geography)
@@ -439,13 +440,13 @@ class DataObject(object):
         return df, current_geography
 
     def _add_missing_geographies(self, df, current_geography, current_data_type):
-        current_number_of_geographies = len(util.get_elements_from_level(df, current_geography))
+        current_number_of_geographies = len(get_elements_from_level(df, current_geography))
         propper_number_of_geographies = len(cfg.geo.geographies_unfiltered[current_geography])
         if current_data_type == 'total' and current_number_of_geographies != propper_number_of_geographies:
             # we only want to do it when we have a total, otherwise we can't just fill with zero
-            df = util.reindex_df_level_with_new_elements(df, current_geography,
-                                                         cfg.geo.geographies_unfiltered[current_geography],
-                                                         fill_value=np.nan)
+            df = reindex_df_level_with_new_elements(df, current_geography,
+                                                    cfg.geo.geographies_unfiltered[current_geography],
+                                                    fill_value=np.nan)
         return df
 
     def _get_active_time_index(self, time_index, time_index_name):
@@ -497,7 +498,7 @@ class DataObject(object):
                 current_geography = converted_geography
         else:
             # becomes an attribute of self just because we may do a geomap on it
-            self.total_driver = DfOper.mult(util.put_in_list(drivers))
+            self.total_driver = DfOper.mult(put_in_list(drivers))
             # turns out we don't always have a year or vintage column for drivers. For instance when linked_demand_technology gets remapped
             if time_index_name in self.total_driver.index.names:
                 # sometimes when we have a linked service demand driver in a demand subsector it will come in on a fewer number of years than self.years, making this clean timeseries necesary
@@ -584,7 +585,7 @@ class DataObject(object):
         driver_ids = [getattr(self, col) for col in cfg.drivr_col_names if getattr(self, col) is not None]
         drivers = [self.drivers[id].values for id in driver_ids]
         if additional_drivers is not None:
-            drivers += util.put_in_list(additional_drivers)
+            drivers += put_in_list(additional_drivers)
         # both map_from and map_to are the same
         self.remap(map_from=map_to, map_to=map_to, drivers=drivers,
                    time_index_name=time_index_name, fill_timeseries=fill_timeseries,
@@ -595,28 +596,28 @@ class DataObject(object):
 
 
 # TODO: not sure what to do with this.
-class Abstract(DataMapper):
-    def __init__(self, id, primary_key='id', data_id_key=None, **filters):
-        # From Ryan: I've introduced a new parameter called data_id_key, which is the key in the "Data" table
-        # because we are introducing primary keys into the Data tables, it is sometimes necessary to specify them separately
-        # before we only has primary_key, which was shared in the "parent" and "data" tables, and this is still the default as we make the change.
-        if data_id_key is None:
-            data_id_key = primary_key
-
-        try:
-            col_att = util.object_att_from_table(self.sql_id_table, id, primary_key)
-        except:
-            logging.error(self.sql_id_table, id, primary_key)
-            raise
-
-        if col_att is None:
-            self.data = False
-        else:
-            for col, att in col_att:
-                # if att is not None:
-                setattr(self, col, att)
-            self.data = True
-
-        DataMapper.__init__(self, data_id_key)
-        self.read_timeseries_data(**filters)
+# class Abstract(DataObject):
+#     def __init__(self, id, primary_key='id', data_id_key=None, **filters):
+#         # From Ryan: I've introduced a new parameter called data_id_key, which is the key in the "Data" table
+#         # because we are introducing primary keys into the Data tables, it is sometimes necessary to specify them separately
+#         # before we only has primary_key, which was shared in the "parent" and "data" tables, and this is still the default as we make the change.
+#         if data_id_key is None:
+#             data_id_key = primary_key
+#
+#         try:
+#             col_att = util.object_att_from_table(self.sql_id_table, id, primary_key)
+#         except:
+#             logging.error(self.sql_id_table, id, primary_key)
+#             raise
+#
+#         if col_att is None:
+#             self.data = False
+#         else:
+#             for col, att in col_att:
+#                 # if att is not None:
+#                 setattr(self, col, att)
+#             self.data = True
+#
+#         DataMapper.__init__(self, data_id_key)
+#         self.read_timeseries_data(**filters)
 
