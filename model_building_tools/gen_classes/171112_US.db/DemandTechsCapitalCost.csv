@@ -1,0 +1,358 @@
+demand_technology,definition,reference_tech_id,geography,other_index_1,other_index_2,currency,currency_year_id,is_levelized,interpolation_method,extrapolation_method,extrapolation_growth,reference_tech_operation
+Reference Air Source Heat Pump - Heating,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Distillate Furnace,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Distillate Boiler/Radiator,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Electric Unit Heaters,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Natural Gas Boiler/Radiator,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference LPG Furnace,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Geothermal Heat Pump - Heating,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Cordwood Stoves,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Kerosene Furnace,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Natural Gas Furnace,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Air Source Heat Pump - Heating,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Natural Gas Furnace,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Natural Gas Boiler/Radiator,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Kerosene Furnace,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency LPG Furnace,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Distillate Furnace,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Distillate Boiler/Radiator,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Geothermal Heat Pump - Heating,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Incandescent GSL,absolute,,us,,,USD,2010.0,False,linear_interpolation,nearest,,
+CFL GSL,absolute,,us,,,USD,2010.0,False,linear_interpolation,nearest,,
+LED GSL,absolute,,us,,,USD,2010.0,False,linear_interpolation,nearest,,
+Reference Medium - Duty Diesel Vehicle,absolute,,us,,,USD,2008.0,False,linear_interpolation,nearest,,
+Reference Medium-Duty Gasoline Vehicle,absolute,,us,,,USD,2008.0,False,linear_interpolation,nearest,,
+Reference Medium-Duty CNG Vehicle,absolute,,us,,,USD,2008.0,False,linear_interpolation,nearest,,
+Reference Gas Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Gas Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Distillate Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Distillate Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference LPG Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency LPG Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Electric Resistance Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Electric Heat Pump Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Electric Heat Pump Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Solar Water Heater with Electric Backup,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Electric Resistance Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Instantaneous Gas Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Instantaneous Gas Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Central Air Conditioner,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Central Air Conditioner,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Air Source Heat Pump - Cooling,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Geothermal Heat Pump - Cooling,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Air Source Heat Pump - Cooling,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Geothermal Heat Pump - Cooling,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Top Mount Refrigerator,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Top Mount Refrigerator,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Bottom Mount Refrigerator,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Bottom Mount Refrigerator,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Side Mount Refrigerator,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Side Mount Refrigerator,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Upright Freezer,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Upright Freezer,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Chest Freezer,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Chest Freezer,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Gas Cooktop/Stove,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Electric Cooktop/Stove,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Gas Cooktop/Stove,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Clothes Washer - Front Loading,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Clothes Washer - Front Loading,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Clothes Washer - Top Loading,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Clothes Washer - Top Loading,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Electric Clothes Dryer,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Electric Clothes Dryer,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Gas Clothes Dryer,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Gas Clothes Dryer,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Dishwasher,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Dishwasher,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Natural Gas Heat Pump  - Heating,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Natural Gas Heat Pump  - Cooling,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Room Air Conditioner,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Room Air Conditioner,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Electric Booster Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Incandescent Reflector,absolute,,us,,,USD,2010.0,False,linear_interpolation,nearest,,
+CFL Reflector,absolute,,us,,,USD,2010.0,False,linear_interpolation,nearest,,
+Halogen Reflector,absolute,,us,,,USD,2010.0,False,linear_interpolation,nearest,,
+LED Reflector,absolute,,us,,,USD,2010.0,False,linear_interpolation,nearest,,
+T-12 Linear Fluorescent,absolute,,us,,,USD,2010.0,False,linear_interpolation,nearest,,
+T-8 Linear Fluorescent,absolute,,us,,,USD,2010.0,False,linear_interpolation,nearest,,
+LED Linear Fluorescent,absolute,,us,,,USD,2010.0,False,linear_interpolation,nearest,,
+LED Exterior,absolute,,us,,,USD,2010.0,False,linear_interpolation,nearest,,
+HID Exterior,absolute,,us,,,USD,2010.0,False,linear_interpolation,nearest,,
+CFL Exterior,absolute,,us,,,USD,2010.0,False,linear_interpolation,nearest,,
+Incandescent Exterior,absolute,,us,,,USD,2010.0,False,linear_interpolation,nearest,,
+Reference Commercial Gas Furnace,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Gas Furnace,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Distillate Furnace,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Air Source Heat Pump - Cooling,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Gas Boiler,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Gas Boiler,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Distillate Boiler,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Distillate Boiler,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Air Source Heat Pump - Heating,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Air Source Heat Pump - Heating,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Gas Heat Pump - Heating,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Air Source Heat Pump - Cooling,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Gas Heat Pump - Cooling,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Electric Resistance Heat,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Ground Source Heat Pump - Heating,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Ground Source Heat Pump - Heating,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Commercial Electric Boiler,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Ground Source Heat Pump -Cooling,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Ground Source Heat Pump - Cooling,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Scroll Chiller,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Scroll Chiller,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Screw Chiller,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Screw Chiller,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Reciprocating Chiller,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Reciprocating Chiller,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Centrifugal Chiller,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Centrifugal Chiller,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Rooftop Air Conditioner,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Rooftop Air Conditioner,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Wall/Room Air Conditioner,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Wall/Room Air Conditioner,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Central Air Conditioner,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Central Air Conditioner,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Gas Absorption Chiller,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Gas Engine-Driven Chiller,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Gas-Driven AC,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Constant Air Commercial Ventilation System,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Constant Air Commercial Ventilation System,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Variable Air Commercial Ventilation System,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Variable Air Commercial Ventilation System,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+"Range, Electric, 4 burner, oven, 11"" griddle",absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+"Range, Electric-induction, 4 burner, oven, 11"" griddle",absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+"Range, Gas, 4 burner, oven, 11"" griddle",absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+"Range, Gas, 4 powered burners, convect. oven, 11"" griddle",absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Supermarket Display Cases,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Supermarket Display Cases,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Compressor Rack Systems,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Compressor Rack Systems,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Condensers,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Condensers,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Walk-in Refrigerators,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Walk-in Refrigerators,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Walk-in Freezers,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Walk-in Freezers,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Reach-in Refrigerators,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Reach-in Refrigerators,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Reach-in Freezers,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Reach-in Freezers,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Ice-Machines,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Ice-Machines,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Beverage Merchandisers,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Beverage Merchandisers,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Refrigerated Vending Machines,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Refrigerated Vending Machines,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Commercial Electric Booster Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Commercial Solar Water Heater with Electric Backup,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Commercial Reference Heat Pump Storage Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Commercial High Efficiency Heat Pump Storage Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Commercial Reference Gas Instantaneous Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Commercial High Efficiency Gas Instantaneous Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Commercial High Efficiency Gas Booster Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Commercial  Reference Gas Booster Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Commercial Reference Gas Storage Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Commercial High Efficiency Gas Storage Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Commercial Electric Resistance Storage Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Commercial Reference Oil Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Commercial High Efficiency Oil Water Heater,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Diesel Heavy-Duty Vehicle,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Diesel Hybrid Heavy-Duty Vehicle,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+LNG Heavy-Duty Vehicle,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Gasoline Light-Duty Auto,absolute,,us,,,USD,2008.0,False,linear_interpolation,nearest,,
+CNG Light-Duty Auto,absolute,,us,,,USD,2008.0,False,linear_interpolation,nearest,,
+Hydrogen Fuel-Cell Light-Duty Auto,absolute,,us,,,USD,2008.0,False,linear_interpolation,nearest,,
+Gasoline-Electric Hybrid Light-Duty Auto,absolute,,us,,,USD,2008.0,False,linear_interpolation,nearest,,
+Reference Gasoline Light-Duty Truck,absolute,,us,,,USD,2008.0,False,linear_interpolation,nearest,,
+CNG Light-Duty Truck,absolute,,us,,,USD,2008.0,False,linear_interpolation,nearest,,
+Hydrogen Fuel-Cell Light-Duty Truck,absolute,,us,,,USD,2008.0,False,linear_interpolation,nearest,,
+Electric - Gasoline Hybrid Light-Duty Truck,absolute,,us,,,USD,2008.0,False,linear_interpolation,nearest,,
+Reference Res Building Shell,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+ESTAR Res Building Shell,absolute,,census division,housing types,,USD,2013.0,False,linear_interpolation,nearest,,
+FORTY% Res Building Shell,absolute,,census division,housing types,,USD,2013.0,False,linear_interpolation,nearest,,
+IECC 2009 Res Building Shell,absolute,,census division,housing types,,USD,2013.0,False,linear_interpolation,nearest,,
+No IECC 2009 Res Building Shell,absolute,,census division,housing types,,USD,2013.0,False,linear_interpolation,nearest,,
+PATH Res Building Shell,absolute,,census division,housing types,,USD,2013.0,False,linear_interpolation,nearest,,
+Autonomous Electric Light-Duty Auto,absolute,,us,,,USD,2008.0,False,linear_interpolation,nearest,,
+Autonomous Electric Light-Duty Truck,absolute,,us,,,USD,2008.0,False,linear_interpolation,nearest,,
+Electric Light-Duty Auto - 200 mile range,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+PHEV - 50 mile range - Light Duty Auto,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+PHEV - 25 mile range - Light Duty Auto,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+Electric Light-Duty Truck - 200 mile range,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+PHEV - Gasoline - 50 mile range - Light Duty Truck,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+Electric Heavy Duty Vehicle,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+Electric Light-Duty Auto - 100 mile range,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+Electric Light-Duty Auto - 300 mile range,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+Electric Light-Duty Truck - 100 mile range,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+Electric Light-Duty Truck - 300 mile range,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+Electric Transit bus,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+Diesel Transit bus,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+CNG Transit bus,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+Hybrid electric Transit bus,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+Reference LPG Medium-Duty Vehicle,relative,27.0,us,,,,,False,linear_interpolation,nearest,,multiply
+Hybrid Gasoline Medium-Duty Vehicle,relative,26.0,us,,,,,False,linear_interpolation,nearest,,multiply
+Hydrogen Fuel Cell Medium-Duty Vehicle,relative,25.0,us,,,,,False,linear_interpolation,nearest,,multiply
+LNG Hybrid Heavy-Duty Vehicle,relative,214.0,us,,,,,False,linear_interpolation,nearest,,multiply
+Hydrogen FCV Heavy-Duty Vehicle,relative,212.0,us,,,,,False,linear_interpolation,nearest,,multiply
+Reference Gasoline Heavy-Duty Vehicle,relative,212.0,,,,,,False,linear_interpolation,nearest,,multiply
+Reference Propane Heavy-Duty Vehicle,relative,212.0,,,,,,False,linear_interpolation,nearest,,multiply
+Diesel - Electric Hybrid Light-Duty Auto,relative,230.0,us,,,USD,2008.0,False,linear_interpolation,nearest,,multiply
+Reference TDI Light-Duty Auto,relative,221.0,us,,,USD,2008.0,False,linear_interpolation,nearest,,multiply
+Propane ICE Light-Duty Truck,relative,236.0,us,,,USD,2008.0,False,linear_interpolation,nearest,,multiply
+Electric - Diesel Hybrid Light-Duty Truck,relative,240.0,us,,,,,False,linear_interpolation,nearest,,multiply
+Hybrid Diesel Medium-Duty Vehicle,relative,25.0,us,,,,,False,linear_interpolation,nearest,,multiply
+Gasoline Transit Bus,relative,419.0,,,,,,False,linear_interpolation,nearest,,multiply
+Gas Wall Heater,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+Ductless Mini-Split Heat Pump - Heating,absolute,,us,,,USD,2015.0,False,linear_interpolation,nearest,,
+Ductless Mini-Split Heat Pump - Cooling,absolute,,us,,,USD,2015.0,False,linear_interpolation,nearest,,
+Through-the-wall Heat Pump - Heating,absolute,,us,,,USD,2015.0,False,linear_interpolation,nearest,,
+Through-the-wall Heat Pump - Cooling,absolute,,us,,,USD,2015.0,False,linear_interpolation,nearest,,
+High Efficiency Electric Clothes Dryer (with flex cost),relative,66.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Top Mount Refrigerator (with flex cost),relative,48.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Central Air Conditioner (with flex cost),relative,42.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Top Mount Refrigerator (with flex cost),relative,49.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Bottom Mount Refrigerator (with flex cost),relative,50.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Bottom Mount Refrigerator (with flex cost),relative,51.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Central Air Conditioner (with flex cost),relative,43.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Air Source Heat Pump - Cooling (with flex cost),relative,44.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Geothermal Heat Pump - Cooling (with flex cost),relative,45.0,us,,,,,,linear_interpolation,nearest,,add
+Hybrid CNG Medium-Duty Vehicle,relative,27.0,us,,,,,False,linear_interpolation,nearest,,multiply
+Propane ICE Light-Duty Auto,relative,226.0,us,,,USD,2008.0,False,linear_interpolation,nearest,,multiply
+Reference TDI Light-Duty Truck,relative,232.0,us,,,USD,2008.0,False,linear_interpolation,nearest,,multiply
+Reference Commercial Walk-in Refrigerators (with flex cost),relative,180.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Commercial Walk-in Refrigerators (with flex cost),relative,181.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Commercial Walk-in Freezers (with flex cost),relative,182.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Commercial Walk-in Freezers (with flex cost),relative,183.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Commercial Reach-in Refrigerators (with flex cost),relative,184.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Side Mount Refrigerator (with flex cost),relative,52.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Side Mount Refrigerator (with flex cost),relative,53.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Reciprocating Chiller (with flex cost),relative,111.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Reciprocating Chiller (with flex cost),relative,112.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Centrifugal Chiller (with flex cost),relative,113.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Air Source Heat Pump - Cooling (with flex cost),relative,46.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Geothermal Heat Pump - Cooling (with flex cost),relative,47.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Room Air Conditioner (with flex cost),relative,73.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Room Air Conditioner (with flex cost),relative,74.0,us,,,,,,linear_interpolation,nearest,,add
+Ductless Mini-Split Heat Pump - Cooling (with flex cost),relative,426.0,us,,,,,,linear_interpolation,nearest,,add
+Through-the-wall Heat Pump - Cooling (with flex cost),relative,428.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Centrifugal Chiller (with flex cost),relative,114.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Rooftop Air Conditioner (with flex cost),relative,115.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Rooftop Air Conditioner (with flex cost),relative,116.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Wall/Room Air Conditioner (with flex cost),relative,117.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Clothes Washer - Front Loading (with flex cost),relative,61.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Clothes Washer - Front Loading (with flex cost),relative,62.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Electric Resistance Water Heater (with flex cost),relative,35.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Electric Heat Pump Water Heater (with flex cost),relative,36.0,us,,,,,,linear_interpolation,nearest,,add
+"Range, Fue oil, 4 burner, oven, 11"" griddle",relative,130.0,,,,,,,linear_interpolation,nearest,,multiply
+"Range, Fuel Oil, 4 powered burners, convect. oven, 11"" griddle",relative,131.0,,,,,,,linear_interpolation,nearest,,multiply
+Reference Flex Fuel Light-Duty Auto,relative,221.0,,,,,,,linear_interpolation,nearest,,multiply
+Reference Flex-Fuel Light-Duty Truck,relative,232.0,,,,,,,linear_interpolation,nearest,,multiply
+High Efficiency Electric Heat Pump Water Heater (with flex cost),relative,37.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Electric Resistance Water Heater (with flex cost),relative,39.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Air Source Heat Pump - Heating (with flex cost),relative,4.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Electric Unit Heaters (with flex cost),relative,7.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Geothermal Heat Pump - Heating (with flex cost),relative,10.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Air Source Heat Pump - Heating (with flex cost),relative,14.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Geothermal Heat Pump - Heating (with flex cost),relative,21.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Commercial Reach-in Refrigerators (with flex cost),relative,185.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Commercial Reach-in Freezers (with flex cost),relative,186.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Commercial Reach-in Freezers (with flex cost),relative,187.0,us,,,,,,linear_interpolation,nearest,,add
+Commercial Electric Boiler (with flex cost),relative,104.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Commercial Air Source Heat Pump - Cooling (with flex cost),relative,91.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Commercial Air Source Heat Pump - Cooling (with flex cost),relative,99.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Commercial Ground Source Heat Pump -Cooling (with flex cost),relative,105.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Commercial Ground Source Heat Pump - Cooling (with flex cost),relative,106.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Scroll Chiller (with flex cost),relative,107.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Scroll Chiller (with flex cost),relative,108.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Wall/Room Air Conditioner (with flex cost),relative,118.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Commercial Central Air Conditioner (with flex cost),relative,119.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Screw Chiller (with flex cost),relative,109.0,us,,,,,,linear_interpolation,nearest,,add
+Ductless Mini-Split Heat Pump - Heating (with flex cost),relative,425.0,us,,,,,,linear_interpolation,nearest,,add
+Commercial Reference Heat Pump Storage Water Heater (with flex cost),relative,196.0,us,,,,,,linear_interpolation,nearest,,add
+Commercial High Efficiency Heat Pump Storage Water Heater (with flex cost),relative,197.0,us,,,,,,linear_interpolation,nearest,,add
+Commercial Electric Resistance Storage Water Heater (with flex cost),relative,204.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Commercial Air Source Heat Pump - Heating (with flex cost),relative,96.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Commercial Air Source Heat Pump - Heating (with flex cost),relative,97.0,us,,,,,,linear_interpolation,nearest,,add
+Electric Resistance Heat (with flex cost),relative,101.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Commercial Ground Source Heat Pump - Heating (with flex cost),relative,102.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Commercial Ground Source Heat Pump - Heating (with flex cost),relative,103.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Screw Chiller (with flex cost),relative,110.0,us,,,,,,linear_interpolation,nearest,,add
+High Efficiency Commercial Central Air Conditioner (with flex cost),relative,120.0,us,,,,,,linear_interpolation,nearest,,add
+Through-the-wall Heat Pump - Heating (with flex cost),relative,427.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Clothes Washer - Top Loading (with flex cost),relative,63.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Electric Clothes Dryer (with flex cost),relative,65.0,us,,,,,,linear_interpolation,nearest,,add
+Battery Electric Medium-Duty Vehicle,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+PHEV - Gasoline - 25 mile range - Light Duty Truck,absolute,,us,,,USD,2016.0,False,linear_interpolation,nearest,,
+Reference LPG Cooktop/Stove,relative,58.0,,,,,,False,linear_interpolation,nearest,,multiply
+Reference Electric Furnace,absolute,65.0,us,,,USD,2015.0,False,linear_interpolation,nearest,,
+Lamp: 100 Equivalent A19 Halogen,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+Lamp: 100W Equivalent CFL Bare Spiral - High Efficiency,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+Lamp: Halogen Par 38,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+Lamp: LED PAR 38 ,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+Lamp: LED PAR 38 - High Efficiency,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+Low-Bay LFL: Mercury Vapor,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+4ft LFL: LED Integrated Luminaire,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+4ft LFL: LED Integrated Luminaire - High Efficiency,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+4ft LFL: T5 F28,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+4ft LFL: T5 F28 2015 - High Efficiency,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+4ft LFL: T8 F32 High-efficiency/High-Output,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+4ft LFL: T8 F32 Commodity,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+4ft LFL: T8 F32 Commodity - High Efficiency,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+8ft LFL: LED Integrated Luminaire - High Efficiency,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+High-Bay LFL: LED Integrated Luminaire,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+8ft LFL: T8 F59 - High Efficiency,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+8ft LFL: T8 F59 HE - High Efficiency,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+High-Bay LFL: LED Integrated Luminaire - High Efficiency,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+8ft LFL: T8 F96 HO,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+8ft LFL: T8 F96 HO - High Efficiency,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+Low-Bay LFL: LED Integrated Luminaire - High Efficiency,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+High-Bay LFL: Mercury Vapor,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+High-Bay LFL: Metal Halide,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+High-Bay LFL: Sodium Vapor,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+Lamp: 100W Equivalent LED A Lamp,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+Lamp: 100W A19 Incandescent,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+High-Bay LFL: T5 4xF54 HO High Bay,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+Lamp: Halogen Infrared Reflector (HIR)  PAR38,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+Lamp: 100W Equivalent CFL Bare Spiral,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+Lamp: 100W Equivalent LED A Lamp - High Efficiency,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+8ft LFL: LED Integrated Luminaire,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+8ft LFL: T8 F59,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+8ft LFL: T8 F59 HE,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+Low-Bay LFL: LED Integrated Luminaire,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+Low-Bay LFL: Metal Halide,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+Low-Bay LFL: Sodium Vapor,absolute,,us,building types,,USD,2013.0,False,linear_interpolation,nearest,,
+LED High-Bay Lighting,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial High Output 8 ft. T8,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+LED Low-Bay Lighting Substitute,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial High Pressure Sodium High Bay,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Mercury Vapor Low-Bay Lighting,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference 4 ft. T12 ,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Commercial General Service Incandescent Lamp,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial High Output T5 High - Bay Lighting,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial 4 ft. T8 w/ Occupance Sensor,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+LED 4 ft. Linear Fluorescent Substitute,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial 4 ft. T8 w/ Specular Reflector,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Halogen PAR38,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Metal Halide High Bay,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial High Pressure Sodium Low-Bay Lighting,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial 4 ft. T8 w/ Occupancy Sensor and Specular Reflector,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial 4 -ft T5,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Halogen Edison A-line Lamp,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial 8 ft. T8,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial 4 ft. T8,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial <4 ft. T8,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial 8 ft. T8,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial 4 Ft. T8,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Metal Halide Low-Bay Lighting,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+LED Edison Socket Substitute,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Commercial Halogen Infrared Reflector PAR38,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial Mercury Vapor High Bay,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Commercial 8 ft. T12,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Commercial Compact Fluorescent Lamp,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Electric Furnace (with flex cost),relative,1.0,us,,,,,,linear_interpolation,nearest,,add
+Reference Industrial Natural Gas Furnace,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Natural Gas HVAC,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+Reference Industrial Air Source Heat Pump,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,
+High Efficiency Industrial Air Source Heat Pump,absolute,,us,,,USD,2013.0,False,linear_interpolation,nearest,,

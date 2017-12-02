@@ -1,0 +1,49 @@
+parent,gau,oth_1,oth_2,year,value,id
+Irrigation Fuel Switching - Gas to Electric,us,irrigation,,2015,0.0,6
+Irrigation Fuel Switching - Gas to Electric,us,irrigation,,2050,0.9,7
+Irrigation Fuel Switching - Diesel to Electric,us,irrigation,,2015,0.0,11
+Irrigation Fuel Switching - Diesel to Electric,us,irrigation,,2050,0.9,12
+HVAC Switching,us,hvac,,2020,0.0,14
+HVAC Switching,us,hvac,,2020,0.0,15
+HVAC Switching,us,hvac,,2020,0.0,16
+HVAC Switching,us,hvac,,2020,0.0,17
+HVAC Switching,us,hvac,,2020,0.0,18
+Secondary Heat Switching,us,,,2020,0.0,19
+Secondary Heat Switching,us,,,2020,0.0,20
+Secondary Heat Switching,us,,,2020,0.0,21
+Secondary Heat Switching,us,,,2020,0.0,22
+Secondary Heat Switching,us,,,2020,0.0,23
+Secondary Heat Switching,us,,,2020,0.0,24
+HVAC Switching,us,hvac,,2020,0.0,25
+HVAC Switching,us,hvac,,2020,0.0,26
+HVAC Switching,us,hvac,,2020,0.0,27
+HVAC Switching,us,hvac,,2020,0.0,28
+HVAC Switching,us,hvac,,2020,0.0,29
+HVAC Switching,us,hvac,,2020,0.0,30
+HVAC Switching,us,hvac,,2020,0.0,31
+HVAC Switching,us,hvac,,2020,0.0,32
+HVAC Switching,us,hvac,,2020,0.0,33
+HVAC Switching,us,hvac,,2050,0.5,35
+HVAC Switching,us,hvac,,2050,0.5,36
+HVAC Switching,us,hvac,,2050,0.5,37
+HVAC Switching,us,hvac,,2050,0.5,38
+HVAC Switching,us,hvac,,2050,0.5,39
+Secondary Heat Switching,us,,,2050,0.9,40
+Secondary Heat Switching,us,,,2050,0.9,41
+Secondary Heat Switching,us,,,2050,0.9,42
+Secondary Heat Switching,us,,,2050,0.9,43
+Secondary Heat Switching,us,,,2050,0.9,44
+Secondary Heat Switching,us,,,2050,0.9,45
+HVAC Switching,us,hvac,,2050,0.5,46
+HVAC Switching,us,hvac,,2050,0.5,47
+HVAC Switching,us,hvac,,2050,0.5,48
+HVAC Switching,us,hvac,,2050,0.5,49
+HVAC Switching,us,hvac,,2050,0.5,50
+HVAC Switching,us,hvac,,2050,0.5,51
+HVAC Switching,us,hvac,,2050,0.5,52
+HVAC Switching,us,hvac,,2050,0.5,53
+HVAC Switching,us,hvac,,2050,0.5,54
+Cement Coal Switching,california,,,2030,0.0,67
+Cement Coal Switching,california,,,2050,1.0,68
+Residential Secondary Heating Electrification,california,,,2020,0.0,69
+Residential Secondary Heating Electrification,california,,,2050,0.9,71

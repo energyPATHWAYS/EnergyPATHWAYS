@@ -1,0 +1,50 @@
+name,shape_type,shape_unit_type,time_zone_id,geography,other_index_1,other_index_2,geography_map_key,interpolation_method,extrapolation_method,input_type
+system load,weather date,power,,egrid with wecc detail,,,,linear_interpolation,linear_interpolation,total
+onshore,weather date,power,126.0,state,,,Onshore Wind (GWh),linear_interpolation,linear_interpolation,intensity
+offshore,weather date,power,126.0,state,,,Offshore Wind (GWh),linear_interpolation,linear_interpolation,intensity
+dispatchable hydro,time slice,power,,state,,,Hydropower (GWh),linear_interpolation,linear_interpolation,intensity
+other appliances,time slice,power,,us,,,,linear_interpolation,linear_interpolation,intensity
+lighting,time slice,power,,us,,,,linear_interpolation,linear_interpolation,intensity
+clothes washing,time slice,power,,us,,,,linear_interpolation,linear_interpolation,intensity
+clothes drying (electric),time slice,power,,us,,,,linear_interpolation,linear_interpolation,intensity
+dishwashing,time slice,power,,us,,,,linear_interpolation,linear_interpolation,intensity
+residential refrigeration,time slice,power,,us,,,,linear_interpolation,linear_interpolation,intensity
+residential freezing,time slice,power,,us,,,,linear_interpolation,linear_interpolation,intensity
+residential cooking,time slice,power,,us,,,,linear_interpolation,linear_interpolation,intensity
+Commercial WaterHeating,time slice,power,,nerc,,,,linear_interpolation,linear_interpolation,intensity
+Commercial LightingInternal,time slice,power,,nerc,,,,linear_interpolation,linear_interpolation,intensity
+Commercial Refrigeration,time slice,power,,nerc,,,,linear_interpolation,linear_interpolation,intensity
+Commercial Cooking,time slice,power,,us,,,,linear_interpolation,linear_interpolation,intensity
+Commercial Ventilation,time slice,power,,nerc,,,,linear_interpolation,linear_interpolation,intensity
+Commercial OfficeEquipment,time slice,power,,nerc,,,,linear_interpolation,linear_interpolation,intensity
+Streetlights,time slice,power,,us,,,,linear_interpolation,linear_interpolation,intensity
+EV,time slice,power,,us,,,,linear_interpolation,linear_interpolation,intensity
+Agriculture,time slice,power,,us,,,Irrigation water use: total withdrawals 2005,linear_interpolation,linear_interpolation,intensity
+Industrial MachineDrives,time slice,power,,nerc,,,Earnings in manufacturing (NAICS 31-33) 2007,linear_interpolation,linear_interpolation,intensity
+Industrial ProcessHeating,time slice,power,,nerc,,,Earnings in manufacturing (NAICS 31-33) 2007,linear_interpolation,linear_interpolation,intensity
+Electricity Imports,time slice,power,,us,,,,linear_interpolation,linear_interpolation,intensity
+Electricity Exports,time slice,power,,us,,,,linear_interpolation,linear_interpolation,intensity
+Wave Power,weather date,power,,us,,,Offshore Wind (GWh),linear_interpolation,linear_interpolation,intensity
+Industrial Other,time slice,power,,us,,,Earnings in manufacturing (NAICS 31-33) 2007,linear_interpolation,linear_interpolation,intensity
+california wind imports,weather date,power,126.0,us,,,Onshore Wind (GWh),linear_interpolation,linear_interpolation,intensity
+Electricity Exports - CA,time slice,power,,us,,,,linear_interpolation,linear_interpolation,intensity
+BPA Imports - CA,time slice,power,,us,,,,linear_interpolation,linear_interpolation,intensity
+pv Rooftop,weather date,power,126.0,state,,,Rooftop PV (GWh),linear_interpolation,linear_interpolation,intensity
+pv Distribution-Sited,weather date,power,126.0,state,,,Urban Utility-scale PV (GWh),linear_interpolation,linear_interpolation,intensity
+pv Transmission-Sited,weather date,power,126.0,state,,,Rural Utility-scale PV (GWh),linear_interpolation,linear_interpolation,intensity
+direct steam power tower,weather date,power,126.0,state,,,CSP (GWh),linear_interpolation,linear_interpolation,intensity
+generic csp 10hr storage,weather date,power,126.0,state,,,CSP (GWh),linear_interpolation,linear_interpolation,intensity
+electric_furnace_res,weather date,power,,IECC Climate Zone by state,,,HDD_res_sq_ft,linear_interpolation,linear_interpolation,intensity
+reference_central_ac_res,weather date,power,,IECC Climate Zone by state,,,CDD_res_sq_ft,linear_interpolation,linear_interpolation,intensity
+high_efficiency_central_ac_res,weather date,power,,IECC Climate Zone by state,,,CDD_res_sq_ft,linear_interpolation,linear_interpolation,intensity
+reference_room_ac_res,weather date,power,,IECC Climate Zone by state,,,CDD_res_sq_ft,linear_interpolation,linear_interpolation,intensity
+high_efficiency_room_ac_res,weather date,power,,IECC Climate Zone by state,,,CDD_res_sq_ft,linear_interpolation,linear_interpolation,intensity
+reference_heat_pump_heating_res,weather date,power,,IECC Climate Zone by state,,,HDD_res_sq_ft,linear_interpolation,linear_interpolation,intensity
+high_efficiency_heat_pump_heating_res,weather date,power,,IECC Climate Zone by state,,,HDD_res_sq_ft,linear_interpolation,linear_interpolation,intensity
+reference_heat_pump_cooling_res,weather date,power,,IECC Climate Zone by state,,,CDD_res_sq_ft,linear_interpolation,linear_interpolation,intensity
+high_efficiency_heat_pump_cooling_res,weather date,power,,IECC Climate Zone by state,,,CDD_res_sq_ft,linear_interpolation,linear_interpolation,intensity
+chiller_com,weather date,power,,IECC Climate Zone by state,,,CDD_com_sq_ft,linear_interpolation,linear_interpolation,intensity
+dx_ac_com,weather date,power,,IECC Climate Zone by state,,,CDD_com_sq_ft,linear_interpolation,linear_interpolation,intensity
+boiler_com,weather date,power,,IECC Climate Zone by state,,,HDD_com_sq_ft,linear_interpolation,linear_interpolation,intensity
+furnace_com,weather date,power,,IECC Climate Zone by state,,,HDD_com_sq_ft,linear_interpolation,linear_interpolation,intensity
+water heating (gas) NW data month-hour,time slice,power,,us,,,,linear_interpolation,linear_interpolation,intensity

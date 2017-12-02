@@ -1,0 +1,25 @@
+name,subsector,final_energy_from,final_energy_to,stock_decay_function,max_lifetime,min_lifetime,mean_lifetime,lifetime_variance
+Irrigation Fuel Switching - Gas to Electric - agriculture-crops - pipeline gas to electricity,agriculture-crops,pipeline gas,electricity,weibull,,,20.0,5.0
+Irrigation Fuel Switching - Diesel to Electric - agriculture-crops - diesel fuel to electricity,agriculture-crops,diesel fuel,electricity,weibull,,,20.0,5.0
+HVAC Switching - bulk chemicals - pipeline gas to electricity,bulk chemicals,pipeline gas,electricity,weibull,,,20.0,5.0
+HVAC Switching - cement - pipeline gas to electricity,cement,pipeline gas,electricity,weibull,,,20.0,5.0
+HVAC Switching - aluminum industry - pipeline gas to electricity,aluminum industry,pipeline gas,electricity,weibull,,,20.0,5.0
+HVAC Switching - glass and glass products - pipeline gas to electricity,glass and glass products,pipeline gas,electricity,weibull,,,20.0,5.0
+HVAC Switching - paper and allied products - pipeline gas to electricity,paper and allied products,pipeline gas,electricity,weibull,,,20.0,5.0
+Secondary Heat Switching - residential secondary heating - diesel fuel to electricity,residential secondary heating,diesel fuel,electricity,weibull,,,20.0,5.0
+Secondary Heat Switching - residential secondary heating - pipeline gas to electricity,residential secondary heating,pipeline gas,electricity,weibull,,,20.0,5.0
+Secondary Heat Switching - residential secondary heating - lpg fuel to electricity,residential secondary heating,lpg fuel,electricity,weibull,,,20.0,5.0
+Secondary Heat Switching - residential secondary heating - biomass - wood to electricity,residential secondary heating,biomass - wood,electricity,weibull,,,20.0,5.0
+Secondary Heat Switching - residential secondary heating - kerosene fuel to electricity,residential secondary heating,kerosene fuel,electricity,weibull,,,20.0,5.0
+Secondary Heat Switching - residential secondary heating - coal to electricity,residential secondary heating,coal,electricity,weibull,,,20.0,5.0
+HVAC Switching - food and kindred products - pipeline gas to electricity,food and kindred products,pipeline gas,electricity,weibull,,,20.0,5.0
+HVAC Switching - fabricated metal products - pipeline gas to electricity,fabricated metal products,pipeline gas,electricity,weibull,,,20.0,5.0
+HVAC Switching - machinery - pipeline gas to electricity,machinery,pipeline gas,electricity,weibull,,,20.0,5.0
+HVAC Switching - computer and electronic products - pipeline gas to electricity,computer and electronic products,pipeline gas,electricity,weibull,,,20.0,5.0
+HVAC Switching - transportation equipment - pipeline gas to electricity,transportation equipment,pipeline gas,electricity,weibull,,,20.0,5.0
+"HVAC Switching - electrical equip., appliances, and components - pipeline gas to electricity","electrical equip., appliances, and components",pipeline gas,electricity,weibull,,,20.0,5.0
+HVAC Switching - wood products - pipeline gas to electricity,wood products,pipeline gas,electricity,weibull,,,20.0,5.0
+HVAC Switching - plastic and rubber products - pipeline gas to electricity,plastic and rubber products,pipeline gas,electricity,weibull,,,20.0,5.0
+HVAC Switching - balance of manufacturing other - pipeline gas to electricity,balance of manufacturing other,pipeline gas,electricity,weibull,,,20.0,5.0
+Cement Coal Switching - cement - coal to biomass - wood,cement,coal,biomass - wood,weibull,,,20.0,5.0
+Residential Secondary Heating Electrification - residential secondary heating - pipeline gas to electricity,residential secondary heating,pipeline gas,electricity,weibull,,,20.0,5.0

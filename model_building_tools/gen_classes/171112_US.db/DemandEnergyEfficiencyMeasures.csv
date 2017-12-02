@@ -1,0 +1,4 @@
+name,subsector,input_type,unit,geography,other_index_1,other_index_2,interpolation_method,extrapolation_method,extrapolation_growth,stock_decay_function,min_lifetime,max_lifetime,mean_lifetime,lifetime_variance
+Aviation Efficiency - IATA Roadmap 2% increase per-annum,aviation,intensity,,us,,,linear_interpolation,nearest,,weibull,,,25.0,6.25
+Commercial Other Reduction,commercial other,intensity,,us,,,linear_interpolation,nearest,,weibull,,,25.0,6.25
+NY Commercial Other Electricity Baseline Adjustment,commercial other,total,gigawatt_hour,state,,,linear_interpolation,nearest,,weibull,,,25.0,6.25

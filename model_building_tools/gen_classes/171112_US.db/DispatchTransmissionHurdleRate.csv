@@ -1,0 +1,5 @@
+id,parent,gau_from,gau_to,year,month,hour,day_type,value,sensitivity
+1,test HQ,new york,new england,2015,,,,5.0,
+2,test HQ,new york,us,2015,,,,5.0,
+3,test HQ,new england,new york,2015,,,,5.0,
+4,test HQ,us,new york,2015,,,,5.0,

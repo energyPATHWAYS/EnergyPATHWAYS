@@ -1,0 +1,12 @@
+primary_node,geography,other_index_1,currency,currency_year_id,denominator_unit,interpolation_method,extrapolation_method,extrapolation_growth,cost_method_id
+Coal Primary - Domestic,us,,USD,2016,mmBtu,linear_interpolation,decay_towards_linear_regression,,1
+Biomass Primary - Herbaceous,us,Herbaceous Biomass Types,USD,2011,ton,linear_interpolation,decay_towards_linear_regression,,1
+Natural Gas Primary - Domestic,us,,USD,2016,mmBtu,linear_interpolation,decay_towards_linear_regression,,1
+Biomass Primary - Domestic Pulping Liquors,us,,USD,2011,ton,linear_interpolation,decay_towards_linear_regression,,1
+Oil Primary - Domestic,us,,USD,2016,boe,linear_interpolation,decay_towards_linear_regression,,1
+Oil Primary - International,us,,USD,2016,boe,linear_interpolation,decay_towards_linear_regression,,1
+Biomass Primary - MSW/Manure,us,Waste Biomass Types,USD,2011,ton,linear_interpolation,decay_towards_linear_regression,,1
+Biomass - Wood,us,Forest and Forest Residues,USD,2011,ton,linear_interpolation,decay_towards_linear_regression,,1
+Biomass Primary - Domestic Lipid,us,biomass - domestic lipid feedstocks,USD,2011,ton,linear_interpolation,decay_towards_linear_regression,,1
+Biomass Primary - Domestic Corn,us,,USD,2011,ton,linear_interpolation,decay_towards_linear_regression,,1
+Natural Gas - International,us,,USD,2016,mmBtu,linear_interpolation,decay_towards_linear_regression,,1

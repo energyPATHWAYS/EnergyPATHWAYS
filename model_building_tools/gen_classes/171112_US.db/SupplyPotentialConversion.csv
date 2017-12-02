@@ -1,0 +1,8 @@
+supply_node,geography,other_index_1,energy_unit_numerator,resource_unit_denominator,interpolation_method,extrapolation_method,extrapolation_growth
+Coal Primary - Domestic,us,,mmBtu,short_ton,linear_interpolation,nearest,
+Biomass Primary - Herbaceous,us,,gigajoule,ton,linear_interpolation,nearest,
+Biomass Primary - Domestic Pulping Liquors,us,,gigajoule,ton,linear_interpolation,nearest,
+Biomass Primary - MSW/Manure,us,,mmBtu,ton,linear_interpolation,nearest,
+Biomass - Wood,us,,gigajoule,ton,linear_interpolation,nearest,
+Biomass Primary - Domestic Lipid,us,biomass - domestic lipid feedstocks,gigajoule,ton,linear_interpolation,nearest,
+Biomass Primary - Domestic Corn,us,biomass - domestic corn feedstocks,gigajoule,ton,linear_interpolation,nearest,

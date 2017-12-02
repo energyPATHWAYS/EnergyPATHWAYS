@@ -1,0 +1,2 @@
+name,geography,interpolation_method,extrapolation_method,extrapolation_growth,geography_map_key,supply_node_id
+Test CO2 Price,us,linear_interpolation,nearest,,,68

@@ -1,0 +1,2 @@
+name,geography,geography_map_key,input_type,interpolation_method,extrapolation_method
+1,us,Households 2010 (complete count),intensity,nearest,nearest

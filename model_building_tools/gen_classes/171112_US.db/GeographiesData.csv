@@ -1,0 +1,3434 @@
+name,geography
+western interconnection,electricity interconnection
+alabama,state
+alaska,state
+arizona,state
+california,state
+colorado,state
+connecticut,state
+district of columbia,state
+florida,state
+georgia,state
+hawaii,state
+idaho,state
+illinois,state
+indiana,state
+iowa,state
+kansas,state
+louisiana,state
+maine,state
+massachusetts,state
+michigan,state
+minnesota,state
+mississippi,state
+missouri,state
+montana,state
+nebraska,state
+nevada,state
+new hampshire,state
+new jersey,state
+new york,state
+north dakota,state
+ohio,state
+oklahoma,state
+oregon,state
+pennsylvania,state
+puerto rico,state
+rhode island,state
+south carolina,state
+south dakota,state
+tennessee,state
+texas,state
+utah,state
+vermont,state
+west virginia,state
+wisconsin,state
+wyoming,state
+new england,census division
+middle atlantic,census division
+east north central,census division
+west north central,census division
+south atlantic,census division
+mountain,census division
+pacific,census division
+us,us
+northeast,census region
+midwest,census region
+south,census region
+west,census region
+east (o&g producing region),o&g producing region
+mid-continent (o&g producing region),o&g producing region
+rocky mountains (o&g producing region),o&g producing region
+PADD 3 (Gulf Coast),PADD
+PADD 5 (West Coast),PADD
+PADD 4 (Rocky Mountain),PADD
+PADD 1 (East Coast),PADD
+PADD 2 (Midwest),PADD
+SRSO,egrid
+SRTV,egrid
+AKGD,egrid
+AKMS,egrid
+AZNM,egrid
+NWPP,egrid
+RMPA,egrid
+CAMX,egrid
+SPSO,egrid
+SRMV,egrid
+NEWE,egrid
+NYCW,egrid
+RFCE,egrid
+FRCC,egrid
+HIMS,egrid
+HIOA,egrid
+MROE,egrid
+MROW,egrid
+RFCW,egrid
+SRMW,egrid
+SPNO,egrid
+NYUP,egrid
+NYLI,egrid
+SERC_STV,nerc
+MAPP,nerc
+WSCC_CNV,nerc
+WSCC_NWP,nerc
+SPP,nerc
+WSCC_RA,nerc
+NPCC_NE,nerc
+MAAC,nerc
+MAIN,nerc
+ECAR,nerc
+ERCOT,nerc
+America/Puerto_Rico,time zone
+US/Alaska,time zone
+US/Arizona,time zone
+US/Central,time zone
+US/Eastern,time zone
+US/Mountain,time zone
+3A,IECC Climate Zone
+2A,IECC Climate Zone
+7B,IECC Climate Zone
+8B,IECC Climate Zone
+5B,IECC Climate Zone
+3B,IECC Climate Zone
+4B,IECC Climate Zone
+2B,IECC Climate Zone
+4A,IECC Climate Zone
+3C,IECC Climate Zone
+6B,IECC Climate Zone
+4C,IECC Climate Zone
+5A,IECC Climate Zone
+SPSO (egrid with wecc detail),egrid with wecc detail
+SRMV (egrid with wecc detail),egrid with wecc detail
+SRMW (egrid with wecc detail),egrid with wecc detail
+SRSO (egrid with wecc detail),egrid with wecc detail
+SRVC (egrid with wecc detail),egrid with wecc detail
+"autauga, alabama",county
+"baldwin, alabama",county
+"barbour, alabama",county
+"bibb, alabama",county
+"blount, alabama",county
+"bullock, alabama",county
+"butler, alabama",county
+"chambers, alabama",county
+"geneva, alabama",county
+"greene, alabama",county
+"hale, alabama",county
+"henry, alabama",county
+"houston, alabama",county
+"jackson, alabama",county
+"jefferson, alabama",county
+"lamar, alabama",county
+"lauderdale, alabama",county
+"lawrence, alabama",county
+"lee, alabama",county
+"limestone, alabama",county
+"macon, alabama",county
+"madison, alabama",county
+"marion, alabama",county
+"marshall, alabama",county
+"mobile, alabama",county
+"monroe, alabama",county
+"montgomery, alabama",county
+"morgan, alabama",county
+"perry, alabama",county
+"pickens, alabama",county
+"pike, alabama",county
+"randolph, alabama",county
+"russell, alabama",county
+"shelby, alabama",county
+"sumter, alabama",county
+"talladega, alabama",county
+"tuscaloosa, alabama",county
+"walker, alabama",county
+"washington, alabama",county
+"wilcox, alabama",county
+"winston, alabama",county
+"aleutians east, alaska",county
+"aleutians west, alaska",county
+"anchorage, alaska",county
+"bethel, alaska",county
+"bristol bay, alaska",county
+"denali, alaska",county
+"fairbanks north star, alaska",county
+"haines, alaska",county
+"hoonah-angoon, alaska",county
+"juneau, alaska",county
+"ketchikan gateway, alaska",county
+"kodiak island, alaska",county
+"lake and peninsula, alaska",county
+"matanuska-susitna, alaska",county
+"nome, alaska",county
+"north slope, alaska",county
+"petersburg, alaska",county
+"prince of wales-hyder, alaska",county
+"sitka, alaska",county
+"skagway, alaska",county
+"southeast fairbanks, alaska",county
+"valdez-cordova, alaska",county
+"wade hampton, alaska",county
+"yakutat, alaska",county
+"yukon-koyukuk, alaska",county
+"apache, arizona",county
+"cochise, arizona",county
+"coconino, arizona",county
+"gila, arizona",county
+"graham, arizona",county
+"greenlee, arizona",county
+"la paz, arizona",county
+"maricopa, arizona",county
+"mohave, arizona",county
+"navajo, arizona",county
+"pinal, arizona",county
+"santa cruz, arizona",county
+"yuma, arizona",county
+"arkansas, arkansas",county
+"ashley, arkansas",county
+"baxter, arkansas",county
+"benton, arkansas",county
+"boone, arkansas",county
+"bradley, arkansas",county
+"carroll, arkansas",county
+"chicot, arkansas",county
+"clark, arkansas",county
+"clay, arkansas",county
+"cleburne, arkansas",county
+"cleveland, arkansas",county
+"columbia, arkansas",county
+"craighead, arkansas",county
+"crawford, arkansas",county
+"crittenden, arkansas",county
+"cross, arkansas",county
+"dallas, arkansas",county
+"desha, arkansas",county
+"drew, arkansas",county
+"franklin, arkansas",county
+"fulton, arkansas",county
+"grant, arkansas",county
+"greene, arkansas",county
+"hempstead, arkansas",county
+"hot spring, arkansas",county
+"howard, arkansas",county
+"izard, arkansas",county
+"jackson, arkansas",county
+"jefferson, arkansas",county
+"johnson, arkansas",county
+"lafayette, arkansas",county
+"lawrence, arkansas",county
+"lee, arkansas",county
+"lincoln, arkansas",county
+"logan, arkansas",county
+"lonoke, arkansas",county
+"madison, arkansas",county
+"marion, arkansas",county
+"miller, arkansas",county
+"mississippi, arkansas",county
+"montgomery, arkansas",county
+"nevada, arkansas",county
+"newton, arkansas",county
+"ouachita, arkansas",county
+"perry, arkansas",county
+"phillips, arkansas",county
+"pike, arkansas",county
+"polk, arkansas",county
+"pope, arkansas",county
+"prairie, arkansas",county
+"pulaski, arkansas",county
+"randolph, arkansas",county
+"saline, arkansas",county
+"scott, arkansas",county
+"sebastian, arkansas",county
+"sevier, arkansas",county
+"sharp, arkansas",county
+"st. francis, arkansas",county
+"stone, arkansas",county
+"washington, arkansas",county
+"white, arkansas",county
+"woodruff, arkansas",county
+"yell, arkansas",county
+"alameda, california",county
+"alpine, california",county
+"amador, california",county
+"butte, california",county
+"colusa, california",county
+"contra costa, california",county
+"del norte, california",county
+"el dorado, california",county
+"fresno, california",county
+"humboldt, california",county
+"imperial, california",county
+"inyo, california",county
+"kern, california",county
+"kings, california",county
+"lake, california",county
+"lassen, california",county
+"los angeles, california",county
+"madera, california",county
+"mariposa, california",county
+"mendocino, california",county
+"merced, california",county
+"modoc, california",county
+"monterey, california",county
+"napa, california",county
+"nevada, california",county
+"orange, california",county
+"placer, california",county
+"plumas, california",county
+"riverside, california",county
+"sacramento, california",county
+"san benito, california",county
+"san diego, california",county
+"san francisco, california",county
+"san joaquin, california",county
+"san mateo, california",county
+"santa barbara, california",county
+"santa clara, california",county
+"santa cruz, california",county
+"shasta, california",county
+"sierra, california",county
+"siskiyou, california",county
+"solano, california",county
+"sonoma, california",county
+"stanislaus, california",county
+"sutter, california",county
+"tehama, california",county
+"trinity, california",county
+"tulare, california",county
+"ventura, california",county
+"yolo, california",county
+"adams, colorado",county
+"alamosa, colorado",county
+"arapahoe, colorado",county
+"archuleta, colorado",county
+"baca, colorado",county
+"bent, colorado",county
+"boulder, colorado",county
+"broomfield, colorado",county
+"chaffee, colorado",county
+"cheyenne, colorado",county
+"clear creek, colorado",county
+"conejos, colorado",county
+"crowley, colorado",county
+"delta, colorado",county
+"denver, colorado",county
+"dolores, colorado",county
+"douglas, colorado",county
+"eagle, colorado",county
+"el paso, colorado",county
+"elbert, colorado",county
+"fremont, colorado",county
+"garfield, colorado",county
+"gilpin, colorado",county
+"grand, colorado",county
+"gunnison, colorado",county
+"huerfano, colorado",county
+"jefferson, colorado",county
+"kiowa, colorado",county
+"kit carson, colorado",county
+"la plata, colorado",county
+"lake, colorado",county
+"las animas, colorado",county
+"lincoln, colorado",county
+"logan, colorado",county
+"mesa, colorado",county
+"mineral, colorado",county
+"moffat, colorado",county
+"montezuma, colorado",county
+"montrose, colorado",county
+"morgan, colorado",county
+"otero, colorado",county
+"ouray, colorado",county
+"phillips, colorado",county
+"prowers, colorado",county
+"pueblo, colorado",county
+"rio blanco, colorado",county
+"rio grande, colorado",county
+"routt, colorado",county
+"saguache, colorado",county
+"san juan, colorado",county
+"san miguel, colorado",county
+"sedgwick, colorado",county
+"teller, colorado",county
+"washington, colorado",county
+"weld, colorado",county
+"yuma, colorado",county
+"hartford, connecticut",county
+"litchfield, connecticut",county
+"middlesex, connecticut",county
+"new haven, connecticut",county
+"new london, connecticut",county
+"tolland, connecticut",county
+"windham, connecticut",county
+"kent, delaware",county
+"new castle, delaware",county
+"sussex, delaware",county
+"baker, florida",county
+"bay, florida",county
+"bradford, florida",county
+"brevard, florida",county
+"broward, florida",county
+"calhoun, florida",county
+"charlotte, florida",county
+"citrus, florida",county
+"columbia, florida",county
+"desoto, florida",county
+"dixie, florida",county
+"duval, florida",county
+"escambia, florida",county
+"flagler, florida",county
+"franklin, florida",county
+"gadsden, florida",county
+"gilchrist, florida",county
+"glades, florida",county
+"gulf, florida",county
+"hamilton, florida",county
+"hardee, florida",county
+"hendry, florida",county
+"hillsborough, florida",county
+"holmes, florida",county
+"indian river, florida",county
+"jackson, florida",county
+"jefferson, florida",county
+"lafayette, florida",county
+"lake, florida",county
+"lee, florida",county
+"leon, florida",county
+"levy, florida",county
+"liberty, florida",county
+"madison, florida",county
+"marion, florida",county
+"martin, florida",county
+"monroe, florida",county
+"nassau, florida",county
+"okaloosa, florida",county
+"okeechobee, florida",county
+"orange, florida",county
+"osceola, florida",county
+"palm beach, florida",county
+"pasco, florida",county
+"pinellas, florida",county
+"polk, florida",county
+"putnam, florida",county
+"sarasota, florida",county
+"seminole, florida",county
+"st. johns, florida",county
+"sumter, florida",county
+"suwannee, florida",county
+"taylor, florida",county
+"union, florida",county
+"volusia, florida",county
+"wakulla, florida",county
+"walton, florida",county
+"washington, florida",county
+"appling, georgia",county
+"atkinson, georgia",county
+"bacon, georgia",county
+"baker, georgia",county
+"banks, georgia",county
+"barrow, georgia",county
+"bartow, georgia",county
+"berrien, georgia",county
+"bibb, georgia",county
+"bleckley, georgia",county
+"brantley, georgia",county
+"brooks, georgia",county
+"bryan, georgia",county
+"bulloch, georgia",county
+"burke, georgia",county
+"butts, georgia",county
+"camden, georgia",county
+"candler, georgia",county
+"carroll, georgia",county
+"catoosa, georgia",county
+"chatham, georgia",county
+"chattahoochee, georgia",county
+"cherokee, georgia",county
+"clarke, georgia",county
+"clay, georgia",county
+"clayton, georgia",county
+"clinch, georgia",county
+"cobb, georgia",county
+"coffee, georgia",county
+"columbia, georgia",county
+"cook, georgia",county
+"coweta, georgia",county
+"crawford, georgia",county
+"crisp, georgia",county
+"dade, georgia",county
+"dawson, georgia",county
+"dekalb, georgia",county
+"dodge, georgia",county
+"dooly, georgia",county
+"dougherty, georgia",county
+"douglas, georgia",county
+"early, georgia",county
+"echols, georgia",county
+"elbert, georgia",county
+"emanuel, georgia",county
+"evans, georgia",county
+"fannin, georgia",county
+"fayette, georgia",county
+"floyd, georgia",county
+"franklin, georgia",county
+"fulton, georgia",county
+"gilmer, georgia",county
+"glascock, georgia",county
+"glynn, georgia",county
+"gordon, georgia",county
+"grady, georgia",county
+"greene, georgia",county
+"habersham, georgia",county
+"hall, georgia",county
+"hancock, georgia",county
+"haralson, georgia",county
+"harris, georgia",county
+"hart, georgia",county
+"heard, georgia",county
+"houston, georgia",county
+"irwin, georgia",county
+"jackson, georgia",county
+"jasper, georgia",county
+"jefferson, georgia",county
+"jenkins, georgia",county
+"johnson, georgia",county
+"jones, georgia",county
+"lamar, georgia",county
+"lanier, georgia",county
+"lee, georgia",county
+"liberty, georgia",county
+"lincoln, georgia",county
+"long, georgia",county
+"lowndes, georgia",county
+"lumpkin, georgia",county
+"macon, georgia",county
+"marion, georgia",county
+"mcduffie, georgia",county
+"mcintosh, georgia",county
+"meriwether, georgia",county
+"miller, georgia",county
+"monroe, georgia",county
+"montgomery, georgia",county
+"morgan, georgia",county
+"murray, georgia",county
+"muscogee, georgia",county
+"newton, georgia",county
+"oconee, georgia",county
+"oglethorpe, georgia",county
+"peach, georgia",county
+"pickens, georgia",county
+"pierce, georgia",county
+"pike, georgia",county
+"polk, georgia",county
+"putnam, georgia",county
+"quitman, georgia",county
+"rabun, georgia",county
+"randolph, georgia",county
+"richmond, georgia",county
+"rockdale, georgia",county
+"schley, georgia",county
+"screven, georgia",county
+"spalding, georgia",county
+"stephens, georgia",county
+"stewart, georgia",county
+"sumter, georgia",county
+"talbot, georgia",county
+"tattnall, georgia",county
+"taylor, georgia",county
+"telfair, georgia",county
+"terrell, georgia",county
+"thomas, georgia",county
+"tift, georgia",county
+"toombs, georgia",county
+"towns, georgia",county
+"troup, georgia",county
+"turner, georgia",county
+"twiggs, georgia",county
+"union, georgia",county
+"upson, georgia",county
+"walker, georgia",county
+"walton, georgia",county
+"ware, georgia",county
+"washington, georgia",county
+"wayne, georgia",county
+"webster, georgia",county
+"wheeler, georgia",county
+"white, georgia",county
+"wilcox, georgia",county
+"wilkes, georgia",county
+"wilkinson, georgia",county
+"worth, georgia",county
+"hawaii, hawaii",county
+"kalawao, hawaii",county
+"kauai, hawaii",county
+"maui, hawaii",county
+"ada, idaho",county
+"adams, idaho",county
+"bannock, idaho",county
+"bear lake, idaho",county
+"benewah, idaho",county
+"bingham, idaho",county
+"blaine, idaho",county
+"bonner, idaho",county
+"boundary, idaho",county
+"butte, idaho",county
+"camas, idaho",county
+"canyon, idaho",county
+"caribou, idaho",county
+"clark, idaho",county
+"clearwater, idaho",county
+"custer, idaho",county
+"elmore, idaho",county
+"franklin, idaho",county
+"fremont, idaho",county
+"gooding, idaho",county
+"idaho, idaho",county
+"jefferson, idaho",county
+"jerome, idaho",county
+"kootenai, idaho",county
+"latah, idaho",county
+"lewis, idaho",county
+"lincoln, idaho",county
+"madison, idaho",county
+"minidoka, idaho",county
+"oneida, idaho",county
+"owyhee, idaho",county
+"payette, idaho",county
+"power, idaho",county
+"shoshone, idaho",county
+"teton, idaho",county
+"valley, idaho",county
+"washington, idaho",county
+"adams, illinois",county
+"alexander, illinois",county
+"bond, illinois",county
+"boone, illinois",county
+"brown, illinois",county
+"calhoun, illinois",county
+"carroll, illinois",county
+"cass, illinois",county
+"champaign, illinois",county
+"christian, illinois",county
+"clark, illinois",county
+"clay, illinois",county
+"coles, illinois",county
+"cook, illinois",county
+"crawford, illinois",county
+"cumberland, illinois",county
+"de witt, illinois",county
+"douglas, illinois",county
+"dupage, illinois",county
+"edgar, illinois",county
+"edwards, illinois",county
+"effingham, illinois",county
+"fayette, illinois",county
+"ford, illinois",county
+"franklin, illinois",county
+"fulton, illinois",county
+"greene, illinois",county
+"grundy, illinois",county
+"hamilton, illinois",county
+"hancock, illinois",county
+"henderson, illinois",county
+"henry, illinois",county
+"iroquois, illinois",county
+"jackson, illinois",county
+"jasper, illinois",county
+"jefferson, illinois",county
+"jersey, illinois",county
+"jo daviess, illinois",county
+"johnson, illinois",county
+"kane, illinois",county
+"kendall, illinois",county
+"knox, illinois",county
+"lake, illinois",county
+"lee, illinois",county
+"livingston, illinois",county
+"logan, illinois",county
+"macon, illinois",county
+"madison, illinois",county
+"marion, illinois",county
+"marshall, illinois",county
+"mason, illinois",county
+"massac, illinois",county
+"mcdonough, illinois",county
+"mchenry, illinois",county
+"mclean, illinois",county
+"mercer, illinois",county
+"monroe, illinois",county
+"montgomery, illinois",county
+"morgan, illinois",county
+"ogle, illinois",county
+"peoria, illinois",county
+"perry, illinois",county
+"piatt, illinois",county
+"pike, illinois",county
+"pope, illinois",county
+"pulaski, illinois",county
+"putnam, illinois",county
+"randolph, illinois",county
+"rock island, illinois",county
+"saline, illinois",county
+"sangamon, illinois",county
+"schuyler, illinois",county
+"scott, illinois",county
+"st. clair, illinois",county
+"stark, illinois",county
+"stephenson, illinois",county
+"tazewell, illinois",county
+"union, illinois",county
+"vermilion, illinois",county
+"wabash, illinois",county
+"warren, illinois",county
+"wayne, illinois",county
+"white, illinois",county
+"whiteside, illinois",county
+"will, illinois",county
+"williamson, illinois",county
+"winnebago, illinois",county
+"adams, indiana",county
+"allen, indiana",county
+"bartholomew, indiana",county
+"benton, indiana",county
+"blackford, indiana",county
+"boone, indiana",county
+"brown, indiana",county
+"cass, indiana",county
+"clark, indiana",county
+"clay, indiana",county
+"clinton, indiana",county
+"daviess, indiana",county
+"dearborn, indiana",county
+"decatur, indiana",county
+"dekalb, indiana",county
+"dubois, indiana",county
+"elkhart, indiana",county
+"fayette, indiana",county
+"floyd, indiana",county
+"fountain, indiana",county
+"franklin, indiana",county
+"fulton, indiana",county
+"gibson, indiana",county
+"grant, indiana",county
+"greene, indiana",county
+"hancock, indiana",county
+"harrison, indiana",county
+"hendricks, indiana",county
+"henry, indiana",county
+"howard, indiana",county
+"jackson, indiana",county
+"jasper, indiana",county
+"jay, indiana",county
+"jefferson, indiana",county
+"jennings, indiana",county
+"johnson, indiana",county
+"knox, indiana",county
+"lagrange, indiana",county
+"lake, indiana",county
+"laporte, indiana",county
+"lawrence, indiana",county
+"madison, indiana",county
+"marion, indiana",county
+"martin, indiana",county
+"miami, indiana",county
+"monroe, indiana",county
+"montgomery, indiana",county
+"morgan, indiana",county
+"newton, indiana",county
+"noble, indiana",county
+"ohio, indiana",county
+"orange, indiana",county
+"parke, indiana",county
+"perry, indiana",county
+"pike, indiana",county
+"porter, indiana",county
+"posey, indiana",county
+"putnam, indiana",county
+"randolph, indiana",county
+"ripley, indiana",county
+"rush, indiana",county
+"scott, indiana",county
+"shelby, indiana",county
+"st. joseph, indiana",county
+"starke, indiana",county
+"steuben, indiana",county
+"sullivan, indiana",county
+"switzerland, indiana",county
+"tippecanoe, indiana",county
+"tipton, indiana",county
+"union, indiana",county
+"vermillion, indiana",county
+"vigo, indiana",county
+"wabash, indiana",county
+"warren, indiana",county
+"washington, indiana",county
+"wayne, indiana",county
+"wells, indiana",county
+"white, indiana",county
+"whitley, indiana",county
+"adair, iowa",county
+"adams, iowa",county
+"allamakee, iowa",county
+"appanoose, iowa",county
+"audubon, iowa",county
+"benton, iowa",county
+"boone, iowa",county
+"bremer, iowa",county
+"buchanan, iowa",county
+"butler, iowa",county
+"calhoun, iowa",county
+"cass, iowa",county
+"cedar, iowa",county
+"cherokee, iowa",county
+"chickasaw, iowa",county
+"clarke, iowa",county
+"clay, iowa",county
+"clayton, iowa",county
+"clinton, iowa",county
+"crawford, iowa",county
+"dallas, iowa",county
+"decatur, iowa",county
+"delaware, iowa",county
+"des moines, iowa",county
+"dickinson, iowa",county
+"dubuque, iowa",county
+"emmet, iowa",county
+"fayette, iowa",county
+"franklin, iowa",county
+"fremont, iowa",county
+"greene, iowa",county
+"grundy, iowa",county
+"hamilton, iowa",county
+"hancock, iowa",county
+"hardin, iowa",county
+"harrison, iowa",county
+"henry, iowa",county
+"howard, iowa",county
+"humboldt, iowa",county
+"ida, iowa",county
+"jackson, iowa",county
+"jasper, iowa",county
+"jefferson, iowa",county
+"jones, iowa",county
+"keokuk, iowa",county
+"kossuth, iowa",county
+"lee, iowa",county
+"linn, iowa",county
+"louisa, iowa",county
+"lucas, iowa",county
+"lyon, iowa",county
+"madison, iowa",county
+"marion, iowa",county
+"marshall, iowa",county
+"monona, iowa",county
+"montgomery, iowa",county
+"muscatine, iowa",county
+"o'brien, iowa",county
+"osceola, iowa",county
+"page, iowa",county
+"palo alto, iowa",county
+"plymouth, iowa",county
+"polk, iowa",county
+"pottawattamie, iowa",county
+"poweshiek, iowa",county
+"ringgold, iowa",county
+"scott, iowa",county
+"shelby, iowa",county
+"sioux, iowa",county
+"story, iowa",county
+"tama, iowa",county
+"taylor, iowa",county
+"union, iowa",county
+"van buren, iowa",county
+"wapello, iowa",county
+"warren, iowa",county
+"wayne, iowa",county
+"webster, iowa",county
+"winneshiek, iowa",county
+"woodbury, iowa",county
+"worth, iowa",county
+"wright, iowa",county
+"allen, kansas",county
+"anderson, kansas",county
+"atchison, kansas",county
+"barber, kansas",county
+"barton, kansas",county
+"bourbon, kansas",county
+"brown, kansas",county
+"butler, kansas",county
+"cherokee, kansas",county
+"cheyenne, kansas",county
+"clark, kansas",county
+"clay, kansas",county
+"cloud, kansas",county
+"coffey, kansas",county
+"comanche, kansas",county
+"cowley, kansas",county
+"crawford, kansas",county
+"decatur, kansas",county
+"doniphan, kansas",county
+"douglas, kansas",county
+"edwards, kansas",county
+"ellis, kansas",county
+"ellsworth, kansas",county
+"finney, kansas",county
+"ford, kansas",county
+"franklin, kansas",county
+"geary, kansas",county
+"gove, kansas",county
+"graham, kansas",county
+"grant, kansas",county
+"gray, kansas",county
+"greeley, kansas",county
+"harper, kansas",county
+"harvey, kansas",county
+"haskell, kansas",county
+"hodgeman, kansas",county
+"jackson, kansas",county
+"jefferson, kansas",county
+"jewell, kansas",county
+"johnson, kansas",county
+"kearny, kansas",county
+"kingman, kansas",county
+"kiowa, kansas",county
+"labette, kansas",county
+"lane, kansas",county
+"lincoln, kansas",county
+"linn, kansas",county
+"logan, kansas",county
+"marion, kansas",county
+"marshall, kansas",county
+"mcpherson, kansas",county
+"meade, kansas",county
+"miami, kansas",county
+"mitchell, kansas",county
+"montgomery, kansas",county
+"morris, kansas",county
+"morton, kansas",county
+"nemaha, kansas",county
+"neosho, kansas",county
+"norton, kansas",county
+"osborne, kansas",county
+"ottawa, kansas",county
+"pawnee, kansas",county
+"phillips, kansas",county
+"pottawatomie, kansas",county
+"pratt, kansas",county
+"rawlins, kansas",county
+"rush, kansas",county
+"saline, kansas",county
+"scott, kansas",county
+"sedgwick, kansas",county
+"seward, kansas",county
+"shawnee, kansas",county
+"sheridan, kansas",county
+"sherman, kansas",county
+"smith, kansas",county
+"stafford, kansas",county
+"stanton, kansas",county
+"stevens, kansas",county
+"thomas, kansas",county
+"wabaunsee, kansas",county
+"wallace, kansas",county
+"washington, kansas",county
+"wichita, kansas",county
+"wilson, kansas",county
+"woodson, kansas",county
+"wyandotte, kansas",county
+"adair, kentucky",county
+"allen, kentucky",county
+"ballard, kentucky",county
+"bath, kentucky",county
+"bell, kentucky",county
+"boone, kentucky",county
+"bourbon, kentucky",county
+"boyd, kentucky",county
+"boyle, kentucky",county
+"bracken, kentucky",county
+"breckinridge, kentucky",county
+"bullitt, kentucky",county
+"butler, kentucky",county
+"caldwell, kentucky",county
+"calloway, kentucky",county
+"campbell, kentucky",county
+"carlisle, kentucky",county
+"casey, kentucky",county
+"christian, kentucky",county
+"clark, kentucky",county
+"clay, kentucky",county
+"clinton, kentucky",county
+"crittenden, kentucky",county
+"cumberland, kentucky",county
+"daviess, kentucky",county
+"edmonson, kentucky",county
+"elliott, kentucky",county
+"estill, kentucky",county
+"fayette, kentucky",county
+"fleming, kentucky",county
+"floyd, kentucky",county
+"gallatin, kentucky",county
+"garrard, kentucky",county
+"grant, kentucky",county
+"graves, kentucky",county
+"grayson, kentucky",county
+"green, kentucky",county
+"greenup, kentucky",county
+"hancock, kentucky",county
+"hardin, kentucky",county
+"harlan, kentucky",county
+"harrison, kentucky",county
+"hart, kentucky",county
+"henry, kentucky",county
+"hickman, kentucky",county
+"jackson, kentucky",county
+"jefferson, kentucky",county
+"jessamine, kentucky",county
+"johnson, kentucky",county
+"kenton, kentucky",county
+"knott, kentucky",county
+"knox, kentucky",county
+"larue, kentucky",county
+"laurel, kentucky",county
+"lawrence, kentucky",county
+"lee, kentucky",county
+"letcher, kentucky",county
+"lewis, kentucky",county
+"lincoln, kentucky",county
+"logan, kentucky",county
+"lyon, kentucky",county
+"madison, kentucky",county
+"magoffin, kentucky",county
+"marion, kentucky",county
+"marshall, kentucky",county
+"martin, kentucky",county
+"mason, kentucky",county
+"mccracken, kentucky",county
+"mccreary, kentucky",county
+"meade, kentucky",county
+"menifee, kentucky",county
+"mercer, kentucky",county
+"metcalfe, kentucky",county
+"montgomery, kentucky",county
+"morgan, kentucky",county
+"muhlenberg, kentucky",county
+"nelson, kentucky",county
+"nicholas, kentucky",county
+"ohio, kentucky",county
+"oldham, kentucky",county
+"owen, kentucky",county
+"owsley, kentucky",county
+"perry, kentucky",county
+"pike, kentucky",county
+"powell, kentucky",county
+"pulaski, kentucky",county
+"robertson, kentucky",county
+"rowan, kentucky",county
+"russell, kentucky",county
+"scott, kentucky",county
+"shelby, kentucky",county
+"simpson, kentucky",county
+"spencer, kentucky",county
+"taylor, kentucky",county
+"todd, kentucky",county
+"trigg, kentucky",county
+"union, kentucky",county
+"warren, kentucky",county
+"washington, kentucky",county
+"wayne, kentucky",county
+"webster, kentucky",county
+"wolfe, kentucky",county
+"woodford, kentucky",county
+"acadia, louisiana",county
+"allen, louisiana",county
+"ascension, louisiana",county
+"assumption, louisiana",county
+"avoyelles, louisiana",county
+"bienville, louisiana",county
+"bossier, louisiana",county
+"caddo, louisiana",county
+"calcasieu, louisiana",county
+"cameron, louisiana",county
+"catahoula, louisiana",county
+"concordia, louisiana",county
+"de soto, louisiana",county
+"east baton rouge, louisiana",county
+"east carroll, louisiana",county
+"evangeline, louisiana",county
+"franklin, louisiana",county
+"grant, louisiana",county
+"iberia, louisiana",county
+"iberville, louisiana",county
+"jackson, louisiana",county
+"jefferson davis, louisiana",county
+"jefferson, louisiana",county
+"lafayette, louisiana",county
+"lafourche, louisiana",county
+"lincoln, louisiana",county
+"madison, louisiana",county
+"morehouse, louisiana",county
+"orleans, louisiana",county
+"ouachita, louisiana",county
+"plaquemines, louisiana",county
+"pointe coupee, louisiana",county
+"rapides, louisiana",county
+"red river, louisiana",county
+"richland, louisiana",county
+"sabine, louisiana",county
+"st. bernard, louisiana",county
+"st. charles, louisiana",county
+"st. helena, louisiana",county
+"st. landry, louisiana",county
+"st. martin, louisiana",county
+"st. mary, louisiana",county
+"st. tammany, louisiana",county
+"tangipahoa, louisiana",county
+"tensas, louisiana",county
+"terrebonne, louisiana",county
+"union, louisiana",county
+"vermilion, louisiana",county
+"vernon, louisiana",county
+"washington, louisiana",county
+"webster, louisiana",county
+"west carroll, louisiana",county
+"west feliciana, louisiana",county
+"winn, louisiana",county
+"androscoggin, maine",county
+"aroostook, maine",county
+"franklin, maine",county
+"hancock, maine",county
+"kennebec, maine",county
+"knox, maine",county
+"lincoln, maine",county
+"oxford, maine",county
+"penobscot, maine",county
+"piscataquis, maine",county
+"sagadahoc, maine",county
+"somerset, maine",county
+"waldo, maine",county
+"washington, maine",county
+"york, maine",county
+"baltimore, maryland",county
+"calvert, maryland",county
+"caroline, maryland",county
+"carroll, maryland",county
+"cecil, maryland",county
+"charles, maryland",county
+"dorchester, maryland",county
+"frederick, maryland",county
+"garrett, maryland",county
+"harford, maryland",county
+"howard, maryland",county
+"kent, maryland",county
+"montgomery, maryland",county
+"queen anne's, maryland",county
+"st. mary's, maryland",county
+"talbot, maryland",county
+"washington, maryland",county
+"wicomico, maryland",county
+"worcester, maryland",county
+"barnstable, massachusetts",county
+"berkshire, massachusetts",county
+"bristol, massachusetts",county
+"dukes, massachusetts",county
+"essex, massachusetts",county
+"franklin, massachusetts",county
+"hampden, massachusetts",county
+"nantucket, massachusetts",county
+"norfolk, massachusetts",county
+"plymouth, massachusetts",county
+"suffolk, massachusetts",county
+"worcester, massachusetts",county
+"alcona, michigan",county
+"alger, michigan",county
+"allegan, michigan",county
+"alpena, michigan",county
+"antrim, michigan",county
+"arenac, michigan",county
+"baraga, michigan",county
+"barry, michigan",county
+"bay, michigan",county
+"benzie, michigan",county
+"berrien, michigan",county
+"branch, michigan",county
+"calhoun, michigan",county
+"cass, michigan",county
+"chippewa, michigan",county
+"clare, michigan",county
+"clinton, michigan",county
+"crawford, michigan",county
+"delta, michigan",county
+"dickinson, michigan",county
+"eaton, michigan",county
+"emmet, michigan",county
+"genesee, michigan",county
+"gladwin, michigan",county
+"gogebic, michigan",county
+"gratiot, michigan",county
+"hillsdale, michigan",county
+"huron, michigan",county
+"ingham, michigan",county
+"ionia, michigan",county
+"iosco, michigan",county
+"iron, michigan",county
+"isabella, michigan",county
+"jackson, michigan",county
+"kalamazoo, michigan",county
+"kalkaska, michigan",county
+"kent, michigan",county
+"lake, michigan",county
+"lapeer, michigan",county
+"leelanau, michigan",county
+"livingston, michigan",county
+"luce, michigan",county
+"mackinac, michigan",county
+"macomb, michigan",county
+"manistee, michigan",county
+"marquette, michigan",county
+"menominee, michigan",county
+"midland, michigan",county
+"missaukee, michigan",county
+"monroe, michigan",county
+"montmorency, michigan",county
+"muskegon, michigan",county
+"newaygo, michigan",county
+"oakland, michigan",county
+"oceana, michigan",county
+"ogemaw, michigan",county
+"ontonagon, michigan",county
+"osceola, michigan",county
+"oscoda, michigan",county
+"otsego, michigan",county
+"presque isle, michigan",county
+"roscommon, michigan",county
+"saginaw, michigan",county
+"schoolcraft, michigan",county
+"shiawassee, michigan",county
+"st. clair, michigan",county
+"st. joseph, michigan",county
+"tuscola, michigan",county
+"van buren, michigan",county
+"washtenaw, michigan",county
+"wayne, michigan",county
+"wexford, michigan",county
+"aitkin, minnesota",county
+"anoka, minnesota",county
+"beltrami, minnesota",county
+"benton, minnesota",county
+"blue earth, minnesota",county
+"brown, minnesota",county
+"carlton, minnesota",county
+"carver, minnesota",county
+"cass, minnesota",county
+"chippewa, minnesota",county
+"chisago, minnesota",county
+"clay, minnesota",county
+"clearwater, minnesota",county
+"cook, minnesota",county
+"cottonwood, minnesota",county
+"crow wing, minnesota",county
+"dodge, minnesota",county
+"faribault, minnesota",county
+"fillmore, minnesota",county
+"freeborn, minnesota",county
+"goodhue, minnesota",county
+"grant, minnesota",county
+"hennepin, minnesota",county
+"houston, minnesota",county
+"hubbard, minnesota",county
+"isanti, minnesota",county
+"itasca, minnesota",county
+"jackson, minnesota",county
+"kanabec, minnesota",county
+"kandiyohi, minnesota",county
+"lac qui parle, minnesota",county
+"lake of the woods, minnesota",county
+"lake, minnesota",county
+"le sueur, minnesota",county
+"lincoln, minnesota",county
+"lyon, minnesota",county
+"mahnomen, minnesota",county
+"marshall, minnesota",county
+"martin, minnesota",county
+"mcleod, minnesota",county
+"meeker, minnesota",county
+"mille lacs, minnesota",county
+"morrison, minnesota",county
+"mower, minnesota",county
+"nobles, minnesota",county
+"norman, minnesota",county
+"olmsted, minnesota",county
+"otter tail, minnesota",county
+"pennington, minnesota",county
+"pine, minnesota",county
+"pipestone, minnesota",county
+"polk, minnesota",county
+"pope, minnesota",county
+"ramsey, minnesota",county
+"red lake, minnesota",county
+"redwood, minnesota",county
+"renville, minnesota",county
+"rice, minnesota",county
+"rock, minnesota",county
+"sherburne, minnesota",county
+"sibley, minnesota",county
+"st. louis, minnesota",county
+"stearns, minnesota",county
+"steele, minnesota",county
+"stevens, minnesota",county
+"swift, minnesota",county
+"todd, minnesota",county
+"traverse, minnesota",county
+"wabasha, minnesota",county
+"wadena, minnesota",county
+"washington, minnesota",county
+"watonwan, minnesota",county
+"winona, minnesota",county
+"wright, minnesota",county
+"yellow medicine, minnesota",county
+"adams, mississippi",county
+"alcorn, mississippi",county
+"amite, mississippi",county
+"attala, mississippi",county
+"benton, mississippi",county
+"bolivar, mississippi",county
+"calhoun, mississippi",county
+"carroll, mississippi",county
+"choctaw, mississippi",county
+"claiborne, mississippi",county
+"clarke, mississippi",county
+"coahoma, mississippi",county
+"copiah, mississippi",county
+"covington, mississippi",county
+"desoto, mississippi",county
+"forrest, mississippi",county
+"franklin, mississippi",county
+"hancock, mississippi",county
+"harrison, mississippi",county
+"hinds, mississippi",county
+"holmes, mississippi",county
+"humphreys, mississippi",county
+"issaquena, mississippi",county
+"itawamba, mississippi",county
+"jackson, mississippi",county
+"jasper, mississippi",county
+"jefferson, mississippi",county
+"jones, mississippi",county
+"kemper, mississippi",county
+"lamar, mississippi",county
+"lauderdale, mississippi",county
+"lawrence, mississippi",county
+"leake, mississippi",county
+"lee, mississippi",county
+"leflore, mississippi",county
+"lincoln, mississippi",county
+"lowndes, mississippi",county
+"madison, mississippi",county
+"marion, mississippi",county
+"marshall, mississippi",county
+"monroe, mississippi",county
+"montgomery, mississippi",county
+"neshoba, mississippi",county
+"oktibbeha, mississippi",county
+"panola, mississippi",county
+"pearl river, mississippi",county
+"perry, mississippi",county
+"pike, mississippi",county
+"pontotoc, mississippi",county
+"prentiss, mississippi",county
+"quitman, mississippi",county
+"rankin, mississippi",county
+"scott, mississippi",county
+"sharkey, mississippi",county
+"simpson, mississippi",county
+"smith, mississippi",county
+"sunflower, mississippi",county
+"tate, mississippi",county
+"tippah, mississippi",county
+"tishomingo, mississippi",county
+"tunica, mississippi",county
+"union, mississippi",county
+"walthall, mississippi",county
+"warren, mississippi",county
+"washington, mississippi",county
+"wayne, mississippi",county
+"webster, mississippi",county
+"wilkinson, mississippi",county
+"winston, mississippi",county
+"yazoo, mississippi",county
+"adair, missouri",county
+"andrew, missouri",county
+"atchison, missouri",county
+"barry, missouri",county
+"barton, missouri",county
+"bates, missouri",county
+"benton, missouri",county
+"bollinger, missouri",county
+"boone, missouri",county
+"buchanan, missouri",county
+"butler, missouri",county
+"caldwell, missouri",county
+"camden, missouri",county
+"cape girardeau, missouri",county
+"carroll, missouri",county
+"carter, missouri",county
+"cass, missouri",county
+"cedar, missouri",county
+"christian, missouri",county
+"clark, missouri",county
+"clay, missouri",county
+"clinton, missouri",county
+"cole, missouri",county
+"cooper, missouri",county
+"crawford, missouri",county
+"dade, missouri",county
+"daviess, missouri",county
+"dekalb, missouri",county
+"dent, missouri",county
+"douglas, missouri",county
+"dunklin, missouri",county
+"gasconade, missouri",county
+"gentry, missouri",county
+"greene, missouri",county
+"grundy, missouri",county
+"harrison, missouri",county
+"henry, missouri",county
+"hickory, missouri",county
+"holt, missouri",county
+"howell, missouri",county
+"iron, missouri",county
+"jackson, missouri",county
+"jasper, missouri",county
+"jefferson, missouri",county
+"johnson, missouri",county
+"knox, missouri",county
+"lafayette, missouri",county
+"lawrence, missouri",county
+"lewis, missouri",county
+"lincoln, missouri",county
+"linn, missouri",county
+"macon, missouri",county
+"madison, missouri",county
+"maries, missouri",county
+"marion, missouri",county
+"mcdonald, missouri",county
+"mercer, missouri",county
+"miller, missouri",county
+"mississippi, missouri",county
+"monroe, missouri",county
+"montgomery, missouri",county
+"morgan, missouri",county
+"new madrid, missouri",county
+"newton, missouri",county
+"oregon, missouri",county
+"ozark, missouri",county
+"pemiscot, missouri",county
+"perry, missouri",county
+"phelps, missouri",county
+"pike, missouri",county
+"platte, missouri",county
+"polk, missouri",county
+"pulaski, missouri",county
+"ralls, missouri",county
+"randolph, missouri",county
+"reynolds, missouri",county
+"ripley, missouri",county
+"saline, missouri",county
+"schuyler, missouri",county
+"scott, missouri",county
+"shelby, missouri",county
+"st. charles, missouri",county
+"st. clair, missouri",county
+"st. francois, missouri",county
+"st. louis, missouri",county
+"ste. genevieve, missouri",county
+"stoddard, missouri",county
+"stone, missouri",county
+"sullivan, missouri",county
+"taney, missouri",county
+"texas, missouri",county
+"vernon, missouri",county
+"washington, missouri",county
+"wayne, missouri",county
+"worth, missouri",county
+"wright, missouri",county
+"beaverhead, montana",county
+"big horn, montana",county
+"blaine, montana",county
+"broadwater, montana",county
+"carbon, montana",county
+"carter, montana",county
+"cascade, montana",county
+"chouteau, montana",county
+"custer, montana",county
+"dawson, montana",county
+"deer lodge, montana",county
+"fallon, montana",county
+"fergus, montana",county
+"gallatin, montana",county
+"garfield, montana",county
+"glacier, montana",county
+"golden valley, montana",county
+"granite, montana",county
+"hill, montana",county
+"jefferson, montana",county
+"judith basin, montana",county
+"lake, montana",county
+"liberty, montana",county
+"lincoln, montana",county
+"madison, montana",county
+"mccone, montana",county
+"mineral, montana",county
+"missoula, montana",county
+"musselshell, montana",county
+"park, montana",county
+"petroleum, montana",county
+"phillips, montana",county
+"pondera, montana",county
+"powder river, montana",county
+"powell, montana",county
+"prairie, montana",county
+"ravalli, montana",county
+"roosevelt, montana",county
+"rosebud, montana",county
+"sheridan, montana",county
+"silver bow, montana",county
+"stillwater, montana",county
+"sweet grass, montana",county
+"teton, montana",county
+"toole, montana",county
+"treasure, montana",county
+"valley, montana",county
+"wheatland, montana",county
+"wibaux, montana",county
+"yellowstone, montana",county
+"adams, nebraska",county
+"arthur, nebraska",county
+"banner, nebraska",county
+"boone, nebraska",county
+"box butte, nebraska",county
+"boyd, nebraska",county
+"brown, nebraska",county
+"buffalo, nebraska",county
+"burt, nebraska",county
+"butler, nebraska",county
+"cass, nebraska",county
+"cedar, nebraska",county
+"chase, nebraska",county
+"cheyenne, nebraska",county
+"clay, nebraska",county
+"colfax, nebraska",county
+"cuming, nebraska",county
+"dakota, nebraska",county
+"dawes, nebraska",county
+"dawson, nebraska",county
+"deuel, nebraska",county
+"dixon, nebraska",county
+"dodge, nebraska",county
+"douglas, nebraska",county
+"dundy, nebraska",county
+"fillmore, nebraska",county
+"frontier, nebraska",county
+"furnas, nebraska",county
+"gage, nebraska",county
+"garden, nebraska",county
+"garfield, nebraska",county
+"grant, nebraska",county
+"greeley, nebraska",county
+"hall, nebraska",county
+"hamilton, nebraska",county
+"harlan, nebraska",county
+"hayes, nebraska",county
+"hitchcock, nebraska",county
+"holt, nebraska",county
+"howard, nebraska",county
+"johnson, nebraska",county
+"kearney, nebraska",county
+"keith, nebraska",county
+"keya paha, nebraska",county
+"kimball, nebraska",county
+"knox, nebraska",county
+"lincoln, nebraska",county
+"logan, nebraska",county
+"loup, nebraska",county
+"madison, nebraska",county
+"mcpherson, nebraska",county
+"merrick, nebraska",county
+"morrill, nebraska",county
+"nance, nebraska",county
+"nuckolls, nebraska",county
+"otoe, nebraska",county
+"pawnee, nebraska",county
+"perkins, nebraska",county
+"phelps, nebraska",county
+"platte, nebraska",county
+"red willow, nebraska",county
+"richardson, nebraska",county
+"rock, nebraska",county
+"saline, nebraska",county
+"sarpy, nebraska",county
+"scotts bluff, nebraska",county
+"seward, nebraska",county
+"sheridan, nebraska",county
+"sioux, nebraska",county
+"stanton, nebraska",county
+"thayer, nebraska",county
+"thomas, nebraska",county
+"thurston, nebraska",county
+"valley, nebraska",county
+"washington, nebraska",county
+"wayne, nebraska",county
+"webster, nebraska",county
+"wheeler, nebraska",county
+"york, nebraska",county
+"churchill, nevada",county
+"clark, nevada",county
+"douglas, nevada",county
+"elko, nevada",county
+"eureka, nevada",county
+"humboldt, nevada",county
+"lander, nevada",county
+"lincoln, nevada",county
+"lyon, nevada",county
+"mineral, nevada",county
+"nye, nevada",county
+"pershing, nevada",county
+"storey, nevada",county
+"washoe, nevada",county
+"belknap, new hampshire",county
+"carroll, new hampshire",county
+"cheshire, new hampshire",county
+"grafton, new hampshire",county
+"hillsborough, new hampshire",county
+"merrimack, new hampshire",county
+"rockingham, new hampshire",county
+"strafford, new hampshire",county
+"sullivan, new hampshire",county
+"atlantic, new jersey",county
+"bergen, new jersey",county
+"camden, new jersey",county
+"cape may, new jersey",county
+"cumberland, new jersey",county
+"essex, new jersey",county
+"gloucester, new jersey",county
+"hudson, new jersey",county
+"mercer, new jersey",county
+"middlesex, new jersey",county
+"monmouth, new jersey",county
+"morris, new jersey",county
+"ocean, new jersey",county
+"passaic, new jersey",county
+"salem, new jersey",county
+"sussex, new jersey",county
+"union, new jersey",county
+"warren, new jersey",county
+"bernalillo, new mexico",county
+"catron, new mexico",county
+"chaves, new mexico",county
+"cibola, new mexico",county
+"curry, new mexico",county
+"de baca, new mexico",county
+"dona ana, new mexico",county
+"eddy, new mexico",county
+"grant, new mexico",county
+"guadalupe, new mexico",county
+"hidalgo, new mexico",county
+"lea, new mexico",county
+"lincoln, new mexico",county
+"los alamos, new mexico",county
+"luna, new mexico",county
+"mckinley, new mexico",county
+"mora, new mexico",county
+"otero, new mexico",county
+"rio arriba, new mexico",county
+"roosevelt, new mexico",county
+"san juan, new mexico",county
+"san miguel, new mexico",county
+"sandoval, new mexico",county
+"sierra, new mexico",county
+"socorro, new mexico",county
+"taos, new mexico",county
+"torrance, new mexico",county
+"union, new mexico",county
+"valencia, new mexico",county
+"albany, new york",county
+"allegany, new york",county
+"bronx, new york",county
+"cattaraugus, new york",county
+"cayuga, new york",county
+"chautauqua, new york",county
+"chemung, new york",county
+"clinton, new york",county
+"columbia, new york",county
+"delaware, new york",county
+"dutchess, new york",county
+"erie, new york",county
+"essex, new york",county
+"franklin, new york",county
+"fulton, new york",county
+"genesee, new york",county
+"greene, new york",county
+"jefferson, new york",county
+"kings, new york",county
+"lewis, new york",county
+"livingston, new york",county
+"madison, new york",county
+"monroe, new york",county
+"montgomery, new york",county
+"nassau, new york",county
+"new york, new york",county
+"niagara, new york",county
+"oneida, new york",county
+"onondaga, new york",county
+"ontario, new york",county
+"orleans, new york",county
+"otsego, new york",county
+"putnam, new york",county
+"queens, new york",county
+"rensselaer, new york",county
+"richmond, new york",county
+"rockland, new york",county
+"saratoga, new york",county
+"schenectady, new york",county
+"seneca, new york",county
+"st. lawrence, new york",county
+"suffolk, new york",county
+"sullivan, new york",county
+"tioga, new york",county
+"tompkins, new york",county
+"ulster, new york",county
+"warren, new york",county
+"washington, new york",county
+"wayne, new york",county
+"westchester, new york",county
+"wyoming, new york",county
+"yates, new york",county
+"alleghany, north carolina",county
+"anson, north carolina",county
+"ashe, north carolina",county
+"avery, north carolina",county
+"beaufort, north carolina",county
+"bertie, north carolina",county
+"bladen, north carolina",county
+"brunswick, north carolina",county
+"buncombe, north carolina",county
+"burke, north carolina",county
+"cabarrus, north carolina",county
+"caldwell, north carolina",county
+"camden, north carolina",county
+"carteret, north carolina",county
+"caswell, north carolina",county
+"catawba, north carolina",county
+"chatham, north carolina",county
+"clay, north carolina",county
+"cleveland, north carolina",county
+"columbus, north carolina",county
+"craven, north carolina",county
+"cumberland, north carolina",county
+"currituck, north carolina",county
+"dare, north carolina",county
+"davidson, north carolina",county
+"davie, north carolina",county
+"duplin, north carolina",county
+"durham, north carolina",county
+"edgecombe, north carolina",county
+"forsyth, north carolina",county
+"gaston, north carolina",county
+"gates, north carolina",county
+"granville, north carolina",county
+"greene, north carolina",county
+"guilford, north carolina",county
+"halifax, north carolina",county
+"harnett, north carolina",county
+"haywood, north carolina",county
+"henderson, north carolina",county
+"hertford, north carolina",county
+"hoke, north carolina",county
+"hyde, north carolina",county
+"iredell, north carolina",county
+"jackson, north carolina",county
+"jones, north carolina",county
+"lee, north carolina",county
+"lenoir, north carolina",county
+"macon, north carolina",county
+"madison, north carolina",county
+"martin, north carolina",county
+"mcdowell, north carolina",county
+"mecklenburg, north carolina",county
+"mitchell, north carolina",county
+"montgomery, north carolina",county
+"moore, north carolina",county
+"nash, north carolina",county
+"new hanover, north carolina",county
+"northampton, north carolina",county
+"onslow, north carolina",county
+"orange, north carolina",county
+"pamlico, north carolina",county
+"perquimans, north carolina",county
+"person, north carolina",county
+"pitt, north carolina",county
+"polk, north carolina",county
+"randolph, north carolina",county
+"richmond, north carolina",county
+"robeson, north carolina",county
+"rockingham, north carolina",county
+"rowan, north carolina",county
+"rutherford, north carolina",county
+"scotland, north carolina",county
+"stanly, north carolina",county
+"stokes, north carolina",county
+"surry, north carolina",county
+"transylvania, north carolina",county
+"tyrrell, north carolina",county
+"union, north carolina",county
+"vance, north carolina",county
+"wake, north carolina",county
+"warren, north carolina",county
+"watauga, north carolina",county
+"wayne, north carolina",county
+"wilkes, north carolina",county
+"wilson, north carolina",county
+"yadkin, north carolina",county
+"yancey, north carolina",county
+"adams, north dakota",county
+"barnes, north dakota",county
+"billings, north dakota",county
+"bottineau, north dakota",county
+"bowman, north dakota",county
+"burke, north dakota",county
+"burleigh, north dakota",county
+"cass, north dakota",county
+"cavalier, north dakota",county
+"dickey, north dakota",county
+"dunn, north dakota",county
+"eddy, north dakota",county
+"emmons, north dakota",county
+"foster, north dakota",county
+"grand forks, north dakota",county
+"grant, north dakota",county
+"griggs, north dakota",county
+"hettinger, north dakota",county
+"kidder, north dakota",county
+"lamoure, north dakota",county
+"logan, north dakota",county
+"mchenry, north dakota",county
+"mclean, north dakota",county
+"mercer, north dakota",county
+"morton, north dakota",county
+"mountrail, north dakota",county
+"nelson, north dakota",county
+"oliver, north dakota",county
+"pembina, north dakota",county
+"pierce, north dakota",county
+"ramsey, north dakota",county
+"ransom, north dakota",county
+"renville, north dakota",county
+"richland, north dakota",county
+"rolette, north dakota",county
+"sargent, north dakota",county
+"slope, north dakota",county
+"stark, north dakota",county
+"steele, north dakota",county
+"stutsman, north dakota",county
+"towner, north dakota",county
+"traill, north dakota",county
+"walsh, north dakota",county
+"ward, north dakota",county
+"wells, north dakota",county
+"williams, north dakota",county
+"adams, ohio",county
+"allen, ohio",county
+"ashland, ohio",county
+"ashtabula, ohio",county
+"athens, ohio",county
+"belmont, ohio",county
+"butler, ohio",county
+"carroll, ohio",county
+"champaign, ohio",county
+"clark, ohio",county
+"clermont, ohio",county
+"clinton, ohio",county
+"columbiana, ohio",county
+"coshocton, ohio",county
+"crawford, ohio",county
+"cuyahoga, ohio",county
+"defiance, ohio",county
+"delaware, ohio",county
+"fairfield, ohio",county
+"fayette, ohio",county
+"franklin, ohio",county
+"fulton, ohio",county
+"gallia, ohio",county
+"geauga, ohio",county
+"greene, ohio",county
+"guernsey, ohio",county
+"hamilton, ohio",county
+"hardin, ohio",county
+"harrison, ohio",county
+"henry, ohio",county
+"hocking, ohio",county
+"holmes, ohio",county
+"huron, ohio",county
+"jackson, ohio",county
+"jefferson, ohio",county
+"knox, ohio",county
+"lake, ohio",county
+"lawrence, ohio",county
+"logan, ohio",county
+"lorain, ohio",county
+"lucas, ohio",county
+"madison, ohio",county
+"marion, ohio",county
+"medina, ohio",county
+"meigs, ohio",county
+"mercer, ohio",county
+"miami, ohio",county
+"monroe, ohio",county
+"morgan, ohio",county
+"morrow, ohio",county
+"muskingum, ohio",county
+"noble, ohio",county
+"ottawa, ohio",county
+"paulding, ohio",county
+"pickaway, ohio",county
+"pike, ohio",county
+"portage, ohio",county
+"preble, ohio",county
+"putnam, ohio",county
+"richland, ohio",county
+"ross, ohio",county
+"sandusky, ohio",county
+"seneca, ohio",county
+"shelby, ohio",county
+"stark, ohio",county
+"summit, ohio",county
+"tuscarawas, ohio",county
+"union, ohio",county
+"van wert, ohio",county
+"vinton, ohio",county
+"warren, ohio",county
+"wayne, ohio",county
+"williams, ohio",county
+"wood, ohio",county
+"wyandot, ohio",county
+"adair, oklahoma",county
+"atoka, oklahoma",county
+"beaver, oklahoma",county
+"beckham, oklahoma",county
+"blaine, oklahoma",county
+"bryan, oklahoma",county
+"caddo, oklahoma",county
+"carter, oklahoma",county
+"cherokee, oklahoma",county
+"choctaw, oklahoma",county
+"cimarron, oklahoma",county
+"cleveland, oklahoma",county
+"coal, oklahoma",county
+"comanche, oklahoma",county
+"cotton, oklahoma",county
+"craig, oklahoma",county
+"creek, oklahoma",county
+"delaware, oklahoma",county
+"dewey, oklahoma",county
+"ellis, oklahoma",county
+"garvin, oklahoma",county
+"grady, oklahoma",county
+"grant, oklahoma",county
+"greer, oklahoma",county
+"harmon, oklahoma",county
+"harper, oklahoma",county
+"haskell, oklahoma",county
+"hughes, oklahoma",county
+"jackson, oklahoma",county
+"johnston, oklahoma",county
+"kay, oklahoma",county
+"kingfisher, oklahoma",county
+"kiowa, oklahoma",county
+"le flore, oklahoma",county
+"lincoln, oklahoma",county
+"logan, oklahoma",county
+"love, oklahoma",county
+"major, oklahoma",county
+"mayes, oklahoma",county
+"mcclain, oklahoma",county
+"mccurtain, oklahoma",county
+"mcintosh, oklahoma",county
+"muskogee, oklahoma",county
+"noble, oklahoma",county
+"nowata, oklahoma",county
+"oklahoma, oklahoma",county
+"okmulgee, oklahoma",county
+"osage, oklahoma",county
+"ottawa, oklahoma",county
+"pawnee, oklahoma",county
+"payne, oklahoma",county
+"pittsburg, oklahoma",county
+"pontotoc, oklahoma",county
+"pottawatomie, oklahoma",county
+"pushmataha, oklahoma",county
+"roger mills, oklahoma",county
+"seminole, oklahoma",county
+"sequoyah, oklahoma",county
+"texas, oklahoma",county
+"tillman, oklahoma",county
+"tulsa, oklahoma",county
+"wagoner, oklahoma",county
+"washington, oklahoma",county
+"washita, oklahoma",county
+"woods, oklahoma",county
+"woodward, oklahoma",county
+"baker, oregon",county
+"benton, oregon",county
+"clackamas, oregon",county
+"clatsop, oregon",county
+"coos, oregon",county
+"crook, oregon",county
+"curry, oregon",county
+"douglas, oregon",county
+"gilliam, oregon",county
+"grant, oregon",county
+"harney, oregon",county
+"hood river, oregon",county
+"jackson, oregon",county
+"jefferson, oregon",county
+"josephine, oregon",county
+"klamath, oregon",county
+"lake, oregon",county
+"lane, oregon",county
+"lincoln, oregon",county
+"linn, oregon",county
+"morrow, oregon",county
+"multnomah, oregon",county
+"polk, oregon",county
+"sherman, oregon",county
+"tillamook, oregon",county
+"umatilla, oregon",county
+"union, oregon",county
+"wallowa, oregon",county
+"wasco, oregon",county
+"washington, oregon",county
+"wheeler, oregon",county
+"yamhill, oregon",county
+"armstrong, pennsylvania",county
+"beaver, pennsylvania",county
+"bedford, pennsylvania",county
+"berks, pennsylvania",county
+"blair, pennsylvania",county
+"bradford, pennsylvania",county
+"bucks, pennsylvania",county
+"butler, pennsylvania",county
+"cambria, pennsylvania",county
+"cameron, pennsylvania",county
+"carbon, pennsylvania",county
+"chester, pennsylvania",county
+"columbia, pennsylvania",county
+"crawford, pennsylvania",county
+"cumberland, pennsylvania",county
+"dauphin, pennsylvania",county
+"delaware, pennsylvania",county
+"elk, pennsylvania",county
+"erie, pennsylvania",county
+"fayette, pennsylvania",county
+"forest, pennsylvania",county
+"franklin, pennsylvania",county
+"fulton, pennsylvania",county
+"greene, pennsylvania",county
+"indiana, pennsylvania",county
+"jefferson, pennsylvania",county
+"juniata, pennsylvania",county
+"lancaster, pennsylvania",county
+"lawrence, pennsylvania",county
+"lebanon, pennsylvania",county
+"lehigh, pennsylvania",county
+"luzerne, pennsylvania",county
+"lycoming, pennsylvania",county
+"mckean, pennsylvania",county
+"mercer, pennsylvania",county
+"mifflin, pennsylvania",county
+"monroe, pennsylvania",county
+"montgomery, pennsylvania",county
+"montour, pennsylvania",county
+"northampton, pennsylvania",county
+"perry, pennsylvania",county
+"pike, pennsylvania",county
+"potter, pennsylvania",county
+"schuylkill, pennsylvania",county
+"snyder, pennsylvania",county
+"somerset, pennsylvania",county
+"sullivan, pennsylvania",county
+"susquehanna, pennsylvania",county
+"tioga, pennsylvania",county
+"union, pennsylvania",county
+"venango, pennsylvania",county
+"warren, pennsylvania",county
+"washington, pennsylvania",county
+"wayne, pennsylvania",county
+"westmoreland, pennsylvania",county
+"wyoming, pennsylvania",county
+"york, pennsylvania",county
+"bristol, rhode island",county
+"newport, rhode island",county
+"providence, rhode island",county
+"washington, rhode island",county
+"abbeville, south carolina",county
+"aiken, south carolina",county
+"allendale, south carolina",county
+"anderson, south carolina",county
+"bamberg, south carolina",county
+"barnwell, south carolina",county
+"beaufort, south carolina",county
+"calhoun, south carolina",county
+"cherokee, south carolina",county
+"chester, south carolina",county
+"clarendon, south carolina",county
+"colleton, south carolina",county
+"darlington, south carolina",county
+"dillon, south carolina",county
+"dorchester, south carolina",county
+"edgefield, south carolina",county
+"fairfield, south carolina",county
+"florence, south carolina",county
+"georgetown, south carolina",county
+"greenville, south carolina",county
+"greenwood, south carolina",county
+"hampton, south carolina",county
+"horry, south carolina",county
+"jasper, south carolina",county
+"kershaw, south carolina",county
+"laurens, south carolina",county
+"lexington, south carolina",county
+"marion, south carolina",county
+"marlboro, south carolina",county
+"mccormick, south carolina",county
+"newberry, south carolina",county
+"oconee, south carolina",county
+"orangeburg, south carolina",county
+"pickens, south carolina",county
+"richland, south carolina",county
+"saluda, south carolina",county
+"spartanburg, south carolina",county
+"sumter, south carolina",county
+"union, south carolina",county
+"york, south carolina",county
+"aurora, south dakota",county
+"bennett, south dakota",county
+"bon homme, south dakota",county
+"brookings, south dakota",county
+"brown, south dakota",county
+"brule, south dakota",county
+"buffalo, south dakota",county
+"butte, south dakota",county
+"campbell, south dakota",county
+"charles mix, south dakota",county
+"clark, south dakota",county
+"clay, south dakota",county
+"codington, south dakota",county
+"corson, south dakota",county
+"custer, south dakota",county
+"day, south dakota",county
+"dewey, south dakota",county
+"douglas, south dakota",county
+"edmunds, south dakota",county
+"fall river, south dakota",county
+"faulk, south dakota",county
+"grant, south dakota",county
+"gregory, south dakota",county
+"hamlin, south dakota",county
+"hand, south dakota",county
+"hanson, south dakota",county
+"harding, south dakota",county
+"hughes, south dakota",county
+"hyde, south dakota",county
+"jackson, south dakota",county
+"jerauld, south dakota",county
+"jones, south dakota",county
+"kingsbury, south dakota",county
+"lake, south dakota",county
+"lincoln, south dakota",county
+"lyman, south dakota",county
+"marshall, south dakota",county
+"mccook, south dakota",county
+"mcpherson, south dakota",county
+"meade, south dakota",county
+"mellette, south dakota",county
+"miner, south dakota",county
+"minnehaha, south dakota",county
+"moody, south dakota",county
+"perkins, south dakota",county
+"potter, south dakota",county
+"roberts, south dakota",county
+"shannon, south dakota",county
+"spink, south dakota",county
+"stanley, south dakota",county
+"sully, south dakota",county
+"todd, south dakota",county
+"tripp, south dakota",county
+"turner, south dakota",county
+"union, south dakota",county
+"walworth, south dakota",county
+"yankton, south dakota",county
+"ziebach, south dakota",county
+"anderson, tennessee",county
+"bedford, tennessee",county
+"benton, tennessee",county
+"blount, tennessee",county
+"campbell, tennessee",county
+"cannon, tennessee",county
+"carroll, tennessee",county
+"carter, tennessee",county
+"cheatham, tennessee",county
+"chester, tennessee",county
+"claiborne, tennessee",county
+"clay, tennessee",county
+"cocke, tennessee",county
+"coffee, tennessee",county
+"crockett, tennessee",county
+"cumberland, tennessee",county
+"decatur, tennessee",county
+"dekalb, tennessee",county
+"dyer, tennessee",county
+"fayette, tennessee",county
+"fentress, tennessee",county
+"franklin, tennessee",county
+"gibson, tennessee",county
+"giles, tennessee",county
+"grainger, tennessee",county
+"greene, tennessee",county
+"grundy, tennessee",county
+"hamblen, tennessee",county
+"hamilton, tennessee",county
+"hardeman, tennessee",county
+"hardin, tennessee",county
+"hawkins, tennessee",county
+"henry, tennessee",county
+"hickman, tennessee",county
+"humphreys, tennessee",county
+"jackson, tennessee",county
+"jefferson, tennessee",county
+"johnson, tennessee",county
+"knox, tennessee",county
+"lake, tennessee",county
+"lawrence, tennessee",county
+"lewis, tennessee",county
+"lincoln, tennessee",county
+"loudon, tennessee",county
+"macon, tennessee",county
+"madison, tennessee",county
+"marion, tennessee",county
+"marshall, tennessee",county
+"mcminn, tennessee",county
+"mcnairy, tennessee",county
+"meigs, tennessee",county
+"monroe, tennessee",county
+"montgomery, tennessee",county
+"morgan, tennessee",county
+"obion, tennessee",county
+"overton, tennessee",county
+"perry, tennessee",county
+"pickett, tennessee",county
+"polk, tennessee",county
+"putnam, tennessee",county
+"rhea, tennessee",county
+"roane, tennessee",county
+"rutherford, tennessee",county
+"scott, tennessee",county
+"sequatchie, tennessee",county
+"sevier, tennessee",county
+"smith, tennessee",county
+"stewart, tennessee",county
+"sullivan, tennessee",county
+"sumner, tennessee",county
+"tipton, tennessee",county
+"trousdale, tennessee",county
+"unicoi, tennessee",county
+"union, tennessee",county
+"van buren, tennessee",county
+"warren, tennessee",county
+"wayne, tennessee",county
+"weakley, tennessee",county
+"white, tennessee",county
+"wilson, tennessee",county
+"anderson, texas",county
+"angelina, texas",county
+"aransas, texas",county
+"archer, texas",county
+"armstrong, texas",county
+"atascosa, texas",county
+"austin, texas",county
+"bandera, texas",county
+"bastrop, texas",county
+"baylor, texas",county
+"bee, texas",county
+"bell, texas",county
+"blanco, texas",county
+"borden, texas",county
+"bosque, texas",county
+"bowie, texas",county
+"brazoria, texas",county
+"brazos, texas",county
+"briscoe, texas",county
+"brooks, texas",county
+"brown, texas",county
+"burleson, texas",county
+"burnet, texas",county
+"caldwell, texas",county
+"callahan, texas",county
+"cameron, texas",county
+"camp, texas",county
+"carson, texas",county
+"cass, texas",county
+"chambers, texas",county
+"cherokee, texas",county
+"childress, texas",county
+"clay, texas",county
+"cochran, texas",county
+"coke, texas",county
+"coleman, texas",county
+"collingsworth, texas",county
+"colorado, texas",county
+"comal, texas",county
+"comanche, texas",county
+"cooke, texas",county
+"coryell, texas",county
+"cottle, texas",county
+"crane, texas",county
+"crockett, texas",county
+"crosby, texas",county
+"dallam, texas",county
+"dallas, texas",county
+"dawson, texas",county
+"delta, texas",county
+"denton, texas",county
+"dewitt, texas",county
+"dickens, texas",county
+"dimmit, texas",county
+"donley, texas",county
+"duval, texas",county
+"eastland, texas",county
+"ector, texas",county
+"edwards, texas",county
+"el paso, texas",county
+"ellis, texas",county
+"erath, texas",county
+"fannin, texas",county
+"fayette, texas",county
+"floyd, texas",county
+"foard, texas",county
+"fort bend, texas",county
+"franklin, texas",county
+"freestone, texas",county
+"frio, texas",county
+"gaines, texas",county
+"galveston, texas",county
+"garza, texas",county
+"goliad, texas",county
+"gonzales, texas",county
+"gray, texas",county
+"grayson, texas",county
+"gregg, texas",county
+"grimes, texas",county
+"guadalupe, texas",county
+"hale, texas",county
+"hall, texas",county
+"hamilton, texas",county
+"hansford, texas",county
+"hardeman, texas",county
+"hardin, texas",county
+"harris, texas",county
+"harrison, texas",county
+"hemphill, texas",county
+"henderson, texas",county
+"hidalgo, texas",county
+"hill, texas",county
+"hockley, texas",county
+"hood, texas",county
+"hopkins, texas",county
+"howard, texas",county
+"hudspeth, texas",county
+"hunt, texas",county
+"irion, texas",county
+"jack, texas",county
+"jackson, texas",county
+"jasper, texas",county
+"jeff davis, texas",county
+"jefferson, texas",county
+"jim hogg, texas",county
+"johnson, texas",county
+"jones, texas",county
+"karnes, texas",county
+"kaufman, texas",county
+"kendall, texas",county
+"kenedy, texas",county
+"kerr, texas",county
+"kimble, texas",county
+"king, texas",county
+"kinney, texas",county
+"kleberg, texas",county
+"knox, texas",county
+"la salle, texas",county
+"lamar, texas",county
+"lamb, texas",county
+"lampasas, texas",county
+"lee, texas",county
+"liberty, texas",county
+"limestone, texas",county
+"lipscomb, texas",county
+"live oak, texas",county
+"llano, texas",county
+"mason, texas",county
+"matagorda, texas",county
+"maverick, texas",county
+"mcculloch, texas",county
+"mclennan, texas",county
+"mcmullen, texas",county
+"midland, texas",county
+"milam, texas",county
+"mills, texas",county
+"mitchell, texas",county
+"montague, texas",county
+"montgomery, texas",county
+"moore, texas",county
+"morris, texas",county
+"motley, texas",county
+"navarro, texas",county
+"newton, texas",county
+"nolan, texas",county
+"ochiltree, texas",county
+"oldham, texas",county
+"orange, texas",county
+"palo pinto, texas",county
+"panola, texas",county
+"parker, texas",county
+"parmer, texas",county
+"pecos, texas",county
+"polk, texas",county
+"potter, texas",county
+"presidio, texas",county
+"rains, texas",county
+"real, texas",county
+"red river, texas",county
+"reeves, texas",county
+"refugio, texas",county
+"roberts, texas",county
+"robertson, texas",county
+"rockwall, texas",county
+"runnels, texas",county
+"rusk, texas",county
+"sabine, texas",county
+"san patricio, texas",county
+"san saba, texas",county
+"schleicher, texas",county
+"scurry, texas",county
+"shackelford, texas",county
+"shelby, texas",county
+"sherman, texas",county
+"smith, texas",county
+"somervell, texas",county
+"starr, texas",county
+"stephens, texas",county
+"sterling, texas",county
+"sutton, texas",county
+"swisher, texas",county
+"tarrant, texas",county
+"taylor, texas",county
+"terry, texas",county
+"throckmorton, texas",county
+"titus, texas",county
+"tom green, texas",county
+"travis, texas",county
+"trinity, texas",county
+"tyler, texas",county
+"upshur, texas",county
+"upton, texas",county
+"uvalde, texas",county
+"victoria, texas",county
+"walker, texas",county
+"waller, texas",county
+"ward, texas",county
+"washington, texas",county
+"webb, texas",county
+"wharton, texas",county
+"wheeler, texas",county
+"wichita, texas",county
+"wilbarger, texas",county
+"willacy, texas",county
+"williamson, texas",county
+"wilson, texas",county
+"winkler, texas",county
+"wood, texas",county
+"yoakum, texas",county
+"zapata, texas",county
+"zavala, texas",county
+"beaver, utah",county
+"box elder, utah",county
+"cache, utah",county
+"carbon, utah",county
+"daggett, utah",county
+"davis, utah",county
+"duchesne, utah",county
+"garfield, utah",county
+"grand, utah",county
+"iron, utah",county
+"kane, utah",county
+"millard, utah",county
+"morgan, utah",county
+"piute, utah",county
+"rich, utah",county
+"tooele, utah",county
+"uintah, utah",county
+"utah, utah",county
+"wasatch, utah",county
+"washington, utah",county
+"wayne, utah",county
+"weber, utah",county
+"addison, vermont",county
+"bennington, vermont",county
+"chittenden, vermont",county
+"essex, vermont",county
+"grand isle, vermont",county
+"lamoille, vermont",county
+"orange, vermont",county
+"orleans, vermont",county
+"rutland, vermont",county
+"washington, vermont",county
+"windham, vermont",county
+"windsor, vermont",county
+"accomack, virginia",county
+"albemarle, virginia",county
+"alexandria, virginia",county
+"amelia, virginia",county
+"amherst, virginia",county
+"arlington, virginia",county
+"bath, virginia",county
+"bedford, virginia",county
+"bland, virginia",county
+"botetourt, virginia",county
+"bristol, virginia",county
+"buchanan, virginia",county
+"buckingham, virginia",county
+"buena vista, virginia",county
+"campbell, virginia",county
+"caroline, virginia",county
+"carroll, virginia",county
+"charles city, virginia",county
+"charlotte, virginia",county
+"chesapeake, virginia",county
+"chesterfield, virginia",county
+"clarke, virginia",county
+"covington, virginia",county
+"craig, virginia",county
+"culpeper, virginia",county
+"cumberland, virginia",county
+"danville, virginia",county
+"dickenson, virginia",county
+"dinwiddie, virginia",county
+"emporia, virginia",county
+"essex, virginia",county
+"fairfax, virginia",county
+"falls church, virginia",county
+"fauquier, virginia",county
+"floyd, virginia",county
+"franklin, virginia",county
+"frederick, virginia",county
+"galax, virginia",county
+"giles, virginia",county
+"gloucester, virginia",county
+"goochland, virginia",county
+"grayson, virginia",county
+"greene, virginia",county
+"greensville, virginia",county
+"halifax, virginia",county
+"hampton, virginia",county
+"hanover, virginia",county
+"harrisonburg, virginia",county
+"henrico, virginia",county
+"henry, virginia",county
+"hopewell, virginia",county
+"isle of wight, virginia",county
+"james city, virginia",county
+"king george, virginia",county
+"king william, virginia",county
+"lancaster, virginia",county
+"lee, virginia",county
+"lexington, virginia",county
+"loudoun, virginia",county
+"louisa, virginia",county
+"lunenburg, virginia",county
+"lynchburg, virginia",county
+"madison, virginia",county
+"manassas, virginia",county
+"martinsville, virginia",county
+"mathews, virginia",county
+"mecklenburg, virginia",county
+"middlesex, virginia",county
+"montgomery, virginia",county
+"new kent, virginia",county
+"newport news, virginia",county
+"norfolk, virginia",county
+"northampton, virginia",county
+"northumberland, virginia",county
+"norton, virginia",county
+"nottoway, virginia",county
+"orange, virginia",county
+"page, virginia",county
+"petersburg, virginia",county
+"pittsylvania, virginia",county
+"poquoson, virginia",county
+"portsmouth, virginia",county
+"prince edward, virginia",county
+"prince george, virginia",county
+"prince william, virginia",county
+"pulaski, virginia",county
+"radford, virginia",county
+"rappahannock, virginia",county
+"richmond, virginia",county
+"roanoke, virginia",county
+"rockbridge, virginia",county
+"russell, virginia",county
+"salem, virginia",county
+"scott, virginia",county
+"shenandoah, virginia",county
+"smyth, virginia",county
+"spotsylvania, virginia",county
+"stafford, virginia",county
+"staunton, virginia",county
+"suffolk, virginia",county
+"surry, virginia",county
+"sussex, virginia",county
+"tazewell, virginia",county
+"warren, virginia",county
+"washington, virginia",county
+"waynesboro, virginia",county
+"westmoreland, virginia",county
+"williamsburg, virginia",county
+"wise, virginia",county
+"adams, washington",county
+"asotin, washington",county
+"benton, washington",county
+"chelan, washington",county
+"clallam, washington",county
+"clark, washington",county
+"columbia, washington",county
+"cowlitz, washington",county
+"douglas, washington",county
+"ferry, washington",county
+"grant, washington",county
+"grays harbor, washington",county
+"island, washington",county
+"jefferson, washington",county
+"kitsap, washington",county
+"kittitas, washington",county
+"lewis, washington",county
+"lincoln, washington",county
+"mason, washington",county
+"okanogan, washington",county
+"pacific, washington",county
+"pend oreille, washington",county
+"pierce, washington",county
+"san juan, washington",county
+"skamania, washington",county
+"snohomish, washington",county
+"spokane, washington",county
+"stevens, washington",county
+"thurston, washington",county
+"walla walla, washington",county
+"whatcom, washington",county
+"whitman, washington",county
+"yakima, washington",county
+"barbour, west virginia",county
+"berkeley, west virginia",county
+"boone, west virginia",county
+"braxton, west virginia",county
+"brooke, west virginia",county
+"calhoun, west virginia",county
+"clay, west virginia",county
+"fayette, west virginia",county
+"gilmer, west virginia",county
+"grant, west virginia",county
+"greenbrier, west virginia",county
+"hampshire, west virginia",county
+"hancock, west virginia",county
+"hardy, west virginia",county
+"harrison, west virginia",county
+"jackson, west virginia",county
+"jefferson, west virginia",county
+"kanawha, west virginia",county
+"lewis, west virginia",county
+"logan, west virginia",county
+"marion, west virginia",county
+"marshall, west virginia",county
+"mason, west virginia",county
+"mcdowell, west virginia",county
+"mineral, west virginia",county
+"mingo, west virginia",county
+"monongalia, west virginia",county
+"monroe, west virginia",county
+"morgan, west virginia",county
+"nicholas, west virginia",county
+"ohio, west virginia",county
+"pleasants, west virginia",county
+"pocahontas, west virginia",county
+"preston, west virginia",county
+"putnam, west virginia",county
+"raleigh, west virginia",county
+"randolph, west virginia",county
+"roane, west virginia",county
+"summers, west virginia",county
+"taylor, west virginia",county
+"tucker, west virginia",county
+"tyler, west virginia",county
+"upshur, west virginia",county
+"wayne, west virginia",county
+"webster, west virginia",county
+"wetzel, west virginia",county
+"wirt, west virginia",county
+"wood, west virginia",county
+"wyoming, west virginia",county
+"ashland, wisconsin",county
+"bayfield, wisconsin",county
+"brown, wisconsin",county
+"buffalo, wisconsin",county
+"burnett, wisconsin",county
+"calumet, wisconsin",county
+"chippewa, wisconsin",county
+"clark, wisconsin",county
+"columbia, wisconsin",county
+"crawford, wisconsin",county
+"dane, wisconsin",county
+"dodge, wisconsin",county
+"door, wisconsin",county
+"douglas, wisconsin",county
+"dunn, wisconsin",county
+"fond du lac, wisconsin",county
+"forest, wisconsin",county
+"grant, wisconsin",county
+"green lake, wisconsin",county
+"green, wisconsin",county
+"iowa, wisconsin",county
+"iron, wisconsin",county
+"jackson, wisconsin",county
+"jefferson, wisconsin",county
+"juneau, wisconsin",county
+"kenosha, wisconsin",county
+"kewaunee, wisconsin",county
+"la crosse, wisconsin",county
+"lincoln, wisconsin",county
+"manitowoc, wisconsin",county
+"marathon, wisconsin",county
+"marinette, wisconsin",county
+"marquette, wisconsin",county
+"menominee, wisconsin",county
+"milwaukee, wisconsin",county
+"monroe, wisconsin",county
+"oconto, wisconsin",county
+"oneida, wisconsin",county
+"outagamie, wisconsin",county
+"ozaukee, wisconsin",county
+"pepin, wisconsin",county
+"polk, wisconsin",county
+"price, wisconsin",county
+delaware,state
+maryland,state
+north carolina,state
+virginia,state
+east south central,census division
+gulf coast (o&g producing region),o&g producing region
+southwest (o&g producing region),o&g producing region
+alaska (o&g producing region),o&g producing region
+SRVC,egrid
+ERCT,egrid
+NYPCC_NY,nerc
+US/Pacific,time zone
+1A,IECC Climate Zone
+6A,IECC Climate Zone
+7A,IECC Climate Zone
+unspecified utility,electric utility territory
+Oregon outside of PGE,electric utility territory
+Alabama 2A,IECC Climate Zone by state
+Alabama 3A,IECC Climate Zone by state
+Alaska 7B,IECC Climate Zone by state
+Alaska 8B,IECC Climate Zone by state
+Arizona 2B,IECC Climate Zone by state
+Arizona 3B,IECC Climate Zone by state
+Arizona 4B,IECC Climate Zone by state
+Arizona 5B,IECC Climate Zone by state
+Arkansas 3A,IECC Climate Zone by state
+Arkansas 4A,IECC Climate Zone by state
+California 2B,IECC Climate Zone by state
+California 3B,IECC Climate Zone by state
+California 3C,IECC Climate Zone by state
+California 4C,IECC Climate Zone by state
+California 5B,IECC Climate Zone by state
+California 6B,IECC Climate Zone by state
+Colorado 4B,IECC Climate Zone by state
+Colorado 5B,IECC Climate Zone by state
+Colorado 6B,IECC Climate Zone by state
+Colorado 7B,IECC Climate Zone by state
+Connecticut 5A,IECC Climate Zone by state
+Delaware 4A,IECC Climate Zone by state
+District of Columbia 4A,IECC Climate Zone by state
+Florida 1A,IECC Climate Zone by state
+Florida 2A,IECC Climate Zone by state
+Georgia 3A,IECC Climate Zone by state
+Georgia 4A,IECC Climate Zone by state
+Hawaii 1A,IECC Climate Zone by state
+Idaho 5B,IECC Climate Zone by state
+Idaho 6B,IECC Climate Zone by state
+Illinois 4A,IECC Climate Zone by state
+Illinois 5A,IECC Climate Zone by state
+Indiana 4A,IECC Climate Zone by state
+Indiana 5A,IECC Climate Zone by state
+Iowa 5A,IECC Climate Zone by state
+Iowa 6A,IECC Climate Zone by state
+Kansas 4A,IECC Climate Zone by state
+Kentucky 4A,IECC Climate Zone by state
+Louisiana 2A,IECC Climate Zone by state
+Louisiana 3A,IECC Climate Zone by state
+Maine 6A,IECC Climate Zone by state
+Maine 7A,IECC Climate Zone by state
+Maryland 4A,IECC Climate Zone by state
+Maryland 5A,IECC Climate Zone by state
+Massachusetts 5A,IECC Climate Zone by state
+Michigan 5A,IECC Climate Zone by state
+Michigan 6A,IECC Climate Zone by state
+Michigan 7A,IECC Climate Zone by state
+Minnesota 6A,IECC Climate Zone by state
+Mississippi 2A,IECC Climate Zone by state
+Mississippi 3A,IECC Climate Zone by state
+Missouri 4A,IECC Climate Zone by state
+Missouri 5A,IECC Climate Zone by state
+Montana 6B,IECC Climate Zone by state
+Nebraska 5A,IECC Climate Zone by state
+Nevada 3B,IECC Climate Zone by state
+Nevada 5B,IECC Climate Zone by state
+New Hampshire 5A,IECC Climate Zone by state
+New Hampshire 6A,IECC Climate Zone by state
+New Jersey 4A,IECC Climate Zone by state
+New Jersey 5A,IECC Climate Zone by state
+New Mexico 4B,IECC Climate Zone by state
+New Mexico 5B,IECC Climate Zone by state
+New York 4A,IECC Climate Zone by state
+New York 5A,IECC Climate Zone by state
+New York 6A,IECC Climate Zone by state
+North Carolina 3A,IECC Climate Zone by state
+North Carolina 4A,IECC Climate Zone by state
+North Carolina 5A,IECC Climate Zone by state
+North Dakota 6A,IECC Climate Zone by state
+North Dakota 7A,IECC Climate Zone by state
+Ohio 4A,IECC Climate Zone by state
+Ohio 5A,IECC Climate Zone by state
+Oklahoma 4B,IECC Climate Zone by state
+Oregon 4C,IECC Climate Zone by state
+Oregon 5B,IECC Climate Zone by state
+Pennsylvania 4A,IECC Climate Zone by state
+Pennsylvania 5A,IECC Climate Zone by state
+Pennsylvania 6A,IECC Climate Zone by state
+Puerto Rico 1A,IECC Climate Zone by state
+Rhode Island 5A,IECC Climate Zone by state
+South Carolina 3A,IECC Climate Zone by state
+South Dakota 5A,IECC Climate Zone by state
+South Dakota 6A,IECC Climate Zone by state
+Tennessee 3A,IECC Climate Zone by state
+Texas 2A,IECC Climate Zone by state
+Texas 2B,IECC Climate Zone by state
+"racine, wisconsin",county
+"richland, wisconsin",county
+"rock, wisconsin",county
+"rusk, wisconsin",county
+"sauk, wisconsin",county
+"sawyer, wisconsin",county
+"shawano, wisconsin",county
+"st. croix, wisconsin",county
+"trempealeau, wisconsin",county
+"vernon, wisconsin",county
+"vilas, wisconsin",county
+"walworth, wisconsin",county
+"washburn, wisconsin",county
+"washington, wisconsin",county
+"waukesha, wisconsin",county
+"waupaca, wisconsin",county
+"waushara, wisconsin",county
+"winnebago, wisconsin",county
+"wood, wisconsin",county
+"albany, wyoming",county
+"campbell, wyoming",county
+"carbon, wyoming",county
+"crook, wyoming",county
+"fremont, wyoming",county
+"goshen, wyoming",county
+"hot springs, wyoming",county
+"johnson, wyoming",county
+"laramie, wyoming",county
+"lincoln, wyoming",county
+"natrona, wyoming",county
+"niobrara, wyoming",county
+"park, wyoming",county
+"platte, wyoming",county
+"sublette, wyoming",county
+"sweetwater, wyoming",county
+Texas 3B,IECC Climate Zone by state
+Texas 4A,IECC Climate Zone by state
+Texas 4B,IECC Climate Zone by state
+Utah 3B,IECC Climate Zone by state
+Utah 5B,IECC Climate Zone by state
+Utah 6B,IECC Climate Zone by state
+Vermont 6A,IECC Climate Zone by state
+Virginia 4A,IECC Climate Zone by state
+Washington 4C,IECC Climate Zone by state
+Washington 5B,IECC Climate Zone by state
+Washington 6B,IECC Climate Zone by state
+West Virginia 5A,IECC Climate Zone by state
+Wisconsin 6A,IECC Climate Zone by state
+Wisconsin 7A,IECC Climate Zone by state
+Wyoming 5B,IECC Climate Zone by state
+Wyoming 6B,IECC Climate Zone by state
+Wyoming 7A,IECC Climate Zone by state
+AKGD (egrid with wecc detail),egrid with wecc detail
+AKMS (egrid with wecc detail),egrid with wecc detail
+AZ-NM-NV (egrid with wecc detail),egrid with wecc detail
+BASN (egrid with wecc detail),egrid with wecc detail
+CALN (egrid with wecc detail),egrid with wecc detail
+ERCT (egrid with wecc detail),egrid with wecc detail
+FRCC (egrid with wecc detail),egrid with wecc detail
+HIMS (egrid with wecc detail),egrid with wecc detail
+HIOA (egrid with wecc detail),egrid with wecc detail
+MROE (egrid with wecc detail),egrid with wecc detail
+MROW (egrid with wecc detail),egrid with wecc detail
+NEWE (egrid with wecc detail),egrid with wecc detail
+NWPP (egrid with wecc detail),egrid with wecc detail
+NYCW (egrid with wecc detail),egrid with wecc detail
+NYLI (egrid with wecc detail),egrid with wecc detail
+NYUP (egrid with wecc detail),egrid with wecc detail
+RFCE (egrid with wecc detail),egrid with wecc detail
+RFCM (egrid with wecc detail),egrid with wecc detail
+RFCW (egrid with wecc detail),egrid with wecc detail
+RMPA (egrid with wecc detail),egrid with wecc detail
+SRTV (egrid with wecc detail),egrid with wecc detail
+"cleburne, alabama",county
+"fayette, alabama",county
+"st. clair, alabama",county
+"dillingham, alaska",county
+"northwest arctic, alaska",county
+"pima, arizona",county
+"calhoun, arkansas",county
+"faulkner, arkansas",county
+"garland, arkansas",county
+"little river, arkansas",county
+"poinsett, arkansas",county
+"van buren, arkansas",county
+"glenn, california",county
+"mono, california",county
+"yuba, california",county
+"custer, colorado",county
+"hinsdale, colorado",county
+"larimer, colorado",county
+"pitkin, colorado",county
+"fairfield, connecticut",county
+"district of columbia, district of columbia",county
+"hernando, florida",county
+"manatee, florida",county
+"santa rosa, florida",county
+"baldwin, georgia",county
+"calhoun, georgia",county
+"chattooga, georgia",county
+"colquitt, georgia",county
+"effingham, georgia",county
+"gwinnett, georgia",county
+"jeff davis, georgia",county
+"madison, georgia",county
+"seminole, georgia",county
+"treutlen, georgia",county
+"whitfield, georgia",county
+"boise, idaho",county
+"bonneville, idaho",county
+"gem, idaho",county
+"nez perce, idaho",county
+"bureau, illinois",county
+"dekalb, illinois",county
+"hardin, illinois",county
+"lasalle, illinois",county
+"menard, illinois",county
+"richland, illinois",county
+"washington, illinois",county
+"crawford, indiana",county
+"hamilton, indiana",county
+"kosciusko, indiana",county
+"owen, indiana",county
+"spencer, indiana",county
+"warrick, indiana",county
+"buena vista, iowa",county
+"davis, iowa",county
+"guthrie, iowa",county
+"johnson, iowa",county
+"mills, iowa",county
+"mitchell, iowa",county
+"monroe, iowa",county
+"sac, iowa",county
+"chautauqua, kansas",county
+"elk, kansas",county
+"greenwood, kansas",county
+"leavenworth, kansas",county
+"ness, kansas",county
+"republic, kansas",county
+"sumner, kansas",county
+"anderson, kentucky",county
+"breathitt, kentucky",county
+"carroll, kentucky",county
+"franklin, kentucky",county
+"henderson, kentucky",county
+"leslie, kentucky",county
+"mclean, kentucky",county
+"trimble, kentucky",county
+"beauregard, louisiana",county
+"east feliciana, louisiana",county
+"livingston, louisiana",county
+"natchitoches, louisiana",county
+"st. john the baptist, louisiana",county
+"cumberland, maine",county
+"anne arundel, maryland",county
+"prince george's, maryland",county
+"middlesex, massachusetts",county
+"charlevoix, michigan",county
+"teton, wyoming",county
+"uinta, wyoming",county
+"washakie, wyoming",county
+"weston, wyoming",county
+"lenawee, michigan",county
+"mason, michigan",county
+"montcalm, michigan",county
+"sanilac, michigan",county
+"big stone, minnesota",county
+"douglas, minnesota",county
+"koochiching, minnesota",county
+"murray, minnesota",county
+"roseau, minnesota",county
+"waseca, minnesota",county
+"chickasaw, mississippi",county
+"greene, mississippi",county
+"lafayette, mississippi",county
+"newton, mississippi",county
+"stone, mississippi",county
+"yalobusha, mississippi",county
+"callaway, missouri",county
+"dallas, missouri",county
+"howard, missouri",county
+"livingston, missouri",county
+"nodaway, missouri",county
+"osage, missouri",county
+"pettis, missouri",county
+"scotland, missouri",county
+"warren, missouri",county
+"lewis and clark, montana",county
+"richland, montana",county
+"antelope, nebraska",county
+"cherry, nebraska",county
+"franklin, nebraska",county
+"hooker, nebraska",county
+"jefferson, nebraska",county
+"nemaha, nebraska",county
+"saunders, nebraska",county
+"carson city, nevada",county
+"white pine, nevada",county
+"burlington, new jersey",county
+"somerset, new jersey",county
+"harding, new mexico",county
+"chenango, new york",county
+"cortland, new york",county
+"hamilton, new york",county
+"orange, new york",county
+"steuben, new york",county
+"alexander, north carolina",county
+"cherokee, north carolina",county
+"graham, north carolina",county
+"johnston, north carolina",county
+"pasquotank, north carolina",county
+"sampson, north carolina",county
+"washington, north carolina",county
+"divide, north dakota",county
+"mckenzie, north dakota",county
+"auglaize, ohio",county
+"darke, ohio",county
+"hancock, ohio",county
+"licking, ohio",county
+"montgomery, ohio",county
+"scioto, ohio",county
+"washington, ohio",county
+"canadian, oklahoma",county
+"garfield, oklahoma",county
+"latimer, oklahoma",county
+"okfuskee, oklahoma",county
+"stephens, oklahoma",county
+"deschutes, oregon",county
+"marion, oregon",county
+"centre, pennsylvania",county
+"clarion, pennsylvania",county
+"clearfield, pennsylvania",county
+"lackawanna, pennsylvania",county
+"philadelphia, pennsylvania",county
+"puerto rico, puerto rico",county
+"chesterfield, south carolina",county
+"lancaster, south carolina",county
+"beadle, south dakota",county
+"davison, south dakota",county
+"haakon, south dakota",county
+"lawrence, south dakota",county
+"sanborn, south dakota",county
+"bledsoe, tennessee",county
+"hancock, tennessee",county
+"lauderdale, tennessee",county
+"moore, tennessee",county
+"shelby, tennessee",county
+"williamson, tennessee",county
+"andrews, texas",county
+"bailey, texas",county
+"brewster, texas",county
+"castro, texas",county
+"concho, texas",county
+"deaf smith, texas",county
+"fisher, texas",county
+"glasscock, texas",county
+"haskell, texas",county
+"kent, texas",county
+"leon, texas",county
+"loving, texas",county
+"lubbock, texas",county
+"lynn, texas",county
+"madison, texas",county
+"marion, texas",county
+"martin, texas",county
+"medina, texas",county
+"nacogdoches, texas",county
+"randall, texas",county
+"san augustine, texas",county
+"stonewall, texas",county
+"val verde, texas",county
+"wise, texas",county
+"emery, utah",county
+"caledonia, vermont",county
+"alleghany, virginia",county
+"augusta, virginia",county
+"brunswick, virginia",county
+"colonial heights, virginia",county
+"fredericksburg, virginia",county
+"king and queen, virginia",county
+"nelson, virginia",county
+"powhatan, virginia",county
+"southampton, virginia",county
+"garfield, washington",county
+"king, washington",county
+"klickitat, washington",county
+"wahkiakum, washington",county
+"doddridge, west virginia",county
+"mercer, west virginia",county
+eastern interconnection,electricity interconnection
+texas interconnection,electricity interconnection
+arkansas,state
+kentucky,state
+new mexico,state
+washington,state
+west south central,census division
+west coast (o&g producing region),o&g producing region
+RFCM,egrid
+SERC_FL,nerc
+US/Hawaii,time zone
+Portland General Electric,electric utility territory
+quebec (state),state
+"quebec (county), quebec (state)",county
+hydro quebec (egrid with wecc detail),egrid with wecc detail
+Portland General Electric (egrid with wecc detail),egrid with wecc detail
+hydro quebec,electric utility territory
+quebec 7A,IECC Climate Zone by state
+us (north america),north america
+canada (north america),north america
+California 4B,IECC Climate Zone by state
+Georgia 2A,IECC Climate Zone by state
+Kansas 5A,IECC Climate Zone by state
+Minnesota 7A,IECC Climate Zone by state
+New Mexico 3B,IECC Climate Zone by state
+Oklahoma 3A,IECC Climate Zone by state
+Tennessee 4A,IECC Climate Zone by state
+Texas 3A,IECC Climate Zone by state
+West Virginia 4A,IECC Climate Zone by state
+CALS (egrid with wecc detail),egrid with wecc detail
+SPNO (egrid with wecc detail),egrid with wecc detail
+"calhoun, alabama",county
+"cherokee, alabama",county
+"chilton, alabama",county
+"choctaw, alabama",county
+"clarke, alabama",county
+"clay, alabama",county
+"coffee, alabama",county
+"colbert, alabama",county
+"conecuh, alabama",county
+"coosa, alabama",county
+"covington, alabama",county
+"crenshaw, alabama",county
+"cullman, alabama",county
+"dale, alabama",county
+"dallas, alabama",county
+"dekalb, alabama",county
+"elmore, alabama",county
+"escambia, alabama",county
+"etowah, alabama",county
+"franklin, alabama",county
+"lowndes, alabama",county
+"marengo, alabama",county
+"tallapoosa, alabama",county
+"kenai peninsula, alaska",county
+"wrangell, alaska",county
+"yavapai, arizona",county
+"conway, arkansas",county
+"independence, arkansas",county
+"monroe, arkansas",county
+"searcy, arkansas",county
+"union, arkansas",county
+"calaveras, california",county
+"marin, california",county
+"san bernardino, california",county
+"san luis obispo, california",county
+"tuolumne, california",county
+"costilla, colorado",county
+"jackson, colorado",county
+"park, colorado",county
+"summit, colorado",county
+"alachua, florida",county
+"clay, florida",county
+"collier, florida",county
+"highlands, florida",county
+"miami-dade, florida",county
+"st. lucie, florida",county
+"ben hill, georgia",county
+"charlton, georgia",county
+"decatur, georgia",county
+"forsyth, georgia",county
+"henry, georgia",county
+"laurens, georgia",county
+"mitchell, georgia",county
+"paulding, georgia",county
+"pulaski, georgia",county
+"taliaferro, georgia",county
+"warren, georgia",county
+"honolulu, hawaii",county
+"cassia, idaho",county
+"lemhi, idaho",county
+"twin falls, idaho",county
+"clinton, illinois",county
+"gallatin, illinois",county
+"kankakee, illinois",county
+"lawrence, illinois",county
+"macoupin, illinois",county
+"moultrie, illinois",county
+"shelby, illinois",county
+"woodford, illinois",county
+"carroll, indiana",county
+"delaware, indiana",county
+"huntington, indiana",county
+"marshall, indiana",county
+"pulaski, indiana",county
+"vanderburgh, indiana",county
+"black hawk, iowa",county
+"carroll, iowa",county
+"cerro gordo, iowa",county
+"floyd, iowa",county
+"iowa, iowa",county
+"mahaska, iowa",county
+"pocahontas, iowa",county
+"washington, iowa",county
+"winnebago, iowa",county
+"chase, kansas",county
+"dickinson, kansas",county
+"hamilton, kansas",county
+"lyon, kansas",county
+"osage, kansas",county
+"reno, kansas",county
+"rice, kansas",county
+"riley, kansas",county
+"rooks, kansas",county
+"russell, kansas",county
+"trego, kansas",county
+"barron, wisconsin",county
+"eau claire, wisconsin",county
+"lafayette, wisconsin",county
+"sheboygan, wisconsin",county
+"big horn, wyoming",county
+"sheridan, wyoming",county
+"barren, kentucky",county
+"carter, kentucky",county
+"fulton, kentucky",county
+"hopkins, kentucky",county
+"livingston, kentucky",county
+"monroe, kentucky",county
+"pendleton, kentucky",county
+"rockcastle, kentucky",county
+"whitley, kentucky",county
+"caldwell, louisiana",county
+"claiborne, louisiana",county
+"lasalle, louisiana",county
+"st. james, louisiana",county
+"west baton rouge, louisiana",county
+"allegany, maryland",county
+"somerset, maryland",county
+"hampshire, massachusetts",county
+"cheboygan, michigan",county
+"grand traverse, michigan",county
+"houghton, michigan",county
+"keweenaw, michigan",county
+"mecosta, michigan",county
+"ottawa, michigan",county
+"becker, minnesota",county
+"dakota, minnesota",county
+"kittson, minnesota",county
+"nicollet, minnesota",county
+"scott, minnesota",county
+"wilkin, minnesota",county
+"clay, mississippi",county
+"george, mississippi",county
+"grenada, mississippi",county
+"jefferson davis, mississippi",county
+"noxubee, mississippi",county
+"tallahatchie, mississippi",county
+"audrain, missouri",county
+"chariton, missouri",county
+"franklin, missouri",county
+"laclede, missouri",county
+"moniteau, missouri",county
+"putnam, missouri",county
+"ray, missouri",county
+"shannon, missouri",county
+"webster, missouri",county
+"daniels, montana",county
+"flathead, montana",county
+"meagher, montana",county
+"sanders, montana",county
+"blaine, nebraska",county
+"custer, nebraska",county
+"gosper, nebraska",county
+"lancaster, nebraska",county
+"pierce, nebraska",county
+"polk, nebraska",county
+"sherman, nebraska",county
+"esmeralda, nevada",county
+"coos, new hampshire",county
+"hunterdon, new jersey",county
+"colfax, new mexico",county
+"quay, new mexico",county
+"santa fe, new mexico",county
+"broome, new york",county
+"herkimer, new york",county
+"oswego, new york",county
+"schoharie, new york",county
+"schuyler, new york",county
+"alamance, north carolina",county
+"chowan, north carolina",county
+"franklin, north carolina",county
+"lincoln, north carolina",county
+"pender, north carolina",county
+"swain, north carolina",county
+"benson, north dakota",county
+"golden valley, north dakota",county
+"mcintosh, north dakota",county
+"sheridan, north dakota",county
+"sioux, north dakota",county
+"brown, ohio",county
+"erie, ohio",county
+"highland, ohio",county
+"mahoning, ohio",county
+"perry, ohio",county
+"trumbull, ohio",county
+"alfalfa, oklahoma",county
+"custer, oklahoma",county
+"jefferson, oklahoma",county
+"marshall, oklahoma",county
+"murray, oklahoma",county
+"rogers, oklahoma",county
+"columbia, oregon",county
+"malheur, oregon",county
+"adams, pennsylvania",county
+"allegheny, pennsylvania",county
+"clinton, pennsylvania",county
+"huntingdon, pennsylvania",county
+"northumberland, pennsylvania",county
+"kent, rhode island",county
+"berkeley, south carolina",county
+"charleston, south carolina",county
+"lee, south carolina",county
+"williamsburg, south carolina",county
+"deuel, south dakota",county
+"hutchinson, south dakota",county
+"pennington, south dakota",county
+"bradley, tennessee",county
+"davidson, tennessee",county
+"dickson, tennessee",county
+"haywood, tennessee",county
+"henderson, tennessee",county
+"houston, tennessee",county
+"maury, tennessee",county
+"robertson, tennessee",county
+"washington, tennessee",county
+"bexar, texas",county
+"calhoun, texas",county
+"collin, texas",county
+"culberson, texas",county
+"falls, texas",county
+"gillespie, texas",county
+"hartley, texas",county
+"hays, texas",county
+"houston, texas",county
+"hutchinson, texas",county
+"jim wells, texas",county
+"lavaca, texas",county
+"menard, texas",county
+"nueces, texas",county
+"reagan, texas",county
+"san jacinto, texas",county
+"terrell, texas",county
+"van zandt, texas",county
+"young, texas",county
+"juab, utah",county
+"salt lake, utah",county
+"san juan, utah",county
+"sanpete, utah",county
+"sevier, utah",county
+"summit, utah",county
+"franklin, vermont",county
+"appomattox, virginia",county
+"charlottesville, virginia",county
+"fluvanna, virginia",county
+"highland, virginia",county
+"manassas park, virginia",county
+"patrick, virginia",county
+"rockingham, virginia",county
+"virginia beach, virginia",county
+"winchester, virginia",county
+"wythe, virginia",county
+"york, virginia",county
+"franklin, washington",county
+"skagit, washington",county
+"cabell, west virginia",county
+"lincoln, west virginia",county
+"pendleton, west virginia",county
+"ritchie, west virginia",county
+"adams, wisconsin",county
+"florence, wisconsin",county
+"langlade, wisconsin",county
+"pierce, wisconsin",county
+"portage, wisconsin",county
+"taylor, wisconsin",county
+"converse, wyoming",county

@@ -1,0 +1,2 @@
+name,description,geography_description,time_zone_id,interpolation_method,extrapolation_method,hurdle_currency_id,hurdle_currency_year_id,energy_unit
+test HQ,Test data for HQ,"36, 56, 65",126,linear_interpolation,nearest,41,2016,megawatt_hour

@@ -1,0 +1,9 @@
+supply_tech,definition,reference_tech,currency,geography,currency_year_id,capacity_or_energy_unit,is_levelized,cost_of_capital,interpolation_method,extrapolation_method,time_unit
+pumped hydro storage,absolute,,USD,us,2009.0,kilowatt,False,,linear_interpolation,nearest,
+8 - hour bulk battery storage,absolute,,USD,us,2016.0,kilowatt,False,,linear_interpolation,nearest,
+6 - hour bulk battery storage,relative,8 - hour bulk battery storage,,,,,,,,,
+4 - hour bulk battery storage,relative,8 - hour bulk battery storage,,,,,,,,,
+2 - hour bulk battery storage,relative,8 - hour bulk battery storage,,,,,,,,,
+6 - hour distributed battery storage,absolute,,USD,us,2009.0,kilowatt,False,,linear_interpolation,nearest,
+4 - hour distributed battery storage,relative,6 - hour distributed battery storage,,,,,,,,,
+2 - hour distributed battery storage,relative,6 - hour distributed battery storage,,,,,,,,,

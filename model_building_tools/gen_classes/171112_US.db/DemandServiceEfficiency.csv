@@ -1,0 +1,4 @@
+subsector,energy_unit,denominator_unit,geography,other_index_1,other_index_2,interpolation_method,extrapolation_method,extrapolation_growth,geography_map_key
+school and intercity buses,Btu,passenger_mile,us,bus types,,linear_interpolation,decay_towards_linear_regression,,Households 2010 (complete count)
+passenger rail,Btu,passenger_mile,census division,commuter rail modes,,linear_interpolation,decay_towards_linear_regression,,Households 2010 (complete count)
+freight rail,kiloBtu,ton_mile,us,,,linear_interpolation,decay_towards_linear_regression,,Households 2010 (complete count)

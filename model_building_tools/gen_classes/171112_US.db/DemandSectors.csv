@@ -1,0 +1,5 @@
+name,shape,max_lead_hours,max_lag_hours
+residential,,,
+commercial,,,
+transportation,,,
+productive,Industrial Other,,

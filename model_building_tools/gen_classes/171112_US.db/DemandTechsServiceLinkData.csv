@@ -1,0 +1,1157 @@
+service_link,gau,oth_1,oth_2,vintage,value,id
+1,us,,,2009,0.33,1
+1,us,,,2013,0.25,2
+2,us,,,2013,0.217,3
+3,us,,,2009,0.44,4
+3,us,,,2013,0.45,5
+3,us,,,2020,0.336,6
+4,us,,,2013,0.25,7
+5,us,,,2009,0.10355,8
+5,us,,,2013,0.041,9
+6,us,,,2013,0.0519,10
+7,us,,,2009,0.3033,11
+7,us,,,2020,0.182857,12
+8,us,,,2013,0.08125,13
+9,us,,,2009,4.5,14
+9,us,,,2013,4.25,15
+10,us,,,2013,2.22,16
+11,us,,,2009,0.0,17
+12,us,,,2009,1.0,18
+13,us,,,2009,0.0,19
+15,us,,,2009,0.0,21
+16,us,,,2009,1.0,22
+17,us,,,2009,0.0,23
+18,us,,,2009,1.0,24
+19,us,,,2009,1.0,25
+20,us,,,2009,1.0,26
+21,us,,,2009,0.0,27
+22,us,,,2009,1.0,28
+23,us,,,2009,0.0,29
+25,us,,,2009,1.0,31
+26,us,,,2009,1.0,32
+27,us,,,2009,0.0,33
+28,us,,,2009,0.0,34
+29,us,,,2009,1.0,387
+35,us,,,2009,1.0,388
+36,middle atlantic,single-family,,2011,0.8325,835
+36,middle atlantic,single-family,,2012,0.8325,836
+36,middle atlantic,single-family,,2013,0.8325,837
+36,middle atlantic,single-family,,2014,0.8325,838
+36,middle atlantic,single-family,,2017,0.8325,839
+36,east south central,single-family,,2011,0.7686,840
+36,east south central,single-family,,2012,0.7686,841
+36,east south central,single-family,,2013,0.7686,842
+36,east south central,single-family,,2014,0.7686,843
+36,east south central,single-family,,2017,0.7686,844
+36,west south central,single-family,,2010,0.801373,845
+36,middle atlantic,single-family,,2010,0.839182,846
+36,east north central,single-family,,2011,0.8975,847
+36,east north central,single-family,,2012,0.8975,848
+36,east north central,single-family,,2013,0.8975,849
+36,east north central,single-family,,2014,0.8975,850
+36,east north central,single-family,,2017,0.8975,851
+36,east north central,single-family,,2010,0.915136,852
+36,west north central,single-family,,2011,0.8471,853
+36,west north central,single-family,,2012,0.8471,854
+36,west north central,single-family,,2013,0.8471,855
+36,west north central,single-family,,2014,0.8471,856
+36,west north central,single-family,,2017,0.8471,857
+36,west north central,single-family,,2010,0.860936,858
+36,south atlantic,single-family,,2010,0.876236,859
+36,east south central,single-family,,2010,0.864045,860
+36,mountain,single-family,,2010,0.838427,861
+36,mountain,single-family,,2011,0.8772,862
+36,mountain,single-family,,2012,0.8772,863
+36,mountain,single-family,,2013,0.8772,864
+36,mountain,single-family,,2014,0.8772,865
+36,mountain,single-family,,2017,0.8772,866
+36,pacific,single-family,,2011,0.9005,867
+36,pacific,single-family,,2012,0.9005,868
+36,pacific,single-family,,2013,0.9005,869
+36,pacific,single-family,,2014,0.9005,870
+36,pacific,single-family,,2017,0.9005,871
+36,pacific,single-family,,2010,0.901991,872
+36,new england,single-family,,2010,0.9595,873
+36,new england,single-family,,2011,0.9635,874
+36,new england,single-family,,2012,0.9635,875
+36,new england,single-family,,2013,0.9635,876
+36,new england,single-family,,2014,0.9635,877
+36,new england,single-family,,2017,0.9635,878
+36,new england,mobile home,,2010,1.0437,879
+36,south atlantic,mobile home,,2010,1.05094,880
+36,new england,multi-family,,2010,1.14671,881
+36,middle atlantic,mobile home,,2010,1.13531,882
+36,east north central,multi-family,,2010,1.0823,883
+36,east north central,mobile home,,2010,1.1047,884
+36,west north central,mobile home,,2010,1.0722,885
+36,south atlantic,multi-family,,2010,1.11364,886
+36,east south central,mobile home,,2010,1.05681,887
+36,east south central,mobile home,,2011,1.0754,888
+36,east south central,mobile home,,2012,1.0754,889
+36,east south central,mobile home,,2013,1.0754,890
+36,east south central,mobile home,,2014,1.0754,891
+36,east south central,mobile home,,2017,1.0754,892
+36,west south central,mobile home,,2010,1.07393,893
+36,mountain,mobile home,,2010,1.1181,894
+36,pacific,mobile home,,2010,1.13424,895
+36,pacific,mobile home,,2011,1.1437,896
+36,pacific,mobile home,,2012,1.1437,897
+36,pacific,mobile home,,2013,1.1437,898
+36,pacific,mobile home,,2014,1.1437,899
+36,pacific,mobile home,,2017,1.1437,900
+36,middle atlantic,mobile home,,2011,1.1524,901
+36,middle atlantic,mobile home,,2012,1.1524,902
+36,middle atlantic,mobile home,,2013,1.1524,903
+36,middle atlantic,mobile home,,2014,1.1524,904
+36,middle atlantic,mobile home,,2017,1.1524,905
+36,middle atlantic,multi-family,,2010,1.17491,906
+36,west north central,multi-family,,2010,1.15057,907
+36,east south central,multi-family,,2010,1.15566,908
+36,west south central,multi-family,,2010,1.16084,909
+36,mountain,multi-family,,2010,1.27072,910
+36,pacific,multi-family,,2010,1.20221,911
+37,middle atlantic,single-family,,2017,0.82755,912
+37,middle atlantic,single-family,,2010,0.83231,913
+37,middle atlantic,single-family,,2011,0.83231,914
+37,middle atlantic,single-family,,2012,0.83231,915
+37,middle atlantic,single-family,,2013,0.83231,916
+37,middle atlantic,single-family,,2014,0.83231,917
+37,south atlantic,single-family,,2010,0.784191,918
+37,south atlantic,single-family,,2011,0.78675,919
+37,south atlantic,single-family,,2012,0.78675,920
+37,south atlantic,single-family,,2013,0.78675,921
+37,south atlantic,single-family,,2014,0.78675,922
+37,south atlantic,single-family,,2017,0.81535,923
+37,east south central,single-family,,2017,0.7995,924
+37,east south central,single-family,,2010,0.832336,925
+37,west south central,single-family,,2017,0.70965,926
+37,west south central,single-family,,2010,0.711064,927
+37,west south central,single-family,,2011,0.71489,928
+37,west south central,single-family,,2012,0.71489,929
+37,west south central,single-family,,2013,0.71489,930
+37,west south central,single-family,,2014,0.71489,931
+37,mountain,single-family,,2017,0.7732,932
+37,mountain,single-family,,2010,0.77806,933
+37,mountain,single-family,,2011,0.778633,934
+37,mountain,single-family,,2012,0.778633,935
+37,mountain,single-family,,2013,0.778633,936
+37,mountain,single-family,,2014,0.778633,937
+37,pacific,single-family,,2010,0.829682,938
+37,pacific,single-family,,2011,0.833,939
+37,pacific,single-family,,2012,0.833,940
+37,pacific,single-family,,2013,0.833,941
+37,east north central,single-family,,2017,0.8967,942
+37,east north central,single-family,,2010,0.90639,943
+37,east north central,single-family,,2011,0.913125,944
+37,east north central,single-family,,2012,0.913125,945
+37,east north central,single-family,,2013,0.913125,946
+37,east north central,single-family,,2014,0.913125,947
+37,west north central,single-family,,2017,0.8385,948
+37,west north central,single-family,,2011,0.8526,949
+37,west north central,single-family,,2012,0.8526,950
+37,west north central,single-family,,2013,0.8526,951
+37,west north central,single-family,,2014,0.8526,952
+37,west north central,single-family,,2010,0.85542,953
+37,east south central,single-family,,2011,0.83562,954
+37,east south central,single-family,,2012,0.83562,955
+37,east south central,single-family,,2013,0.83562,956
+37,east south central,single-family,,2014,0.83562,957
+37,pacific,single-family,,2014,0.833,958
+37,pacific,single-family,,2017,0.8556,959
+37,new england,single-family,,2011,0.955289,960
+37,new england,single-family,,2012,0.955289,961
+37,new england,single-family,,2013,0.955289,962
+37,new england,single-family,,2014,0.955289,963
+37,new england,single-family,,2010,0.95561,964
+37,new england,single-family,,2017,0.9629,965
+37,new england,mobile home,,2010,1.0437,966
+37,south atlantic,mobile home,,2010,1.00924,967
+37,south atlantic,mobile home,,2011,1.01326,968
+37,south atlantic,mobile home,,2012,1.01326,969
+37,south atlantic,mobile home,,2013,1.01326,970
+37,south atlantic,mobile home,,2014,1.01326,971
+37,south atlantic,mobile home,,2017,1.0437,972
+37,east south central,mobile home,,2010,1.01736,973
+37,east south central,mobile home,,2011,1.01874,974
+37,east south central,mobile home,,2012,1.01874,975
+37,east south central,mobile home,,2013,1.01874,976
+37,east south central,mobile home,,2014,1.01874,977
+37,west south central,mobile home,,2010,1.00552,978
+37,west south central,mobile home,,2011,1.01219,979
+37,west south central,mobile home,,2012,1.01219,980
+37,west south central,mobile home,,2013,1.01219,981
+37,west south central,mobile home,,2014,1.01219,982
+37,mountain,mobile home,,2010,1.0437,983
+37,new england,multi-family,,2010,1.13433,984
+37,middle atlantic,mobile home,,2010,1.126,985
+37,east north central,multi-family,,2010,1.05876,986
+37,east north central,mobile home,,2010,1.0803,987
+37,west north central,mobile home,,2010,1.058,988
+37,west north central,multi-family,,2010,1.1483,989
+37,south atlantic,multi-family,,2010,1.07889,990
+37,east south central,mobile home,,2017,1.0754,991
+37,east south central,multi-family,,2010,1.12474,992
+37,west south central,mobile home,,2017,1.0906,993
+37,west south central,multi-family,,2010,1.12088,994
+37,pacific,mobile home,,2010,1.08824,995
+37,pacific,mobile home,,2011,1.09054,996
+37,pacific,mobile home,,2012,1.09054,997
+37,pacific,mobile home,,2013,1.09054,998
+37,pacific,mobile home,,2014,1.09054,999
+37,pacific,mobile home,,2017,1.1437,1000
+37,middle atlantic,mobile home,,2011,1.1524,1001
+37,middle atlantic,mobile home,,2012,1.1524,1002
+37,middle atlantic,mobile home,,2013,1.1524,1003
+37,middle atlantic,mobile home,,2014,1.1524,1004
+37,middle atlantic,mobile home,,2017,1.1524,1005
+37,middle atlantic,multi-family,,2010,1.15972,1006
+37,mountain,multi-family,,2010,1.26479,1007
+37,pacific,multi-family,,2010,1.19615,1008
+38,middle atlantic,single-family,,2011,0.8766,1009
+38,middle atlantic,single-family,,2012,0.8766,1010
+38,middle atlantic,single-family,,2010,0.882127,1011
+38,east north central,single-family,,2011,0.943,1012
+38,east north central,single-family,,2012,0.943,1013
+38,east north central,single-family,,2010,0.953418,1014
+38,west north central,single-family,,2011,0.8908,1015
+38,west north central,single-family,,2012,0.8908,1016
+38,west north central,single-family,,2010,0.899927,1017
+38,east south central,single-family,,2010,0.944055,1018
+38,west south central,single-family,,2010,0.876764,1019
+38,mountain,single-family,,2010,0.916727,1020
+38,mountain,single-family,,2011,0.9198,1021
+38,mountain,single-family,,2012,0.9198,1022
+38,pacific,single-family,,2010,0.947782,1023
+38,pacific,single-family,,2011,0.9529,1024
+38,pacific,single-family,,2012,0.9529,1025
+38,new england,single-family,,2010,1.0176,1026
+38,new england,single-family,,2011,1.0176,1027
+38,new england,single-family,,2012,1.0176,1028
+38,new england,mobile home,,2010,1.05331,1029
+38,south atlantic,single-family,,2010,0.957645,1030
+38,mountain,mobile home,,2011,1.0437,1031
+38,mountain,mobile home,,2012,1.0437,1032
+38,mountain,mobile home,,2010,1.05046,1033
+38,new england,multi-family,,2010,1.14877,1034
+38,middle atlantic,mobile home,,2010,1.14676,1035
+38,east north central,mobile home,,2011,1.0837,1036
+38,east north central,mobile home,,2012,1.0837,1037
+38,east north central,mobile home,,2010,1.08948,1038
+38,east north central,multi-family,,2010,1.09687,1039
+38,west north central,mobile home,,2010,1.06015,1040
+38,south atlantic,mobile home,,2010,1.06924,1041
+38,south atlantic,multi-family,,2010,1.10713,1042
+38,east south central,mobile home,,2010,1.07072,1043
+38,east south central,mobile home,,2011,1.0834,1044
+38,east south central,mobile home,,2012,1.0834,1045
+38,east south central,multi-family,,2010,1.14742,1046
+38,west south central,mobile home,,2010,1.08495,1047
+38,pacific,mobile home,,2010,1.14752,1048
+38,middle atlantic,mobile home,,2011,1.1524,1049
+38,middle atlantic,mobile home,,2012,1.1524,1050
+38,middle atlantic,multi-family,,2010,1.18489,1051
+38,west north central,multi-family,,2010,1.17614,1052
+38,west south central,multi-family,,2010,1.16085,1053
+38,mountain,multi-family,,2010,1.27523,1054
+38,pacific,mobile home,,2011,1.1562,1055
+38,pacific,mobile home,,2012,1.1562,1056
+38,pacific,multi-family,,2010,1.21642,1057
+39,west north central,single-family,,2010,0.871855,1058
+39,west north central,single-family,,2016,0.871855,1059
+39,new england,single-family,,2010,1.03091,1060
+39,new england,single-family,,2012,1.03091,1061
+39,middle atlantic,single-family,,2010,0.955964,1062
+39,middle atlantic,single-family,,2012,0.955964,1063
+39,east north central,single-family,,2010,0.961264,1064
+39,east north central,single-family,,2014,0.961264,1065
+39,west south central,single-family,,2010,1.03884,1066
+39,west south central,single-family,,2016,1.03884,1067
+39,mountain,single-family,,2010,1.00922,1068
+39,mountain,single-family,,2015,1.00922,1069
+39,new england,mobile home,,2010,1.14366,1070
+39,east north central,multi-family,,2010,1.1355,1071
+39,west north central,mobile home,,2010,1.14543,1072
+39,south atlantic,single-family,,2010,1.10063,1073
+39,south atlantic,single-family,,2013,1.10063,1074
+39,east south central,single-family,,2010,1.1336,1075
+39,east south central,single-family,,2017,1.1336,1076
+39,pacific,single-family,,2010,1.12294,1077
+39,pacific,single-family,,2011,1.12294,1078
+39,new england,multi-family,,2010,1.19334,1079
+39,middle atlantic,multi-family,,2010,1.2256,1080
+39,middle atlantic,mobile home,,2010,1.25188,1081
+39,east north central,mobile home,,2010,1.23299,1082
+39,west north central,multi-family,,2010,1.22216,1083
+39,south atlantic,multi-family,,2010,1.16945,1084
+39,south atlantic,mobile home,,2010,1.17188,1085
+39,east south central,mobile home,,2010,1.18158,1086
+39,east south central,multi-family,,2010,1.22434,1087
+39,west south central,mobile home,,2010,1.15943,1088
+39,west south central,multi-family,,2010,1.21327,1089
+39,mountain,mobile home,,2010,1.21943,1090
+39,mountain,multi-family,,2010,1.33765,1091
+39,pacific,mobile home,,2010,1.26425,1092
+39,pacific,multi-family,,2010,1.28533,1093
+40,middle atlantic,single-family,,2017,0.8116,1094
+40,middle atlantic,single-family,,2010,0.81504,1095
+40,middle atlantic,single-family,,2011,0.81504,1096
+40,middle atlantic,single-family,,2012,0.81504,1097
+40,middle atlantic,single-family,,2013,0.81504,1098
+40,middle atlantic,single-family,,2014,0.81504,1099
+40,south atlantic,single-family,,2017,0.71955,1100
+40,south atlantic,single-family,,2010,0.72911,1101
+40,south atlantic,single-family,,2011,0.72911,1102
+40,south atlantic,single-family,,2012,0.72911,1103
+40,south atlantic,single-family,,2013,0.72911,1104
+40,south atlantic,single-family,,2014,0.72911,1105
+40,east south central,single-family,,2017,0.705,1106
+40,east south central,single-family,,2010,0.75372,1107
+40,east south central,single-family,,2011,0.75372,1108
+40,east south central,single-family,,2012,0.75372,1109
+40,east south central,single-family,,2013,0.75372,1110
+40,east south central,single-family,,2014,0.75372,1111
+40,west south central,single-family,,2017,0.65305,1112
+40,west south central,single-family,,2010,0.65333,1113
+40,west south central,single-family,,2011,0.65333,1114
+40,west south central,single-family,,2012,0.65333,1115
+40,west south central,single-family,,2013,0.65333,1116
+40,west south central,single-family,,2014,0.65333,1117
+40,mountain,single-family,,2017,0.7696,1118
+40,mountain,single-family,,2010,0.779822,1119
+40,mountain,single-family,,2011,0.779822,1120
+40,mountain,single-family,,2012,0.779822,1121
+40,mountain,single-family,,2013,0.779822,1122
+40,mountain,single-family,,2014,0.779822,1123
+40,pacific,single-family,,2017,0.7595,1124
+40,pacific,single-family,,2010,0.76014,1125
+40,pacific,single-family,,2011,0.76014,1126
+40,pacific,single-family,,2012,0.76014,1127
+40,pacific,single-family,,2013,0.76014,1128
+40,pacific,single-family,,2014,0.76014,1129
+40,new england,single-family,,2017,0.95,1130
+40,east north central,single-family,,2017,0.8796,1131
+40,east north central,single-family,,2010,0.8934,1132
+40,east north central,single-family,,2011,0.8934,1133
+40,east north central,single-family,,2012,0.8934,1134
+40,east north central,single-family,,2013,0.8934,1135
+40,east north central,single-family,,2014,0.8934,1136
+40,west north central,single-family,,2017,0.8477,1137
+40,west north central,single-family,,2010,0.861725,1138
+40,west north central,single-family,,2011,0.861725,1139
+40,west north central,single-family,,2012,0.861725,1140
+40,west north central,single-family,,2013,0.861725,1141
+40,west north central,single-family,,2014,0.861725,1142
+40,new england,single-family,,2010,0.962,1143
+40,new england,single-family,,2011,0.962,1144
+40,new england,single-family,,2012,0.962,1145
+40,new england,single-family,,2013,0.962,1146
+40,new england,single-family,,2014,0.962,1147
+40,east north central,multi-family,,2010,1.00585,1148
+40,south atlantic,mobile home,,2010,0.974533,1149
+40,south atlantic,mobile home,,2011,0.974533,1150
+40,south atlantic,mobile home,,2012,0.974533,1151
+40,south atlantic,mobile home,,2013,0.974533,1152
+40,south atlantic,mobile home,,2014,0.974533,1153
+40,south atlantic,mobile home,,2017,0.9812,1154
+40,south atlantic,multi-family,,2010,1.03181,1155
+40,east south central,mobile home,,2011,0.976786,1156
+40,east south central,mobile home,,2012,0.976786,1157
+40,east south central,mobile home,,2013,0.976786,1158
+40,east south central,mobile home,,2014,0.976786,1159
+40,east south central,mobile home,,2010,0.977589,1160
+40,east south central,mobile home,,2017,0.9881,1161
+40,east south central,multi-family,,2010,1.05338,1162
+40,west south central,mobile home,,2010,0.9774,1163
+40,west south central,mobile home,,2011,0.9774,1164
+40,west south central,mobile home,,2012,0.9774,1165
+40,west south central,mobile home,,2013,0.9774,1166
+40,west south central,mobile home,,2014,0.9774,1167
+40,west south central,mobile home,,2017,0.989,1168
+40,west south central,multi-family,,2010,1.05669,1169
+40,new england,multi-family,,2010,1.12346,1170
+40,middle atlantic,mobile home,,2010,1.1306,1171
+40,middle atlantic,mobile home,,2011,1.1306,1172
+40,middle atlantic,mobile home,,2012,1.1306,1173
+40,middle atlantic,mobile home,,2013,1.1306,1174
+40,middle atlantic,mobile home,,2014,1.1306,1175
+40,middle atlantic,mobile home,,2017,1.1306,1176
+40,middle atlantic,multi-family,,2010,1.14016,1177
+40,west north central,multi-family,,2010,1.14813,1178
+40,pacific,mobile home,,2010,1.06737,1179
+40,pacific,mobile home,,2011,1.06737,1180
+40,pacific,mobile home,,2012,1.06737,1181
+40,pacific,mobile home,,2013,1.06737,1182
+40,pacific,mobile home,,2014,1.06737,1183
+40,pacific,mobile home,,2017,1.0687,1184
+40,pacific,multi-family,,2010,1.11725,1185
+40,mountain,multi-family,,2010,1.20892,1186
+30,east north central,single-family,,2011,0.4728,1187
+30,east north central,single-family,,2012,0.4728,1188
+30,east north central,single-family,,2013,0.4728,1189
+30,east north central,single-family,,2014,0.4728,1190
+30,east north central,single-family,,2017,0.4728,1191
+30,west north central,single-family,,2011,0.4752,1192
+30,west north central,single-family,,2012,0.4752,1193
+30,west north central,single-family,,2013,0.4752,1194
+30,west north central,single-family,,2014,0.4752,1195
+30,west north central,single-family,,2017,0.4752,1196
+30,mountain,single-family,,2011,0.4979,1197
+30,mountain,single-family,,2012,0.4979,1198
+30,mountain,single-family,,2013,0.4979,1199
+30,mountain,single-family,,2014,0.4979,1200
+30,mountain,single-family,,2017,0.4979,1201
+30,east south central,single-family,,2011,0.5081,1202
+30,east south central,single-family,,2012,0.5081,1203
+30,east south central,single-family,,2013,0.5081,1204
+30,east south central,single-family,,2014,0.5081,1205
+30,east south central,single-family,,2017,0.5081,1206
+30,new england,single-family,,2011,0.5092,1207
+30,new england,single-family,,2012,0.5092,1208
+30,new england,single-family,,2013,0.5092,1209
+30,new england,single-family,,2014,0.5092,1210
+30,new england,single-family,,2017,0.5092,1211
+30,east north central,single-family,,2010,0.516464,1212
+30,west north central,single-family,,2010,0.522009,1213
+30,mountain,single-family,,2010,0.549691,1214
+30,new england,single-family,,2010,0.559636,1215
+30,middle atlantic,single-family,,2011,0.5807,1216
+30,middle atlantic,single-family,,2012,0.5807,1217
+30,middle atlantic,single-family,,2013,0.5807,1218
+30,middle atlantic,single-family,,2014,0.5807,1219
+30,middle atlantic,single-family,,2017,0.5807,1220
+30,middle atlantic,single-family,,2010,0.620355,1221
+30,south atlantic,single-family,,2010,0.659536,1222
+30,south atlantic,multi-family,,2010,0.688727,1223
+30,west north central,mobile home,,2010,0.7247,1224
+30,east south central,single-family,,2010,0.725309,1225
+30,west south central,single-family,,2010,0.745709,1226
+30,new england,mobile home,,2010,0.7752,1227
+30,east south central,mobile home,,2011,0.785,1228
+30,east south central,mobile home,,2012,0.785,1229
+30,east south central,mobile home,,2013,0.785,1230
+30,east south central,mobile home,,2014,0.785,1231
+30,east south central,mobile home,,2017,0.785,1232
+30,east north central,mobile home,,2010,0.7941,1233
+30,south atlantic,mobile home,,2010,0.806609,1234
+30,pacific,multi-family,,2010,0.807245,1235
+30,mountain,mobile home,,2010,0.8138,1236
+30,east south central,mobile home,,2010,0.817855,1237
+30,pacific,mobile home,,2010,0.826391,1238
+30,pacific,mobile home,,2011,0.8276,1239
+30,pacific,mobile home,,2012,0.8276,1240
+30,pacific,mobile home,,2013,0.8276,1241
+30,pacific,mobile home,,2014,0.8276,1242
+30,pacific,mobile home,,2017,0.8276,1243
+30,middle atlantic,mobile home,,2010,0.828025,1244
+30,east north central,multi-family,,2010,0.836327,1245
+30,middle atlantic,mobile home,,2011,0.843,1246
+30,middle atlantic,mobile home,,2012,0.843,1247
+30,middle atlantic,mobile home,,2013,0.843,1248
+30,middle atlantic,mobile home,,2014,0.843,1249
+30,middle atlantic,mobile home,,2017,0.843,1250
+30,pacific,single-family,,2011,0.8482,1251
+30,pacific,single-family,,2012,0.8482,1252
+30,pacific,single-family,,2013,0.8482,1253
+30,pacific,single-family,,2014,0.8482,1254
+30,pacific,single-family,,2017,0.8482,1255
+30,pacific,single-family,,2010,0.863273,1256
+30,west south central,mobile home,,2010,0.864555,1257
+30,new england,multi-family,,2010,0.941345,1258
+30,mountain,multi-family,,2010,0.948327,1259
+30,middle atlantic,multi-family,,2010,0.965373,1260
+30,west north central,multi-family,,2010,0.973136,1261
+30,east south central,multi-family,,2010,1.03751,1262
+30,west south central,multi-family,,2010,1.20955,1263
+31,south atlantic,single-family,,2010,0.427764,1264
+31,west north central,single-family,,2017,0.4342,1265
+31,south atlantic,single-family,,2011,0.43422,1266
+31,south atlantic,single-family,,2012,0.43422,1267
+31,south atlantic,single-family,,2013,0.43422,1268
+31,south atlantic,single-family,,2014,0.43422,1269
+31,east north central,single-family,,2017,0.4397,1270
+31,east north central,single-family,,2010,0.45768,1271
+31,mountain,single-family,,2010,0.45809,1272
+31,mountain,single-family,,2011,0.458956,1273
+31,mountain,single-family,,2012,0.458956,1274
+31,mountain,single-family,,2013,0.458956,1275
+31,mountain,single-family,,2014,0.458956,1276
+31,west north central,single-family,,2010,0.45966,1277
+31,east north central,single-family,,2011,0.4622,1278
+31,east north central,single-family,,2012,0.4622,1279
+31,east north central,single-family,,2013,0.4622,1280
+31,east north central,single-family,,2014,0.4622,1281
+31,west north central,single-family,,2011,0.463825,1282
+31,west north central,single-family,,2012,0.463825,1283
+31,west north central,single-family,,2013,0.463825,1284
+31,west north central,single-family,,2014,0.463825,1285
+31,new england,single-family,,2017,0.4639,1286
+31,mountain,single-family,,2017,0.4651,1287
+31,new england,single-family,,2010,0.46837,1288
+31,new england,single-family,,2011,0.469644,1289
+31,new england,single-family,,2012,0.469644,1290
+31,new england,single-family,,2013,0.469644,1291
+31,new england,single-family,,2014,0.469644,1292
+31,west south central,single-family,,2010,0.483409,1293
+31,west south central,single-family,,2011,0.48979,1294
+31,west south central,single-family,,2012,0.48979,1295
+31,west south central,single-family,,2013,0.48979,1296
+31,west south central,single-family,,2014,0.48979,1297
+31,east south central,single-family,,2017,0.5011,1298
+31,west south central,single-family,,2017,0.5024,1299
+31,south atlantic,single-family,,2017,0.51265,1300
+31,middle atlantic,single-family,,2010,0.51289,1301
+31,middle atlantic,single-family,,2011,0.51289,1302
+31,middle atlantic,single-family,,2012,0.51289,1303
+31,middle atlantic,single-family,,2013,0.51289,1304
+31,middle atlantic,single-family,,2014,0.51289,1305
+31,middle atlantic,single-family,,2017,0.52115,1306
+31,east south central,single-family,,2010,0.555718,1307
+31,south atlantic,multi-family,,2010,0.5605,1308
+31,east south central,single-family,,2011,0.56283,1309
+31,east south central,single-family,,2012,0.56283,1310
+31,east south central,single-family,,2013,0.56283,1311
+31,east south central,single-family,,2014,0.56283,1312
+31,pacific,single-family,,2010,0.566491,1313
+31,pacific,single-family,,2011,0.57496,1314
+31,pacific,single-family,,2012,0.57496,1315
+31,pacific,single-family,,2013,0.57496,1316
+31,pacific,single-family,,2014,0.57496,1317
+31,pacific,single-family,,2017,0.65395,1318
+31,new england,mobile home,,2010,0.6841,1319
+31,west north central,mobile home,,2010,0.6904,1320
+31,mountain,mobile home,,2010,0.7586,1321
+31,south atlantic,mobile home,,2017,0.7619,1322
+31,middle atlantic,mobile home,,2010,0.764314,1323
+31,east north central,mobile home,,2010,0.765,1324
+31,east south central,mobile home,,2017,0.785,1325
+31,west south central,mobile home,,2010,0.787091,1326
+31,east north central,multi-family,,2010,0.787145,1327
+31,west south central,mobile home,,2011,0.802478,1328
+31,west south central,mobile home,,2012,0.802478,1329
+31,west south central,mobile home,,2013,0.802478,1330
+31,west south central,mobile home,,2014,0.802478,1331
+31,east south central,mobile home,,2010,0.80878,1332
+31,east south central,mobile home,,2011,0.816671,1333
+31,east south central,mobile home,,2012,0.816671,1334
+31,east south central,mobile home,,2013,0.816671,1335
+31,east south central,mobile home,,2014,0.816671,1336
+31,south atlantic,mobile home,,2010,0.81946,1337
+31,pacific,mobile home,,2017,0.8276,1338
+31,south atlantic,mobile home,,2011,0.8291,1339
+31,south atlantic,mobile home,,2012,0.8291,1340
+31,south atlantic,mobile home,,2013,0.8291,1341
+31,south atlantic,mobile home,,2014,0.8291,1342
+31,middle atlantic,mobile home,,2011,0.843,1343
+31,middle atlantic,mobile home,,2012,0.843,1344
+31,middle atlantic,mobile home,,2013,0.843,1345
+31,middle atlantic,mobile home,,2014,0.843,1346
+31,middle atlantic,mobile home,,2017,0.843,1347
+31,new england,multi-family,,2010,0.8632,1348
+31,west south central,multi-family,,2010,0.872618,1349
+31,pacific,mobile home,,2010,0.88061,1350
+31,west south central,mobile home,,2017,0.8925,1351
+31,pacific,mobile home,,2011,0.892533,1352
+31,pacific,mobile home,,2012,0.892533,1353
+31,pacific,mobile home,,2013,0.892533,1354
+31,pacific,mobile home,,2014,0.892533,1355
+31,middle atlantic,multi-family,,2010,0.896282,1356
+31,pacific,multi-family,,2010,0.902318,1357
+31,west north central,multi-family,,2010,0.918745,1358
+31,mountain,multi-family,,2010,0.922655,1359
+31,east south central,multi-family,,2010,1.07719,1360
+32,west north central,single-family,,2011,0.5097,1361
+32,west north central,single-family,,2012,0.5097,1362
+32,new england,single-family,,2011,0.5226,1363
+32,new england,single-family,,2012,0.5226,1364
+32,east north central,single-family,,2011,0.5314,1365
+32,east north central,single-family,,2012,0.5314,1366
+32,west north central,single-family,,2010,0.567736,1367
+32,mountain,single-family,,2011,0.568,1368
+32,mountain,single-family,,2012,0.568,1369
+32,east north central,single-family,,2010,0.579045,1370
+32,new england,single-family,,2010,0.585782,1371
+32,mountain,single-family,,2010,0.595745,1372
+32,south atlantic,multi-family,,2010,0.640145,1373
+32,middle atlantic,single-family,,2011,0.6681,1374
+32,middle atlantic,single-family,,2012,0.6681,1375
+32,new england,mobile home,,2010,0.694064,1376
+32,west north central,mobile home,,2010,0.694882,1377
+32,middle atlantic,single-family,,2010,0.699809,1378
+32,mountain,mobile home,,2011,0.7558,1379
+32,mountain,mobile home,,2012,0.7558,1380
+32,east north central,mobile home,,2011,0.7583,1381
+32,east north central,mobile home,,2012,0.7583,1382
+32,mountain,mobile home,,2010,0.766236,1383
+32,south atlantic,single-family,,2010,0.772009,1384
+32,east north central,mobile home,,2010,0.772555,1385
+32,east south central,mobile home,,2011,0.7964,1386
+32,east south central,mobile home,,2012,0.7964,1387
+32,new england,multi-family,,2010,0.824891,1388
+32,south atlantic,mobile home,,2010,0.829036,1389
+32,east south central,mobile home,,2010,0.843227,1390
+32,pacific,mobile home,,2011,0.8433,1391
+32,pacific,mobile home,,2012,0.8433,1392
+32,middle atlantic,mobile home,,2010,0.843582,1393
+32,east north central,multi-family,,2010,0.843627,1394
+32,pacific,mobile home,,2010,0.851464,1395
+32,middle atlantic,mobile home,,2011,0.8564,1396
+32,middle atlantic,mobile home,,2012,0.8564,1397
+32,pacific,multi-family,,2010,0.859136,1398
+32,east south central,single-family,,2010,0.869864,1399
+32,west south central,mobile home,,2010,0.876127,1400
+32,west south central,single-family,,2010,0.882791,1401
+32,mountain,multi-family,,2010,0.954955,1402
+32,pacific,single-family,,2011,0.9617,1403
+32,pacific,single-family,,2012,0.9617,1404
+32,pacific,single-family,,2010,0.975382,1405
+32,middle atlantic,multi-family,,2010,0.979055,1406
+32,west south central,multi-family,,2010,0.983773,1407
+32,west north central,multi-family,,2010,0.9942,1408
+32,east south central,multi-family,,2010,1.01047,1409
+33,west north central,single-family,,2010,0.874436,1410
+33,west north central,single-family,,2016,0.874436,1411
+33,new england,single-family,,2010,0.897836,1412
+33,new england,single-family,,2012,0.897836,1413
+33,south atlantic,single-family,,2010,0.909218,1414
+33,south atlantic,single-family,,2013,0.909218,1415
+33,east north central,single-family,,2010,0.931982,1416
+33,east north central,single-family,,2014,0.931982,1417
+33,west north central,mobile home,,2010,0.961145,1418
+33,new england,mobile home,,2010,0.961309,1419
+33,mountain,single-family,,2010,0.977964,1420
+33,mountain,single-family,,2015,0.977964,1421
+33,middle atlantic,single-family,,2010,1.00594,1422
+33,middle atlantic,single-family,,2012,1.00594,1423
+33,east south central,mobile home,,2010,1.01308,1424
+33,mountain,mobile home,,2010,1.02003,1425
+33,east south central,single-family,,2010,1.02689,1426
+33,east south central,single-family,,2017,1.02689,1427
+33,west south central,mobile home,,2010,1.03611,1428
+33,west south central,single-family,,2010,1.04705,1429
+33,west south central,single-family,,2016,1.04705,1430
+33,south atlantic,mobile home,,2010,1.07304,1431
+33,middle atlantic,mobile home,,2010,1.09462,1432
+33,pacific,mobile home,,2010,1.09503,1433
+33,east north central,mobile home,,2010,1.10399,1434
+33,pacific,single-family,,2010,1.11829,1435
+33,pacific,single-family,,2011,1.11829,1436
+33,east north central,multi-family,,2010,1.19247,1437
+33,new england,multi-family,,2010,1.34418,1438
+33,middle atlantic,multi-family,,2010,1.3556,1439
+33,west north central,multi-family,,2010,1.44968,1440
+33,south atlantic,multi-family,,2010,1.6588,1441
+33,mountain,multi-family,,2010,1.67849,1442
+33,east south central,multi-family,,2010,1.80351,1443
+33,west south central,multi-family,,2010,2.0,1444
+33,pacific,multi-family,,2010,2.0,1445
+34,south atlantic,single-family,,2010,0.32819,1446
+34,south atlantic,single-family,,2011,0.32819,1447
+34,south atlantic,single-family,,2012,0.32819,1448
+34,south atlantic,single-family,,2013,0.32819,1449
+34,south atlantic,single-family,,2014,0.32819,1450
+34,south atlantic,single-family,,2017,0.3297,1451
+34,east south central,single-family,,2017,0.34425,1452
+34,west south central,single-family,,2010,0.3571,1453
+34,west south central,single-family,,2011,0.3571,1454
+34,west south central,single-family,,2012,0.3571,1455
+34,west south central,single-family,,2013,0.3571,1456
+34,west south central,single-family,,2014,0.3571,1457
+34,west south central,single-family,,2017,0.36785,1458
+34,east north central,single-family,,2017,0.3816,1459
+34,west north central,single-family,,2017,0.3829,1460
+34,new england,single-family,,2017,0.3837,1461
+34,pacific,single-family,,2010,0.3956,1462
+34,pacific,single-family,,2011,0.3956,1463
+34,pacific,single-family,,2012,0.3956,1464
+34,pacific,single-family,,2013,0.3956,1465
+34,pacific,single-family,,2014,0.3956,1466
+34,pacific,single-family,,2017,0.3961,1467
+34,east south central,single-family,,2010,0.40302,1468
+34,east south central,single-family,,2011,0.40302,1469
+34,east south central,single-family,,2012,0.40302,1470
+34,east south central,single-family,,2013,0.40302,1471
+34,east south central,single-family,,2014,0.40302,1472
+34,mountain,single-family,,2017,0.4109,1473
+34,east north central,single-family,,2010,0.421575,1474
+34,east north central,single-family,,2011,0.421575,1475
+34,east north central,single-family,,2012,0.421575,1476
+34,east north central,single-family,,2013,0.421575,1477
+34,east north central,single-family,,2014,0.421575,1478
+34,mountain,single-family,,2010,0.427667,1479
+34,mountain,single-family,,2011,0.427667,1480
+34,mountain,single-family,,2012,0.427667,1481
+34,mountain,single-family,,2013,0.427667,1482
+34,mountain,single-family,,2014,0.427667,1483
+34,west north central,single-family,,2010,0.427825,1484
+34,west north central,single-family,,2011,0.427825,1485
+34,west north central,single-family,,2012,0.427825,1486
+34,west north central,single-family,,2013,0.427825,1487
+34,west north central,single-family,,2014,0.427825,1488
+34,new england,single-family,,2010,0.435489,1489
+34,new england,single-family,,2011,0.435489,1490
+34,new england,single-family,,2012,0.435489,1491
+34,new england,single-family,,2013,0.435489,1492
+34,new england,single-family,,2014,0.435489,1493
+34,middle atlantic,single-family,,2017,0.443,1494
+34,south atlantic,multi-family,,2010,0.4438,1495
+34,east south central,multi-family,,2010,0.4438,1496
+34,west south central,multi-family,,2010,0.4438,1497
+34,pacific,multi-family,,2010,0.4438,1498
+34,middle atlantic,single-family,,2010,0.45592,1499
+34,middle atlantic,single-family,,2011,0.45592,1500
+34,middle atlantic,single-family,,2012,0.45592,1501
+34,middle atlantic,single-family,,2013,0.45592,1502
+34,middle atlantic,single-family,,2014,0.45592,1503
+34,mountain,multi-family,,2010,0.545355,1504
+34,east north central,multi-family,,2010,0.55524,1505
+34,middle atlantic,multi-family,,2010,0.56132,1506
+34,new england,multi-family,,2010,0.58207,1507
+34,west north central,multi-family,,2010,0.62093,1508
+34,east south central,mobile home,,2017,0.7055,1509
+34,west south central,mobile home,,2010,0.719067,1510
+34,west south central,mobile home,,2011,0.719067,1511
+34,west south central,mobile home,,2012,0.719067,1512
+34,west south central,mobile home,,2013,0.719067,1513
+34,west south central,mobile home,,2014,0.719067,1514
+34,west south central,mobile home,,2017,0.7195,1515
+34,east south central,mobile home,,2010,0.723767,1516
+34,east south central,mobile home,,2011,0.724957,1517
+34,east south central,mobile home,,2012,0.724957,1518
+34,east south central,mobile home,,2013,0.724957,1519
+34,east south central,mobile home,,2014,0.724957,1520
+34,south atlantic,mobile home,,2010,0.726544,1521
+34,south atlantic,mobile home,,2011,0.726544,1522
+34,south atlantic,mobile home,,2012,0.726544,1523
+34,south atlantic,mobile home,,2013,0.726544,1524
+34,south atlantic,mobile home,,2014,0.726544,1525
+34,south atlantic,mobile home,,2017,0.7274,1526
+34,middle atlantic,mobile home,,2010,0.7497,1527
+34,middle atlantic,mobile home,,2011,0.7497,1528
+34,middle atlantic,mobile home,,2012,0.7497,1529
+34,middle atlantic,mobile home,,2013,0.7497,1530
+34,middle atlantic,mobile home,,2014,0.7497,1531
+34,middle atlantic,mobile home,,2017,0.7497,1532
+34,pacific,mobile home,,2017,0.7651,1533
+34,pacific,mobile home,,2010,0.774267,1534
+34,pacific,mobile home,,2011,0.774267,1535
+34,pacific,mobile home,,2012,0.774267,1536
+34,pacific,mobile home,,2013,0.774267,1537
+34,pacific,mobile home,,2014,0.774267,1538
+24,us,,,2015,1.0,1539
+41,new england,assembly,,2004,0.967,1540
+41,new england,education,,2004,0.922,1541
+41,new england,food sales,,2004,0.992,1542
+41,new england,food service,,2004,0.977,1543
+41,new england,health,,2004,0.97,1544
+41,new england,lodging,,2004,0.967,1545
+41,new england,merc/service,,2004,0.981,1546
+41,new england,office-large,,2004,0.884,1547
+41,new england,office-small,,2004,0.968,1548
+41,new england,other,,2004,0.805,1549
+41,new england,warehouse,,2004,0.955,1550
+41,middle atlantic,assembly,,2004,0.852,1551
+41,middle atlantic,education,,2004,0.834,1552
+41,middle atlantic,food sales,,2004,0.97,1553
+41,middle atlantic,food service,,2004,0.984,1554
+41,middle atlantic,health,,2004,0.93,1555
+41,middle atlantic,lodging,,2004,0.925,1556
+41,middle atlantic,merc/service,,2004,0.887,1557
+41,middle atlantic,office-large,,2004,0.797,1558
+41,middle atlantic,office-small,,2004,0.9,1559
+41,middle atlantic,other,,2004,0.871,1560
+41,middle atlantic,warehouse,,2004,0.918,1561
+41,east north central,assembly,,2004,0.982,1562
+41,east north central,education,,2004,0.921,1563
+41,east north central,food sales,,2004,1.007,1564
+41,east north central,food service,,2004,0.979,1565
+41,east north central,health,,2004,0.97,1566
+41,east north central,lodging,,2004,0.959,1567
+41,east north central,merc/service,,2004,0.993,1568
+41,east north central,office-large,,2004,0.882,1569
+41,east north central,office-small,,2004,0.941,1570
+41,east north central,other,,2004,0.802,1571
+41,east north central,warehouse,,2004,0.965,1572
+41,west north central,assembly,,2004,0.918,1573
+41,west north central,education,,2004,0.862,1574
+41,west north central,food sales,,2004,0.983,1575
+41,west north central,food service,,2004,0.979,1576
+41,west north central,health,,2004,0.937,1577
+41,west north central,lodging,,2004,0.968,1578
+41,west north central,merc/service,,2004,0.975,1579
+41,west north central,office-large,,2004,0.821,1580
+41,west north central,office-small,,2004,0.937,1581
+41,west north central,other,,2004,0.859,1582
+41,west north central,warehouse,,2004,0.912,1583
+41,south atlantic,assembly,,2004,0.877,1584
+41,south atlantic,education,,2004,0.881,1585
+41,south atlantic,food sales,,2004,0.993,1586
+41,south atlantic,food service,,2004,0.987,1587
+41,south atlantic,health,,2004,0.95,1588
+41,south atlantic,lodging,,2004,0.955,1589
+41,south atlantic,merc/service,,2004,0.886,1590
+41,south atlantic,office-large,,2004,0.883,1591
+41,south atlantic,office-small,,2004,0.971,1592
+41,south atlantic,other,,2004,0.846,1593
+41,south atlantic,warehouse,,2004,0.912,1594
+41,east south central,assembly,,2004,0.71,1595
+41,east south central,education,,2004,0.724,1596
+41,east south central,food sales,,2004,0.955,1597
+41,east south central,food service,,2004,0.985,1598
+41,east south central,health,,2004,0.925,1599
+41,east south central,lodging,,2004,0.92,1600
+41,east south central,merc/service,,2004,0.821,1601
+41,east south central,office-large,,2004,0.725,1602
+41,east south central,office-small,,2004,0.861,1603
+41,east south central,other,,2004,0.858,1604
+41,east south central,warehouse,,2004,0.691,1605
+41,west south central,assembly,,2004,0.731,1606
+41,west south central,education,,2004,0.831,1607
+41,west south central,food sales,,2004,0.981,1608
+41,west south central,food service,,2004,0.989,1609
+41,west south central,health,,2004,0.947,1610
+41,west south central,lodging,,2004,0.947,1611
+41,west south central,merc/service,,2004,0.791,1612
+41,west south central,office-large,,2004,0.84,1613
+41,west south central,office-small,,2004,0.899,1614
+41,west south central,other,,2004,0.794,1615
+41,west south central,warehouse,,2004,0.706,1616
+41,mountain,assembly,,2004,0.944,1617
+41,mountain,education,,2004,0.906,1618
+41,mountain,food sales,,2004,1.026,1619
+41,mountain,food service,,2004,0.986,1620
+41,mountain,health,,2004,1.021,1621
+41,mountain,lodging,,2004,1.013,1622
+41,mountain,merc/service,,2004,0.971,1623
+41,mountain,office-large,,2004,0.927,1624
+41,mountain,office-small,,2004,0.993,1625
+41,mountain,other,,2004,0.729,1626
+41,mountain,warehouse,,2004,0.893,1627
+41,pacific,assembly,,2004,0.424,1628
+41,pacific,education,,2004,0.619,1629
+41,pacific,food sales,,2004,0.99,1630
+41,pacific,food service,,2004,0.993,1631
+41,pacific,health,,2004,0.76,1632
+41,pacific,lodging,,2004,0.93,1633
+41,pacific,merc/service,,2004,0.416,1634
+41,pacific,office-large,,2004,0.656,1635
+41,pacific,office-small,,2004,0.627,1636
+41,pacific,other,,2004,0.631,1637
+41,pacific,warehouse,,2004,0.426,1638
+42,new england,assembly,,2004,0.969,1639
+42,new england,education,,2004,0.963,1640
+42,new england,food sales,,2004,0.974,1641
+42,new england,food service,,2004,1.05,1642
+42,new england,health,,2004,0.987,1643
+42,new england,lodging,,2004,1.004,1644
+42,new england,merc/service,,2004,0.983,1645
+42,new england,office-large,,2004,0.988,1646
+42,new england,office-small,,2004,1.051,1647
+42,new england,other,,2004,0.809,1648
+42,new england,warehouse,,2004,0.968,1649
+42,middle atlantic,assembly,,2004,0.892,1650
+42,middle atlantic,education,,2004,0.605,1651
+42,middle atlantic,food sales,,2004,0.938,1652
+42,middle atlantic,food service,,2004,1.032,1653
+42,middle atlantic,health,,2004,0.969,1654
+42,middle atlantic,lodging,,2004,0.986,1655
+42,middle atlantic,merc/service,,2004,0.916,1656
+42,middle atlantic,office-large,,2004,0.937,1657
+42,middle atlantic,office-small,,2004,0.955,1658
+42,middle atlantic,other,,2004,0.874,1659
+42,middle atlantic,warehouse,,2004,0.934,1660
+42,east north central,assembly,,2004,0.981,1661
+42,east north central,education,,2004,0.966,1662
+42,east north central,food sales,,2004,1.005,1663
+42,east north central,food service,,2004,1.039,1664
+42,east north central,health,,2004,0.988,1665
+42,east north central,lodging,,2004,1.031,1666
+42,east north central,merc/service,,2004,0.992,1667
+42,east north central,office-large,,2004,0.985,1668
+42,east north central,office-small,,2004,1.001,1669
+42,east north central,other,,2004,0.818,1670
+42,east north central,warehouse,,2004,0.97,1671
+42,west north central,assembly,,2004,0.929,1672
+42,west north central,education,,2004,0.914,1673
+42,west north central,food sales,,2004,0.967,1674
+42,west north central,food service,,2004,1.012,1675
+42,west north central,health,,2004,0.973,1676
+42,west north central,lodging,,2004,1.032,1677
+42,west north central,merc/service,,2004,0.969,1678
+42,west north central,office-large,,2004,0.955,1679
+42,west north central,office-small,,2004,1.038,1680
+42,west north central,other,,2004,0.853,1681
+42,west north central,warehouse,,2004,0.926,1682
+42,south atlantic,assembly,,2004,0.891,1683
+42,south atlantic,education,,2004,0.875,1684
+42,south atlantic,food sales,,2004,1.005,1685
+42,south atlantic,food service,,2004,1.021,1686
+42,south atlantic,health,,2004,0.946,1687
+42,south atlantic,lodging,,2004,0.952,1688
+42,south atlantic,merc/service,,2004,0.886,1689
+42,south atlantic,office-large,,2004,0.899,1690
+42,south atlantic,office-small,,2004,0.956,1691
+42,south atlantic,other,,2004,0.854,1692
+42,south atlantic,warehouse,,2004,0.925,1693
+42,east south central,assembly,,2004,0.867,1694
+42,east south central,education,,2004,0.75,1695
+42,east south central,food sales,,2004,0.834,1696
+42,east south central,food service,,2004,1.019,1697
+42,east south central,health,,2004,0.958,1698
+42,east south central,lodging,,2004,0.923,1699
+42,east south central,merc/service,,2004,0.886,1700
+42,east south central,office-large,,2004,0.85,1701
+42,east south central,office-small,,2004,0.91,1702
+42,east south central,other,,2004,0.866,1703
+42,east south central,warehouse,,2004,0.83,1704
+42,west south central,assembly,,2004,0.785,1705
+42,west south central,education,,2004,0.807,1706
+42,west south central,food sales,,2004,0.921,1707
+42,west south central,food service,,2004,1.017,1708
+42,west south central,health,,2004,0.968,1709
+42,west south central,lodging,,2004,0.908,1710
+42,west south central,merc/service,,2004,0.851,1711
+42,west south central,office-large,,2004,0.873,1712
+42,west south central,office-small,,2004,0.908,1713
+42,west south central,other,,2004,0.811,1714
+42,west south central,warehouse,,2004,0.772,1715
+42,mountain,assembly,,2004,0.913,1716
+42,mountain,education,,2004,0.918,1717
+42,mountain,food sales,,2004,0.98,1718
+42,mountain,food service,,2004,1.033,1719
+42,mountain,health,,2004,1.0,1720
+42,mountain,lodging,,2004,0.958,1721
+42,mountain,merc/service,,2004,0.948,1722
+42,mountain,office-large,,2004,0.923,1723
+42,mountain,office-small,,2004,0.955,1724
+42,mountain,other,,2004,0.764,1725
+42,mountain,warehouse,,2004,0.909,1726
+42,pacific,assembly,,2004,0.77,1727
+42,pacific,education,,2004,0.772,1728
+42,pacific,food sales,,2004,0.767,1729
+42,pacific,food service,,2004,1.027,1730
+42,pacific,health,,2004,0.868,1731
+42,pacific,lodging,,2004,0.987,1732
+42,pacific,merc/service,,2004,0.788,1733
+42,pacific,office-large,,2004,0.859,1734
+42,pacific,office-small,,2004,0.797,1735
+42,pacific,other,,2004,0.624,1736
+42,pacific,warehouse,,2004,0.792,1737
+41,new england,assembly,,2003,1.0,1738
+41,new england,education,,2003,1.0,1739
+41,new england,food sales,,2003,1.0,1740
+41,new england,food service,,2003,1.0,1741
+41,new england,health,,2003,1.0,1742
+41,new england,lodging,,2003,1.0,1743
+41,new england,merc/service,,2003,1.0,1744
+41,new england,office-large,,2003,1.0,1745
+41,new england,office-small,,2003,1.0,1746
+41,new england,other,,2003,1.0,1747
+41,new england,warehouse,,2003,1.0,1748
+41,middle atlantic,assembly,,2003,1.0,1749
+41,middle atlantic,education,,2003,1.0,1750
+41,middle atlantic,food sales,,2003,1.0,1751
+41,middle atlantic,food service,,2003,1.0,1752
+41,middle atlantic,health,,2003,1.0,1753
+41,middle atlantic,lodging,,2003,1.0,1754
+41,middle atlantic,merc/service,,2003,1.0,1755
+41,middle atlantic,office-large,,2003,1.0,1756
+41,middle atlantic,office-small,,2003,1.0,1757
+41,middle atlantic,other,,2003,1.0,1758
+41,middle atlantic,warehouse,,2003,1.0,1759
+41,east north central,assembly,,2003,1.0,1760
+41,east north central,education,,2003,1.0,1761
+41,east north central,food sales,,2003,1.0,1762
+41,east north central,food service,,2003,1.0,1763
+41,east north central,health,,2003,1.0,1764
+41,east north central,lodging,,2003,1.0,1765
+41,east north central,merc/service,,2003,1.0,1766
+41,east north central,office-large,,2003,1.0,1767
+41,east north central,office-small,,2003,1.0,1768
+41,east north central,other,,2003,1.0,1769
+41,east north central,warehouse,,2003,1.0,1770
+41,west north central,assembly,,2003,1.0,1771
+41,west north central,education,,2003,1.0,1772
+41,west north central,food sales,,2003,1.0,1773
+41,west north central,food service,,2003,1.0,1774
+41,west north central,health,,2003,1.0,1775
+41,west north central,lodging,,2003,1.0,1776
+41,west north central,merc/service,,2003,1.0,1777
+41,west north central,office-large,,2003,1.0,1778
+41,west north central,office-small,,2003,1.0,1779
+41,west north central,other,,2003,1.0,1780
+41,west north central,warehouse,,2003,1.0,1781
+41,south atlantic,assembly,,2003,1.0,1782
+41,south atlantic,education,,2003,1.0,1783
+41,south atlantic,food sales,,2003,1.0,1784
+41,south atlantic,food service,,2003,1.0,1785
+41,south atlantic,health,,2003,1.0,1786
+41,south atlantic,lodging,,2003,1.0,1787
+41,south atlantic,merc/service,,2003,1.0,1788
+41,south atlantic,office-large,,2003,1.0,1789
+41,south atlantic,office-small,,2003,1.0,1790
+41,south atlantic,other,,2003,1.0,1791
+41,south atlantic,warehouse,,2003,1.0,1792
+41,east south central,assembly,,2003,1.0,1793
+41,east south central,education,,2003,1.0,1794
+41,east south central,food sales,,2003,1.0,1795
+41,east south central,food service,,2003,1.0,1796
+41,east south central,health,,2003,1.0,1797
+41,east south central,lodging,,2003,1.0,1798
+41,east south central,merc/service,,2003,1.0,1799
+41,east south central,office-large,,2003,1.0,1800
+41,east south central,office-small,,2003,1.0,1801
+41,east south central,other,,2003,1.0,1802
+41,east south central,warehouse,,2003,1.0,1803
+41,west south central,assembly,,2003,1.0,1804
+41,west south central,education,,2003,1.0,1805
+41,west south central,food sales,,2003,1.0,1806
+41,west south central,food service,,2003,1.0,1807
+41,west south central,health,,2003,1.0,1808
+41,west south central,lodging,,2003,1.0,1809
+41,west south central,merc/service,,2003,1.0,1810
+41,west south central,office-large,,2003,1.0,1811
+41,west south central,office-small,,2003,1.0,1812
+41,west south central,other,,2003,1.0,1813
+41,west south central,warehouse,,2003,1.0,1814
+41,mountain,assembly,,2003,1.0,1815
+41,mountain,education,,2003,1.0,1816
+41,mountain,food sales,,2003,1.0,1817
+41,mountain,food service,,2003,1.0,1818
+41,mountain,health,,2003,1.0,1819
+41,mountain,lodging,,2003,1.0,1820
+41,mountain,merc/service,,2003,1.0,1821
+41,mountain,office-large,,2003,1.0,1822
+41,mountain,office-small,,2003,1.0,1823
+41,mountain,other,,2003,1.0,1824
+41,mountain,warehouse,,2003,1.0,1825
+41,pacific,assembly,,2003,1.0,1826
+41,pacific,education,,2003,1.0,1827
+41,pacific,food sales,,2003,1.0,1828
+41,pacific,food service,,2003,1.0,1829
+41,pacific,health,,2003,1.0,1830
+41,pacific,lodging,,2003,1.0,1831
+41,pacific,merc/service,,2003,1.0,1832
+41,pacific,office-large,,2003,1.0,1833
+41,pacific,office-small,,2003,1.0,1834
+41,pacific,other,,2003,1.0,1835
+41,pacific,warehouse,,2003,1.0,1836
+42,new england,assembly,,2003,1.0,1837
+42,new england,education,,2003,1.0,1838
+42,new england,food sales,,2003,1.0,1839
+42,new england,food service,,2003,1.0,1840
+42,new england,health,,2003,1.0,1841
+42,new england,lodging,,2003,1.0,1842
+42,new england,merc/service,,2003,1.0,1843
+42,new england,office-large,,2003,1.0,1844
+42,new england,office-small,,2003,1.0,1845
+42,new england,other,,2003,1.0,1846
+42,new england,warehouse,,2003,1.0,1847
+42,middle atlantic,assembly,,2003,1.0,1848
+42,middle atlantic,education,,2003,1.0,1849
+42,middle atlantic,food sales,,2003,1.0,1850
+42,middle atlantic,food service,,2003,1.0,1851
+42,middle atlantic,health,,2003,1.0,1852
+42,middle atlantic,lodging,,2003,1.0,1853
+42,middle atlantic,merc/service,,2003,1.0,1854
+42,middle atlantic,office-large,,2003,1.0,1855
+42,middle atlantic,office-small,,2003,1.0,1856
+42,middle atlantic,other,,2003,1.0,1857
+42,middle atlantic,warehouse,,2003,1.0,1858
+42,east north central,assembly,,2003,1.0,1859
+42,east north central,education,,2003,1.0,1860
+42,east north central,food sales,,2003,1.0,1861
+42,east north central,food service,,2003,1.0,1862
+42,east north central,health,,2003,1.0,1863
+42,east north central,lodging,,2003,1.0,1864
+42,east north central,merc/service,,2003,1.0,1865
+42,east north central,office-large,,2003,1.0,1866
+42,east north central,office-small,,2003,1.0,1867
+42,east north central,other,,2003,1.0,1868
+42,east north central,warehouse,,2003,1.0,1869
+42,west north central,assembly,,2003,1.0,1870
+42,west north central,education,,2003,1.0,1871
+42,west north central,food sales,,2003,1.0,1872
+42,west north central,food service,,2003,1.0,1873
+42,west north central,health,,2003,1.0,1874
+42,west north central,lodging,,2003,1.0,1875
+42,west north central,merc/service,,2003,1.0,1876
+42,west north central,office-large,,2003,1.0,1877
+42,west north central,office-small,,2003,1.0,1878
+42,west north central,other,,2003,1.0,1879
+42,west north central,warehouse,,2003,1.0,1880
+42,south atlantic,assembly,,2003,1.0,1881
+42,south atlantic,education,,2003,1.0,1882
+42,south atlantic,food sales,,2003,1.0,1883
+42,south atlantic,food service,,2003,1.0,1884
+42,south atlantic,health,,2003,1.0,1885
+42,south atlantic,lodging,,2003,1.0,1886
+42,south atlantic,merc/service,,2003,1.0,1887
+42,south atlantic,office-large,,2003,1.0,1888
+42,south atlantic,office-small,,2003,1.0,1889
+42,south atlantic,other,,2003,1.0,1890
+42,south atlantic,warehouse,,2003,1.0,1891
+42,east south central,assembly,,2003,1.0,1892
+42,east south central,education,,2003,1.0,1893
+42,east south central,food sales,,2003,1.0,1894
+42,east south central,food service,,2003,1.0,1895
+42,east south central,health,,2003,1.0,1896
+42,east south central,lodging,,2003,1.0,1897
+42,east south central,merc/service,,2003,1.0,1898
+42,east south central,office-large,,2003,1.0,1899
+42,east south central,office-small,,2003,1.0,1900
+42,east south central,other,,2003,1.0,1901
+42,east south central,warehouse,,2003,1.0,1902
+42,west south central,assembly,,2003,1.0,1903
+42,west south central,education,,2003,1.0,1904
+42,west south central,food sales,,2003,1.0,1905
+42,west south central,food service,,2003,1.0,1906
+42,west south central,health,,2003,1.0,1907
+42,west south central,lodging,,2003,1.0,1908
+42,west south central,merc/service,,2003,1.0,1909
+42,west south central,office-large,,2003,1.0,1910
+42,west south central,office-small,,2003,1.0,1911
+42,west south central,other,,2003,1.0,1912
+42,west south central,warehouse,,2003,1.0,1913
+42,mountain,assembly,,2003,1.0,1914
+42,mountain,education,,2003,1.0,1915
+42,mountain,food sales,,2003,1.0,1916
+42,mountain,food service,,2003,1.0,1917
+42,mountain,health,,2003,1.0,1918
+42,mountain,lodging,,2003,1.0,1919
+42,mountain,merc/service,,2003,1.0,1920
+42,mountain,office-large,,2003,1.0,1921
+42,mountain,office-small,,2003,1.0,1922
+42,mountain,other,,2003,1.0,1923
+42,mountain,warehouse,,2003,1.0,1924
+42,pacific,assembly,,2003,1.0,1925
+42,pacific,education,,2003,1.0,1926
+42,pacific,food sales,,2003,1.0,1927
+42,pacific,food service,,2003,1.0,1928
+42,pacific,health,,2003,1.0,1929
+42,pacific,lodging,,2003,1.0,1930
+42,pacific,merc/service,,2003,1.0,1931
+42,pacific,office-large,,2003,1.0,1932
+42,pacific,office-small,,2003,1.0,1933
+42,pacific,other,,2003,1.0,1934
+42,pacific,warehouse,,2003,1.0,1935
+43,us,,,2015,0.0,2134
+44,us,,,2015,0.0,2135
+45,us,,,2009,0.33,2136
+45,us,,,2013,0.25,2137
+46,us,,,2013,0.217,2138
+47,us,,,2009,0.44,2139
+47,us,,,2013,0.45,2140
+47,us,,,2020,0.336,2141
+48,us,,,2009,0.10355,2142
+48,us,,,2013,0.041,2143
+49,us,,,2013,0.0519,2144
+50,us,,,2009,0.3033,2145
+50,us,,,2020,0.182857,2146
+51,us,,,2009,0.0,2147
+53,us,,,2009,0.0,2149
+54,us,,,2009,0.0,2150
+55,us,,,2009,0.0,2151
+56,us,,,2015,0.0,2152
+57,us,,,2015,0.0,2153
+14,us,,,2009,1.0,20
+58,us,,,2009,1.0,2154

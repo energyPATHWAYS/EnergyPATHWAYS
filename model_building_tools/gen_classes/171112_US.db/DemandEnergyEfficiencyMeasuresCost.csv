@@ -1,0 +1,4 @@
+parent,currency,currency_year_id,cost_denominator_unit,cost_of_capital,is_levelized,geography,other_index_1,other_index_2,interpolation_method,extrapolation_method,extrapolation_growth
+Aviation Efficiency - IATA Roadmap 2% increase per-annum,USD,2014,mmBtu,0.1,True,us,,,linear_interpolation,nearest,
+Commercial Other Reduction,USD,2014,mmBtu,0.1,True,us,,,linear_interpolation,nearest,
+NY Commercial Other Electricity Baseline Adjustment,USD,2014,mmBtu,0.1,True,state,,,linear_interpolation,nearest,

@@ -1,0 +1,281 @@
+name,other_index
+total,total
+buildings - other,end uses
+irrigation,end uses
+"undifferentiated use, applies to all mining industries, construction and refining",end uses
+buildings - lighting,end uses
+buildings - hvac,end uses
+buildings - support,end uses
+proccess - heat,end uses
+proccess - refrig,end uses
+process - machdrv,end uses
+process - electro,end uses
+process - other,end uses
+"process - aggregated, applies to paper, cement, fe & steel, glass and al ",end uses
+process - feedstock,end uses
+steam,end uses
+assembly,building types
+education,building types
+food sales,building types
+food service,building types
+health,building types
+lodging,building types
+merc/service,building types
+office-large,building types
+office-small,building types
+other,building types
+warehouse,building types
+single-family,housing types
+multi-family,housing types
+mobile home,housing types
+MSW sources-Ag,biomass - domestic cellulosic feedstocks
+CGT,biomass - domestic cellulosic feedstocks
+CR,biomass - domestic cellulosic feedstocks
+OVP,biomass - domestic cellulosic feedstocks
+RH,biomass - domestic cellulosic feedstocks
+RS,biomass - domestic cellulosic feedstocks
+SCT,biomass - domestic cellulosic feedstocks
+WD,biomass - domestic cellulosic feedstocks
+Barley-strw,biomass - domestic cellulosic feedstocks
+Corn-stvr,biomass - domestic cellulosic feedstocks
+Oats-strw,biomass - domestic cellulosic feedstocks
+Sorghum-stbl,biomass - domestic cellulosic feedstocks
+Wheat-strw,biomass - domestic cellulosic feedstocks
+Annlengycrp,biomass - domestic cellulosic feedstocks
+Perngrass,biomass - domestic cellulosic feedstocks
+MRESUS,biomass - domestic cellulosic feedstocks
+MRESUU_ST,biomass - domestic cellulosic feedstocks
+UWDWCD_ST,biomass - domestic cellulosic feedstocks
+UWDWMS_ST,biomass - domestic cellulosic feedstocks
+LOGI,biomass - domestic cellulosic feedstocks
+LOGO,biomass - domestic cellulosic feedstocks
+LOGP,biomass - domestic cellulosic feedstocks
+LOGTOF,biomass - domestic cellulosic feedstocks
+Woody,biomass - domestic cellulosic feedstocks
+Fuelwood,biomass - domestic cellulosic feedstocks
+Mill residue,biomass - domestic cellulosic feedstocks
+Pulping liquors,biomass - domestic cellulosic feedstocks
+MSW sources-Forest,biomass - domestic cellulosic feedstocks
+Ethanol (corn),biomass - domestic corn feedstocks
+Biodiesel (waste),biomass - domestic lipid feedstocks
+Biodiesel (soybeans),biomass - domestic lipid feedstocks
+M,biomass - domestic manure feedstocks
+central,air conditioning type
+room,air conditioning type
+Televisions,miscellaneous residential loads
+Set-top Boxes,miscellaneous residential loads
+Home Theater Systems,miscellaneous residential loads
+DVD Players,miscellaneous residential loads
+Video Game Consoles,miscellaneous residential loads
+PC Desktops,miscellaneous residential loads
+PC Laptops,miscellaneous residential loads
+PC Monitors,miscellaneous residential loads
+Network Equipment,miscellaneous residential loads
+Rechargeable Devices,miscellaneous residential loads
+Ceiling Fans,miscellaneous residential loads
+Coffee Machines,miscellaneous residential loads
+Dehumidifiers,miscellaneous residential loads
+Microwaves,miscellaneous residential loads
+Pool Heaters and Pumps,miscellaneous residential loads
+Security Systems,miscellaneous residential loads
+Spas,miscellaneous residential loads
+Gas 2nd Heat,residential secondary heat
+Electric 2nd Heat,residential secondary heat
+Distillate 2nd Heat,residential secondary heat
+LPG 2nd Heat,residential secondary heat
+Kerosene 2nd Heat,residential secondary heat
+Coal 2nd Heat,residential secondary heat
+Wood 2nd Heat,residential secondary heat
+Electric Other Appliances,other residential appliances
+Natural Gas Appliances,other residential appliances
+LPG Appliances,other residential appliances
+Distillate Appliances,other residential appliances
+general service lamps,residential lighting category
+reflectors,residential lighting category
+linear fluorescents,residential lighting category
+exterior,residential lighting category
+class 3,medium duty truck class
+class 4-6,medium duty truck class
+intercity,bus types
+school,bus types
+light trucks,light duty truck class
+light commercial trucks,light duty truck class
+irrigation,agricultural end-uses
+transportation,agricultural end-uses
+other,agricultural end-uses
+PAPER_M,AEO paper industry throughput categories
+BLEACH,AEO paper industry throughput categories
+WASTE_P,AEO paper industry throughput categories
+MECH_P,AEO paper industry throughput categories
+CHEM_P,AEO paper industry throughput categories
+KRAFT_P,AEO paper industry throughput categories
+WOOD,AEO paper industry throughput categories
+ALL,AEO paper industry throughput categories
+lighting,Process-Specific Industry End-Uses
+hvac,Process-Specific Industry End-Uses
+support,Process-Specific Industry End-Uses
+transport,Process-Specific Industry End-Uses
+process,Process-Specific Industry End-Uses
+lighting,Industry End-Uses
+hvac,Industry End-Uses
+support,Industry End-Uses
+transport,Industry End-Uses
+heat,Industry End-Uses
+refrigeration,Industry End-Uses
+machine drive,Industry End-Uses
+electro-chemical processes,Industry End-Uses
+other,Industry End-Uses
+feedstocks,Industry End-Uses
+P_FORM,AEO glass industry throughput categories
+FORM,AEO glass industry throughput categories
+M_RCYL,AEO glass industry throughput categories
+M_VRGN,AEO glass industry throughput categories
+B_RCYL,AEO glass industry throughput categories
+B_VRGN,AEO glass industry throughput categories
+ALL,AEO glass industry throughput categories
+GRIND,AEO cement industry throughput categories
+DRY,AEO cement industry throughput categories
+WET,AEO cement industry throughput categories
+LIME,AEO cement industry throughput categories
+DRY-BAL,AEO cement industry throughput categories
+ALL,AEO cement industry throughput categories
+COLD_RL,AEO steel  industry throughput categories
+HOT_RL,AEO steel  industry throughput categories
+INGOT,AEO steel  industry throughput categories
+CONTIN,AEO steel  industry throughput categories
+BF/BOF,AEO steel  industry throughput categories
+EAF,AEO steel  industry throughput categories
+COKE,AEO steel  industry throughput categories
+ALL,AEO steel  industry throughput categories
+SEMI_SHEET,AEO aluminum industry throughput categories
+SEMI_OTHER,AEO aluminum industry throughput categories
+SECONDARY,AEO aluminum industry throughput categories
+PRIMARY,AEO aluminum industry throughput categories
+BAUXITE,AEO aluminum industry throughput categories
+ALL,AEO aluminum industry throughput categories
+Inorganic,AEO Chemical Process Subset
+Organic,AEO Chemical Process Subset
+ResinSynth,AEO Chemical Process Subset
+AgriChem,AEO Chemical Process Subset
+ALL,AEO Chemical Process Subset
+intercity,commuter rail modes
+transit,commuter rail modes
+commuter,commuter rail modes
+Lighting,AEO combined categories - aluminum
+PRIMARY,AEO combined categories - aluminum
+Transport,AEO combined categories - aluminum
+Support,AEO combined categories - aluminum
+Lighting,AEO combined categories - food
+Transport,AEO combined categories - food
+Support,AEO combined categories - food
+Refrig,AEO combined categories - food
+ELECTRO,AEO combined categories - balance of manufacturing
+Lighting,AEO combined categories - balance of manufacturing
+Support,AEO combined categories - balance of manufacturing
+REFRIG,AEO combined categories - balance of manufacturing
+Transport,AEO combined categories - balance of manufacturing
+Electro,AEO combined categories - bulk chemicals
+Refrig,AEO combined categories - bulk chemicals
+Feedstock,AEO combined categories - bulk chemicals
+DRY,AEO combined categories - cement
+DRY-BAL,AEO combined categories - cement
+GRIND,AEO combined categories - cement
+Lighting,AEO combined categories - cement
+LIME,AEO combined categories - cement
+Support,AEO combined categories - cement
+Transport,AEO combined categories - cement
+WET,AEO combined categories - cement
+ELECTRO,AEO combined categories - computers & electronics
+Lighting,AEO combined categories - computers & electronics
+Transport,AEO combined categories - computers & electronics
+Support,AEO combined categories - computers & electronics
+REFRIG,AEO combined categories - computers & electronics
+ELECTRO,AEO combined categories - electrical equipment & appliances
+Lighting,AEO combined categories - electrical equipment & appliances
+Transport,AEO combined categories - electrical equipment & appliances
+Support,AEO combined categories - electrical equipment & appliances
+REFRIG,AEO combined categories - electrical equipment & appliances
+ELECTRO,AEO combined categories - fabricated metals
+Lighting,AEO combined categories - fabricated metals
+Transport,AEO combined categories - fabricated metals
+Support,AEO combined categories - fabricated metals
+REFRIG,AEO combined categories - fabricated metals
+BF/BOF,AEO combined categories - iron & steel
+COKE,AEO combined categories - iron & steel
+EAF,AEO combined categories - iron & steel
+Lighting,AEO combined categories - iron & steel
+Transport,AEO combined categories - iron & steel
+Support,AEO combined categories - iron & steel
+DRI,AEO combined categories - iron & steel
+ELECTRO,AEO combined categories - machinery
+Lighting,AEO combined categories - machinery
+Transport,AEO combined categories - machinery
+Support,AEO combined categories - machinery
+REFRIG,AEO combined categories - machinery
+BLEACH,AEO combined categories - paper
+CHEM_P,AEO combined categories - paper
+KRAFT_P,AEO combined categories - paper
+Lighting,AEO combined categories - paper
+MECH_P,AEO combined categories - paper
+PAPER_M,AEO combined categories - paper
+WOOD,AEO combined categories - paper
+WASTE_P,AEO combined categories - paper
+Transport,AEO combined categories - paper
+Support,AEO combined categories - paper
+ELECTRO,AEO combined categories - plastics & rubbers
+Lighting,AEO combined categories - plastics & rubbers
+Transport,AEO combined categories - plastics & rubbers
+Support,AEO combined categories - plastics & rubbers
+REFRIG,AEO combined categories - plastics & rubbers
+ELECTRO,AEO combined categories - transportation equipment
+Lighting,AEO combined categories - transportation equipment
+Transport,AEO combined categories - transportation equipment
+Support,AEO combined categories - transportation equipment
+REFRIG,AEO combined categories - transportation equipment
+ELECTRO,AEO combined categories - wood
+Lighting,AEO combined categories - wood
+Transport,AEO combined categories - wood
+Support,AEO combined categories - wood
+REFRIG,AEO combined categories - wood
+B_RCYL,AEO combined categories - glass
+B_VRGN,AEO combined categories - glass
+FORM,AEO combined categories - glass
+Lighting,AEO combined categories - glass
+P_FORM,AEO combined categories - glass
+Transport,AEO combined categories - glass
+Support,AEO combined categories - glass
+Aluminum,Subsectors
+Balance of Manufacturing,Subsectors
+Bulk Chemicals,Subsectors
+Cement,Subsectors
+Computers & Electronics,Subsectors
+Construction,Subsectors
+Crop Agriculture,Subsectors
+Electrical Equipment & Appliances,Subsectors
+Fabricated Metals,Subsectors
+Food,Subsectors
+Glass,Subsectors
+Iron & Steel,Subsectors
+Machinery,Subsectors
+Metallic & Non-metallic Mining,Subsectors
+Other Agriculture,Subsectors
+Paper,Subsectors
+Plastics & Rubbers,Subsectors
+Transportation Equipment,Subsectors
+Wood,Subsectors
+Buildings:Cooling,AEO Industrial Categories
+Buildings:Lighting,AEO Industrial Categories
+Buildings:Support,AEO Industrial Categories
+Buildings:Transport,AEO Industrial Categories
+Process/Assembly,AEO Industrial Categories
+CHP Steam,AEO Industrial Categories
+Ag Residues,Herbaceous Biomass Types
+Energy,Herbaceous Biomass Types
+Food Waste,Waste Biomass Types
+Manure,Waste Biomass Types
+MSW,Waste Biomass Types
+Forest Residue,Forest and Forest Residues
+Tree,Forest and Forest Residues
+Other,Process Heating Processes
+Curing,Process Heating Processes
+Drying,Process Heating Processes

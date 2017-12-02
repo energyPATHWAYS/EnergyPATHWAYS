@@ -1,0 +1,16 @@
+supply_node,geography,other_index_1,unit,time_unit,interpolation_method,extrapolation_growth,extrapolation_method,geography_map_key
+Onshore Wind,census division,,gigawatt_hour,,linear_interpolation,,nearest,Onshore Wind (GWh)
+Offshore Wind,census division,,gigawatt_hour,,linear_interpolation,,nearest,Offshore Wind (GWh)
+Transmission-Sited Solar PV,census division,,gigawatt_hour,,linear_interpolation,,nearest,Sum Utility-scale PV (GWh)
+Geothermal Power Plants,state,,gigawatt_hour,,linear_interpolation,,nearest,EGS Geothermal (GWh)
+Coal Primary - Domestic,state,,megashort_ton,,linear_interpolation,,nearest,
+Biomass Primary - Herbaceous,state,Herbaceous Biomass Types,ton,,linear_interpolation,,nearest,
+Natural Gas Primary - Domestic,o&g producing region,,quad,,linear_interpolation,,nearest,
+Biomass Primary - Domestic Pulping Liquors,state,,ton,,linear_interpolation,,nearest,
+Oil Primary - Domestic,o&g producing region,,quad,,linear_interpolation,,nearest,
+Biomass Primary - MSW/Manure,state,Waste Biomass Types,ton,,linear_interpolation,,nearest,
+Biomass - Wood,state,Forest and Forest Residues,ton,,linear_interpolation,,nearest,
+Biomass Primary - Domestic Lipid,state,biomass - domestic lipid feedstocks,ton,,linear_interpolation,,nearest,
+Biomass Primary - Domestic Corn,state,biomass - domestic corn feedstocks,ton,,linear_interpolation,,nearest,
+Solar Thermal Power Plants,census division,,gigawatt_hour,,linear_interpolation,,nearest,
+Landfill Gas,us,,teraBtu,,linear_interpolation,,nearest,

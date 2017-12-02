@@ -1,0 +1,2 @@
+supply_node,name,geography,other_index_1,interpolation_method,extrapolation_method,unit
+Pipeline Gas Liquefaction Facilities,Reference LNG Exports,census division,,linear_interpolation,nearest,quad

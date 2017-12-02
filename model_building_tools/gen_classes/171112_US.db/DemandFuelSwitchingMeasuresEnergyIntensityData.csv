@@ -1,0 +1,25 @@
+parent,gau,oth_1,oth_2,year,value,id
+Irrigation Fuel Switching - Gas to Electric,us,irrigation,,2015,0.24,3
+Irrigation Fuel Switching - Diesel to Electric,us,irrigation,,2015,0.35,5
+HVAC Switching,us,hvac,,2020,0.5,7
+HVAC Switching,us,hvac,,2020,0.5,8
+HVAC Switching,us,hvac,,2020,0.5,9
+HVAC Switching,us,hvac,,2020,0.5,10
+HVAC Switching,us,hvac,,2020,0.5,11
+Secondary Heat Switching,us,,,2020,0.9,12
+Secondary Heat Switching,us,,,2020,0.9,13
+Secondary Heat Switching,us,,,2020,0.9,14
+Secondary Heat Switching,us,,,2020,0.9,15
+Secondary Heat Switching,us,,,2020,0.9,16
+Secondary Heat Switching,us,,,2020,0.9,17
+HVAC Switching,us,hvac,,2020,0.5,18
+HVAC Switching,us,hvac,,2020,0.5,19
+HVAC Switching,us,hvac,,2020,0.5,20
+HVAC Switching,us,hvac,,2020,0.5,21
+HVAC Switching,us,hvac,,2020,0.5,22
+HVAC Switching,us,hvac,,2020,0.5,23
+HVAC Switching,us,hvac,,2020,0.5,24
+HVAC Switching,us,hvac,,2020,0.5,25
+HVAC Switching,us,hvac,,2020,0.5,26
+Residential Secondary Heating Electrification,us,,,2020,0.75,33
+Cement Coal Switching,us,,,2020,1.0,34

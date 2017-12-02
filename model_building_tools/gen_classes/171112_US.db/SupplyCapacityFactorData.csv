@@ -1,0 +1,6 @@
+supply_node_id,gau,demand_sector,resource_bin,year,value,id
+32,us,residential,,2015,0.5,1
+32,us,commercial,,2015,0.55,2
+32,us,transportation,,2015,0.5,3
+33,us,,,2015,0.58,4
+32,us,productive,,2015,0.73,5

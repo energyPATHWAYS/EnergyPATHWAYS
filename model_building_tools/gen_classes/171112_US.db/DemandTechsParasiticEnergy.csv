@@ -1,0 +1,7 @@
+demand_technology,definition,reference_tech_id,geography,other_index_1,other_index_2,energy_unit,time_unit,interpolation_method,extrapolation_method,extrapolation_growth,age_growth_or_decay_type,age_growth_or_decay
+Reference Distillate Furnace,absolute,,us,,,kilowatt_hour,year,linear_interpolation,nearest,,,
+Reference Natural Gas Furnace,absolute,,us,,,kilowatt_hour,year,linear_interpolation,nearest,,,
+High Efficiency Natural Gas Furnace,absolute,,us,,,kilowatt_hour,year,linear_interpolation,nearest,,,
+High Efficiency Distillate Furnace,absolute,,us,,,kilowatt_hour,year,linear_interpolation,nearest,,,
+Reference Natural Gas Heat Pump  - Heating,absolute,,us,,,kilowatt_hour,year,linear_interpolation,nearest,,,
+Reference Natural Gas Heat Pump  - Cooling,absolute,,us,,,kilowatt_hour,year,linear_interpolation,nearest,,,

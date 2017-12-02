@@ -1,0 +1,5 @@
+supply_node,dispatch_order,dispatch_window,geography
+Dispatchable Hydroelectric Power Plants,1,month,us
+Hydrogen Electrolysis - Central Station,4,week,us
+Power-to-Gas Production Facilities,3,year,us
+Hydro Quebec Dedicated Imports,2,month,us

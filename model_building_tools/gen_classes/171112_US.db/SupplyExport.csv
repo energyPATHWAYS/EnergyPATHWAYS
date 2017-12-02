@@ -1,0 +1,11 @@
+supply_node,geography,other_index_1,unit,interpolation_method,extrapolation_method,extrapolation_growth
+Bulk Electricity Blend,census region,,terawatt_hour,linear_interpolation,nearest,
+LPG Feedstocks,census region,,teraBtu,linear_interpolation,decay_towards_linear_regression,
+Pipeline Gas Feedstocks,census region,,teraBtu,linear_interpolation,decay_towards_linear_regression,
+Coal Primary - Domestic,us,,mmBtu,linear_interpolation,nearest,
+Natural Gas Primary - Domestic,census division,,quad,linear_interpolation,decay_towards_linear_regression,
+Oil Primary - Domestic,us,,mmBtu,linear_interpolation,nearest,
+Pipeline Gas Liquefaction Facilities,census division,,quad,linear_interpolation,decay_towards_linear_regression,
+Petrochemical Feedstocks,census region,,teraBtu,linear_interpolation,decay_towards_linear_regression,
+Ethanol Blend,us,,mmBtu,linear_interpolation,nearest,
+Asphalt Product,us,,teraBtu,linear_interpolation,decay_towards_linear_regression,

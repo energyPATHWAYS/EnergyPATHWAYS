@@ -1,0 +1,38 @@
+name,supply_technology,supply_node,geography,other_index_1,capacity_or_energy_unit,time_unit,interpolation_method,extrapolation_method,extrapolation_growth,geography_map_key
+AEO REFERENCE Biomass Power Plants,,Biomass Power Plants,egrid,,megawatt,,linear_interpolation,linear_interpolation,,2015 Capacity Biomass Power Plants
+AEO REFERENCE Coal Power Plants,,Coal Power Plants,egrid,,megawatt,,linear_interpolation,linear_interpolation,,2015 Capacity Coal Power Plants
+AEO REFERENCE New Natural Gas Combined Heat and Power,gas cogen composite power plant,Steam Production ,egrid,,megawatt,,linear_interpolation,linear_interpolation,,2015 Capacity Combined Heat and Power
+AEO REFERENCE Combined-Cycle Gas Turbines,,Combined-Cycle Gas Turbines,egrid,,megawatt,,linear_interpolation,linear_interpolation,,2015 Capacity Combined-Cycle Gas Turbines
+AEO REFERENCE Combustion Turbines,,Combustion Turbines,egrid,,megawatt,,linear_interpolation,linear_interpolation,,2015 Capacity Combustion Turbines
+AEO REFERENCE Fossil Steam Turbines,,Fossil Steam Turbines,egrid,,megawatt,,linear_interpolation,linear_interpolation,,2015 Capacity Fossil Steam Turbines
+AEO REFERENCE Fuel Cell Power Plants,,Fuel Cell Power Plants,egrid,,megawatt,,linear_interpolation,linear_interpolation,,2015 Capacity Fuel Cell Power Plants
+AEO REFERENCE Geothermal Power Plants,,Geothermal Power Plants,egrid,,megawatt,,linear_interpolation,linear_interpolation,,Geothermal Hydrothermal (GWh)
+AEO REFERENCE Nuclear Power Plants,,Nuclear Power Plants,egrid,,megawatt,,linear_interpolation,linear_interpolation,,2015 Capacity Nuclear Power Plants
+AEO REFERENCE Offshore Wind,,Offshore Wind,egrid,,megawatt,,linear_interpolation,linear_interpolation,,Offshore Wind (GWh)
+AEO REFERENCE Onshore Wind,,Onshore Wind,egrid,,megawatt,,linear_interpolation,linear_interpolation,,2015 Capacity Onshore Wind
+AEO REFERENCE Rooftop Solar PV,,Rooftop Solar PV,egrid,,megawatt,,linear_interpolation,linear_interpolation,,Rooftop PV (GWh)
+AEO REFERENCE Solar Thermal Power Plants,,Solar Thermal Power Plants,egrid,,megawatt,,linear_interpolation,linear_interpolation,,2015 Capacity Solar Thermal Power Plants
+AEO REFERENCE Transmission-Sited Solar PV,,Transmission-Sited Solar PV,egrid,,megawatt,,linear_interpolation,linear_interpolation,,2015 Capacity Transmission-Sited Solar PV
+High Nuclear  Nuclear Power Plants,,Nuclear Power Plants,census division,,megawatt,,linear_interpolation,linear_interpolation,,2015 Capacity Nuclear Power Plants
+Mixed Case Nuclear Power Plants,,Nuclear Power Plants,census division,,megawatt,,linear_interpolation,linear_interpolation,,2015 Capacity Nuclear Power Plants
+Mitigation Case Pumped Storage,pumped hydro storage,Bulk Electricity Storage,egrid,,megawatt,,linear_interpolation,nearest,,2015 Capacity Bulk Electricity Storage
+Mitigation CHP,,Steam Production ,census division,,gigawatt,,linear_interpolation,nearest,,2015 Capacity Combined Heat and Power
+AEO Reference Existing CHP,coal steam turbine cogen power plant,Steam Production ,state,,megawatt,,linear_interpolation,nearest,,2015 Capacity Combined Heat and Power
+AEO Reference Existing CHP,petroleum coke steam turbine cogen power plant,Steam Production ,state,,megawatt,,linear_interpolation,nearest,,2015 Capacity Combined Heat and Power
+AEO Reference Existing CHP,gas combined cycle cogen power plant,Steam Production ,state,,megawatt,,linear_interpolation,nearest,,2015 Capacity Combined Heat and Power
+AEO Reference Existing CHP,gas steam turbine cogen power plant,Steam Production ,state,,megawatt,,linear_interpolation,nearest,,2015 Capacity Combined Heat and Power
+AEO Reference Existing CHP,residual oil steam turbine cogen power plant,Steam Production ,state,,megawatt,,linear_interpolation,nearest,,2015 Capacity Combined Heat and Power
+AEO Reference Existing CHP,fossil waste steam turbine cogen power plant,Steam Production ,state,,megawatt,,linear_interpolation,nearest,,2015 Capacity Combined Heat and Power
+AEO Reference Existing CHP,biomass cogen power plant,Steam Production ,state,,megawatt,,linear_interpolation,nearest,,2015 Capacity Combined Heat and Power
+AEO Reference Existing CHP,landfill gas cogen power plant,Steam Production ,state,,megawatt,,linear_interpolation,nearest,,2015 Capacity Combined Heat and Power
+AEO Reference Existing CHP,municipal solid waste cogen power plant,Steam Production ,state,,megawatt,,linear_interpolation,nearest,,2015 Capacity Combined Heat and Power
+AEO Reference Existing CHP,gas combustion turbine cogen power plant,Steam Production ,state,,megawatt,,linear_interpolation,nearest,,2015 Capacity Bulk Electricity Storage
+AEO Reference Existing CHP,distillate oil combustion turbine cogen power plant,Steam Production ,state,,megawatt,,linear_interpolation,nearest,,2015 Capacity Combined Heat and Power
+Mitigation Rooftop ,,Rooftop Solar PV,egrid,,megawatt,,linear_interpolation,linear_interpolation,,Rooftop PV (GWh)
+AEO Reference Bulk Storage Stock,,Bulk Electricity Storage,egrid,,megawatt,,linear_interpolation,linear_interpolation,,2015 Capacity Bulk Electricity Storage
+AEO REFERENCE Onshore Wind - Zeroed Out CA,,Onshore Wind,egrid,,megawatt,,linear_interpolation,linear_interpolation,,2015 Capacity Onshore Wind
+AEO REFERENCE Nuclear Power Plants with Indian Point Adjustment,,Nuclear Power Plants,egrid,,megawatt,,linear_interpolation,linear_interpolation,,2015 Capacity Nuclear Power Plants
+Northeast Mitigation Bulk Storage 5 GW of 4hr batteries,4 - hour bulk battery storage,Bulk Electricity Storage,state,,megawatt,,linear_interpolation,nearest,,2015 Capacity Bulk Electricity Storage
+ISONE and NYISO dedicated imports from HQ,,Hydro Quebec Dedicated Imports,state,,megawatt,,linear_interpolation,nearest,,2015 Capacity Dispatchable Hydroelectric Power Plants
+New York and Massachusetts Offshore Wind Mandates,,Offshore Wind,state,,megawatt,,linear_interpolation,nearest,,Offshore Wind (GWh)
+ISONE and NYISO Demand Response,,Demand Response,egrid,,megawatt,,linear_interpolation,nearest,,

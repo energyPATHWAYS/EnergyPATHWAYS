@@ -1,0 +1,22 @@
+supply_node,geography,capacity_or_energy_unit,time_unit,interpolation_method,extrapolation_method,extrapolation_growth,geography_map_key
+Onshore Wind,state,MW,,none,none,,2015 Capacity Onshore Wind
+Rooftop Solar PV,egrid,MW,,none,none,,Rooftop PV (GWh)
+Transmission-Sited Solar PV,state,MW,,none,none,,2015 Capacity Transmission-Sited Solar PV
+Nuclear Power Plants,state,MW,,none,none,,2015 Capacity Nuclear Power Plants
+Combined-Cycle Gas Turbines,state,MW,,none,none,,2015 Capacity Combined-Cycle Gas Turbines
+Coal Power Plants,state,MW,,none,none,,2015 Capacity Coal Power Plants
+Combustion Turbines,state,MW,,none,none,,2015 Capacity Combustion Turbines
+Geothermal Power Plants,state,MW,,none,none,,2015 Capacity Geothermal Power Plants
+Run of River Hydroelectric Power Plants,state,MW,,none,nearest,,2015 Capacity Run of River Hydroelectric Power Plants
+Dispatchable Hydroelectric Power Plants,state,MW,,none,nearest,,2015 Capacity Dispatchable Hydroelectric Power Plants
+Steam Production ,state,MW,,none,none,,2015 Capacity Combined Heat and Power
+Ethanol Production Facilities,state,mmBtu,year,none,nearest,,
+Bulk Electricity Storage,state,MW,,none,none,,
+Petroleum Refineries,state,boe,day,none,none,,LDV VMT Share
+Fossil Steam Turbines,state,MW,,none,none,,
+Biomass Power Plants,state,MW,,none,none,,2015 Capacity Biomass Power Plants
+Fuel Cell Power Plants,state,MW,,none,none,,2015 Capacity Fossil Steam Turbines
+Solar Thermal Power Plants,state,MW,,none,none,,
+Biomass Boilers,census region,TBtu,year,none,nearest,,
+IPP CHP,state,MW,,none,none,,
+Demand Response,electricity interconnection,MW,,none,nearest,,

@@ -1,0 +1,13 @@
+subsector,geography,other_index_1,interpolation_method,extrapolation_method,extrapolation_growth,name
+commercial water heating,us,,linear_interpolation,nearest,,
+commercial space heating,us,,linear_interpolation,nearest,,
+residential water heating,us,,linear_interpolation,nearest,,
+residential space heating,us,,linear_interpolation,nearest,,
+residential air conditioning,us,,linear_interpolation,nearest,,
+residential clothes washing,us,,linear_interpolation,nearest,,
+residential clothes drying,us,,linear_interpolation,nearest,,
+light duty autos,us,,linear_interpolation,nearest,,
+light duty trucks,us,,linear_interpolation,nearest,,
+commercial space heating,us,,linear_interpolation,nearest,,Electric boiler flexibility
+light duty autos,us,,nearest,nearest,,EV charging flexibility 50% in all years
+light duty trucks,us,,nearest,nearest,,EV charging flexibility 50% in all years

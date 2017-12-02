@@ -1,0 +1,3 @@
+supply_node,geography,unit,interpolation_method,extrapolation_method,extrapolation_growth,age_growth_or_decay_type,age_growth_or_decay
+Electricity Distribution Grid,us,4,nearest,nearest,,,
+Electricity Transmission Grid,us,4,nearest,nearest,,,

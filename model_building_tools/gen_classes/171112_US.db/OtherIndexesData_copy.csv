@@ -1,0 +1,247 @@
+id,name,other_index
+1,total,total
+2,buildings - other,end uses
+4,irrigation,end uses
+5,"undifferentiated use, applies to all mining industries, construction and refining",end uses
+6,buildings - lighting,end uses
+7,buildings - hvac,end uses
+8,buildings - support,end uses
+9,proccess - heat,end uses
+10,proccess - refrig,end uses
+11,process - machdrv,end uses
+12,process - electro,end uses
+13,process - other,end uses
+14,"process - aggregated, applies to paper, cement, fe & steel, glass and al ",end uses
+15,process - feedstock,end uses
+16,steam,end uses
+17,assembly,building types
+18,education,building types
+19,food sales,building types
+20,food service,building types
+21,health,building types
+22,lodging,building types
+23,merc/service,building types
+24,office-large,building types
+25,office-small,building types
+26,other,building types
+27,warehouse,building types
+28,single-family,housing types
+29,multi-family,housing types
+30,mobile home,housing types
+31,MSW sources-Ag,biomass - domestic cellulosic feedstocks
+32,CGT,biomass - domestic cellulosic feedstocks
+33,CR,biomass - domestic cellulosic feedstocks
+34,OVP,biomass - domestic cellulosic feedstocks
+35,RH,biomass - domestic cellulosic feedstocks
+36,RS,biomass - domestic cellulosic feedstocks
+37,SCT,biomass - domestic cellulosic feedstocks
+38,WD,biomass - domestic cellulosic feedstocks
+39,Barley-strw,biomass - domestic cellulosic feedstocks
+40,Corn-stvr,biomass - domestic cellulosic feedstocks
+41,Oats-strw,biomass - domestic cellulosic feedstocks
+42,Sorghum-stbl,biomass - domestic cellulosic feedstocks
+43,Wheat-strw,biomass - domestic cellulosic feedstocks
+44,Annlengycrp,biomass - domestic cellulosic feedstocks
+45,Perngrass,biomass - domestic cellulosic feedstocks
+46,MRESUS,biomass - domestic cellulosic feedstocks
+47,MRESUU_ST,biomass - domestic cellulosic feedstocks
+48,UWDWCD_ST,biomass - domestic cellulosic feedstocks
+49,UWDWMS_ST,biomass - domestic cellulosic feedstocks
+50,LOGI,biomass - domestic cellulosic feedstocks
+51,LOGO,biomass - domestic cellulosic feedstocks
+52,LOGP,biomass - domestic cellulosic feedstocks
+53,LOGTOF,biomass - domestic cellulosic feedstocks
+54,Woody,biomass - domestic cellulosic feedstocks
+55,Fuelwood,biomass - domestic cellulosic feedstocks
+56,Mill residue,biomass - domestic cellulosic feedstocks
+57,Pulping liquors,biomass - domestic cellulosic feedstocks
+58,MSW sources-Forest,biomass - domestic cellulosic feedstocks
+59,Ethanol (corn),biomass - domestic corn feedstocks
+60,Biodiesel (waste),biomass - domestic lipid feedstocks
+61,Biodiesel (soybeans),biomass - domestic lipid feedstocks
+62,M,biomass - domestic manure feedstocks
+63,central,air conditioning type
+64,room,air conditioning type
+65,Televisions,miscellaneous residential loads
+66,Set-top Boxes,miscellaneous residential loads
+67,Home Theater Systems,miscellaneous residential loads
+68,DVD Players,miscellaneous residential loads
+69,Video Game Consoles,miscellaneous residential loads
+70,PC Desktops,miscellaneous residential loads
+71,PC Laptops,miscellaneous residential loads
+72,PC Monitors,miscellaneous residential loads
+73,Network Equipment,miscellaneous residential loads
+74,Rechargeable Devices,miscellaneous residential loads
+75,Ceiling Fans,miscellaneous residential loads
+76,Coffee Machines,miscellaneous residential loads
+77,Dehumidifiers,miscellaneous residential loads
+78,Microwaves,miscellaneous residential loads
+79,Pool Heaters and Pumps,miscellaneous residential loads
+80,Security Systems,miscellaneous residential loads
+81,Spas,miscellaneous residential loads
+82,Gas 2nd Heat,residential secondary heat
+83,Electric 2nd Heat,residential secondary heat
+84,Distillate 2nd Heat,residential secondary heat
+85,LPG 2nd Heat,residential secondary heat
+86,Kerosene 2nd Heat,residential secondary heat
+87,Coal 2nd Heat,residential secondary heat
+88,Wood 2nd Heat,residential secondary heat
+89,Electric Other Appliances,other residential appliances
+90,Natural Gas Appliances,other residential appliances
+91,LPG Appliances,other residential appliances
+92,Distillate Appliances,other residential appliances
+93,general service lamps,residential lighting category
+94,reflectors,residential lighting category
+95,linear fluorescents,residential lighting category
+96,exterior,residential lighting category
+97,class 3,medium duty truck class
+98,class 4-6,medium duty truck class
+99,transit,bus types
+100,intercity,bus types
+101,school,bus types
+102,light trucks,light duty truck class
+103,light commercial trucks,light duty truck class
+104,irrigation,agricultural end-uses
+105,transportation,agricultural end-uses
+106,other,agricultural end-uses
+119,PAPER_M,AEO paper industry throughput categories
+120,BLEACH,AEO paper industry throughput categories
+121,WASTE_P,AEO paper industry throughput categories
+122,MECH_P,AEO paper industry throughput categories
+123,CHEM_P,AEO paper industry throughput categories
+124,KRAFT_P,AEO paper industry throughput categories
+125,WOOD,AEO paper industry throughput categories
+126,ALL,AEO paper industry throughput categories
+127,lighting,Process-Specific Industry End-Uses
+128,hvac,Process-Specific Industry End-Uses
+129,support,Process-Specific Industry End-Uses
+130,transport,Process-Specific Industry End-Uses
+131,process,Process-Specific Industry End-Uses
+132,lighting,Industry End-Uses
+133,hvac,Industry End-Uses
+134,support,Industry End-Uses
+135,transport,Industry End-Uses
+136,heat,Industry End-Uses
+137,refrigeration,Industry End-Uses
+138,machine drive,Industry End-Uses
+139,electro-chemical processes,Industry End-Uses
+140,other,Industry End-Uses
+141,feedstocks,Industry End-Uses
+142,P_FORM,AEO glass industry throughput categories
+143,FORM,AEO glass industry throughput categories
+144,M_RCYL,AEO glass industry throughput categories
+145,M_VRGN,AEO glass industry throughput categories
+146,B_RCYL,AEO glass industry throughput categories
+147,B_VRGN,AEO glass industry throughput categories
+148,ALL,AEO glass industry throughput categories
+149,GRIND,AEO cement industry throughput categories
+150,DRY,AEO cement industry throughput categories
+151,WET,AEO cement industry throughput categories
+152,LIME,AEO cement industry throughput categories
+153,DRY-BAL,AEO cement industry throughput categories
+154,ALL,AEO cement industry throughput categories
+155,COLD_RL,AEO steel  industry throughput categories
+156,HOT_RL,AEO steel  industry throughput categories
+157,INGOT,AEO steel  industry throughput categories
+158,CONTIN,AEO steel  industry throughput categories
+159,BF/BOF,AEO steel  industry throughput categories
+160,EAF,AEO steel  industry throughput categories
+161,COKE,AEO steel  industry throughput categories
+162,ALL,AEO steel  industry throughput categories
+163,SEMI_SHEET,AEO aluminum industry throughput categories
+164,SEMI_OTHER,AEO aluminum industry throughput categories
+165,SECONDARY,AEO aluminum industry throughput categories
+166,PRIMARY,AEO aluminum industry throughput categories
+167,BAUXITE,AEO aluminum industry throughput categories
+168,ALL,AEO aluminum industry throughput categories
+169,Inorganic,AEO Chemical Process Subset
+170,Organic,AEO Chemical Process Subset
+171,ResinSynth,AEO Chemical Process Subset
+172,AgriChem,AEO Chemical Process Subset
+173,ALL,AEO Chemical Process Subset
+174,intercity,commuter rail modes
+175,transit,commuter rail modes
+176,commuter,commuter rail modes
+177,Lighting,AEO combined categories - aluminum
+178,PRIMARY,AEO combined categories - aluminum
+179,Transport,AEO combined categories - aluminum
+180,Support,AEO combined categories - aluminum
+181,Lighting,AEO combined categories - food
+182,Transport,AEO combined categories - food
+183,Support,AEO combined categories - food
+184,Refrig,AEO combined categories - food
+185,ELECTRO,AEO combined categories - balance of manufacturing
+186,Lighting,AEO combined categories - balance of manufacturing
+187,Support,AEO combined categories - balance of manufacturing
+188,REFRIG,AEO combined categories - balance of manufacturing
+189,Transport,AEO combined categories - balance of manufacturing
+190,Electro,AEO combined categories - bulk chemicals
+191,Refrig,AEO combined categories - bulk chemicals
+192,Feedstock,AEO combined categories - bulk chemicals
+193,DRY,AEO combined categories - cement
+194,DRY-BAL,AEO combined categories - cement
+195,GRIND,AEO combined categories - cement
+196,Lighting,AEO combined categories - cement
+197,LIME,AEO combined categories - cement
+198,Support,AEO combined categories - cement
+199,Transport,AEO combined categories - cement
+200,WET,AEO combined categories - cement
+201,ELECTRO,AEO combined categories - computers & electronics
+202,Lighting,AEO combined categories - computers & electronics
+203,Transport,AEO combined categories - computers & electronics
+204,Support,AEO combined categories - computers & electronics
+205,REFRIG,AEO combined categories - computers & electronics
+206,ELECTRO,AEO combined categories - electrical equipment & appliances
+207,Lighting,AEO combined categories - electrical equipment & appliances
+208,Transport,AEO combined categories - electrical equipment & appliances
+209,Support,AEO combined categories - electrical equipment & appliances
+210,REFRIG,AEO combined categories - electrical equipment & appliances
+211,ELECTRO,AEO combined categories - fabricated metals
+212,Lighting,AEO combined categories - fabricated metals
+213,Transport,AEO combined categories - fabricated metals
+214,Support,AEO combined categories - fabricated metals
+215,REFRIG,AEO combined categories - fabricated metals
+216,BF/BOF,AEO combined categories - iron & steel
+217,COKE,AEO combined categories - iron & steel
+218,EAF,AEO combined categories - iron & steel
+219,Lighting,AEO combined categories - iron & steel
+220,Transport,AEO combined categories - iron & steel
+221,Support,AEO combined categories - iron & steel
+222,DRI,AEO combined categories - iron & steel
+223,ELECTRO,AEO combined categories - machinery
+224,Lighting,AEO combined categories - machinery
+225,Transport,AEO combined categories - machinery
+226,Support,AEO combined categories - machinery
+227,REFRIG,AEO combined categories - machinery
+228,BLEACH,AEO combined categories - paper
+229,CHEM_P,AEO combined categories - paper
+230,KRAFT_P,AEO combined categories - paper
+231,Lighting,AEO combined categories - paper
+232,MECH_P,AEO combined categories - paper
+233,PAPER_M,AEO combined categories - paper
+234,WOOD,AEO combined categories - paper
+235,WASTE_P,AEO combined categories - paper
+236,Transport,AEO combined categories - paper
+237,Support,AEO combined categories - paper
+238,ELECTRO,AEO combined categories - plastics & rubbers
+239,Lighting,AEO combined categories - plastics & rubbers
+240,Transport,AEO combined categories - plastics & rubbers
+241,Support,AEO combined categories - plastics & rubbers
+242,REFRIG,AEO combined categories - plastics & rubbers
+243,ELECTRO,AEO combined categories - transportation equipment
+244,Lighting,AEO combined categories - transportation equipment
+245,Transport,AEO combined categories - transportation equipment
+246,Support,AEO combined categories - transportation equipment
+247,REFRIG,AEO combined categories - transportation equipment
+248,ELECTRO,AEO combined categories - wood
+249,Lighting,AEO combined categories - wood
+250,Transport,AEO combined categories - wood
+251,Support,AEO combined categories - wood
+252,REFRIG,AEO combined categories - wood
+253,B_RCYL,AEO combined categories - glass
+254,B_VRGN,AEO combined categories - glass
+255,FORM,AEO combined categories - glass
+256,Lighting,AEO combined categories - glass
+257,P_FORM,AEO combined categories - glass
+258,Transport,AEO combined categories - glass
+259,Support,AEO combined categories - glass

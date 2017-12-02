@@ -1,0 +1,55 @@
+blend_node,supply_node,id
+Bulk Electricity Blend,Onshore Wind,1
+Bulk Electricity Blend,Offshore Wind,2
+Bulk Electricity Blend,Transmission-Sited Solar PV,3
+Bulk Electricity Blend,Geothermal Power Plants,4
+Bulk Electricity Blend,Run of River Hydroelectric Power Plants,5
+Bulk Electricity Blend,Biomass Power Plants,6
+Thermal Dispatch Blend,Nuclear Power Plants,7
+Thermal Dispatch Blend,Combined-Cycle Gas Turbines,8
+Thermal Dispatch Blend,Coal Power Plants,9
+Thermal Dispatch Blend,Combustion Turbines,10
+Thermal Dispatch Blend,Fossil Steam Turbines,13
+Oil Blend,Oil Primary - Domestic,14
+Oil Blend,Oil Primary - International,15
+Natural Gas Blend,Natural Gas Primary - Domestic,16
+Natural Gas Blend,Natural Gas - International,17
+Bulk Electricity Blend,Thermal Dispatch Blend,19
+Bulk Electricity Blend,Dispatchable Hydroelectric Power Plants,21
+Bulk Electricity Blend,Bulk Electricity Storage,22
+Jet Fuel Blend,Renewable Jet-Fuel Production Facilities,23
+Jet Fuel Blend,Refined Fossil Jet Fuel Product,24
+Gasoline Blend,Refined Fossil Gasoline Product,25
+Diesel Blend,Refined Fossil Diesel Product,27
+Pipeline Gas Blend,Hydrogen Blend,28
+Pipeline Gas Blend,Natural Gas Blend,29
+Pipeline Gas Blend,Power-to-Gas Production Facilities,30
+Pipeline Gas Blend,Biomass Gasification Facilities,31
+Hydrogen Blend,Solar Thermal Hydrogen Production,32
+Hydrogen Blend,Hydrogen Electrolysis - Central Station,33
+Hydrogen Blend,Hydrogen Gas Reformation Central Station,34
+Distributed Electricity,Rooftop Solar PV,36
+Distributed Electricity,Distribution-Sited Solar PV,37
+Distributed Electricity,Electricity Distribution Grid,38
+Gasoline Blend,Ethanol Blend,42
+Ethanol Blend,Ethanol Production Facilities,43
+Ethanol Blend,Ethanol Product - International,46
+Coal Blend,Coal Primary - Domestic,49
+Distributed Electricity,Distributed Storage,50
+LPG Feedstocks,Refined Fossil LPG Product,51
+Pipeline Gas Feedstocks,Gas Distribution Pipeline,52
+Pipeline Gas Blend,Renewable Pipeline Gas Product,54
+Thermal Dispatch Blend,Combined-Cycle Gas Turbines with CCS,62
+Thermal Dispatch Blend,Coal Power Plants with CCS,63
+Thermal Dispatch Blend,Demand Response,64
+Diesel Blend,Renewable Diesel Production Facilities w/CCS,65
+Pipeline Gas Blend,Biomass Gasification Facilities w/CCS,66
+Hydrogen Blend,Hydrogen Gas Reformation w/CCS,67
+Diesel Blend,Renewable Diesel Production Facilities,68
+Jet Fuel Blend,Renewable Diesel Production Facilities,70
+Bulk Electricity Blend,Wave Power Plants,71
+Bulk Electricity Blend,Hydro Quebec Dedicated Imports,72
+Bulk Electricity Blend,Solar Thermal Power Plants,74
+Steam Blend,Steam Production ,84
+Steam Blend,IPP CHP,85
+Gasoline Blend,Cellulosic Ethanol,86
