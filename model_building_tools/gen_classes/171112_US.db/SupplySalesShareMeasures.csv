@@ -1,6 +1,0 @@
-name,supply_node,supply_technology,replaced_supply_technology,geography,capacity_or_energy_unit,time_unit,interpolation_method,extrapolation_method,extrapolation_growth,other_index_1
-Coal to Gas CC Cogen,Steam Production ,gas cogen composite power plant,coal steam turbine cogen power plant,us,,,linear_interpolation,nearest,,
-Oil Steam to Gas CC Cogen,Steam Production ,gas cogen composite power plant,residual oil steam turbine cogen power plant,us,,,linear_interpolation,nearest,,
-Oil CT to Gas CT Cogen,Steam Production ,gas combustion turbine cogen power plant,distillate oil combustion turbine cogen power plant,us,,,linear_interpolation,nearest,,
-Diesel Steam to Gas CC ,Steam Production ,gas cogen composite power plant,distllate oil steam turbine cogen power plant,us,,,linear_interpolation,nearest,,
-CHP Retirement - Replaced with Gas Boilers,Steam Production ,Industrial Pipeline Gas Boiler,,us,,,linear_interpolation,nearest,,

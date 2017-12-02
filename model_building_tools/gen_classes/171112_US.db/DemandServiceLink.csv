@@ -1,9 +1,0 @@
-subsector,linked_subsector,service_demand_share,year,name
-residential clothes washing,residential clothes drying,1.0,2009,
-residential clothes washing,residential water heating,0.25,2009,
-residential dishwashing,residential water heating,0.11,2009,
-residential space heating,residential furnace fans,1.0,2009,
-residential building shell,residential space heating,1.0,2009,
-residential building shell,residential air conditioning,1.0,2009,
-commercial building shell,commercial space heating,1.0,2003,
-commercial building shell,commercial air conditioning,1.0,2003,

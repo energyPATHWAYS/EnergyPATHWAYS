@@ -1,7 +1,0 @@
-name,gau,dispatch_feeder_id,demand_sector,year,value,id
-1,us,1,residential,2010,1.0,1
-1,us,1,transportation,2010,0.7,2
-1,us,2,commercial,2010,1.0,3
-1,us,2,transportation,2010,0.25,4
-1,us,3,productive,2010,1.0,5
-1,us,3,transportation,2010,0.05,6

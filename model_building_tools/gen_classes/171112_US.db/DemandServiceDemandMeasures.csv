@@ -1,4 +1,0 @@
-name,subsector,input_type,unit,geography,other_index_1,other_index_2,interpolation_method,extrapolation_method,extrapolation_growth,stock_decay_function,min_lifetime,max_lifetime,mean_lifetime,lifetime_variance
-commercial space heating shell improvemment,commercial space heating,intensity,,us,,,linear_interpolation,linear_regression,,weibull,60.0,60.0,,
-commercial space cooling shell improvement,commercial air conditioning,intensity,,us,,,linear_interpolation,linear_regression,,weibull,60.0,60.0,,
-commercial water heating service demand calibration,commercial water heating,intensity,,us,,,linear_interpolation,linear_regression,,weibull,60.0,60.0,,
