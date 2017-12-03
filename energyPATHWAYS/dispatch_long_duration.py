@@ -45,8 +45,8 @@ def ld_energy_formulation(dispatch):
                                                                                     for from_geo in model.GEOGRAPHIES
                                                                                     for to_geo in model.GEOGRAPHIES
                                                                                     for t in model.TIMEPOINTS if from_geo!=to_geo)
-        return sum((model.Upward_Imbalance[g, t] * model.ld_imbalance_penalty +
-                    model.Downward_Imbalance[g, t] * model.downward_imbalance_penalty
+        return sum((model.Upward_Imbalance[g, t] * model.ld_upward_imbalance_penalty +
+                    model.Downward_Imbalance[g, t] * model.ld_downward_imbalance_penalty
                     for g in model.GEOGRAPHIES for t in model.TIMEPOINTS)) + transmission_hurdles
 
     model = AbstractModel()
@@ -76,8 +76,8 @@ def ld_energy_formulation(dispatch):
     model.transmission_hurdle = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission.hurdles.get_values_as_dict(dispatch.year))
     model.transmission_losses = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission.losses.get_values_as_dict(dispatch.year))
 
-    model.ld_imbalance_penalty = Param(initialize=dispatch.ld_imbalance_penalty, within=NonNegativeReals)
-    model.downward_imbalance_penalty = Param(initialize=dispatch.downward_imbalance_penalty, within=NonNegativeReals)
+    model.ld_upward_imbalance_penalty = Param(initialize=dispatch.ld_upward_imbalance_penalty, within=NonNegativeReals)
+    model.ld_downward_imbalance_penalty = Param(initialize=dispatch.ld_downward_imbalance_penalty, within=NonNegativeReals)
 
     # System variables
     #####################
@@ -171,8 +171,8 @@ def ld_storage_formulation(dispatch):
 
     # Objective function
     def total_imbalance_penalty_rule(model):
-        return sum((model.Upward_Imbalance[g, p] * model.upward_imbalance_penalty +
-                    model.Downward_Imbalance[g, p] * model.downward_imbalance_penalty
+        return sum((model.Upward_Imbalance[g, p] * model.ld_upward_imbalance_penalty +
+                    model.Downward_Imbalance[g, p] * model.ld_downward_imbalance_penalty
                     for g in model.GEOGRAPHIES
                    for p in model.PERIODS))
 
@@ -233,8 +233,8 @@ def ld_storage_formulation(dispatch):
     model.transmission_energy = Param(model.TRANSMISSION_LINES, model.PERIODS, initialize=dispatch.tx_energy_dict)
     model.transmission_losses = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission.losses.get_values_as_dict(dispatch.year))
 
-    model.upward_imbalance_penalty = Param(initialize=dispatch.upward_imbalance_penalty,within=NonNegativeReals)
-    model.downward_imbalance_penalty = Param(initialize=dispatch.downward_imbalance_penalty, within=NonNegativeReals)
+    model.ld_upward_imbalance_penalty = Param(initialize=dispatch.ld_upward_imbalance_penalty,within=NonNegativeReals)
+    model.ld_downward_imbalance_penalty = Param(initialize=dispatch.ld_downward_imbalance_penalty, within=NonNegativeReals)
 
     # Resource variables
 

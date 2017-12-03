@@ -110,13 +110,13 @@ class Dispatch(object):
             self.node_config_dict[supply_node] = DispatchNodeConfig(supply_node)
         self.set_dispatch_orders()
         self.dispatch_window_dict = dict(util.sql_read_table('DispatchWindows'))  
-        self.curtailment_cost = util.unit_convert(0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.unserved_capacity_cost = util.unit_convert(10000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.dist_net_load_penalty = util.unit_convert(15000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.bulk_net_load_penalty = util.unit_convert(5000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.upward_imbalance_penalty = util.unit_convert(2000.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.ld_imbalance_penalty = util.unit_convert(100.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.downward_imbalance_penalty = util.unit_convert(20.0,unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.curtailment_cost = util.unit_convert(0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.unserved_capacity_cost = util.unit_convert(10000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.dist_net_load_penalty = util.unit_convert(15000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        # this bulk penalty is mostly for transmission
+        self.bulk_net_load_penalty = util.unit_convert(5000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.ld_upward_imbalance_penalty = util.unit_convert(150.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.ld_downward_imbalance_penalty = util.unit_convert(50.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.dispatch_feeders = dispatch_feeders
         self.feeders = [0] + dispatch_feeders
         self.dispatch_geography = dispatch_geography
