@@ -222,8 +222,8 @@ def total_cost_rule(model):
     curtailment_cost = sum(model.Curtailment[r, t] * model.curtailment_cost for r in model.GEOGRAPHIES 
                                                                             for t in model.TIMEPOINTS)
     unserved_capacity_cost = sum(model.Unserved_Capacity[r] * model.unserved_capacity_cost for r in model.GEOGRAPHIES)
-    unserved_energy_cost = sum(model.Unserved_Energy[r] * model.unserved_energy_cost for r in model.GEOGRAPHIES)
-    dist_sys_penalty_cost = sum(model.DistSysCapacityNeed[r, t, f] * model.dist_penalty for r in model.GEOGRAPHIES
+    unserved_energy_cost = sum(model.Unserved_Energy[r, t] * model.unserved_energy_cost for r in model.GEOGRAPHIES for t in model.TIMEPOINTS)
+    dist_sys_penalty_cost = sum(model.DistSysCapacityNeed[r, f] * model.dist_penalty for r in model.GEOGRAPHIES
                                                                                         for f in model.FEEDERS)
     bulk_sys_penalty_cost = sum(model.BulkSysCapacityNeed[r] * model.bulk_penalty for r in model.GEOGRAPHIES)
     flex_load_use_cost = sum(model.FlexLoadUse[r, t, f] * model.flex_penalty for r in model.GEOGRAPHIES
