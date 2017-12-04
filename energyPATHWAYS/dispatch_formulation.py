@@ -176,8 +176,8 @@ def dist_system_capacity_need_rule(model, geography, timepoint, feeder):
     if feeder ==0:
         return Constraint.Skip
     else:
-        return (model.DistSysCapacityNeed[geography, timepoint, feeder] +
-           model.dist_net_load_threshold[geography,feeder]) \
+        return (model.DistSysCapacityNeed[geography, feeder] +
+           model.dist_net_load_threshold[geography, feeder]) \
            >= \
            (model.distribution_load[geography, timepoint, feeder] -
            model.distribution_gen[geography, timepoint, feeder] + 
@@ -195,7 +195,7 @@ def bulk_system_capacity_need_rule(model, geography, timepoint):
     """
     Apply a penalty whenever bulk net load (distribution load + T&D losses) exceeds a pre-specified threshold.
     """
-    return (model.BulkSysCapacityNeed[geography, timepoint] +
+    return (model.BulkSysCapacityNeed[geography] +
            model.bulk_net_load_threshold[geography]) \
            >= \
            sum((model.t_and_d_losses[geography,feeder]) *
@@ -209,18 +209,23 @@ def bulk_system_capacity_need_rule(model, geography, timepoint):
            model.bulk_load[geography, timepoint] - \
            model.dispatched_bulk_load[geography, timepoint] * .5
 
+def unserved_capacity_rule(model, geography, timepoint):
+    """
+    Apply a penalty whenever bulk net load (distribution load + T&D losses) exceeds a pre-specified threshold.
+    """
+    return model.Unserved_Capacity[geography] >= model.Unserved_Energy[geography, timepoint]
+
+
 def total_cost_rule(model):
     gen_cost = sum(model.Provide_Power[gt, t] * model.variable_cost[gt] for gt in model.GENERATION_TECHNOLOGIES
                                                                         for t in model.TIMEPOINTS)
     curtailment_cost = sum(model.Curtailment[r, t] * model.curtailment_cost for r in model.GEOGRAPHIES 
                                                                             for t in model.TIMEPOINTS)
-    unserved_energy_cost = sum(model.Unserved_Energy[r, t] * model.unserved_energy_cost for r in model.GEOGRAPHIES
-                                                                                        for t in model.TIMEPOINTS)
-    dist_sys_penalty_cost = sum(model.DistSysCapacityNeed[r, t, f] * model.dist_penalty for r in model.GEOGRAPHIES
-                                                                                        for t in model.TIMEPOINTS
+    unserved_capacity_cost = sum(model.Unserved_Capacity[r] * model.unserved_capacity_cost for r in model.GEOGRAPHIES)
+    unserved_energy_cost = sum(model.Unserved_Energy[r, t] * model.unserved_energy_cost for r in model.GEOGRAPHIES for t in model.TIMEPOINTS)
+    dist_sys_penalty_cost = sum(model.DistSysCapacityNeed[r, f] * model.dist_penalty for r in model.GEOGRAPHIES
                                                                                         for f in model.FEEDERS)
-    bulk_sys_penalty_cost = sum(model.BulkSysCapacityNeed[r, t] * model.bulk_penalty for r in model.GEOGRAPHIES
-                                                                                     for t in model.TIMEPOINTS)
+    bulk_sys_penalty_cost = sum(model.BulkSysCapacityNeed[r] * model.bulk_penalty for r in model.GEOGRAPHIES)
     flex_load_use_cost = sum(model.FlexLoadUse[r, t, f] * model.flex_penalty for r in model.GEOGRAPHIES
                                                                              for t in model.TIMEPOINTS
                                                                              for f in model.FEEDERS)
@@ -228,7 +233,7 @@ def total_cost_rule(model):
                                                                                 for from_geo in model.GEOGRAPHIES
                                                                                 for to_geo in model.GEOGRAPHIES
                                                                                 for t in model.TIMEPOINTS if from_geo!=to_geo)
-    total_cost = gen_cost + curtailment_cost + unserved_energy_cost + dist_sys_penalty_cost + bulk_sys_penalty_cost + flex_load_use_cost + transmission_hurdles
+    total_cost = gen_cost + curtailment_cost + unserved_capacity_cost + unserved_energy_cost + dist_sys_penalty_cost + bulk_sys_penalty_cost + flex_load_use_cost + transmission_hurdles
     return total_cost
 
 def min_timepoints(model):
@@ -308,7 +313,8 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     # Imbalance penalties
     # Not geographyalized, as we don't want arbitrage across geographies
     model.curtailment_cost = Param(within=NonNegativeReals, initialize= dispatch.curtailment_cost)
-    model.unserved_energy_cost = Param(within=NonNegativeReals, initialize= dispatch.unserved_energy_cost)
+    model.unserved_capacity_cost = Param(within=NonNegativeReals, initialize= dispatch.unserved_capacity_cost)
+    model.unserved_energy_cost = Param(within=NonNegativeReals, initialize= max(dispatch.variable_costs.values())*1.05)
     model.dist_penalty = Param(within=NonNegativeReals, initialize= dispatch.dist_net_load_penalty)
     model.bulk_penalty = Param(within=NonNegativeReals, initialize= dispatch.bulk_net_load_penalty)
     model.flex_penalty = Param(within=NonNegativeReals, initialize= dispatch.flex_load_penalty)
@@ -330,12 +336,12 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     # System
     model.Flexible_Load = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals)
     model.Cumulative_Flexible_Load = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals)
-    model.DistSysCapacityNeed = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=NonNegativeReals)
-    model.BulkSysCapacityNeed = Var(model.GEOGRAPHIES, model.TIMEPOINTS, within=NonNegativeReals)
+    model.DistSysCapacityNeed = Var(model.GEOGRAPHIES, model.FEEDERS, within=NonNegativeReals)
+    model.BulkSysCapacityNeed = Var(model.GEOGRAPHIES, within=NonNegativeReals)
     model.FlexLoadUse = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=NonNegativeReals)
     model.Curtailment = Var(model.GEOGRAPHIES, model.TIMEPOINTS, within=NonNegativeReals)
-    model.Unserved_Energy = Var(model.GEOGRAPHIES, model.TIMEPOINTS,within=NonNegativeReals)
-
+    model.Unserved_Energy = Var(model.GEOGRAPHIES, model.TIMEPOINTS, within=NonNegativeReals)
+    model.Unserved_Capacity = Var(model.GEOGRAPHIES, within=NonNegativeReals)
     ##############################
     # ### Objective function ### #
     ##############################
@@ -383,5 +389,5 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
 
     # Bulk system capacity penalty
     model.Bulk_System_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, rule=bulk_system_capacity_need_rule)
-    
+    model.Unserved_Capacity_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, rule=unserved_capacity_rule)
     return model

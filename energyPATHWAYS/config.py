@@ -88,6 +88,7 @@ output_supply_levels = None
 output_combined_levels = None
 outputs_id_map = defaultdict(dict)
 dispatch_write_years = None
+timestamp = None
 
 # parallel processing
 available_cpus = None
@@ -116,7 +117,7 @@ unit_defs = ['US_gge = 120,500 * BTU',
             'bee = 3,559,000 * Btu']
 
 def initialize_config(_path, _cfgfile_name, _log_name):
-    global weibul_coeff_of_var, available_cpus, workingdir, cfgfile_name, log_name, log_initialized, index_levels, solver_name
+    global weibul_coeff_of_var, available_cpus, workingdir, cfgfile_name, log_name, log_initialized, index_levels, solver_name, timestamp
     workingdir = os.getcwd() if _path is None else _path
     cfgfile_name = _cfgfile_name 
     init_cfgfile(os.path.join(workingdir, cfgfile_name))
@@ -136,6 +137,7 @@ def initialize_config(_path, _cfgfile_name, _log_name):
 
     available_cpus = int(cfgfile.get('case','num_cores'))
     weibul_coeff_of_var = util.create_weibul_coefficient_of_variation()
+    timestamp = str(datetime.datetime.now().replace(second=0,microsecond=0))
 
 def setuplogging():
     if not os.path.exists(os.path.join(workingdir, 'logs')):
