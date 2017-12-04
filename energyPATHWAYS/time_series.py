@@ -339,7 +339,7 @@ class TimeSeries:
 
         for colname in data.columns:
             y = np.array(data[colname])
-            if np.all(np.isfinite(y)) or not np.any(np.isfinite(y)):
+            if not np.any(np.isfinite(y)):
                 continue
             data[colname] = TimeSeries.cleanxy(x, y, newindex, interpolation_method, extrapolation_method, **kwargs)
         
