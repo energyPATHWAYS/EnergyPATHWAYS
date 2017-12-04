@@ -609,7 +609,7 @@ class Supply(object):
                             hourly_p_min = np.repeat(0.0,len(self.dispatch.hours))
                             opt_p_min = np.repeat(0.0,len(opt_periods))
                             opt_p_max = np.repeat(capacity.sum().values[0],len(opt_periods))
-                            hourly_p_max = np.repeat(capacity,len(self.dispatch.hours))
+                            hourly_p_max = np.repeat(capacity.sum().values[0],len(self.dispatch.hours))
                         else:
                             hourly_p_min = util.remove_df_levels(util.DfOper.mult([capacity, p_min_shape]), cfg.primary_geography).values
                             p_min = np.array(split_and_apply(hourly_p_min, dispatch_periods, np.mean))
@@ -649,8 +649,8 @@ class Supply(object):
                             min_hourly_capacity = -hourly_p_max
                         self.dispatch.annual_ld_energy[tech_id] = annual_energy
                         self.dispatch.ld_geography[tech_id] = geography
-                        self.dispatch.ld_capacity.update(dict([((tech_id, h), value[0]) for h, value in enumerate(max_hourly_capacity)]))
-                        self.dispatch.ld_min_capacity.update(dict([((tech_id, h), value[0]) for h, value in enumerate(min_hourly_capacity)]))
+                        self.dispatch.ld_capacity.update(dict([((tech_id, h), value) for h, value in enumerate(max_hourly_capacity)]))
+                        self.dispatch.ld_min_capacity.update(dict([((tech_id, h), value) for h, value in enumerate(min_hourly_capacity)]))
                         for period in self.dispatch.periods:
                             self.dispatch.capacity[period][tech_id] = max_capacity[period]
                             self.dispatch.min_capacity[period][tech_id] = min_capacity[period]
