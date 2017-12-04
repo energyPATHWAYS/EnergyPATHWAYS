@@ -1338,7 +1338,7 @@ class Supply(object):
             weighted_sales = node.stock.sales[node.stock.sales.index.get_level_values('vintage')<=year]
             weighted_sales *= (np.column_stack(weighted_sales.index.get_level_values('vintage').values).T-vintage_start)
             weighted_sales = util.remove_df_levels(weighted_sales,'vintage')
-            weighted_sales = weighted_sales.groupby(level = cfg.primary_geography ).transform(lambda x: x/x.sum())
+            weighted_sales = weighted_sales.groupby(level = cfg.primary_geography).transform(lambda x: x/x.sum())
             node.active_weighted_sales = weighted_sales
             node.active_weighted_sales = node.active_weighted_sales.fillna(1/float(len(node.tech_ids)))
 
