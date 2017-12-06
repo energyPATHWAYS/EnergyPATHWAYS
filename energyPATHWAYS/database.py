@@ -12,6 +12,9 @@ import numpy as np
 import os
 import pandas as pd
 
+from .text_mappings import MappedCols
+
+
 pd.set_option('display.width', 200)
 
 from energyPATHWAYS.error import PathwaysException, RowNotFound, DuplicateRowsFound, SubclassProtocolError
@@ -189,52 +192,6 @@ class AbstractTable(object):
             obj = cls(key, scenario)  # adds itself to the classes _instances_by_id dict
             obj.init_from_series(row, scenario)
 
-    # TBD: obsolete once psql-to-csv conversion is complete
-    def link_children(self, missing):
-        fk_by_parent = ForeignKey.fk_by_parent
-
-        # After loading all "direct" data, link child records via foreign keys
-        parent_tbl = self
-        parent_tbl_name = parent_tbl.name
-        parent_cls = parent_tbl.data_class
-
-        fkeys = fk_by_parent[parent_tbl_name]
-
-        if not fkeys:
-            return
-
-        print("Linking table {}".format(parent_tbl_name))
-
-        for parent_obj in parent_cls.instances():
-            for fk in fkeys:
-                parent_col      = fk.column_name
-                child_tbl_name  = fk.foreign_table_name
-                child_col_name  = fk.foreign_column_name
-
-                if missing.get(child_tbl_name):
-                    continue
-
-                child_tbl = self.db.get_table(child_tbl_name)
-                child_cls = child_tbl.data_class
-
-                if not child_cls:
-                    # See if it's a text mapping class
-                    key = getattr(parent_obj, parent_col)
-                    if key is None or np.isnan(key):
-                        continue
-
-                    text = self.db.get_text(child_tbl_name, int(key))
-                    if text is None:
-                        missing[child_tbl_name] = 1
-                        print("** Skipping missing table '{}'".format(child_tbl_name))
-                    else:
-                        setattr(parent_obj, parent_col, text)       # Never encountered this line
-                    continue
-
-                # create and save a list of all matching data class instances with matching ids
-                children = [obj for obj in child_cls.instances() if getattr(obj, child_col_name) == getattr(parent_obj, parent_col)]
-                parent_tbl.children_by_fk_col[parent_col] = children
-
 
     def get_row(self, key_col, key, raise_error=True):
         """
@@ -256,9 +213,7 @@ class AbstractTable(object):
             rows = self.data.query(query)
             # print('Getting row {} from cache'.format(query))
             # print(rows)
-            tups = []
-            for idx, row in rows.iterrows():
-                tups.append(tuple(row))
+            tups = [tuple(row) for idx, row in rows.iterrows()]
         else:
             # print('Getting row {} from database'.format(query))
             tups = self.load_rows(key)
@@ -297,11 +252,16 @@ class CsvTable(AbstractTable):
         if not filename:
             raise PathwaysException('Missing filename for table "{}"'.format(tbl_name))
 
+        # Avoid reading empty strings as nan
+        str_cols = MappedCols.get(tbl_name, [])
+        converters = {col: str for col in str_cols}
+        converters['sensitivity'] = str
+
         if filename.endswith('.gz'):
             with gzip.open(filename, 'rb') as f:
-                df = pd.read_csv(f, index_col=None)
+                df = pd.read_csv(f, index_col=None, converters=converters)
         else:
-            df = pd.read_csv(filename, index_col=None)
+            df = pd.read_csv(filename, index_col=None, converters=converters)
 
         # ensure that keys are read as strings
         col = find_key_col(tbl_name, df.columns)
@@ -313,12 +273,18 @@ class CsvTable(AbstractTable):
             if col:
                 df[col] = df[col].astype(str)
 
+            # ensure that all data tables have a sensitivity column
+            if not 'sensitivity' in df.columns:
+                df['sensitivity'] = None
+
         self.data = df
 
         rows, cols = self.data.shape
         print("Cached {} rows, {} cols for table '{}' from {}".format(rows, cols, tbl_name, filename))
         return self.data
 
+    def get_columns(self):
+        return list(self.data.columns)
 
 class ShapeDataMgr(object):
     """
@@ -387,6 +353,16 @@ class ForeignKey(object):
         return "<ForeignKey {}.{} -> {}.{}>".format(self.table_name, self.column_name,
                                                     self.foreign_table_name, self.foreign_column_name)
 
+    @classmethod
+    def get_fk(cls, tbl_name, col_name):
+        fkeys = ForeignKey.fk_by_parent[tbl_name]
+
+        for obj in fkeys:
+            if obj.column_name == col_name:
+                return obj
+
+        return None
+
 class AbstractDatabase(object):
     """
     A simple Database class that caches table data and provides a few fetch methods.
@@ -409,11 +385,11 @@ class AbstractDatabase(object):
 
         return instance
 
-    def get_tables_names(self):
+    def get_table_names(self):
         raise SubclassProtocolError(self.__class__, 'get_table_names')
 
     def _cache_table_names(self):
-        self.table_names = {name: True for name in self.get_tables_names()}
+        self.table_names = {name: True for name in self.get_table_names()}
 
     def is_table(self, name):
         return self.table_names.get(name, False)
@@ -433,7 +409,7 @@ class AbstractDatabase(object):
                    'Version', 'foreign_keys'] + Simple_mapping_tables
 
         # Don't create classes for "Data" tables; these are rendered as DataFrames only
-        tables = [name for name in self.get_tables_names() if not (name in exclude or name.endswith('Data'))]
+        tables = [name for name in self.get_table_names() if not (name in exclude or name.endswith('Data'))]
         ignore = Tables_to_ignore + (Tables_to_load_on_demand if not include_on_demand else [])
         result = sorted(list(set(tables) - set(ignore)))
         return result
@@ -449,9 +425,6 @@ class AbstractDatabase(object):
             # some mapping tables have other columns, but we need just id and name
             id_col = 'id'
             name_col = 'name'
-
-            # if name == 'ImportCost':
-            #     id_col = 'import_node_id'
 
             df = tbl.data[[id_col, name_col]]
             # coerce names to str since we use numeric ids in some cases
@@ -525,7 +498,7 @@ class CsvDatabase(AbstractDatabase):
         '''
         return self.shapes.get_slice(name)
 
-    def get_tables_names(self):
+    def get_table_names(self):
         return self.file_map.keys()
 
     @classmethod
@@ -538,11 +511,26 @@ class CsvDatabase(AbstractDatabase):
         return db
 
     def get_columns(self, table):
+        tbl = self.get_table(table)
+        if tbl:
+            return tbl.get_columns()
+
+        # Otherwise, return the column headers from the file
         pathname = self.file_for_table(table)
         with open(pathname, 'r') as f:
             headers = f.readline().strip()
         result = headers.split(',')
         return result
+
+    def get_parent_col(self, table):
+        cols = self.get_columns(table)
+        col = find_parent_col(table, cols)
+        return col
+
+    def get_key_col(self, table):
+        cols = self.get_columns(table)
+        col = find_key_col(table, cols)
+        return col
 
     def _cache_foreign_keys(self):
         """

@@ -61,7 +61,7 @@ class ClassGenerator(object):
         self.linewidth = linewidth
         self.generated = []
         self.tables = None
-        self.all_tables = db.get_tables_names()
+        self.all_tables = db.get_table_names()
 
     def generateClass(self, stream, table):
         db = self.db

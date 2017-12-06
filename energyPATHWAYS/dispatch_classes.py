@@ -25,8 +25,6 @@ import cPickle as pickle
 import dispatch_generators
 import dispatch_maintenance
 
-import schema
-
 class DispatchFeederAllocation(Abstract):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
     def __init__(self, id,**kwargs):

@@ -10,7 +10,7 @@ from time_series import TimeSeries
 from collections import OrderedDict
 import os
 import copy
-import time
+#import time
 from util import DfOper
 import logging
 import pdb
@@ -32,6 +32,12 @@ class DataMapFunctions:
         self.column_names = OrderedDict()
         self.df_index_names = []
 
+        # RJP: wanted to add these here since they are presumed to exist in all subclasses,
+        # RJP: but the calls to super's __init__ doesn't occur before subclass' __init__,
+        # RJP: so this overwrites values set in subclasses.
+        # self.sql_id_table = None
+        # self.sql_data_table = None
+
     def inspect_index_levels(self, headers, read_data):
         """
         creates a dictionary to store level headings (for database lookup) and
@@ -48,6 +54,9 @@ class DataMapFunctions:
     def read_timeseries_data(self, data_column_names='value', **filters):  # This function needs to be sped up
         """reads timeseries data to dataframe from database. Stored in self.raw_values"""
         # rowmap is used in ordering the data when read from the sql table
+
+        data_column_names = util.put_in_list(data_column_names)
+
         headers = util.sql_read_headers(self.sql_data_table)
         filters[self.data_id_key] = self.id
 
@@ -66,7 +75,7 @@ class DataMapFunctions:
         self._validate_other_indexes(headers, read_data)
 
         rowmap = [headers.index(self.column_names[level]) for level in self.index_levels]
-        data_col_ind = [headers.index(data_col) for data_col in util.put_in_list(data_column_names)]
+        data_col_ind = [headers.index(data_col) for data_col in data_column_names]
 
         unit_prefix = self.unit_prefix if hasattr(self, 'unit_prefix') else 1
         if read_data:
@@ -77,7 +86,8 @@ class DataMapFunctions:
                 except:
                     logging.warning('error reading table: {}, row: {}'.format(self.sql_data_table, row))
                     raise
-            column_names = self.df_index_names + util.put_in_list(data_column_names)
+
+            column_names = self.df_index_names + data_column_names
             self.raw_values = pd.DataFrame(data, columns=column_names).set_index(keys=self.df_index_names).sort()
             # print the duplicate values
             duplicate_index = self.raw_values.index.duplicated(keep=False) #keep = False keeps all of the duplicate indices
@@ -254,6 +264,7 @@ class DataMapFunctions:
     def _get_df_index_names_in_a_list(self, df):
         return df.index.names if df.index.nlevels > 1 else [df.index.name]
 
+    # RJP: Question: when (why) is map_from not 'raw_values'? How to integrate new db classes here?
     def remap(self, map_from='raw_values', map_to='values', drivers=None, time_index_name='year',
               time_index=None, fill_timeseries=True, interpolation_method='missing', extrapolation_method='missing',
               converted_geography=None, current_geography=None, current_data_type=None, fill_value=0., lower=0, upper=None, filter_geo=True, driver_geography=None):
@@ -269,7 +280,11 @@ class DataMapFunctions:
         current_data_type = self.input_type if current_data_type is None else current_data_type
         current_geography = self.geography if current_geography is None else current_geography
         time_index = self._get_active_time_index(time_index, time_index_name)
-        if current_geography not in self._get_df_index_names_in_a_list(getattr(self, map_from)):
+
+        # Note that intermediate vars facilitate tracing in debugger and makes code more readable at little cost
+        map_df = getattr(self, map_from)
+        index_names = self._get_df_index_names_in_a_list(map_df)
+        if current_geography not in index_names:
             raise ValueError('Current geography does not match the geography of the dataframe in remap')
 
         # deals with foreign gaus and updates the geography

@@ -1,3 +1,8 @@
+alter table "CO2PriceMeasures" drop constraint "CO2PriceMeasures_supply_node_id_fkey";
+alter table "CO2PriceMeasures"
+  add constraint "CO2PriceMeasures_supply_node_id_fkey"
+  foreign key (supply_node_id) references "SupplyNodes"(id);
+
 alter table "DemandEnergyDemandsData" drop constraint "DemandEnergyDemandsData_demand_technology_id_fkey";
 alter table "DemandEnergyDemandsData"
   add constraint "DemandEnergyDemandsData_demand_technology_id_fkey"

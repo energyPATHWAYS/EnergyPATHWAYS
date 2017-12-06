@@ -25,7 +25,11 @@ from postgres import PostgresDatabase
 @click.option('--limit', '-l', type=int, default=0,
               help='Limit the number of rows read (useful for debugging; default=0, which means unlimited)')
 
-def main(dbname, db_dir, host, user, password, limit):
+@click.option('--tables', '-t', default='',
+              help='''A comma-delimited list of table names to process rather than the default, 
+              which is to process all tables.''')
+
+def main(dbname, db_dir, host, user, password, limit, tables):
     db = PostgresDatabase(host=host, dbname=dbname, user=user, password=password, cache_data=False)
 
     db_dir = db_dir or dbname + '.db'
@@ -35,7 +39,7 @@ def main(dbname, db_dir, host, user, password, limit):
     db.load_text_mappings()    # to replace ids with strings
 
     tables_to_skip = Tables_to_ignore + ['GeographyIntersection', 'GeographyIntersectionData']
-    table_names = [name for name in db.get_tables_names() if name not in tables_to_skip]
+    table_names = tables.split(',') or [name for name in db.get_tables_names() if name not in tables_to_skip]
     table_objs  = [db.get_table(name) for name in table_names]
 
     if limit:

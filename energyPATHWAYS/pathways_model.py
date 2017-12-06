@@ -18,6 +18,7 @@ import smtplib
 from profilehooks import timecall
 import pdb
 from scenario_loader import Scenario
+from scenario_loader_new import ScenarioNew
 import copy
 import numpy as np
 from database import CsvDatabase
@@ -27,8 +28,18 @@ class PathwaysModel(object):
     Highest level classification of the definition of an energy system.
     """
     def __init__(self, scenario_id, api_run=False):
+        if os.getenv('USER') == 'rjp':
+            db_pathname = '/Users/rjp/Projects/EvolvedEnergy/integration/171112_US.db'
+        else:
+            db_pathname = r"C:\github\EnergyPATHWAYS\model_building_tools\gen_classes\171112_US.db"
+
+        # TODO: DemandTechsServiceLink still needs to be resolved (has duplicate key)
+        db = CsvDatabase.get_database(pathname=db_pathname, exclude=['DemandTechsServiceLink'])
+        logging.info("Using database '{}'".format(db))
+
         self.scenario_id = scenario_id
         self.scenario = Scenario(self.scenario_id)
+        self.scenario_new = ScenarioNew(self.scenario_id)   # RJP: for testing
         self.api_run = api_run
         self.outputs = Output()
         self.demand = Demand(self.scenario)
@@ -37,15 +48,6 @@ class PathwaysModel(object):
 
     def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, export_results, save_models, append_results):
         try:
-            if os.getenv('USER') == 'rjp':
-                db_pathname = '/Users/rjp/Projects/EvolvedEnergy/integration/171112_US.db'
-            else:
-                db_pathname = r"C:\github\EnergyPATHWAYS\model_building_tools\gen_classes\171112_US.db"
-
-            # TODO: DemandTechsServiceLink still needs to be resolved (has duplicate key)
-            db = CsvDatabase.get_database(pathname=db_pathname, exclude=['DemandTechsServiceLink'])
-            print("Using database {}".format(db))
-
             if solve_demand and not (load_demand or load_supply):
                 self.calculate_demand(save_models)
 
@@ -163,9 +165,13 @@ class PathwaysModel(object):
 
             if attribute in ('hourly_dispatch_results', 'electricity_reconciliation', 'hourly_marginal_cost', 'hourly_production_cost'):
                 # Special case for hourly dispatch results where we want to write them outside of supply_outputs
-                Output.write(result_df, attribute + '.csv', os.path.join(cfg.workingdir, 'dispatch_outputs'))
+                name = 'dispatch_outputs'
+                # Output.write(result_df, attribute + '.csv', os.path.join(cfg.workingdir, 'dispatch_outputs'))
             else:
-                Output.write(result_df, attribute+'.csv', os.path.join(cfg.workingdir, result_name))
+                name = result_name
+                # Output.write(result_df, attribute + '.csv', os.path.join(cfg.workingdir, result_name))
+
+            Output.write(result_df, attribute + '.csv', os.path.join(cfg.workingdir, name))
 
     def export_results_to_db(self):
         scenario_run_id = util.active_scenario_run_id(self.scenario_id)

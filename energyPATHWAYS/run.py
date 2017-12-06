@@ -157,29 +157,36 @@ def load_model(load_demand, load_supply, load_error, scenario_id, api_run):
     # Note that the api_run parameter is effectively ignored if you are loading a previously pickled model
     # (with load_supply or load_demand); the model's api_run property will be set to whatever it was when the model
     # was pickled.
+    error_file  = os.path.join(cfg.workingdir, str(scenario_id) + cfg.model_error_append_name)
+    supply_file = os.path.join(cfg.workingdir, str(scenario_id) + cfg.full_model_append_name)
+    demand_file = os.path.join(cfg.workingdir, str(scenario_id) + cfg.demand_model_append_name)
+
+    # local func to reduce redundancy
+    def read_pickle(file, desc):
+        with open(file, 'rb') as f:
+            model = pickle.load(f)
+
+        logging.info('Loaded %s EnergyPATHWAYS model from pickle', desc)
+        return model
+
     if load_error:
-        with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.model_error_append_name), 'rb') as infile:
-            model = pickle.load(infile)
-        logging.info('Loaded crashed EnergyPATHWAYS model from pickle')
+        model = read_pickle(error_file, 'crashed')
+
     elif load_supply:
-        with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.full_model_append_name), 'rb') as infile:
-            model = pickle.load(infile)
-        logging.info('Loaded complete EnergyPATHWAYS model from pickle')
+        model = read_pickle(supply_file, 'complete')
+
     elif load_demand:
-        demand_file = os.path.join(cfg.workingdir, str(scenario_id) + cfg.demand_model_append_name)
-        supply_file = os.path.join(cfg.workingdir, str(scenario_id) + cfg.full_model_append_name)
         if os.path.isfile(demand_file):
-            with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.demand_model_append_name), 'rb') as infile:
-                model = pickle.load(infile)
-                logging.info('Loaded demand-side EnergyPATHWAYS model from pickle')
+            model = read_pickle(demand_file, 'demand-side')
+
         elif os.path.isfile(supply_file):
-            with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.full_model_append_name), 'rb') as infile:
-                model = pickle.load(infile)
-                logging.info('Loaded complete EnergyPATHWAYS model from pickle')
+            model = read_pickle(supply_file, 'complete')
+
         else:
             raise("No model file exists")
     else:
         model = PathwaysModel(scenario_id, api_run)
+
     return model
 
 def send_gmail(scenario_id, subject, body):

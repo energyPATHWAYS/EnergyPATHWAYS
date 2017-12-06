@@ -38,6 +38,11 @@ model_error_append_name = '_model_error.p'
 index_levels = None
 dnmtr_col_names = ['driver_denominator_1_id', 'driver_denominator_2_id']
 drivr_col_names = ['driver_1_id', 'driver_2_id']
+
+# TODO: remove old names above once conversion is complete
+denom_col_names  = ['driver_denominator_1', 'driver_denominator_2']
+driver_col_names = ['driver_1', 'driver_2']
+
 tech_classes = ['capital_cost_new', 'capital_cost_replacement', 'installation_cost_new', 'installation_cost_replacement', 'fixed_om', 'variable_om', 'efficiency']
 #storage techs have additional attributes specifying costs for energy (i.e. kWh of energy storage) and discharge capacity (i.e. kW)
 storage_tech_classes = ['installation_cost_new','installation_cost_replacement', 'fixed_om', 'variable_om', 'efficiency', 'capital_cost_new_capacity', 'capital_cost_replacement_capacity',
@@ -119,12 +124,12 @@ unit_defs = ['US_gge = 120,500 * BTU',
 def initialize_config(_path, _cfgfile_name, _log_name):
     global weibul_coeff_of_var, available_cpus, workingdir, cfgfile_name, log_name, log_initialized, index_levels, solver_name
     workingdir = os.getcwd() if _path is None else _path
-    cfgfile_name = _cfgfile_name 
+    cfgfile_name = _cfgfile_name
     init_cfgfile(os.path.join(workingdir, cfgfile_name))
-    
+
     log_name = '{} energyPATHWAYS log.log'.format(str(datetime.datetime.now())[:-4].replace(':', '.')) if _log_name is None else _log_name
     setuplogging()
-    
+
     init_db()
     init_units()
     init_geo()
@@ -165,11 +170,11 @@ def init_cfgfile(cfgfile_path):
     years = range(int(cfgfile.get('case', 'demand_start_year')),
                    int(cfgfile.get('case', 'end_year')) + 1,
                    int(cfgfile.get('case', 'year_step')))
-                   
+
     supply_years = range(int(cfgfile.get('case', 'current_year')),
                           int(cfgfile.get('case', 'end_year')) + 1,
                           int(cfgfile.get('case', 'year_step')))
-    
+
     cfgfile.set('case', 'years', years)
     cfgfile.set('case', 'supply_years', supply_years)
 
@@ -184,34 +189,34 @@ def init_db():
     conn_str = "host='%s' dbname='%s' user='%s'" % (pg_host, pg_database, pg_user)
     if pg_password:
         conn_str += " password='%s'" % pg_password
-    
+
     logging.debug("Connecting to postgres database {}".format(pg_database))
     # Open pathways database
     con = psycopg2.connect(conn_str)
     cur = con.cursor()
     logging.debug("Connection successful...")
-    
+
 
 def init_units():
     # Initiate pint for unit conversions
     global ureg, output_energy_unit, calculation_energy_unit
     ureg = pint.UnitRegistry()
-    
+
     # output_energy_unit = cfgfile.get('case', 'output_energy_unit')
     calculation_energy_unit = cfgfile.get('case', 'calculation_energy_unit')
-    
+
     for unit_def in unit_defs:
         unit_name = unit_def.split(' = ')[0]
         if hasattr(ureg, unit_name):
             logging.debug('pint already has unit {}, unit is not being redefined'.format(unit_name))
             continue
         ureg.define(unit_def)
-        
+
 def init_geo():
     #Geography conversions
     global geo, primary_geography, primary_geography_id, geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id, disagg_geography, disagg_geography_id
     global primary_subset_id, breakout_geography_id, dispatch_breakout_geography_id, disagg_breakout_geography_id, include_foreign_gaus
-    
+
     # from config file
     primary_geography_id = int(cfgfile.get('case', 'primary_geography_id'))
     primary_subset_id = [int(g) for g in cfgfile.get('case', 'primary_subset_id').split(',') if len(g)]
@@ -221,10 +226,10 @@ def init_geo():
     disagg_geography_id = int(cfgfile.get('case', 'disagg_geography_id'))
     disagg_breakout_geography_id = [int(g) for g in cfgfile.get('case', 'disagg_breakout_geography_id').split(',') if len(g)]
     include_foreign_gaus = True if cfgfile.get('case', 'include_foreign_gaus').lower()=='true' else False
-    
+
     # geography conversion object
     geo = geomapper.GeoMapper()
-    
+
     # derived from inputs and geomapper object
     dispatch_geography = geo.get_dispatch_geography_name()
     primary_geography = geo.get_primary_geography_name()
@@ -251,7 +256,7 @@ def init_date_lookup():
     class DateTimeLookup:
         def __init__(self):
             self.dates = {}
-        
+
         def lookup(self, series):
             """
             This is a faster approach to datetime parsing.
@@ -262,7 +267,7 @@ def init_date_lookup():
             self.dates.update({date: pd.to_datetime(date) for date in series.unique() if not self.dates.has_key(date)})
             return series.apply(lambda v: self.dates[v])
             ## Shapes
-    
+
     date_lookup = DateTimeLookup()
     time_slice_col = ['year', 'month', 'week', 'hour', 'day_type']
     electricity_energy_type_id, electricity_energy_type_shape_id = util.sql_read_table('FinalEnergy', column_names=['id', 'shape_id'], name='electricity')
@@ -287,7 +292,7 @@ def init_output_levels():
             if x in output_combined_levels:
                 output_combined_levels.remove(x)
 
-        
+
 
 def init_outputs_id_map():
     global outputs_id_map
@@ -301,13 +306,13 @@ def init_outputs_id_map():
     outputs_id_map['demand_technology'] = util.upper_dict(util.sql_read_table('DemandTechs', ['id', 'name']))
     outputs_id_map['supply_technology'] = util.upper_dict(util.sql_read_table('SupplyTechs', ['id', 'name']))
     outputs_id_map['final_energy'] = util.upper_dict(util.sql_read_table('FinalEnergy', ['id', 'name']))
-    outputs_id_map['supply_node'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name']))     
-    outputs_id_map['blend_node'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name']))     
-    outputs_id_map['input_node'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name']))         
+    outputs_id_map['supply_node'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name']))
+    outputs_id_map['blend_node'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name']))
+    outputs_id_map['input_node'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name']))
     outputs_id_map['supply_node_output'] = outputs_id_map['supply_node']
     outputs_id_map['supply_node_input'] = outputs_id_map['supply_node']
     outputs_id_map['supply_node_export'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name'])," EXPORT")
-    outputs_id_map['subsector'] = util.upper_dict(util.sql_read_table('DemandSubsectors', ['id', 'name']))           
+    outputs_id_map['subsector'] = util.upper_dict(util.sql_read_table('DemandSubsectors', ['id', 'name']))
     outputs_id_map['demand_sector'] = util.upper_dict(util.sql_read_table('DemandSectors', ['id', 'name']))
     outputs_id_map['sector'] = outputs_id_map['demand_sector']
     outputs_id_map['ghg'] = util.upper_dict(util.sql_read_table('GreenhouseGases', ['id', 'name']))

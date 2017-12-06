@@ -1,18 +1,15 @@
 __author__ = 'ryan and rich'
-
 import logging
 import pdb
-import re
-from collections import OrderedDict
-from collections import defaultdict
+#import re
+from collections import OrderedDict, defaultdict
 
 import numpy as np
-import pandas as pd
+#import pandas as pd
 
 from . import config as cfg
 from .time_series import TimeSeries
-from .util import (DfOper, sql_read_table, sql_read_dict, put_in_list,
-                   id_to_name, remove_df_levels, get_elements_from_level,
+from .util import (DfOper, put_in_list, remove_df_levels, get_elements_from_level,
                    reindex_df_level_with_new_elements)
 from .database import get_database, find_parent_col
 from .error import SubclassProtocolError
@@ -34,28 +31,28 @@ class StringMap(object):
         return cls.instance
 
     def __init__(self):
-        self.txt_to_id = {}     # maps text to integer id
-        self.id_to_txt = {}     # maps id back to text
+        self.text_to_id = {}     # maps text to integer id
+        self.id_to_text = {}     # maps id back to text
         self.next_id = 1        # the next id to assign
 
-    def store(self, txt):
+    def store(self, text):
         # If already known, return it
-        id = self.get_id(txt, raise_error=False)
+        id = self.get_id(text, raise_error=False)
         if id is not None:
             return id
 
         id = self.next_id
         self.next_id += 1
 
-        self.txt_to_id[txt] = id
-        self.id_to_txt[id] = txt
+        self.text_to_id[text] = id
+        self.id_to_text[id] = text
         return id
 
-    def get_id(self, txt, raise_error=True):
-        return self.txt_to_id[txt] if raise_error else (None if id is None else self.txt_to_id.get(txt, None))
+    def get_id(self, text, raise_error=True):
+        return self.text_to_id[text] if raise_error else (None if id is None else self.text_to_id.get(text, None))
 
-    def get_txt(self, id, raise_error=True):
-        return self.id_to_txt[id] if raise_error else (None if id is None else self.id_to_txt.get(id, None))
+    def get_text(self, id, raise_error=True):
+        return self.id_to_text[id] if raise_error else (None if id is None else self.id_to_text.get(id, None))
 
 
 BASE_CLASS = 'DataObject'
@@ -64,9 +61,14 @@ class DataObject(object):
     # dict keyed by class object; value is list of instances of the class
     instancesByClass = defaultdict(list)
 
-    _instances_by_key = {}  # here for completeness; shadowed in generated subclasses
+    # These are here for completeness; they're shadowed in generated subclasses.
+    _instances_by_key = {}
+    _key_col = None
+    _cols = None
     _table_name = None      # ditto
     _data_table_name = None # ditto
+
+    _index_level_tups = None
 
     def __init__(self, key, scenario):
         """
@@ -79,15 +81,35 @@ class DataObject(object):
         self._child_data = None
         self.children_by_fk_col = {}
 
-        # from datamapfunctions:
-        self.data_id_key = self._key_col
-        self.sql_data_table = self._data_table_name
-        self.index_levels = OrderedDict()
-        self.column_names = OrderedDict()
-        self.df_index_names = []
+        # ivars set in create_index_levels:
+        self.column_names = None
+        self.index_levels = None       # TODO: needed?
+        self.df_index_names = None     # TODO: needed?
+
+        self.raw_values = None         # TODO: eliminate _child_data?
+
+        # added in effort to eliminate "if hasattr" tests
+        self.driver_1 = self.driver_2 = None
+        self.driver_denominator_1 = self.driver_denominator_2 = None
+        self.drivers = []
+        self.geography = None
+        self.input_type = None
 
     def __str__(self):
         return "<{} {}='{}'>".format(self.__class__._table_name, self._key_col, self._key)
+
+    # Added for compatibility with prior implementation
+    @property
+    def sql_data_table(self):
+        return self._data_table_name
+
+    @property
+    def sql_id_table(self):
+        return self._table_name
+
+    @property
+    def data_id_key(self):
+        return self._key_col
 
     @classmethod
     def instances(cls):
@@ -113,6 +135,10 @@ class DataObject(object):
         tup = self.__class__.get_row(key)
         self.init_from_tuple(tup, scenario, **kwargs)
 
+    def get_geography_map_key(self):
+        return (self.geography_map_key if 'geography_map_key' in self._cols
+                else cfg.cfgfile.get('case', 'default_geography_map_key'))
+
     @classmethod
     def get_row(cls, key, raise_error=True):
         """
@@ -130,14 +156,16 @@ class DataObject(object):
         tup = db.get_row_from_table(cls._table_name, cls._key_col, key, raise_error=raise_error)
         return tup
 
-    # TBD: decide whether the default should be copy=True or False
-    def load_child_data(self, copy=True):
+    # TODO: consider setting default copy=False once conversion is debugged
+    def load_child_data(self, copy=True, **filters):
         """
         If self._data_table_name is set, load the data corresponding to this object
         in a DataFrame as self._child_data
 
         :param id: (.database.CsvDatabase) the database object
         :param copy: (bool) whether to copy the slice from the child table's DF
+        :param **filters (dict of keyword args) constraints to apply when reading
+           child data table.
         :return: none
         """
         db = get_database()
@@ -145,25 +173,69 @@ class DataObject(object):
         if self._data_table_name:
             child_tbl = db.get_table(self._data_table_name)
             parent_col = find_parent_col(self._data_table_name, child_tbl.data.columns)
+
+            # TODO: to add (from read_timeseries_data)
+            # if 'sensitivity' in self._cols:
+            #     filters['sensitivity'] = None
+            #     if self.scenario:
+            #         filters['sensitivity'] = self.scenario.get_sensitivity(self._data_table_name, self._key)
+
             query = "{} == '{}'".format(parent_col, self._key)
             slice = child_tbl.data.query(query)
 
-            # TBD: discuss with Ryan & Ben whether to operate on the whole child_data DF or just copy slices
             slice = slice.copy(deep=True) if copy else slice
-            self.map_strings(slice)
+            self.map_strings(slice)     # on-the-fly conversion of strings to integers for use in DF indexes
             self._child_data = slice
+
+    def create_index_levels(self):
+        if self._child_data is not None:
+            data = self._child_data
+            data_cols = data.columns
+
+            elements = {col : sorted(data[col].unique()) for col in data_cols}
+
+            if not DataObject._index_level_tups:
+                # collect the tuples on the first call and cache them in a class variable
+                db = get_database()
+                levels_tbl = db.get_table('IndexLevels')
+                levels = levels_tbl.data
+                DataObject._index_level_tups = [(row.index_level, row.data_column_name) for idx, row in levels.iterrows()]
+
+            level_tups = DataObject._index_level_tups
+
+            def isListOfNoneOrNan(obj):
+                if len(obj) != 1:
+                    return False
+
+                item = obj[0]
+                return item is None or (isinstance(item, float) and np.isnan(obj[0]))
+
+            tups = [(level, col) for level, col in level_tups
+                     if (col in data_cols and not isListOfNoneOrNan(elements[col]))]
+                         #col not in self.data_id_key and   # TODO: a substring test?
+
+            # OrderedDict in necessary the way this currently works
+            self.column_names = OrderedDict(tups)
+
+            target_cols = self.column_names.values()
+            tups = [(level, elements[col]) for level, col in level_tups if col in target_cols]
+            index_levels = self.index_levels = OrderedDict(tups)
+
+            self.df_index_names = [getattr(self, level, level) for level in index_levels]
+
+        return index_levels
 
     def map_strings(self, df):
         tbl_name = self._data_table_name
 
-        mapper = StringMap.getInstance()
+        strmap = StringMap.getInstance()
         str_cols = MappedCols.get(tbl_name, [])
 
         for col in str_cols:
             # Ensure that all values are in the StringMap
             values = df[col].unique()
             for value in values:
-                mapper.store(value)
+                strmap.store(value)
 
             # mapped column "foo" becomes "foo_id"
             id_col = col + '_id'
@@ -173,181 +245,14 @@ class DataObject(object):
             df.loc[df[col] == 'nan', col] = None
 
             # create a column with integer ids
-            df[id_col] = df[col].map(lambda txt: mapper.get_id(txt, raise_error=False))
+            df[id_col] = df[col].map(lambda txt: strmap.get_id(txt, raise_error=False))
 
         if DropStrCols:
             df.drop(str_cols, axis=1, inplace=True)
 
     #
-    # TODO: the remainder of this file is a modified version of datamapfunctions
+    # TODO: the remainder of this file is a modified subset of datamapfunctions
     #
-
-    _other_indexes_cache = None
-
-    @classmethod
-    def _other_indexes_dict(cls):
-        # TODO: attaching attributes to methods is pretty unorthodox. Why not just use a class variable?
-        # this_method = DataObject._other_indexes_dict
-        # if not hasattr(this_method, 'memoized_result'):
-        #     other_indexes_data = sql_read_table('OtherIndexesData', ('id', 'other_index_id'))
-        #     this_method.memoized_result = {row[0]: row[1] for row in other_indexes_data}
-        # return this_method.memoized_result
-
-        # Rewritten using class var and new database class.
-        # We use DataObject rather than cls to ensure that we're dealing with the same class variable.
-        if not DataObject._other_indexes_cache:
-            db = get_database()
-            tbl = db.get_table('OtherIndexesData')
-            DataObject._other_indexes_cache = {row.id : row.other_index_id for row in tbl.data.iterrows()}
-
-        return DataObject._other_indexes_cache
-
-
-    def inspect_index_levels(self, headers, read_data):
-        """
-        creates a dictionary to store level headings (for database lookup) and
-        level elements. Stored as attr 'index_level'
-        """
-        # if read_data is empty, there is nothing to do here
-        if read_data:
-            elements = [sorted(set(e)) for e in zip(*read_data)]
-            # OrderedDict in necessary the way this currently works
-            self.column_names = OrderedDict(
-                [(index_level, column_name) for index_level, column_name in cfg.index_levels if
-                 (column_name in headers) and (column_name not in self.data_id_key) and (
-                         elements[headers.index(column_name)] != [None])])
-            self.index_levels = OrderedDict(
-                [(index_level, elements[headers.index(column_name)]) for index_level, column_name in cfg.index_levels if
-                 column_name in self.column_names.values()])
-            self.df_index_names = [id_to_name(level, getattr(self, level)) if hasattr(self, level) else level for
-                                   level in self.index_levels]
-
-    # TODO: This function needs to be sped up
-    def read_timeseries_data(self, data_column_names='value', **filters):
-        """reads timeseries data to dataframe from database. Stored in self.raw_values"""
-        # rowmap is used in ordering the data when read from the sql table
-
-        # headers = util.sql_read_headers(self.sql_data_table)
-        db = get_database()
-        tbl = db.get_table(self.sql_data_table)
-        headers = list(tbl.data.columns)
-
-        key = filters[self.data_id_key] = self._key
-
-        # Check for a sensitivity specification for this table and id. If there is no relevant sensitivity specified
-        # but the data table has a sensitivity column, we set the sensitivity filter to "None", which will filter
-        # the data table rows down to those where sensitivity is NULL, which is the default, no-sensitivity condition.
-        if 'sensitivity' in headers:
-            filters['sensitivity'] = None
-            if hasattr(self, 'scenario'):
-                # Note that this will return None if the scenario doesn't specify a sensitivity for this table and key
-                filters['sensitivity'] = self.scenario.get_sensitivity(self.sql_data_table, key)
-
-        # TODO: use this to read child data, possibly adding filter treatment via df.query(), unless
-        # TODO: this is just to isolate parent's children, which is already handled in load_child_data.
-        self.load_child_data(copy=True)
-        read_data = self._child_data
-
-        # read each line of the data_table matching an id and assign the value to self.raw_values
-        #read_data = sql_read_table(self.sql_data_table, return_iterable=True, **filters)
-
-        self.inspect_index_levels(headers, read_data)
-        self._validate_other_indexes(headers, read_data)
-
-        rowmap = [headers.index(self.column_names[level]) for level in self.index_levels]
-        data_col_ind = [headers.index(data_col) for data_col in put_in_list(data_column_names)]
-
-        # TODO: Add unit prefix to __init__?
-        unit_prefix = self.unit_prefix if hasattr(self, 'unit_prefix') else 1
-
-        # TODO: tbl.data already holds raw values
-        if read_data:
-            data = []
-            for row in read_data:
-                try:
-                    # TODO: the lack of intermediate variables makes it difficult to debug and understand this...
-                    data.append([row[i] for i in rowmap] + [row[i] * unit_prefix for i in data_col_ind])
-                except:
-                    logging.warning('error reading table: {}, row: {}'.format(self.sql_data_table, row))
-                    raise
-            column_names = self.df_index_names + put_in_list(data_column_names)
-            self.raw_values = pd.DataFrame(data, columns=column_names).set_index(keys=self.df_index_names).sort()
-            # print the duplicate values
-            duplicate_index = self.raw_values.index.duplicated(
-                keep=False)  # keep = False keeps all of the duplicate indices
-            if any(duplicate_index):
-                logging.warning(
-                    'Duplicate indices in table: {}, parent id: {}, by default the first index will be kept.'.format(
-                        self.sql_data_table, self.id))
-                logging.warning(self.raw_values[duplicate_index])
-                self.raw_values = self.raw_values.groupby(level=self.raw_values.index.names).first()
-        else:
-            self.raw_values = None
-            # We didn't find any timeseries data for this object, so now we want to let the user know if that
-            # might be a problem. We only expect to find timeseries data if self actually existed in the database
-            # (as opposed to being a placeholder). The existence of self in the database is flagged by self.data.
-            if self.data:
-                if getattr(self, 'reference_tech_id', None):
-                    logging.debug('No {} found for {} with id {}; using reference technology values instead.'.format(
-                        self.sql_data_table, self.sql_id_table, self.id
-                    ))
-                else:
-                    msg = 'No {} or reference technology found for {} with id {}.'.format(
-                        self.sql_data_table, self.sql_id_table, self.id
-                    )
-                    if re.search("Cost(New|Replacement)?Data$", self.sql_data_table):
-                        # The model can run fine without cost data and this is sometimes useful during model
-                        # development so we just gently note if cost data is missing.
-                        logging.debug(msg)
-                    else:
-                        # Any other missing data is likely to be a real problem so we complain
-                        logging.critical(msg)
-
-    def _validate_other_indexes(self, headers, read_data):
-        """
-        This method checks the following for both other_index_1 and other_index_2:
-        1. If the parent object specifies an other index, all child data rows have a value for that index.
-        2. If any child data row has a value for an other index, the parent specifies an other index that it should
-           belong to.
-        3. All other index data values belong to the other index specified by the parent object.
-        """
-        other_indexes_dict = sql_read_dict('OtherIndexesData', 'id', 'other_index_id')
-        other_index_names = sql_read_dict('OtherIndexes', 'id', 'name')
-        other_index_data_names = sql_read_dict('OtherIndexesData', 'id', 'name')
-
-        for index_num in ('1', '2'):
-            index_col = 'oth_%s_id' % index_num
-
-            if index_col in headers:
-                col_pos = headers.index(index_col)
-                id_pos = headers.index('id')
-                index_attr = 'other_index_%s_id' % index_num
-                index_attr_value = getattr(self, index_attr, None)
-
-                for row in read_data:
-                    if row[col_pos] is None:
-                        if index_attr_value:
-                            logging.critical("{} with id {} is missing an expected value for {}. "
-                                             "Parent {} has id {} and its {} is {} ({}).".format(
-                                self.sql_data_table, row[id_pos], index_col,
-                                self.sql_id_table, self.id, index_attr, index_attr_value,
-                                other_index_names[index_attr_value]
-                            ))
-                    elif index_attr_value is None:
-                        logging.critical("{} with id {} has an {} value of {} ({}) "
-                                         "but parent {} with id {} does not specify an {}.".format(
-                            self.sql_data_table, row[id_pos], index_col, row[col_pos],
-                            other_index_data_names[row[col_pos]],
-                            self.sql_id_table, self.id, index_attr
-                        ))
-                    elif other_indexes_dict[row[col_pos]] != index_attr_value:
-                        logging.critical("{} with id {} has an {} value of {} ({}) "
-                                         "which is not a member of parent {} with id {}'s {}, which is {} ({}).".format(
-                            self.sql_data_table, row[id_pos], index_col, row[col_pos],
-                            other_index_data_names[row[col_pos]],
-                            self.sql_id_table, self.id, index_attr, index_attr_value,
-                            other_index_names[index_attr_value]
-                        ))
 
     def clean_timeseries(self, attr='values', inplace=True, time_index_name='year',
                          time_index=None, lower=0, upper=None, interpolation_method='missing',
@@ -389,11 +294,11 @@ class DataObject(object):
            new england = supersection
         """
         # Unless specified, input_type used is attribute of the object
-        current_data_type = self.input_type if current_data_type is None else current_data_type
-        current_geography = self.geography if current_geography is None else current_geography
-        geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self,
-                                                                                                'geography_map_key') else self.geography_map_key
+        current_data_type = current_data_type or self.input_type
+        current_geography = current_geography or self.geography
+        geography_map_key = self.get_geography_map_key()
 
+        # TODO: need to see which attrs are used, then to root out the getattr.
         if current_geography not in getattr(self, attr).index.names:
             logging.error("Dataframe being mapped doesn't have the stated current geography: {}".format(self.__class__))
             pdb.set_trace()
@@ -402,6 +307,7 @@ class DataObject(object):
         map_df = cfg.geo.map_df(current_geography, converted_geography, normalize_as=current_data_type,
                                 map_key=geography_map_key, filter_geo=filter_geo)
         mapped_data = DfOper.mult([getattr(self, attr), map_df], fill_value=fill_value)
+
         if current_geography != converted_geography:
             mapped_data = remove_df_levels(mapped_data, current_geography)
 
@@ -426,15 +332,25 @@ class DataObject(object):
         return mapped_data
 
     def account_for_foreign_gaus(self, attr, current_data_type, current_geography):
-        geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self,
-                                                                                                'geography_map_key') else self.geography_map_key
+        """
+        TODO: Ryan/Ben, please correct this if needed.
+        Subtract data for "foreign" GAUs (e.g., states) from larger regions (e.g., census
+        divisions) to produce a modified "rest of {larger region}" that sums with the
+        foreign regions to the original values.
+        """
+        geography_map_key = self.get_geography_map_key()
+
+        # TODO: need to see which attrs are used, then to root out the getattr.
         df = getattr(self, attr).copy()
         if cfg.include_foreign_gaus:
             native_gaus, current_gaus, foreign_gaus = cfg.geo.get_native_current_foreign_gaus(df, current_geography)
+
             if foreign_gaus:
                 name = '{} {}'.format(self.sql_id_table, self.name if hasattr(self, 'name') else 'id ' + str(self.id))
+
                 logging.info('      Detected foreign gaus for {}: {}'.format(name, ', '.join(
                     [cfg.geo.geography_names[f] for f in foreign_gaus])))
+
                 df, current_geography = cfg.geo.incorporate_foreign_gaus(df, current_geography, current_data_type,
                                                                          geography_map_key)
         else:
@@ -453,9 +369,8 @@ class DataObject(object):
 
     def _get_active_time_index(self, time_index, time_index_name):
         if time_index is None:
-            time_index = getattr(self, time_index_name + "s") if hasattr(self,
-                                                                         time_index_name + "s") else cfg.cfgfile.get(
-                'case', 'years')
+            index_plus_s = time_index_name + "s"
+            time_index = getattr(self, index_plus_s) if hasattr(self, index_plus_s) else cfg.cfgfile.get('case', 'years')
         return time_index  # this is a list of years
 
     def _get_df_index_names_in_a_list(self, df):
@@ -477,7 +392,10 @@ class DataObject(object):
         current_data_type = self.input_type if current_data_type is None else current_data_type
         current_geography = self.geography if current_geography is None else current_geography
         time_index = self._get_active_time_index(time_index, time_index_name)
-        if current_geography not in self._get_df_index_names_in_a_list(getattr(self, map_from)):
+
+        map_df = getattr(self, map_from)
+        index_names = self._get_df_index_names_in_a_list(map_df)
+        if current_geography not in index_names:
             raise ValueError('Current geography does not match the geography of the dataframe in remap')
 
         # deals with foreign gaus and updates the geography
@@ -552,42 +470,49 @@ class DataObject(object):
             # we don't want to keep this around
             del self.total_driver
 
-    def project(self, map_from='raw_values', map_to='values', additional_drivers=None, interpolation_method='missing',
-                extrapolation_method='missing',
+    def project(self, map_from='raw_values', map_to='values', additional_drivers=None,
+                interpolation_method='missing', extrapolation_method='missing',
                 time_index_name='year', fill_timeseries=True, converted_geography=None, current_geography=None,
-                current_data_type=None, fill_value=0., projected=False, filter_geo=True):
+                current_data_type=None, fill_value=0.0, projected=False, filter_geo=True):
 
-        converted_geography = cfg.primary_geography if converted_geography is None else converted_geography
-        current_data_type = self.input_type if current_data_type is None else current_data_type
+        converted_geography = converted_geography or cfg.primary_geography
+        current_data_type = current_data_type or self.input_type
+
         if map_from != 'raw_values' and current_data_type == 'total':
-            denominator_driver_ids = []
+            denominator_driver_ids = None
         else:
-            denominator_driver_ids = [getattr(self, col) for col in cfg.dnmtr_col_names if
+            denominator_driver_ids = [getattr(self, col) for col in cfg.denom_col_names if
                                       getattr(self, col) is not None]
 
-        current_geography = self.geography if current_geography is None else current_geography
+        current_geography = current_geography or self.geography
         setattr(self, map_to, getattr(self, map_from).copy())
-        if len(denominator_driver_ids):
+
+        if denominator_driver_ids:
             if current_data_type != 'intensity':
-                raise ValueError(str(self.__class__) + ' id ' + str(
-                    self.id) + ': type must be intensity if variable has denominator drivers')
+                msg = "{} id {}: type must be intensity if variable has denominator drivers".format(self.__class__, self.id)
+                raise ValueError(msg)
 
             if current_geography != converted_geography:
                 # While not on primary geography, geography does have some information we would like to preserve
                 self.geo_map(converted_geography, attr=map_to, inplace=True)
                 current_geography = converted_geography
+
             total_driver = DfOper.mult([self.drivers[id].values for id in denominator_driver_ids])
             self.geo_map(current_geography=current_geography, attr=map_to, converted_geography=cfg.disagg_geography,
                          current_data_type='intensity')
+
             setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver)))
             self.geo_map(current_geography=cfg.disagg_geography, attr=map_to, converted_geography=current_geography,
                          current_data_type='total')
+
             # the datatype is now total
             current_data_type = 'total'
-        driver_ids = [getattr(self, col) for col in cfg.drivr_col_names if getattr(self, col) is not None]
-        drivers = [self.drivers[id].values for id in driver_ids]
+
+        driver_ids = filter(None, [self.driver_1, self.driver_2])
+        drivers = [self.drivers[key].values for key in driver_ids]
         if additional_drivers is not None:
             drivers += put_in_list(additional_drivers)
+
         # both map_from and map_to are the same
         self.remap(map_from=map_to, map_to=map_to, drivers=drivers,
                    time_index_name=time_index_name, fill_timeseries=fill_timeseries,
@@ -595,31 +520,3 @@ class DataObject(object):
                    extrapolation_method=extrapolation_method,
                    converted_geography=converted_geography, current_geography=current_geography,
                    current_data_type=current_data_type, fill_value=fill_value, filter_geo=filter_geo)
-
-
-# TODO: not sure what to do with this.
-# class Abstract(DataObject):
-#     def __init__(self, id, primary_key='id', data_id_key=None, **filters):
-#         # From Ryan: I've introduced a new parameter called data_id_key, which is the key in the "Data" table
-#         # because we are introducing primary keys into the Data tables, it is sometimes necessary to specify them separately
-#         # before we only has primary_key, which was shared in the "parent" and "data" tables, and this is still the default as we make the change.
-#         if data_id_key is None:
-#             data_id_key = primary_key
-#
-#         try:
-#             col_att = util.object_att_from_table(self.sql_id_table, id, primary_key)
-#         except:
-#             logging.error(self.sql_id_table, id, primary_key)
-#             raise
-#
-#         if col_att is None:
-#             self.data = False
-#         else:
-#             for col, att in col_att:
-#                 # if att is not None:
-#                 setattr(self, col, att)
-#             self.data = True
-#
-#         DataMapper.__init__(self, data_id_key)
-#         self.read_timeseries_data(**filters)
-

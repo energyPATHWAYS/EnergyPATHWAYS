@@ -20,29 +20,57 @@ import dispatch_classes
 import energyPATHWAYS.helper_multiprocess as helper_multiprocess
 import pdb
 import logging
-import time
+#import time
 import schema
 from .database import get_database
 
-
-class Driver(schema.DemandDrivers):
+# Old version
+class Driver(object, DataMapFunctions):
     def __init__(self, id, scenario):
-        # self.id = id
-        # self.scenario = scenario
-        # self.sql_id_table = 'DemandDrivers'
-        # self.sql_data_table = 'DemandDriversData'
-        # self.mapped = False
-        # for col, att in util.object_att_from_table(self.sql_id_table, id):
-        #     setattr(self, col, att)
+        self.id = id
+        self.scenario = scenario
+        self.sql_id_table = 'DemandDrivers'
+        self.sql_data_table = 'DemandDriversData'
+        self.mapped = False
+        tups = util.object_att_from_table(self.sql_id_table, id)
+        for col, att in tups:
+            setattr(self, col, att)
+
         # creates the index_levels dictionary
-        schema.DemandDrivers.__init__(self, id, scenario)
-        self.init_from_db(id, scenario)
+        DataMapFunctions.__init__(self, data_id_key='parent_id')
         self.read_timeseries_data()
 
+    def __str__(self):
+        return '<Driver "{}">'.format(self.name)
+
+# New version
+class DriverNew(schema.DemandDrivers):
+    def __init__(self, name, scenario):
+        super(DriverNew, self).__init__(name, scenario)
+        self.mapped = False
+        self.init_from_db(name, scenario)
+        self.index_levels = self.create_index_levels()
+
+        # TODO: move this logic to DataObject class? Not sure where else it's needed
+        columns = self.column_names.values() + ['value']
+        df = self._child_data[columns].copy()
+        renamed = {data_col : getattr(self, col, col) for col, data_col in self.column_names.items()}
+        df.rename(columns=renamed, inplace=True)
+        self.raw_values = df.set_index(keys=self.df_index_names).sort()
+
+        # DemandDrivers is the only table with a unit_prefix, so the scaling should
+        # appear here rather than in a superclass. (Previously it was in datamapfunctions.)
+        prefix = self.unit_prefix
+        if prefix and prefix != 1:
+            self._child_data['value'] *= prefix
+
+    def __str__(self):
+        return '<Driver "{}">'.format(self.name)
 
 class Demand(object):
     def __init__(self, scenario):
         self.drivers = {}
+        self.drivers_new = {}
         self.sectors = {}
         self.outputs = Output()
         self.default_electricity_shape = shape.shapes.data[cfg.electricity_energy_type_shape_id] if shape.shapes.data else None
@@ -54,6 +82,7 @@ class Demand(object):
     def setup_and_solve(self):
         logging.info('Configuring energy system')
         # Drivers must come first
+        self.add_drivers_new()      # for comparison
         self.add_drivers()
         # Sectors requires drivers be read in
         self.add_sectors()
@@ -63,7 +92,6 @@ class Demand(object):
         self.aggregate_results()
         if cfg.evolved_run == 'true':
             self.aggregate_results_evolved(cfg.evolved_years)
-
 
     def add_sectors(self):
         """Loop through sector ids and call add sector function"""
@@ -88,13 +116,9 @@ class Demand(object):
     def add_drivers(self):
         """Loops through driver ids and call create driver function"""
         logging.info('Adding drivers')
-        db = get_database()
-        tbl = db.get_table('DemandDrivers')
-        scenario = self.scenario
-
-        # ids = util.sql_read_table('DemandDrivers',column_names='id',return_iterable=True)
-        for key in tbl.data.name:
-            self.add_driver(key, scenario)
+        ids = util.sql_read_table('DemandDrivers', column_names='id', return_iterable=True)
+        for id in ids:
+            self.add_driver(id, self.scenario)
         self.remap_drivers()
 
     def add_driver(self, id, scenario):
@@ -104,6 +128,30 @@ class Demand(object):
             return
 
         self.drivers[id] = Driver(id, scenario)
+
+    # TODO
+    def add_drivers_new(self):
+        """Loops through driver ids and call create driver function"""
+        logging.info('Adding (new) drivers')
+        db = get_database()
+        tbl = db.get_table('DemandDrivers')
+        scenario = self.scenario
+
+        for name in tbl.data.name:
+            self.add_driver_new(name, scenario)
+
+        # TODO:
+        # self.remap_drivers()
+
+    def add_driver_new(self, name, scenario):
+        """
+        Add driver object to demand
+        """
+        if name in self.drivers_new:
+            logging.error("Ignoring attempt to add already-added (new) driver '{}'".format(id))
+            return
+
+        self.drivers_new[name] = DriverNew(name, scenario)
 
     def remap_drivers(self):
         """
@@ -119,16 +167,24 @@ class Demand(object):
     def remap_driver(self, driver):
         """mapping of a demand driver to its base driver"""
         # base driver may be None
+
         base_driver_id = driver.base_driver_id
-        if base_driver_id:
+
+        # TODO: clean up names to lose "_id"
+        # base_driver_id = driver.base_driver
+
+        if base_driver_id: # and not np.isnan(base_driver_id):
             base_driver = self.drivers[base_driver_id]
             # mapped is an indicator variable that records whether a driver has been mapped yet
             if not base_driver.mapped:
-                # If a driver hasn't been mapped, recursion is uesd to map it first (this can go multiple layers)
+                # If a driver hasn't been mapped, recursion is used to map it first (this can go multiple layers)
                 self.remap_driver(base_driver)
             driver.remap(drivers=base_driver.values,converted_geography=cfg.disagg_geography, filter_geo=False)
         else:
+            # TODO: don't use raw_data, and clean up use of attribute name
+            # driver.remap(map_from='_child_data', converted_geography=cfg.disagg_geography,filter_geo=False)
             driver.remap(converted_geography=cfg.disagg_geography,filter_geo=False)
+
         # Now that it has been mapped, set indicator to true
         logging.info('    {}'.format(driver.name))
         driver.mapped = True

@@ -20,7 +20,7 @@ import cPickle as pickle
 class Output(object):
     def __init__(self):
         pass
-    
+
     def return_cleaned_output(self, output_type):
         if not hasattr(self, output_type):
             return None
@@ -41,7 +41,7 @@ class Output(object):
             columns.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(columns.names, columns.levels)], inplace=True)
             columns.names = [x.upper() if isinstance(x, basestring) else x for x in columns.names]
         else:
-            cleaned_output.columns = [x.upper() if isinstance(x, basestring) else x for x in cleaned_output.columns]        
+            cleaned_output.columns = [x.upper() if isinstance(x, basestring) else x for x in cleaned_output.columns]
         return cleaned_output
 
     @staticmethod
@@ -66,7 +66,7 @@ class Output(object):
             columns.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(columns.names, columns.levels)], inplace=True)
             columns.names = [x.upper() if isinstance(x, basestring) else x for x in columns.names]
         else:
-            df.columns = [x.upper() if isinstance(x, basestring) else x for x in df.columns]        
+            df.columns = [x.upper() if isinstance(x, basestring) else x for x in df.columns]
         return df
 
     @staticmethod
@@ -113,21 +113,36 @@ class Output(object):
 
         if write_directory is None:
             write_directory = "\\\\?\\" + cfg.workingdir
-        
+
         if not os.path.exists(write_directory):
             os.makedirs(write_directory)
-        
+
+        # RJP: generally better to test isinstance() since you should be ok with subclasses
+        # of designated types. Testing for exact types is thus less robust.
+
+        # RJP: could do:
+        # if isinstance(obj, (int, float, str)):    # unless you're also checking for '1.4' being "numeric"
         if util.is_numeric(obj) or (type(obj) is str) or (type(obj) is bool):
             Output.csvwrite(os.path.join(write_directory, 'vars.csv'), [[name, obj]], writetype='ab')
+
+        # RJP: could do:
+        # if isinstance(obj, dict):     # defaultdict and OrderDict subclass dict, so it works
         elif (type(obj) == dict) or (type(obj) == defaultdict) or (type(obj) == OrderedDict):
             Output._writedict(obj, write_directory, name)
+
+        # if isinstance(obj, (list, tuple)):
         elif type(obj) == list or type(obj) == tuple:
             Output._writelist(obj, write_directory, name)
+
+        # elif isinstance(obj, pd.DataFrame):
         elif type(obj) == pd.core.frame.DataFrame:
             obj = Output.clean_df(obj)
             obj.to_csv(os.path.join(write_directory, str(name)+'.csv'))
+
+        # elif isinstance(obj, pd.DatetimeIndex):
         elif type(obj) is pd.tseries.index.DatetimeIndex:
             pd.DataFrame(obj).to_csv(os.path.join(write_directory, str(name)+'.csv'))
+
         elif inspect.isclass(type(obj)) and hasattr(obj, '__dict__'):
             Output._writeclass(obj, write_directory, name)
 
@@ -173,12 +188,12 @@ class Output(object):
         name = Output._get_name(obj)
         if default is None or name==default:
             return Output._clean_string(name)
-        
+
         if util.is_numeric(default):
             name = str(default) + '--' + str(name)
         else:
             name = str(default)
-        
+
         return Output._clean_string(name)
 
     @staticmethod
