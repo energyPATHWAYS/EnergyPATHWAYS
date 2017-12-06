@@ -1335,7 +1335,23 @@ class Supply(object):
         for node_id in self.thermal_nodes:
             node = self.nodes[node_id] 
             vintage_start = min(node.vintages) -1
-            weighted_sales = node.stock.sales[node.stock.sales.index.get_level_values('vintage')<=year]
+            total = []
+            for elements in node.rollover_groups.keys():
+                elements = util.ensure_tuple(elements)
+                sales_share, initial_sales_share = node.calculate_total_sales_share(elements,
+                                                           node.stock.rollover_group_names)   
+                sales_share = sales_share[year-min(node.vintages)]
+                total.append(sales_share)
+            total = np.concatenate(total)
+            weighted_sales = node.stock.retirements[node.stock.retirements.index.get_level_values('vintage')==year]
+            if weighted_sales.sum().sum() == 0:
+                weighted_sales[weighted_sales.values==0] = 1
+            for tech_id in node.tech_ids:
+                weighted_sales[tech_id] = weighted_sales['value']
+            weighted_sales = weighted_sales[node.tech_ids]
+            weighted_sales*=total
+            weighted_sales =  weighted_sales.sum(axis=1).to_frame()
+            weighted_sales.columns = ['value']
             weighted_sales *= (np.column_stack(weighted_sales.index.get_level_values('vintage').values).T-vintage_start)
             weighted_sales = util.remove_df_levels(weighted_sales,'vintage')
             weighted_sales = weighted_sales.groupby(level = cfg.primary_geography).transform(lambda x: x/x.sum())
@@ -3340,6 +3356,7 @@ class Export(Abstract):
         else:
             #remap exports to active supply, which has information about sectoral throughput
             self.active_values =  self.values.loc[:,year].to_frame()
+            active_supply[active_supply.values<0]=0
             self.remap(map_from='active_values', map_to='active_values', drivers=active_supply, fill_timeseries=False, current_geography=cfg.primary_geography, driver_geography=cfg.primary_geography)
         self.active_values.replace(np.nan,0,inplace=True)
         self.active_values = self.active_values.reorder_levels([cfg.primary_geography, 'demand_sector'])
