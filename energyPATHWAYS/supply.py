@@ -217,7 +217,6 @@ class Supply(object):
         supply_nodes.sort()
         for node_id, name, supply_type_id, is_active  in supply_nodes:
             if is_active:
-                
                 self.all_nodes.append(node_id)
                 logging.info('    {} node {}'.format(supply_type_dict[supply_type_id], name))
                 self.add_node(node_id, supply_type_dict[supply_type_id], self.scenario)
@@ -748,8 +747,8 @@ class Supply(object):
                         if load_or_gen=='gen':
                             dispatch *=-1
                         feeder_list.append(dispatch)
-                    self.update_net_load_signal()
                     geography_list.append(pd.concat(feeder_list))
+            self.update_net_load_signal()
             df = pd.concat(geography_list, keys=lookup[node_id].keys(), names=[cfg.dispatch_geography])
             df = pd.concat([df], keys=[node_id], names=['supply_node'])
             df = pd.concat([df], keys=[year], names=['year'])
@@ -2398,6 +2397,7 @@ class Supply(object):
                     levels = ['supply_node' ]
                     col_indexer = util.level_specific_indexer(self.io_dict[year][sector], levels=levels, elements=[col_node.id])
                     row_nodes = list(map(int,col_node.active_coefficients_total.index.levels[util.position_in_index(col_node.active_coefficients_total,'supply_node')]))
+                    row_nodes = [x for x in row_nodes if x in self.all_nodes]
                     row_indexer = util.level_specific_indexer(self.io_dict[year][sector], levels=levels, elements=[row_nodes])
                     levels = ['demand_sector','supply_node']   
                     active_row_indexer =  util.level_specific_indexer(col_node.active_coefficients_total, levels=levels, elements=[sector,row_nodes]) 
