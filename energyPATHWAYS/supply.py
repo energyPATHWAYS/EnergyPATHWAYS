@@ -217,7 +217,6 @@ class Supply(object):
         supply_nodes.sort()
         for node_id, name, supply_type_id, is_active  in supply_nodes:
             if is_active:
-                
                 self.all_nodes.append(node_id)
                 logging.info('    {} node {}'.format(supply_type_dict[supply_type_id], name))
                 self.add_node(node_id, supply_type_dict[supply_type_id], self.scenario)
@@ -748,8 +747,8 @@ class Supply(object):
                         if load_or_gen=='gen':
                             dispatch *=-1
                         feeder_list.append(dispatch)
-                    self.update_net_load_signal()
                     geography_list.append(pd.concat(feeder_list))
+            self.update_net_load_signal()
             df = pd.concat(geography_list, keys=lookup[node_id].keys(), names=[cfg.dispatch_geography])
             df = pd.concat([df], keys=[node_id], names=['supply_node'])
             df = pd.concat([df], keys=[year], names=['year'])
@@ -1290,6 +1289,7 @@ class Supply(object):
                                 self.active_thermal_dispatch_df.loc[(dispatch_geography,node.id, str(resource), 'must_run'),year] = 1
                         except:
                             pdb.set_trace()
+        
 
     def capacity_weights(self,year):
         """sets the share of new capacity by technology and location to resolve insufficient capacity in the thermal dispatch
@@ -1335,7 +1335,23 @@ class Supply(object):
         for node_id in self.thermal_nodes:
             node = self.nodes[node_id] 
             vintage_start = min(node.vintages) -1
-            weighted_sales = node.stock.sales[node.stock.sales.index.get_level_values('vintage')<=year]
+            total = []
+            for elements in node.rollover_groups.keys():
+                elements = util.ensure_tuple(elements)
+                sales_share, initial_sales_share = node.calculate_total_sales_share(elements,
+                                                           node.stock.rollover_group_names)   
+                sales_share = sales_share[year-min(node.vintages)]
+                total.append(sales_share)
+            total = np.concatenate(total)
+            weighted_sales = node.stock.retirements[node.stock.retirements.index.get_level_values('vintage')==year]
+            if weighted_sales.sum().sum() == 0:
+                weighted_sales[weighted_sales.values==0] = 1
+            for tech_id in node.tech_ids:
+                weighted_sales[tech_id] = weighted_sales['value']
+            weighted_sales = weighted_sales[node.tech_ids]
+            weighted_sales*=total
+            weighted_sales =  weighted_sales.sum(axis=1).to_frame()
+            weighted_sales.columns = ['value']
             weighted_sales *= (np.column_stack(weighted_sales.index.get_level_values('vintage').values).T-vintage_start)
             weighted_sales = util.remove_df_levels(weighted_sales,'vintage')
             weighted_sales = weighted_sales.groupby(level = cfg.primary_geography).transform(lambda x: x/x.sum())
@@ -2382,6 +2398,7 @@ class Supply(object):
                     levels = ['supply_node' ]
                     col_indexer = util.level_specific_indexer(self.io_dict[year][sector], levels=levels, elements=[col_node.id])
                     row_nodes = list(map(int,col_node.active_coefficients_total.index.levels[util.position_in_index(col_node.active_coefficients_total,'supply_node')]))
+                    row_nodes = [x for x in row_nodes if x in self.all_nodes]
                     row_indexer = util.level_specific_indexer(self.io_dict[year][sector], levels=levels, elements=[row_nodes])
                     levels = ['demand_sector','supply_node']   
                     active_row_indexer =  util.level_specific_indexer(col_node.active_coefficients_total, levels=levels, elements=[sector,row_nodes]) 
@@ -3340,6 +3357,7 @@ class Export(Abstract):
         else:
             #remap exports to active supply, which has information about sectoral throughput
             self.active_values =  self.values.loc[:,year].to_frame()
+            active_supply[active_supply.values<0]=0
             self.remap(map_from='active_values', map_to='active_values', drivers=active_supply, fill_timeseries=False, current_geography=cfg.primary_geography, driver_geography=cfg.primary_geography)
         self.active_values.replace(np.nan,0,inplace=True)
         self.active_values = self.active_values.reorder_levels([cfg.primary_geography, 'demand_sector'])
