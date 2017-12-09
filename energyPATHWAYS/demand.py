@@ -617,7 +617,8 @@ class Sector(object):
             return None
 
     def aggregate_electricity_shape(self, year, ids=None):
-        agg_shape = util.DfOper.add([self.subsectors[id].aggregate_electricity_shapes(year) for id in (self.subsectors.keys() if ids is None else ids)], expandable=False, collapsible=False)
+        # we make this expandable because sometimes it has dispatch feeder
+        agg_shape = util.DfOper.add([self.subsectors[id].aggregate_electricity_shapes(year) for id in (self.subsectors.keys() if ids is None else ids)], expandable=True, collapsible=False)
         return util.DfOper.mult((self.feeder_allocation.xs(year, level='year'), agg_shape))
 
     def set_default_shape(self, default_shape):
