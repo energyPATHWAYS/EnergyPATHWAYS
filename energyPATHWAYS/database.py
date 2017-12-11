@@ -237,6 +237,9 @@ class CsvTable(AbstractTable):
     Note: CsvTable always caches data, so the cache_data flag is ignored.
     """
     def __init__(self, db, tbl_name, cache_data=None):
+        # TODO: for integration only
+        self.ids_df = None
+
         super(CsvTable, self).__init__(db, tbl_name, cache_data=True)
 
     def load_rows(self, id):
@@ -281,7 +284,22 @@ class CsvTable(AbstractTable):
 
         rows, cols = self.data.shape
         print("Cached {} rows, {} cols for table '{}' from {}".format(rows, cols, tbl_name, filename))
+
+        self._load_ids_df()      # TODO: for integration only
+
         return self.data
+
+    # TODO: for integration only:
+    def _load_ids_df(self):
+        tbl_name = self.name
+        filename = self.db.ids_file_for_table(tbl_name)
+        if filename:
+            df = self.ids_df = pd.read_csv(filename, index_col=None)
+            if 'id' in df.columns:
+                df.set_index('id', inplace=True)
+
+            rows, cols = df.shape
+            print("Cached {} rows, {} cols for table '{}' from {}".format(rows, cols, tbl_name, filename))
 
     def get_columns(self):
         return list(self.data.columns)
@@ -317,9 +335,6 @@ class ShapeDataMgr(object):
         name = name.replace(' ', '_')
         return self.slices[name]
 
-# TBD: moved to AbstractDatabase.instance (delete)
-# The singleton object
-# _Database = None
 
 def get_database():
     instance = AbstractDatabase.instance
@@ -339,7 +354,7 @@ class ForeignKey(object):
     # dict keyed by parent table name, value is list of ForeignKey instances
     fk_by_parent = defaultdict(list)
 
-    __slots__ = ['table_name', 'column_name', 'foreign_table_name', 'foreign_column_name']
+    #__slots__ = ['table_name', 'column_name', 'foreign_table_name', 'foreign_column_name']
 
     def __init__(self, tbl_name, col_name, for_tbl_name, for_col_name):
         self.table_name = tbl_name
@@ -478,6 +493,9 @@ class CsvDatabase(AbstractDatabase):
     # Dict keyed by table name of filenames under the database root folder
     file_map = {}
 
+    # TODO: for integration only
+    ids_file_map = {}
+
     def __init__(self, pathname=None, load=True, exclude=[]):
         super(CsvDatabase, self).__init__(table_class=CsvTable, cache_data=True)
         self.pathname = pathname
@@ -562,5 +580,22 @@ class CsvDatabase(AbstractDatabase):
 
         print("Found {} .CSV files for '{}'".format(len(self.file_map), pathname))
 
+        self._create_ids_file_map()     # TODO: for integration only
+
+    # TODO: for integration only
+    def _create_ids_file_map(self):
+        pathname = self.pathname
+        ids_csv = os.path.join(pathname, 'ids', '*.csv')
+        ids_files = glob.glob(ids_csv)
+
+        for filename in ids_files:
+            basename = os.path.basename(filename)
+            tbl_name = basename.split('.')[0]
+            self.ids_file_map[tbl_name] = os.path.abspath(filename)
+
     def file_for_table(self, tbl_name):
         return self.file_map.get(tbl_name)
+
+    # TODO: for integration only
+    def ids_file_for_table(self, tbl_name):
+        return self.ids_file_map.get(tbl_name)

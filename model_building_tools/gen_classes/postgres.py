@@ -39,7 +39,7 @@ class PostgresTable(AbstractTable):
         self.map_strings()
         return self.data
 
-    def map_strings(self):
+    def map_strings(self, save_ids=False):
         tbl_name = self.name
         df = self.data
         text_maps = self.db.text_maps
@@ -78,13 +78,14 @@ class PostgresTable(AbstractTable):
             {'id': 'name'},
     }
 
-    def to_csv(self, db_dir):
+    def to_csv(self, db_dir, save_ids=False):
         """
         Save the cached data to a CSV file in the given "db", which is just a
         directory named with a ".db" extension, containing CSV "table" files.
-        String ID columns are not saved; string columns are saved instead.
+        ID columns are not saved unless save_ids is True.
 
         :param db_dir: (str) the directory in which to write the CSV file
+        :param save_ids: (bool) whether to include integer ids in the CSV file
         :return: none
         """
         name = self.name
@@ -97,7 +98,7 @@ class PostgresTable(AbstractTable):
         skip = mapped.values()
 
         # Save text mapping tables for validation purposes, but drop the id col (unless we're renaming it)
-        if name in Text_mapping_tables and not (renames and renames.get('id')):
+        if name in Text_mapping_tables and not (renames and renames.get('id')) and not save_ids:
             skip.append('id')
 
         # Swap out str cols for id cols where they exist
@@ -107,7 +108,7 @@ class PostgresTable(AbstractTable):
 
         if renames:
             print("Renaming columns for {}: {}".format(name, renames))
-            df.rename(columns=renames, inplace=True)
+            df = df.rename(columns=renames)
             self.renames = renames
 
         # TBD: temp fix to make keys unique in these 4 tables
@@ -117,6 +118,7 @@ class PostgresTable(AbstractTable):
         }
 
         if name in tables_to_patch:
+            df = df.copy()
             from energyPATHWAYS.database import find_key_col
             key_col = find_key_col(name, cols_to_save)
             template = tables_to_patch[name]
@@ -142,6 +144,14 @@ class PostgresTable(AbstractTable):
                     chunk.to_csv(f, index=None)
         else:
             pathname = os.path.join(db_dir, name + '.csv')
+            df.to_csv(pathname, index=None)
+
+            # Also save the "skipped" columns in {table}_IDS.csv
+            pathname = os.path.join(db_dir, 'ids', name + '.csv')
+            columns = list(set(data.columns) - set(cols_to_save))
+            if 'id' in cols_to_save:
+                columns.insert(0, 'id')
+            df = data[columns]
             df.to_csv(pathname, index=None)
 
 
@@ -179,7 +189,7 @@ class PostgresDatabase(AbstractDatabase):
         result = self.fetchcolumn(query)
         return result
 
-    def get_tables_names(self):
+    def get_table_names(self):
         return self._get_tables_of_type('BASE TABLE')
 
     def get_views(self):

@@ -15,6 +15,7 @@ from .database import get_database, find_parent_col
 from .error import SubclassProtocolError
 from .text_mappings import MappedCols
 
+# TODO: decide which way to go on this and make it unconditional
 DropStrCols = True
 
 class StringMap(object):
@@ -41,7 +42,7 @@ class StringMap(object):
         if id is not None:
             return id
 
-        id = self.next_id
+        id = -self.next_id      # make these negative to distinguish them
         self.next_id += 1
 
         self.text_to_id[text] = id
@@ -53,6 +54,14 @@ class StringMap(object):
 
     def get_text(self, id, raise_error=True):
         return self.id_to_text[id] if raise_error else (None if id is None else self.id_to_text.get(id, None))
+
+
+def _isListOfNoneOrNan(obj):
+    if len(obj) != 1:
+        return False
+
+    item = obj[0]
+    return item is None or (isinstance(item, float) and np.isnan(obj[0]))
 
 
 BASE_CLASS = 'DataObject'
@@ -83,8 +92,8 @@ class DataObject(object):
 
         # ivars set in create_index_levels:
         self.column_names = None
-        self.index_levels = None       # TODO: needed?
-        self.df_index_names = None     # TODO: needed?
+        self.index_levels = None
+        self.df_index_names = None
 
         self.raw_values = None         # TODO: eliminate _child_data?
 
@@ -157,12 +166,13 @@ class DataObject(object):
         return tup
 
     # TODO: consider setting default copy=False once conversion is debugged
-    def load_child_data(self, copy=True, **filters):
+    def load_child_data(self, scenario, copy=True, **filters):
         """
         If self._data_table_name is set, load the data corresponding to this object
         in a DataFrame as self._child_data
 
         :param id: (.database.CsvDatabase) the database object
+        :param scenario: (Scenario) the scenario to load
         :param copy: (bool) whether to copy the slice from the child table's DF
         :param **filters (dict of keyword args) constraints to apply when reading
            child data table.
@@ -181,13 +191,58 @@ class DataObject(object):
             #         filters['sensitivity'] = self.scenario.get_sensitivity(self._data_table_name, self._key)
 
             query = "{} == '{}'".format(parent_col, self._key)
-            slice = child_tbl.data.query(query)
+            df = child_tbl.data.query(query)
 
-            slice = slice.copy(deep=True) if copy else slice
-            self.map_strings(slice)     # on-the-fly conversion of strings to integers for use in DF indexes
-            self._child_data = slice
+            df = df.copy(deep=True) if copy else df
 
-    def create_index_levels(self):
+            # TODO: After integration call self.map_strings() instead for on-the-fly conversion
+            # TODO: of strings to integers for use in DF indexes.
+            self._child_data = self.map_strings_temporarily(df)
+
+    def create_raw_values(self):
+        # if read_data is empty, there is nothing to do here
+        data = self._child_data
+        if data is None:
+            return None
+
+        data_cols = data.columns
+        elements = {col: sorted(data[col].unique()) for col in data_cols}
+
+        # OrderedDict in necessary the way this currently works
+        self.column_names = OrderedDict([(index_level, column_name)
+                                         for index_level, column_name in cfg.index_levels
+                                         if (column_name in data_cols) and
+                                         (column_name not in self.data_id_key) and
+                                         not _isListOfNoneOrNan(elements[column_name])])
+
+        self.index_levels = OrderedDict([(index_level, elements[column_name])
+                                         for index_level, column_name in cfg.index_levels
+                                         if column_name in self.column_names.values()])
+
+        def renamed_col(col):
+            if col in self._cols:
+                return getattr(self, col)
+
+            if col.endswith('_id'):
+                strcol = col[:-3]
+                if strcol in self._cols:
+                    return getattr(self, strcol)
+
+            return col
+
+        columns = self.column_names.values() + ['value']
+        raw_values = self._child_data[columns].copy()
+
+        renamed = {data_col: renamed_col(col) for col, data_col in self.column_names.items()}
+        raw_values.rename(columns=renamed, inplace=True)
+
+        self.df_index_names = [col for col in raw_values.columns if col != 'value']
+        raw_values = raw_values.set_index(keys=self.df_index_names).sort()
+
+        return raw_values
+
+    # TODO: this interim version operated on strings; we'll use a variant of it post conversion
+    def create_index_levels_new(self):
         if self._child_data is not None:
             data = self._child_data
             data_cols = data.columns
@@ -203,16 +258,9 @@ class DataObject(object):
 
             level_tups = DataObject._index_level_tups
 
-            def isListOfNoneOrNan(obj):
-                if len(obj) != 1:
-                    return False
-
-                item = obj[0]
-                return item is None or (isinstance(item, float) and np.isnan(obj[0]))
-
             tups = [(level, col) for level, col in level_tups
-                     if (col in data_cols and not isListOfNoneOrNan(elements[col]))]
-                         #col not in self.data_id_key and   # TODO: a substring test?
+                    if (col in data_cols and not _isListOfNoneOrNan(elements[col]))]
+                         #col not in self.data_id_key and   # TODO: Was this really intended to be a substring test?
 
             # OrderedDict in necessary the way this currently works
             self.column_names = OrderedDict(tups)
@@ -249,6 +297,34 @@ class DataObject(object):
 
         if DropStrCols:
             df.drop(str_cols, axis=1, inplace=True)
+
+        return df
+
+    # TODO: for integration only. This version uses the temporary "ids" CSV files
+    def map_strings_temporarily(self, df):
+        tbl_name = self._data_table_name
+
+        str_cols = MappedCols.get(tbl_name, [])
+
+        db = get_database()
+        tbl = db.get_table(tbl_name)
+        ids_df = tbl.ids_df.loc[df['id']]   # get the id data matching the current slice
+
+        for col in str_cols:
+            # replace column "foo" with ids_df's "foo_id"
+            id_col = col + '_id'
+            try:
+                # Attempt to force ids to int (some end up as floats). If the values are nan, they won't covert.
+                values = ids_df[id_col].astype(int)
+            except:
+                values = ids_df[id_col]
+
+            df[id_col] = values.tolist()
+
+        if DropStrCols:
+            df.drop(str_cols, axis=1, inplace=True)
+
+        return df
 
     #
     # TODO: the remainder of this file is a modified subset of datamapfunctions
@@ -374,6 +450,7 @@ class DataObject(object):
         return time_index  # this is a list of years
 
     def _get_df_index_names_in_a_list(self, df):
+        # TODO: is this intended to handle a case of no index? Because index.names returns [name] when nlevels == 1
         return df.index.names if df.index.nlevels > 1 else [df.index.name]
 
     def remap(self, map_from='raw_values', map_to='values', drivers=None, time_index_name='year',
@@ -387,10 +464,10 @@ class DataObject(object):
             drivers (list of or single dataframe): drivers for the remap
             input_type_override (string): either 'total' or 'intensity' (defaults to self.type)
         """
-        driver_geography = cfg.disagg_geography if driver_geography is None else driver_geography
-        converted_geography = cfg.primary_geography if converted_geography is None else converted_geography
-        current_data_type = self.input_type if current_data_type is None else current_data_type
-        current_geography = self.geography if current_geography is None else current_geography
+        driver_geography    = driver_geography or cfg.disagg_geography
+        converted_geography = converted_geography or cfg.primary_geography
+        current_data_type   = current_data_type or self.input_type
+        current_geography   = current_geography or self.geography
         time_index = self._get_active_time_index(time_index, time_index_name)
 
         map_df = getattr(self, map_from)

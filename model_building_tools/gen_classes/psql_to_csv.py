@@ -29,17 +29,23 @@ from postgres import PostgresDatabase
               help='''A comma-delimited list of table names to process rather than the default, 
               which is to process all tables.''')
 
-def main(dbname, db_dir, host, user, password, limit, tables):
+@click.option('--ids/--no-ids', default=False,
+              help='''Indicates whether to include database ids in the data (and thus, in the
+              generated class, which read the CSV headers. This option exists to facilitate
+              integration, and will be removed for the final production run.''')
+
+def main(dbname, db_dir, host, user, password, limit, tables, ids):
     db = PostgresDatabase(host=host, dbname=dbname, user=user, password=password, cache_data=False)
 
     db_dir = db_dir or dbname + '.db'
     print("Creating CSV database '%s'" % db_dir)
     mkdirs(db_dir)
+    mkdirs(os.path.join(db_dir, 'ids'))
 
     db.load_text_mappings()    # to replace ids with strings
 
     tables_to_skip = Tables_to_ignore + ['GeographyIntersection', 'GeographyIntersectionData']
-    table_names = tables.split(',') or [name for name in db.get_tables_names() if name not in tables_to_skip]
+    table_names = (tables and tables.split(',')) or [name for name in db.get_table_names() if name not in tables_to_skip]
     table_objs  = [db.get_table(name) for name in table_names]
 
     if limit:
@@ -47,7 +53,7 @@ def main(dbname, db_dir, host, user, password, limit, tables):
 
     for tbl in table_objs:
         tbl.load_all(limit=limit)
-        tbl.to_csv(db_dir)
+        tbl.to_csv(db_dir, save_ids=ids)
 
     # Save foreign keys so they can be used by CSV database
     foreign_keys_path = os.path.join(db_dir, 'foreign_keys.csv')

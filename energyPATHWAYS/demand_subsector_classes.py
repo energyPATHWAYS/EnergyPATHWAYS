@@ -38,7 +38,10 @@ class SubDemand(object, DataMapFunctions):
         denominator_driver_ids = [getattr(self, col) for col in cfg.dnmtr_col_names if getattr(self, col) is not None]
 
         drivers = driver_ids + denominator_driver_ids
-        self.drivers = {k: v for k, v in self.drivers.iteritems() if k in drivers}
+
+        # RJP: simpler and faster than searching for k in drivers repeatedly
+        self.drivers = {k: self.drivers[k] for k in drivers}
+        # self.drivers = {k: v for k, v in self.drivers.iteritems() if k in drivers}
 
 
     def convert_and_remap(self, unit_type, stock_unit):

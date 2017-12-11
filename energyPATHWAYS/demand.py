@@ -49,23 +49,32 @@ class DriverNew(schema.DemandDrivers):
         super(DriverNew, self).__init__(name, scenario)
         self.mapped = False
         self.init_from_db(name, scenario)
-        self.index_levels = self.create_index_levels()
 
-        # TODO: move this logic to DataObject class? Not sure where else it's needed
-        columns = self.column_names.values() + ['value']
-        df = self._child_data[columns].copy()
-        renamed = {data_col : getattr(self, col, col) for col, data_col in self.column_names.items()}
-        df.rename(columns=renamed, inplace=True)
-        self.raw_values = df.set_index(keys=self.df_index_names).sort()
+        # TODO: just for integration; later use base_driver string
+        # db = get_database()
+        # tbl = db.get_table('DemandDrivers')
+        # base_driver_id = tbl.ids_df.loc[self.id, 'base_driver_id']
+        # try:
+        #     self.base_driver_id = int(base_driver_id) # these can be float if rows have nan values
+        # except:
+        #     self.base_driver_id = None
 
-        # DemandDrivers is the only table with a unit_prefix, so the scaling should
+        self.index_levels = self.df_index_names = self.column_names = None
+        self.raw_values = self.create_raw_values()
+
+        # DemandDrivers is the only table with a unit_prefix, so scaling by the prefix should
         # appear here rather than in a superclass. (Previously it was in datamapfunctions.)
         prefix = self.unit_prefix
         if prefix and prefix != 1:
-            self._child_data['value'] *= prefix
+            self.raw_values['value'] *= prefix
+
+    # TODO: for integration only; base_driver_id is used in datamapfunctions to see if a base driver exists.
+    @property
+    def base_driver_id(self):
+        return self.base_driver
 
     def __str__(self):
-        return '<Driver "{}">'.format(self.name)
+        return '<{} "{}">'.format(self.__class__.__name__, self.name)
 
 class Demand(object):
     def __init__(self, scenario):
@@ -82,11 +91,16 @@ class Demand(object):
     def setup_and_solve(self):
         logging.info('Configuring energy system')
         # Drivers must come first
-        self.add_drivers_new()      # for comparison
-        self.add_drivers()
-        # Sectors requires drivers be read in
+
+        # TODO: for testing / integration
+        # self.add_drivers()
+
+        self.add_drivers_new()
+
+        # Sectors requires drivers have already been read in
         self.add_sectors()
         self.add_subsectors()
+
         self.calculate_demand()
         logging.info("Aggregating demand results")
         self.aggregate_results()
@@ -140,8 +154,8 @@ class Demand(object):
         for name in tbl.data.name:
             self.add_driver_new(name, scenario)
 
-        # TODO:
-        # self.remap_drivers()
+        self.drivers = {driver.id : driver for driver in self.drivers_new.values()}
+        self.remap_drivers()
 
     def add_driver_new(self, name, scenario):
         """
@@ -160,30 +174,33 @@ class Demand(object):
         logging.info('  remapping drivers')
         for driver in self.drivers.values():
             # It is possible that recursion has mapped before we get to a driver in the list. If so, continue.
-            if driver.mapped:
-                continue
-            self.remap_driver(driver)
+            if not driver.mapped:
+                self.remap_driver(driver)
 
     def remap_driver(self, driver):
         """mapping of a demand driver to its base driver"""
         # base driver may be None
 
-        base_driver_id = driver.base_driver_id
-
-        # TODO: clean up names to lose "_id"
-        # base_driver_id = driver.base_driver
-
-        if base_driver_id: # and not np.isnan(base_driver_id):
-            base_driver = self.drivers[base_driver_id]
-            # mapped is an indicator variable that records whether a driver has been mapped yet
+        # TODO: once debugged...
+        base_driver_name = driver.base_driver
+        if base_driver_name:
+            base_driver = self.drivers_new[base_driver_name]
             if not base_driver.mapped:
-                # If a driver hasn't been mapped, recursion is used to map it first (this can go multiple layers)
+                # If a driver hasn't been mapped, recurse to map it first (this can go multiple layers)
                 self.remap_driver(base_driver)
-            driver.remap(drivers=base_driver.values,converted_geography=cfg.disagg_geography, filter_geo=False)
+
+        # base_driver_id = driver.base_driver_id
+        # if base_driver_id:
+        #     base_driver = self.drivers[base_driver_id]
+        #     # 'mapped' records whether a driver has been mapped yet
+        #     if not base_driver.mapped:
+        #         # If a driver hasn't been mapped, recurse to map it first (this can go multiple layers)
+        #         self.remap_driver(base_driver)
+
+            driver.remap(drivers=base_driver.values, converted_geography=cfg.disagg_geography, filter_geo=False)
+
         else:
-            # TODO: don't use raw_data, and clean up use of attribute name
-            # driver.remap(map_from='_child_data', converted_geography=cfg.disagg_geography,filter_geo=False)
-            driver.remap(converted_geography=cfg.disagg_geography,filter_geo=False)
+            driver.remap(converted_geography=cfg.disagg_geography, filter_geo=False)
 
         # Now that it has been mapped, set indicator to true
         logging.info('    {}'.format(driver.name))
@@ -1850,6 +1867,7 @@ class Subsector(DataMapFunctions):
 
             else:
                 raise ValueError("incorrect demand stock unit type specification")
+
             # some previous steps have required some manipulation of initial raw values and the starting point
             # for projection will be a different 'map_from' variable
             self.stock.map_from = self.stock.map_from if hasattr(self.stock, 'map_from') else 'raw_values'
@@ -1860,10 +1878,12 @@ class Subsector(DataMapFunctions):
                 self.project_stock(map_from=self.stock.map_from)
                 self.project_service_demand(map_from=self.service_demand.map_from)
                 self.sd_modifier_full()
+
             elif self.stock.is_service_demand_dependent == 1 and self.service_demand.is_stock_dependent == 0:
                 self.project_service_demand(map_from=self.service_demand.map_from,service_dependent=True)
                 self.project_stock(map_from=self.stock.map_from, service_dependent=True)
                 self.sd_modifier_full()
+
             elif self.stock.is_service_demand_dependent == 0 and self.service_demand.is_stock_dependent == 1:
                 self.project_stock(map_from=self.stock.map_from,stock_dependent=True)
                 self.project_service_demand(map_from=self.service_demand.map_from, stock_dependent=True)
@@ -1871,9 +1891,9 @@ class Subsector(DataMapFunctions):
             else:
                 raise ValueError(
                     "stock and service demands both specified as dependent on each other in subsector %s" % self.id)
+
             levels = [level for level in self.stock.rollover_group_names if level in self.service_demand.values.index.names] + ['year']
-            self.service_demand.values = self.service_demand.values.groupby(
-                level=levels).sum()
+            self.service_demand.values = self.service_demand.values.groupby(level=levels).sum()
 
 
 
@@ -2208,21 +2228,29 @@ class Subsector(DataMapFunctions):
             self.stock.values = self.stock.values.groupby(level=util.ix_excl(self.stock.values, 'vintage')).sum()
             self.stock.values = self.stack_and_reduce_years(self.stock.values, min(self.years), max(self.years))
             projected  = True
+
         elif map_from == 'int_values':
             current_geography = cfg.primary_geography
             current_data_type = self.stock.current_data_type if hasattr(self.stock, 'current_data_type') else 'total'
             projected = False
+
         else:
             current_geography = self.stock.geography
             current_data_type = self.stock.input_type
             projected = False
-        self.stock.project(map_from=map_from, map_to='total', current_geography=current_geography, additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent), current_data_type=current_data_type, projected=projected)
+
+        self.stock.project(map_from=map_from, map_to='total', current_geography=current_geography,
+                           additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent),
+                           current_data_type=current_data_type, projected=projected)
+
         self.stock.total = util.remove_df_levels(self.stock.total, ['demand_technology', 'final_energy'])
         self.stock.total = self.stock.total.swaplevel('year',-1)
+
         if stock_dependent:
             self.stock.project(map_from=map_from, map_to='total_unfiltered', current_geography=current_geography,
                            additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent),
                            current_data_type=current_data_type, projected=projected,filter_geo=False)
+
             self.stock.total_unfiltered = util.remove_df_levels(self.stock.total_unfiltered, ['demand_technology', 'final_energy'])
             self.stock.total_unfiltered = self.stock.total_unfiltered.swaplevel('year',-1)
 
@@ -3223,7 +3251,6 @@ class Subsector(DataMapFunctions):
         return c
 
 
-
     def rollover_output_dict(self, tech_dict=None, tech_dict_key=None, tech_att='values', stock_att=None,
                         stack_label=None, other_aggregate_levels=None, efficiency=False,fill_value=0.0):
         """ Produces rollover outputs for a subsector stock based on the tech_att class, att of the class, and the attribute of the stock
@@ -3313,16 +3340,17 @@ class Subsector(DataMapFunctions):
         util.replace_column(self.energy_forecast_no_modifier, 'value')
         self.energy_forecast = util.remove_df_elements(self.energy_forecast, 9999, 'final_energy')
         self.energy_forecast_no_modifier = util.remove_df_elements(self.energy_forecast_no_modifier, 9999, 'final_energy')
+
         if cfg.cfgfile.get('case', 'use_service_demand_modifiers').lower()=='false':
             self.energy_forecast = self.energy_forecast_no_modifier
-        if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_1') :
-            util.replace_index_name(self.energy_forecast,"other_index_1",self.service_demand.other_index_1)
-        if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_2') :
-            util.replace_index_name(self.energy_forecast,"other_index_2",self.service_demand.other_index_2)
-        if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_1'):
-            util.replace_index_name(self.energy_forecast,"other_index_1",self.service_demand.other_index_1)
-        if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_2'):
-            util.replace_index_name(self.energy_forecast,"other_index_2",self.service_demand.other_index_2)
 
+        if hasattr(self,'service_demand'):
+            for attr in ('other_index_1', 'other_index_2'):
+                if hasattr(self.service_demand, attr):
+                    util.replace_index_name(self.energy_forecast, attr, getattr(self.service_demand, attr))
 
-
+       # if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_1'):
+       #     util.replace_index_name(self.energy_forecast,"other_index_1",self.service_demand.other_index_1)
+       #
+       # if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_2'):
+       #     util.replace_index_name(self.energy_forecast,"other_index_2",self.service_demand.other_index_2)

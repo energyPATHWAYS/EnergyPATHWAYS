@@ -18,8 +18,8 @@ def class_for_table(tbl_name):
 class BlendNodeBlendMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "blend_node", "supply_node", "geography", "other_index_1", "interpolation_method",
-             "extrapolation_method", "extrapolation_growth"]
+    _cols = ["id", "name", "blend_node", "supply_node", "geography", "other_index_1",
+             "interpolation_method", "extrapolation_method", "extrapolation_growth"]
     _table_name = "BlendNodeBlendMeasures"
     _data_table_name = 'BlendNodeBlendMeasuresData'
 
@@ -28,6 +28,7 @@ class BlendNodeBlendMeasures(DataObject):
 
         BlendNodeBlendMeasures._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.blend_node = None
         self.supply_node = None
@@ -37,8 +38,9 @@ class BlendNodeBlendMeasures(DataObject):
         self.extrapolation_method = None
         self.extrapolation_growth = None
 
-    def set_args(self, scenario, name=None, blend_node=None, supply_node=None, geography=None, other_index_1=None,
+    def set_args(self, scenario, id=None, name=None, blend_node=None, supply_node=None, geography=None, other_index_1=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None):
+        self.id = id
         self.name = name
         self.blend_node = blend_node
         self.supply_node = supply_node
@@ -51,18 +53,18 @@ class BlendNodeBlendMeasures(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, blend_node, supply_node, geography, other_index_1, interpolation_method,
+        (id, name, blend_node, supply_node, geography, other_index_1, interpolation_method,
          extrapolation_method, extrapolation_growth) = tup
 
-        self.set_args(scenario, name=name, blend_node=blend_node, supply_node=supply_node, geography=geography,
+        self.set_args(scenario, id=id, name=name, blend_node=blend_node, supply_node=supply_node, geography=geography,
                   other_index_1=other_index_1, interpolation_method=interpolation_method,
                   extrapolation_method=extrapolation_method, extrapolation_growth=extrapolation_growth)
 
 class CO2PriceMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "geography", "interpolation_method", "extrapolation_method",
-             "extrapolation_growth", "geography_map_key", "supply_node_id"]
+    _cols = ["id", "name", "geography", "interpolation_method", "extrapolation_method",
+             "extrapolation_growth", "geography_map_key", "supply_node"]
     _table_name = "CO2PriceMeasures"
     _data_table_name = 'CO2PriceMeasuresData'
 
@@ -71,39 +73,41 @@ class CO2PriceMeasures(DataObject):
 
         CO2PriceMeasures._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.geography = None
         self.interpolation_method = None
         self.extrapolation_method = None
         self.extrapolation_growth = None
         self.geography_map_key = None
-        self.supply_node_id = None
+        self.supply_node = None
 
-    def set_args(self, scenario, name=None, geography=None, interpolation_method=None, extrapolation_method=None,
-                 extrapolation_growth=None, geography_map_key=None, supply_node_id=None):
+    def set_args(self, scenario, id=None, name=None, geography=None, interpolation_method=None, extrapolation_method=None,
+                 extrapolation_growth=None, geography_map_key=None, supply_node=None):
+        self.id = id
         self.name = name
         self.geography = geography
         self.interpolation_method = interpolation_method
         self.extrapolation_method = extrapolation_method
         self.extrapolation_growth = extrapolation_growth
         self.geography_map_key = geography_map_key
-        self.supply_node_id = supply_node_id
+        self.supply_node = supply_node
 
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, geography, interpolation_method, extrapolation_method, extrapolation_growth,
-         geography_map_key, supply_node_id) = tup
+        (id, name, geography, interpolation_method, extrapolation_method, extrapolation_growth,
+         geography_map_key, supply_node) = tup
 
-        self.set_args(scenario, name=name, geography=geography, interpolation_method=interpolation_method,
+        self.set_args(scenario, id=id, name=name, geography=geography, interpolation_method=interpolation_method,
                   extrapolation_method=extrapolation_method, extrapolation_growth=extrapolation_growth,
-                  geography_map_key=geography_map_key, supply_node_id=supply_node_id)
+                  geography_map_key=geography_map_key, supply_node=supply_node)
 
 class DemandCO2CaptureMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "subsector", "input_type", "unit", "geography", "other_index_1", "other_index_2",
-             "interpolation_method", "extrapolation_method", "extrapolation_growth",
+    _cols = ["id", "name", "subsector", "input_type", "unit", "geography", "other_index_1",
+             "other_index_2", "interpolation_method", "extrapolation_method", "extrapolation_growth",
              "stock_decay_function", "min_lifetime", "max_lifetime", "mean_lifetime",
              "lifetime_variance"]
     _table_name = "DemandCO2CaptureMeasures"
@@ -114,6 +118,7 @@ class DemandCO2CaptureMeasures(DataObject):
 
         DemandCO2CaptureMeasures._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.subsector = None
         self.input_type = None
@@ -130,10 +135,11 @@ class DemandCO2CaptureMeasures(DataObject):
         self.mean_lifetime = None
         self.lifetime_variance = None
 
-    def set_args(self, scenario, name=None, subsector=None, input_type=None, unit=None, geography=None, other_index_1=None,
-                 other_index_2=None, interpolation_method=None, extrapolation_method=None,
-                 extrapolation_growth=None, stock_decay_function=None, min_lifetime=None,
-                 max_lifetime=None, mean_lifetime=None, lifetime_variance=None):
+    def set_args(self, scenario, id=None, name=None, subsector=None, input_type=None, unit=None, geography=None,
+                 other_index_1=None, other_index_2=None, interpolation_method=None,
+                 extrapolation_method=None, extrapolation_growth=None, stock_decay_function=None,
+                 min_lifetime=None, max_lifetime=None, mean_lifetime=None, lifetime_variance=None):
+        self.id = id
         self.name = name
         self.subsector = subsector
         self.input_type = input_type
@@ -153,12 +159,12 @@ class DemandCO2CaptureMeasures(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, subsector, input_type, unit, geography, other_index_1, other_index_2,
+        (id, name, subsector, input_type, unit, geography, other_index_1, other_index_2,
          interpolation_method, extrapolation_method, extrapolation_growth, stock_decay_function,
          min_lifetime, max_lifetime, mean_lifetime, lifetime_variance) = tup
 
-        self.set_args(scenario, name=name, subsector=subsector, input_type=input_type, unit=unit, geography=geography,
-                  other_index_1=other_index_1, other_index_2=other_index_2,
+        self.set_args(scenario, id=id, name=name, subsector=subsector, input_type=input_type, unit=unit,
+                  geography=geography, other_index_1=other_index_1, other_index_2=other_index_2,
                   interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
                   extrapolation_growth=extrapolation_growth, stock_decay_function=stock_decay_function,
                   min_lifetime=min_lifetime, max_lifetime=max_lifetime, mean_lifetime=mean_lifetime,
@@ -167,7 +173,7 @@ class DemandCO2CaptureMeasures(DataObject):
 class DemandDrivers(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "base_driver", "input_type", "unit_prefix", "unit_base", "geography",
+    _cols = ["id", "name", "base_driver", "input_type", "unit_prefix", "unit_base", "geography",
              "other_index_1", "other_index_2", "geography_map_key", "interpolation_method",
              "extrapolation_method", "extrapolation_growth", "source"]
     _table_name = "DemandDrivers"
@@ -178,6 +184,7 @@ class DemandDrivers(DataObject):
 
         DemandDrivers._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.base_driver = None
         self.input_type = None
@@ -192,10 +199,11 @@ class DemandDrivers(DataObject):
         self.extrapolation_growth = None
         self.source = None
 
-    def set_args(self, scenario, name=None, base_driver=None, input_type=None, unit_prefix=None, unit_base=None,
+    def set_args(self, scenario, id=None, name=None, base_driver=None, input_type=None, unit_prefix=None, unit_base=None,
                  geography=None, other_index_1=None, other_index_2=None, geography_map_key=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
                  source=None):
+        self.id = id
         self.name = name
         self.base_driver = base_driver
         self.input_type = input_type
@@ -213,11 +221,11 @@ class DemandDrivers(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, base_driver, input_type, unit_prefix, unit_base, geography, other_index_1,
+        (id, name, base_driver, input_type, unit_prefix, unit_base, geography, other_index_1,
          other_index_2, geography_map_key, interpolation_method, extrapolation_method,
          extrapolation_growth, source) = tup
 
-        self.set_args(scenario, name=name, base_driver=base_driver, input_type=input_type, unit_prefix=unit_prefix,
+        self.set_args(scenario, id=id, name=name, base_driver=base_driver, input_type=input_type, unit_prefix=unit_prefix,
                   unit_base=unit_base, geography=geography, other_index_1=other_index_1,
                   other_index_2=other_index_2, geography_map_key=geography_map_key,
                   interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
@@ -299,8 +307,8 @@ class DemandEnergyDemands(DataObject):
 class DemandEnergyEfficiencyMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "subsector", "input_type", "unit", "geography", "other_index_1", "other_index_2",
-             "interpolation_method", "extrapolation_method", "extrapolation_growth",
+    _cols = ["id", "name", "subsector", "input_type", "unit", "geography", "other_index_1",
+             "other_index_2", "interpolation_method", "extrapolation_method", "extrapolation_growth",
              "stock_decay_function", "min_lifetime", "max_lifetime", "mean_lifetime",
              "lifetime_variance"]
     _table_name = "DemandEnergyEfficiencyMeasures"
@@ -311,6 +319,7 @@ class DemandEnergyEfficiencyMeasures(DataObject):
 
         DemandEnergyEfficiencyMeasures._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.subsector = None
         self.input_type = None
@@ -327,10 +336,11 @@ class DemandEnergyEfficiencyMeasures(DataObject):
         self.mean_lifetime = None
         self.lifetime_variance = None
 
-    def set_args(self, scenario, name=None, subsector=None, input_type=None, unit=None, geography=None, other_index_1=None,
-                 other_index_2=None, interpolation_method=None, extrapolation_method=None,
-                 extrapolation_growth=None, stock_decay_function=None, min_lifetime=None,
-                 max_lifetime=None, mean_lifetime=None, lifetime_variance=None):
+    def set_args(self, scenario, id=None, name=None, subsector=None, input_type=None, unit=None, geography=None,
+                 other_index_1=None, other_index_2=None, interpolation_method=None,
+                 extrapolation_method=None, extrapolation_growth=None, stock_decay_function=None,
+                 min_lifetime=None, max_lifetime=None, mean_lifetime=None, lifetime_variance=None):
+        self.id = id
         self.name = name
         self.subsector = subsector
         self.input_type = input_type
@@ -350,12 +360,12 @@ class DemandEnergyEfficiencyMeasures(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, subsector, input_type, unit, geography, other_index_1, other_index_2,
+        (id, name, subsector, input_type, unit, geography, other_index_1, other_index_2,
          interpolation_method, extrapolation_method, extrapolation_growth, stock_decay_function,
          min_lifetime, max_lifetime, mean_lifetime, lifetime_variance) = tup
 
-        self.set_args(scenario, name=name, subsector=subsector, input_type=input_type, unit=unit, geography=geography,
-                  other_index_1=other_index_1, other_index_2=other_index_2,
+        self.set_args(scenario, id=id, name=name, subsector=subsector, input_type=input_type, unit=unit,
+                  geography=geography, other_index_1=other_index_1, other_index_2=other_index_2,
                   interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
                   extrapolation_growth=extrapolation_growth, stock_decay_function=stock_decay_function,
                   min_lifetime=min_lifetime, max_lifetime=max_lifetime, mean_lifetime=mean_lifetime,
@@ -421,8 +431,8 @@ class DemandEnergyEfficiencyMeasuresCost(DataObject):
 class DemandFlexibleLoadMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "subsector"
-    _cols = ["subsector", "geography", "other_index_1", "interpolation_method", "extrapolation_method",
-             "extrapolation_growth", "name"]
+    _cols = ["id", "subsector", "geography", "other_index_1", "interpolation_method",
+             "extrapolation_method", "extrapolation_growth", "name"]
     _table_name = "DemandFlexibleLoadMeasures"
     _data_table_name = 'DemandFlexibleLoadMeasuresData'
 
@@ -431,6 +441,7 @@ class DemandFlexibleLoadMeasures(DataObject):
 
         DemandFlexibleLoadMeasures._instances_by_key[self._key] = self
 
+        self.id = None
         self.subsector = None
         self.geography = None
         self.other_index_1 = None
@@ -439,8 +450,9 @@ class DemandFlexibleLoadMeasures(DataObject):
         self.extrapolation_growth = None
         self.name = None
 
-    def set_args(self, scenario, subsector=None, geography=None, other_index_1=None, interpolation_method=None,
+    def set_args(self, scenario, id=None, subsector=None, geography=None, other_index_1=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None, name=None):
+        self.id = id
         self.subsector = subsector
         self.geography = geography
         self.other_index_1 = other_index_1
@@ -452,17 +464,17 @@ class DemandFlexibleLoadMeasures(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (subsector, geography, other_index_1, interpolation_method, extrapolation_method,
+        (id, subsector, geography, other_index_1, interpolation_method, extrapolation_method,
          extrapolation_growth, name) = tup
 
-        self.set_args(scenario, subsector=subsector, geography=geography, other_index_1=other_index_1,
+        self.set_args(scenario, id=id, subsector=subsector, geography=geography, other_index_1=other_index_1,
                   interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
                   extrapolation_growth=extrapolation_growth, name=name)
 
 class DemandFuelSwitchingMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "subsector", "final_energy_from", "final_energy_to", "stock_decay_function",
+    _cols = ["id", "name", "subsector", "final_energy_from", "final_energy_to", "stock_decay_function",
              "max_lifetime", "min_lifetime", "mean_lifetime", "lifetime_variance"]
     _table_name = "DemandFuelSwitchingMeasures"
     _data_table_name = None
@@ -472,6 +484,7 @@ class DemandFuelSwitchingMeasures(DataObject):
 
         DemandFuelSwitchingMeasures._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.subsector = None
         self.final_energy_from = None
@@ -482,9 +495,10 @@ class DemandFuelSwitchingMeasures(DataObject):
         self.mean_lifetime = None
         self.lifetime_variance = None
 
-    def set_args(self, scenario, name=None, subsector=None, final_energy_from=None, final_energy_to=None,
+    def set_args(self, scenario, id=None, name=None, subsector=None, final_energy_from=None, final_energy_to=None,
                  stock_decay_function=None, max_lifetime=None, min_lifetime=None, mean_lifetime=None,
                  lifetime_variance=None):
+        self.id = id
         self.name = name
         self.subsector = subsector
         self.final_energy_from = final_energy_from
@@ -498,10 +512,10 @@ class DemandFuelSwitchingMeasures(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, subsector, final_energy_from, final_energy_to, stock_decay_function, max_lifetime,
-         min_lifetime, mean_lifetime, lifetime_variance) = tup
+        (id, name, subsector, final_energy_from, final_energy_to, stock_decay_function,
+         max_lifetime, min_lifetime, mean_lifetime, lifetime_variance) = tup
 
-        self.set_args(scenario, name=name, subsector=subsector, final_energy_from=final_energy_from,
+        self.set_args(scenario, id=id, name=name, subsector=subsector, final_energy_from=final_energy_from,
                   final_energy_to=final_energy_to, stock_decay_function=stock_decay_function,
                   max_lifetime=max_lifetime, min_lifetime=min_lifetime, mean_lifetime=mean_lifetime,
                   lifetime_variance=lifetime_variance)
@@ -698,9 +712,9 @@ class DemandSales(DataObject):
 class DemandSalesShareMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["subsector", "geography", "other_index_1", "demand_technology", "replaced_demand_tech",
-             "input_type", "interpolation_method", "extrapolation_method", "extrapolation_growth",
-             "name"]
+    _cols = ["id", "subsector", "geography", "other_index_1", "demand_technology",
+             "replaced_demand_tech", "input_type", "interpolation_method", "extrapolation_method",
+             "extrapolation_growth", "name"]
     _table_name = "DemandSalesShareMeasures"
     _data_table_name = 'DemandSalesShareMeasuresData'
 
@@ -709,6 +723,7 @@ class DemandSalesShareMeasures(DataObject):
 
         DemandSalesShareMeasures._instances_by_key[self._key] = self
 
+        self.id = None
         self.subsector = None
         self.geography = None
         self.other_index_1 = None
@@ -720,9 +735,10 @@ class DemandSalesShareMeasures(DataObject):
         self.extrapolation_growth = None
         self.name = None
 
-    def set_args(self, scenario, subsector=None, geography=None, other_index_1=None, demand_technology=None,
+    def set_args(self, scenario, id=None, subsector=None, geography=None, other_index_1=None, demand_technology=None,
                  replaced_demand_tech=None, input_type=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None, name=None):
+        self.id = id
         self.subsector = subsector
         self.geography = geography
         self.other_index_1 = other_index_1
@@ -737,10 +753,10 @@ class DemandSalesShareMeasures(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (subsector, geography, other_index_1, demand_technology, replaced_demand_tech, input_type,
-         interpolation_method, extrapolation_method, extrapolation_growth, name) = tup
+        (id, subsector, geography, other_index_1, demand_technology, replaced_demand_tech,
+         input_type, interpolation_method, extrapolation_method, extrapolation_growth, name) = tup
 
-        self.set_args(scenario, subsector=subsector, geography=geography, other_index_1=other_index_1,
+        self.set_args(scenario, id=id, subsector=subsector, geography=geography, other_index_1=other_index_1,
                   demand_technology=demand_technology, replaced_demand_tech=replaced_demand_tech,
                   input_type=input_type, interpolation_method=interpolation_method,
                   extrapolation_method=extrapolation_method, extrapolation_growth=extrapolation_growth,
@@ -749,7 +765,7 @@ class DemandSalesShareMeasures(DataObject):
 class DemandSectors(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "shape", "max_lead_hours", "max_lag_hours"]
+    _cols = ["id", "name", "shape", "max_lead_hours", "max_lag_hours"]
     _table_name = "DemandSectors"
     _data_table_name = None
 
@@ -758,12 +774,14 @@ class DemandSectors(DataObject):
 
         DemandSectors._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.shape = None
         self.max_lead_hours = None
         self.max_lag_hours = None
 
-    def set_args(self, scenario, name=None, shape=None, max_lead_hours=None, max_lag_hours=None):
+    def set_args(self, scenario, id=None, name=None, shape=None, max_lead_hours=None, max_lag_hours=None):
+        self.id = id
         self.name = name
         self.shape = shape
         self.max_lead_hours = max_lead_hours
@@ -772,15 +790,15 @@ class DemandSectors(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, shape, max_lead_hours, max_lag_hours) = tup
+        (id, name, shape, max_lead_hours, max_lag_hours) = tup
 
-        self.set_args(scenario, name=name, shape=shape, max_lead_hours=max_lead_hours, max_lag_hours=max_lag_hours)
+        self.set_args(scenario, id=id, name=name, shape=shape, max_lead_hours=max_lead_hours, max_lag_hours=max_lag_hours)
 
 class DemandServiceDemandMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "subsector", "input_type", "unit", "geography", "other_index_1", "other_index_2",
-             "interpolation_method", "extrapolation_method", "extrapolation_growth",
+    _cols = ["id", "name", "subsector", "input_type", "unit", "geography", "other_index_1",
+             "other_index_2", "interpolation_method", "extrapolation_method", "extrapolation_growth",
              "stock_decay_function", "min_lifetime", "max_lifetime", "mean_lifetime",
              "lifetime_variance"]
     _table_name = "DemandServiceDemandMeasures"
@@ -791,6 +809,7 @@ class DemandServiceDemandMeasures(DataObject):
 
         DemandServiceDemandMeasures._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.subsector = None
         self.input_type = None
@@ -807,10 +826,11 @@ class DemandServiceDemandMeasures(DataObject):
         self.mean_lifetime = None
         self.lifetime_variance = None
 
-    def set_args(self, scenario, name=None, subsector=None, input_type=None, unit=None, geography=None, other_index_1=None,
-                 other_index_2=None, interpolation_method=None, extrapolation_method=None,
-                 extrapolation_growth=None, stock_decay_function=None, min_lifetime=None,
-                 max_lifetime=None, mean_lifetime=None, lifetime_variance=None):
+    def set_args(self, scenario, id=None, name=None, subsector=None, input_type=None, unit=None, geography=None,
+                 other_index_1=None, other_index_2=None, interpolation_method=None,
+                 extrapolation_method=None, extrapolation_growth=None, stock_decay_function=None,
+                 min_lifetime=None, max_lifetime=None, mean_lifetime=None, lifetime_variance=None):
+        self.id = id
         self.name = name
         self.subsector = subsector
         self.input_type = input_type
@@ -830,12 +850,12 @@ class DemandServiceDemandMeasures(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, subsector, input_type, unit, geography, other_index_1, other_index_2,
+        (id, name, subsector, input_type, unit, geography, other_index_1, other_index_2,
          interpolation_method, extrapolation_method, extrapolation_growth, stock_decay_function,
          min_lifetime, max_lifetime, mean_lifetime, lifetime_variance) = tup
 
-        self.set_args(scenario, name=name, subsector=subsector, input_type=input_type, unit=unit, geography=geography,
-                  other_index_1=other_index_1, other_index_2=other_index_2,
+        self.set_args(scenario, id=id, name=name, subsector=subsector, input_type=input_type, unit=unit,
+                  geography=geography, other_index_1=other_index_1, other_index_2=other_index_2,
                   interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
                   extrapolation_growth=extrapolation_growth, stock_decay_function=stock_decay_function,
                   min_lifetime=min_lifetime, max_lifetime=max_lifetime, mean_lifetime=mean_lifetime,
@@ -1024,7 +1044,7 @@ class DemandServiceEfficiency(DataObject):
 class DemandServiceLink(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["subsector", "linked_subsector", "service_demand_share", "year", "name"]
+    _cols = ["id", "subsector", "linked_subsector", "service_demand_share", "year", "name"]
     _table_name = "DemandServiceLink"
     _data_table_name = None
 
@@ -1033,13 +1053,16 @@ class DemandServiceLink(DataObject):
 
         DemandServiceLink._instances_by_key[self._key] = self
 
+        self.id = None
         self.subsector = None
         self.linked_subsector = None
         self.service_demand_share = None
         self.year = None
         self.name = None
 
-    def set_args(self, scenario, subsector=None, linked_subsector=None, service_demand_share=None, year=None, name=None):
+    def set_args(self, scenario, id=None, subsector=None, linked_subsector=None, service_demand_share=None, year=None,
+                 name=None):
+        self.id = id
         self.subsector = subsector
         self.linked_subsector = linked_subsector
         self.service_demand_share = service_demand_share
@@ -1049,9 +1072,9 @@ class DemandServiceLink(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (subsector, linked_subsector, service_demand_share, year, name) = tup
+        (id, subsector, linked_subsector, service_demand_share, year, name) = tup
 
-        self.set_args(scenario, subsector=subsector, linked_subsector=linked_subsector,
+        self.set_args(scenario, id=id, subsector=subsector, linked_subsector=linked_subsector,
                   service_demand_share=service_demand_share, year=year, name=name)
 
 class DemandStock(DataObject):
@@ -1129,8 +1152,8 @@ class DemandStock(DataObject):
 class DemandStockMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["subsector", "geography", "other_index_1", "demand_technology", "interpolation_method",
-             "extrapolation_method", "extrapolation_growth", "name"]
+    _cols = ["id", "subsector", "geography", "other_index_1", "demand_technology",
+             "interpolation_method", "extrapolation_method", "extrapolation_growth", "name"]
     _table_name = "DemandStockMeasures"
     _data_table_name = 'DemandStockMeasuresData'
 
@@ -1139,6 +1162,7 @@ class DemandStockMeasures(DataObject):
 
         DemandStockMeasures._instances_by_key[self._key] = self
 
+        self.id = None
         self.subsector = None
         self.geography = None
         self.other_index_1 = None
@@ -1148,9 +1172,10 @@ class DemandStockMeasures(DataObject):
         self.extrapolation_growth = None
         self.name = None
 
-    def set_args(self, scenario, subsector=None, geography=None, other_index_1=None, demand_technology=None,
+    def set_args(self, scenario, id=None, subsector=None, geography=None, other_index_1=None, demand_technology=None,
                  interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
                  name=None):
+        self.id = id
         self.subsector = subsector
         self.geography = geography
         self.other_index_1 = other_index_1
@@ -1163,10 +1188,10 @@ class DemandStockMeasures(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (subsector, geography, other_index_1, demand_technology, interpolation_method,
+        (id, subsector, geography, other_index_1, demand_technology, interpolation_method,
          extrapolation_method, extrapolation_growth, name) = tup
 
-        self.set_args(scenario, subsector=subsector, geography=geography, other_index_1=other_index_1,
+        self.set_args(scenario, id=id, subsector=subsector, geography=geography, other_index_1=other_index_1,
                   demand_technology=demand_technology, interpolation_method=interpolation_method,
                   extrapolation_method=extrapolation_method, extrapolation_growth=extrapolation_growth,
                   name=name)
@@ -1174,7 +1199,7 @@ class DemandStockMeasures(DataObject):
 class DemandSubsectors(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["sector", "name", "cost_of_capital", "is_active", "shape", "max_lead_hours",
+    _cols = ["id", "sector", "name", "cost_of_capital", "is_active", "shape", "max_lead_hours",
              "max_lag_hours"]
     _table_name = "DemandSubsectors"
     _data_table_name = None
@@ -1184,6 +1209,7 @@ class DemandSubsectors(DataObject):
 
         DemandSubsectors._instances_by_key[self._key] = self
 
+        self.id = None
         self.sector = None
         self.name = None
         self.cost_of_capital = None
@@ -1192,8 +1218,9 @@ class DemandSubsectors(DataObject):
         self.max_lead_hours = None
         self.max_lag_hours = None
 
-    def set_args(self, scenario, sector=None, name=None, cost_of_capital=None, is_active=None, shape=None,
+    def set_args(self, scenario, id=None, sector=None, name=None, cost_of_capital=None, is_active=None, shape=None,
                  max_lead_hours=None, max_lag_hours=None):
+        self.id = id
         self.sector = sector
         self.name = name
         self.cost_of_capital = cost_of_capital
@@ -1205,15 +1232,15 @@ class DemandSubsectors(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (sector, name, cost_of_capital, is_active, shape, max_lead_hours, max_lag_hours) = tup
+        (id, sector, name, cost_of_capital, is_active, shape, max_lead_hours, max_lag_hours) = tup
 
-        self.set_args(scenario, sector=sector, name=name, cost_of_capital=cost_of_capital, is_active=is_active,
+        self.set_args(scenario, id=id, sector=sector, name=name, cost_of_capital=cost_of_capital, is_active=is_active,
                   shape=shape, max_lead_hours=max_lead_hours, max_lag_hours=max_lag_hours)
 
 class DemandTechs(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["linked", "stock_link_ratio", "subsector", "name", "min_lifetime", "max_lifetime",
+    _cols = ["id", "linked", "stock_link_ratio", "subsector", "name", "min_lifetime", "max_lifetime",
              "source", "additional_description", "demand_tech_unit_type", "unit", "time_unit",
              "cost_of_capital", "stock_decay_function", "mean_lifetime", "lifetime_variance", "shape",
              "max_lead_hours", "max_lag_hours"]
@@ -1225,6 +1252,7 @@ class DemandTechs(DataObject):
 
         DemandTechs._instances_by_key[self._key] = self
 
+        self.id = None
         self.linked = None
         self.stock_link_ratio = None
         self.subsector = None
@@ -1244,11 +1272,12 @@ class DemandTechs(DataObject):
         self.max_lead_hours = None
         self.max_lag_hours = None
 
-    def set_args(self, scenario, linked=None, stock_link_ratio=None, subsector=None, name=None, min_lifetime=None,
+    def set_args(self, scenario, id=None, linked=None, stock_link_ratio=None, subsector=None, name=None, min_lifetime=None,
                  max_lifetime=None, source=None, additional_description=None, demand_tech_unit_type=None,
                  unit=None, time_unit=None, cost_of_capital=None, stock_decay_function=None,
                  mean_lifetime=None, lifetime_variance=None, shape=None, max_lead_hours=None,
                  max_lag_hours=None):
+        self.id = id
         self.linked = linked
         self.stock_link_ratio = stock_link_ratio
         self.subsector = subsector
@@ -1271,12 +1300,12 @@ class DemandTechs(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (linked, stock_link_ratio, subsector, name, min_lifetime, max_lifetime, source,
+        (id, linked, stock_link_ratio, subsector, name, min_lifetime, max_lifetime, source,
          additional_description, demand_tech_unit_type, unit, time_unit, cost_of_capital,
          stock_decay_function, mean_lifetime, lifetime_variance, shape, max_lead_hours,
          max_lag_hours) = tup
 
-        self.set_args(scenario, linked=linked, stock_link_ratio=stock_link_ratio, subsector=subsector, name=name,
+        self.set_args(scenario, id=id, linked=linked, stock_link_ratio=stock_link_ratio, subsector=subsector, name=name,
                   min_lifetime=min_lifetime, max_lifetime=max_lifetime, source=source,
                   additional_description=additional_description,
                   demand_tech_unit_type=demand_tech_unit_type, unit=unit, time_unit=time_unit,
@@ -1916,8 +1945,9 @@ class DispatchNodeConfig(DataObject):
 class DispatchTransmissionConstraint(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "description", "geography_description", "time_zone_id", "interpolation_method",
-             "extrapolation_method", "hurdle_currency_id", "hurdle_currency_year_id", "energy_unit"]
+    _cols = ["id", "name", "description", "geography_description", "time_zone_id",
+             "interpolation_method", "extrapolation_method", "hurdle_currency_id",
+             "hurdle_currency_year_id", "energy_unit"]
     _table_name = "DispatchTransmissionConstraint"
     _data_table_name = 'DispatchTransmissionConstraintData'
 
@@ -1926,6 +1956,7 @@ class DispatchTransmissionConstraint(DataObject):
 
         DispatchTransmissionConstraint._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.description = None
         self.geography_description = None
@@ -1936,9 +1967,10 @@ class DispatchTransmissionConstraint(DataObject):
         self.hurdle_currency_year_id = None
         self.energy_unit = None
 
-    def set_args(self, scenario, name=None, description=None, geography_description=None, time_zone_id=None,
+    def set_args(self, scenario, id=None, name=None, description=None, geography_description=None, time_zone_id=None,
                  interpolation_method=None, extrapolation_method=None, hurdle_currency_id=None,
                  hurdle_currency_year_id=None, energy_unit=None):
+        self.id = id
         self.name = name
         self.description = description
         self.geography_description = geography_description
@@ -1952,10 +1984,10 @@ class DispatchTransmissionConstraint(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, description, geography_description, time_zone_id, interpolation_method,
+        (id, name, description, geography_description, time_zone_id, interpolation_method,
          extrapolation_method, hurdle_currency_id, hurdle_currency_year_id, energy_unit) = tup
 
-        self.set_args(scenario, name=name, description=description, geography_description=geography_description,
+        self.set_args(scenario, id=id, name=name, description=description, geography_description=geography_description,
                   time_zone_id=time_zone_id, interpolation_method=interpolation_method,
                   extrapolation_method=extrapolation_method, hurdle_currency_id=hurdle_currency_id,
                   hurdle_currency_year_id=hurdle_currency_year_id, energy_unit=energy_unit)
@@ -1963,7 +1995,7 @@ class DispatchTransmissionConstraint(DataObject):
 class FinalEnergy(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "shape"]
+    _cols = ["id", "name", "shape"]
     _table_name = "FinalEnergy"
     _data_table_name = None
 
@@ -1972,24 +2004,26 @@ class FinalEnergy(DataObject):
 
         FinalEnergy._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.shape = None
 
-    def set_args(self, scenario, name=None, shape=None):
+    def set_args(self, scenario, id=None, name=None, shape=None):
+        self.id = id
         self.name = name
         self.shape = shape
 
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, shape) = tup
+        (id, name, shape) = tup
 
-        self.set_args(scenario, name=name, shape=shape)
+        self.set_args(scenario, id=id, name=name, shape=shape)
 
 class GreenhouseGases(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "long_name"]
+    _cols = ["id", "name", "long_name"]
     _table_name = "GreenhouseGases"
     _data_table_name = None
 
@@ -1998,19 +2032,21 @@ class GreenhouseGases(DataObject):
 
         GreenhouseGases._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.long_name = None
 
-    def set_args(self, scenario, name=None, long_name=None):
+    def set_args(self, scenario, id=None, name=None, long_name=None):
+        self.id = id
         self.name = name
         self.long_name = long_name
 
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, long_name) = tup
+        (id, name, long_name) = tup
 
-        self.set_args(scenario, name=name, long_name=long_name)
+        self.set_args(scenario, id=id, name=name, long_name=long_name)
 
 class ImportCost(DataObject):
     _instances_by_key = {}
@@ -2199,9 +2235,9 @@ class PrimaryCost(DataObject):
 class Shapes(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "shape_type", "shape_unit_type", "time_zone_id", "geography", "other_index_1",
-             "other_index_2", "geography_map_key", "interpolation_method", "extrapolation_method",
-             "input_type"]
+    _cols = ["id", "name", "shape_type", "shape_unit_type", "time_zone_id", "geography",
+             "other_index_1", "other_index_2", "geography_map_key", "interpolation_method",
+             "extrapolation_method", "input_type"]
     _table_name = "Shapes"
     _data_table_name = None
 
@@ -2210,6 +2246,7 @@ class Shapes(DataObject):
 
         Shapes._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.shape_type = None
         self.shape_unit_type = None
@@ -2222,9 +2259,10 @@ class Shapes(DataObject):
         self.extrapolation_method = None
         self.input_type = None
 
-    def set_args(self, scenario, name=None, shape_type=None, shape_unit_type=None, time_zone_id=None, geography=None,
-                 other_index_1=None, other_index_2=None, geography_map_key=None,
+    def set_args(self, scenario, id=None, name=None, shape_type=None, shape_unit_type=None, time_zone_id=None,
+                 geography=None, other_index_1=None, other_index_2=None, geography_map_key=None,
                  interpolation_method=None, extrapolation_method=None, input_type=None):
+        self.id = id
         self.name = name
         self.shape_type = shape_type
         self.shape_unit_type = shape_unit_type
@@ -2240,10 +2278,10 @@ class Shapes(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, shape_type, shape_unit_type, time_zone_id, geography, other_index_1, other_index_2,
-         geography_map_key, interpolation_method, extrapolation_method, input_type) = tup
+        (id, name, shape_type, shape_unit_type, time_zone_id, geography, other_index_1,
+         other_index_2, geography_map_key, interpolation_method, extrapolation_method, input_type) = tup
 
-        self.set_args(scenario, name=name, shape_type=shape_type, shape_unit_type=shape_unit_type,
+        self.set_args(scenario, id=id, name=name, shape_type=shape_type, shape_unit_type=shape_unit_type,
                   time_zone_id=time_zone_id, geography=geography, other_index_1=other_index_1,
                   other_index_2=other_index_2, geography_map_key=geography_map_key,
                   interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
@@ -2407,9 +2445,9 @@ class SupplyCapacityFactor(DataObject):
 class SupplyCost(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "source", "additional_notes", "supply_node", "geography", "supply_cost_type_id",
-             "currency", "currency_year_id", "energy_or_capacity_unit", "time_unit",
-             "is_capital_cost", "cost_of_capital", "book_life", "throughput_correlation",
+    _cols = ["id", "name", "source", "additional_notes", "supply_node", "geography",
+             "supply_cost_type_id", "currency", "currency_year_id", "energy_or_capacity_unit",
+             "time_unit", "is_capital_cost", "cost_of_capital", "book_life", "throughput_correlation",
              "interpolation_method", "extrapolation_method", "extrapolation_growth"]
     _table_name = "SupplyCost"
     _data_table_name = 'SupplyCostData'
@@ -2419,6 +2457,7 @@ class SupplyCost(DataObject):
 
         SupplyCost._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.source = None
         self.additional_notes = None
@@ -2437,11 +2476,12 @@ class SupplyCost(DataObject):
         self.extrapolation_method = None
         self.extrapolation_growth = None
 
-    def set_args(self, scenario, name=None, source=None, additional_notes=None, supply_node=None, geography=None,
+    def set_args(self, scenario, id=None, name=None, source=None, additional_notes=None, supply_node=None, geography=None,
                  supply_cost_type_id=None, currency=None, currency_year_id=None,
                  energy_or_capacity_unit=None, time_unit=None, is_capital_cost=None, cost_of_capital=None,
                  book_life=None, throughput_correlation=None, interpolation_method=None,
                  extrapolation_method=None, extrapolation_growth=None):
+        self.id = id
         self.name = name
         self.source = source
         self.additional_notes = additional_notes
@@ -2463,18 +2503,18 @@ class SupplyCost(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, source, additional_notes, supply_node, geography, supply_cost_type_id, currency,
+        (id, name, source, additional_notes, supply_node, geography, supply_cost_type_id, currency,
          currency_year_id, energy_or_capacity_unit, time_unit, is_capital_cost, cost_of_capital,
          book_life, throughput_correlation, interpolation_method, extrapolation_method,
          extrapolation_growth) = tup
 
-        self.set_args(scenario, name=name, source=source, additional_notes=additional_notes, supply_node=supply_node,
-                  geography=geography, supply_cost_type_id=supply_cost_type_id, currency=currency,
-                  currency_year_id=currency_year_id, energy_or_capacity_unit=energy_or_capacity_unit,
-                  time_unit=time_unit, is_capital_cost=is_capital_cost, cost_of_capital=cost_of_capital,
-                  book_life=book_life, throughput_correlation=throughput_correlation,
-                  interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
-                  extrapolation_growth=extrapolation_growth)
+        self.set_args(scenario, id=id, name=name, source=source, additional_notes=additional_notes,
+                  supply_node=supply_node, geography=geography, supply_cost_type_id=supply_cost_type_id,
+                  currency=currency, currency_year_id=currency_year_id,
+                  energy_or_capacity_unit=energy_or_capacity_unit, time_unit=time_unit,
+                  is_capital_cost=is_capital_cost, cost_of_capital=cost_of_capital, book_life=book_life,
+                  throughput_correlation=throughput_correlation, interpolation_method=interpolation_method,
+                  extrapolation_method=extrapolation_method, extrapolation_growth=extrapolation_growth)
 
 class SupplyEfficiency(DataObject):
     _instances_by_key = {}
@@ -2614,7 +2654,7 @@ class SupplyExport(DataObject):
 class SupplyExportMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["supply_node", "name", "geography", "other_index_1", "interpolation_method",
+    _cols = ["id", "supply_node", "name", "geography", "other_index_1", "interpolation_method",
              "extrapolation_method", "unit"]
     _table_name = "SupplyExportMeasures"
     _data_table_name = 'SupplyExportMeasuresData'
@@ -2624,6 +2664,7 @@ class SupplyExportMeasures(DataObject):
 
         SupplyExportMeasures._instances_by_key[self._key] = self
 
+        self.id = None
         self.supply_node = None
         self.name = None
         self.geography = None
@@ -2632,8 +2673,9 @@ class SupplyExportMeasures(DataObject):
         self.extrapolation_method = None
         self.unit = None
 
-    def set_args(self, scenario, supply_node=None, name=None, geography=None, other_index_1=None,
+    def set_args(self, scenario, id=None, supply_node=None, name=None, geography=None, other_index_1=None,
                  interpolation_method=None, extrapolation_method=None, unit=None):
+        self.id = id
         self.supply_node = supply_node
         self.name = name
         self.geography = geography
@@ -2645,17 +2687,17 @@ class SupplyExportMeasures(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (supply_node, name, geography, other_index_1, interpolation_method, extrapolation_method,
-         unit) = tup
+        (id, supply_node, name, geography, other_index_1, interpolation_method,
+         extrapolation_method, unit) = tup
 
-        self.set_args(scenario, supply_node=supply_node, name=name, geography=geography, other_index_1=other_index_1,
-                  interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
-                  unit=unit)
+        self.set_args(scenario, id=id, supply_node=supply_node, name=name, geography=geography,
+                  other_index_1=other_index_1, interpolation_method=interpolation_method,
+                  extrapolation_method=extrapolation_method, unit=unit)
 
 class SupplyNodes(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "supply_type", "tradable_geography", "is_active", "is_curtailable",
+    _cols = ["id", "name", "supply_type", "tradable_geography", "is_active", "is_curtailable",
              "is_exportable", "is_flexible", "residual_supply_node", "mean_lifetime",
              "lifetime_variance", "max_lifetime", "min_lifetime", "stock_decay_function",
              "cost_of_capital", "book_life", "geography_map_key", "shape", "max_lag_hours",
@@ -2668,6 +2710,7 @@ class SupplyNodes(DataObject):
 
         SupplyNodes._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.supply_type = None
         self.tradable_geography = None
@@ -2690,12 +2733,13 @@ class SupplyNodes(DataObject):
         self.enforce_potential_constraint = None
         self.overflow_node = None
 
-    def set_args(self, scenario, name=None, supply_type=None, tradable_geography=None, is_active=None, is_curtailable=None,
-                 is_exportable=None, is_flexible=None, residual_supply_node=None, mean_lifetime=None,
-                 lifetime_variance=None, max_lifetime=None, min_lifetime=None, stock_decay_function=None,
-                 cost_of_capital=None, book_life=None, geography_map_key=None, shape=None,
-                 max_lag_hours=None, max_lead_hours=None, enforce_potential_constraint=None,
+    def set_args(self, scenario, id=None, name=None, supply_type=None, tradable_geography=None, is_active=None,
+                 is_curtailable=None, is_exportable=None, is_flexible=None, residual_supply_node=None,
+                 mean_lifetime=None, lifetime_variance=None, max_lifetime=None, min_lifetime=None,
+                 stock_decay_function=None, cost_of_capital=None, book_life=None, geography_map_key=None,
+                 shape=None, max_lag_hours=None, max_lead_hours=None, enforce_potential_constraint=None,
                  overflow_node=None):
+        self.id = id
         self.name = name
         self.supply_type = supply_type
         self.tradable_geography = tradable_geography
@@ -2721,12 +2765,12 @@ class SupplyNodes(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, supply_type, tradable_geography, is_active, is_curtailable, is_exportable,
+        (id, name, supply_type, tradable_geography, is_active, is_curtailable, is_exportable,
          is_flexible, residual_supply_node, mean_lifetime, lifetime_variance, max_lifetime,
          min_lifetime, stock_decay_function, cost_of_capital, book_life, geography_map_key, shape,
          max_lag_hours, max_lead_hours, enforce_potential_constraint, overflow_node) = tup
 
-        self.set_args(scenario, name=name, supply_type=supply_type, tradable_geography=tradable_geography,
+        self.set_args(scenario, id=id, name=name, supply_type=supply_type, tradable_geography=tradable_geography,
                   is_active=is_active, is_curtailable=is_curtailable, is_exportable=is_exportable,
                   is_flexible=is_flexible, residual_supply_node=residual_supply_node,
                   mean_lifetime=mean_lifetime, lifetime_variance=lifetime_variance,
@@ -2881,7 +2925,7 @@ class SupplySales(DataObject):
 class SupplySalesMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "supply_technology", "supply_node", "geography", "other_index_1",
+    _cols = ["id", "name", "supply_technology", "supply_node", "geography", "other_index_1",
              "interpolation_method", "extrapolation_method", "extrapolation_growth",
              "geography_map_key"]
     _table_name = "SupplySalesMeasures"
@@ -2892,6 +2936,7 @@ class SupplySalesMeasures(DataObject):
 
         SupplySalesMeasures._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.supply_technology = None
         self.supply_node = None
@@ -2902,9 +2947,10 @@ class SupplySalesMeasures(DataObject):
         self.extrapolation_growth = None
         self.geography_map_key = None
 
-    def set_args(self, scenario, name=None, supply_technology=None, supply_node=None, geography=None, other_index_1=None,
-                 interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
-                 geography_map_key=None):
+    def set_args(self, scenario, id=None, name=None, supply_technology=None, supply_node=None, geography=None,
+                 other_index_1=None, interpolation_method=None, extrapolation_method=None,
+                 extrapolation_growth=None, geography_map_key=None):
+        self.id = id
         self.name = name
         self.supply_technology = supply_technology
         self.supply_node = supply_node
@@ -2918,10 +2964,10 @@ class SupplySalesMeasures(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, supply_technology, supply_node, geography, other_index_1, interpolation_method,
+        (id, name, supply_technology, supply_node, geography, other_index_1, interpolation_method,
          extrapolation_method, extrapolation_growth, geography_map_key) = tup
 
-        self.set_args(scenario, name=name, supply_technology=supply_technology, supply_node=supply_node,
+        self.set_args(scenario, id=id, name=name, supply_technology=supply_technology, supply_node=supply_node,
                   geography=geography, other_index_1=other_index_1,
                   interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
                   extrapolation_growth=extrapolation_growth, geography_map_key=geography_map_key)
@@ -2964,9 +3010,9 @@ class SupplySalesShare(DataObject):
 class SupplySalesShareMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "supply_node", "supply_technology", "replaced_supply_technology", "geography",
-             "capacity_or_energy_unit", "time_unit", "interpolation_method", "extrapolation_method",
-             "extrapolation_growth", "other_index_1"]
+    _cols = ["id", "name", "supply_node", "supply_technology", "replaced_supply_technology",
+             "geography", "capacity_or_energy_unit", "time_unit", "interpolation_method",
+             "extrapolation_method", "extrapolation_growth", "other_index_1"]
     _table_name = "SupplySalesShareMeasures"
     _data_table_name = 'SupplySalesShareMeasuresData'
 
@@ -2975,6 +3021,7 @@ class SupplySalesShareMeasures(DataObject):
 
         SupplySalesShareMeasures._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.supply_node = None
         self.supply_technology = None
@@ -2987,9 +3034,11 @@ class SupplySalesShareMeasures(DataObject):
         self.extrapolation_growth = None
         self.other_index_1 = None
 
-    def set_args(self, scenario, name=None, supply_node=None, supply_technology=None, replaced_supply_technology=None,
-                 geography=None, capacity_or_energy_unit=None, time_unit=None, interpolation_method=None,
-                 extrapolation_method=None, extrapolation_growth=None, other_index_1=None):
+    def set_args(self, scenario, id=None, name=None, supply_node=None, supply_technology=None,
+                 replaced_supply_technology=None, geography=None, capacity_or_energy_unit=None,
+                 time_unit=None, interpolation_method=None, extrapolation_method=None,
+                 extrapolation_growth=None, other_index_1=None):
+        self.id = id
         self.name = name
         self.supply_node = supply_node
         self.supply_technology = supply_technology
@@ -3005,11 +3054,11 @@ class SupplySalesShareMeasures(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, supply_node, supply_technology, replaced_supply_technology, geography,
+        (id, name, supply_node, supply_technology, replaced_supply_technology, geography,
          capacity_or_energy_unit, time_unit, interpolation_method, extrapolation_method,
          extrapolation_growth, other_index_1) = tup
 
-        self.set_args(scenario, name=name, supply_node=supply_node, supply_technology=supply_technology,
+        self.set_args(scenario, id=id, name=name, supply_node=supply_node, supply_technology=supply_technology,
                   replaced_supply_technology=replaced_supply_technology, geography=geography,
                   capacity_or_energy_unit=capacity_or_energy_unit, time_unit=time_unit,
                   interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
@@ -3064,7 +3113,7 @@ class SupplyStock(DataObject):
 class SupplyStockMeasures(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "supply_technology", "supply_node", "geography", "other_index_1",
+    _cols = ["id", "name", "supply_technology", "supply_node", "geography", "other_index_1",
              "capacity_or_energy_unit", "time_unit", "interpolation_method", "extrapolation_method",
              "extrapolation_growth", "geography_map_key"]
     _table_name = "SupplyStockMeasures"
@@ -3075,6 +3124,7 @@ class SupplyStockMeasures(DataObject):
 
         SupplyStockMeasures._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.supply_technology = None
         self.supply_node = None
@@ -3087,9 +3137,11 @@ class SupplyStockMeasures(DataObject):
         self.extrapolation_growth = None
         self.geography_map_key = None
 
-    def set_args(self, scenario, name=None, supply_technology=None, supply_node=None, geography=None, other_index_1=None,
-                 capacity_or_energy_unit=None, time_unit=None, interpolation_method=None,
-                 extrapolation_method=None, extrapolation_growth=None, geography_map_key=None):
+    def set_args(self, scenario, id=None, name=None, supply_technology=None, supply_node=None, geography=None,
+                 other_index_1=None, capacity_or_energy_unit=None, time_unit=None,
+                 interpolation_method=None, extrapolation_method=None, extrapolation_growth=None,
+                 geography_map_key=None):
+        self.id = id
         self.name = name
         self.supply_technology = supply_technology
         self.supply_node = supply_node
@@ -3105,11 +3157,11 @@ class SupplyStockMeasures(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, supply_technology, supply_node, geography, other_index_1, capacity_or_energy_unit,
-         time_unit, interpolation_method, extrapolation_method, extrapolation_growth,
-         geography_map_key) = tup
+        (id, name, supply_technology, supply_node, geography, other_index_1,
+         capacity_or_energy_unit, time_unit, interpolation_method, extrapolation_method,
+         extrapolation_growth, geography_map_key) = tup
 
-        self.set_args(scenario, name=name, supply_technology=supply_technology, supply_node=supply_node,
+        self.set_args(scenario, id=id, name=name, supply_technology=supply_technology, supply_node=supply_node,
                   geography=geography, other_index_1=other_index_1,
                   capacity_or_energy_unit=capacity_or_energy_unit, time_unit=time_unit,
                   interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
@@ -3118,7 +3170,7 @@ class SupplyStockMeasures(DataObject):
 class SupplyTechs(DataObject):
     _instances_by_key = {}
     _key_col = "name"
-    _cols = ["name", "supply_node", "source", "additional_description", "stock_decay_function",
+    _cols = ["id", "name", "supply_node", "source", "additional_description", "stock_decay_function",
              "book_life", "mean_lifetime", "lifetime_variance", "min_lifetime", "max_lifetime",
              "discharge_duration", "cost_of_capital", "shape", "max_lag_hours", "max_lead_hours",
              "thermal_capacity_multiplier"]
@@ -3130,6 +3182,7 @@ class SupplyTechs(DataObject):
 
         SupplyTechs._instances_by_key[self._key] = self
 
+        self.id = None
         self.name = None
         self.supply_node = None
         self.source = None
@@ -3147,10 +3200,11 @@ class SupplyTechs(DataObject):
         self.max_lead_hours = None
         self.thermal_capacity_multiplier = None
 
-    def set_args(self, scenario, name=None, supply_node=None, source=None, additional_description=None,
+    def set_args(self, scenario, id=None, name=None, supply_node=None, source=None, additional_description=None,
                  stock_decay_function=None, book_life=None, mean_lifetime=None, lifetime_variance=None,
                  min_lifetime=None, max_lifetime=None, discharge_duration=None, cost_of_capital=None,
                  shape=None, max_lag_hours=None, max_lead_hours=None, thermal_capacity_multiplier=None):
+        self.id = id
         self.name = name
         self.supply_node = supply_node
         self.source = source
@@ -3171,11 +3225,11 @@ class SupplyTechs(DataObject):
         self.load_child_data(scenario)
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, supply_node, source, additional_description, stock_decay_function, book_life,
+        (id, name, supply_node, source, additional_description, stock_decay_function, book_life,
          mean_lifetime, lifetime_variance, min_lifetime, max_lifetime, discharge_duration,
          cost_of_capital, shape, max_lag_hours, max_lead_hours, thermal_capacity_multiplier) = tup
 
-        self.set_args(scenario, name=name, supply_node=supply_node, source=source,
+        self.set_args(scenario, id=id, name=name, supply_node=supply_node, source=source,
                   additional_description=additional_description, stock_decay_function=stock_decay_function,
                   book_life=book_life, mean_lifetime=mean_lifetime, lifetime_variance=lifetime_variance,
                   min_lifetime=min_lifetime, max_lifetime=max_lifetime,

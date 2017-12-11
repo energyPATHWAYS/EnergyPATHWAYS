@@ -47,8 +47,16 @@ class DataMapFunctions:
         if read_data:
             elements = [sorted(set(e)) for e in zip(*read_data)]
             # OrderedDict in necessary the way this currently works
-            self.column_names = OrderedDict([(index_level, column_name) for index_level, column_name in cfg.index_levels if (column_name in headers) and (column_name not in self.data_id_key) and (elements[headers.index(column_name)] != [None])])
-            self.index_levels = OrderedDict([(index_level, elements[headers.index(column_name)]) for index_level, column_name in cfg.index_levels if column_name in self.column_names.values()])
+            self.column_names = OrderedDict([(index_level, column_name)
+                                             for index_level, column_name in cfg.index_levels
+                                             if (column_name in headers) and
+                                             (column_name not in self.data_id_key) and
+                                             (elements[headers.index(column_name)] != [None])])
+
+            self.index_levels = OrderedDict([(index_level, elements[headers.index(column_name)])
+                                             for index_level, column_name in cfg.index_levels
+                                             if column_name in self.column_names.values()])
+
             self.df_index_names = [util.id_to_name(level, getattr(self, level)) if hasattr(self, level) else level for level in self.index_levels]
 
     def read_timeseries_data(self, data_column_names='value', **filters):  # This function needs to be sped up
@@ -350,6 +358,7 @@ class DataMapFunctions:
 
         converted_geography = cfg.primary_geography if converted_geography is None else converted_geography
         current_data_type = self.input_type if current_data_type is None else current_data_type
+
         if map_from != 'raw_values' and current_data_type == 'total':
             denominator_driver_ids = []
         else:
@@ -357,6 +366,7 @@ class DataMapFunctions:
 
         current_geography = self.geography if current_geography is None else current_geography
         setattr(self, map_to, getattr(self, map_from).copy())
+
         if len(denominator_driver_ids):
             if current_data_type != 'intensity':
                 raise ValueError(str(self.__class__) + ' id ' + str(self.id) + ': type must be intensity if variable has denominator drivers')
@@ -371,10 +381,12 @@ class DataMapFunctions:
             self.geo_map(current_geography=cfg.disagg_geography, attr=map_to, converted_geography=current_geography,current_data_type='total')
             # the datatype is now total
             current_data_type = 'total'
+
         driver_ids = [getattr(self, col) for col in cfg.drivr_col_names if getattr(self, col) is not None]
         drivers = [self.drivers[id].values for id in driver_ids]
         if additional_drivers is not None:
             drivers += util.put_in_list(additional_drivers)
+
         # both map_from and map_to are the same
         self.remap(map_from=map_to, map_to=map_to, drivers=drivers,
                    time_index_name=time_index_name, fill_timeseries=fill_timeseries, interpolation_method=interpolation_method,
