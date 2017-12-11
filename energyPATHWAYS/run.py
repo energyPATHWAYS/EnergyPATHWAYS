@@ -212,15 +212,15 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EnergyPATHWAYS_scenarios\EPSA'
+    workingdir = r'C:\github\EnergyPATHWAYS_scenarios\US_DDPP'
     config = 'config.INI'
-    scenario = ['aeo_2017_reference']
+    scenario = ['pge_reference']
     run(workingdir, config, scenario,
-    load_demand   = True,
+    load_demand   = False,
     solve_demand  = True,
-    load_supply   = False,
+    load_supply   = True,
     solve_supply  = True,
-    export_results= True,
+    export_results= False,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
