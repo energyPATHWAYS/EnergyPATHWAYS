@@ -1298,7 +1298,7 @@ class Supply(object):
                                 self.active_thermal_dispatch_df.loc[(dispatch_geography,node.id, str(resource), 'must_run'),year] = 1
                         except:
                             pdb.set_trace()
-        self.active_thermal_dispatch_df = self.active_thermal_dispatch_df[((np.array([int(x[-6:-1]) for x in self.active_thermal_dispatch_df.index.get_level_values('thermal_generator')])==year) == True) | ((self.active_thermal_dispatch_df[year]>0) == True)]
+        self.active_thermal_dispatch_df = self.active_thermal_dispatch_df[((np.array([int(x[-6:-2]) for x in self.active_thermal_dispatch_df.index.get_level_values('thermal_generators')])==year) == True) | ((self.active_thermal_dispatch_df.groupby(level=[cfg.dispatch_geography,'thermal_generators']).transform(lambda x: x.sum())[year]>0) == True)]
 
     def capacity_weights(self,year):
         """sets the share of new capacity by technology and location to resolve insufficient capacity in the thermal dispatch

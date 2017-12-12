@@ -220,7 +220,7 @@ if __name__ == "__main__":
     load_demand   = True,
     solve_demand  = False,
     load_supply   = False,
-    solve_supply  = True,
+    solve_supply  = False,
     export_results= True,
     load_error    = False,
     pickle_shapes = True,
