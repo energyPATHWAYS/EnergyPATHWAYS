@@ -319,6 +319,7 @@ def init_outputs_id_map():
     outputs_id_map['dispatch_feeder'][0] = 'BULK'
     outputs_id_map['other_index_1'] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name']))
     outputs_id_map['other_index_2'] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name']))
+    outputs_id_map['timeshift_type'] = util.upper_dict(util.sql_read_table('FlexibleLoadShiftTypes', ['id', 'name']))
     for id, name in util.sql_read_table('OtherIndexes', ('id', 'name'), return_iterable=True):
         if name in ('demand_technology', 'final_energy'):
             continue

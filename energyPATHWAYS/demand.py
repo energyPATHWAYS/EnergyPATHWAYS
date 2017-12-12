@@ -291,7 +291,46 @@ class Demand(object):
         for sector in self.sectors.values():
             sector.aggregate_subsector_energy_for_supply_side()
         self.aggregate_sector_energy_for_supply_side()
-            
+
+        # we are going to output the shapes for all the demand subsectors for specific years
+        if cfg.cfgfile.get('demand_output_detail','subsector_electricity_profiles').lower() == 'true':
+            self.create_electricity_reconciliation()
+            self.output_subsector_electricity_profiles()
+
+    def output_subsector_electricity_profiles(self):
+        # include_technology = True if cfg.cfgfile.get('demand_output_detail','subsector_profiles_include_technology').lower() == 'true' else False
+        output_years = [int(dy) for dy in cfg.cfgfile.get('demand_output_detail', 'subsector_profile_years').split(',') if len(dy)]
+        stack = []
+        for output_year in output_years:
+            if output_year not in cfg.supply_years:
+                continue
+            profiles_df = self.stack_subsector_electricity_profiles(output_year)
+            stack.append(profiles_df)
+        stack = pd.concat(stack)
+        self.outputs.subsector_electricity_profiles = stack
+
+    def stack_subsector_electricity_profiles(self, year):
+        # df_zeros = pd.DataFrame(0, columns=['value'], index=pd.MultiIndex.from_product((cfg.geographies, shape.shapes.active_dates_index), names=[cfg.primary_geography, 'weather_datetime']))
+        stack = []
+        index_levels = ['year', cfg.primary_geography, 'dispatch_feeder', 'sector', 'subsector', 'timeshift_type', 'weather_datetime']
+        for sector in self.sectors.values():
+            feeder_allocation = self.feeder_allocation_class.values.xs(year, level='year').xs(sector.id, level='sector')
+            for subsector in sector.subsectors.values():
+                df = subsector.aggregate_electricity_shapes(year, for_direct_use=True)
+                if df is None:
+                    continue
+                    # df = df_zeros.copy(deep=True)
+                df['sector'] = sector.id
+                df['subsector'] = subsector.id
+                df['year'] = year
+                df = df.set_index(['sector', 'subsector', 'year'], append=True).sort()
+                df = util.DfOper.mult((df, feeder_allocation))
+                df = df.reorder_levels(index_levels)
+                stack.append(df)
+        stack = pd.concat(stack).sort()
+        stack *= self.energy_demand.xs([cfg.electricity_energy_type_id, year], level=['final_energy', 'year']).sum().sum() / stack.xs(2, level='timeshift_type').sum().sum()
+        return stack
+
     def link_to_supply(self, embodied_emissions_link, direct_emissions_link, energy_link, cost_link):
         logging.info("linking supply emissions to energy demand")
         setattr(self.outputs, 'demand_embodied_emissions', self.group_linked_output(embodied_emissions_link))
@@ -303,18 +342,10 @@ class Demand(object):
         setattr(self.outputs, 'demand_embodied_energy', self.group_linked_output(energy_link))
         
     def link_to_supply_tco(self, embodied_emissions_link, direct_emissions_link,cost_link):
-#        logging.info("linking supply emissions to energy demand for tco calculations")
-#        setattr(self.outputs, 'demand_embodied_emissions_tco', self.group_linked_output_tco(embodied_emissions_link))
-#        logging.info("calculating direct demand emissions for tco calculations")
-#        setattr(self.outputs, 'demand_direct_emissions_tco', self.group_linked_output_tco(direct_emissions_link))
         logging.info("linking supply costs to energy demand for tco calculations")
         setattr(self.outputs, 'demand_embodied_energy_costs_tco', self.group_linked_output_tco(cost_link))
     
     def link_to_supply_payback(self, embodied_emissions_link, direct_emissions_link,cost_link):
-#        logging.info("linking supply emissions to energy demand for tco calculations")
-#        setattr(self.outputs, 'demand_embodied_emissions_tco', self.group_linked_output_tco(embodied_emissions_link))
-#        logging.info("calculating direct demand emissions for tco calculations")
-#        setattr(self.outputs, 'demand_direct_emissions_tco', self.group_linked_output_tco(direct_emissions_link))
         logging.info("linking supply costs to energy demand for payback calculations")
         setattr(self.outputs, 'demand_embodied_energy_costs_payback', self.group_linked_output_payback(cost_link))
 
@@ -727,9 +758,10 @@ class Subsector(DataMapFunctions):
         techs_with_energy = sorted(energy_slice[energy_slice['value'] != 0].index.get_level_values('demand_technology').unique())
         return [tech_id for tech_id in candidate_techs if tech_id in techs_with_energy]
 
-    def aggregate_electricity_shapes(self, year):
+    def aggregate_electricity_shapes(self, year, for_direct_use=False):
         """ Final levels that will always return from this function
         ['gau', 'weather_datetime'] or ['timeshift_type', 'gau', 'weather_datetime']
+        if for_direct_use, we are outputing the shape directly to csv
         """
         energy_slice = self.get_electricity_consumption(year)
         # if we have no electricity consumption, we don't make a shape
@@ -738,10 +770,10 @@ class Subsector(DataMapFunctions):
         # to speed this up, we are removing anything that has zero energy
         energy_slice = energy_slice[energy_slice['value'] != 0]
 
-        active_shape = self.shape if hasattr(self, 'shape') else self.default_shape
+        active_shape = self.shape if self.shape is not None else self.default_shape
         active_hours = {}
-        active_hours['lag'] = self.max_lag_hours if hasattr(self, 'max_lag_hours') is not None else self.default_max_lag_hours
-        active_hours['lead'] = self.max_lead_hours if hasattr(self, 'max_lead_hours') is not None else self.default_max_lead_hours
+        active_hours['lag'] = self.max_lag_hours if self.max_lag_hours is not None else self.default_max_lag_hours
+        active_hours['lead'] = self.max_lead_hours if self.max_lead_hours is not None else self.default_max_lead_hours
         has_flexible_load = True if hasattr(self, 'flexible_load_measure') and \
                                     self.flexible_load_measure.values.xs(year,level='year').sum().sum() > 0 else False
         flexible_load_tech_index = True if has_flexible_load and 'demand_technology' in self.flexible_load_measure.values.index.names else False
@@ -798,7 +830,13 @@ class Subsector(DataMapFunctions):
         else:
             # if we don't have flexible load, we don't introduce electricity reconcilliation because that is done at a more aggregate level
             remaining_shape = util.DfOper.mult((active_shape.values.xs(2, level='timeshift_type'), remaining_energy))
-            return (tech_load.xs(2, level='timeshift_type') + remaining_shape) if tech_load is not None else remaining_shape
+            return_shape = (tech_load.xs(2, level='timeshift_type') + remaining_shape) if tech_load is not None else remaining_shape
+            if for_direct_use:
+                return_shape = util.DfOper.mult((return_shape, self.electricity_reconciliation), collapsible=False)
+                # doing this will make the energy for the subsector match, but it won't exactly match the system shape used in the dispatch
+                return_shape *= energy_slice.sum().sum() / return_shape.sum().sum()
+                return_shape = pd.concat([return_shape] * 3, keys=[1, 2, 3], names=['timeshift_type'])
+            return return_shape
 
     def add_energy_system_data(self):
         """ 

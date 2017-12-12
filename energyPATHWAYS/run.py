@@ -115,6 +115,7 @@ def run(path, config, scenario_ids, load_demand=False, solve_demand=True, load_s
     for scenario_id in scenario_ids:
         scenario_start_time = time.time()
         logging.info('Starting scenario {}'.format(scenario_id))
+        logging.info('Start time {}'.format(str(datetime.datetime.now()).split('.')[0]))
         if api_run:
             # FIXME: This will be broken since we changed the scenario list from a list of database ids to a list of
             # filenames. The API-related code will need to be updated before we can update the server with newer
@@ -212,19 +213,23 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EnergyPATHWAYS_scenarios\US_DDPP'
+    workingdir = r'C:\github\EP_runs\EPSA_output_demand_shapes'
     config = 'config.INI'
-    scenario = ['pge_reference']
+    scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
-    load_demand   = False,
-    solve_demand  = True,
-    load_supply   = True,
+    load_demand   = True,
+    solve_demand  = False,
+    load_supply   = False,
     solve_supply  = True,
-    export_results= False,
+    export_results= True,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,
     clear_results = True)
 
+    # if cfg.cfgfile.get('demand_output_detail','subsector_electricity_profiles').lower() == 'true':
+    #     model.demand.create_electricity_reconciliation()
+    #     # model.demand.write_subsector_electricity_profiles()
+    #     stack = model.demand.stack_subsector_electricity_profiles(2020, False)
 
