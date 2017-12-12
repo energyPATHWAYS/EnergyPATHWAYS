@@ -1195,7 +1195,7 @@ class Supply(object):
                 self.outputs.hourly_dispatch_results = pd.concat([self.outputs.hourly_dispatch_results, self.bulk_dispatch])
             else:
                 # we are going to save them as we go along
-                result_df = self.outputs.return_cleaned_output(self.bulk_dispatch)
+                result_df = self.outputs.clean_df(self.bulk_dispatch)
                 keys = [self.scenario.name.upper(), cfg.timestamp]
                 names = ['SCENARIO','TIMESTAMP']
                 for key, name in zip(keys, names):
@@ -1415,8 +1415,8 @@ class Supply(object):
             bulk_marginal_cost *= util.unit_convert(1, unit_from_den=cfg.calculation_energy_unit,unit_to_den='megawatt_hour')
             bulk_marginal_cost.columns = ["{} / {}".format(cfg.output_currency.upper(), 'MWh')]
             bulk_production_cost.columns = [cfg.output_currency.upper()]
-            bulk_marginal_cost = self.outputs.clean_df(bulk_marginal_cost)
-            bulk_production_cost = self.outputs.clean_df(bulk_production_cost)
+            # bulk_marginal_cost = self.outputs.clean_df(bulk_marginal_cost)
+            # bulk_production_cost = self.outputs.clean_df(bulk_production_cost)
 
             if cfg.cfgfile.get('output_detail', 'keep_dispatch_outputs_in_model').lower() == 'true':
                 self.outputs.hourly_marginal_cost = pd.concat([self.outputs.hourly_marginal_cost, bulk_marginal_cost])
@@ -1424,7 +1424,7 @@ class Supply(object):
             else:
                 # we are going to save them as we go along
                 for obj, obj_name in zip([bulk_marginal_cost, bulk_production_cost], ['hourly_marginal_cost', 'hourly_production_cost']):
-                    result_df = self.outputs.return_cleaned_output(obj)
+                    result_df = self.outputs.clean_df(obj)
                     keys = [self.scenario.name.upper(), cfg.timestamp]
                     names = ['SCENARIO','TIMESTAMP']
                     for key, name in zip(keys, names):
