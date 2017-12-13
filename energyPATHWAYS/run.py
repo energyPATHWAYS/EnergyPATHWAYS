@@ -225,6 +225,7 @@ if __name__ == "__main__":
 
     config = 'config.INI'
     scenario = ['aeo_2017_reference']
+
     run(workingdir, config, scenario,
         load_demand   = False, # True,
         solve_demand  = True,
@@ -236,4 +237,3 @@ if __name__ == "__main__":
         save_models   = True,
         api_run       = False,
         clear_results = False)
-

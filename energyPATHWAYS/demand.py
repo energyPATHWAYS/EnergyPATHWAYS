@@ -43,23 +43,13 @@ class Driver(object, DataMapFunctions):
     def __str__(self):
         return '<Driver "{}">'.format(self.name)
 
-# New version
 class DriverNew(schema.DemandDrivers):
     def __init__(self, name, scenario):
         super(DriverNew, self).__init__(name, scenario)
         self.mapped = False
         self.init_from_db(name, scenario)
 
-        # TODO: just for integration; later use base_driver string
-        # db = get_database()
-        # tbl = db.get_table('DemandDrivers')
-        # base_driver_id = tbl.ids_df.loc[self.id, 'base_driver_id']
-        # try:
-        #     self.base_driver_id = int(base_driver_id) # these can be float if rows have nan values
-        # except:
-        #     self.base_driver_id = None
-
-        # TODO: move this to DataObject.__init__?
+        # TODO: move this to DataObject.__init__? So far it's used here and in EnergyDemands.
         self.index_levels = self.df_index_names = self.column_names = None
         self.raw_values = self.create_raw_values()
 
@@ -69,7 +59,7 @@ class DriverNew(schema.DemandDrivers):
         if prefix and prefix != 1:
             self.raw_values['value'] *= prefix
 
-    # TODO: for integration only; base_driver_id is used in datamapfunctions to see if a base driver exists.
+    # TODO: for integration only; base_driver_id is used in datamapfunctions to see if a base driver exists, so we just return the name.
     @property
     def base_driver_id(self):
         return self.base_driver
@@ -93,9 +83,8 @@ class Demand(object):
         logging.info('Configuring energy system')
         # Drivers must come first
 
-        # TODO: for testing / integration
+        # TODO: delete old funcs after integration and rename to drop "_new"
         # self.add_drivers()
-
         self.add_drivers_new()
 
         # Sectors requires drivers have already been read in
@@ -144,7 +133,7 @@ class Demand(object):
 
         self.drivers[id] = Driver(id, scenario)
 
-    # TODO
+    # TODO: eventually drop "_new" from names and delete old versions above
     def add_drivers_new(self):
         """Loops through driver ids and call create driver function"""
         logging.info('Adding (new) drivers')
@@ -182,7 +171,6 @@ class Demand(object):
         """mapping of a demand driver to its base driver"""
         # base driver may be None
 
-        # TODO: once debugged...
         base_driver_name = driver.base_driver
         if base_driver_name:
             base_driver = self.drivers_new[base_driver_name]
@@ -190,6 +178,7 @@ class Demand(object):
                 # If a driver hasn't been mapped, recurse to map it first (this can go multiple layers)
                 self.remap_driver(base_driver)
 
+        # TODO: delete after integration
         # base_driver_id = driver.base_driver_id
         # if base_driver_id:
         #     base_driver = self.drivers[base_driver_id]

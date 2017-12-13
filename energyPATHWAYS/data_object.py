@@ -1,11 +1,9 @@
 __author__ = 'ryan and rich'
 import logging
 import pdb
-#import re
 from collections import OrderedDict, defaultdict
 
 import numpy as np
-#import pandas as pd
 
 from . import config as cfg
 from .time_series import TimeSeries
@@ -178,21 +176,21 @@ class DataObject(object):
            child data table.
         :return: none
         """
-        db = get_database()
+        data_table_name = self._data_table_name
 
-        if self._data_table_name:
-            child_tbl = db.get_table(self._data_table_name)
-            parent_col = find_parent_col(self._data_table_name, child_tbl.data.columns)
+        if data_table_name:
+            db = get_database()
+            child_tbl = db.get_table(data_table_name)
+            parent_col = find_parent_col(data_table_name, child_tbl.data.columns)
 
-            # TODO: to add (from read_timeseries_data)
-            # if 'sensitivity' in self._cols:
-            #     filters['sensitivity'] = None
-            #     if self.scenario:
-            #         filters['sensitivity'] = self.scenario.get_sensitivity(self._data_table_name, self._key)
+            query = '{} == "{}"'.format(parent_col, self._key)
 
-            query = "{} == '{}'".format(parent_col, self._key)
+            if self.scenario:
+                # N.B. database.CsvTable ensures that all *Data files have a sensitivity column.
+                sensitivity = self.scenario.get_sensitivity(data_table_name, self._key) or ''
+                query += ' and sensitivity == "{}"'.format(sensitivity)
+
             df = child_tbl.data.query(query)
-
             df = df.copy(deep=True) if copy else df
 
             # TODO: After integration call self.map_strings() instead for on-the-fly conversion
