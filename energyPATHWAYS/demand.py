@@ -9,7 +9,7 @@ import pandas as pd
 from collections import defaultdict
 import copy
 from datetime import datetime
-from demand_subsector_classes import DemandStock, SubDemand, ServiceEfficiency, ServiceLink
+from demand_subsector_classes import DemandStock, SubDemand, ServiceEfficiency, ServiceLink, EnergyDemands
 from shared_classes import AggregateStock
 from demand_measures import ServiceDemandMeasure, EnergyEfficiencyMeasure, FuelSwitchingMeasure, FlexibleLoadMeasure, FlexibleLoadMeasure2
 from demand_technologies import DemandTechnology, SalesShare
@@ -59,6 +59,7 @@ class DriverNew(schema.DemandDrivers):
         # except:
         #     self.base_driver_id = None
 
+        # TODO: move this to DataObject.__init__?
         self.index_levels = self.df_index_names = self.column_names = None
         self.raw_values = self.create_raw_values()
 
@@ -502,19 +503,25 @@ class Sector(object):
         self.scenario = scenario
         self.id = id
         self.subsectors = {}
+
         for col, att in util.object_att_from_table('DemandSectors', id):
             setattr(self, col, att)
+
         self.outputs = Output()
+
         if self.shape_id is not None:
             self.shape = shape.shapes.data[self.shape_id]
+
         self.subsector_ids = util.sql_read_table('DemandSubsectors', column_names='id', sector_id=self.id, is_active=True, return_iterable=True)
         self.stock_subsector_ids = util.sql_read_table('DemandStock', 'subsector_id', return_iterable=True)
         self.service_demand_subsector_ids = util.sql_read_table('DemandServiceDemands', 'subsector_id', return_iterable=True)
         self.energy_demand_subsector_ids = util.sql_read_table('DemandEnergyDemands', 'subsector_id', return_iterable=True)
         self.service_efficiency_ids = util.sql_read_table('DemandServiceEfficiency', 'subsector_id', return_iterable=True)
         feeder_allocation_class = dispatch_classes.DispatchFeederAllocation(1)
+
         # FIXME: This next line will fail if we don't have a feeder allocation for each demand_sector
         self.feeder_allocation = util.df_slice(feeder_allocation_class.values, id, 'demand_sector')
+
         self.electricity_reconciliation = None
         self.workingdir = cfg.workingdir
         self.cfgfile_name = cfg.cfgfile_name
@@ -895,9 +902,14 @@ class Subsector(DataMapFunctions):
             else:
                 self.add_technologies(self.stock.unit, self.stock.time_unit)
             self.sub_type = 'stock and service'
+
         elif self.has_stock is True and self.has_energy_demand is True:
-            self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData', scenario=self.scenario, drivers=self.drivers)
+
+            self.energy_demand = EnergyDemands(self.name, scenario=self.scenario, drivers=self.drivers)
+            # self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData', scenario=self.scenario, drivers=self.drivers)
+
             self.add_stock()
+
             if self.stock.demand_stock_unit_type == 'equipment':
                 # service demand unit is equal to the energy demand unit for equipment stocks
                 # where no additional service demand information is given in the form of stock units
@@ -910,6 +922,7 @@ class Subsector(DataMapFunctions):
                 # cubic feet
                 self.add_technologies(self.stock.unit, self.stock.time_unit)
             self.sub_type = 'stock and energy'
+
         elif self.has_service_demand is True and self.has_service_efficiency is True:
             self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', scenario=self.scenario, drivers=self.drivers)
             self.service_efficiency = ServiceEfficiency(self.id, self.service_demand.unit, self.scenario)
@@ -917,10 +930,14 @@ class Subsector(DataMapFunctions):
 
         elif self.has_service_demand is True and self.has_energy_demand is True:
             self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', scenario=self.scenario, drivers=self.drivers)
-            self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData',scenario=self.scenario, drivers=self.drivers)
+
+            self.energy_demand = EnergyDemands(self.name, scenario=self.scenario, drivers=self.drivers)
+            # self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData',scenario=self.scenario, drivers=self.drivers)
+
             self.sub_type = 'service and energy'
         elif self.has_energy_demand is True:
-            self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData', scenario=self.scenario,drivers=self.drivers)
+            self.energy_demand = EnergyDemands(self.name, scenario=self.scenario, drivers=self.drivers)
+            # self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData', scenario=self.scenario,drivers=self.drivers)
             self.sub_type = 'energy'
 
         elif self.has_stock is True:
@@ -1754,7 +1771,9 @@ class Subsector(DataMapFunctions):
             # what levels to calculate the service demand modifier on i.e. by demand_technology
             # or by final energy
             self.determine_service_subset()
+
             if self.stock.demand_stock_unit_type == 'equipment':
+
                 if self.sub_type == 'stock and energy':
                     # determine the year range of energy demand inputs
                     self.min_year = self.min_cal_year(self.energy_demand)
@@ -1767,11 +1786,14 @@ class Subsector(DataMapFunctions):
                     self.energy_demand.project(map_from='raw_values', fill_timeseries=False)
                     # divide by the efficiency of the stock to return service demand values
                     self.efficiency_removal()
+
                 elif self.sub_type == 'stock and service':
                     # determine the year range of service demand inputs
                     self.min_year = self.min_cal_year(self.service_demand)
                     self.max_year = self.max_cal_year(self.service_demand)
+
             elif self.stock.demand_stock_unit_type == 'capacity factor':
+
                 if self.sub_type == 'stock and service':
                     # determine the year range of service demand inputs
                     self.min_year = self.min_cal_year(self.service_demand)
@@ -1788,16 +1810,19 @@ class Subsector(DataMapFunctions):
                     # ex. kBtu/hour/capacity factor equals kBtu/hour stock
                     self.stock.remap(map_from='raw_values', map_to='int_values', fill_timeseries=False)
                     _, x = util.difference_in_df_names(time_step_service, self.stock.int_values)
+
                     if x:
                         raise ValueError('service demand must have the same index levels as stock when stock is specified in capacity factor terms')
                     else:
                         self.stock.int_values = DfOper.divi([time_step_service, self.stock.int_values])
+
                     # change map_from to int_values, which is an intermediate value, not yet final
                     self.stock.map_from = 'int_values'
                     # stock is by definition service demand dependent
                     self.service_demand.int_values = self.service_demand.int_values.groupby(level=self.stock.rollover_group_names+['year']).sum()
                     self.stock.is_service_demand_dependent = 1
                     self.service_subset = None
+
                 else:
                     # used when we don't have service demand, just energy demand
                     # determine the year range of energy demand inputs
@@ -1840,6 +1865,7 @@ class Subsector(DataMapFunctions):
                     self.stock.is_service_demand_dependent = 1
                     self.service_demand.int_values = self.service_demand.int_values.groupby(level=self.stock.rollover_group_names+['year']).sum()
                     self.service_subset = None
+
             elif self.stock.demand_stock_unit_type == 'service demand':
                 if self.sub_type == 'stock and service':
                     # convert service demand units to stock units
@@ -1853,6 +1879,7 @@ class Subsector(DataMapFunctions):
                     self.max_year = self.max_cal_year(self.service_demand)
                     self.project_stock(stock_dependent=self.service_demand.is_stock_dependent)
                     self.stock_subset_prep()
+
                 if self.sub_type == 'stock and energy':
                     # used when we don't have service demand, just energy demand
                     # determine the year range of energy demand inputs

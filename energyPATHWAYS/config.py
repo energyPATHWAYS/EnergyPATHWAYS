@@ -36,12 +36,9 @@ model_error_append_name = '_model_error.p'
 
 # common data inputs
 index_levels = None
+# TODO: remove old names above once conversion is complete
 dnmtr_col_names = ['driver_denominator_1_id', 'driver_denominator_2_id']
 drivr_col_names = ['driver_1_id', 'driver_2_id']
-
-# TODO: remove old names above once conversion is complete
-denom_col_names  = ['driver_denominator_1', 'driver_denominator_2']
-driver_col_names = ['driver_1', 'driver_2']
 
 tech_classes = ['capital_cost_new', 'capital_cost_replacement', 'installation_cost_new', 'installation_cost_replacement', 'fixed_om', 'variable_om', 'efficiency']
 #storage techs have additional attributes specifying costs for energy (i.e. kWh of energy storage) and discharge capacity (i.e. kW)

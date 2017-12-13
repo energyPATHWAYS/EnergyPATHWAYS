@@ -105,7 +105,7 @@ class DataObject(object):
         self.input_type = None
 
     def __str__(self):
-        return "<{} {}='{}'>".format(self.__class__._table_name, self._key_col, self._key)
+        return "<{} {}='{}'>".format(self.__class__.__name__, self._key_col, self._key)
 
     # Added for compatibility with prior implementation
     @property
@@ -550,23 +550,27 @@ class DataObject(object):
     def project(self, map_from='raw_values', map_to='values', additional_drivers=None,
                 interpolation_method='missing', extrapolation_method='missing',
                 time_index_name='year', fill_timeseries=True, converted_geography=None, current_geography=None,
-                current_data_type=None, fill_value=0.0, projected=False, filter_geo=True):
+                current_data_type=None, fill_value=0.0, filter_geo=True): # unused: projected=False):
+
+        # TODO: for integration stage only. Later, we'll pass this in instead of the old dict(id -> Driver)
+        drivers_by_name = {driver.name: driver for driver in self.drivers.values()}
 
         converted_geography = converted_geography or cfg.primary_geography
         current_data_type = current_data_type or self.input_type
 
         if map_from != 'raw_values' and current_data_type == 'total':
-            denominator_driver_ids = None
+            denominator_drivers = None
         else:
-            denominator_driver_ids = [getattr(self, col) for col in cfg.denom_col_names if
-                                      getattr(self, col) is not None]
+            denominators = [self.driver_denominator_1, self.driver_denominator_2]
+            denominator_drivers = filter(lambda name: name is not None and name != '', denominators)
 
         current_geography = current_geography or self.geography
         setattr(self, map_to, getattr(self, map_from).copy())
 
-        if denominator_driver_ids:
+        if denominator_drivers:
             if current_data_type != 'intensity':
-                msg = "{} id {}: type must be intensity if variable has denominator drivers".format(self.__class__, self.id)
+                # msg = "{} '{}': type must be intensity if variable has denominator drivers".format(self.__class__.__name__, self._key)
+                msg = "{} : type must be intensity if variable has denominator drivers".format(self)
                 raise ValueError(msg)
 
             if current_geography != converted_geography:
@@ -574,7 +578,7 @@ class DataObject(object):
                 self.geo_map(converted_geography, attr=map_to, inplace=True)
                 current_geography = converted_geography
 
-            total_driver = DfOper.mult([self.drivers[id].values for id in denominator_driver_ids])
+            total_driver = DfOper.mult([drivers_by_name[name].values for name in denominator_drivers])
             self.geo_map(current_geography=current_geography, attr=map_to, converted_geography=cfg.disagg_geography,
                          current_data_type='intensity')
 
@@ -585,13 +589,15 @@ class DataObject(object):
             # the datatype is now total
             current_data_type = 'total'
 
-        driver_ids = filter(None, [self.driver_1, self.driver_2])
-        drivers = [self.drivers[key].values for key in driver_ids]
+        driver_names = [self.driver_1, self.driver_2]
+        driverDFs = [drivers_by_name[name].values for name in driver_names if name]
+        # drivers = [self.drivers[key].values for key in driver_names]
+
         if additional_drivers is not None:
-            drivers += put_in_list(additional_drivers)
+            driverDFs += put_in_list(additional_drivers)
 
         # both map_from and map_to are the same
-        self.remap(map_from=map_to, map_to=map_to, drivers=drivers,
+        self.remap(map_from=map_to, map_to=map_to, drivers=driverDFs,
                    time_index_name=time_index_name, fill_timeseries=fill_timeseries,
                    interpolation_method=interpolation_method,
                    extrapolation_method=extrapolation_method,
