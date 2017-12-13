@@ -8,6 +8,7 @@ import util
 from ast import literal_eval
 import numpy as np
 
+# TODO: this is unused and has a reference to unknown variable. Is it deprecated?
 def export_allocation_results(instance, results_directory, write_to_file=False):
 
     periods_set = getattr(instance, "PERIODS")
@@ -56,22 +57,22 @@ def export_allocation_results(instance, results_directory, write_to_file=False):
 #        for tech in storage_tech_set:
 #            if instance.feeder[tech] == 0:
 #                charge_indexer = util.level_specific_indexer(bulk_storage_df, [self.dispatch_geography, 'storage_technology', 'charge_discharge'], [geography, tech, 'charge'])
-#                discharge_indexer = util.level_specific_indexer(bulk_storage_df, [self.dispatch_geography, 'storage_technology','charge_discharge'], [geography, tech, 'discharge']) 
-#                for timepoint in self.period_timepoints[period]:                
-#                    time_index = (period * self.opt_hours) + timepoint - 1 
-#                    bulk_storage_df.loc[charge_indexer,:].iloc[time_index] = instance.Charge[t, timepoint] 
-#                    bulk_storage_df.loc[discharge_indexer,:].iloc[time_index] = instance.Provide_Power[t, timepoint] 
+#                discharge_indexer = util.level_specific_indexer(bulk_storage_df, [self.dispatch_geography, 'storage_technology','charge_discharge'], [geography, tech, 'discharge'])
+#                for timepoint in self.period_timepoints[period]:
+#                    time_index = (period * self.opt_hours) + timepoint - 1
+#                    bulk_storage_df.loc[charge_indexer,:].iloc[time_index] = instance.Charge[t, timepoint]
+#                    bulk_storage_df.loc[discharge_indexer,:].iloc[time_index] = instance.Provide_Power[t, timepoint]
 #            else:
 #                charge_indexer = util.level_specific_indexer(dist_storage_df, [self.dispatch_geography, 'storage_technology', 'charge_discharge','feeder'], [geography, tech, 'charge', feeder])
-#                discharge_indexer = util.level_specific_indexer(dist_storage_df, [self.dispatch_geography, 'storage_technology','charge_discharge','feeder'], [geography, tech, 'discharge', feeder]) 
-#                for timepoint in self.period_timepoints[period]:                
-#                    time_index = (period * self.opt_hours) + timepoint - 1 
-#                    dist_storage_df.loc[charge_indexer,:].iloc[time_index] = instance.Charge[t, timepoint] 
-#                    dist_storage_df.loc[discharge_indexer,:].iloc[time_index] = instance.Provide_Power[t, timepoint] 
-            
-    
+#                discharge_indexer = util.level_specific_indexer(dist_storage_df, [self.dispatch_geography, 'storage_technology','charge_discharge','feeder'], [geography, tech, 'discharge', feeder])
+#                for timepoint in self.period_timepoints[period]:
+#                    time_index = (period * self.opt_hours) + timepoint - 1
+#                    dist_storage_df.loc[charge_indexer,:].iloc[time_index] = instance.Charge[t, timepoint]
+#                    dist_storage_df.loc[discharge_indexer,:].iloc[time_index] = instance.Provide_Power[t, timepoint]
 
- 
+
+
+
 
 
 def export_dispatch_results(instance, results_directory, period):
@@ -89,7 +90,7 @@ def export_dispatch_results(instance, results_directory, period):
     large_storage_tech_set = getattr(instance, "VERY_LARGE_STORAGE_TECHNOLOGIES")
     feeder_set = getattr(instance, "FEEDERS")
 #    transmission_lines_set = getattr(instance, "TRANSMISSION_LINES")
-    
+
     operations_writer = csv.writer(open(os.path.join(results_directory, str(period)+"_dispatch_results.csv"), "wb"))
     operations_writer.writerow(["timepoint",  "technology", "region", "power", "charging", "state_of_charge",
                             "goal_state_of_charge_start", "goal_state_of_charge_end"])

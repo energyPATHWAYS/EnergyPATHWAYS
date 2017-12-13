@@ -13,6 +13,26 @@ from pyomo.opt import SolverFactory
 #import numpy as np
 import dispatch_classes
 
+# RJP: cfg.initialize_config is always called here with obj.workingdir, obj.cfgfile_name, obj.log_name.
+# RJP: Why not define cfg.init_config_from_obj(obj) to simplify these calls? Also, if they all require
+# RJP: closing the cursor, you have "with cfg.init_config(obj):" do this automatically.
+from contextlib import contextmanager
+
+@contextmanager
+def init_config(obj):
+    try:
+        cfg.initialize_config(obj.workingdir, obj.cfgfile_name, obj.log_name)
+        yield
+    finally:
+        cfg.cur.close()
+
+# RJP: example:
+def process_shapes_NEW(shape):
+    with init_config(shape):
+        shape.process_shape()
+        return shape
+
+
 def process_shapes(shape):
     cfg.initialize_config(shape.workingdir, shape.cfgfile_name, shape.log_name)
     shape.process_shape()
@@ -47,24 +67,24 @@ def shapes_populate(shape):
 
 def individual_calculate(evolve, individual):
     evolve.calculate(individual)
-    
+
 
 def aggregate_subsector_shapes(params):
     subsector = params[0]
-    year = params[1]    
+    year = params[1]
     cfg.initialize_config(subsector.workingdir, subsector.cfgfile_name, subsector.log_name)
     aggregate_electricity_shape = subsector.aggregate_electricity_shapes(year)
-    cfg.cur.close()    
+    cfg.cur.close()
     return aggregate_electricity_shape
 
 def aggregate_sector_shapes(params):
     sector = params[0]
-    year = params[1]    
+    year = params[1]
     cfg.initialize_config(sector.workingdir, sector.cfgfile_name, sector.log_name)
     aggregate_electricity_shape = sector.aggregate_inflexible_electricity_shape(year)
     cfg.cur.close()
     return aggregate_electricity_shape
-    
+
 def run_optimization(params, return_model_instance=False):
     model, solver_name = params
     instance = model.create_instance()

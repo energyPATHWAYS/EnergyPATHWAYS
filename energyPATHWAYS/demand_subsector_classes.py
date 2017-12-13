@@ -32,7 +32,7 @@ class EnergyDemands(schema.DemandEnergyDemands):
         Reduces the driver dictionary to in-use drivers
         """
         possible_drivers = [self.driver_1, self.driver_2, self.driver_denominator_1, self.driver_denominator_2]
-        driver_names = filter(lambda x: x is not None and x != '', possible_drivers)
+        driver_names = filter(None, possible_drivers)
 
         # TODO: this should eventually use Demand.drivers_new, which keys on name rather than ID
         self.drivers = {id : obj for id, obj in self.drivers.iteritems() if obj.name in driver_names}

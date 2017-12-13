@@ -388,23 +388,27 @@ class PathwaysModel(object):
         sales_df = util.add_and_set_index(sales_df,'year',cfg.supply_years)
 #        sales_df.index = sales_df.index.reorder_levels(demand_side_df.index.names)
 #        sales_df = sales_df.reindex(demand_side_df.index).sort_index()
-        self.demand.outputs.d_payback_energy = util.DfOper.divi([demand_side_df, sales_df])
-        self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy[np.isfinite(self.demand.outputs.d_payback_energy.values)]
-        self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy.replace([np.inf,np.nan],0)
+
+        # TODO: consider making this a method of Demand since Demand stores the result
+        payback_energy = util.DfOper.divi([demand_side_df, sales_df])
+        payback_energy = payback_energy[np.isfinite(payback_energy.values)]
+        payback_energy = payback_energy.replace([np.inf,np.nan],0)
         for sector in self.demand.sectors.values():
           for subsector in sector.subsectors.values():
                 if hasattr(subsector,'stock') and subsector.sub_type!='link':
-                    indexer = util.level_specific_indexer(self.demand.outputs.d_payback_energy,'subsector',subsector.id)
-                    self.demand.outputs.d_payback_energy.loc[indexer,'unit'] = subsector.stock.unit.upper()
-        self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy.set_index('unit', append=True)
-        self.demand.outputs.d_payback_energy.columns = [cfg.calculation_energy_unit.upper()]
-        self.demand.outputs.d_payback_energy['lifetime_year'] = self.demand.outputs.d_payback_energy.index.get_level_values('year')-self.demand.outputs.d_payback_energy.index.get_level_values('vintage')+1
-        self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy.set_index('lifetime_year',append=True)
-        self.demand.outputs.d_payback_energy = util.remove_df_levels(self.demand.outputs.d_payback_energy,'year')
-        self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy.groupby(level = [x for x in self.demand.outputs.d_payback_energy.index.names if x !='lifetime_year']).transform(lambda x: x.cumsum())
-        self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy[self.demand.outputs.d_payback_energy[cfg.calculation_energy_unit.upper()]!=0]
-        self.demand.outputs.d_payback_energy = self.demand.outputs.return_cleaned_output('d_payback_energy')
+                    indexer = util.level_specific_indexer(payback_energy,'subsector',subsector.id)
+                    payback_energy.loc[indexer,'unit'] = subsector.stock.unit.upper()
+        payback_energy = payback_energy.set_index('unit', append=True)
+        payback_energy.columns = [cfg.calculation_energy_unit.upper()]
+        payback_energy['lifetime_year'] = payback_energy.index.get_level_values('year')-payback_energy.index.get_level_values('vintage')+1
+        payback_energy = payback_energy.set_index('lifetime_year',append=True)
+        payback_energy = util.remove_df_levels(payback_energy,'year')
+        payback_energy = payback_energy.groupby(level = [x for x in payback_energy.index.names if x !='lifetime_year']).transform(lambda x: x.cumsum())
+        payback_energy = payback_energy[payback_energy[cfg.calculation_energy_unit.upper()]!=0]
+        self.demand.outputs.d_payback_energy = payback_energy
 
+        # TODO: eliminate passing ivar name
+        self.demand.outputs.d_payback_energy = self.demand.outputs.return_cleaned_output('d_payback_energy')
 
     def calculate_combined_emissions_results(self):
         #calculate and format export emissions

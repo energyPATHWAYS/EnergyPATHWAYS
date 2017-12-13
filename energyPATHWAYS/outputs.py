@@ -21,18 +21,22 @@ class Output(object):
     def __init__(self):
         pass
 
+    # RJP: pass in a DataFrame rather than a reference to one
     def return_cleaned_output(self, output_type):
         if not hasattr(self, output_type):
             return None
 
-        elif getattr(self,output_type) is None:
-            print "%s is not calculated in this model run" %output_type
+        output = getattr(self, output_type)
+
+        if output is None:
+            print "%s is not calculated in this model run" % output_type
             return None
 
-        elif type(getattr(self, output_type)) is not pd.core.frame.DataFrame:
-            raise ValueError('output_type must be a pandas dataframe')
+        # elif type(getattr(self, output_type)) is not pd.core.frame.DataFrame:
+        if not isinstance(output, pd.DataFrame):
+            raise ValueError('output_type must be a pandas DataFrame')
 
-        cleaned_output = getattr(self, output_type).copy()
+        cleaned_output = output.copy()
         if 'year' in cleaned_output.index.names:
             cleaned_output = cleaned_output[cleaned_output.index.get_level_values('year')>=int(cfg.cfgfile.get('case','current_year'))]
 
@@ -52,12 +56,15 @@ class Output(object):
 
     @staticmethod
     def clean_df(df, stack_years=False):
+        # RJP: if not isinstance(df, pd.DataFrame):
         if type(df) is not pd.core.frame.DataFrame:
             raise ValueError('output_type must be a pandas dataframe')
+
         if stack_years and 'year' not in df.index.names:
             df = df.stack()
             util.replace_index_name(df,'year')
             df.columns = ['value']
+
         if 'year' in df.index.names:
             df = df[df.index.get_level_values('year')>=int(cfg.cfgfile.get('case','current_year'))]
         dct = cfg.outputs_id_map
@@ -204,7 +211,8 @@ class Output(object):
 
     @staticmethod
     def _clean_string(s):
-        s = str(s).rstrip().lstrip()
+        # s = str(s).rstrip().lstrip()
+        s = str(s).strip()
         s = s.replace('"', '').replace('<', 'L').replace('>', 'G').replace('/', '-').replace('\\', '-').replace('\n', '').replace('\r', '')
         return s
 
@@ -212,6 +220,8 @@ class Output(object):
     def csvwrite(path, data, writetype='a'):
         '''Writes a CSV from a series of data
         '''
+        # RJP: Is there a case in which some rows are iterable and some not in the same 'data'?
+        # RJP: If not, test for is_iterable on data[0] outside the loop.
         with open(path, writetype) as outfile:
             csv_writer = csv.writer(outfile, delimiter=',')
             for row in data:

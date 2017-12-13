@@ -550,7 +550,8 @@ class DataObject(object):
     def project(self, map_from='raw_values', map_to='values', additional_drivers=None,
                 interpolation_method='missing', extrapolation_method='missing',
                 time_index_name='year', fill_timeseries=True, converted_geography=None, current_geography=None,
-                current_data_type=None, fill_value=0.0, filter_geo=True): # unused: projected=False):
+                current_data_type=None, fill_value=0.0, filter_geo=True,
+                projected=False): # TODO: 'projected' is unused; remove it from callers to avoid confusion.
 
         # TODO: for integration stage only. Later, we'll pass this in instead of the old dict(id -> Driver)
         drivers_by_name = {driver.name: driver for driver in self.drivers.values()}
@@ -562,7 +563,7 @@ class DataObject(object):
             denominator_drivers = None
         else:
             denominators = [self.driver_denominator_1, self.driver_denominator_2]
-            denominator_drivers = filter(lambda name: name is not None and name != '', denominators)
+            denominator_drivers = filter(None, denominators)
 
         current_geography = current_geography or self.geography
         setattr(self, map_to, getattr(self, map_from).copy())
