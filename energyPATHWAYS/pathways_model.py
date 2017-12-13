@@ -39,7 +39,7 @@ class PathwaysModel(object):
 
         self.scenario_id = scenario_id
         self.scenario = Scenario(self.scenario_id)
-        self.scenario_new = ScenarioNew(self.scenario_id)   # RJP: for testing
+        self.scenario_new = ScenarioNew(self.scenario_id)   # TODO: finish this conversion
         self.api_run = api_run
         self.outputs = Output()
         self.demand = Demand(self.scenario)
@@ -356,6 +356,9 @@ class PathwaysModel(object):
         sales_df = util.add_and_set_index(sales_df,'year',cfg.supply_years)
         sales_df.index = sales_df.index.reorder_levels(demand_side_df.index.names)
         sales_df = sales_df.reindex(demand_side_df.index).sort_index()
+
+        # RJP: Use local var (e.g., payback) to remove a lot of noise here.
+        # RJP: Also, reaching into the nested depths of a structure to set another objects ivar is not good practice. Call a method on self.demand instead.
         self.demand.outputs.d_payback = util.DfOper.divi([demand_side_df, sales_df])
         self.demand.outputs.d_payback = self.demand.outputs.d_payback[np.isfinite(self.demand.outputs.d_payback.values)]
         self.demand.outputs.d_payback = self.demand.outputs.d_payback.replace([np.inf,np.nan],0)
@@ -411,6 +414,9 @@ class PathwaysModel(object):
                 util.remove_df_levels(self.outputs.export_emissions, cfg.primary_geography +'_supply')
             self.export_emissions_df = self.outputs.return_cleaned_output('export_emissions')
             del self.outputs.export_emissions
+
+            # RJP: assign all these strings to variables, e.g., EXPORT_DOMESTIC = 'EXPORT/DOMESTIC' so
+            # RJP: you can change them in one place, and to avoid errors from misspelled strings.
             util.replace_index_name(self.export_emissions_df, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
             keys = ["EXPORT","SUPPLY"]
             names = ['EXPORT/DOMESTIC', "SUPPLY/DEMAND"]

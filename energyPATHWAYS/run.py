@@ -226,15 +226,14 @@ if __name__ == "__main__":
     config = 'config.INI'
     scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
-    load_demand   = False, # True,
-    solve_demand  = True,
-    load_supply   = False,
-    solve_supply  = False,
-    export_results= True,
-    load_error    = False,
-    pickle_shapes = True,
-    save_models   = True,
-    api_run       = False,
-    clear_results = False)
-
+        load_demand   = False, # True,
+        solve_demand  = True,
+        load_supply   = False,
+        solve_supply  = False,
+        export_results= True,
+        load_error    = False,
+        pickle_shapes = True,
+        save_models   = True,
+        api_run       = False,
+        clear_results = False)
 
