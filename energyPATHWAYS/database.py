@@ -592,14 +592,15 @@ class CsvDatabase(AbstractDatabase):
         if not os.path.isdir(pathname):
             raise PathwaysException('Database path "{}" is not a directory'.format(pathname))
 
-        all_csv = os.path.join(pathname, '*.csv')
-        all_gz  = all_csv + '.gz'
-        all_files = glob.glob(all_csv) + glob.glob(all_gz)
+        for dirpath, dirnames, filenames in os.walk(pathname, topdown=False):
+            if dirpath.endswith('/ids'): # TODO: remove after CSV integration
+                continue
 
-        for filename in all_files:
-            basename = os.path.basename(filename)
-            tbl_name = basename.split('.')[0]
-            self.file_map[tbl_name] = os.path.abspath(filename)
+            for filename in filenames:
+                basename = os.path.basename(filename)
+                if (basename.endswith('.csv') or basename.endswith('.gz')):
+                    tbl_name = basename.split('.')[0]
+                    self.file_map[tbl_name] = os.path.abspath(os.path.join(dirpath, filename))
 
         print("Found {} .CSV files for '{}'".format(len(self.file_map), pathname))
 
