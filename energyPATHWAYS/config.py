@@ -77,6 +77,7 @@ electricity_energy_type_shape_id = None
 opt_period_length = None
 solver_name = None
 transmission_constraint_id = None
+filter_dispatch_less_than_x = None
 
 # outputs
 output_levels = None
@@ -248,7 +249,7 @@ def init_shapes():
 
 
 def init_date_lookup():
-    global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id, opt_period_length, transmission_constraint_id
+    global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id, opt_period_length, transmission_constraint_id, filter_dispatch_less_than_x
     class DateTimeLookup:
         def __init__(self):
             self.dates = {}
@@ -270,6 +271,8 @@ def init_date_lookup():
     opt_period_length = int(cfgfile.get('opt', 'period_length'))
     transmission_constraint_id = cfgfile.get('opt','transmission_constraint_id')
     transmission_constraint_id = int(transmission_constraint_id) if transmission_constraint_id != "" else None
+    filter_dispatch_less_than_x = cfgfile.get('output_detail','filter_dispatch_less_than_x')
+    filter_dispatch_less_than_x = float(filter_dispatch_less_than_x) if filter_dispatch_less_than_x != "" else None
 
 def init_output_levels():
     global output_demand_levels, output_supply_levels, output_combined_levels

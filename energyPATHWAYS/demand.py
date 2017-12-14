@@ -307,6 +307,7 @@ class Demand(object):
             profiles_df = self.stack_subsector_electricity_profiles(output_year)
             stack.append(profiles_df)
         stack = pd.concat(stack)
+        stack.columns = [cfg.calculation_energy_unit.upper()]
         self.outputs.subsector_electricity_profiles = stack
 
     def stack_subsector_electricity_profiles(self, year):
@@ -820,23 +821,24 @@ class Subsector(DataMapFunctions):
                 if remaining_shape is not None:
                     remaining_shape = util.DfOper.mult((remaining_shape, self.electricity_reconciliation), collapsible=False)
                     remaining_shape = pd.concat([remaining_shape] * 3, keys=[1, 2, 3], names=['timeshift_type'])
-                return util.DfOper.add((unique_tech_load, remaining_shape), collapsible=False)
+                return_shape = util.DfOper.add((unique_tech_load, remaining_shape), collapsible=False)
             else:
                 # here we have flexible load, but it is not indexed by technology
                 remaining_shape = util.DfOper.mult((active_shape.values, remaining_energy), collapsible=False)
                 remaining_shape = util.DfOper.add((remaining_shape, tech_load), collapsible=False)
-                remaining_shape = self.return_shape_after_flex_load(remaining_shape, percent_flexible, active_hours['lag'], active_hours['lead'])
-                return remaining_shape
+                return_shape = self.return_shape_after_flex_load(remaining_shape, percent_flexible, active_hours['lag'], active_hours['lead'])
         else:
             # if we don't have flexible load, we don't introduce electricity reconcilliation because that is done at a more aggregate level
             remaining_shape = util.DfOper.mult((active_shape.values.xs(2, level='timeshift_type'), remaining_energy))
             return_shape = (tech_load.xs(2, level='timeshift_type') + remaining_shape) if tech_load is not None else remaining_shape
             if for_direct_use:
                 return_shape = util.DfOper.mult((return_shape, self.electricity_reconciliation), collapsible=False)
-                # doing this will make the energy for the subsector match, but it won't exactly match the system shape used in the dispatch
-                return_shape *= energy_slice.sum().sum() / return_shape.sum().sum()
                 return_shape = pd.concat([return_shape] * 3, keys=[1, 2, 3], names=['timeshift_type'])
-            return return_shape
+
+        if for_direct_use:
+            # doing this will make the energy for the subsector match, but it won't exactly match the system shape used in the dispatch
+            return_shape *= energy_slice.sum().sum() / return_shape.xs(2, level='timeshift_type').sum().sum()
+        return return_shape
 
     def add_energy_system_data(self):
         """ 
@@ -2831,7 +2833,7 @@ class Subsector(DataMapFunctions):
                                          num_techs=len(self.tech_ids), initial_stock=initial_stock,
                                          sales_share=sales_share, stock_changes=annual_stock_change.values,
                                          specified_stock=demand_technology_stock.values, specified_retirements=None,
-                                         steps_per_year=self.stock.spy,lifetimes=np.array([x.book_life for x in self.technologies.values()]))
+                                         steps_per_year=self.stock.spy,lifetimes=np.array([self.technologies[tech_id].book_life for tech_id in self.tech_ids]))
 
             self.rollover.run()
             stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()

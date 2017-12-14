@@ -344,7 +344,7 @@ class Supply(object):
     def restart_loop(self):
         self.calculate_loop(self.years,self.calculated_years)
 
-    def calculate_loop(self,years, calculated_years):
+    def calculate_loop(self, years, calculated_years):
         """Performs all IO loop calculations"""
         self.set_dispatch_years()
         first_year = min(self.years)
@@ -861,6 +861,8 @@ class Supply(object):
             imports = imports.set_index([cfg.dispatch_geography, 'DISPATCH_OUTPUT', 'weather_datetime'])
             exports = exports.set_index([cfg.dispatch_geography, 'DISPATCH_OUTPUT', 'weather_datetime'])
             transmission_output = pd.concat((-imports, exports))
+            # drop any lines that don't have flows this is done to reduce the size of outputs
+            transmission_output = transmission_output.groupby(level=[cfg.dispatch_geography, 'DISPATCH_OUTPUT']).filter(lambda x: x.sum() > 0)
             transmission_output = util.add_and_set_index(transmission_output, 'year', year)
             transmission_output.columns = [cfg.calculation_energy_unit.upper()]
             transmission_output = self.outputs.clean_df(transmission_output)
@@ -1191,6 +1193,11 @@ class Supply(object):
         self.solve_thermal_dispatch(year)
         self.solve_hourly_curtailment()
         if year in self.dispatch_write_years and not self.api_run:
+            pdb.set_trace()
+            if cfg.filter_dispatch_less_than_x is not None:
+                self.bulk_dispatch = self.bulk_dispatch.groupby(level=['DISPATCH_OUTPUT']).filter(
+                    lambda x: x.max().max()>cfg.filter_dispatch_less_than_x or x.min().min()<-cfg.filter_dispatch_less_than_x)
+
             if cfg.cfgfile.get('output_detail', 'keep_dispatch_outputs_in_model').lower() == 'true':
                 self.outputs.hourly_dispatch_results = pd.concat([self.outputs.hourly_dispatch_results, self.bulk_dispatch])
             else:

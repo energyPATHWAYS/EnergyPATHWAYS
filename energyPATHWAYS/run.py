@@ -213,7 +213,7 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\EPSA_output_demand_shapes'
+    workingdir = r'C:\github\EP_runs\EPSA_avoided_costs'
     config = 'config.INI'
     scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
@@ -226,10 +226,6 @@ if __name__ == "__main__":
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,
-    clear_results = True)
+    clear_results = False)
 
-    # if cfg.cfgfile.get('demand_output_detail','subsector_electricity_profiles').lower() == 'true':
-    #     model.demand.create_electricity_reconciliation()
-    #     # model.demand.write_subsector_electricity_profiles()
-    #     stack = model.demand.stack_subsector_electricity_profiles(2020, False)
 
