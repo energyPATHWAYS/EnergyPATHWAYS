@@ -215,6 +215,13 @@ def unserved_capacity_rule(model, geography, timepoint):
     """
     return model.Unserved_Capacity[geography] >= model.Unserved_Energy[geography, timepoint]
 
+def unserved_energy_rule(model, geography, timepoint):
+    """
+    Apply a penalty whenever bulk net load (distribution load + T&D losses) exceeds a pre-specified threshold.
+    """
+    return 0 <= model.Unserved_Energy[geography, timepoint]
+
+
 
 def total_cost_rule(model):
     gen_cost = sum(model.Provide_Power[gt, t] * model.variable_cost[gt] for gt in model.GENERATION_TECHNOLOGIES
@@ -340,8 +347,8 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     model.BulkSysCapacityNeed = Var(model.GEOGRAPHIES, within=NonNegativeReals)
     model.FlexLoadUse = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=NonNegativeReals)
     model.Curtailment = Var(model.GEOGRAPHIES, model.TIMEPOINTS, within=NonNegativeReals)
-    model.Unserved_Energy = Var(model.GEOGRAPHIES, model.TIMEPOINTS, within=NonNegativeReals)
-    model.Unserved_Capacity = Var(model.GEOGRAPHIES, within=NonNegativeReals)
+    model.Unserved_Energy = Var(model.GEOGRAPHIES, model.TIMEPOINTS, within=Reals)
+    model.Unserved_Capacity = Var(model.GEOGRAPHIES, within=Reals)
     ##############################
     # ### Objective function ### #
     ##############################
@@ -390,4 +397,5 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     # Bulk system capacity penalty
     model.Bulk_System_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, rule=bulk_system_capacity_need_rule)
     model.Unserved_Capacity_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, rule=unserved_capacity_rule)
+#    model.Unserved_Energy_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, rule=unserved_energy_rule)
     return model
