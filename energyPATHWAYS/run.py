@@ -213,15 +213,15 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\EPSA_avoided_costs'
+    workingdir = r'C:\github\ep-supply-curve\inputs\scenarios'
     config = 'config.INI'
     scenario = ['aeo_2017_reference']
     run(workingdir, config, scenario,
     load_demand   = True,
     solve_demand  = False,
     load_supply   = False,
-    solve_supply  = True,
-    export_results= True,
+    solve_supply  = False,
+    export_results= False,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,

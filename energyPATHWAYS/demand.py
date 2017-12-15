@@ -1135,7 +1135,7 @@ class Subsector(DataMapFunctions):
                 df_list.append(df)
             if len(df_list):
                 keys = measure_types
-                names = ['measure_types']
+                names = ['cost_type']
                 df = util.df_list_concatenate(df_list,keys=keys,new_names=names,levels_to_keep=override_levels_to_keep)
                 unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
                 df.columns = [unit]
@@ -1144,36 +1144,50 @@ class Subsector(DataMapFunctions):
                 return None
         else:
             return None
-        
+
     def format_output_costs_tco(self,att,npv,override_levels_to_keep=None):
         stock_costs = self.format_output_stock_costs(att, override_levels_to_keep)
-        measure_costs = self.format_output_measure_costs(att, override_levels_to_keep)   
+        measure_costs = self.format_output_measure_costs(att, override_levels_to_keep)
         cost_list = []
         for cost in [stock_costs, measure_costs]:
             if cost is not None:
                 cost_list.append(cost)
         if len(cost_list) == 0:
             return None
-        if len(cost_list) == 1:
+        elif len(cost_list) == 1 and stock_costs is not None:
             df = cost_list[0]
+            df['cost_category'] = 'stock'
+            df.set_index('cost_category', append=True, inplace=True)
+            return util.remove_df_levels(util.DfOper.mult([df,npv]),'year')
+        elif len(cost_list) == 1 and measure_costs is not None:
+            df =  cost_list[0]
+            df['cost_category'] = 'measure'
+            df.set_index('cost_category', append=True, inplace=True)
             return util.remove_df_levels(util.DfOper.mult([df,npv]),'year')
         else:
             keys = ['stock', 'measure']
-            names = ['cost_type']
+            names = ['cost_category']
             df = util.df_list_concatenate(cost_list,keys=keys,new_names=names)
             return util.remove_df_levels(util.DfOper.mult([df,npv]),'year')
 
-       
     def format_output_costs(self,att,override_levels_to_keep=None):
         stock_costs = self.format_output_stock_costs(att, override_levels_to_keep)
         measure_costs = self.format_output_measure_costs(att, override_levels_to_keep)
         cost_list = [c for c in [stock_costs, measure_costs] if c is not None]
         if len(cost_list) == 0:
             return None
-        if len(cost_list) == 1:
-            return cost_list[0]
+        elif len(cost_list) == 1 and stock_costs is not None:
+            df =  cost_list[0]
+            df['cost_category'] = 'stock'
+            df.set_index('cost_category', append=True, inplace=True)
+            return df
+        elif len(cost_list) == 1 and measure_costs is not None:
+            df =  cost_list[0]
+            df['cost_category'] = 'measure'
+            df.set_index('cost_category', append=True, inplace=True)
+            return df
         else:
-            return util.df_list_concatenate(cost_list,keys=['stock', 'measure'],new_names=['cost_type'])
+            return util.df_list_concatenate(cost_list,keys=['stock', 'measure'],new_names=['cost_category'])
   
     def format_output_stock_costs(self, att, override_levels_to_keep=None):
         """ 

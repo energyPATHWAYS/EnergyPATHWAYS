@@ -1193,7 +1193,6 @@ class Supply(object):
         self.solve_thermal_dispatch(year)
         self.solve_hourly_curtailment()
         if year in self.dispatch_write_years and not self.api_run:
-            pdb.set_trace()
             if cfg.filter_dispatch_less_than_x is not None:
                 self.bulk_dispatch = self.bulk_dispatch.groupby(level=['DISPATCH_OUTPUT']).filter(
                     lambda x: x.max().max()>cfg.filter_dispatch_less_than_x or x.min().min()<-cfg.filter_dispatch_less_than_x)
