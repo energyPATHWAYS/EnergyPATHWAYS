@@ -344,7 +344,7 @@ class Supply(object):
     def restart_loop(self):
         self.calculate_loop(self.years,self.calculated_years)
 
-    def calculate_loop(self,years, calculated_years):
+    def calculate_loop(self, years, calculated_years):
         """Performs all IO loop calculations"""
         self.set_dispatch_years()
         first_year = min(self.years)
@@ -861,6 +861,8 @@ class Supply(object):
             imports = imports.set_index([cfg.dispatch_geography, 'DISPATCH_OUTPUT', 'weather_datetime'])
             exports = exports.set_index([cfg.dispatch_geography, 'DISPATCH_OUTPUT', 'weather_datetime'])
             transmission_output = pd.concat((-imports, exports))
+            # drop any lines that don't have flows this is done to reduce the size of outputs
+            transmission_output = transmission_output.groupby(level=[cfg.dispatch_geography, 'DISPATCH_OUTPUT']).filter(lambda x: x.sum() > 0)
             transmission_output = util.add_and_set_index(transmission_output, 'year', year)
             transmission_output.columns = [cfg.calculation_energy_unit.upper()]
             transmission_output = self.outputs.clean_df(transmission_output)
@@ -1191,7 +1193,21 @@ class Supply(object):
         self.solve_thermal_dispatch(year)
         self.solve_hourly_curtailment()
         if year in self.dispatch_write_years and not self.api_run:
-            self.outputs.hourly_dispatch_results = pd.concat([self.outputs.hourly_dispatch_results, self.bulk_dispatch])
+            pdb.set_trace()
+            if cfg.filter_dispatch_less_than_x is not None:
+                self.bulk_dispatch = self.bulk_dispatch.groupby(level=['DISPATCH_OUTPUT']).filter(
+                    lambda x: x.max().max()>cfg.filter_dispatch_less_than_x or x.min().min()<-cfg.filter_dispatch_less_than_x)
+
+            if cfg.cfgfile.get('output_detail', 'keep_dispatch_outputs_in_model').lower() == 'true':
+                self.outputs.hourly_dispatch_results = pd.concat([self.outputs.hourly_dispatch_results, self.bulk_dispatch])
+            else:
+                # we are going to save them as we go along
+                result_df = self.outputs.clean_df(self.bulk_dispatch)
+                keys = [self.scenario.name.upper(), cfg.timestamp]
+                names = ['SCENARIO','TIMESTAMP']
+                for key, name in zip(keys, names):
+                    result_df = pd.concat([result_df], keys=[key], names=[name])
+                Output.write(result_df, 'hourly_dispatch_results.csv', os.path.join(cfg.workingdir, 'dispatch_outputs'))
         self.calculate_thermal_totals(year)
         self.calculate_curtailment(year)
                 
@@ -1406,10 +1422,21 @@ class Supply(object):
             bulk_marginal_cost *= util.unit_convert(1, unit_from_den=cfg.calculation_energy_unit,unit_to_den='megawatt_hour')
             bulk_marginal_cost.columns = ["{} / {}".format(cfg.output_currency.upper(), 'MWh')]
             bulk_production_cost.columns = [cfg.output_currency.upper()]
-            bulk_marginal_cost = self.outputs.clean_df(bulk_marginal_cost)
-            bulk_production_cost = self.outputs.clean_df(bulk_production_cost)
-            self.outputs.hourly_marginal_cost = pd.concat([self.outputs.hourly_marginal_cost, bulk_marginal_cost])
-            self.outputs.hourly_production_cost = pd.concat([self.outputs.hourly_production_cost, bulk_production_cost])
+            # bulk_marginal_cost = self.outputs.clean_df(bulk_marginal_cost)
+            # bulk_production_cost = self.outputs.clean_df(bulk_production_cost)
+
+            if cfg.cfgfile.get('output_detail', 'keep_dispatch_outputs_in_model').lower() == 'true':
+                self.outputs.hourly_marginal_cost = pd.concat([self.outputs.hourly_marginal_cost, bulk_marginal_cost])
+                self.outputs.hourly_production_cost = pd.concat([self.outputs.hourly_production_cost, bulk_production_cost])
+            else:
+                # we are going to save them as we go along
+                for obj, obj_name in zip([bulk_marginal_cost, bulk_production_cost], ['hourly_marginal_cost', 'hourly_production_cost']):
+                    result_df = self.outputs.clean_df(obj)
+                    keys = [self.scenario.name.upper(), cfg.timestamp]
+                    names = ['SCENARIO','TIMESTAMP']
+                    for key, name in zip(keys, names):
+                        result_df = pd.concat([result_df], keys=[key], names=[name])
+                    Output.write(result_df, obj_name + '.csv', os.path.join(cfg.workingdir, 'dispatch_outputs'))
 
 
         for node_id in self.thermal_dispatch_nodes:

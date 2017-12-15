@@ -36,8 +36,8 @@ class PathwaysModel(object):
             if not append_results:
                 self.remove_old_results()
 
-            # todo: it would be nice if when loading a demand side object to rerun supply, it didn't re-output these results every time
-            if self.demand_solved and export_results and not self.api_run:
+            # it is nice if when loading a demand side object to rerun supply, it doesn't re-output these results every time
+            if self.demand_solved and export_results and not self.api_run and not (load_demand and solve_supply):
                 self.export_result_to_csv('demand_outputs')
 
             if solve_supply and not load_supply:
@@ -55,6 +55,9 @@ class PathwaysModel(object):
                 if self.api_run:
                     self.export_results_to_db()
                 else:
+                    if load_demand and solve_supply:
+                        # we do this now because we delayed before
+                        self.export_result_to_csv('demand_outputs')
                     self.export_result_to_csv('supply_outputs')
                     self.export_result_to_csv('combined_outputs')
                     self.export_io()
