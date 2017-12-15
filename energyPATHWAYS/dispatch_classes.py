@@ -26,6 +26,9 @@ import dispatch_generators
 import dispatch_maintenance
 import dispatch_transmission
 import dispatch_long_duration
+from pyomo.opt import TerminationCondition
+from pyomo.environ import Constraint
+
 
 class DispatchFeederAllocation(Abstract):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
@@ -527,6 +530,19 @@ class Dispatch(object):
         solution = solver.solve(instance)
         instance.solutions.load_from(solution)
         return instance if return_model_instance else all_results_to_list(instance)
+
+    def test_instance_constraints(model):
+        instance = model.create_instance(report_timing=False)        
+        for c in instance.component_objects(Constraint):
+            c.deactivate()
+            solver = SolverFactory(cfg.solver_name)
+            solution = solver.solve(instance)
+            if solution.solver.termination_condition == TerminationCondition.infeasible:
+                c.activate()
+            else:
+                print c.name
+                c.activate()
+            
 
     @staticmethod
     def get_empty_plot(num_rows, num_columns):
