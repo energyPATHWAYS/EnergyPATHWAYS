@@ -37,7 +37,7 @@ def setSection(section):
 def configLoaded():
     return bool(_ConfigParser)
 
-def getConfig(reload=False, allowMissing=False):
+def getConfig(reload=False, allowMissing=False, includeEnvironment=False):
     """
     Return the configuration object. If one has been created already via
     `readConfigFiles`, it is returned; otherwise a new one is created
@@ -55,7 +55,8 @@ def getConfig(reload=False, allowMissing=False):
         global _ConfigParser
         _ConfigParser = None
 
-    return _ConfigParser or readConfigFiles(allowMissing=allowMissing)
+    return _ConfigParser or readConfigFiles(allowMissing=allowMissing,
+                                            includeEnvironment=includeEnvironment)
 
 
 def _readConfigResourceFile(filename, package='energyPATHWAYS', raiseError=True):
@@ -92,7 +93,7 @@ def userConfigPath():
     path = os.path.join(getHomeDir(), USR_CONFIG_FILE)
     return path
 
-def readConfigFiles(allowMissing=False):
+def readConfigFiles(allowMissing=False, includeEnvironment=False):
     """
     Read the pathways configuration files, starting with ``pygcam/etc/system.ini``,
     followed by ``pathways/etc/{platform}.ini`` if present. If the environment variable
@@ -100,6 +101,9 @@ def readConfigFiles(allowMissing=False):
     read next. Finally, the user's config file, ``~/.pathways.ini``, is read. Each
     successive file overrides values for any variable defined in an earlier file.
 
+    :param allowMissing: (bool) if True, don't treat a missing user config file as an error.
+    :param includeEnvironment: (bool) if True, environment variables are loaded into the
+       configuration dictionary prefixed by '$'.
     :return: a populated ConfigParser instance
     """
     global _ConfigParser
@@ -116,10 +120,11 @@ def readConfigFiles(allowMissing=False):
     _ConfigParser.set(DEFAULT_SECTION, 'Home', home)
     _ConfigParser.set(DEFAULT_SECTION, 'User', os.getenv('USER', 'unknown'))
 
-    # Create vars from environment variables as '$' + variable name, as in the shell
-    for name, value in os.environ.iteritems():
-        value = value.replace(r'%', r'%%')
-        _ConfigParser.set(DEFAULT_SECTION, '$' + name, value)
+    if includeEnvironment:
+        # Create vars from environment variables as '$' + variable name, as in the shell
+        for name, value in os.environ.iteritems():
+            value = value.replace(r'%', r'%%')
+            _ConfigParser.set(DEFAULT_SECTION, '$' + name, value)
 
     # Initialize config parser with default values
     _readConfigResourceFile('etc/system.ini')
@@ -150,15 +155,15 @@ def readConfigFiles(allowMissing=False):
             else:
                 raise ConfigFileError("Can't read configuration file %s" % usrConfigPath)
 
-    # Dynamically set (if not defined) GCAM.ProjectName in each section, holding the
+    # Dynamically set (if not defined) project_name in each section, holding the
     # section (i.e., project) name. If user has set this, the value is unchanged.
-    projectNameVar = 'ProjectName'
+    projectNameVar = 'project_name'
     for section in getSections():
         if not (_ConfigParser.has_option(section, projectNameVar) and   # var must exist
                 _ConfigParser.get(section, projectNameVar)):            # and not be blank
             _ConfigParser.set(section, projectNameVar, section)
 
-    projectName = getParam('DefaultProject', section=DEFAULT_SECTION)
+    projectName = getParam('default_project', section=DEFAULT_SECTION)
     if projectName:
         setSection(projectName)
 
@@ -191,6 +196,10 @@ def setParam(name, value, section=None):
     :return: value
     """
     section = section or getSection()
+
+    if not _ConfigParser:
+        getConfig()
+
     _ConfigParser.set(section, name, value)
     return value
 
