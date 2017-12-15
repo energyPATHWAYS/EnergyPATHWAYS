@@ -35,3 +35,15 @@ class SubclassProtocolError(PathwaysException):
     def __init__(self, cls, method):
         msg = 'Class "{}" fails to implement method "{}"'.format(cls.__name__, method)
         super(SubclassProtocolError, self).__init__(msg)
+
+class FileFormatError(PathwaysException):
+    """
+    Indicate a syntax error in a user-managed file.
+    """
+    pass
+
+class ConfigFileError(FileFormatError):
+    """
+    Raised when an error is found in the user's configuration file.
+    """
+    pass
