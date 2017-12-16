@@ -1,6 +1,15 @@
 '''
 .. Copyright (c) 2016 Richard Plevin
    See the https://opensource.org/licenses/MIT for license details.
+
+   Configuration files are read in this order:
+   1. ./project.ini is read only to determine the location of the database.
+   2. energyPATHWAYS/etc/system.ini is read into the main config object
+   3. energyPATHWAYS/etc/{platform}.ini is read into the main config object
+   4. A "site" config file is read from $PATHWAYS_SITE_CONFIG, if defined
+   5. {database}/database.ini is read into the main config object top of parameters from system.ini
+   6. ./project.ini values are applied to the main config object, have the final say.
+   At this time, there is no ~/pathways.ini file or the equivalent, though this option exists.
 '''
 from __future__ import print_function
 import os
@@ -12,7 +21,9 @@ from .error import ConfigFileError, PathwaysException
 # TODO: add configparser to requirements in setup.py, *.yml
 
 DEFAULT_SECTION = 'DEFAULT'
-USR_CONFIG_FILE = 'pathways.ini'
+USR_CONFIG_FILE  = 'pathways.ini'
+PROJ_CONFIG_FILE = 'project.ini'
+DB_CONFIG_FILE   = 'database.ini'
 
 PlatformName = platform.system()
 
@@ -20,6 +31,8 @@ _ConfigParser = None
 
 _ProjectSection = DEFAULT_SECTION
 
+
+_ReadUserConfig = False
 
 def getSection():
     return _ProjectSection
@@ -37,7 +50,7 @@ def setSection(section):
 def configLoaded():
     return bool(_ConfigParser)
 
-def getConfig(reload=False, allowMissing=False, includeEnvironment=False):
+def getConfig(reload=False, allowMissing=True, includeEnvironment=False):
     """
     Return the configuration object. If one has been created already via
     `readConfigFiles`, it is returned; otherwise a new one is created
@@ -57,7 +70,6 @@ def getConfig(reload=False, allowMissing=False, includeEnvironment=False):
 
     return _ConfigParser or readConfigFiles(allowMissing=allowMissing,
                                             includeEnvironment=includeEnvironment)
-
 
 def _readConfigResourceFile(filename, package='energyPATHWAYS', raiseError=True):
     try:
@@ -93,6 +105,65 @@ def userConfigPath():
     path = os.path.join(getHomeDir(), USR_CONFIG_FILE)
     return path
 
+def _getParser():
+    # Strict mode prevents duplicate sections, which we do not restrict
+    parser = configparser.ConfigParser(comment_prefixes=('#'),
+                                       strict=False,
+                                       empty_lines_in_values=False)
+    home = getHomeDir()
+    parser.set(DEFAULT_SECTION, 'Home', home)
+    parser.set(DEFAULT_SECTION, 'User', os.getenv('USER', 'unknown'))
+
+    return parser
+
+def _getProjectConfig():
+    """
+    Read project.ini from current directory to obtain database_path
+    """
+    parser = _getParser()
+
+    try:
+        with open(PROJ_CONFIG_FILE) as f:
+            parser.read_file(f)
+            return parser
+
+    except Exception as e:
+        raise ConfigFileError("Failed to read {}: {}".format(PROJ_CONFIG_FILE, e))
+
+def _getDatabasePath(parser):
+    try:
+        database_path = parser.get(DEFAULT_SECTION, 'database_path')
+    except configparser.NoOptionError:
+        raise ConfigFileError("project.ini must define 'database_path'")
+
+    if not database_path:
+        raise ConfigFileError("project.ini must define 'database_path' as a valid directory name")
+
+    if not os.path.lexists(database_path):
+        raise ConfigFileError("project.ini defines database_path as '{}', which does not exist".format(database_path))
+
+    return database_path
+
+def _readConfig(pathname, allowMissing=True):
+    try:
+        with open(pathname) as f:
+            _ConfigParser.read_file(f)
+
+    except IOError:
+        if not allowMissing:
+            if not os.path.lexists(pathname):
+                raise ConfigFileError("Missing configuration file '{}'".format(pathname))
+            else:
+                raise ConfigFileError("Can't read configuration file '{}'".format(pathname))
+
+def _readSiteConfig():
+    siteConfig = os.getenv('PATHWAYS_SITE_CONFIG')
+    if siteConfig:
+        try:
+            _readConfig(siteConfig, allowMissing=False)
+        except Exception as e:
+            print("WARNING: Failed to read site config file: '{}'".format(e))
+
 def readConfigFiles(allowMissing=False, includeEnvironment=False):
     """
     Read the pathways configuration files, starting with ``pygcam/etc/system.ini``,
@@ -108,17 +179,10 @@ def readConfigFiles(allowMissing=False, includeEnvironment=False):
     """
     global _ConfigParser
 
-    # Strict mode prevents duplicate sections, which we do not restrict
-    _ConfigParser = configparser.ConfigParser(comment_prefixes=('#'),
-                                              strict=False,
-                                              empty_lines_in_values=False)
+    _ConfigParser = _getParser()
 
     # don't force keys to lower-case: variable names are case sensitive
     _ConfigParser.optionxform = lambda option: option
-
-    home = getHomeDir()
-    _ConfigParser.set(DEFAULT_SECTION, 'Home', home)
-    _ConfigParser.set(DEFAULT_SECTION, 'User', os.getenv('USER', 'unknown'))
 
     if includeEnvironment:
         # Create vars from environment variables as '$' + variable name, as in the shell
@@ -132,30 +196,26 @@ def readConfigFiles(allowMissing=False, includeEnvironment=False):
     # Read platform-specific defaults, if defined. No error if file is missing.
     _readConfigResourceFile('etc/%s.ini' % PlatformName, raiseError=False)
 
-    siteConfig = os.getenv('PATHWAYS_SITE_CONFIG')
-    if siteConfig:
-        try:
-            with open(siteConfig) as f:
-               _ConfigParser.read_file(f)
-        except Exception as e:
-            print("WARNING: Failed to read site config file: %s" % e)
+    _readSiteConfig()
 
-    # Customizations are stored in ~/pathways.ini
-    usrConfigPath = userConfigPath()
+    # Read ./project.ini into a separate parser to get database path only (error if not present)
+    projectParser = _getProjectConfig()
+    database_path = _getDatabasePath(projectParser)
 
-    # os.path.exists doesn't always work on Windows, so just try opening it.
-    try:
-        with open(usrConfigPath) as f:
-           _ConfigParser.read_file(f)
+    # Read database.ini into _ConfigParser
+    dbConfigPath = os.path.join(database_path, DB_CONFIG_FILE)
+    _readConfig(dbConfigPath)
 
-    except IOError:
-        if not allowMissing:
-            if not os.path.lexists(usrConfigPath):
-                raise ConfigFileError("Missing configuration file %s" % usrConfigPath)
-            else:
-                raise ConfigFileError("Can't read configuration file %s" % usrConfigPath)
+    # Update config parser using raw values from project.ini, which we read earlier
+    for key, value in projectParser.items(DEFAULT_SECTION, raw=True):
+        setParam(key, value, DEFAULT_SECTION)
 
-    # Dynamically set (if not defined) project_name in each section, holding the
+    if _ReadUserConfig:
+        # User customizations are stored in ~/pathways.ini
+        usrConfigPath = userConfigPath()
+        _readConfig(usrConfigPath, allowMissing=allowMissing)
+
+    # Dynamically set (if not defined) 'project_name' in each section, holding the
     # section (i.e., project) name. If user has set this, the value is unchanged.
     projectNameVar = 'project_name'
     for section in getSections():
