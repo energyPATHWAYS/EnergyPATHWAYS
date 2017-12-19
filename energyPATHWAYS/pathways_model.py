@@ -47,6 +47,10 @@ class PathwaysModel(object):
                 self.supply = Supply(self.scenario, demand_object=self.demand)
                 self.calculate_supply(save_models)
 
+            if load_demand and solve_supply:
+                # we do this now because we delayed before
+                self.export_result_to_csv('demand_outputs')
+
             if self.supply_solved and export_results:
                 self.supply.calculate_supply_outputs()
                 self.pass_supply_results_back_to_demand()
@@ -55,9 +59,6 @@ class PathwaysModel(object):
                 if self.api_run:
                     self.export_results_to_db()
                 else:
-                    if load_demand and solve_supply:
-                        # we do this now because we delayed before
-                        self.export_result_to_csv('demand_outputs')
                     self.export_result_to_csv('supply_outputs')
                     self.export_result_to_csv('combined_outputs')
                     self.export_io()

@@ -860,9 +860,10 @@ class Supply(object):
             exports = exports.rename(columns={'geography_to':'DISPATCH_OUTPUT'})
             imports = imports.set_index([cfg.dispatch_geography, 'DISPATCH_OUTPUT', 'weather_datetime'])
             exports = exports.set_index([cfg.dispatch_geography, 'DISPATCH_OUTPUT', 'weather_datetime'])
-            transmission_output = pd.concat((-imports, exports))
             # drop any lines that don't have flows this is done to reduce the size of outputs
-            transmission_output = transmission_output.groupby(level=[cfg.dispatch_geography, 'DISPATCH_OUTPUT']).filter(lambda x: x.sum() > 0)
+            imports = imports.groupby(level=[cfg.dispatch_geography, 'DISPATCH_OUTPUT']).filter(lambda x: x.sum() > 0)
+            exports = exports.groupby(level=[cfg.dispatch_geography, 'DISPATCH_OUTPUT']).filter(lambda x: x.sum() > 0)
+            transmission_output = pd.concat((-imports, exports))
             transmission_output = util.add_and_set_index(transmission_output, 'year', year)
             transmission_output.columns = [cfg.calculation_energy_unit.upper()]
             transmission_output = self.outputs.clean_df(transmission_output)

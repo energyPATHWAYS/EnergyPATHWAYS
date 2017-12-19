@@ -580,7 +580,7 @@ class Dispatch(object):
 
     def solve_optimization(self):
         try:
-            self.ld_energy_budgets= self.solve_ld_optimization()
+            self.ld_energy_budgets = self.solve_ld_optimization()
             self.set_average_net_loads(self.ld_bulk_net_load_df_updated)
             state_of_charge = self.run_year_to_month_allocation()
             self.start_soc_large_storage, self.end_soc_large_storage = state_of_charge[0], state_of_charge[1]

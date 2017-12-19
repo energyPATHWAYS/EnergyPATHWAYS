@@ -169,7 +169,8 @@ class Demand(object):
             return util.remove_df_levels(util.DfOper.mult((feeder_allocation,
                                                            self.ele_energy_helper.loc[subsector_slice].groupby(level=('sector', cfg.primary_geography)).sum())), 'sector')
         else:
-            return None
+            dispatch_feeders = self.feeder_allocation_class.values.index.get_level_values('dispatch_feeder').unique()
+            return pd.DataFrame(0, columns=['value'], index=pd.MultiIndex.from_product((cfg.geographies, dispatch_feeders),names=(cfg.primary_geography, 'dispatch_feeder')))
 
     def shape_from_subsectors_with_no_shape(self, year):
         """ Final levels that will always return from this function
@@ -182,7 +183,8 @@ class Demand(object):
             shapes_map[sector.id] = sector.shape.values.xs(2, level='timeshift_type') if hasattr(sector, 'shape') else None
         shapes_map[None] = self.default_electricity_shape.values.xs(2, level='timeshift_type')
         df = util.DfOper.add([util.DfOper.mult((self.electricity_energy_slice(year, subsectors_map[id]), shapes_map[id])) for id in subsectors_map])
-        del self.ele_energy_helper
+        if hasattr(self, 'ele_energy_helper'):
+            del self.ele_energy_helper
         return df
 
     def create_electricity_reconciliation(self):
@@ -1135,7 +1137,7 @@ class Subsector(DataMapFunctions):
                 df_list.append(df)
             if len(df_list):
                 keys = measure_types
-                names = ['measure_types']
+                names = ['cost_type']
                 df = util.df_list_concatenate(df_list,keys=keys,new_names=names,levels_to_keep=override_levels_to_keep)
                 unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
                 df.columns = [unit]
@@ -1144,36 +1146,50 @@ class Subsector(DataMapFunctions):
                 return None
         else:
             return None
-        
+
     def format_output_costs_tco(self,att,npv,override_levels_to_keep=None):
         stock_costs = self.format_output_stock_costs(att, override_levels_to_keep)
-        measure_costs = self.format_output_measure_costs(att, override_levels_to_keep)   
+        measure_costs = self.format_output_measure_costs(att, override_levels_to_keep)
         cost_list = []
         for cost in [stock_costs, measure_costs]:
             if cost is not None:
                 cost_list.append(cost)
         if len(cost_list) == 0:
             return None
-        if len(cost_list) == 1:
+        elif len(cost_list) == 1 and stock_costs is not None:
             df = cost_list[0]
+            df['cost_category'] = 'stock'
+            df.set_index('cost_category', append=True, inplace=True)
+            return util.remove_df_levels(util.DfOper.mult([df,npv]),'year')
+        elif len(cost_list) == 1 and measure_costs is not None:
+            df =  cost_list[0]
+            df['cost_category'] = 'measure'
+            df.set_index('cost_category', append=True, inplace=True)
             return util.remove_df_levels(util.DfOper.mult([df,npv]),'year')
         else:
             keys = ['stock', 'measure']
-            names = ['cost_type']
+            names = ['cost_category']
             df = util.df_list_concatenate(cost_list,keys=keys,new_names=names)
             return util.remove_df_levels(util.DfOper.mult([df,npv]),'year')
 
-       
     def format_output_costs(self,att,override_levels_to_keep=None):
         stock_costs = self.format_output_stock_costs(att, override_levels_to_keep)
         measure_costs = self.format_output_measure_costs(att, override_levels_to_keep)
         cost_list = [c for c in [stock_costs, measure_costs] if c is not None]
         if len(cost_list) == 0:
             return None
-        if len(cost_list) == 1:
-            return cost_list[0]
+        elif len(cost_list) == 1 and stock_costs is not None:
+            df =  cost_list[0]
+            df['cost_category'] = 'stock'
+            df.set_index('cost_category', append=True, inplace=True)
+            return df
+        elif len(cost_list) == 1 and measure_costs is not None:
+            df =  cost_list[0]
+            df['cost_category'] = 'measure'
+            df.set_index('cost_category', append=True, inplace=True)
+            return df
         else:
-            return util.df_list_concatenate(cost_list,keys=['stock', 'measure'],new_names=['cost_type'])
+            return util.df_list_concatenate(cost_list,keys=['stock', 'measure'],new_names=['cost_category'])
   
     def format_output_stock_costs(self, att, override_levels_to_keep=None):
         """ 
@@ -2878,6 +2894,9 @@ class Subsector(DataMapFunctions):
         #Fourth best way is if we have specified some technologies in the initial year, even if not all
         elif min_demand_technology_year:
             initial_stock = self.stock.technology.loc[elements+(min_demand_technology_year,),:].values/np.nansum(self.stock.technology.loc[elements+(min_demand_technology_year,),:].values) * initial_total
+            rerun_sales_shares = False
+        elif sum(initial_total) == 0:
+            initial_stock = np.zeros(len(self.tech_ids))
             rerun_sales_shares = False
         else:
             raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the demand_technology composition of the initial stock in subsector %s' %self.id)
