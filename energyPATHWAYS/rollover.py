@@ -115,8 +115,9 @@ class Rollover(object):
 #                self.specified_stock = np.array(util.flatten_list([[[np.nan]*self.num_techs]*(self.spy-1) + [list(util.ensure_iterable_and_not_string(ss))] for ss in specified_stock]))
 #                if self.num_techs == 1:
 #                    self.specified_stock = self.specified_stock.flatten()
-        if np.any(self.specified_stock<0):
+        if np.any(self.specified_stock<-1E-9):
             raise ValueError("Specified stock cannot be initialized with negative numbers")
+        self.specified_stock = np.clip(self.specified_stock, 0, None)
 
     def initialize_specified_sales(self, specified_sales):
         """ Divide sales equally over all periods within the year

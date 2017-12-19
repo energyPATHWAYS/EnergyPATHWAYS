@@ -169,7 +169,8 @@ class Demand(object):
             return util.remove_df_levels(util.DfOper.mult((feeder_allocation,
                                                            self.ele_energy_helper.loc[subsector_slice].groupby(level=('sector', cfg.primary_geography)).sum())), 'sector')
         else:
-            return None
+            dispatch_feeders = self.feeder_allocation_class.values.index.get_level_values('dispatch_feeder').unique()
+            return pd.DataFrame(0, columns=['value'], index=pd.MultiIndex.from_product((cfg.geographies, dispatch_feeders),names=(cfg.primary_geography, 'dispatch_feeder')))
 
     def shape_from_subsectors_with_no_shape(self, year):
         """ Final levels that will always return from this function
@@ -182,7 +183,8 @@ class Demand(object):
             shapes_map[sector.id] = sector.shape.values.xs(2, level='timeshift_type') if hasattr(sector, 'shape') else None
         shapes_map[None] = self.default_electricity_shape.values.xs(2, level='timeshift_type')
         df = util.DfOper.add([util.DfOper.mult((self.electricity_energy_slice(year, subsectors_map[id]), shapes_map[id])) for id in subsectors_map])
-        del self.ele_energy_helper
+        if hasattr(self, 'ele_energy_helper'):
+            del self.ele_energy_helper
         return df
 
     def create_electricity_reconciliation(self):
@@ -2892,6 +2894,9 @@ class Subsector(DataMapFunctions):
         #Fourth best way is if we have specified some technologies in the initial year, even if not all
         elif min_demand_technology_year:
             initial_stock = self.stock.technology.loc[elements+(min_demand_technology_year,),:].values/np.nansum(self.stock.technology.loc[elements+(min_demand_technology_year,),:].values) * initial_total
+            rerun_sales_shares = False
+        elif sum(initial_total) == 0:
+            initial_stock = np.zeros(len(self.tech_ids))
             rerun_sales_shares = False
         else:
             raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the demand_technology composition of the initial stock in subsector %s' %self.id)
