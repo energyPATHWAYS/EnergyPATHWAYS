@@ -383,7 +383,7 @@ class Supply(object):
                     self.calculate_embodied_costs(year, loop-1) # necessary here because of the dispatch
                     #necessary to calculate emissions to apply CO2 price in year 1 if applicable                    
 #                    if year == min(self.years):
-#                        self.calculate_embodied_emissions(year)
+                    self.calculate_embodied_emissions(year)
                     self.prepare_dispatch_inputs(year, loop)
                     self.solve_electricity_dispatch(year)
                     self._recalculate_stocks_and_io(year, loop)
@@ -1193,7 +1193,6 @@ class Supply(object):
         self.solve_thermal_dispatch(year)
         self.solve_hourly_curtailment()
         if year in self.dispatch_write_years and not self.api_run:
-            pdb.set_trace()
             if cfg.filter_dispatch_less_than_x is not None:
                 self.bulk_dispatch = self.bulk_dispatch.groupby(level=['DISPATCH_OUTPUT']).filter(
                     lambda x: x.max().max()>cfg.filter_dispatch_less_than_x or x.min().min()<-cfg.filter_dispatch_less_than_x)
@@ -1271,6 +1270,7 @@ class Supply(object):
                     if hasattr(node,'active_physical_emissions_coefficients') and hasattr(node,'active_co2_capture_rate'):    
                         total_physical =node.active_physical_emissions_coefficients.groupby(level='supply_node').sum().stack().stack().to_frame()
                         emissions_rate = util.DfOper.mult([node.stock.dispatch_coefficients.loc[:,year].to_frame(), util.DfOper.divi([total_physical,node.active_coefficients_untraded]).replace([np.inf,np.nan],0)])
+#                        emissions_rate = util.DfOper.mult([node.stock.dispatch_coefficients.loc[:,year].to_frame(), util.DfOper.divi([total_physical,node.active_emissions_coefficients.transpose().groupby(level='supply_node',axis=1).sum().stack().to_frame()]).replace([np.inf,np.nan],0)])
                         emissions_rate = util.remove_df_levels(emissions_rate,'supply_node')
                         emissions_rate = util.remove_df_levels(emissions_rate,[x for x in emissions_rate.index.names if x not in node.stock.values.index.names],agg_function='mean')
                         co2_cost = util.DfOper.mult([emissions_rate, 1-node.rollover_output(tech_class = 'co2_capture', stock_att='exist',year=year)]) * co2_price * util.unit_conversion(unit_from_den='ton',unit_to_den=cfg.cfgfile.get('case','mass_unit'))[0]
@@ -1570,6 +1570,12 @@ class Supply(object):
         bulk_multiplier = df.sum()
         df = normalized
         df.replace([np.inf,np.nan],0,inplace=True)
+        for row_geo in cfg.geographies:
+            for col_geo in cfg.geographies:
+                if row_geo == col_geo:
+                    row_indexer = util.level_specific_indexer(df,cfg.primary_geography,row_geo)
+                    col_indexer = util.level_specific_indexer(df,cfg.primary_geography,col_geo, axis=1)
+                    df.loc[row_indexer,col_indexer] = df.loc[row_indexer,col_indexer].replace(0,1E-7)
         self.nodes[self.thermal_dispatch_node_id].active_coefficients_total = df
         indexer = util.level_specific_indexer(self.nodes[self.bulk_id].values,'supply_node',self.thermal_dispatch_node_id)
         self.nodes[self.bulk_id].values.loc[indexer, year] *= bulk_multiplier.values
@@ -2487,6 +2493,7 @@ class Supply(object):
                              emissions_rate.sort(inplace=True, axis=0)   
                              emissions_rate.columns = emissions_rate.columns.droplevel(-1)
                              self.feed_physical_emissions(year,output_node.id,emissions_rate)
+                             
         
     def initialize_year(self,year,loop):
         """Updates the dataframes of supply nodes so that the 'active' versions of dataframes reference the appropriate year
@@ -3320,6 +3327,7 @@ class Node(DataMapFunctions):
     def update_pass_through_df_dict(self,year, loop=None):  
         if hasattr(self,'pass_through_df_dict'):
             self.active_pass_through_df =self.pass_through_df_dict[year]
+            self.active_pass_through_df*=0
     
     def set_pass_through_dict(self, node_dict):   
         if self.active_coefficients is not None:
@@ -4512,7 +4520,8 @@ class SupplyStockNode(Node):
         if hasattr(self.stock,'total'):
             self.stock.total[self.stock.total<tech_sum] = tech_sum
         else:
-            self.stock.total = tech_sum
+#            self.stock.total = tech_sum 
+            self.stock.total = pd.DataFrame(np.nan, tech_sum.index,tech_sum.columns)
                 
     def format_rollover_stocks(self):
         #transposed technology stocks are used for entry in the stock rollover function
@@ -4545,8 +4554,8 @@ class SupplyStockNode(Node):
        if len(total_stocks):    
            self.case_stock.total = DfOper.add(total_stocks, expandable=False)
            self.case_stock.total[self.case_stock.total.index.get_level_values('year')<int(cfg.cfgfile.get('case','current_year'))] = np.nan
-       elif len(tech_stocks):
-           self.case_stock.total = util.remove_df_levels(self.case_stock.technology,'supply_technology')
+#       elif len(tech_stocks):
+#           self.case_stock.total = util.remove_df_levels(self.case_stock.technology,'supply_technology')
         
             
     def remap_tech_attrs(self, attr_classes, attr='values'):
