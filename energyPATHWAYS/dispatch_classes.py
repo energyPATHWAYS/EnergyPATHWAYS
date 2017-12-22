@@ -534,11 +534,11 @@ class Dispatch(object):
     def test_instance_constraints(model):
         instance = model.create_instance(report_timing=False)        
         for c in instance.component_objects(Constraint):
-            c.deactivate()
+            c.activate()
             solver = SolverFactory(cfg.solver_name)
             solution = solver.solve(instance)
             if solution.solver.termination_condition == TerminationCondition.infeasible:
-                c.activate()
+                pass
             else:
                 print c.name
                 c.activate()

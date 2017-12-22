@@ -347,8 +347,8 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     model.BulkSysCapacityNeed = Var(model.GEOGRAPHIES, within=NonNegativeReals)
     model.FlexLoadUse = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=NonNegativeReals)
     model.Curtailment = Var(model.GEOGRAPHIES, model.TIMEPOINTS, within=NonNegativeReals)
-    model.Unserved_Energy = Var(model.GEOGRAPHIES, model.TIMEPOINTS, within=Reals)
-    model.Unserved_Capacity = Var(model.GEOGRAPHIES, within=Reals)
+    model.Unserved_Energy = Var(model.GEOGRAPHIES, model.TIMEPOINTS, within=NonNegativeReals)
+    model.Unserved_Capacity = Var(model.GEOGRAPHIES, within=NonNegativeReals)
     ##############################
     # ### Objective function ### #
     ##############################
