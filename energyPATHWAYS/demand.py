@@ -1019,16 +1019,21 @@ class Subsector(DataMapFunctions):
     def format_output_service_demand(self, override_levels_to_keep):
         if not hasattr(self, 'service_demand'):
             return None
+        if hasattr(self.service_demand,'other_index_1'):
+            util.replace_index_name(self.service_demand.values,"other_index_1",self.service_demand.other_index_1)
+        if hasattr(self.service_demand,'other_index_2'):
+            util.replace_index_name(self.service_demand.values,"other_index_2",self.service_demand.other_index_2)
+        if hasattr(self.service_demand,'other_index_1'):
+            util.replace_index_name(self.service_demand.modifier,"other_index_1",self.service_demand.other_index_1)
+        if hasattr(self.service_demand,'other_index_2'):
+            util.replace_index_name(self.service_demand.modifier,"other_index_2",self.service_demand.other_index_2)
         if hasattr(self.service_demand,'modifier'):
-            df = util.DfOper.mult([util.remove_df_elements(self.service_demand.modifier, 9999, 'final_energy'),self.stock.values]).groupby(level=self.service_demand.values.index.names).transform(lambda x: x/x.sum())
+            df = util.DfOper.mult([util.remove_df_elements(self.service_demand.modifier, 9999, 'final_energy'),self.stock.values_efficiency_normal]).groupby(level=self.service_demand.values.index.names).transform(lambda x: x/x.sum())
             df = util.DfOper.mult([df,self.service_demand.values])
         else:
             df = self.service_demand.values
         levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
-        if hasattr(self.service_demand,'other_index_1'):
-            util.replace_index_name(df,"other_index_1",self.service_demand.other_index_1)
-        if hasattr(self.service_demand,'other_index_2'):
-            util.replace_index_name(df,"other_index_2",self.service_demand.other_index_2)
+
         levels_to_eliminate = [l for l in df.index.names if l not in levels_to_keep]
         df = util.remove_df_levels(df,levels_to_eliminate).sort_index()
         df = df.stack().to_frame()
@@ -3313,9 +3318,9 @@ class Subsector(DataMapFunctions):
             util.replace_index_name(self.energy_forecast,"other_index_1",self.service_demand.other_index_1)
         if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_2') :
             util.replace_index_name(self.energy_forecast,"other_index_2",self.service_demand.other_index_2)
-        if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_1'):
+        if hasattr(self,'energy_demand') and hasattr(self.energy_demand,'other_index_1'):
             util.replace_index_name(self.energy_forecast,"other_index_1",self.service_demand.other_index_1)
-        if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_2'):
+        if hasattr(self,'energy_demand') and hasattr(self.energy_demand,'other_index_2'):
             util.replace_index_name(self.energy_forecast,"other_index_2",self.service_demand.other_index_2)
 
 
