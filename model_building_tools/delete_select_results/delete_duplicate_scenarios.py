@@ -64,7 +64,7 @@ def delete_results(workingdir, keep_newest, keep_oldest, rollback):
                     os.remove(os.path.join(path, file))
                     os.rename(os.path.join(path, '_' + file), os.path.join(path, file))
 
-            print '    removed {} lines of {} total lines ({}%)'.format(removelinecount, totallinecount, round(removelinecount/float(totallinecount))*100)
+            print '    removed {} lines of {} total lines ({}%)'.format(removelinecount, totallinecount, round(removelinecount/float(totallinecount)*100))
 
 
 

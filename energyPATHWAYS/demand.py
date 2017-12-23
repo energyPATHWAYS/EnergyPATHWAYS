@@ -2750,9 +2750,10 @@ class Subsector(DataMapFunctions):
         sd_modifier = copy.deepcopy(self.tech_sd_modifier)
         sd_modifier = sd_modifier[sd_modifier>0]
         service_modified_sales = util.df_slice(sd_modifier,elements,levels,drop_level=False)
-        service_modified_sales=service_modified_sales.groupby(level=levels+['demand_technology','vintage']).mean().mean(axis=1).to_frame()
+        service_modified_sales =service_modified_sales.groupby(level=levels+['demand_technology','vintage']).mean().mean(axis=1).to_frame()
         service_modified_sales = service_modified_sales.swaplevel('demand_technology','vintage')
         service_modified_sales.sort(inplace=True)
+        service_modified_sales = service_modified_sales.fillna(1)
         service_modified_sales = service_modified_sales.unstack('demand_technology').values
         service_modified_sales = np.array([np.outer(i, 1./i).T for i in service_modified_sales])[1:]
         sales_share *= service_modified_sales
@@ -2818,8 +2819,8 @@ class Subsector(DataMapFunctions):
         self.create_rollover_markov_matrices()
         self.set_up_empty_stock_rollover_output_dataframes()
         rollover_groups = self.stock.total.groupby(level=self.stock.rollover_group_names).groups
-        if self.stock.is_service_demand_dependent and self.stock.demand_stock_unit_type == 'equipment':        
-            self.tech_sd_modifier_calc()      
+        if self.stock.is_service_demand_dependent and self.stock.demand_stock_unit_type == 'equipment':
+            self.tech_sd_modifier_calc()
         for elements in rollover_groups.keys():
             elements = util.ensure_tuple(elements)
             #returns sales share and a flag as to whether the sales share can be used to parameterize initial stock. 
@@ -2830,7 +2831,7 @@ class Subsector(DataMapFunctions):
             initial_stock, rerun_sales_shares = self.calculate_initial_stock(elements, sales_share, initial_sales_share)
 
             if rerun_sales_shares:
-               sales_share =  self.calculate_total_sales_share_after_initial(elements, self.stock.rollover_group_names, initial_stock)
+               sales_share = self.calculate_total_sales_share_after_initial(elements, self.stock.rollover_group_names, initial_stock)
 
             # the perturbation object is used to create supply curves of demand technologies
             if self.perturbation is not None:
@@ -2895,10 +2896,11 @@ class Subsector(DataMapFunctions):
         elif min_demand_technology_year:
             initial_stock = self.stock.technology.loc[elements+(min_demand_technology_year,),:].values/np.nansum(self.stock.technology.loc[elements+(min_demand_technology_year,),:].values) * initial_total
             rerun_sales_shares = False
-        elif sum(initial_total) == 0:
+        elif np.nansum(initial_total) == 0:
             initial_stock = np.zeros(len(self.tech_ids))
             rerun_sales_shares = False
         else:
+            pdb.set_trace()
             raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the demand_technology composition of the initial stock in subsector %s' %self.id)
         return initial_stock, rerun_sales_shares
         

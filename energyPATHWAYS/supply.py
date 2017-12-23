@@ -2646,7 +2646,9 @@ class Supply(object):
         """maps final energy demand ids to node nodes for IO table demand calculation"""    
         #loops through all final energy types in demand df and adds 
         map_dict = self.map_dict
-        self.demand_df = self.demand_object.energy_demand.unstack(level='year')   
+        self.demand_df = self.demand_object.energy_demand.unstack(level='year')
+        # round here to get rid of really small numbers
+        self.demand_df = self.demand_df.round()
         self.demand_df.columns = self.demand_df.columns.droplevel()
         for demand_sector, geography, final_energy in self.demand_df.groupby(level = self.demand_df.index.names).groups:
             supply_indexer = util.level_specific_indexer(self.io_demand_df, levels=[cfg.primary_geography, 'demand_sector','supply_node'],elements=[geography, demand_sector, map_dict[final_energy]])
