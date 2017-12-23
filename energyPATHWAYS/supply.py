@@ -1565,7 +1565,7 @@ class Supply(object):
                     if row_sector != col_sector:
                         row_indexer = util.level_specific_indexer(df,'demand_sector',row_sector,axis=0)
                         col_indexer = util.level_specific_indexer(df,'demand_sector',col_sector,axis=1)
-                        df.loc[row_indexer,col_indexer] = 0             
+                        df.loc[row_indexer,col_indexer] = 0                  
         normalized = df.groupby(level=['demand_sector']).transform(lambda x: x/x.sum())
 #        df[df<normalized] = normalized
         bulk_multiplier = df.sum()
@@ -1576,7 +1576,9 @@ class Supply(object):
                 if row_geo == col_geo:
                     row_indexer = util.level_specific_indexer(df,cfg.primary_geography,row_geo)
                     col_indexer = util.level_specific_indexer(df,cfg.primary_geography,col_geo, axis=1)
-                    df.loc[row_indexer,col_indexer] = df.loc[row_indexer,col_indexer].replace(0,1E-7)
+                    sliced = df.loc[row_indexer,col_indexer]                    
+                    sliced = sliced.clip(lower=1E-7)
+                    df.loc[row_indexer,col_indexer] = sliced
         self.nodes[self.thermal_dispatch_node_id].active_coefficients_total = df
         indexer = util.level_specific_indexer(self.nodes[self.bulk_id].values,'supply_node',self.thermal_dispatch_node_id)
         self.nodes[self.bulk_id].values.loc[indexer, year] *= bulk_multiplier.values
@@ -3361,7 +3363,7 @@ class Export(Abstract):
         self.years = years
         self.demand_sectors = demand_sectors
         if self.data is True:
-            self.remap()
+            self.remap(lower=None)
             self.convert()
             self.values = util.reindex_df_level_with_new_elements(self.values, cfg.primary_geography, cfg.geographies, fill_value=0.0)
         else:
@@ -3447,7 +3449,7 @@ class BlendNode(Node):
             measure.calculate(self.vintages, self.years)
             measures.append(measure.values)
         if len(measures):
-            self.raw_values = pd.concat(measures)
+            self.raw_values = util.DfOper.add(measures)
             self.calculate_residual()
         else:
             self.set_residual()
