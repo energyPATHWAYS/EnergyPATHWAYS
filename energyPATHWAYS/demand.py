@@ -1023,11 +1023,11 @@ class Subsector(DataMapFunctions):
             util.replace_index_name(self.service_demand.values,"other_index_1",self.service_demand.other_index_1)
         if hasattr(self.service_demand,'other_index_2'):
             util.replace_index_name(self.service_demand.values,"other_index_2",self.service_demand.other_index_2)
-        if hasattr(self.service_demand,'other_index_1'):
+        if hasattr(self.service_demand,'other_index_1') and hasattr(self.service_demand, 'modifier'):
             util.replace_index_name(self.service_demand.modifier,"other_index_1",self.service_demand.other_index_1)
-        if hasattr(self.service_demand,'other_index_2'):
+        if hasattr(self.service_demand,'other_index_2') and hasattr(self.service_demand, 'modifier'):
             util.replace_index_name(self.service_demand.modifier,"other_index_2",self.service_demand.other_index_2)
-        if hasattr(self.service_demand,'modifier'):
+        if hasattr(self.service_demand, 'modifier'):
             df = util.DfOper.mult([util.remove_df_elements(self.service_demand.modifier, 9999, 'final_energy'),self.stock.values_efficiency_normal]).groupby(level=self.service_demand.values.index.names).transform(lambda x: x/x.sum())
             df = util.DfOper.mult([df,self.service_demand.values])
         else:
