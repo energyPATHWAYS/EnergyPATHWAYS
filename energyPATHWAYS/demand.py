@@ -750,7 +750,7 @@ class Subsector(DataMapFunctions):
 
     def return_shape_after_flex_load(self, shape_values, percent_flexible, max_lag_hours, max_lead_hours):
         timeshift_levels = sorted(list(util.get_elements_from_level(shape_values, 'timeshift_type')))
-        # using electricity reconcilliation with a profile with a timeshift type can cause big problems, so it is avoided
+        # using electricity reconciliation with a profile with a timeshift type can cause big problems, so it is avoided
         shape_df = shape_values if timeshift_levels == [1, 2, 3] else util.DfOper.mult((shape_values, self.electricity_reconciliation))
         flex = shape.Shape.produce_flexible_load(shape_df, percent_flexible=percent_flexible, hr_delay=max_lag_hours, hr_advance=max_lead_hours)
         return flex

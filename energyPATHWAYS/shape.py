@@ -416,7 +416,7 @@ class Shape(dmf.DataMapFunctions):
         hr_delay = 0 if hr_delay is None else hr_delay
         hr_advance = 0 if hr_advance is None else hr_advance
         
-        native_slice = util.df_slice(shape_df, elements=2, levels='timeshift_type')
+        native_slice = shape_df.xs(2, level='timeshift_type')
         native_slice_stacked = pd.concat([native_slice]*3, keys=[1,2,3], names=['timeshift_type'])
 
         pflex_stacked = pd.concat([percent_flexible]*3, keys=[1,2,3], names=['timeshift_type'])
@@ -431,18 +431,17 @@ class Shape(dmf.DataMapFunctions):
             full_load = full_load.stack('timeshift_type').reorder_levels(names).sort_index().to_frame()
             full_load.columns = ['value']
         elif timeshift_levels==[2]:
+            non_weather = [n for n in native_slice.index.names if n!='weather_datetime']
+
             # positive hours is a shift forward, negative hours a shift back
             shift = lambda df, hr: df.shift(hr).ffill().fillna(value=0)
-            
-            def fix_first_point(df, hr):
-                df.iloc[0] += native_slice.iloc[:hr].sum().sum()
-                return df
-            
-            non_weather = [n for n in native_slice.index.names if n!='weather_datetime']
-            
             delay_load = native_slice.groupby(level=non_weather).apply(shift, hr=hr_delay)
-            advance_load = native_slice.groupby(level=non_weather).apply(shift, hr=-hr_advance)
-            advance_load = advance_load.groupby(level=non_weather).transform(fix_first_point, hr=hr_advance)
+
+            def advance_load_function(df, hr):
+                df_adv = df.shift(-hr).ffill().fillna(value=0)
+                df_adv.iloc[0] += df.iloc[:hr].sum().sum()
+                return df_adv
+            advance_load = native_slice.groupby(level=non_weather).apply(advance_load_function, hr=hr_advance)
             
             full_load = pd.concat([delay_load, native_slice, advance_load], keys=[1,2,3], names=['timeshift_type'])
         else:
