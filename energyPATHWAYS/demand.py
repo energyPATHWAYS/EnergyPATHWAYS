@@ -839,7 +839,8 @@ class Subsector(DataMapFunctions):
 
         if for_direct_use:
             # doing this will make the energy for the subsector match, but it won't exactly match the system shape used in the dispatch
-            return_shape *= energy_slice.sum().sum() / return_shape.xs(2, level='timeshift_type').sum().sum()
+            correction_factors = util.remove_df_levels(energy_slice, 'demand_technology') / return_shape.xs(2, level='timeshift_type').groupby(level=cfg.primary_geography).sum()
+            return_shape = util.DfOper.mult((return_shape, correction_factors))
         return return_shape
 
     def add_energy_system_data(self):
@@ -2280,7 +2281,7 @@ class Subsector(DataMapFunctions):
         for demand_technology in self.technologies.values():
             if len(demand_technology.specified_stocks) and reference_run==False:
                for specified_stock in demand_technology.specified_stocks.values():
-                   specified_stock.remap(map_from='values', current_geography = cfg.primary_geography, drivers=self.stock.total, driver_geography=cfg.primary_geography, fill_value=np.nan)
+                   specified_stock.remap(map_from='values', current_geography = cfg.primary_geography, drivers=self.stock.total, driver_geography=cfg.primary_geography, fill_value=np.nan, interpolation_method=None, extrapolation_method=None)
                    self.stock.technology.sort(inplace=True)
                    indexer = util.level_specific_indexer(self.stock.technology,'demand_technology',demand_technology.id)
                    df = util.remove_df_levels(self.stock.technology.loc[indexer,:],'demand_technology')
@@ -2533,7 +2534,7 @@ class Subsector(DataMapFunctions):
                 subsector_stock = util.remove_df_levels(self.stock.technology,'year')
             self.stock.remap(map_from='linked_demand_technology', map_to='linked_demand_technology', drivers=subsector_stock.replace([0,np.nan],[1e-10,1e-10]),
                              current_geography=cfg.primary_geography, current_data_type='total',
-                             time_index=self.years, driver_geography=cfg.primary_geography)
+                             time_index=self.years, driver_geography=cfg.primary_geography, interpolation_method=None, extrapolation_method=None)
             self.stock.linked_demand_technology[self.stock.linked_demand_technology==0]=np.nan
             self.stock.has_linked_demand_technology = True
         else:
