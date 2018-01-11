@@ -697,7 +697,7 @@ class Supply(object):
                         else:
                             energy_shape = full_energy_shape
                         if energy_shape is None:                            
-                            energy_budgets = util.remove_df_levels(energy,cfg.primary_geography).values * np.diff([0]+list(np.where(np.diff(dispatch_periods)!=0)[0]+1)+[len(dispatch_periods)-1])/8766.*num_years
+                            energy_budgets = util.remove_df_levels(energy,[cfg.primary_geography,'resource_bin']).values * np.diff([0]+list(np.where(np.diff(dispatch_periods)!=0)[0]+1)+[len(dispatch_periods)-1])/8766.*num_years
                             energy_budgets = energy_budgets[0]
                         else:
                             hourly_energy = util.remove_df_levels(util.DfOper.mult([energy,energy_shape]), cfg.primary_geography).values
@@ -2048,7 +2048,7 @@ class Supply(object):
             Cols: ['value']
         """
         export_df = self.io_export_df.stack().to_frame()
-        export_df = export_df.groupby(level='supply_node').filter(lambda x: x.sum()>0)
+        export_df = export_df.groupby(level='supply_node').filter(lambda x: x.sum()!=0)
         util.replace_index_name(export_df, 'year')
         util.replace_column(export_df, 'value')
         supply_nodes = list(set(export_df.index.get_level_values('supply_node')))
@@ -2066,7 +2066,7 @@ class Supply(object):
                df = df.stack(stack_levels).to_frame()
                levels_to_keep = [x for x in df.index.names if x in cfg.output_combined_levels+stack_levels]
                df = df.groupby(level=list(set(levels_to_keep+['supply_node']))).sum()
-               df = df.groupby(level='supply_node').filter(lambda x: x.sum()>0)
+               df = df.groupby(level='supply_node').filter(lambda x: x.sum()!=0)
                sector_df_list.append(df)     
             year_df = pd.concat(sector_df_list, keys=keys,names=name)
             df_list.append(year_df)
@@ -2079,11 +2079,11 @@ class Supply(object):
     def calculate_export_result(self, export_result_name, io_dict):
         export_map_df = self.map_embodied_to_export(io_dict)
         export_df = self.io_export_df.stack().to_frame()
-        export_df = export_df.groupby(level=['supply_node']).filter(lambda x: x.sum()>0)
+        export_df = export_df.groupby(level=['supply_node']).filter(lambda x: x.sum()!=0)
         if cfg.primary_geography+"_supply" in cfg.output_combined_levels:
             export_map_df = export_map_df.groupby(level=['supply_node',cfg.primary_geography+"_supply"]).filter(lambda x: x.sum()>0)
         else:
-            export_map_df = export_map_df.groupby(level=['supply_node']).filter(lambda x: x.sum()>0)
+            export_map_df = export_map_df.groupby(level=['supply_node']).filter(lambda x: x.sum()!=0)
         if export_map_df.empty is False and export_df.empty is False:
             util.replace_index_name(export_df, 'year')
             util.replace_index_name(export_df, 'sector', 'demand_sector')
@@ -3799,7 +3799,7 @@ class SupplyNode(Node,StockItem):
     def calculate_active_coefficients(self,year, loop):
         """calculates the active coefficients"""
         #If a node has no potential data, then it doesn't have a supply curve. Therefore the coefficients are just the specified inputs in that year   
-        if year == cfg.cfgfile.get('case', 'current_year') and loop == 'initial':
+        if year == int(cfg.cfgfile.get('case', 'current_year')) and loop == 'initial':
             #in the initial loop of the supply-side, we only know internal demand
             throughput = self.active_demand
         else:
@@ -3816,13 +3816,15 @@ class SupplyNode(Node,StockItem):
                 self.active_coefficients_total = None
         elif self.coefficients.data is True:
             if self.potential.raw_values is not None:
-              self.potential.remap_to_potential_and_normalize(throughput, year, self.tradable_geography)
-              indexer = util.level_specific_indexer(self.potential.active_supply_curve_normal,cfg.primary_geography,cfg.geographies)
-              filter_geo_potential_normal = self.potential.active_supply_curve_normal.loc[indexer,:]
+              try:
+                  self.potential.remap_to_potential_and_normalize(throughput, year, self.tradable_geography)
+              except:
+                  pdb.set_trace()
+              filter_geo_potential_normal = self.potential.active_supply_curve_normal
               filter_geo_potential_normal = filter_geo_potential_normal.reset_index().set_index(filter_geo_potential_normal.index.names)
-              self.active_coefficients = DfOper.mult([self.coefficients.values.loc[:,year].to_frame(),
+              self.active_coefficients = util.remove_df_levels(util.DfOper.mult([self.coefficients.values.loc[:,year].to_frame(),
                                                     filter_geo_potential_normal],
-                                                    (False,False),(False,True)).groupby(level='resource_bin').sum()
+                                                    (True,True),(False,False)),'resource_bin')
             else:     
                 stock_normal = self.stock.values.loc[:,year].to_frame().groupby(level=util.ix_excl(self.stock.values,['resource_bin'])).transform(lambda x: x/x.sum())
                 self.active_coefficients = DfOper.mult([self.coefficients.values.loc[:,year].to_frame(), stock_normal])
@@ -3921,7 +3923,7 @@ class SupplyNode(Node,StockItem):
             bins = util.DfOper.subt([self.potential.values.loc[:, year].to_frame(), self.stock.act_total_energy],expandable=(False,False), collapsible=(True,True))
             bins[bins<0] = 0
             #calculates the supply curve of remaining energy
-            bin_supply_curve = bins.groupby(level=[x for x in self.stock.rollover_group_names if x!= 'resource_bin']).cumsum()
+            bin_supply_curve = bins.groupby(level=[x for x in self.rollover_group_names if x!= 'resource_bin']).cumsum()
             #expands the total energy needed to distribute to mask against the supply curve. Used as a cap on the supply curve. 
             total_residual = util.expand_multi(total_residual,bins.index.levels,bins.index.names)
             bin_supply_curve[bin_supply_curve>total_residual] = total_residual
@@ -4169,7 +4171,7 @@ class SupplyPotential(Abstract):
             pdb.set_trace()
         self.active_supply_curve = bin_supply_curve.groupby(level=util.ix_excl(bin_supply_curve,'resource_bin')).diff().fillna(bin_supply_curve)
         if tradable_geography is not None and tradable_geography!=primary_geography:
-            normalized = original_supply_curve.groupby(level=[tradable_geography,'resource_bin']).transform(lambda x: x/x.sum())
+            normalized = original_supply_curve.groupby(level=[tradable_geography]).transform(lambda x: x/x.sum())
             self.active_supply_curve = util.remove_df_levels(util.DfOper.mult([normalized,self.active_supply_curve]),tradable_geography)
         self.active_supply_curve.columns = ['value']
 

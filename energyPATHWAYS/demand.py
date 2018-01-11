@@ -1037,9 +1037,10 @@ class Subsector(DataMapFunctions):
 
         levels_to_eliminate = [l for l in df.index.names if l not in levels_to_keep]
         df = util.remove_df_levels(df,levels_to_eliminate).sort_index()
-        df = df.stack().to_frame()
-        util.replace_column_name(df,'value')
-        util.replace_index_name(df, 'year')
+        if len(df.columns)>1:
+            df = df.stack().to_frame()
+            util.replace_column_name(df,'value')
+            util.replace_index_name(df, 'year')
         df = util.add_and_set_index(df, 'unit', self.service_demand.unit.upper(), index_location=-2)
         df.columns = ['value']
         return df
@@ -2281,7 +2282,10 @@ class Subsector(DataMapFunctions):
         for demand_technology in self.technologies.values():
             if len(demand_technology.specified_stocks) and reference_run==False:
                for specified_stock in demand_technology.specified_stocks.values():
-                   specified_stock.remap(map_from='values', current_geography = cfg.primary_geography, drivers=self.stock.total, driver_geography=cfg.primary_geography, fill_value=np.nan, interpolation_method=None, extrapolation_method=None)
+                   try:
+                       specified_stock.remap(map_from='values', current_geography = cfg.primary_geography, drivers=self.stock.total, driver_geography=cfg.primary_geography, fill_value=np.nan, interpolation_method=None, extrapolation_method=None)
+                   except:
+                       pdb.set_trace()
                    self.stock.technology.sort(inplace=True)
                    indexer = util.level_specific_indexer(self.stock.technology,'demand_technology',demand_technology.id)
                    df = util.remove_df_levels(self.stock.technology.loc[indexer,:],'demand_technology')
