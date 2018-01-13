@@ -524,7 +524,7 @@ class CsvDatabase(AbstractDatabase):
         self.pathname = pathname
         self.create_file_map()
         self._cache_foreign_keys()
-        self.shapes = ShapeDataMgr(pathname)
+#        self.shapes = ShapeDataMgr(pathname)
 
         # cache data for all tables for which there are generated classes
         if load:

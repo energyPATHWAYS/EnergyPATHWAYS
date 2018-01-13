@@ -221,7 +221,7 @@ if __name__ == "__main__":
     if os.getenv('USER') == 'rjp':
         workingdir = '/Users/rjp/Projects/EvolvedEnergy/integration'
     else:
-        workingdir = r'C:\github\EP_runs\test'
+        workingdir = r'C:\Github\us_energypathways_db'
 
     config = 'config.INI'
     scenario = ['aeo_2017_reference']

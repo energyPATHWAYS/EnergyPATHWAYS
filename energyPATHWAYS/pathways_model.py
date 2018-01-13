@@ -31,7 +31,7 @@ class PathwaysModel(object):
         if os.getenv('USER') == 'rjp':
             db_pathname = '/Users/rjp/Projects/EvolvedEnergy/integration/171112_US.db'
         else:
-            db_pathname = r"C:\github\EnergyPATHWAYS\model_building_tools\gen_classes\171112_US.db"
+            db_pathname = r"C:\Github\us_energypathways_db\pathways.db"
 
         # TODO: DemandTechsServiceLink still needs to be resolved (has duplicate key)
         db = CsvDatabase.get_database(pathname=db_pathname, exclude=['DemandTechsServiceLink'])
@@ -39,7 +39,7 @@ class PathwaysModel(object):
 
         self.scenario_id = scenario_id
         self.scenario = Scenario(self.scenario_id)
-        self.scenario_new = ScenarioNew(self.scenario_id)   # TODO: finish this conversion
+#        self.scenario_new = ScenarioNew(self.scenario_id)   # TODO: finish this conversion
         self.api_run = api_run
         self.outputs = Output()
         self.demand = Demand(self.scenario)
