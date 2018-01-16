@@ -217,13 +217,13 @@ if __name__ == "__main__":
     config = 'config.INI'
     scenario = ['OCT']
     run(workingdir, config, scenario,
-    load_demand   = True,
+    load_demand   = False,
     solve_demand  = True,
-    load_supply   = False,
-    solve_supply  = True,
-    export_results= True,
+    load_supply   = True,
+    solve_supply  = False,
+    export_results= False,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,
-    clear_results = True)
+    clear_results = False)
