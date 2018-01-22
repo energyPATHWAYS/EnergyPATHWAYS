@@ -59,10 +59,12 @@ class TransmissionSuper(Abstract):
                              "but not found in the dispatch_geographies {}".format(list(set(geography_to_ids) - dispatch_geographies), self.id, cfg.dispatch_geographies))
 
         if any([name in self.raw_values.index.names for name in ('month', 'hour', 'day_type_id')]):
-            raise ValueError('Time slices for transmission constraints are not implemented yet')
+            print 'Time slices for transmission constraints are not implemented yet, average of all combinations will be used'
+            self.raw_values = util.remove_df_levels(self.raw_values,[name for name in ('month', 'hour', 'day_type_id')],agg_function='mean')
 
     def get_values_as_dict(self, year):
-        capacity = self.values.loc[year].squeeze().to_dict()
+       # capacity = self.values.loc[year].squeeze().to_dict()
+        capacity = self.values.loc[year,'value'].to_dict()
         for key in capacity.keys():
             if key[0]==key[1]:
                 del capacity[key]

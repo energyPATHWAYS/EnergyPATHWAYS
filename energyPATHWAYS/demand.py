@@ -2285,8 +2285,6 @@ class Subsector(DataMapFunctions):
                        specified_stock.remap(map_from='values', current_geography = cfg.primary_geography, drivers=self.stock.total, driver_geography=cfg.primary_geography, fill_value=np.nan, interpolation_method=None, extrapolation_method=None)
                    except:
                        pdb.set_trace()
-                   except:
-                       pdb.set_trace()
                    self.stock.technology.sort(inplace=True)
                    indexer = util.level_specific_indexer(self.stock.technology,'demand_technology',demand_technology.id)
                    df = util.remove_df_levels(self.stock.technology.loc[indexer,:],'demand_technology')
