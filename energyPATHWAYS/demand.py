@@ -1028,11 +1028,12 @@ class Subsector(DataMapFunctions):
             util.replace_index_name(self.service_demand.modifier,"other_index_1",self.service_demand.other_index_1)
         if hasattr(self.service_demand,'other_index_2') and hasattr(self.service_demand, 'modifier'):
             util.replace_index_name(self.service_demand.modifier,"other_index_2",self.service_demand.other_index_2)
-        if hasattr(self.service_demand, 'modifier'):
+        if hasattr(self.service_demand, 'modifier') and cfg.cfgfile.get('case', 'use_service_demand_modifiers').lower()=='true':
             df = util.DfOper.mult([util.remove_df_elements(self.service_demand.modifier, 9999, 'final_energy'),self.stock.values_efficiency_normal]).groupby(level=self.service_demand.values.index.names).transform(lambda x: x/x.sum())
             df = util.DfOper.mult([df,self.service_demand.values])
         else:
-            df = self.service_demand.values
+            df = self.stock.values_efficiency_normal.groupby(level=self.service_demand.values.index.names).transform(lambda x: x/x.sum())
+            df = util.DfOper.mult([df,self.service_demand.values])
         levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
 
         levels_to_eliminate = [l for l in df.index.names if l not in levels_to_keep]
@@ -2835,8 +2836,7 @@ class Subsector(DataMapFunctions):
             #returns sales share and a flag as to whether the sales share can be used to parameterize initial stock. 
             sales_share, initial_sales_share = self.calculate_total_sales_share(elements, self.stock.rollover_group_names)  # group is not necessarily the same for this other dataframe
             if np.any(np.isnan(sales_share)):
-                raise ValueError('Sales share has NaN values in subsector ' + str(self.id))
-
+                raise ValueError('Sales share has NaN values in subsector ' + str(self.id))   
             initial_stock, rerun_sales_shares = self.calculate_initial_stock(elements, sales_share, initial_sales_share)
 
             if rerun_sales_shares:
@@ -2861,7 +2861,10 @@ class Subsector(DataMapFunctions):
                                          specified_stock=demand_technology_stock.values, specified_retirements=None,
                                          steps_per_year=self.stock.spy,lifetimes=np.array([self.technologies[tech_id].book_life for tech_id in self.tech_ids]))
 
-            self.rollover.run()
+            try:               
+                self.rollover.run()
+            except:
+                pdb.set_trace()
             stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
             self.stock.values.loc[elements], self.stock.values_new.loc[elements], self.stock.values_replacement.loc[elements] = stock, stock_new, stock_replacement
             self.stock.retirements.loc[elements, 'value'], self.stock.retirements_natural.loc[elements, 'value'], \
@@ -3306,7 +3309,11 @@ class Subsector(DataMapFunctions):
         self.calculate_parasitic()
         self.service_demand.values = self.service_demand.values.unstack('year')
         self.service_demand.values.columns = self.service_demand.values.columns.droplevel()
-        all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'],self.service_demand.modifier, self.service_demand.values])
+        if len([x for x in self.stock.rollover_group_names if x not in self.service_demand.values.index.names]):
+            multiplier = self.stock.values.groupby(level=[x for x in self.stock.rollover_group_names if x not in self.service_demand.values.index.names]).sum()/self.stock.values.sum()
+            all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'],self.service_demand.modifier, self.service_demand.values,multiplier])
+        else:
+            all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'],self.service_demand.modifier, self.service_demand.values])
         self.energy_forecast = util.DfOper.add([all_energy, self.parasitic_energy])
         self.energy_forecast = pd.DataFrame(self.energy_forecast.stack())
         all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'], self.service_demand.values]) 

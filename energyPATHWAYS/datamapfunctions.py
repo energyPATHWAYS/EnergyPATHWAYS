@@ -305,8 +305,7 @@ class DataMapFunctions:
                 driver_mapping_data_type = 'total'
             total_driver_current_geo = self.geo_map(current_geography, attr='total_driver', inplace=False,
                                               current_geography=driver_geography, current_data_type=driver_mapping_data_type,
-                                              fill_value=fill_value, filter_geo=False)
-                                        
+                                              fill_value=fill_value, filter_geo=False)                          
             if current_data_type == 'total':
                 if fill_value is np.nan:
                     df_intensity = DfOper.divi((getattr(self, map_to), total_driver_current_geo), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf],0)
@@ -320,11 +319,13 @@ class DataMapFunctions:
 
 #            self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='intensity', fill_value=fill_value, filter_geo=filter_geo)
 #            total_driver_converted_geo = self.geo_map(converted_geography, attr='total_driver', inplace=False, current_geography=driver_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=filter_geo)
-
             if current_data_type == 'total':
                 setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo), fill_value=fill_value))
             else:
-                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo), expandable=(True, False), collapsible=(False, True), fill_value=fill_value))
+                try:
+                    setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo), expandable=(True, False), collapsible=(False, True), fill_value=fill_value))
+                except:
+                    pdb.set_trace()
             self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='total', fill_value=fill_value, filter_geo=filter_geo)
             # we don't want to keep this around
             del self.total_driver

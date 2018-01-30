@@ -213,17 +213,17 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\OCT'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\EU'
     config = 'config.INI'
-    scenario = ['OCT']
+    scenario = ['HDVEV']
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
-    load_supply   = True,
+    load_supply   = False,
     solve_supply  = False,
-    export_results= False,
+    export_results= True,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,
-    clear_results = False)
+    clear_results = True)
