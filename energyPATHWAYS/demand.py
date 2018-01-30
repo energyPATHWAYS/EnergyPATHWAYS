@@ -2025,12 +2025,15 @@ class Subsector(DataMapFunctions):
             # loop through technologies and add service demand modifiers by demand_technology-specific input (i.e. demand_technology has a
         # a service demand modifier class)
         for tech in self.tech_ids:
-            if self.technologies[tech].service_demand_modifier.raw_values is not None:
-                tech_modifier = getattr(getattr(self.technologies[tech], 'service_demand_modifier'), 'values')
-                tech_modifier = util.expand_multi(tech_modifier, sd_modifier.index.levels, sd_modifier.index.names,
-                                                  drop_index='demand_technology').fillna(method='bfill')
-                indexer = util.level_specific_indexer(sd_modifier, 'demand_technology', tech)
-                sd_modifier.loc[indexer, :] = tech_modifier.values
+            try:
+                if self.technologies[tech].service_demand_modifier.raw_values is not None:
+                    tech_modifier = getattr(getattr(self.technologies[tech], 'service_demand_modifier'), 'values')
+                    tech_modifier = util.expand_multi(tech_modifier, sd_modifier.index.levels, sd_modifier.index.names,
+                                                      drop_index='demand_technology').fillna(method='bfill')
+                    indexer = util.level_specific_indexer(sd_modifier, 'demand_technology', tech)
+                    sd_modifier.loc[indexer, :] = tech_modifier.values
+            except:
+                pdb.set_trace()
         # multiply stock by service demand modifiers
         stock_values = DfOper.mult([sd_modifier, self.stock.values_efficiency]).groupby(level=self.stock.rollover_group_names).sum()
 #        # group stock and adjusted stock values
