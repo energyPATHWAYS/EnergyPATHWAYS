@@ -5360,6 +5360,7 @@ class SupplyStockNode(Node):
         """
         Calculate rollover efficiency outputs for a supply node
         """
+        self.stock_normalize(year)
         if hasattr(self.stock,'coefficients'):
             self.stock.coefficients.loc[:,year] = self.rollover_output(tech_class='efficiency',
                                                                          stock_att='values_normal_energy',year=year)

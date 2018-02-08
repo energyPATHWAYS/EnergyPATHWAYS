@@ -1,2 +1,13 @@
 id,name
 1,2014 Electricity Demand
+2,2014 Onshore Wind
+3,2014 Offshore Wind
+4,2014 Solar PV
+5,Gas Cogen
+6,Coal Cogen
+7,Oil Cogen
+8,Biomass Cogen
+9,Gas
+10,Coal 
+11,Oil
+12,Biomass
