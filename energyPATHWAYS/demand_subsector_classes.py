@@ -13,12 +13,11 @@ from shared_classes import Stock
 from . import schema
 
 class EnergyDemands(schema.DemandEnergyDemands):
-    def __init__(self, name, drivers, scenario=None, demand_technology_id=None):
+    def __init__(self, name, drivers, scenario=None):
         super(EnergyDemands, self).__init__(name, scenario)
         self.init_from_db(name, scenario)
 
         self.drivers = drivers
-        self.demand_technology_id = demand_technology_id
 
         # TODO: move this to DataObject.__init__?
         self.index_levels = self.df_index_names = self.column_names = None
@@ -37,6 +36,34 @@ class EnergyDemands(schema.DemandEnergyDemands):
         # TODO: this should eventually use Demand.drivers_new, which keys on name rather than ID
         self.drivers = {id : obj for id, obj in self.drivers.iteritems() if obj.name in driver_names}
         #self.drivers = {k.id: self.drivers[k] for k in drivers + denom_drivers}
+
+
+class ServiceDemands(schema.DemandServiceDemands):
+    def __init__(self, name, drivers, scenario=None):
+        super(ServiceDemands, self).__init__(name, scenario)
+        self.init_from_db(name, scenario)
+
+        self.drivers = drivers
+
+        # TODO: move this to DataObject.__init__?
+        self.index_levels = self.df_index_names = self.column_names = None
+        self.raw_values = self.create_raw_values()
+
+        self.in_use_drivers()
+        self.projected = False
+
+    def in_use_drivers(self):
+        """
+        Reduces the driver dictionary to in-use drivers
+        """
+        possible_drivers = [self.driver_1, self.driver_2, self.driver_denominator_1, self.driver_denominator_2]
+        driver_names = filter(None, possible_drivers)
+
+        # TODO: this should eventually use Demand.drivers_new, which keys on name rather than ID
+        self.drivers = {id : obj for id, obj in self.drivers.iteritems() if obj.name in driver_names}
+        #self.drivers = {k.id: self.drivers[k] for k in drivers + denom_drivers}
+
+
 
 class SubDemand(object, DataMapFunctions):
     def __init__(self, id, drivers, sql_id_table, sql_data_table, scenario=None, demand_technology_id=None):

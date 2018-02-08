@@ -9,7 +9,7 @@ import pandas as pd
 from collections import defaultdict
 import copy
 from datetime import datetime
-from demand_subsector_classes import DemandStock, SubDemand, ServiceEfficiency, ServiceLink, EnergyDemands
+from demand_subsector_classes import DemandStock, ServiceDemands, ServiceEfficiency, ServiceLink, EnergyDemands
 from shared_classes import AggregateStock
 from demand_measures import ServiceDemandMeasure, EnergyEfficiencyMeasure, FuelSwitchingMeasure, FlexibleLoadMeasure, FlexibleLoadMeasure2
 from demand_technologies import DemandTechnology, SalesShare
@@ -884,7 +884,7 @@ class Subsector(DataMapFunctions):
         logging.info('    '+self.name)
 
         if self.has_stock is True and self.has_service_demand is True:
-            self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', scenario=self.scenario, drivers=self.drivers)
+            self.service_demand = ServiceDemands(self.name, scenario=self.scenario, drivers=self.drivers)
             self.add_stock()
             if self.stock.demand_stock_unit_type == 'equipment':
                 self.add_technologies(self.service_demand.unit, self.stock.time_unit)
@@ -913,12 +913,12 @@ class Subsector(DataMapFunctions):
             self.sub_type = 'stock and energy'
 
         elif self.has_service_demand is True and self.has_service_efficiency is True:
-            self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', scenario=self.scenario, drivers=self.drivers)
+            self.service_demand = ServiceDemands(self.name, scenario=self.scenario, drivers=self.drivers)
             self.service_efficiency = ServiceEfficiency(self.id, self.service_demand.unit, self.scenario)
             self.sub_type = 'service and efficiency'
 
         elif self.has_service_demand is True and self.has_energy_demand is True:
-            self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', scenario=self.scenario, drivers=self.drivers)
+            self.service_demand = ServiceDemands(self.name, scenario=self.scenario, drivers=self.drivers)
 
             self.energy_demand = EnergyDemands(self.name, scenario=self.scenario, drivers=self.drivers)
             # self.energy_demand = SubDemand(self.id, sql_id_table='DemandEnergyDemands', sql_data_table='DemandEnergyDemandsData',scenario=self.scenario, drivers=self.drivers)

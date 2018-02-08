@@ -420,7 +420,8 @@ class DataObject(object):
             native_gaus, current_gaus, foreign_gaus = cfg.geo.get_native_current_foreign_gaus(df, current_geography)
 
             if foreign_gaus:
-                name = '{} {}'.format(self.sql_id_table, self.name if hasattr(self, 'name') else 'id ' + str(self.id))
+                pdb.set_trace()
+                name = '{} {}'.format(self.sql_id_table, self.name if hasattr(self, 'name') else 'id' + str(self.id))
 
                 logging.info('      Detected foreign gaus for {}: {}'.format(name, ', '.join(
                     [cfg.geo.geography_names[f] for f in foreign_gaus])))
