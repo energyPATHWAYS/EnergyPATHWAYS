@@ -855,7 +855,7 @@ class Subsector(DataMapFunctions):
         if self.has_stock is True and self.has_service_demand is True:
             self.service_demand = SubDemand(self.id, sql_id_table='DemandServiceDemands', sql_data_table='DemandServiceDemandsData', scenario=self.scenario, drivers=self.drivers)
             self.add_stock()
-            if self.stock.demand_stock_unit_type == 'equipment':
+            if self.stock.demand_stock_unit_type == 'equipment' or self.stock.demand_stock_unit_type == 'capacity factor':
                 self.add_technologies(self.service_demand.unit, self.stock.time_unit)
             else:
                 self.add_technologies(self.stock.unit, self.stock.time_unit)
@@ -1661,7 +1661,10 @@ class Subsector(DataMapFunctions):
                 # attr_class in the list. If so, continue.
 #                  if getattr(getattr(self.technologies[demand_technology], attr_class), 'absolute'):
 #                      continue
-                self.remap_tech_attr(demand_technology, attr_class, attr)
+                try:
+                    self.remap_tech_attr(demand_technology, attr_class, attr)
+                except:
+                    pdb.set_trace()
                 
     def remap_tech_attr(self, demand_technology, class_name, attr):
         """
@@ -1781,7 +1784,7 @@ class Subsector(DataMapFunctions):
                     self.min_year = self.min_cal_year(self.service_demand)
                     self.max_year = self.max_cal_year(self.service_demand)
                     # project the service demand
-                    self.service_demand.project(map_from='raw_values', fill_timeseries=False, service_dependent=self.stock.is_service_demand_depedent)
+                    self.service_demand.project(map_from='raw_values', fill_timeseries=False)
                     # service demand is projected, so change map from to values
                     self.service_demand.map_from = 'values'
                     # change the service demand to a per stock_time_unit service demand
@@ -1795,11 +1798,11 @@ class Subsector(DataMapFunctions):
                     if x:
                         raise ValueError('service demand must have the same index levels as stock when stock is specified in capacity factor terms')
                     else:
-                        self.stock.int_values = DfOper.divi([time_step_service, self.stock.int_values])
+                        self.stock.int_values = DfOper.divi([time_step_service, self.stock.int_values],expandable=(False,True),collapsible=(True,False))
                     # change map_from to int_values, which is an intermediate value, not yet final
                     self.stock.map_from = 'int_values'
                     # stock is by definition service demand dependent
-                    self.service_demand.int_values = self.service_demand.int_values.groupby(level=self.stock.rollover_group_names+['year']).sum()
+                    self.service_demand.int_values = self.service_demand.values
                     self.stock.is_service_demand_dependent = 1
                     self.service_subset = None
                 else:
@@ -3344,7 +3347,11 @@ class Subsector(DataMapFunctions):
             all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'],self.service_demand.modifier, self.service_demand.values])
         self.energy_forecast = util.DfOper.add([all_energy, self.parasitic_energy])
         self.energy_forecast = pd.DataFrame(self.energy_forecast.stack())
-        all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'], self.service_demand.values]) 
+        if len([x for x in self.stock.rollover_group_names if x not in self.service_demand.values.index.names]):
+            multiplier = self.stock.values.groupby(level=[x for x in self.stock.rollover_group_names if x not in self.service_demand.values.index.names]).sum()/self.stock.values.sum()
+            all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'], self.service_demand.values,multiplier])
+        else:
+            all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'], self.service_demand.values])
         self.energy_forecast_no_modifier = util.DfOper.add([all_energy, self.parasitic_energy])
         self.energy_forecast_no_modifier = pd.DataFrame(self.energy_forecast_no_modifier.stack())
         util.replace_index_name(self.energy_forecast, 'year')

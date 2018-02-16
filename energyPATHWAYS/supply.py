@@ -337,7 +337,8 @@ class Supply(object):
         dispatch_write_step = int(cfg.cfgfile.get('output_detail','dispatch_write_step'))
         logging.info("Dispatch year step = {}".format(dispatch_year_step))
         self.dispatch_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_year_step))
-        self.dispatch_write_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_write_step))
+        self.dispatch_write_years = []
+        #sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_write_step))
 
     def restart_loop(self):
         self.calculate_loop(self.years,self.calculated_years)
@@ -775,7 +776,7 @@ class Supply(object):
         dist_cap_factor = util.remove_df_levels(util.DfOper.mult([dist_cap_factor, util.df_slice(self.dispatch_feeder_allocation.values,year, 'year')]),'dispatch_feeder')
         dist_cap_factor = dist_cap_factor.reorder_levels([cfg.primary_geography,'demand_sector']).sort()
         distribution_grid_node.capacity_factor.values.loc[:,year] = dist_cap_factor.values
-        for i in range(1,int(cfg.cfgfile.get('case','dispatch_step'))+1):
+        for i in range(0,int(cfg.cfgfile.get('case','dispatch_step'))+1):
             distribution_grid_node.capacity_factor.values.loc[:,min(year+i,max_year)] = dist_cap_factor.values
         if hasattr(distribution_grid_node, 'stock'):
                 distribution_grid_node.update_stock(year,3)
@@ -789,7 +790,7 @@ class Supply(object):
             map_df = cfg.geo.map_df(cfg.dispatch_geography,cfg.primary_geography, normalize_as='intensity', map_key=geography_map_key, eliminate_zeros=False)
             bulk_cap_factor = util.remove_df_levels(util.DfOper.mult([bulk_cap_factor,map_df]),cfg.dispatch_geography)
         transmission_grid_node.capacity_factor.values.loc[:,year] = bulk_cap_factor.values
-        for i in range(1,int(cfg.cfgfile.get('case','dispatch_step'))+1):
+        for i in range(0,int(cfg.cfgfile.get('case','dispatch_step'))+1):
             transmission_grid_node.capacity_factor.values.loc[:,min(year+i,max_year)] = bulk_cap_factor.values
         if hasattr(transmission_grid_node, 'stock'):
             transmission_grid_node.update_stock(year,3)
@@ -1206,7 +1207,7 @@ class Supply(object):
         self.set_grid_capacity_factors(year)
         #solves dispatch (stack model) for thermal resource connected to thermal dispatch node
         self.solve_thermal_dispatch(year)
-        self.solve_hourly_curtailment()
+        self.solve_hourly_curtailment(year)
         if year in self.dispatch_write_years and not self.api_run:
             if cfg.filter_dispatch_less_than_x is not None:
                 self.bulk_dispatch = self.bulk_dispatch.groupby(level=['DISPATCH_OUTPUT']).filter(
@@ -1225,13 +1226,14 @@ class Supply(object):
         self.calculate_thermal_totals(year)
         self.calculate_curtailment(year)
                 
-    def solve_hourly_curtailment(self):
+    def solve_hourly_curtailment(self,year):
         # MOVE
-        curtailment =  -util.remove_df_levels(self.bulk_dispatch,'DISPATCH_OUTPUT')
-        curtailment['DISPATCH_OUTPUT'] = 'CURTAILMENT'
-        curtailment = curtailment.set_index('DISPATCH_OUTPUT',append=True) 
-        curtailment = curtailment.reorder_levels(self.bulk_dispatch.index.names) 
-        self.bulk_dispatch = pd.concat([self.bulk_dispatch,curtailment])
+        if year in self.dispatch_write_years:
+            curtailment =  -util.remove_df_levels(self.bulk_dispatch,'DISPATCH_OUTPUT')
+            curtailment['DISPATCH_OUTPUT'] = 'CURTAILMENT'
+            curtailment = curtailment.set_index('DISPATCH_OUTPUT',append=True) 
+            curtailment = curtailment.reorder_levels(self.bulk_dispatch.index.names) 
+            self.bulk_dispatch = pd.concat([self.bulk_dispatch,curtailment])
         
         
         
@@ -2538,6 +2540,7 @@ class Supply(object):
                 previous_year =  max(min(self.years), year-1)
                 node.trade_adjustment_dict[previous_year] = copy.deepcopy(node.active_trade_adjustment_df)
         self.map_export_to_io(year,loop)
+        self.calculate_demand(year,loop)
 
                 
     
@@ -2735,7 +2738,8 @@ class Node(DataMapFunctions):
         for total_stock in measure_ids:
             self.total_stocks[total_stock] = SupplySpecifiedStock(id=total_stock,
                                                                     sql_id_table='SupplyStockMeasures',
-                                                                    sql_data_table='SupplyStockMeasuresData')
+                                                                    sql_data_table='SupplyStockMeasuresData',
+                                                                    scenario=scenario)
         
     def set_cost_dataframes(self):
         index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.primary_geography], self.demand_sectors], names=[cfg.primary_geography, 'demand_sector'])
@@ -3463,7 +3467,7 @@ class BlendNode(Node):
             """
             add all blend measures in a selected scenario to a dictionary
             """
-            self.blend_measures = {id: BlendMeasure(id)
+            self.blend_measures = {id: BlendMeasure(id, scenario)
                                    for id in scenario.get_measures('BlendNodeBlendMeasures', self.id)}
             
     def calculate(self):

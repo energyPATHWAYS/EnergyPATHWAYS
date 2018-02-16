@@ -30,10 +30,11 @@ class CO2PriceMeasure(Abstract):
         self.values.sort_index(inplace=True)
     
 class BlendMeasure(Abstract):
-    def __init__(self,id):
+    def __init__(self, id, scenario=None):
         self.id = id
         self.sql_id_table = 'BlendNodeBlendMeasures'
-        self.sql_data_table = 'BlendNodeBlendMeasuresData'       
+        self.sql_data_table = 'BlendNodeBlendMeasuresData' 
+        self.scenario = scenario
         Abstract.__init__(self, self.id, data_id_key='parent_id')
     
     def calculate(self, vintages, years):
