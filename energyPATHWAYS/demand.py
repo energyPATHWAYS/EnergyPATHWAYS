@@ -1022,31 +1022,27 @@ class Subsector(DataMapFunctions):
     def format_output_service_demand(self, override_levels_to_keep):
         if not hasattr(self, 'service_demand'):
             return None
+        sd = copy.deepcopy(self.service_demand.values)
+        sd_modifier = copy.deepcopy(self.service_demand.modifier)
         original_other_indexers = [x for x in self.service_demand.values.index.names if x not in [cfg.primary_geography,'year']]
         for i,v in enumerate(original_other_indexers):
             if i == 0:                
-                util.replace_index_name(self.service_demand.values,"other_index_1",v)
+                util.replace_index_name(sd,"other_index_1",v)
             else:
-                util.replace_index_name(self.service_demand.values,"other_index_2",v)
+                util.replace_index_name(sd,"other_index_2",v)
         other_indexers = [x for x in self.service_demand.modifier.index.names if x not in [cfg.primary_geography,'year']]
         for i,v in enumerate(other_indexers):
             if i == 0:                
-                util.replace_index_name(self.service_demand.modifier,"other_index_1",v)
+                util.replace_index_name(sd_modifier,"other_index_1",v)
             else:
-                util.replace_index_name(self.service_demand.modifier,"other_index_2",v)
+                util.replace_index_name(sd_modifier,"other_index_2",v)
         if hasattr(self.service_demand, 'modifier') and cfg.cfgfile.get('case', 'use_service_demand_modifiers').lower()=='true':
-            df = util.DfOper.mult([util.remove_df_elements(self.service_demand.modifier, 9999, 'final_energy'),self.stock.values_efficiency_normal]).groupby(level=self.service_demand.values.index.names).transform(lambda x: x/x.sum())
+            df = util.DfOper.mult([util.remove_df_elements(sd_modifier, 9999, 'final_energy'),self.stock.values_efficiency_normal]).groupby(level=self.service_demand.values.index.names).transform(lambda x: x/x.sum())
             df = util.DfOper.mult([df,self.service_demand.values])
         else:
-            for i,v in enumerate(original_other_indexers):
-                if i == 0:                
-                    util.replace_index_name(self.service_demand.values,v,"other_index_1")
-                else:
-                    util.replace_index_name(self.service_demand.values,v,"other_index_2")
-            df = self.stock.values_efficiency_normal.groupby(level=self.service_demand.values.index.names).transform(lambda x: x/x.sum())
-            df = util.DfOper.mult([df,self.service_demand.values])
+            df = util.DfOper.mult([self.stock.values_efficiency_normal,self.service_demand.values])
             original_other_indexers = [x for x in self.service_demand.values.index.names if x not in [cfg.primary_geography,'year']]
-            for i,v in enumerate(other_indexers):
+            for i,v in enumerate(original_other_indexers):
                 if i == 0:                
                     util.replace_index_name(df,"other_index_1",v)
                 else:
@@ -1121,7 +1117,7 @@ class Subsector(DataMapFunctions):
         if not hasattr(self, 'stock'):
             return None
         levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
-        df = self.stock.values
+        df = copy.deepcopy(self.stock.values)
         other_indexers = [x for x in self.stock.rollover_group_names if x not in [cfg.primary_geography]]
         for i,v in enumerate(other_indexers):
             if i == 0:                
@@ -1789,7 +1785,7 @@ class Subsector(DataMapFunctions):
                     self.service_demand.map_from = 'values'
                     # change the service demand to a per stock_time_unit service demand
                     # ex. kBtu/year to kBtu/hour average service demand
-                    time_step_service = util.unit_convert(self.service_demand.values, unit_from_den='year',
+                    time_step_service = util.unit_convert(self.service_demand.values, unit_from_num=self.service_demand.unit,unit_to_num=self.stock.unit, unit_from_den='year',
                                                           unit_to_den=self.stock.time_unit)
                     # divide by capacity factor stock inputs to get a service demand stock
                     # ex. kBtu/hour/capacity factor equals kBtu/hour stock
