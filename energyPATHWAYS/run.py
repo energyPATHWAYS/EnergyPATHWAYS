@@ -215,9 +215,7 @@ class SubsectorPerturbation(object):
 if __name__ == "__main__":
     workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\EU'
     config = 'config.INI'
-    scenario = ['100_base']
-    
-    
+    scenario = ['147_Bulk Storage']  
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
@@ -228,4 +226,4 @@ if __name__ == "__main__":
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,
-    clear_results = False)
+    clear_results = True)

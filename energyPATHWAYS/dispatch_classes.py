@@ -484,7 +484,7 @@ class Dispatch(object):
         transmission_columns = ['geography_from', 'geography_to', 'hour', self.year]
         df = pd.DataFrame(lists, columns=transmission_columns)
         df = df.set_index(['geography_from', 'geography_to', 'hour']).sort_index()
-        if df.squeeze().isnull().any():
+        if df.sum().isnull().any():
             self.pickle_for_debugging()
             raise ValueError('NaNs in flexible load outputs in dispatch period {}'.format(period))
         return df
