@@ -295,17 +295,14 @@ class DataMapFunctions:
             # turns out we don't always have a year or vintage column for drivers. For instance when linked_demand_technology gets remapped
             if time_index_name in self.total_driver.index.names:
                 # sometimes when we have a linked service demand driver in a demand subsector it will come in on a fewer number of years than self.years, making this clean timeseries necesary
-                self.clean_timeseries(attr='total_driver', inplace=True, time_index_name=time_index_name, 
-                                      time_index=time_index, lower=None, upper=None, interpolation_method='missing', extrapolation_method='missing')
+                self.clean_timeseries(attr='total_driver', inplace=True, time_index_name=time_index_name, time_index=time_index, lower=None, upper=None, interpolation_method='missing', extrapolation_method='missing')
 
             # While not on primary geography, geography does have some information we would like to preserve
             if hasattr(self,'drivers') and len(drivers) == len(self.drivers) and set([x.input_type for x in self.drivers.values()]) == set(['intensity']) and set([x.base_driver_id for x in self.drivers.values()]) == set([None]):
                 driver_mapping_data_type = 'intensity'
             else:
                 driver_mapping_data_type = 'total'
-            total_driver_current_geo = self.geo_map(current_geography, attr='total_driver', inplace=False,
-                                              current_geography=driver_geography, current_data_type=driver_mapping_data_type,
-                                              fill_value=fill_value, filter_geo=False)                          
+            total_driver_current_geo = self.geo_map(current_geography, attr='total_driver', inplace=False, current_geography=driver_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=False)                          
             if current_data_type == 'total':
                 if fill_value is np.nan:
                     df_intensity = DfOper.divi((getattr(self, map_to), total_driver_current_geo), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf],0)

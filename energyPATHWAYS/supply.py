@@ -337,8 +337,10 @@ class Supply(object):
         dispatch_write_step = int(cfg.cfgfile.get('output_detail','dispatch_write_step'))
         logging.info("Dispatch year step = {}".format(dispatch_year_step))
         self.dispatch_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_year_step))
-        self.dispatch_write_years = []
-        #sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_write_step))
+        if dispatch_year_step ==0:
+            self.dispatch_write_years = []
+        else:
+            self.dispatch_write_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_write_step))
 
     def restart_loop(self):
         self.calculate_loop(self.years,self.calculated_years)
@@ -1468,7 +1470,7 @@ class Supply(object):
             node.stock.capacity_factor.loc[:,year] = 0
             for dispatch_geography in cfg.dispatch_geographies:
                 dispatch_df = util.df_slice(self.active_thermal_dispatch_df.loc[:,:],[dispatch_geography,node_id], [cfg.dispatch_geography,'supply_node'],drop_level=False)
-                resources = list(set([eval(x) for x in dispatch_df.index.get_level_values('thermal_generators')]))      
+                resources = list(set([eval(x) for x in dispatch_df.index.get_level_values('thermal_generators')]))
                 for resource in resources:
                     capacity_indexer = util.level_specific_indexer(dispatch_df, ['thermal_generators','IO'], [str(resource),'capacity'])
                     stock_changes_indexer = util.level_specific_indexer(dispatch_df, ['thermal_generators','IO'], [str(resource),'stock_changes'])
@@ -1477,11 +1479,13 @@ class Supply(object):
                     elif node.stock.values.loc[resource,year] ==0 and node.stock.dispatch_cap.loc[resource,year] != 0:
                         ratio = dispatch_df.loc[stock_changes_indexer,year]/node.stock.dispatch_cap.loc[resource,year]
                     else:
-                        ratio = dispatch_df.loc[capacity_indexer,year]/node.stock.values.loc[resource,year]        
+                        ratio = dispatch_df.loc[capacity_indexer,year]/node.stock.values.loc[resource,year]
                     ratio = np.nan_to_num(ratio)    
                     capacity_factor_indexer = util.level_specific_indexer(dispatch_df,['thermal_generators','IO'], [str(resource),'gen_cf'])
                     capacity_factor = np.nan_to_num(dispatch_df.loc[capacity_factor_indexer,year]*ratio)
                     node.stock.capacity_factor.loc[resource,year] += capacity_factor
+                    dispatch_capacity_indexer = util.level_specific_indexer(dispatch_df,['thermal_generators','IO'], [str(resource),'stock_changes'])
+                    node.stock.dispatch_cap.loc[resource,year] += dispatch_df.loc[dispatch_capacity_indexer,year].values
 
     def calculate_curtailment(self,year):
         if year == int(cfg.cfgfile.get('case','current_year')):
