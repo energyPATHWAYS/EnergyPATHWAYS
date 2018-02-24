@@ -51,7 +51,7 @@ class PathwaysModel(object):
                 # we do this now because we delayed before
                 self.export_result_to_csv('demand_outputs')
 
-            if self.supply_solved and export_results:
+            if self.supply_solved and export_results and load_supply or solve_supply:
                 self.supply.calculate_supply_outputs()
                 self.pass_supply_results_back_to_demand()
                 self.calculate_combined_results()

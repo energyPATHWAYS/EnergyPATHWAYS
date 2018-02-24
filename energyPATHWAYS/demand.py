@@ -1620,7 +1620,10 @@ class Subsector(DataMapFunctions):
         self.technologies = {}
         ids = util.sql_read_table("DemandTechs",column_names='id',subsector_id=self.id, return_iterable=True)
         for id in ids:
-            self.add_demand_technology(id, self.id, service_demand_unit, stock_time_unit, self.cost_of_capital, self.scenario)
+            try:
+                self.add_demand_technology(id, self.id, service_demand_unit, stock_time_unit, self.cost_of_capital, self.scenario)
+            except:
+                pdb.set_trace()
         if self.perturbation is not None:
             self.add_new_technology_for_perturbation()
         self.tech_ids = self.technologies.keys()
