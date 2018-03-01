@@ -1,18 +1,5 @@
 id,name
-1,electricity interconnection
-2,state
-3,census division
-4,us
-5,census region
-6,o&g producing region
-7,PADD
-8,egrid
-9,nerc
-10,time zone
-11,county
-12,egrid with wecc detail
-13,IECC Climate Zone
-14,electric utility territory
-15,IECC Climate Zone by state
-16,north america
-17,egrid_agg
+1,EU28
+2,EU Dispatch
+3,EU
+4,time zone

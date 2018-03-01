@@ -212,7 +212,8 @@ class Shape(dmf.DataMapFunctions):
         self.num_active_years = num_active_years(self.active_dates_index)
         
         if self.shape_type=='weather date':
-            self.values = util.reindex_df_level_with_new_elements(self.raw_values, 'weather_datetime', self.active_dates_index) # this step is slow, consider replacing
+            self.values = util.reindex_df_level_with_new_elements(self.raw_values, 'weather_datetime', self.active_dates_index)
+            self.values  = self.values.replace(np.nan,0)# this step is slow, consider replacing
             if self.values.isnull().values.any():
                 raise ValueError('Weather data for shape {} did not give full coverage of the active dates'.format(self.name))
 
