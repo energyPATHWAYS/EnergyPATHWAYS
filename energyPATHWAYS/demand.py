@@ -1671,6 +1671,7 @@ class Subsector(DataMapFunctions):
                         new_data = util.DfOper.mult([tech_data, getattr(ref_tech_class, attr)])
                     if hasattr(ref_tech_class, 'values_level'):
                         if hasattr(tech_class, 'reference_tech_operation') and tech_class.reference_tech_operation == 'add':
+                            tech_data = getattr(tech_class, 'values_level')
                             new_data_level = util.DfOper.add([tech_data, getattr(ref_tech_class, 'values_level')])
                         else:
                             new_data_level = util.DfOper.mult([tech_data, getattr(ref_tech_class, 'values_level')])
