@@ -580,7 +580,7 @@ class Rollover(object):
             future_initial_rolloffs = self.calc_initial_stock_rolloff(np.array([year_offset-1], dtype=int))
             future_vintaged_rolloffs = self.calc_vintaged_stock_rolloff(np.array([year_offset-1], dtype=int))
             future_rolloffs = np.vstack((future_initial_rolloffs, future_vintaged_rolloffs.T, np.zeros((self.num_vintages-self.i, self.num_techs)))).T
-            return reshaped_data[:,self.i-1] - np.reshape(future_rolloffs, self.num_techs * (self.num_vintages + 1))
+            return reshaped_data[:,max(self.i-1,0)] - np.reshape(future_rolloffs, self.num_techs * (self.num_vintages + 1))
 
     def return_formatted_outputs(self, year_offset=None):
         shape2 = self.num_techs if year_offset is not None else (self.num_techs * self.num_years)

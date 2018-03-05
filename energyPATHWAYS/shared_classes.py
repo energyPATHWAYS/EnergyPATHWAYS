@@ -211,7 +211,7 @@ class SalesShare(Abstract, DataMapFunctions):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        self.remap(time_index_name='vintage')
+        self.remap(time_index_name='vintage',lower=None)
         
     def reconcile_with_stock_levels(self, needed_sales_share_levels, needed_sales_share_names):
         if self.input_type == 'intensity':

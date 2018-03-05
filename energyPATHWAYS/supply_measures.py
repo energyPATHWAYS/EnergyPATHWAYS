@@ -41,7 +41,7 @@ class BlendMeasure(Abstract):
         self.vintages = vintages
         self.years = years
         self.input_type = 'intensity'
-        self.remap()
+        self.remap(lower=None)
         self.values['supply_node'] = self.supply_node_id
         self.values.set_index('supply_node',append=True,inplace=True)
         primary_geography = cfg.primary_geography

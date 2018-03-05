@@ -29,7 +29,6 @@ class PathwaysModel(object):
         self.demand_solved, self.supply_solved = False, False
 
     def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, export_results, save_models, append_results):
-        try:
             if solve_demand and not (load_demand or load_supply):
                 self.calculate_demand(save_models)
             
@@ -62,11 +61,13 @@ class PathwaysModel(object):
                     self.export_result_to_csv('supply_outputs')
                     self.export_result_to_csv('combined_outputs')
                     self.export_io()
-        except:
+ #       except:
             # pickle the model in the event that it crashes
-            if save_models:
-                Output.pickle(self, file_name=str(scenario_id) + cfg.model_error_append_name, path=cfg.workingdir)
-            raise
+#            if save_models:
+#                Output.pickle(self, file_name=str(scenario_id) + cfg.model_error_append_name, path=cfg.workingdir)
+#            raise
+         #   pdb.set_trace()
+          #  pass
 
     def calculate_demand(self, save_models):
         self.demand.setup_and_solve()
