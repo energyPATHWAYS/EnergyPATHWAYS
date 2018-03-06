@@ -2857,7 +2857,7 @@ class Node(DataMapFunctions):
             values_energy = util.remove_df_levels(DfOper.mult([self.stock.values_energy[year],dispatch_feeder_allocation]),'demand_sector')                    
         else:
             values_energy = self.stock.values_energy[year]
-        if self.shape_id is None and np.all([tech.shape_id is None for tech in self.technologies.values()]):
+        if self.shape_id is None and (hasattr(self, 'technologies') and  np.all([tech.shape_id is None for tech in self.technologies.values()]) or not hasattr(self,'technologies')):
             index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.primary_geography],[2],shape.shapes.active_dates_index], names=[cfg.primary_geography,'timeshift_type','weather_datetime'])
             energy_shape = shape.shapes.make_flat_load_shape(index)
         # we don't have technologies or none of the technologies have specific shapes
@@ -3161,7 +3161,7 @@ class Node(DataMapFunctions):
         """calculates internal trading adjustment factors based on the ratio of active supply to supply potential or stock
         used for nodes where the location of throughput is unrelated to the location of demand (ex. primary biomass supply)
         """
-        if self.tradable_geography!= cfg.primary_geography and len(cfg.geographies)>1:
+        if self.tradable_geography!= cfg.primary_geography and len(cfg.geographies)>1 :
             if hasattr(self,'potential') and self.potential.data is True or (hasattr(self,'stock') and self.stock.data is True):
                 #tradable supply is mapping of active supply to a tradable geography
                 try:
@@ -3228,6 +3228,10 @@ class Node(DataMapFunctions):
                         else:
                             mult=0
                         self.active_internal_trade_df.loc[row_indexer, col_indexer] *= mult
+                if np.all(np.round(self.active_internal_trade_df.sum().values,2)==1.) or np.all(np.round(self.active_internal_trade_df.sum().values,2)==0):
+                    pass
+                else:
+                    pdb.set_trace()
                 self.internal_trades = "stop and feed"
             else:
                 self.internal_trades = "stop"
@@ -4213,7 +4217,7 @@ class SupplyPotential(Abstract):
             pdb.set_trace()
         self.active_supply_curve = bin_supply_curve.groupby(level=util.ix_excl(bin_supply_curve,'resource_bin')).diff().fillna(bin_supply_curve)
         if tradable_geography is not None and tradable_geography!=primary_geography:
-            normalized = original_supply_curve.groupby(level=[tradable_geography]).transform(lambda x: x/x.sum())
+            normalized = original_supply_curve.groupby(level=[tradable_geography,'resource_bin']).transform(lambda x: x/x.sum())
             self.active_supply_curve = util.remove_df_levels(util.DfOper.mult([normalized,self.active_supply_curve]),tradable_geography)
         self.active_supply_curve.columns = ['value']
 
@@ -4256,7 +4260,7 @@ class SupplyCost(Abstract):
         self.demand_sectors = demand_sectors
         if self.data is True:
             self.determ_input_type()
-            self.remap()
+            self.remap(lower=None)
             self.convert()
             self.levelize_costs()
 
