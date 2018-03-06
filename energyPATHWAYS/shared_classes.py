@@ -212,6 +212,7 @@ class SalesShare(Abstract, DataMapFunctions):
         self.vintages = vintages
         self.years = years
         self.remap(time_index_name='vintage')
+        self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels,agg_function='mean')
         
     def reconcile_with_stock_levels(self, needed_sales_share_levels, needed_sales_share_names):
         if self.input_type == 'intensity':

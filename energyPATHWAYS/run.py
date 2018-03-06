@@ -185,7 +185,7 @@ def load_model(load_demand, load_supply, load_error, scenario_id, api_run):
     return model
 
 def send_gmail(scenario_id, subject, body):
-    toaddr = util.active_user_email(scenario_id)
+    toaddr = util.active_user_emailzx(scenario_id)
     if not toaddr:
         logging.warning('Unable to find a user email for scenario %s; skipping sending email with subject "%s".' %\
                         (scenario_id, subject))
@@ -222,10 +222,10 @@ if __name__ == "__main__":
     load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
-    solve_supply  = True,
-    export_results= True,
+    solve_supply  = False,
+    export_results= False,
     load_error    = False,
     pickle_shapes = True,
-    save_models   = False,
+    save_models   = True,
     api_run       = False,
     clear_results = False)

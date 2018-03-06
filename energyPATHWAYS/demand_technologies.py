@@ -40,6 +40,7 @@ class DemandTechCost(Abstract):
         if self.data and self.raw_values is not None:
             self.convert_cost()
             self.remap(map_from='values', map_to='values', time_index_name='vintage')
+            self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
             self.levelize_costs()
         if self.data is False:
             self.absolute = False
@@ -104,6 +105,7 @@ class ParasiticEnergy(Abstract):
             self.convert()
             self.remap(map_from='values', map_to='values', time_index_name='vintage')
             util.convert_age(self, reverse=True, vintages=self.vintages, years=self.years)
+            self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
         if self.data is False:
             self.absolute = False
         if self.raw_values is None:
@@ -121,6 +123,7 @@ class ParasiticEnergy(Abstract):
                                             unit_from_den=self.time_unit,
                                             unit_to_num=cfg.calculation_energy_unit,
                                             unit_to_den='year')
+            self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
             if self.demand_tech_unit_type == 'service demand':
                 self.values = util.unit_convert(self.values, unit_from_num=self.unit,
                                                 unit_to_num=self.service_demand_unit)
@@ -150,6 +153,7 @@ class DemandTechEfficiency(Abstract):
             self.convert()
             self.remap(map_from='values', map_to='values', time_index_name='vintage')
             util.convert_age(self, reverse=True, vintages=self.vintages, years=self.years)
+            self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
         if self.data is False:
             self.absolute = False
         if self.raw_values is None:
@@ -203,11 +207,13 @@ class DemandTechServiceLink(Abstract):
         if self.data and self.raw_values is not None:
             self.remap(map_from='raw_values', map_to='values', time_index_name='vintage')
             util.convert_age(self, reverse=True, vintages=self.vintages, years=self.years)
+            self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
         if self.data is False:
            self.absolute = False
         if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered converted
             self.absolute = True
+        
 
 
 class ServiceDemandModifier(Abstract):
@@ -229,12 +235,13 @@ class ServiceDemandModifier(Abstract):
             self.remap(map_from='raw_values', map_to='values', time_index_name='vintage')
             util.convert_age(self, attr_from='values', attr_to='values', reverse=False, vintages=self.vintages,
                              years=self.years)
+            self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
         if self.data is False:
             self.absolute = False
         if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered converted
             self.absolute = True
-
+        
 
 class DemandTechnology(StockItem):
     def __init__(self, id, subsector_id, service_demand_unit, stock_time_unit, cost_of_capital, scenario=None, **kwargs):
