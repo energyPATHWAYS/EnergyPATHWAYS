@@ -45,7 +45,7 @@ class SupplySales(Abstract, DataMapFunctions):
     def calculate(self, vintages, years, interpolation_method=None, extrapolation_method=None):
         self.vintages = vintages
         self.years = years
-        self.remap(time_index_name='vintage',fill_timeseries=True, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method, fill_value=np.nan)
+        self.remap(time_index_name='vintage',fill_timeseries=True, converted_geography=cfg.supply_primary_geography, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method, fill_value=np.nan)
         self.convert()
 
     def convert(self):
@@ -96,7 +96,7 @@ class SupplySalesShare(Abstract, DataMapFunctions):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        self.remap(time_index_name='vintage')
+        self.remap(time_index_name='vintage', converted_geography=cfg.supply_primary_geography,)
 
     def reconcile_with_stock_levels(self, needed_sales_share_levels, needed_sales_share_names):
         if self.input_type == 'intensity':

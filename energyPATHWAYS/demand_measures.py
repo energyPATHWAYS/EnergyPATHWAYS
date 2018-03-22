@@ -23,7 +23,7 @@ class FlexibleLoadMeasure(Abstract):
         self.sql_data_table = 'DemandFlexibleLoadMeasuresData'
         Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
         self.input_type = 'intensity'
-        self.remap()
+        self.remap(converted_geography=cfg.demand_primary_geography)
         self.values.sort_index(inplace=True)
 
     #TODO we should really do something like this to separate the class constructor from the DB
@@ -45,8 +45,8 @@ class FlexibleLoadMeasure2(Abstract):
         self.interpolation_method = 'nearest'
         self.extrapolation_method = 'nearest'
         self.input_type = 'intensity'
-        self.geography = cfg.primary_geography # the perturbations come in already geomapped
-        self.remap()
+        self.geography = cfg.demand_primary_geography # the perturbations come in already geomapped
+        self.remap(converted_geography=cfg.demand_primary_geography)
         org_index = self.values.index.names
         temp = self.values.reset_index()
         start_year = self.raw_values.index.get_level_values('year').min()
@@ -57,12 +57,12 @@ class FlexibleLoadMeasure2(Abstract):
         raw_values = perturbation.sales_share_changes['percent_of_load_that_is_flexible'].to_frame()
         raw_values.columns = ['value']
         raw_values.index = raw_values.index.rename('demand_technology', 'demand_technology_id')
-        raw_values = raw_values.groupby(level=['demand_technology', cfg.primary_geography, 'year']).mean()
+        raw_values = raw_values.groupby(level=['demand_technology', cfg.demand_primary_geography, 'year']).mean()
         raw_values = raw_values.reset_index()
         # this is because when we have linked technologies, that technology linkage is not updated with our new tech names
         if perturbation.sales_share_changes['adoption_achieved'].sum()>0:
             raw_values['demand_technology'] = raw_values['demand_technology'].map(perturbation.new_techs)
-        raw_values = raw_values.set_index(['demand_technology', cfg.primary_geography, 'year'])
+        raw_values = raw_values.set_index(['demand_technology', cfg.demand_primary_geography, 'year'])
         assert not any(raw_values.values>1)
         return raw_values
 
@@ -87,7 +87,7 @@ class DemandMeasure(StockItem):
         if self.input_type == 'total':
             self.savings = self.clean_timeseries('values', inplace=False, time_index_name='year', time_index=self.years)
         else:
-            self.remap(map_from='raw_values', map_to='values', time_index_name='year',lower=-100)
+            self.remap(map_from='raw_values', map_to='values', converted_geography=cfg.demand_primary_geography, time_index_name='year',lower=-100)
 
     def convert(self):
         if self.input_type == 'total':
@@ -192,7 +192,7 @@ class FuelSwitchingImpact(Abstract):
         if self.input_type == 'total':
             self.savings = self.clean_timeseries('values', inplace=False, time_index=self.years)
         else:
-            self.remap(map_from='raw_values', map_to='values', time_index_name='year')
+            self.remap(map_from='raw_values', map_to='values', converted_geography=cfg.demand_primary_geography, time_index_name='year')
 
     def convert(self):
         if self.input_type == 'total':
@@ -213,7 +213,7 @@ class FuelSwitchingEnergyIntensity(Abstract):
 
     def calculate(self, years, vintages, unit_to):
         self.years = years
-        self.remap(map_from='raw_values', map_to='values', time_index=self.years)
+        self.remap(map_from='raw_values', map_to='values', converted_geography=cfg.demand_primary_geography, time_index=self.years)
 
 
 class DemandMeasureCost(Abstract):
@@ -234,7 +234,7 @@ class DemandMeasureCost(Abstract):
         self.unit_to = unit_to
         if self.data and self.raw_values is not None:
             self.convert_cost()
-            self.remap(map_from='values', map_to='values', time_index_name='vintage')
+            self.remap(map_from='values', map_to='values', converted_geography=cfg.demand_primary_geography, time_index_name='vintage')
             self.levelize_costs()
         if self.data is False:
             self.absolute = False

@@ -44,7 +44,7 @@ class Demand(object):
         self.outputs = Output()
         self.default_electricity_shape = shape.shapes.data[cfg.electricity_energy_type_shape_id] if shape.shapes.data else None
         self.feeder_allocation_class = dispatch_classes.DispatchFeederAllocation(1)
-        self.feeder_allocation_class.values.index = self.feeder_allocation_class.values.index.rename('sector', 'demand_sector')
+        self.feeder_allocation_class.values_demand_geo.index = self.feeder_allocation_class.values_demand_geo.index.rename('sector', 'demand_sector')
         self.electricity_reconciliation = None
         self.scenario = scenario
 
@@ -126,18 +126,6 @@ class Demand(object):
         driver.mapped = True
         driver.values.data_type = 'total'
 
-    @staticmethod
-    def geomap_to_dispatch_geography(df):
-        """ maps a dataframe to another geography using relational GeographyMapdatabase table
-        """
-        if cfg.primary_geography==cfg.dispatch_geography:
-            return df
-        geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key')
-        # create dataframe with map from one geography to another
-        map_df = cfg.geo.map_df(cfg.primary_geography,cfg.dispatch_geography, normalize_as='total', map_key=geography_map_key)
-        levels = ['timeshift_type', cfg.dispatch_geography, 'dispatch_feeder', 'weather_datetime']
-        return util.DfOper.mult([df, map_df]).groupby(level=levels).sum()
-
     def aggregate_electricity_shapes(self, year, geomap_to_dispatch_geography=True, reconciliation_step=False):
         """ Final levels that will always return from this function
         ['timeshift_type', 'gau', 'dispatch_feeder', 'weather_datetime']
@@ -154,7 +142,11 @@ class Demand(object):
         else:
             inflex_load = pd.concat([inflex_load]*3, keys=[1,2,3], names=['timeshift_type'])
             agg_load = util.DfOper.add((flex_load, inflex_load), expandable=False, collapsible=False)
-        df = self.geomap_to_dispatch_geography(agg_load) if geomap_to_dispatch_geography else agg_load
+
+        df = cfg.geo.geo_map(agg_load, cfg.demand_primary_geography, cfg.dispatch_geography, current_data_type='total') if geomap_to_dispatch_geography else agg_load
+        df = df.groupby(level=['timeshift_type', cfg.dispatch_geography if geomap_to_dispatch_geography else cfg.demand_primary_geography,
+                               'dispatch_feeder', 'weather_datetime']).sum()
+
         # this line makes sure the energy is correct.. sometimes it is a bit off due to rounding
         df *= self.energy_demand.xs([cfg.electricity_energy_type_id, year], level=['final_energy', 'year']).sum().sum() / df.xs(2, level='timeshift_type').sum().sum()
         df = df.rename(columns={'value':year})
@@ -164,13 +156,13 @@ class Demand(object):
         if len(subsector_slice):
             if not hasattr(self, 'ele_energy_helper'):
                 indexer = util.level_specific_indexer(self.outputs.d_energy, levels=['year', 'final_energy'], elements=[[year], [cfg.electricity_energy_type_id]])
-                self.ele_energy_helper = self.outputs.d_energy.loc[indexer].groupby(level=('subsector', 'sector', cfg.primary_geography)).sum()
-            feeder_allocation = self.feeder_allocation_class.values.xs(year, level='year')
+                self.ele_energy_helper = self.outputs.d_energy.loc[indexer].groupby(level=('subsector', 'sector', cfg.demand_primary_geography)).sum()
+            feeder_allocation = self.feeder_allocation_class.values_demand_geo.xs(year, level='year')
             return util.remove_df_levels(util.DfOper.mult((feeder_allocation,
-                                                           self.ele_energy_helper.loc[subsector_slice].groupby(level=('sector', cfg.primary_geography)).sum())), 'sector')
+                                                           self.ele_energy_helper.loc[subsector_slice].groupby(level=('sector', cfg.demand_primary_geography)).sum())), 'sector')
         else:
-            dispatch_feeders = self.feeder_allocation_class.values.index.get_level_values('dispatch_feeder').unique()
-            return pd.DataFrame(0, columns=['value'], index=pd.MultiIndex.from_product((cfg.geographies, dispatch_feeders),names=(cfg.primary_geography, 'dispatch_feeder')))
+            dispatch_feeders = self.feeder_allocation_class.values_demand_geo.index.get_level_values('dispatch_feeder').unique()
+            return pd.DataFrame(0, columns=['value'], index=pd.MultiIndex.from_product((cfg.demand_geographies, dispatch_feeders),names=(cfg.demand_primary_geography, 'dispatch_feeder')))
 
     def shape_from_subsectors_with_no_shape(self, year):
         """ Final levels that will always return from this function
@@ -193,7 +185,7 @@ class Demand(object):
         weather_year = int(np.round(np.mean(shape.shapes.active_dates_index.year)))
         
         # the next four lines create the top down load shape in the weather_year
-        levels_to_keep = [cfg.primary_geography, 'year', 'final_energy']
+        levels_to_keep = [cfg.demand_primary_geography, 'year', 'final_energy']
         temp_energy = self.group_output('energy', levels_to_keep=levels_to_keep, specific_years=weather_year)
         top_down_energy = util.remove_df_levels(util.df_slice(temp_energy, cfg.electricity_energy_type_id, 'final_energy'), levels='year')
         top_down_shape = top_down_energy * util.df_slice(self.default_electricity_shape.values, 2, 'timeshift_type')
@@ -231,10 +223,10 @@ class Demand(object):
             return util.remove_df_levels(df, levels_with_na_only).sort_index()
         df_list = []
         for driver in self.drivers.values():
-            df = driver.geo_map(attr='values',current_geography=cfg.disagg_geography, converted_geography=cfg.primary_geography, current_data_type='total', inplace=False)
+            df = driver.geo_map(attr='values',current_geography=cfg.disagg_geography, converted_geography=cfg.demand_primary_geography, current_data_type='total', inplace=False)
             df['unit'] = driver.unit_base
             df.set_index('unit',inplace=True,append=True)
-            other_indexers = [x for x in df.index.names if x not in [cfg.primary_geography,'year','unit']]
+            other_indexers = [x for x in df.index.names if x not in [cfg.demand_primary_geography,'year','unit']]
             for i,v in enumerate(other_indexers):
                 if i == 0:
                     util.replace_index_name(df,"other_index_1",v)
@@ -315,11 +307,11 @@ class Demand(object):
         self.outputs.subsector_electricity_profiles = stack
 
     def stack_subsector_electricity_profiles(self, year):
-        # df_zeros = pd.DataFrame(0, columns=['value'], index=pd.MultiIndex.from_product((cfg.geographies, shape.shapes.active_dates_index), names=[cfg.primary_geography, 'weather_datetime']))
+        # df_zeros = pd.DataFrame(0, columns=['value'], index=pd.MultiIndex.from_product((cfg.demand_geographies, shape.shapes.active_dates_index), names=[cfg.demand_primary_geography, 'weather_datetime']))
         stack = []
-        index_levels = ['year', cfg.primary_geography, 'dispatch_feeder', 'sector', 'subsector', 'timeshift_type', 'weather_datetime']
+        index_levels = ['year', cfg.demand_primary_geography, 'dispatch_feeder', 'sector', 'subsector', 'timeshift_type', 'weather_datetime']
         for sector in self.sectors.values():
-            feeder_allocation = self.feeder_allocation_class.values.xs(year, level='year').xs(sector.id, level='sector')
+            feeder_allocation = self.feeder_allocation_class.values_demand_geo.xs(year, level='year').xs(sector.id, level='sector')
             for subsector in sector.subsectors.values():
                 df = subsector.aggregate_electricity_shapes(year, for_direct_use=True)
                 if df is None:
@@ -337,22 +329,25 @@ class Demand(object):
         return stack
 
     def link_to_supply(self, embodied_emissions_link, direct_emissions_link, energy_link, cost_link):
+        demand_df = cfg.geo.geo_map(self.outputs.d_energy, cfg.demand_primary_geography, cfg.combined_outputs_geography, 'total')
         logging.info("linking supply emissions to energy demand")
-        setattr(self.outputs, 'demand_embodied_emissions', self.group_linked_output(embodied_emissions_link))
+        setattr(self.outputs, 'demand_embodied_emissions', self.group_linked_output(demand_df, embodied_emissions_link))
         logging.info("calculating direct demand emissions")
-        setattr(self.outputs, 'demand_direct_emissions', self.group_linked_output(direct_emissions_link))
+        setattr(self.outputs, 'demand_direct_emissions', self.group_linked_output(demand_df, direct_emissions_link))
         logging.info("linking supply costs to energy demand")
-        setattr(self.outputs, 'demand_embodied_energy_costs', self.group_linked_output(cost_link))
+        setattr(self.outputs, 'demand_embodied_energy_costs', self.group_linked_output(demand_df, cost_link))
         logging.info("linking supply energy to energy demand")
-        setattr(self.outputs, 'demand_embodied_energy', self.group_linked_output(energy_link))
+        setattr(self.outputs, 'demand_embodied_energy', self.group_linked_output(demand_df, energy_link))
         
-    def link_to_supply_tco(self, embodied_emissions_link, direct_emissions_link,cost_link):
+    def link_to_supply_tco(self, embodied_emissions_link, direct_emissions_link, cost_link):
+        demand_df = cfg.geo.geo_map(self.d_energy_tco, cfg.demand_primary_geography, cfg.combined_outputs_geography, 'total')
         logging.info("linking supply costs to energy demand for tco calculations")
-        setattr(self.outputs, 'demand_embodied_energy_costs_tco', self.group_linked_output_tco(cost_link))
+        setattr(self.outputs, 'demand_embodied_energy_costs_tco', self.group_linked_output_tco(demand_df, cost_link))
     
     def link_to_supply_payback(self, embodied_emissions_link, direct_emissions_link,cost_link):
+        demand_df = cfg.geo.geo_map(self.d_all_energy_demand_payback, cfg.demand_primary_geography, cfg.combined_outputs_geography, 'total')
         logging.info("linking supply costs to energy demand for payback calculations")
-        setattr(self.outputs, 'demand_embodied_energy_costs_payback', self.group_linked_output_payback(cost_link))
+        setattr(self.outputs, 'demand_embodied_energy_costs_payback', self.group_linked_output_payback(demand_df, cost_link))
 
     def group_output(self, output_type, levels_to_keep=None, include_unit=False, specific_years=None):
         levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep
@@ -376,47 +371,27 @@ class Demand(object):
         new_names = 'sector'
         return util.df_list_concatenate(dfs, keys, new_names, levels_to_keep)
 
-    def group_linked_output(self, supply_link, levels_to_keep=None):
-        demand_df = self.outputs.d_energy.copy()
-        if cfg.primary_geography + '_supply' in supply_link:
-            geo_label = cfg.primary_geography + '_supply'
-            # direct_emissions_link is not in supply geography
-            levels_to_keep = cfg.output_combined_levels if levels_to_keep is None else levels_to_keep
-            levels_to_keep = [x for x in levels_to_keep if x in demand_df.index.names]
-            demand_df = demand_df.groupby(level=levels_to_keep).sum()
-            demand_df = demand_df[demand_df.index.get_level_values('year') >= int(cfg.cfgfile.get('case','current_year'))]
-            geography_df_list = []
-            for geography in cfg.geographies:
-                if geography in supply_link.index.get_level_values(geo_label):
-                    supply_indexer = util.level_specific_indexer(supply_link, [geo_label], [geography])
-                    supply_df = supply_link.loc[supply_indexer, :]
-                    geography_df = util.DfOper.mult([demand_df, supply_df])
-                    geography_df_list.append(geography_df)
-            df = pd.concat(geography_df_list)
+    def group_linked_output(self, input_df, supply_link, levels_to_keep=None):
+        demand_df = input_df.copy()
+        if cfg.combined_outputs_geography + '_supply' in supply_link:
+            geo_label = cfg.combined_outputs_geography + '_supply'
         else:
-            geo_label = cfg.primary_geography
-            levels_to_keep = cfg.output_combined_levels if levels_to_keep is None else levels_to_keep
-            levels_to_keep = [x for x in levels_to_keep if x in demand_df.index.names]
-            demand_df = demand_df.groupby(level=levels_to_keep).sum()
-            demand_df = demand_df[demand_df.index.get_level_values('year') >= int(cfg.cfgfile.get('case','current_year'))]
-            geography_df_list = []
-            for geography in cfg.geographies:
-                if geography in supply_link.index.get_level_values(geo_label):
-                    supply_indexer = util.level_specific_indexer(supply_link, [geo_label], [geography])
-                    demand_indexer = util.level_specific_indexer(demand_df, [geo_label], [geography])
-                    supply_df = supply_link.loc[supply_indexer, :]
-                    geography_df = util.DfOper.mult([demand_df.loc[demand_indexer, :], supply_df])
-                    geography_df_list.append(geography_df)
-            df = pd.concat(geography_df_list)      
+            geo_label = cfg.combined_outputs_geography
+
+        levels_to_keep = cfg.output_combined_levels if levels_to_keep is None else levels_to_keep
+        levels_to_keep = [x for x in levels_to_keep if x in demand_df.index.names]
+        demand_df = demand_df.groupby(level=levels_to_keep).sum()
+        demand_df = demand_df[demand_df.index.get_level_values('year') >= int(cfg.cfgfile.get('case','current_year'))]
+        df = util.loop_geo_multiply(demand_df, supply_link, geo_label, cfg.combined_geographies, levels_to_keep)
         return df
         
-    def group_linked_output_tco(self, supply_link, levels_to_keep=None):
-        demand_df = self.d_energy_tco.copy()
-        supply_link = supply_link.groupby(level=[cfg.primary_geography,'year', 'final_energy', 'sector']).sum()
-        geo_label = cfg.primary_geography
+    def group_linked_output_tco(self, input_df, supply_link, levels_to_keep=None):
+        demand_df = input_df.copy()
+        supply_link = supply_link.groupby(level=[cfg.combined_outputs_geography,'year', 'final_energy', 'sector']).sum()
+        geo_label = cfg.combined_outputs_geography
         demand_df = demand_df[demand_df.index.get_level_values('year') >= int(cfg.cfgfile.get('case','current_year'))]
         geography_df_list = []
-        for geography in cfg.geographies:
+        for geography in cfg.combined_geographies:
             if geography in supply_link.index.get_level_values(geo_label):
                 supply_indexer = util.level_specific_indexer(supply_link, [geo_label], [geography])
                 demand_indexer = util.level_specific_indexer(demand_df, [geo_label], [geography])
@@ -427,13 +402,13 @@ class Demand(object):
         df = pd.concat(geography_df_list)      
         return df
         
-    def group_linked_output_payback(self, supply_link, levels_to_keep=None):
-        demand_df = self.d_all_energy_demand_payback.copy()
-        supply_link = supply_link.groupby(level=[cfg.primary_geography,'year', 'final_energy', 'sector']).sum()
-        geo_label = cfg.primary_geography
+    def group_linked_output_payback(self, input_df, supply_link, levels_to_keep=None):
+        demand_df = input_df.copy()
+        supply_link = supply_link.groupby(level=[cfg.combined_outputs_geography,'year', 'final_energy', 'sector']).sum()
+        geo_label = cfg.combined_outputs_geography
         demand_df = demand_df[demand_df.index.get_level_values('year') >= int(cfg.cfgfile.get('case','current_year'))]
         geography_df_list = []
-        for geography in cfg.geographies:
+        for geography in cfg.combined_geographies:
             if geography in supply_link.index.get_level_values(geo_label):
                 supply_indexer = util.level_specific_indexer(supply_link, [geo_label], [geography])
                 demand_indexer = util.level_specific_indexer(demand_df, [geo_label], [geography])
@@ -443,12 +418,13 @@ class Demand(object):
                 geography_df_list.append(geography_df)
         df = pd.concat(geography_df_list)      
         return df
-        
+
     def aggregate_sector_energy_for_supply_side(self):
         """Aggregates for the supply side, works with function in sector"""
-        names = ['sector', cfg.primary_geography, 'final_energy', 'year']
+        names = ['sector', cfg.demand_primary_geography, 'final_energy', 'year']
         sectors_aggregates = [sector.aggregate_subsector_energy_for_supply_side() for sector in self.sectors.values()]
         self.energy_demand = pd.concat([s for s in sectors_aggregates if s is not None], keys=self.sectors.keys(), names=names)
+        self.energy_supply_geography = cfg.geo.geo_map(self.energy_demand, cfg.demand_primary_geography, cfg.supply_primary_geography, current_data_type='total')
 
 
 class Sector(object):
@@ -469,7 +445,7 @@ class Sector(object):
         self.service_efficiency_ids = util.sql_read_table('DemandServiceEfficiency', 'subsector_id', return_iterable=True)
         feeder_allocation_class = dispatch_classes.DispatchFeederAllocation(1)
         # FIXME: This next line will fail if we don't have a feeder allocation for each demand_sector
-        self.feeder_allocation = util.df_slice(feeder_allocation_class.values, id, 'demand_sector')
+        self.feeder_allocation = util.df_slice(feeder_allocation_class.values_demand_geo, id, 'demand_sector')
         self.electricity_reconciliation = None
         self.workingdir = cfg.workingdir
         self.cfgfile_name = cfg.cfgfile_name
@@ -609,7 +585,7 @@ class Sector(object):
 
     def aggregate_subsector_energy_for_supply_side(self):
         """Aggregates for the supply side, works with function in demand"""
-        levels_to_keep = [cfg.primary_geography, 'final_energy', 'year']
+        levels_to_keep = [cfg.demand_primary_geography, 'final_energy', 'year']
         return util.DfOper.add([pd.DataFrame(subsector.energy_forecast.value.groupby(level=levels_to_keep).sum()).sort_index() for subsector in self.subsectors.values() if hasattr(subsector, 'energy_forecast')])
 
     def group_output(self, output_type, levels_to_keep=None, include_unit=False, specific_years=None):
@@ -648,7 +624,7 @@ class Sector(object):
         """
         subsectors_with_flex = [sub.id for sub in self.subsectors.values() if (sub.has_electricity_consumption(year) and sub.has_flexible_load(year))]
         if len(subsectors_with_flex):
-            return self.aggregate_electricity_shape(year, ids=subsectors_with_flex).reorder_levels(['timeshift_type', cfg.primary_geography, 'dispatch_feeder', 'weather_datetime'])
+            return self.aggregate_electricity_shape(year, ids=subsectors_with_flex).reorder_levels(['timeshift_type', cfg.demand_primary_geography, 'dispatch_feeder', 'weather_datetime'])
         else:
             return None
 
@@ -724,7 +700,7 @@ class Subsector(DataMapFunctions):
         """ Returns with primary geography level
         """
         if self.has_electricity_consumption(year):
-            group_level = [cfg.primary_geography, 'demand_technology'] if (keep_technology and hasattr(self, 'technologies')) else cfg.primary_geography
+            group_level = [cfg.demand_primary_geography, 'demand_technology'] if (keep_technology and hasattr(self, 'technologies')) else cfg.demand_primary_geography
             return self.energy_forecast.xs([cfg.electricity_energy_type_id, year], level=['final_energy', 'year']).groupby(level=group_level).sum()
         else:
             return None
@@ -841,7 +817,7 @@ class Subsector(DataMapFunctions):
 
         if for_direct_use:
             # doing this will make the energy for the subsector match, but it won't exactly match the system shape used in the dispatch
-            correction_factors = util.remove_df_levels(energy_slice, 'demand_technology') / return_shape.xs(2, level='timeshift_type').groupby(level=cfg.primary_geography).sum()
+            correction_factors = util.remove_df_levels(energy_slice, 'demand_technology') / return_shape.xs(2, level='timeshift_type').groupby(level=cfg.demand_primary_geography).sum()
             return_shape = util.DfOper.mult((return_shape, correction_factors))
         return return_shape
 
@@ -1025,7 +1001,7 @@ class Subsector(DataMapFunctions):
         if hasattr(self.service_demand, 'modifier') and cfg.cfgfile.get('case', 'use_service_demand_modifiers').lower()=='true':
             df = util.DfOper.mult([util.remove_df_elements(self.service_demand.modifier, 9999, 'final_energy'),self.stock.values_efficiency_normal]).groupby(level=self.service_demand.values.index.names).transform(lambda x: x/x.sum())
             df = util.DfOper.mult([df,self.service_demand.values])
-            original_other_indexers = [x for x in self.service_demand.values.index.names if x not in [cfg.primary_geography,'year']]
+            original_other_indexers = [x for x in self.service_demand.values.index.names if x not in [cfg.demand_primary_geography,'year']]
             for i,v in enumerate(original_other_indexers):
                 if i == 0:                
                     util.replace_index_name(df,"other_index_1",v)
@@ -1033,7 +1009,7 @@ class Subsector(DataMapFunctions):
                     util.replace_index_name(df,"other_index_2",v)
         elif hasattr(self, 'stock'):
             df = util.DfOper.mult([self.stock.values_efficiency_normal,self.service_demand.values])
-            original_other_indexers = [x for x in self.service_demand.values.index.names if x not in [cfg.primary_geography,'year']]
+            original_other_indexers = [x for x in self.service_demand.values.index.names if x not in [cfg.demand_primary_geography,'year']]
             for i,v in enumerate(original_other_indexers):
                 if i == 0:                
                     util.replace_index_name(df,"other_index_1",v)
@@ -1041,7 +1017,7 @@ class Subsector(DataMapFunctions):
                     util.replace_index_name(df,"other_index_2",v)
         else:
             df = copy.deepcopy(self.service_demand.values)
-            original_other_indexers = [x for x in self.service_demand.values.index.names if x not in [cfg.primary_geography,'year']]
+            original_other_indexers = [x for x in self.service_demand.values.index.names if x not in [cfg.demand_primary_geography,'year']]
             for i,v in enumerate(original_other_indexers):
                 if i == 0:                
                     util.replace_index_name(df,"other_index_1",v)
@@ -1102,7 +1078,7 @@ class Subsector(DataMapFunctions):
         levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
         levels_to_eliminate = [l for l in self.stock.sales.index.names if l not in levels_to_keep]
         df = self.stock.sales
-        other_indexers = [x for x in self.stock.rollover_group_names if x not in [cfg.primary_geography]]
+        other_indexers = [x for x in self.stock.rollover_group_names if x not in [cfg.demand_primary_geography]]
         for i,v in enumerate(other_indexers):
             if i == 0:                
                 util.replace_index_name(df,"other_index_1",v)
@@ -1118,7 +1094,7 @@ class Subsector(DataMapFunctions):
             return None
         levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
         df = copy.deepcopy(self.stock.values)
-        other_indexers = [x for x in self.stock.rollover_group_names if x not in [cfg.primary_geography]]
+        other_indexers = [x for x in self.stock.rollover_group_names if x not in [cfg.demand_primary_geography]]
         for i,v in enumerate(other_indexers):
             if i == 0:                
                 util.replace_index_name(df,"other_index_1",v)
@@ -1447,7 +1423,8 @@ class Subsector(DataMapFunctions):
             if measure.input_type == 'intensity':
                 measure.savings = DfOper.mult([measure.values, self.energy_forecast])
             else:
-                measure.remap(map_from='values', map_to='savings', drivers=self.energy_forecast, driver_geography=cfg.primary_geography)
+                measure.remap(map_from='values', map_to='savings', converted_geography=cfg.demand_primary_geography,
+                              drivers=self.energy_forecast, driver_geography=cfg.demand_primary_geography)
 
     def energy_efficiency_savings_calc(self):
         """
@@ -1493,7 +1470,8 @@ class Subsector(DataMapFunctions):
             if measure.input_type == 'intensity':
                 measure.savings = DfOper.mult([measure.values,self.service_demand.values])
             else:
-                measure.remap(map_from='values', map_to='savings', drivers=self.service_demand.values, driver_geography=cfg.primary_geography)
+                measure.remap(map_from='values', map_to='savings', converted_geography=cfg.demand_primary_geography,
+                              drivers=self.service_demand.values, driver_geography=cfg.demand_primary_geography)
 
     def service_demand_savings_calc(self):
         """
@@ -1559,7 +1537,8 @@ class Subsector(DataMapFunctions):
                 measure.impact.savings = DfOper.mult([measure.impact.values,
                                                       self.energy_forecast.loc[indexer, :]])
             else:
-                measure.impact.remap(map_from='values', map_to='savings', drivers=self.energy_forecast.loc[indexer, :],driver_geography=cfg.primary_geography)
+                measure.impact.remap(map_from='values', map_to='savings', converted_geography=cfg.demand_primary_geography,
+                                     drivers=self.energy_forecast.loc[indexer, :], driver_geography=cfg.demand_primary_geography)
             measure.impact.additions = DfOper.mult([measure.impact.savings, measure.energy_intensity.values])
             util.replace_index_label(measure.impact.additions,
                                      {measure.final_energy_from_id: measure.final_energy_to_id},
@@ -1770,7 +1749,7 @@ class Subsector(DataMapFunctions):
                     # energy demand inputs
                     self.project_stock(stock_dependent=self.energy_demand.is_stock_dependent)
                     self.stock_subset_prep()
-                    self.energy_demand.project(map_from='raw_values', fill_timeseries=False)
+                    self.energy_demand.project(map_from='raw_values', converted_geography=cfg.demand_primary_geography, fill_timeseries=False)
                     # divide by the efficiency of the stock to return service demand values
                     self.efficiency_removal()
                 elif self.sub_type == 'stock and service':
@@ -1783,7 +1762,7 @@ class Subsector(DataMapFunctions):
                     self.min_year = self.min_cal_year(self.service_demand)
                     self.max_year = self.max_cal_year(self.service_demand)
                     # project the service demand
-                    self.service_demand.project(map_from='raw_values', fill_timeseries=False)
+                    self.service_demand.project(map_from='raw_values', converted_geography=cfg.demand_primary_geography, fill_timeseries=False)
                     # service demand is projected, so change map from to values
                     self.service_demand.map_from = 'values'
                     # change the service demand to a per stock_time_unit service demand
@@ -1792,7 +1771,7 @@ class Subsector(DataMapFunctions):
                                                           unit_to_den=self.stock.time_unit)
                     # divide by capacity factor stock inputs to get a service demand stock
                     # ex. kBtu/hour/capacity factor equals kBtu/hour stock
-                    self.stock.remap(map_from='raw_values', map_to='int_values', fill_timeseries=False)
+                    self.stock.remap(map_from='raw_values', map_to='int_values', converted_geography=cfg.demand_primary_geography, fill_timeseries=False)
                     _, x = util.difference_in_df_names(time_step_service, self.stock.int_values)
                     if x:
                         raise ValueError('service demand must have the same index levels as stock when stock is specified in capacity factor terms')
@@ -1809,14 +1788,14 @@ class Subsector(DataMapFunctions):
                     # determine the year range of energy demand inputs
                     self.min_year = self.min_cal_year(self.energy_demand)
                     self.max_year = self.max_cal_year(self.energy_demand)
-                    self.energy_demand.project(map_from='raw_values', fill_timeseries=False)
+                    self.energy_demand.project(map_from='raw_values', converted_geography=cfg.demand_primary_geography, fill_timeseries=False)
                     self.energy_demand.map_from = 'values'
                     # change the energy demand to a per stock_time_unit energy demand
                     # ex. kBtu/year to kBtu/hour average service demand
                     time_step_energy = util.unit_convert(self.energy_demand.values, unit_from_den='year',unit_to_den=self.stock.time_unit)
                     # divide by capacity factor stock inputs to get a service demand stock
                     # ex. kBtu/hour/capacity factor equals kBtu/hour stock
-                    self.stock.remap(map_from='raw_values', map_to='int_values')
+                    self.stock.remap(map_from='raw_values', converted_geography=cfg.demand_primary_geography, map_to='int_values')
                     _, x = util.difference_in_df_names(time_step_energy, self.stock.int_values)
                     if x:
                         raise ValueError(
@@ -1840,7 +1819,7 @@ class Subsector(DataMapFunctions):
                     if x:
                         raise ValueError('service demand must have the same index levels as stock when stock is specified in capacity factor terms')
                     else:
-                        self.stock.remap(map_from='raw_values', map_to='int_values')
+                        self.stock.remap(map_from='raw_values', converted_geography=cfg.demand_primary_geography, map_to='int_values')
                         self.stock.int_values = util.DfOper.divi([time_step_service, self.stock.int_values],expandable=(False,True),collapsible=(True,False))
                     # stock is by definition service demand dependent
                     self.stock.is_service_demand_dependent = 1
@@ -1850,7 +1829,7 @@ class Subsector(DataMapFunctions):
                 if self.sub_type == 'stock and service':
                     # convert service demand units to stock units
                     self.service_demand.int_values = util.unit_convert(self.service_demand.raw_values, unit_from_num=self.service_demand.unit, unit_to_num=self.stock.unit)
-                    self.service_demand.remap(map_from='int_values',map_to='int_values',fill_timeseries=False)
+                    self.service_demand.remap(map_from='int_values', map_to='int_values', converted_geography=cfg.demand_primary_geography, fill_timeseries=False)
                     self.service_demand.unit = self.stock.unit
                     self.service_demand.current_data_type = self.service_demand.input_type
                     self.service_demand.projected = False
@@ -1864,7 +1843,7 @@ class Subsector(DataMapFunctions):
                     # determine the year range of energy demand inputs   
                     self.min_year = self.min_cal_year(self.energy_demand)
                     self.max_year = self.max_cal_year(self.energy_demand)
-                    self.energy_demand.project(map_from='raw_values', fill_timeseries=False)
+                    self.energy_demand.project(map_from='raw_values', converted_geography=cfg.demand_primary_geography, fill_timeseries=False)
                     self.energy_demand.map_from = 'values'
                     self.project_stock(stock_dependent = self.energy_demand.is_stock_dependent)
                     self.stock_subset_prep()
@@ -2049,10 +2028,11 @@ class Subsector(DataMapFunctions):
         # a service demand modifier class)
         for tech in self.tech_ids:
             if self.technologies[tech].service_demand_modifier.raw_values is not None:
-                tech_modifier = getattr(getattr(self.technologies[tech], 'service_demand_modifier'), 'values')
-                tech_modifier = util.expand_multi(tech_modifier, sd_modifier.index.levels, sd_modifier.index.names,
-                                                  drop_index='demand_technology').fillna(method='bfill')
                 indexer = util.level_specific_indexer(sd_modifier, 'demand_technology', tech)
+                tech_modifier = getattr(getattr(self.technologies[tech], 'service_demand_modifier'), 'values')
+                levels = sd_modifier.loc[indexer,:].reset_index().set_index(sd_modifier.index.names).index.levels
+                tech_modifier = util.expand_multi(tech_modifier, levels, sd_modifier.index.names,
+                                              drop_index='demand_technology').fillna(method='bfill')
                 sd_modifier.loc[indexer, :] = tech_modifier.values
         # multiply stock by service demand modifiers
         stock_values = DfOper.mult([sd_modifier, self.stock.values_efficiency]).groupby(level=self.stock.rollover_group_names).sum()
@@ -2226,24 +2206,26 @@ class Subsector(DataMapFunctions):
 
     def project_total_stock(self, map_from, service_dependent=False, stock_dependent = False):
         if map_from == 'values':
-            current_geography = cfg.primary_geography
+            current_geography = cfg.demand_primary_geography
             current_data_type = 'total'
             self.stock.values = self.stock.values.groupby(level=util.ix_excl(self.stock.values, 'vintage')).sum()
             self.stock.values = self.stack_and_reduce_years(self.stock.values, min(self.years), max(self.years))
             projected  = True
         elif map_from == 'int_values':
-            current_geography = cfg.primary_geography
+            current_geography = cfg.demand_primary_geography
             current_data_type = self.stock.current_data_type if hasattr(self.stock, 'current_data_type') else 'total'
             projected = False
         else:
             current_geography = self.stock.geography
             current_data_type = self.stock.input_type
             projected = False
-        self.stock.project(map_from=map_from, map_to='total', current_geography=current_geography, additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent), current_data_type=current_data_type, projected=projected)
+        self.stock.project(map_from=map_from, map_to='total', current_geography=current_geography, converted_geography=cfg.demand_primary_geography,
+                           additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent),
+                           current_data_type=current_data_type, projected=projected)
         self.stock.total = util.remove_df_levels(self.stock.total, ['demand_technology', 'final_energy']+cfg.removed_demand_levels )
         self.stock.total = self.stock.total.swaplevel('year',-1)
         if stock_dependent:
-            self.stock.project(map_from=map_from, map_to='total_unfiltered', current_geography=current_geography,
+            self.stock.project(map_from=map_from, map_to='total_unfiltered', current_geography=current_geography, converted_geography=cfg.demand_primary_geography,
                            additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent),
                            current_data_type=current_data_type, projected=projected,filter_geo=False)
             self.stock.total_unfiltered = util.remove_df_levels(self.stock.total_unfiltered, ['demand_technology', 'final_energy'])
@@ -2251,7 +2233,7 @@ class Subsector(DataMapFunctions):
 
     def project_demand_technology_stock(self, map_from, service_dependent,reference_run=False):
         if map_from == 'values' or map_from == 'int_values':
-            current_geography = cfg.primary_geography
+            current_geography = cfg.demand_primary_geography
             current_data_type = 'total'
             projected = True
         else:
@@ -2260,9 +2242,9 @@ class Subsector(DataMapFunctions):
             projected = False
             
         if 'demand_technology' in getattr(self.stock, map_from).index.names:
-            self.stock.project(map_from=map_from, map_to='technology', current_geography=current_geography,
-                               additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent), interpolation_method=None,extrapolation_method=None,
-                               fill_timeseries=True,fill_value=np.nan,current_data_type=current_data_type,projected=projected)
+            self.stock.project(map_from=map_from, map_to='technology', current_geography=current_geography, converted_geography=cfg.demand_primary_geography,
+                               additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent),
+                               interpolation_method=None,extrapolation_method=None, fill_timeseries=True,fill_value=np.nan,current_data_type=current_data_type,projected=projected)
             self.stock.technology = self.stock.technology.swaplevel('year',-1)
             self.stock.technology = util.reindex_df_level_with_new_elements(self.stock.technology,'demand_technology',self.tech_ids,fill_value=np.nan)
             self.stock.technology.sort(inplace=True)
@@ -2307,7 +2289,8 @@ class Subsector(DataMapFunctions):
             if len(demand_technology.specified_stocks) and reference_run==False:
                for specified_stock in demand_technology.specified_stocks.values():
                    try:
-                       specified_stock.remap(map_from='values', current_geography = cfg.primary_geography, drivers=self.stock.total, driver_geography=cfg.primary_geography, fill_value=np.nan, interpolation_method=None, extrapolation_method=None)
+                       specified_stock.remap(map_from='values', current_geography=cfg.demand_primary_geography, drivers=self.stock.total,
+                                             driver_geography=cfg.demand_primary_geography, fill_value=np.nan, interpolation_method=None, extrapolation_method=None)
                    except:
                        pdb.set_trace()
                    self.stock.technology.sort(inplace=True)
@@ -2509,8 +2492,8 @@ class Subsector(DataMapFunctions):
         else:
             measure_df['measure'] = id
             measure_df.set_index('measure', append=True, inplace=True)
-            level_order = [cfg.primary_geography] + util.ix_excl(measure_df, [
-                cfg.primary_geography, 'vintage']) + ['vintage']
+            level_order = [cfg.demand_primary_geography] + util.ix_excl(measure_df, [
+                cfg.demand_primary_geography, 'vintage']) + ['vintage']
             level_order = [x for x in level_order if x in measure_df.index.names]
             measure_df = measure_df.reorder_levels(level_order)
             return measure_df
@@ -2564,8 +2547,8 @@ class Subsector(DataMapFunctions):
             else:
                 subsector_stock = util.remove_df_levels(self.stock.technology,'year')
             self.stock.remap(map_from='linked_demand_technology', map_to='linked_demand_technology', drivers=subsector_stock.replace([0,np.nan],[1e-10,1e-10]),
-                             current_geography=cfg.primary_geography, current_data_type='total',
-                             time_index=self.years, driver_geography=cfg.primary_geography, interpolation_method=None, extrapolation_method=None)
+                             current_geography=cfg.demand_primary_geography, converted_geography=cfg.demand_primary_geography, current_data_type='total',
+                             time_index=self.years, driver_geography=cfg.demand_primary_geography, interpolation_method=None, extrapolation_method=None)
             self.stock.linked_demand_technology[self.stock.linked_demand_technology==0]=np.nan
             self.stock.has_linked_demand_technology = True
         else:
@@ -2580,14 +2563,14 @@ class Subsector(DataMapFunctions):
                 additional_drivers.append(linked_driver)
         if stock_dependent:
             if len(additional_drivers):
-                additional_drivers.append(self.stock.geo_map(attr='total_unfiltered',current_geography=cfg.primary_geography, converted_geography=cfg.disagg_geography, current_data_type='total', inplace=False))
+                additional_drivers.append(self.stock.geo_map(attr='total_unfiltered',current_geography=cfg.demand_primary_geography, converted_geography=cfg.disagg_geography, current_data_type='total', inplace=False))
             else:
-                additional_drivers = self.stock.geo_map(attr='total_unfiltered',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography, current_data_type='total', inplace=False)
+                additional_drivers = self.stock.geo_map(attr='total_unfiltered',current_geography=cfg.demand_primary_geography,converted_geography=cfg.disagg_geography, current_data_type='total', inplace=False)
         if service_dependent:
             if len(additional_drivers):
-                additional_drivers.append(self.service_demand.geo_map(attr='values_unfiltered',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography, current_data_type='total', inplace=False))
+                additional_drivers.append(self.service_demand.geo_map(attr='values_unfiltered',current_geography=cfg.demand_primary_geography,converted_geography=cfg.disagg_geography, current_data_type='total', inplace=False))
             else:
-                additional_drivers = self.service_demand.geo_map(attr='values_unfiltered',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography, current_data_type='total', inplace=False)
+                additional_drivers = self.service_demand.geo_map(attr='values_unfiltered',current_geography=cfg.demand_primary_geography,converted_geography=cfg.disagg_geography, current_data_type='total', inplace=False)
         if len(additional_drivers) == 0:
             additional_drivers = None
         return additional_drivers
@@ -2600,18 +2583,20 @@ class Subsector(DataMapFunctions):
             current_data_type = self.service_demand.input_type
             projected = False
         elif map_from == 'int_values':
-            current_geography = cfg.primary_geography
+            current_geography = cfg.demand_primary_geography
             current_data_type = self.service_demand.current_data_type if hasattr(self.service_demand, 'current_data_type')  else 'total'
             projected =  False
         else:
-            current_geography = cfg.primary_geography
+            current_geography = cfg.demand_primary_geography
             current_data_type =  'total'
             projected =  True
-        self.service_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
-                                    additional_drivers=self.additional_drivers(stock_or_service='service',stock_dependent=stock_dependent),current_data_type=current_data_type,projected=projected)
+        self.service_demand.project(map_from=map_from, map_to='values', current_geography=current_geography, converted_geography=cfg.demand_primary_geography,
+                                    additional_drivers=self.additional_drivers(stock_or_service='service', stock_dependent=stock_dependent),
+                                    current_data_type=current_data_type,projected=projected)
         if service_dependent:
-            self.service_demand.project(map_from=map_from, map_to='values_unfiltered', current_geography=current_geography,
-                                    additional_drivers=self.additional_drivers(stock_or_service='service',stock_dependent=stock_dependent),current_data_type=current_data_type,projected=projected,filter_geo=False)
+            self.service_demand.project(map_from=map_from, map_to='values_unfiltered', current_geography=current_geography, converted_geography=cfg.demand_primary_geography,
+                                    additional_drivers=self.additional_drivers(stock_or_service='service',stock_dependent=stock_dependent),
+                                        current_data_type=current_data_type,projected=projected,filter_geo=False)
         self.service_demand.values = util.remove_df_levels(self.service_demand.values,cfg.removed_demand_levels)    
         self.service_demand_forecast = self.service_demand.values
         # calculates the service demand change from service demand measures
@@ -2625,14 +2610,16 @@ class Subsector(DataMapFunctions):
             current_data_type = self.energy_demand.input_type
             projected = False
         elif map_from == 'int_values':
-            current_geography = cfg.primary_geography
+            current_geography = cfg.demand_primary_geography
             current_data_type = self.energy_demand.current_data_type if hasattr(self.energy_demand, 'current_data_type')  else 'total'
             projected =  False
         else:
-            current_geography = cfg.primary_geography
+            current_geography = cfg.demand_primary_geography
             current_data_type =  'total'
             projected =  True
-        self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography, additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent),current_data_type=current_data_type, projected=projected)
+        self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography, converted_geography=cfg.demand_primary_geography,
+                                   additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent),
+                                   current_data_type=current_data_type, projected=projected)
         self.energy_demand.values = util.remove_df_levels(self.energy_demand.values,cfg.removed_demand_levels)                                                                    
 
     def calculate_sales_shares(self,reference_run=False):
@@ -3164,8 +3151,8 @@ class Subsector(DataMapFunctions):
             else:
                 link.geography_map_key=None
             link.input_type = 'total'
-            link.geography = cfg.primary_geography
-            df = link.geo_map(attr='values',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography, current_data_type='intensity', inplace=False)
+            link.geography = cfg.demand_primary_geography
+            df = link.geo_map(attr='values',current_geography=cfg.demand_primary_geography,converted_geography=cfg.disagg_geography, current_data_type='intensity', inplace=False)
             df = pd.DataFrame(df.stack(), columns=['value'])
             util.replace_index_name(df, 'year')
             self.output_service_drivers[link.linked_subsector_id] = df
@@ -3176,7 +3163,7 @@ class Subsector(DataMapFunctions):
         """
         self.output_demand_technology_stocks = {}
         self.stock.output_stock = self.stock.values.groupby(level=util.ix_excl(self.stock.values, 'vintage')).sum()
-#        self.stock.geo_map(attr='output_stock', current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography)
+#        self.stock.geo_map(attr='output_stock', current_geography=cfg.demand_primary_geography,converted_geography=cfg.disagg_geography)
         stock = self.stock.output_stock.stack()
         util.replace_index_name(stock, 'year')
         stock = pd.DataFrame(stock, columns=['value'])

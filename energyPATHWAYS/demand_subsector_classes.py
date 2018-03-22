@@ -44,7 +44,7 @@ class SubDemand(object, DataMapFunctions):
     def convert_and_remap(self, unit_type, stock_unit):
         """convert service demand to stock unit for stocks defined as service demand"""
         if unit_type == 'service demand':
-            self.remap(map_to='int_values',fill_timeseries=False)
+            self.remap(map_to='int_values', converted_geography=cfg.demand_primary_geography, fill_timeseries=False)
             self.int_values = util.unit_convert(self.int_values, unit_from_num=self.unit, unit_to_num=stock_unit)
             self.unit = stock_unit
             self.current_data_type = self.input_type
@@ -79,7 +79,7 @@ class ServiceEfficiency(Abstract):
         self.years = years
         if self.data and self.raw_values is not None:
             self.convert()
-            self.remap(map_from='values', map_to='values', time_index_name='year')
+            self.remap(map_from='values', converted_geography=cfg.demand_primary_geography, map_to='values', time_index_name='year')
         else:
             raise ValueError("service efficiency data is not complete for subsector %s" % self.id)
 

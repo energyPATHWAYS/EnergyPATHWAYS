@@ -34,9 +34,29 @@ import pdb
 from operator import mul
 
 from psycopg2.extensions import register_adapter, AsIs
+
 def addapt_numpy_float64(numpy_float64):
   return AsIs(numpy_float64)
 register_adapter(np.int64, addapt_numpy_float64)
+
+def loop_geo_multiply(df1, df2, geo_label, geographies, levels_to_keep=None):
+    geography_df_list = []
+    for geography in geographies:
+        if geography in df2.index.get_level_values(geo_label):
+            supply_indexer = level_specific_indexer(df2, [geo_label], [geography])
+            demand_indexer = level_specific_indexer(df1, [geo_label], [geography])
+            geography_df = DfOper.mult([df1.loc[demand_indexer, :], df2.loc[supply_indexer, :]])
+            geography_df = geography_df[geography_df != 0] # make it smaller
+            geography_df_list.append(geography_df)
+    df = pd.concat(geography_df_list)
+    if levels_to_keep:
+        df = df.groupby(level=levels_to_keep).sum()
+    return df
+
+def add_to_df_index(df, names, keys):
+    for key, name in zip(keys, names):
+        df = pd.concat([df], keys=[key], names=[name])
+    return df
 
 def percent_larger(a, b):
     return (a - b) / a

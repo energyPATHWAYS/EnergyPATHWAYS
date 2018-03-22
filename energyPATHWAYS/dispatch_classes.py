@@ -37,8 +37,10 @@ class DispatchFeederAllocation(Abstract):
         self.sql_id_table = 'DispatchFeedersAllocation'
         self.sql_data_table = 'DispatchFeedersAllocationData'
         Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
-        self.remap()
-        self.values.sort_index(inplace=True)
+        self.remap(map_from='raw_values', map_to='values_demand_geo', converted_geography=cfg.demand_primary_geography)
+        self.remap(map_from='raw_values', map_to='values_supply_geo', converted_geography=cfg.supply_primary_geography)
+        self.values_demand_geo.sort_index(inplace=True)
+        self.values_supply_geo.sort_index(inplace=True)
 
 class DispatchNodeConfig(DataMapFunctions):
     def __init__(self, id, **kwargs):
