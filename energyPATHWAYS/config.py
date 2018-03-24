@@ -274,6 +274,11 @@ def init_date_lookup():
     filter_dispatch_less_than_x = cfgfile.get('output_detail','filter_dispatch_less_than_x')
     filter_dispatch_less_than_x = float(filter_dispatch_less_than_x) if filter_dispatch_less_than_x != "" else None
 
+def init_removed_levels():
+    global removed_demand_levels
+    removed_demand_levels  = [str(g) for g in cfgfile.get('removed_levels', 'levels').split(',') if len(g)]
+
+
 def init_output_levels():
     global output_demand_levels, output_supply_levels, output_combined_levels
     output_demand_levels = ['year', 'vintage', 'demand_technology', primary_geography, 'sector', 'subsector', 'final_energy','other_index_1','other_index_2','cost_type','new/replacement']
@@ -337,6 +342,7 @@ def init_output_parameters():
     evolved_run = cfgfile.get('evolved','evolved_run').lower()
     evolved_years = [int(x) for x in util.ensure_iterable_and_not_string(cfgfile.get('evolved','evolved_years'))]
     evolved_blend_nodes =  [int(g) for g in cfgfile.get('evolved','evolved_blend_nodes').split(',') if len(g)]
+    init_removed_levels()
     init_output_levels()
     init_outputs_id_map()
 

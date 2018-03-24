@@ -73,7 +73,8 @@ class SupplyTechnology(StockItem):
         for specified_stock in measure_ids:
             self.specified_stocks[specified_stock] = SupplySpecifiedStock(id=specified_stock,
                                                                     sql_id_table='SupplyStockMeasures',
-                                                                    sql_data_table='SupplyStockMeasuresData')
+                                                                    sql_data_table='SupplyStockMeasuresData',
+                                                                    scenario=scenario)
 
     def add_costs(self):
         """

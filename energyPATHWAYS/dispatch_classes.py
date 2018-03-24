@@ -109,7 +109,7 @@ class Dispatch(object):
         for col, att in util.object_att_from_table('DispatchConfig', 1):
             setattr(self, col, att)
         self.node_config_dict = dict()
-        for supply_node in util.sql_read_table('DispatchNodeConfig','supply_node_id'):
+        for supply_node in util.sql_read_table('DispatchNodeConfig','supply_node_id',return_iterable=True):
             self.node_config_dict[supply_node] = DispatchNodeConfig(supply_node)
         self.set_dispatch_orders()
         self.dispatch_window_dict = dict(util.sql_read_table('DispatchWindows'))  
@@ -282,7 +282,7 @@ class Dispatch(object):
         df = df.set_index(['period'], append=True)
         self.period_net_load = df.groupby(level=[self.dispatch_geography, 'period']).sum().squeeze().to_dict()
         self.average_net_load = df.groupby(level=[self.dispatch_geography]).sum()/float(len(self.periods))
-        self.average_net_load = self.average_net_load.squeeze().to_dict()
+        self.average_net_load = self.average_net_load[self.average_net_load.columns[0]].to_dict()
     
     def set_technologies(self,storage_capacity_dict, storage_efficiency_dict, thermal_dispatch_df):
       """prepares storage technologies for dispatch optimization
@@ -351,6 +351,7 @@ class Dispatch(object):
                      self.charging_efficiency[tech_dispatch_id] = x
                      self.discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.charging_efficiency)[tech_dispatch_id] 
                      self.feeder[tech_dispatch_id] = feeder
+      for dispatch_geography in cfg.dispatch_geographies:
           self.set_gen_technologies(dispatch_geography,thermal_dispatch_df)
       self.convert_all_to_period()
       self.set_transmission_energy()
@@ -483,7 +484,7 @@ class Dispatch(object):
         transmission_columns = ['geography_from', 'geography_to', 'hour', self.year]
         df = pd.DataFrame(lists, columns=transmission_columns)
         df = df.set_index(['geography_from', 'geography_to', 'hour']).sort_index()
-        if df.squeeze().isnull().any():
+        if df.sum().isnull().any():
             self.pickle_for_debugging()
             raise ValueError('NaNs in flexible load outputs in dispatch period {}'.format(period))
         return df
@@ -515,11 +516,14 @@ class Dispatch(object):
         else:
             ld_df = None
         transmission_flow_df = pd.concat([self.parse_transmission_flows(result['Transmission_Flows'], period) for period, result in enumerate(results)])
+        transmission_flow_df = self._replace_hour_with_weather_datetime(transmission_flow_df)
+        if not len(transmission_flow_df):
+            transmission_flow_df = None
         storage_df = pd.concat([charge, discharge], keys=['charge','discharge'], names=['charge_discharge'])
         storage_df = self._replace_hour_with_weather_datetime(storage_df)
         storage_df = storage_df.reorder_levels([self.dispatch_geography, 'dispatch_feeder', 'charge_discharge', 'weather_datetime']).sort_index()
         flex_load_df = self._replace_hour_with_weather_datetime(flex_load_df)
-        transmission_flow_df = self._replace_hour_with_weather_datetime(transmission_flow_df)
+        
         return storage_df, flex_load_df, ld_df, transmission_flow_df, generator_df
 
 

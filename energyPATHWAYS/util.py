@@ -419,14 +419,15 @@ def unit_conversion_factor(unit_from, unit_to):
 
 def exchange_rate(currency_from, currency_from_year, currency_to=None):
     """calculate exchange rate between two specified currencies"""
-    currency_to_name = cfg.cfgfile.get('case', 'currency_name') if currency_to is None else currency_to
-    currency_to = sql_read_table('Currencies',column_names='id',name=currency_to_name)
-    currency_from_values = sql_read_table('CurrenciesConversion', 'value', currency_id=currency_from,
-                                          currency_year_id=currency_from_year)
-    currency_from_value = np.asarray(currency_from_values).mean()
-    currency_to_values = sql_read_table('CurrenciesConversion', 'value', currency_id=currency_to,
-                                        currency_year_id=currency_from_year)
-    currency_to_value = np.asarray(currency_to_values).mean()
+    try:
+        currency_to_name = cfg.cfgfile.get('case', 'currency_name') if currency_to is None else sql_read_table('Currencies',column_names='name',id=currency_to)
+        currency_to = sql_read_table('Currencies',column_names='id',name=currency_to_name)
+        currency_from_values = sql_read_table('CurrenciesConversion', 'value', currency_id=currency_from,currency_year_id=currency_from_year)
+        currency_from_value = np.asarray(currency_from_values).mean()
+        currency_to_values = sql_read_table('CurrenciesConversion', 'value', currency_id=currency_to,currency_year_id=currency_from_year)
+        currency_to_value = np.asarray(currency_to_values).mean()
+    except:
+        pdb.set_trace()
     return currency_to_value / currency_from_value
 
 
@@ -444,9 +445,10 @@ def inflation_rate(currency, currency_from_year, currency_to_year=None):
 
 def currency_convert(data, currency_from, currency_from_year):
     """converts cost data in original currency specifications (currency,year) to model currency and year"""
-    currency_to_name, currency_to_year = cfg.cfgfile.get('case', 'currency_name'), cfg.cfgfile.get('case', 'currency_year_id')
+    currency_to_name, currency_to_year = cfg.cfgfile.get('case', 'currency_name'), int(cfg.cfgfile.get('case', 'currency_year_id'))
     currency_to = sql_read_table('Currencies',column_names='id',name=currency_to_name)
     # inflate in original currency and then exchange in model currency year
+    
     try:
         a = inflation_rate(currency_from, currency_from_year)
         b = exchange_rate(currency_from, currency_to_year)
@@ -464,13 +466,12 @@ def currency_convert(data, currency_from, currency_from_year):
                 # in original currency year. Inflate to model currency year. Exchange to model currency in model currency year.
                 a = exchange_rate(currency_from, currency_from_year, currency_to=41)
                 b = inflation_rate(currency=41, currency_from_year=currency_from_year)
-                c = exchange_rate(currency_from=41, currency_from_year=currency_to_year
-                                  , currency_to=currency_to)
+                c = exchange_rate(currency_from=41, currency_from_year=currency_to_year, currency_to=currency_to)
                 return data * a * b * c
             except:
                 raise ValueError(
                     "currency conversion failed. Make sure that the data in InflationConvert and CurrencyConvert can support this conversion")
-
+        
 
 def unit_conversion(unit_from_num=None, unit_from_den=None, unit_to_num=None, unit_to_den=None):
     # try to see if we need to flip the units to make them convertable

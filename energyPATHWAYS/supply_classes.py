@@ -159,8 +159,8 @@ class SupplySalesShare(Abstract, DataMapFunctions):
         return ss_array
 
 class SupplySpecifiedStock(SpecifiedStock):
-    def __init__(self, id, sql_id_table, sql_data_table):
-        SpecifiedStock.__init__(self, id, sql_id_table, sql_data_table)
+    def __init__(self, id, sql_id_table, sql_data_table, scenario):
+        SpecifiedStock.__init__(self, id, sql_id_table, sql_data_table, scenario)
         
     def convert(self):
         """
