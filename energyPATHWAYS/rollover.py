@@ -348,35 +348,6 @@ class Rollover(object):
             stock_growth_allocation = self.pick_allocation_option(_solvable, self.i, growth=True) 
         return stock_growth_allocation
 
-#    def all_specified_stock_changes(self):
-#        i = self.i
-#        # stock changes are greater than all defined sales
-#        if (self.stock_changes[i] + self.rolloff_summed) > self.sum_defined_sales:
-#            if self.stock_changes_as_min:
-#                # stock changes as min happens on the supply side, we take the larger of specified stocks or stock growth
-#                if self.sum_defined_sales:
-#                    # we have defined sales, so we can just scale them up
-#                    self.stock_change_by_tech *= (self.stock_changes[i] + self.rolloff_summed) / self.sum_defined_sales
-#                else:
-#                    # we need to do do something different because we have no defined_sales
-#                    sales_to_allocate = (self.stock_changes[i] + self.rolloff_summed)
-#                    # this takes into account that some of the stocks are already specified
-#                    stock_replacement_allocation = self.get_stock_replacement_allocation(self.specified)
-#                    stock_growth_allocation = self.get_stock_growth_allocation(stock_replacement_allocation, self.specified)
-#                    self.stock_change_by_tech = np.dot(self.sales_share[i], sales_to_allocate * stock_growth_allocation)
-#            
-#            else:
-#                # we have a mismatch in inputs
-#                # on the demand side, this gives an error in the reference case for medium duty trucks, and I can't tell if this is actually an error
-#                # raise ValueError('stock_changes_as_min is False, stock changes are larger than sum_defined_sales, and no technologies are solvable')
-#                pass
-#        # sum of defined sales are greater than stock changes
-#        elif round(self.sum_defined_sales, 6) > round((self.stock_changes[i] + self.rolloff_summed),6):
-#            if not self.stock_changes_as_min:
-#                # in the reference case on the demand side this also give errors, but it is not clear that it should be an error
-#                #raise ValueError('stock_changes_as_min is False and the sum of defined sales is greater than stock growth')
-#                pass
-
     def set_final_stock_changes(self):
         i = self.i
         # calculate final sales
@@ -386,12 +357,6 @@ class Rollover(object):
         # note, that specified stocks might not work if we have service demand modifiers
         if len(self.specified):
             self.stock_change_by_tech[self.specified] = self.defined_sales[self.specified]
-        
-#        # none of the technologies are solvable, so check for errors then return
-#        if not len(self.solvable):
-#            self.all_specified_stock_changes()
-#            # because we don't have any solvable sales, we are done and can just return
-#            return
         
         # if we have technologies that have existing stocks, but are not specified, we use them for allocation
         # otherwise, we use all_techs, which essentially just defaults to scaling up the specified stocks

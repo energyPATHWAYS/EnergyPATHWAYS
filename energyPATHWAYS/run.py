@@ -213,9 +213,9 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\OCT'
+    workingdir = r'C:\github\EP_runs\NREL4'
     config = 'config.INI'
-    scenario = ['OCT']
+    scenario = ['high_moder_aeo']
 
 
     run(workingdir, config, scenario,

@@ -251,6 +251,9 @@ class Shape(dmf.DataMapFunctions):
         self.normalize()
         self.add_timeshift_type()
         # raw values can be very large, so we delete it in this one case
+        if self.values.isnull().any().any():
+            logging.warning("       NaN values found in shape: {}".format(self.name))
+            logging.warning(util.remove_df_levels(self.values[self.values.isnull().values], 'weather_datetime'))
         del self.raw_values
 
     def add_timeshift_type(self):
@@ -453,7 +456,7 @@ class Shape(dmf.DataMapFunctions):
 
 # electricity shapes
 force_rerun_shapes = False
-version = 4 #change this when you need to force users to rerun shapes
+version = 5 #change this when you need to force users to rerun shapes
 shapes = Shapes()
 
 def init_shapes(pickle_shapes=True):
