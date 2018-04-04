@@ -249,7 +249,7 @@ class Shape(dmf.DataMapFunctions):
         self.geomap_to_primary_geography()
         self.sum_over_time_zone()
         self.normalize()
-        self.add_timeshift_type()
+        # self.add_timeshift_type()
         # raw values can be very large, so we delete it in this one case
         del self.raw_values
 
@@ -413,47 +413,34 @@ class Shape(dmf.DataMapFunctions):
         return df
 
     @staticmethod
-    def produce_flexible_load(shape_df, percent_flexible=None, hr_delay=None, hr_advance=None):
+    def produce_flexible_load(native_slice, percent_flexible=None, hr_delay=None, hr_advance=None):
         hr_delay = 0 if hr_delay is None else hr_delay
         hr_advance = 0 if hr_advance is None else hr_advance
         
-        native_slice = shape_df.xs(2, level='timeshift_type')
         native_slice_stacked = pd.concat([native_slice]*3, keys=[1,2,3], names=['timeshift_type'])
 
         pflex_stacked = pd.concat([percent_flexible]*3, keys=[1,2,3], names=['timeshift_type'])
 
-        timeshift_levels = sorted(list(util.get_elements_from_level(shape_df, 'timeshift_type')))
-        if timeshift_levels==[1, 2, 3]:
-            # here, we have flexible load profiles already specified by the user
-            names = shape_df.index.names
-            full_load = shape_df.squeeze().unstack('timeshift_type')
-            group_by_names = [n for n in full_load.index.names if n != 'weather_datetime']
-            full_load = full_load.groupby(level=group_by_names).apply(Shape.ensure_feasible_flexible_load)
-            full_load = full_load.stack('timeshift_type').reorder_levels(names).sort_index().to_frame()
-            full_load.columns = ['value']
-        elif timeshift_levels==[2]:
-            non_weather = [n for n in native_slice.index.names if n!='weather_datetime']
+        non_weather = [n for n in native_slice.index.names if n!='weather_datetime']
 
-            # positive hours is a shift forward, negative hours a shift back
-            shift = lambda df, hr: df.shift(hr).ffill().fillna(value=0)
-            delay_load = native_slice.groupby(level=non_weather).apply(shift, hr=hr_delay)
+        # positive hours is a shift forward, negative hours a shift back
+        shift = lambda df, hr: df.shift(hr).ffill().fillna(value=0)
+        delay_load = native_slice.groupby(level=non_weather).apply(shift, hr=hr_delay)
 
-            def advance_load_function(df, hr):
-                df_adv = df.shift(-hr).ffill().fillna(value=0)
-                df_adv.iloc[0] += df.iloc[:hr].sum().sum()
-                return df_adv
-            advance_load = native_slice.groupby(level=non_weather).apply(advance_load_function, hr=hr_advance)
-            
-            full_load = pd.concat([delay_load, native_slice, advance_load], keys=[1,2,3], names=['timeshift_type'])
-        else:
-            raise ValueError("elements in the level timeshift_type are not recognized")
+        def advance_load_function(df, hr):
+            df_adv = df.shift(-hr).ffill().fillna(value=0)
+            df_adv.iloc[0] += df.iloc[:hr].sum().sum()
+            return df_adv
+        advance_load = native_slice.groupby(level=non_weather).apply(advance_load_function, hr=hr_advance)
+
+        full_load = pd.concat([delay_load, native_slice, advance_load], keys=[1,2,3], names=['timeshift_type'])
         
         return util.DfOper.add((util.DfOper.mult((full_load, pflex_stacked), collapsible=False),
                                 util.DfOper.mult((native_slice_stacked, 1-pflex_stacked), collapsible=False)))
 
 # electricity shapes
 force_rerun_shapes = False
-version = 4 #change this when you need to force users to rerun shapes
+version = 5 #change this when you need to force users to rerun shapes
 shapes = Shapes()
 
 def init_shapes(pickle_shapes=True):

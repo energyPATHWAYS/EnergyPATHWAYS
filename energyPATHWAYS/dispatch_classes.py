@@ -187,10 +187,10 @@ class Dispatch(object):
                 else:
                     self.dist_net_load_thresholds[(geography,feeder)] =  util.df_slice(distribution_stock,[geography, feeder],[self.dispatch_geography, 'dispatch_feeder']).values[0][0]
 
-    def set_opt_loads(self, distribution_load, distribution_gen, bulk_load, bulk_gen, dispatched_bulk_load, bulk_net_load, active_thermal_dispatch_df):
-        self.distribution_load_input, self.distribution_gen_input, self.bulk_load_input, self.bulk_gen_input, self.dispatched_bulk_load_input = distribution_load, distribution_gen, bulk_load, bulk_gen, dispatched_bulk_load
+    def set_opt_loads(self, distribution_load, distribution_flex_load, distribution_gen, bulk_load, bulk_gen, dispatched_bulk_load, bulk_net_load, active_thermal_dispatch_df):
+        self.distribution_load_input, self.distribution_flex_load_input, self.distribution_gen_input, self.bulk_load_input, self.bulk_gen_input, self.dispatched_bulk_load_input = distribution_load, distribution_flex_load, distribution_gen, bulk_load, bulk_gen, dispatched_bulk_load
         self.precision_adjust = dict(zip(self.dispatch_geographies,[x[0] for x in distribution_load.groupby(level=self.dispatch_geography).max().values/1E6]))
-        self.set_opt_distribution_net_loads(distribution_load, distribution_gen)
+        self.set_opt_distribution_net_loads(distribution_load, distribution_flex_load, distribution_gen)
         self.set_opt_bulk_net_loads(bulk_load, bulk_gen, dispatched_bulk_load, bulk_net_load, active_thermal_dispatch_df)
 
     def _convert_weather_datetime_to_hour(self, input_df):
@@ -237,26 +237,29 @@ class Dispatch(object):
         else:
             return cum_df
 
-    def set_opt_distribution_net_loads(self, distribution_load, distribution_gen):
+    def set_opt_distribution_net_loads(self, distribution_load, distribution_flex_load, distribution_gen):
         #[period][(geography,timepoint,feeder)]
-        active_timeshift_types = tuple(sorted(set(distribution_load.index.get_level_values('timeshift_type'))))
         distribution_load = self._add_dispatch_feeder_level_zero(distribution_load)
         distribution_load = self._convert_weather_datetime_to_hour(distribution_load)
-        cum_distribution_load = distribution_load.groupby(level=['timeshift_type', self.dispatch_geography, 'dispatch_feeder']).cumsum()
-        self.has_flexible_load = False if active_timeshift_types == (2,) else True
-        cum_distribution_load = self._ensure_feasible_flexible_load(cum_distribution_load)
-        self.set_max_min_flex_loads(distribution_load)
+        self.distribution_load = self._timeseries_to_dict(distribution_load)
+
         distribution_gen = self._add_dispatch_feeder_level_zero(distribution_gen)
         distribution_gen = self._convert_weather_datetime_to_hour(distribution_gen)
         self.distribution_gen = self._timeseries_to_dict(distribution_gen)
-        self.distribution_load = self._timeseries_to_dict(distribution_load.xs(2, level='timeshift_type'))
-        self.cumulative_distribution_load = self._timeseries_to_dict(cum_distribution_load.xs(2, level='timeshift_type'))
-        self.min_cumulative_flex_load = self._timeseries_to_dict(cum_distribution_load.xs(1, level='timeshift_type')) if 1 in active_timeshift_types else self.cumulative_distribution_load
-        self.max_cumulative_flex_load = self._timeseries_to_dict(cum_distribution_load.xs(3, level='timeshift_type')) if 3 in active_timeshift_types else self.cumulative_distribution_load
 
-    def set_max_min_flex_loads(self, distribution_load):
+        self.has_flexible_load = False if distribution_flex_load is None else True
+        distribution_flex_load = self._add_dispatch_feeder_level_zero(distribution_flex_load)
+        distribution_flex_load = self._convert_weather_datetime_to_hour(distribution_flex_load)
+        cum_distribution_load = distribution_flex_load.groupby(level=['timeshift_type', self.dispatch_geography, 'dispatch_feeder']).cumsum()
+        cum_distribution_load = self._ensure_feasible_flexible_load(cum_distribution_load)
+
+        self.cumulative_distribution_load = self._timeseries_to_dict(cum_distribution_load.xs(2, level='timeshift_type'))
+        self.min_cumulative_flex_load = self._timeseries_to_dict(cum_distribution_load.xs(1, level='timeshift_type'))
+        self.max_cumulative_flex_load = self._timeseries_to_dict(cum_distribution_load.xs(3, level='timeshift_type'))
+
+    def set_max_min_flex_loads(self, flex_pmin, flex_pmax):
         self.flex_load_penalty = util.unit_convert(0.1, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        native_slice = distribution_load.xs(2, level='timeshift_type')
+        pdb.set_trace()
         groups = native_slice.groupby(level=['period', self.dispatch_geography, 'dispatch_feeder'])
         self.max_flex_load = self._timeseries_to_dict(groups.max())
         self.min_flex_load = self._timeseries_to_dict(groups.min())
@@ -265,7 +268,7 @@ class Dispatch(object):
         bulk_load = self._convert_weather_datetime_to_hour(bulk_load)
         bulk_gen = self._convert_weather_datetime_to_hour(bulk_gen)
         dispatched_bulk_load = self._convert_weather_datetime_to_hour(dispatched_bulk_load)
-        bulk_net_load = util.remove_df_levels(util.df_slice(bulk_net_load,2,'timeshift_type',drop_level=True),'year')
+        bulk_net_load = util.remove_df_levels(bulk_net_load,'year')
         bulk_net_load = self._convert_ld_weather_datetime_to_hour(bulk_net_load)
         self.bulk_load = self._timeseries_to_dict(bulk_load)
         self.dispatched_bulk_load = self._timeseries_to_dict(dispatched_bulk_load)

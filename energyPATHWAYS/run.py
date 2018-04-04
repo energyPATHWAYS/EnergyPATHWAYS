@@ -213,19 +213,20 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\OCT'
+    workingdir = r'C:\github\EP_runs\NREL5'
     config = 'config.INI'
-    scenario = ['OCT']
-
+    scenario = ['high_moder_aeo_flex']
 
     run(workingdir, config, scenario,
-    load_demand   = False,
-    solve_demand  = True,
+    load_demand   = True,
+    solve_demand  = False,
     load_supply   = False,
-    solve_supply  = False,
+    solve_supply  = True,
     export_results= False,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,
-    clear_results = False)
+    clear_results = True)
+
+    # test = model.demand.aggregate_electricity_shapes(2050)

@@ -68,7 +68,7 @@ class StockItem(object):
             start = [1] * int(round((self.min_lifetime - 1)*self.spy))
             middle = np.linspace(1, 0, int(round((self.max_lifetime - self.min_lifetime)*self.spy)) + 1)
             end = [0] * int(max(periods - (len(start) + len(middle)), 0))
-            return np.concatenate((start, middle, end))[:periods]
+            return np.concatenate((start, middle, end))[:int(periods)]
         elif self.stock_decay_function == 'exponential':
             rate = 1. / (self.mean_lifetime*self.spy)
             return np.exp(-rate * np.arange(periods))
