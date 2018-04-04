@@ -167,6 +167,7 @@ class SpecifiedStock(Abstract, DataMapFunctions):
     def __init__(self, id, sql_id_table, sql_data_table, scenario=None):
         self.id = id
         self.sql_id_table = sql_id_table
+        self.primary_geography = cfg.demand_primary_geography if 'Demand' in sql_id_table else cfg.supply_primary_geography
         self.sql_data_table = sql_data_table
         self.scenario = scenario
         self.mapped = False
@@ -178,7 +179,7 @@ class SpecifiedStock(Abstract, DataMapFunctions):
         self.years = years
         if self.raw_values is not None:
             try:
-                self.remap(fill_value=np.nan)
+                self.remap(fill_value=np.nan, converted_geography=self.primary_geography)
             except:
                 print self.raw_values
                 raise
@@ -191,6 +192,7 @@ class SalesShare(Abstract, DataMapFunctions):
         self.id = id
         self.subsector_id = subsector_id
         self.sql_id_table = sql_id_table
+        self.primary_geography = cfg.demand_primary_geography if 'Demand' in sql_id_table else cfg.supply_primary_geography
         self.sql_data_table = sql_data_table
         self.scenario = scenario
         self.mapped = False
@@ -211,8 +213,8 @@ class SalesShare(Abstract, DataMapFunctions):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        self.remap(time_index_name='vintage')
-        self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels,agg_function='mean')
+        self.remap(time_index_name='vintage', converted_geography=self.primary_geography)
+        self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
         
     def reconcile_with_stock_levels(self, needed_sales_share_levels, needed_sales_share_names):
         if self.input_type == 'intensity':

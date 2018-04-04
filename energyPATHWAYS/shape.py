@@ -141,7 +141,7 @@ class Shapes(object):
         self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.timezone_names[dispatch_outputs_timezone_id])
         self.active_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H', tz=self.dispatch_outputs_timezone)
         self.num_active_years = num_active_years(self.active_dates_index)
-        self._geography_check = (cfg.primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
+        self._geography_check = (cfg.demand_primary_geography_id, cfg.supply_primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
         self._timespan_check = (cfg.shape_start_date, cfg.shape_years)
     
     @staticmethod
@@ -177,6 +177,7 @@ class Shape(dmf.DataMapFunctions):
         self.workingdir = cfg.workingdir
         self.cfgfile_name = cfg.cfgfile_name
         self.log_name = cfg.log_name
+        self.primary_geography = cfg.demand_primary_geography if self.supply_or_demand_side == 'd' else cfg.supply_primary_geography
 
     def create_empty_shape_data(self):
         self._active_time_keys = [ind for ind in self.raw_values.index.names if ind in cfg.time_slice_col]
@@ -265,7 +266,7 @@ class Shape(dmf.DataMapFunctions):
         if 'dispatch_constraint' in group_to_normalize:
             # this first normailization does what we need for hydro pmin and pmax, which is a special case of normalization
             combined_map_df = util.DfOper.mult((self.map_df_tz, self.map_df_primary))
-            normalization_factors = combined_map_df.groupby(level=cfg.primary_geography).sum()
+            normalization_factors = combined_map_df.groupby(level=self.primary_geography).sum()
             self.values = util.DfOper.divi((self.values, normalization_factors))
             
             temp = self.values.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
@@ -298,9 +299,9 @@ class Shape(dmf.DataMapFunctions):
         """
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
         
-        self.map_df_primary = cfg.geo.map_df(self.geography, cfg.primary_geography, normalize_as=self.input_type, map_key=geography_map_key)
+        self.map_df_primary = cfg.geo.map_df(self.geography, self.primary_geography, normalize_as=self.input_type, map_key=geography_map_key)
         mapped_data = util.DfOper.mult((getattr(self, attr), self.map_df_primary), fill_value=None)
-        if self.geography!=cfg.primary_geography and self.geography!='time zone':
+        if self.geography!=self.primary_geography and self.geography!='time zone':
             mapped_data = util.remove_df_levels(mapped_data, self.geography)
         mapped_data = mapped_data.swaplevel('weather_datetime', -1)
 
@@ -310,7 +311,7 @@ class Shape(dmf.DataMapFunctions):
             return mapped_data.sort()
 
     def sum_over_time_zone(self, attr='values', inplace=True):
-        converted_geography = cfg.primary_geography
+        converted_geography = self.primary_geography
         
         if converted_geography=='time zone':
             if inplace:
@@ -445,12 +446,13 @@ shapes = Shapes()
 
 def init_shapes(pickle_shapes=True):
     global shapes
-    if os.path.isfile(os.path.join(cfg.workingdir, '{}_shapes.p'.format(cfg.primary_geography))):
+    filename = 'd_{}_s_{}_shapes.p'.format(cfg.demand_primary_geography, cfg.supply_primary_geography)
+    if os.path.isfile(os.path.join(cfg.workingdir, filename)):
         logging.info('Loading shapes')
-        with open(os.path.join(cfg.workingdir, '{}_shapes.p'.format(cfg.primary_geography)), 'rb') as infile:
+        with open(os.path.join(cfg.workingdir, filename), 'rb') as infile:
             shapes = pickle.load(infile)
     
-    geography_check = (cfg.primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
+    geography_check = (cfg.demand_primary_geography_id, cfg.supply_primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
     timespan_check = (cfg.shape_start_date, cfg.shape_years)
     if (shapes._version != version) or (shapes._geography_check != geography_check) or (shapes._timespan_check != timespan_check) or force_rerun_shapes:
         logging.info('Processing shapes')
@@ -461,5 +463,6 @@ def init_shapes(pickle_shapes=True):
         
         if pickle_shapes:
             logging.info('Pickling shapes')
-            with open(os.path.join(cfg.workingdir, '{}_shapes.p'.format(cfg.primary_geography)), 'wb') as outfile:
+            filename = 'd_{}_s_{}_shapes.p'.format(cfg.demand_primary_geography, cfg.supply_primary_geography)
+            with open(os.path.join(cfg.workingdir, filename), 'wb') as outfile:
                 pickle.dump(shapes, outfile, pickle.HIGHEST_PROTOCOL)

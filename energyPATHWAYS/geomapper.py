@@ -107,7 +107,8 @@ class GeoMapper:
         """
         get a positional index in self.values (geomap table) that describes the primary_subset geography
         """
-        logging.info('Primary geography is {}'.format(self.id_to_geography[cfg.primary_geography_id]))
+        logging.info('Demand primary geography is {}'.format(self.id_to_geography[cfg.demand_primary_geography_id]))
+        logging.info('Supply primary geography is {}'.format(self.id_to_geography[cfg.supply_primary_geography_id]))
         logging.info('Dispatch geography is {}'.format(self.id_to_geography[cfg.dispatch_geography_id]))
         if cfg.primary_subset_id:
             logging.info('Geomap table will be filtered')
@@ -163,9 +164,12 @@ class GeoMapper:
         """
         Potential to create one for primary geography and one for dispatch geography
         """
-        primary_geography_name = self.get_primary_geography_name()
-        if cfg.breakout_geography_id and (primary_geography_name not in self.values.index.names):
-            self._create_composite_geography_level(primary_geography_name, self.id_to_geography[cfg.primary_geography_id], cfg.breakout_geography_id)
+        demand_primary_geography_name = self.get_demand_primary_geography_name()
+        if cfg.breakout_geography_id and (demand_primary_geography_name not in self.values.index.names):
+            self._create_composite_geography_level(demand_primary_geography_name, self.id_to_geography[cfg.demand_primary_geography_id], cfg.breakout_geography_id)
+        supply_primary_geography_name = self.get_supply_primary_geography_name()
+        if cfg.breakout_geography_id and (supply_primary_geography_name not in self.values.index.names):
+            self._create_composite_geography_level(supply_primary_geography_name, self.id_to_geography[cfg.supply_primary_geography_id], cfg.breakout_geography_id)
         disagg_geography_name = self.get_disagg_geography_name()
         if cfg.disagg_breakout_geography_id and (disagg_geography_name not in self.values.index.names):
             self._create_composite_geography_level(disagg_geography_name, self.id_to_geography[cfg.disagg_geography_id], cfg.disagg_breakout_geography_id)
@@ -220,7 +224,32 @@ class GeoMapper:
             table = table.reindex(index, fill_value=0.0)
             
         return table
-        
+
+    @staticmethod
+    def reorder_df_geo_left_year_right(df, current_geography):
+        if 'year' in df.index.names:
+            y_or_v = ['year']
+        elif 'vintage' in df.index.names:
+            y_or_v = ['vintage']
+        else:
+            y_or_v = []
+        new_order = [current_geography] + [l for l in df.index.names if l not in [current_geography] + y_or_v] + y_or_v
+        mapped_data = df.reorder_levels(new_order)
+        return mapped_data
+
+    def geo_map(self, df, current_geography, converted_geography, current_data_type, geography_map_key=None, fill_value=0., filter_geo=True):
+        if current_geography==converted_geography:
+            return df
+        assert current_geography in df.index.names
+        geography_map_key = geography_map_key or cfg.cfgfile.get('case', 'default_geography_map_key')
+        # create dataframe with map from one geography to another
+        map_df = self.map_df(current_geography, converted_geography, normalize_as=current_data_type, map_key=geography_map_key, filter_geo=filter_geo)
+        mapped_data = util.DfOper.mult([df, map_df], fill_value=fill_value)
+        mapped_data = util.remove_df_levels(mapped_data, current_geography)
+        if hasattr(mapped_data.index, 'swaplevel'):
+            mapped_data = GeoMapper.reorder_df_geo_left_year_right(mapped_data, converted_geography)
+        return mapped_data.sort()
+
     def filter_extra_geos_from_df(self, df):
         # we have a subset geography and should remove the data that is completely outside of the breakout
         if cfg.primary_subset_id:
@@ -238,9 +267,14 @@ class GeoMapper:
             base_geography += " breaking out " + ", ".join([self.geography_names[id] for id in breakout_ids])
         return base_geography
 
-    def get_primary_geography_name(self):
-        return self.make_new_geography_name(self.id_to_geography[cfg.primary_geography_id],
+    def get_supply_primary_geography_name(self):
+        return self.make_new_geography_name(self.id_to_geography[cfg.supply_primary_geography_id],
                                             cfg.breakout_geography_id)
+
+    def get_demand_primary_geography_name(self):
+        return self.make_new_geography_name(self.id_to_geography[cfg.demand_primary_geography_id],
+                                            cfg.breakout_geography_id)
+
     def get_disagg_geography_name(self):
         return self.make_new_geography_name(self.id_to_geography[cfg.disagg_geography_id],
                                             cfg.disagg_breakout_geography_id)

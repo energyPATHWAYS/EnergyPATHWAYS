@@ -164,7 +164,7 @@ class SupplyTechCost(Abstract):
         self.years = years
         if self.data and self.raw_values is not None:
             self.convert()
-            self.remap(map_from='values', map_to='values', time_index_name='vintage')
+            self.remap(map_from='values', map_to='values', converted_geography=cfg.supply_primary_geography, time_index_name='vintage')
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values_level', reverse=False)
         if self.data is False:
             self.absolute = False
@@ -189,7 +189,7 @@ class SupplyTechInvestmentCost(SupplyTechCost):
             else:
                 self.values = copy.deepcopy(self.raw_values)
             try:
-                self.remap(map_from='values', map_to='values', time_index_name='vintage')
+                self.remap(map_from='values', map_to='values', converted_geography=cfg.supply_primary_geography, time_index_name='vintage')
             except:
                 print self.id
                 print self.values
@@ -319,7 +319,7 @@ class SupplyTechEfficiency(Abstract):
         self.years = years
         if self.data and self.raw_values is not None:
             self.convert()
-            self.remap(map_from='values', map_to='values', time_index_name='vintage', lower=None)
+            self.remap(map_from='values', map_to='values', converted_geography=cfg.supply_primary_geography, time_index_name='vintage', lower=None)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         if self.data is False:
             self.absolute = False
@@ -356,7 +356,7 @@ class SupplyTechCapacityFactor(Abstract):
         self.vintages = vintages
         self.years = years
         if self.data and self.raw_values is not None:
-            self.remap(time_index_name='vintage')
+            self.remap(time_index_name='vintage', converted_geography=cfg.supply_primary_geography)
             self.values.replace(0,1,inplace=True)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
 
@@ -375,10 +375,10 @@ class SupplyTechCO2Capture(Abstract):
         self.vintages = vintages
         self.years = years
         if self.data and self.raw_values is not None:
-            self.remap(time_index_name='vintage')
+            self.remap(time_index_name='vintage',  converted_geography=cfg.supply_primary_geography)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         elif self.data is False:
-            index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.primary_geography],self.vintages], names=[cfg.primary_geography,'vintage'])
+            index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.supply_primary_geography],self.vintages], names=[cfg.supply_primary_geography,'vintage'])
             self.values = util.empty_df(index,columns=years,fill_value=0.0)    
             self.data = True
 
