@@ -262,7 +262,8 @@ class Dispatch(object):
             self.max_cumulative_flex = self._timeseries_to_dict(cum_distribution_load.xs(3, level='timeshift_type'))
 
     def set_max_min_flex_loads(self, flex_pmin, flex_pmax):
-        self.flex_load_penalty = util.unit_convert(0.1, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.flex_load_penalty_short = util.unit_convert(float(cfg.cfgfile.get('opt','flex_load_penalty_short')), unit_from_den='megawatt_hour', unit_to_den=cfg.calculation_energy_unit)
+        self.flex_load_penalty_long = util.unit_convert(float(cfg.cfgfile.get('opt','flex_load_penalty_long')), unit_from_den='megawatt_hour', unit_to_den=cfg.calculation_energy_unit)
         if self.has_flexible_load:
             self.max_flex_load = flex_pmax.squeeze().to_dict()
             self.min_flex_load = flex_pmin.squeeze().to_dict()

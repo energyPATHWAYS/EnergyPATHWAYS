@@ -182,11 +182,21 @@ def dist_system_capacity_need_rule(model, geography, timepoint, feeder):
            feeder_charge(model, geography, timepoint, feeder) -
            feeder_provide_power(model, geography, timepoint, feeder))
 
-def flex_load_use_rule(model, geography, timepoint, feeder):
-    """
-    Apply a penalty whenever distribution net load exceeds a pre-specified threshold
-    """
-    return model.FlexLoadUse[geography, timepoint, feeder] >= model.Flexible_Load[geography, timepoint, feeder]
+def penalty_variable_on_flexible_load_being_short_energy(model, geography, timepoint, feeder):
+    # if our cumulative flexible load is below the native load, we apply a penalty for being short energy
+    return model.FlexLoadIsShort[geography, timepoint, feeder] >= model.native_cumulative_flex[geography, timepoint, feeder] - model.Cumulative_Flexible_Load[geography, timepoint, feeder]
+
+def penalty_variable_on_flexible_load_being_long_energy(model, geography, timepoint, feeder):
+    # if our cumulative flexible load is above the native load, we apply a penalty for using too much energy too quickly
+    return model.FlexLoadIsLong[geography, timepoint, feeder] >= model.Cumulative_Flexible_Load[geography, timepoint, feeder] - model.native_cumulative_flex[geography, timepoint, feeder]
+
+def zero_penalty_variable_on_flexible_load_being_short_energy(model, geography, timepoint, feeder):
+    # if our cumulative flexible load is below the native load, we apply a penalty for being short energy
+    return model.FlexLoadIsShort[geography, timepoint, feeder] == 0
+
+def zero_penalty_variable_on_flexible_load_being_long_energy(model, geography, timepoint, feeder):
+    # if our cumulative flexible load is above the native load, we apply a penalty for using too much energy too quickly
+    return model.FlexLoadIsLong[geography, timepoint, feeder] == 0
 
 def bulk_system_capacity_need_rule(model, geography, timepoint):
     """
@@ -235,7 +245,7 @@ def total_cost_rule(model):
                                 for r in model.GEOGRAPHIES
                                 for f in model.FEEDERS)
     bulk_sys_penalty_cost = sum(model.BulkSysCapacityNeed[r] * model.bulk_penalty for r in model.GEOGRAPHIES)
-    flex_load_use_cost = sum(model.FlexLoadUse[r, t, f] * model.flex_penalty
+    flex_load_use_cost = sum(model.FlexLoadIsShort[r, t, f] * model.flex_penalty_short + model.FlexLoadIsLong[r, t, f] * model.flex_penalty_long
                              for r in model.GEOGRAPHIES
                              for t in model.TIMEPOINTS
                              for f in model.FEEDERS)
@@ -329,7 +339,8 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     model.unserved_energy_cost = Param(within=NonNegativeReals, initialize= max(dispatch.variable_costs.values())*1.05)
     model.dist_penalty = Param(within=NonNegativeReals, initialize= dispatch.dist_net_load_penalty)
     model.bulk_penalty = Param(within=NonNegativeReals, initialize= dispatch.bulk_net_load_penalty)
-    model.flex_penalty = Param(within=NonNegativeReals, initialize= dispatch.flex_load_penalty)
+    model.flex_penalty_short = Param(within=NonNegativeReals, initialize= dispatch.flex_load_penalty_short)
+    model.flex_penalty_long = Param(within=NonNegativeReals, initialize= dispatch.flex_load_penalty_long)
     #####################
     # ### Variables ### #
     #####################
@@ -348,7 +359,8 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     # System
     model.Flexible_Load = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals)
     model.Cumulative_Flexible_Load = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals)
-    model.FlexLoadUse = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=NonNegativeReals)
+    model.FlexLoadIsShort = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=NonNegativeReals)
+    model.FlexLoadIsLong = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=NonNegativeReals)
 
     model.DistSysCapacityNeed = Var(model.GEOGRAPHIES, model.FEEDERS, within=NonNegativeReals)
     model.BulkSysCapacityNeed = Var(model.GEOGRAPHIES, within=NonNegativeReals)
@@ -385,8 +397,13 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     if dispatch.has_flexible_load:
         model.Flex_Load_Capacity_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=flex_load_capacity_rule)
         model.Cumulative_Flexible_Load_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=cumulative_flexible_load_rule)
+        # flexible load usage penalty
+        model.Flex_Load_Short_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=penalty_variable_on_flexible_load_being_short_energy)
+        model.Flex_Load_Long_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=penalty_variable_on_flexible_load_being_long_energy)
     else:
         model.Flex_Load_Capacity_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=zero_flexible_load)
+        model.Flex_Load_Short_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=zero_penalty_variable_on_flexible_load_being_short_energy)
+        model.Flex_Load_Long_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=zero_penalty_variable_on_flexible_load_being_long_energy)
     
     #ld_energy
     model.LD_Energy_Constraint = Constraint(model.LD_TECHNOLOGIES, rule=ld_energy_rule)
@@ -396,9 +413,6 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
 
     # Distribution system penalty
     model.Distribution_System_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=dist_system_capacity_need_rule)
-    
-    # flexible load usage penalty
-    model.Flex_Load_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=flex_load_use_rule)
 
     # Bulk system capacity penalty
     model.Bulk_System_Penalty_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, rule=bulk_system_capacity_need_rule)
