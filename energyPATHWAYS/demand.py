@@ -146,7 +146,7 @@ class Demand(object):
         # this line makes sure the energy is correct.. sometimes it is a bit off due to rounding
         numer = self.energy_demand.xs([cfg.electricity_energy_type_id, year], level=['final_energy', 'year']).sum().sum()
         denom = df.xs(0, level='timeshift_type').sum().sum()
-        if not np.isclose(numer, denom, rtol=0.001, atol=0):
+        if not np.isclose(numer, denom, rtol=0.01, atol=0):
             logging.warning("Electricity energy is {} and bottom up load shape sums to {}, the difference is unusually large".format(numer, denom))
         df *= numer / denom
         df = df.rename(columns={'value':year})
@@ -156,8 +156,10 @@ class Demand(object):
         pmins, pmaxs = zip(*[sector.aggregate_flexible_load_pmin_pmax(year) for sector in self.sectors.values()])
         pmin = util.DfOper.add(pmins, expandable=False, collapsible=False)
         pmax = util.DfOper.add(pmaxs, expandable=False, collapsible=False)
-        pmin = self.geomap_to_dispatch_geography(pmin) if (geomap_to_dispatch_geography and pmin is not None) else pmin
-        pmax = self.geomap_to_dispatch_geography(pmax) if (geomap_to_dispatch_geography and pmax is not None) else pmax
+        if geomap_to_dispatch_geography and pmin is not None:
+            pmin = cfg.geo.geo_map(pmin, cfg.demand_primary_geography, cfg.dispatch_geography, current_data_type='total')
+        if geomap_to_dispatch_geography and pmax is not None:
+            pmax = cfg.geo.geo_map(pmax, cfg.demand_primary_geography, cfg.dispatch_geography, current_data_type='total')
         # this will return None if we don't have any flexible load
         return pmin, pmax
 
@@ -838,7 +840,9 @@ class Subsector(DataMapFunctions):
             flex_native = return_shape.xs(2, level='timeshift_type')
             # we add native flex load to level zero, total flexible load
             return_shape = util.DfOper.add((return_shape, pd.concat([flex_native], keys=[0], names=['timeshift_type'])))
-            self.flexible_load_pmax[year] = flex_native.groupby(level=[cfg.primary_geography, 'dispatch_feeder']).max()
+
+            capacity_group_levels = [l for l in flex_native.index.names if l != 'weather_datetime']
+            self.flexible_load_pmax[year] = flex_native.groupby(level=capacity_group_levels).max()
             # this is a placeholder for V2G, we need a column in the db
             self.flexible_load_pmin[year] = - self.flexible_load_pmax[year] if False else pd.DataFrame(0, index=self.flexible_load_pmax[year].index, columns=self.flexible_load_pmax[year].columns)
         else:

@@ -117,7 +117,6 @@ def large_storage_end_state_of_charge_rule(model, technology, timepoint):
 def cumulative_flex_load_tracking_rule(model, geography, timepoint, feeder):
     if feeder == 0:
         return Constraint.Skip
-    
     return model.Cumulative_Flexible_Load[geography, timepoint, feeder] == model.Cumulative_Flexible_Load[geography, model.previous[timepoint], feeder] + model.Flexible_Load[geography, timepoint, feeder]
 
 def cumulative_flexible_load_rule(model, geography, timepoint, feeder):
@@ -131,9 +130,7 @@ def cumulative_flexible_load_rule(model, geography, timepoint, feeder):
     if timepoint == model.last_timepoint.value:
         return model.Cumulative_Flexible_Load[geography, timepoint, feeder] == 0
     else:
-        return model.min_cumulative_flex_load[geography, timepoint, feeder] \
-        <= model.cumulative_distribution_load[geography, timepoint, feeder] + model.Cumulative_Flexible_Load[geography, timepoint, feeder] \
-        <= model.max_cumulative_flex_load[geography, timepoint, feeder]
+        return model.min_cumulative_flex[geography, timepoint, feeder] <= model.native_cumulative_flex[geography, timepoint, feeder] + model.Cumulative_Flexible_Load[geography, timepoint, feeder] <= model.max_cumulative_flex[geography, timepoint, feeder]
 
 def flex_load_capacity_rule(model, geography, timepoint, feeder):
     """
@@ -142,7 +139,7 @@ def flex_load_capacity_rule(model, geography, timepoint, feeder):
     if feeder == 0:
         return model.Flexible_Load[geography, timepoint, feeder] == 0
     else:
-        return model.min_flex_load[geography, feeder] <= model.Flexible_Load[geography, timepoint, feeder] + model.distribution_load[geography, timepoint, feeder] <= model.max_flex_load[geography, feeder]
+        return model.min_flex_load[geography, feeder] <= model.Flexible_Load[geography, timepoint, feeder] + model.native_flex[geography, timepoint, feeder] <= model.max_flex_load[geography, feeder]
 
 def zero_flexible_load(model, geography, timepoint, feeder):
     return model.Flexible_Load[geography, timepoint, feeder] == 0
@@ -189,7 +186,7 @@ def flex_load_use_rule(model, geography, timepoint, feeder):
     """
     Apply a penalty whenever distribution net load exceeds a pre-specified threshold
     """
-    return model.FlexLoadUse[geography, timepoint, feeder]>= model.Flexible_Load[geography, timepoint, feeder]
+    return model.FlexLoadUse[geography, timepoint, feeder] >= model.Flexible_Load[geography, timepoint, feeder]
 
 def bulk_system_capacity_need_rule(model, geography, timepoint):
     """
@@ -222,24 +219,30 @@ def unserved_energy_rule(model, geography, timepoint):
     return 0 <= model.Unserved_Energy[geography, timepoint]
 
 
-
 def total_cost_rule(model):
-    gen_cost = sum(model.Provide_Power[gt, t] * model.variable_cost[gt] for gt in model.GENERATION_TECHNOLOGIES
-                                                                        for t in model.TIMEPOINTS)
-    curtailment_cost = sum(model.Curtailment[r, t] * model.curtailment_cost for r in model.GEOGRAPHIES 
-                                                                            for t in model.TIMEPOINTS)
-    unserved_capacity_cost = sum(model.Unserved_Capacity[r] * model.unserved_capacity_cost for r in model.GEOGRAPHIES)
-    unserved_energy_cost = sum(model.Unserved_Energy[r, t] * model.unserved_energy_cost for r in model.GEOGRAPHIES for t in model.TIMEPOINTS)
-    dist_sys_penalty_cost = sum(model.DistSysCapacityNeed[r, f] * model.dist_penalty for r in model.GEOGRAPHIES
-                                                                                        for f in model.FEEDERS)
+    gen_cost = sum(model.Provide_Power[gt, t] * model.variable_cost[gt]
+                   for gt in model.GENERATION_TECHNOLOGIES
+                   for t in model.TIMEPOINTS)
+    curtailment_cost = sum(model.Curtailment[r, t] * model.curtailment_cost
+                           for r in model.GEOGRAPHIES
+                           for t in model.TIMEPOINTS)
+    unserved_capacity_cost = sum(model.Unserved_Capacity[r] * model.unserved_capacity_cost
+                                 for r in model.GEOGRAPHIES)
+    unserved_energy_cost = sum(model.Unserved_Energy[r, t] * model.unserved_energy_cost
+                               for r in model.GEOGRAPHIES
+                               for t in model.TIMEPOINTS)
+    dist_sys_penalty_cost = sum(model.DistSysCapacityNeed[r, f] * model.dist_penalty
+                                for r in model.GEOGRAPHIES
+                                for f in model.FEEDERS)
     bulk_sys_penalty_cost = sum(model.BulkSysCapacityNeed[r] * model.bulk_penalty for r in model.GEOGRAPHIES)
-    flex_load_use_cost = sum(model.FlexLoadUse[r, t, f] * model.flex_penalty for r in model.GEOGRAPHIES
-                                                                             for t in model.TIMEPOINTS
-                                                                             for f in model.FEEDERS)
+    flex_load_use_cost = sum(model.FlexLoadUse[r, t, f] * model.flex_penalty
+                             for r in model.GEOGRAPHIES
+                             for t in model.TIMEPOINTS
+                             for f in model.FEEDERS)
     transmission_hurdles = sum(model.Transmit_Power[str((from_geo, to_geo)), t] * model.transmission_hurdle[str((from_geo, to_geo))]
-                                                                                for from_geo in model.GEOGRAPHIES
-                                                                                for to_geo in model.GEOGRAPHIES
-                                                                                for t in model.TIMEPOINTS if from_geo!=to_geo)
+                               for from_geo in model.GEOGRAPHIES
+                               for to_geo in model.GEOGRAPHIES
+                               for t in model.TIMEPOINTS if from_geo!=to_geo)
     total_cost = gen_cost + curtailment_cost + unserved_capacity_cost + unserved_energy_cost + dist_sys_penalty_cost + bulk_sys_penalty_cost + flex_load_use_cost + transmission_hurdles
     return total_cost
 
@@ -302,11 +305,13 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     model.bulk_gen = Param(model.GEOGRAPHIES, model.TIMEPOINTS, within=NonNegativeReals, initialize=dispatch.bulk_gen[period])                                        
                                            
     # Flex  loads
-    model.min_cumulative_flex_load = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.min_cumulative_flex_load[period])
-    model.max_cumulative_flex_load = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.max_cumulative_flex_load[period])
-    model.cumulative_distribution_load = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.cumulative_distribution_load[period])
-    model.max_flex_load = Param(model.GEOGRAPHIES,model.FEEDERS, within=Reals, initialize=dispatch.max_flex_load[period])
-    model.min_flex_load = Param(model.GEOGRAPHIES,model.FEEDERS, within=Reals, initialize=dispatch.min_flex_load[period])
+    if dispatch.has_flexible_load:
+        model.min_cumulative_flex = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.min_cumulative_flex[period])
+        model.max_cumulative_flex = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.max_cumulative_flex[period])
+        model.native_cumulative_flex = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.native_cumulative_flex[period])
+        model.native_flex = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.native_flex[period])
+        model.max_flex_load = Param(model.GEOGRAPHIES,model.FEEDERS, within=Reals, initialize=dispatch.max_flex_load)
+        model.min_flex_load = Param(model.GEOGRAPHIES,model.FEEDERS, within=Reals, initialize=dispatch.min_flex_load)
     
     model.TRANSMISSION_LINES = Set(initialize=dispatch.transmission.list_transmission_lines)
     model.transmission_capacity = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission.constraints.get_values_as_dict(dispatch.year))
@@ -343,9 +348,10 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     # System
     model.Flexible_Load = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals)
     model.Cumulative_Flexible_Load = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals)
+    model.FlexLoadUse = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=NonNegativeReals)
+
     model.DistSysCapacityNeed = Var(model.GEOGRAPHIES, model.FEEDERS, within=NonNegativeReals)
     model.BulkSysCapacityNeed = Var(model.GEOGRAPHIES, within=NonNegativeReals)
-    model.FlexLoadUse = Var(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=NonNegativeReals)
     model.Curtailment = Var(model.GEOGRAPHIES, model.TIMEPOINTS, within=NonNegativeReals)
     model.Unserved_Energy = Var(model.GEOGRAPHIES, model.TIMEPOINTS, within=NonNegativeReals)
     model.Unserved_Capacity = Var(model.GEOGRAPHIES, within=NonNegativeReals)
@@ -376,9 +382,9 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     
     # Flex loads
     model.Cumulative_Flex_Load_Tracking_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=cumulative_flex_load_tracking_rule)
-    model.Cumulative_Flexible_Load_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=cumulative_flexible_load_rule)
     if dispatch.has_flexible_load:
         model.Flex_Load_Capacity_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=flex_load_capacity_rule)
+        model.Cumulative_Flexible_Load_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=cumulative_flexible_load_rule)
     else:
         model.Flex_Load_Capacity_Constraint = Constraint(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, rule=zero_flexible_load)
     

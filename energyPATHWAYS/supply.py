@@ -800,6 +800,21 @@ class Supply(object):
         if hasattr(transmission_grid_node, 'stock'):
             transmission_grid_node.update_stock(year,3)
 
+    def _get_ld_results_from_dispatch(self):
+        if not len(self.dispatch.ld_technologies):
+            return None, None, None
+        #load and gen are the same in the ld_df, just with different signs. We want to separate and use absolute values (i.e. *- when it is load)
+        ld_load = util.remove_df_levels(-self.dispatch.ld_df[self.dispatch.ld_df.values<0],'supply_node')
+        ld_gen = util.remove_df_levels(self.dispatch.ld_df[self.dispatch.ld_df.values>0], 'supply_node')
+        dist_ld_load = util.df_slice(ld_load, self.dispatch_feeders, 'dispatch_feeder')
+        if not len(dist_ld_load):
+            dist_ld_load = None
+        if not len(ld_load):
+            ld_load = None
+        if not len(ld_gen):
+            ld_gen = None
+        return ld_load, ld_gen, dist_ld_load
+
     def solve_storage_and_flex_load_optimization(self,year):
         # MOVE
         """prepares, solves, and updates the net load with results from the storage and flexible load optimization""" 
@@ -807,45 +822,29 @@ class Supply(object):
         self.prepare_optimization_inputs(year)
         logging.info("      solving dispatch for storage and dispatchable load")
         self.dispatch.solve_optimization()
+
+        ld_load, ld_gen, dist_ld_load = self._get_ld_results_from_dispatch()
+
+        dist_storage_charge, dist_storage_discharge = None, None
         storage_charge = self.dispatch.storage_df.xs('charge', level='charge_discharge')
         storage_discharge = self.dispatch.storage_df.xs('discharge', level='charge_discharge')
-        #load and gen are the same in the ld_df, just with different signs. We want to separate and use absolute values (i.e. *- when it is load)
-        pdb.set_trace()
-        timeshift_types = list(set(self.distribution_load.index.get_level_values('timeshift_type')))
-        if len(self.dispatch.ld_technologies):
-            ld_load = util.remove_df_levels(-self.dispatch.ld_df[self.dispatch.ld_df.values<0],'supply_node')
-            ld_gen = util.remove_df_levels(self.dispatch.ld_df[self.dispatch.ld_df.values>0], 'supply_node')
-
-            dist_ld_load = util.add_and_set_index(util.df_slice(ld_load, self.dispatch_feeders, 'dispatch_feeder'), 'timeshift_type', timeshift_types)
-            if not len(dist_ld_load):
-                dist_ld_load = None
-            if not len(ld_load):
-                ld_load = None
-            if not len(ld_gen):
-                ld_gen = None
-        else:
-            ld_load = None
-            ld_gen = None
-            dist_ld_load = None
-        if len(set(storage_charge.index.get_level_values('dispatch_feeder')))>1:            
-            dist_storage_charge = util.add_and_set_index(util.df_slice(storage_charge, self.dispatch_feeders, 'dispatch_feeder'), 'timeshift_type', timeshift_types)
+        if len(set(storage_charge.index.get_level_values('dispatch_feeder')))>1:
+            dist_storage_charge = util.df_slice(storage_charge, self.dispatch_feeders, 'dispatch_feeder')
             dist_storage_discharge = util.df_slice(storage_discharge, self.dispatch_feeders, 'dispatch_feeder')
-        else:
-            dist_storage_charge = None
-            dist_storage_discharge = None
-        dist_flex_load = util.add_and_set_index(util.df_slice(self.dispatch.flex_load_df, self.dispatch_feeders, 'dispatch_feeder'), 'timeshift_type', timeshift_types)
+
+        dist_flex_load = util.df_slice(self.dispatch.flex_load_df, self.dispatch_feeders, 'dispatch_feeder')
         self.distribution_load = util.DfOper.add((self.distribution_load, dist_storage_charge, dist_flex_load, dist_ld_load))
         self.distribution_gen = util.DfOper.add((self.distribution_gen, dist_storage_discharge,util.df_slice(ld_gen, self.dispatch_feeders, 'dispatch_feeder',return_none=True) ))
-        
+
+        imports = None
+        exports = None
         if self.dispatch.transmission_flow_df is not None:
             flow_with_losses = util.DfOper.divi((self.dispatch.transmission_flow_df, 1 - self.dispatch.transmission.losses.get_values(year)))
             imports = self.dispatch.transmission_flow_df.groupby(level=['geography_to', 'weather_datetime']).sum()
             exports = flow_with_losses.groupby(level=['geography_from', 'weather_datetime']).sum()
             imports.index.names = [cfg.dispatch_geography, 'weather_datetime']
             exports.index.names = [cfg.dispatch_geography, 'weather_datetime']
-        else:
-            imports = None
-            exports = None
+
         self.bulk_load = util.DfOper.add((self.bulk_load, storage_charge.xs(0, level='dispatch_feeder'), util.DfOper.divi([util.df_slice(ld_load, 0, 'dispatch_feeder',return_none=True),self.transmission_losses]),util.DfOper.divi([exports,self.transmission_losses])))
         self.bulk_gen = util.DfOper.add((self.bulk_gen, storage_discharge.xs(0, level='dispatch_feeder'),util.df_slice(ld_gen, 0, 'dispatch_feeder',return_none=True),imports))
         self.opt_bulk_net_load = copy.deepcopy(self.bulk_net_load)
@@ -1498,7 +1497,8 @@ class Supply(object):
         initial_overgen[initial_overgen.values>0]=0
         initial_overgen *= -1
         initial_overgen = initial_overgen.groupby(level=cfg.dispatch_geography).sum()
-        bulk_net_load[bulk_net_load.values<0]=0
+        bulk_net_load = copy.deepcopy(self.bulk_net_load)
+        bulk_net_load[bulk_net_load.values<0] = 0
         curtailment = util.DfOper.add([util.DfOper.subt([self.thermal_totals.sum().to_frame(),bulk_net_load.groupby(level=cfg.dispatch_geography).sum()]),initial_overgen])
         supply = self.nodes[self.bulk_id].active_supply
         if cfg.supply_primary_geography!= cfg.dispatch_geography:
@@ -1876,7 +1876,13 @@ class Supply(object):
     def set_initial_net_load_signals(self,year):
         final_demand = self.demand_object.aggregate_electricity_shapes(year)
         distribution_native_load = final_demand.xs(0, level='timeshift_type')
-        self.distribution_flex_load = util.df_slice(final_demand, [1,2,3], 'timeshift_type', drop_level=False, reset_index=True)
+        if tuple(final_demand.index.get_level_values('timeshift_type').unique()) == (0,):
+            self.distribution_flex_load = None
+        elif tuple(final_demand.index.get_level_values('timeshift_type').unique()) == (0,1,2,3):
+            self.distribution_flex_load = util.df_slice(final_demand, [1,2,3], 'timeshift_type', drop_level=False, reset_index=True)
+        else:
+            raise ValueError('Unrecognized timeshift types in the electricity shapes, found: {}'.format(tuple(final_demand.index.get_level_values('timeshift_type').unique())))
+
         if year in self.dispatch_write_years:
             self.output_final_demand_for_bulk_dispatch_outputs(distribution_native_load)
         self.distribution_gen = self.shaped_dist(year, self.non_flexible_gen, generation=True)
