@@ -244,8 +244,7 @@ class SalesShare(Abstract, DataMapFunctions):
         vintage_no_ref, retiring_no_ref = np.nonzero(ref_sums)
 
         factors = np.zeros(np.shape(ref_sums))
-        factors[vintage_no_ref, retiring_no_ref] += space_for_reference[vintage_no_ref, retiring_no_ref] / ref_sums[
-            vintage_no_ref, retiring_no_ref]
+        factors[vintage_no_ref, retiring_no_ref] += space_for_reference[vintage_no_ref, retiring_no_ref] / ref_sums[vintage_no_ref, retiring_no_ref]
 
         factors = np.reshape(np.repeat(factors, num_techs, axis=0), (num_years, num_techs, num_techs))
 

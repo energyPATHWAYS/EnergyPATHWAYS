@@ -817,7 +817,7 @@ class Supply(object):
 
     def solve_storage_and_flex_load_optimization(self,year):
         # MOVE
-        """prepares, solves, and updates the net load with results from the storage and flexible load optimization""" 
+        """prepares, solves, and updates the net load with results from the storage and flexible load optimization"""
         self.dispatch.set_year(year)
         self.prepare_optimization_inputs(year)
         logging.info("      solving dispatch for storage and dispatchable load")
@@ -5679,8 +5679,7 @@ class ImportNode(Node):
         cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
         levels = ['demand_sector',cfg.supply_primary_geography]
         cost = cost.groupby(level = [x for x in levels if x in cost.index.names]).sum()
-        return  util.expand_multi(cost, levels_list = [cfg.geo.geographies[cfg.supply_primary_geography], self.demand_sectors],
-                                                                                                                            levels_names=[cfg.supply_primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
+        return  util.expand_multi(cost, levels_list = [cfg.geo.geographies[cfg.supply_primary_geography], self.demand_sectors], levels_names=[cfg.supply_primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
                                                                                                                             
                                                                                                                             
     def calculate_marginal_costs(self,year):
@@ -5699,9 +5698,7 @@ class ImportNode(Node):
         traded_cost = util.DfOper.mult([cost,map_df])
         traded_cost = traded_cost.groupby(level=[x for x in tradable_levels if x in traded_cost.index.names]).transform(lambda x: x.max())
         cost = traded_cost.groupby(level = [x for x in levels if x in cost.index.names]).max()
-        return  util.expand_multi(cost, levels_list = [cfg.geo.geographies[cfg.supply_primary_geography], self.demand_sectors],
-                                                                                                                            levels_names=[cfg.supply_primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
-
+        return  util.expand_multi(cost, levels_list = [cfg.geo.geographies[cfg.supply_primary_geography], self.demand_sectors], levels_names=[cfg.supply_primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
 
 
 class ImportCost(Abstract):
@@ -5789,8 +5786,7 @@ class PrimaryNode(Node):
         cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
         levels = ['demand_sector',cfg.supply_primary_geography]
         cost = cost.groupby(level = [x for x in levels if x in cost.index.names]).sum()
-        return  util.expand_multi(cost, levels_list = [cfg.geo.geographies[cfg.supply_primary_geography], self.demand_sectors],
-                                                                                                                            levels_names=[cfg.supply_primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
+        return util.expand_multi(cost, levels_list = [cfg.geo.geographies[cfg.supply_primary_geography], self.demand_sectors], levels_names=[cfg.supply_primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
                                                                                                                             
                                                                                                                             
     def calculate_marginal_costs(self,year):
@@ -5809,9 +5805,7 @@ class PrimaryNode(Node):
         traded_cost = util.DfOper.mult([cost,map_df])
         traded_cost = traded_cost.groupby(level=[x for x in tradable_levels if x in traded_cost.index.names]).transform(lambda x: x.max())
         cost = traded_cost.groupby(level = [x for x in levels if x in cost.index.names]).max()
-        return  util.expand_multi(cost, levels_list = [cfg.geo.geographies[cfg.supply_primary_geography], self.demand_sectors],
-                                                                                                                            levels_names=[cfg.supply_primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
-    
+        return util.expand_multi(cost, levels_list = [cfg.geo.geographies[cfg.supply_primary_geography], self.demand_sectors], levels_names=[cfg.supply_primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
 
 class PrimaryCost(Abstract):
     def __init__(self, id, scenario, node_geography=None, **kwargs):

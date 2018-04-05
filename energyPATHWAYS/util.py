@@ -711,7 +711,7 @@ def replace_column(df, replace_labels, labels=None):
     else:
         df.columns= [replace_labels if x == labels else x for x in df.columns.names]
 
-def expand_multi(a, levels_list, levels_names, how='outer', incremental=False, drop_index=None):
+def expand_multi(df, levels_list, levels_names, how='outer', incremental=False, drop_index=None):
     """
     creates an additional layer in a mutlilevel index, repeating values from all other previous
     indexes
@@ -719,7 +719,7 @@ def expand_multi(a, levels_list, levels_names, how='outer', incremental=False, d
     drop_index = ensure_iterable_and_not_string(drop_index)
     if incremental:
         levels_list = [ensure_iterable_and_not_string(levels_list)]
-        for name, level in zip(a.index.names, a.index.levels):
+        for name, level in zip(df.index.names, df.index.levels):
             if name == drop_index:
                 pass
             else:
@@ -737,13 +737,13 @@ def expand_multi(a, levels_list, levels_names, how='outer', incremental=False, d
         levels_list = unfrozen_levels
         levels_names = unfrozen_names
     expand = pd.DataFrame(index=pd.MultiIndex.from_product(levels_list, names=levels_names),dtype='int64')
-    common_headers = intersect(a.index.names, expand.index.names)
+    common_headers = intersect(df.index.names, expand.index.names)
     levels_names = expand.index.names
     expand = expand.reset_index()
-    a = a.reset_index()
-    a = pd.merge(a, expand, on=common_headers, how=how)
-    a = a.set_index(levels_names).sort_index()
-    return a
+    df = df.reset_index()
+    df = pd.merge(df, expand, on=common_headers, how=how)
+    df = df.set_index(levels_names).sort_index()
+    return df
 
 
 def is_numeric(obj):

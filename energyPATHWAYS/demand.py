@@ -10,9 +10,9 @@ from collections import defaultdict
 import copy
 from datetime import datetime
 from demand_subsector_classes import DemandStock, SubDemand, ServiceEfficiency, ServiceLink
-from shared_classes import AggregateStock
+from shared_classes import AggregateStock, SalesShare
 from demand_measures import ServiceDemandMeasure, EnergyEfficiencyMeasure, FuelSwitchingMeasure, FlexibleLoadMeasure, FlexibleLoadMeasure2
-from demand_technologies import DemandTechnology, SalesShare
+from demand_technologies import DemandTechnology
 from rollover import Rollover
 from util import DfOper
 from outputs import Output
@@ -1839,14 +1839,13 @@ class Subsector(DataMapFunctions):
                     self.stock.remap(map_from='raw_values', converted_geography=cfg.demand_primary_geography, map_to='int_values')
                     _, x = util.difference_in_df_names(time_step_energy, self.stock.int_values)
                     if x:
-                        raise ValueError(
-                            'energy demand must have the same index levels as stock when stock is specified in capacity factor terms')
+                        raise ValueError('energy demand must have the same index levels as stock when stock is specified in capacity factor terms')
                     else:
                         self.stock.int_values = DfOper.divi([time_step_energy, self.stock.int_values],expandable=(False,True),collapsible=(True,False))
                     # project energy demand stock
                     self.stock.map_from = 'int_values'
                     self.stock.projected_input_type = 'total'
-                    self.project_stock(map_from=self.stock.map_from,stock_dependent = self.energy_demand.is_stock_dependent,reference_run=True)
+                    self.project_stock(map_from=self.stock.map_from,stock_dependent=self.energy_demand.is_stock_dependent,reference_run=True)
                     self.stock.projected = False
                     self.stock_subset_prep()
                     # remove stock efficiency from energy demand to return service demand
@@ -2038,33 +2037,7 @@ class Subsector(DataMapFunctions):
             sd_modifier.fillna(1, inplace=True)
             # replace any 0's with 1 since zeros indicates no stock in that subset, not a service demand modifier of 0
             sd_modifier[sd_modifier == 0] = 1
-#
-#        if 'final_energy' in (sd_modifier.index.names):
-#            # if final energy is in the original sd_modifier definition, we need to convert it to
-#            # a dataframe that instead has service demand modifiers by demand_technology
-#            blank_modifier_main = util.empty_df(index=self.stock.tech_subset_normal.index,
-#                                                columns=self.stock.tech_subset_normal.columns.values, fill_value=1)
-#            blank_modifier_aux = util.empty_df(index=self.stock.tech_subset_normal.index,
-#                                               columns=self.stock.tech_subset_normal.columns.values, fill_value=0.)
-#            # lookup service demand modifiers for each demand_technology in a dataframe of service demand modifiers by energy type
-#            for tech in self.tech_ids:
-#                main_energy_id = self.technologies[tech].efficiency_main.final_energy_id
-#                aux_energy_id = getattr(self.technologies[tech].efficiency_aux, 'final_energy_id') if hasattr(
-#                    self.technologies[tech].efficiency_aux, 'final_energy_id') else None
-#                main_utility_factor = self.technologies[tech].efficiency_main.utility_factor
-#                aux_utility_factor = 1 - main_utility_factor
-#                main_energy_indexer = util.level_specific_indexer(sd_modifier, 'final_energy', main_energy_id)
-#                aux_energy_indexer = util.level_specific_indexer(sd_modifier, 'final_energy', aux_energy_id)
-#                tech_indexer = util.level_specific_indexer(blank_modifier_main, 'demand_technology', tech)
-#                blank_modifier_main.loc[tech_indexer, :] = sd_modifier.loc[main_energy_indexer, :] * main_utility_factor
-#                if aux_energy_id is not None:
-#                    blank_modifier_aux.loc[tech_indexer, :] = sd_modifier.loc[aux_energy_indexer,
-#                                                              :] * aux_utility_factor
-#                blank_modifier = DfOper.add([blank_modifier_main, blank_modifier_aux])
-#            sd_modifier = blank_modifier
-#            sd_modifier = self.vintage_year_array_expand(sd_modifier, df_for_indexing, sd_subset)
-#            sd_modifier.fillna(1, inplace=True)
-#            sd_modifier.sort_index()
+
             # loop through technologies and add service demand modifiers by demand_technology-specific input (i.e. demand_technology has a
         # a service demand modifier class)
         for tech in self.tech_ids:
@@ -2681,94 +2654,118 @@ class Subsector(DataMapFunctions):
             demand_technology.reconcile_sales_shares('reference_sales_shares', needed_sales_share_levels,
                                               needed_sales_share_names)
 
-    def calculate_total_sales_share(self, elements, levels):
-        ss_measure = self.helper_calc_sales_share(elements, levels, reference=False)
-        space_for_reference = 1 - np.sum(ss_measure, axis=1)
-        ss_reference = self.helper_calc_sales_share(elements, levels, reference=True, space_for_reference=space_for_reference)
-                                            
-        if np.sum(ss_reference)==0:
-            ref_array = np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1))
-            if np.nansum(util.df_slice(self.stock.technology, elements, levels).values[0]) >= np.nansum(util.df_slice(self.stock.total, elements, levels).values[0]):
-                initial_stock = util.df_slice(self.stock.technology, elements, levels).replace(np.nan,0).values[0]
-                tech_lifetimes = np.array([x.book_life for x in self.technologies.values()])
-                x = initial_stock/tech_lifetimes
-                x = np.nan_to_num(x)
-                x /= sum(x)
-                x = np.nan_to_num(x)
-                for i, tech_id in enumerate(self.tech_ids): 
-                    for sales_share in self.technologies[tech_id].sales_shares.values():
-                        if sales_share.replaced_demand_tech_id is None:
-                            ref_array[:,:,i] = x
-                            
-            
-            ss_reference = SalesShare.scale_reference_array_to_gap(ref_array, space_for_reference)        
-            #sales shares are always 1 with only one demand_technology so the default can be used as a reference
-            if len(self.tech_ids)>1 and np.sum(ss_measure)<1:
-                reference_sales_shares = False
-            else:
-                reference_sales_shares = True
-        else:
-            reference_sales_shares = True
-                                                    
-        # return SalesShare.normalize_array(ss_reference+ss_measure, retiring_must_have_replacement=True)
-        # todo make retiring_must_have_replacement true after all data has been put in db                   
-        return SalesShare.normalize_array(ss_reference + ss_measure, retiring_must_have_replacement=False), reference_sales_shares
-
-
-    def calculate_total_sales_share_after_initial(self, elements, levels, initial_stock):
-        ss_measure = self.helper_calc_sales_share(elements, levels, reference=False)
-        space_for_reference = 1 - np.sum(ss_measure, axis=1)
-        ref_array = np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1))
-        tech_lifetimes = np.array([x.book_life for x in self.technologies.values()])
-        x = initial_stock/tech_lifetimes
-        x = np.nan_to_num(x)
-        x /= sum(x)
-        for i, tech_id in enumerate(self.tech_ids): 
-            for sales_share in self.technologies[tech_id].sales_shares.values():
-                if sales_share.replaced_demand_tech_id is None:
-                    ref_array[:,:,i] = x
-        ss_reference = SalesShare.scale_reference_array_to_gap(ref_array, space_for_reference)        
-        #sales shares are always 1 with only one demand_technology so the default can be used as a reference
-        return SalesShare.normalize_array(ss_reference + ss_measure, retiring_must_have_replacement=False)
-
-    def helper_calc_sales_share(self, elements, levels, reference, space_for_reference=None):
-        num_techs = len(self.tech_ids)
+    def helper_calc_sales_share_reference_new(self, elements, initial_stock):
+        num_techs, num_years = len(self.tech_ids), len(self.years)
         tech_lookup = dict(zip(self.tech_ids, range(num_techs)))
-        num_years = len(self.years)
-        # ['vintage', 'replacing tech id', 'retiring tech id']
-        ss_array = np.zeros(shape=(num_years, num_techs, num_techs))
-        # tech_ids must be sorted
-        # normalize ss in one of two ways
-        if reference:
-            for tech_id in self.tech_ids:
-                for sales_share in self.technologies[tech_id].reference_sales_shares.values():
-                    repl_index = tech_lookup[tech_id]
-                    reti_index = slice(None)
-                    # demand_technology sales share dataframe may not have all elements of stock dataframe
-                    if any([element not in sales_share.values.index.levels[
-                        util.position_in_index(sales_share.values, level)] for element, level in
-                            zip(elements, levels)]):
-                        continue
-                    ss_array[:, repl_index, reti_index] += util.df_slice(sales_share.values, elements, levels).values
-            ss_array = SalesShare.scale_reference_array_to_gap(ss_array, space_for_reference)                          
+        tech_lifetimes = np.array([x.book_life for x in self.technologies.values()])
+        if initial_stock is None:
+            # this is a special case where we don't have an initial stock specified, so we just want to return the reference sales shares
+            sales_ratio = np.zeros(num_techs)
+        elif np.nansum(initial_stock) == 0:
+            # we don't have an initial stock and therefore no information, we can just return ones on the diagonal
+            return np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1))
         else:
-            for tech_id in self.tech_ids:
-                for sales_share in self.technologies[tech_id].sales_shares.values():
-                    repl_index = tech_lookup[sales_share.demand_technology_id]
-                    if sales_share.replaced_demand_tech_id is not None and not tech_lookup.has_key(sales_share.replaced_demand_tech_id):
-                            #if you're replacing a demand tech that doesn't have a sales share or stock in the model, this is zero and so we continue the loop
-                            continue
-                    reti_index = tech_lookup[sales_share.replaced_demand_tech_id] if \
-                        sales_share.replaced_demand_tech_id is not None and tech_lookup.has_key(sales_share.replaced_demand_tech_id) else \
-                        slice(None)
-                    # TODO address the discrepancy when a demand tech is specified
-                    try:
-                        ss_array[:, repl_index, reti_index] += util.df_slice(sales_share.values, elements, levels).values
-                    except:
-                        ss_array[:, repl_index, reti_index] += util.df_slice(sales_share.values, elements, levels).values.flatten()
-                        
-            ss_array = SalesShare.cap_array_at_1(ss_array)
+            # nan to num replaces nans with zeros
+            sales_ratio = np.nan_to_num(initial_stock) / tech_lifetimes
+
+        ss_array_ref = np.zeros(shape=(num_years, num_techs, num_techs))
+        # tech_ids must be sorted
+        for tech_id in self.tech_ids:
+            for sales_share in self.technologies[tech_id].reference_sales_shares.values():
+                repl_index = tech_lookup[tech_id]
+                # demand_technology sales share dataframe may not have all elements of stock dataframe
+                if any([element not in sales_share.values.index.levels[util.position_in_index(sales_share.values, level)]
+                        for element, level in zip(elements, self.stock.rollover_group_names)]):
+                    continue
+                ss_array_ref[:, repl_index, :] += util.df_slice(sales_share.values, elements, self.stock.rollover_group_names).values
+                # we have a reference sales share for this tech, so we zero out the initial sales share
+                sales_ratio[repl_index] = 0
+
+        if np.sum(sales_ratio)==0:
+            # we've zeroed all of the initial sales_shares, so we just need to take the ref array and make sure it is normalized
+            ss_array_ref = SalesShare.normalize_array(ss_array_ref, retiring_must_have_replacement=False if initial_stock is None else True)
+        else:
+            # renormalize the initial sales shares because we zeroed some out that had a reference sales share
+            sales_shares_fill = sales_ratio / sum(sales_ratio)
+            # the user could have put in reference sales that summed to greater than 1.. instead of raising an error, we will just cap it
+            ss_array_ref = SalesShare.cap_array_at_1(ss_array_ref)
+            space_for_reference = 1 - np.sum(ss_array_ref, axis=1)
+            # scale down the sales shares fill to the space not specified to a reference sales share and fill with the initial sales share
+            ss_array_ref += np.reshape(np.repeat(space_for_reference*sales_shares_fill, num_techs, 1), (num_years, num_techs, num_techs))
+        return ss_array_ref
+
+    def helper_calc_sales_share_measure_no_replaced_tech_new(self, elements):
+        num_techs, num_years = len(self.tech_ids), len(self.years)
+        tech_lookup = dict(zip(self.tech_ids, range(num_techs)))
+        ss_array = np.empty(shape=(num_years, num_techs, num_techs))
+        ss_array[:] = np.nan
+        for tech_id in self.tech_ids:
+            for sales_share in self.technologies[tech_id].sales_shares.values():
+                if tech_lookup.has_key(sales_share.replaced_demand_tech_id):
+                    # We deal with those techs with a replaced tech at the very end. So continue
+                    continue
+                tech_index = tech_lookup[sales_share.demand_technology_id]
+                ss_values = util.df_slice(sales_share.values, elements, self.stock.rollover_group_names).values
+                ss_array[:, tech_index, :] += ss_values
+        # if the sales share measures sum to over 100%, we normalize them down
+        ss_array = SalesShare.cap_array_at_1(ss_array)
         return ss_array
+
+    def _yield_sales_share_matching_replaced_tech(self, replaced_tech):
+        for tech_id in self.tech_ids:
+            for sales_share in self.technologies[tech_id].sales_shares.values():
+                if sales_share.replaced_demand_tech_id == replaced_tech:
+                    yield sales_share
+
+    def helper_calc_sales_share_measure_w_replaced_tech_new(self, elements, ss_array_ref):
+        # get the sales shares for those techs that have a replaced tech, these are special because they have to be normalized in a special step
+        num_techs, num_years = len(self.tech_ids), len(self.years)
+        tech_lookup = dict(zip(self.tech_ids, range(num_techs)))
+        ss_array_meas_w_rep = np.zeros(shape=(num_years, num_techs, num_techs))
+        for replaced_id in self.tech_ids:
+            replaced_index = tech_lookup[replaced_id]
+            temp_array = np.zeros(shape=(num_years, num_techs, num_techs))
+            for sales_share in self._yield_sales_share_matching_replaced_tech(replaced_id):
+                if not tech_lookup.has_key(sales_share.replaced_demand_tech_id):
+                    continue
+                tech_index = tech_lookup[sales_share.demand_technology_id]
+                ss_values = util.df_slice(sales_share.values, elements, self.stock.rollover_group_names).values
+                # if we have a replace tech, we find that index
+                # adjust = ss_array_ref[:, replaced_index, :] * ss_values
+                temp_array[:, tech_index, :] += ss_values
+                temp_array[:, replaced_index, :] -= ss_values
+            # once we are here, we have some positive rows and one negative row. We need to normalize so that the negative row is not smaller than -1
+            vintage, _, col = np.nonzero(temp_array < -1)
+            temp_array[vintage, :, col] = (temp_array[vintage, :, col].T / -(temp_array[vintage, replaced_index, col])).T
+            # ss_tile = np.reshape(np.repeat(ss_array_ref[:, replaced_index, :], num_techs, axis=1), (num_years, num_techs, num_techs))
+            ss_tile = np.reshape(np.repeat(ss_array_ref[:, replaced_index, :], num_techs, axis=0), (num_years, num_techs, num_techs))
+            np.repeat(ss_array_ref[:, replaced_index, :], num_techs, axis=0)
+            ss_array_meas_w_rep += temp_array * ss_tile
+        ss_array_meas_w_rep[ss_array_meas_w_rep == -0] = 0
+        return ss_array_meas_w_rep
+
+    def calculate_total_sales_share_new(self, elements, initial_stock):
+        ss_array_meas_n_repl = self.helper_calc_sales_share_measure_no_replaced_tech_new(elements)
+        space_for_reference = 1 - np.nansum(ss_array_meas_n_repl, axis=1)
+        # These are the reference sales shares for all years. Columns sum to 1. They are equal to the initial sales shares based on initial stock unless a reference sales share is input
+        ss_array_ref = self.helper_calc_sales_share_reference_new(elements, initial_stock)
+        # anything with a sales share measure we zero because it needs to be overridden
+        ss_array_ref[np.nonzero(np.isfinite(ss_array_meas_n_repl))] = 0
+        ss_array_ref_scaled = SalesShare.scale_reference_array_to_gap(ss_array_ref, space_for_reference)
+        # we've accounted for them, now the nans need to go to zero
+        ss_array_meas_n_repl_zeros = np.nan_to_num(ss_array_meas_n_repl)
+        ss_new_ref = ss_array_ref_scaled + ss_array_meas_n_repl_zeros
+
+        ss_array_repl = self.helper_calc_sales_share_measure_w_replaced_tech_new(elements, ss_new_ref)
+        ss_array = ss_new_ref + ss_array_repl
+        if np.any(np.isnan(ss_array)):
+            raise ValueError('Sales share has NaN values in subsector ' + str(self.id))
+        try:
+            assert np.all(np.isclose(np.sum(ss_array, axis=1), 1))
+        except:
+            pdb.set_trace()
+        return ss_array
+
 
     def tech_to_energy(self, df, tech_class):
         """
@@ -2889,18 +2886,13 @@ class Subsector(DataMapFunctions):
             self.tech_sd_modifier_calc()
         for elements in rollover_groups.keys():
             elements = util.ensure_tuple(elements)
-            #returns sales share and a flag as to whether the sales share can be used to parameterize initial stock. 
-            sales_share, initial_sales_share = self.calculate_total_sales_share(elements, self.stock.rollover_group_names)  # group is not necessarily the same for this other dataframe
-            if np.any(np.isnan(sales_share)):
-                raise ValueError('Sales share has NaN values in subsector ' + str(self.id))   
-            initial_stock, rerun_sales_shares = self.calculate_initial_stock(elements, sales_share, initial_sales_share)
 
-            if rerun_sales_shares:
-               sales_share = self.calculate_total_sales_share_after_initial(elements, self.stock.rollover_group_names, initial_stock)
+            initial_stock = self.calculate_initial_stock(elements)
+            sales_share = self.calculate_total_sales_share_new(elements, initial_stock)
 
-            # the perturbation object is used to create supply curves of demand technologies
-            if self.perturbation is not None:
-                sales_share = self.sales_share_perturbation(elements, self.stock.rollover_group_names, sales_share)
+            # # the perturbation object is used to create supply curves of demand technologies
+            # if self.perturbation is not None:
+            #     sales_share = self.sales_share_perturbation(elements, self.stock.rollover_group_names, sales_share)
 
             if self.stock.is_service_demand_dependent and self.stock.demand_stock_unit_type == 'equipment':
                 sales_share = self.calculate_service_modified_sales(elements,self.stock.rollover_group_names,sales_share)
@@ -2934,9 +2926,10 @@ class Subsector(DataMapFunctions):
             self.fuel_switch_stock_calc()
 
 
-    def calculate_initial_stock(self, elements, sales_share, initial_sales_share):
+    def calculate_initial_stock(self, elements):
         initial_total = util.df_slice(self.stock.total, elements, self.stock.rollover_group_names).values[0]
         demand_technology_years = self.stock.technology.sum(axis=1)[self.stock.technology.sum(axis=1)>0].index.get_level_values('year')
+        initial_sales_share = self.helper_calc_sales_share_reference_new(elements, initial_stock=None)[0]
         if len(demand_technology_years):
              min_demand_technology_year = min(demand_technology_years)
         else:
@@ -2946,31 +2939,21 @@ class Subsector(DataMapFunctions):
             initial_stock = self.stock.technology.loc[elements,:].values[0]
             # gross up if it is just under 100% of the stock represented
             initial_stock /= np.nansum(self.stock.technology.loc[elements,:].values[0])/initial_total
-            rerun_sales_shares = False
         #Second best way is if we have all demand_technology stocks specified in some year before the current year
         elif min_demand_technology_year is not None and min_demand_technology_year<=int(cfg.cfgfile.get('case','current_year')) and np.nansum(self.stock.technology.loc[elements+(min_demand_technology_year,),:].values)==self.stock.total.loc[elements+(min_demand_technology_year,),:].values:
             initial_stock = self.stock.technology.loc[elements+(min_demand_technology_year,),:].values/np.nansum(self.stock.technology.loc[elements+(min_demand_technology_year,),:].values) * initial_total
-            rerun_sales_shares = False
         #Third best way is if we have an initial sales share
-        elif initial_sales_share:                
-            initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, transition_matrix=sales_share[0], num_years=len(self.years))
-            rerun_sales_shares = True
-            ss_measure = self.helper_calc_sales_share(elements, self.stock.rollover_group_names, reference=False)
-            if np.sum(ss_measure) == 0:
-                for i in range(1,len(sales_share)):
-                    if np.any(sales_share[0]!=sales_share[i]):
-                        rerun_sales_shares=False
+        elif initial_sales_share.sum():
+            initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, transition_matrix=initial_sales_share, num_years=len(self.years))
         #Fourth best way is if we have specified some technologies in the initial year, even if not all
         elif min_demand_technology_year:
             initial_stock = self.stock.technology.loc[elements+(min_demand_technology_year,),:].values/np.nansum(self.stock.technology.loc[elements+(min_demand_technology_year,),:].values) * initial_total
-            rerun_sales_shares = False
-        elif np.nansum(initial_total) == 0:
+        elif np.nansum(util.df_slice(self.stock.total, elements, self.stock.rollover_group_names).values) == 0:
             initial_stock = np.zeros(len(self.tech_ids))
-            rerun_sales_shares = False
         else:
             pdb.set_trace()
             raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the demand_technology composition of the initial stock in subsector %s' %self.id)
-        return initial_stock, rerun_sales_shares
+        return initial_stock
         
 
 
@@ -3230,7 +3213,6 @@ class Subsector(DataMapFunctions):
         """
         for id in self.service_links:
             link = self.service_links[id]
-            #pdb.set_trace()
             link.values = self.rollover_output_dict(tech_dict='service_links',tech_dict_key=id, tech_att='values', stock_att='values_normal')
 #            # sum over demand_technology and vintage to get a total stock service efficiency
             link.values = util.remove_df_levels(link.values,['demand_technology', 'vintage'])
