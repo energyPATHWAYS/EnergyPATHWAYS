@@ -148,7 +148,7 @@ class Demand(object):
         no_shape = [self.shape_from_subsectors_with_no_shape(year)]
         inflex_load = util.DfOper.add(no_shape+inflexible, expandable=False, collapsible=False)
         inflex_load = util.DfOper.mult((inflex_load, self.electricity_reconciliation))
-        flex_load = util.DfOper.add([sector.aggregate_flexible_electricity_shape(year) for sector in self.sectors.values()], expandable=False, collapsible=False)
+        flex_load = util.DfOper.add([sector.aggregate_flexible_electricity_shape(year) for sector in self.sectors.values()], expandable=False, collapsible=False)      
         if flex_load is None:
             agg_load = pd.concat([inflex_load], keys=[2], names=['timeshift_type'])
         else:
@@ -843,6 +843,13 @@ class Subsector(DataMapFunctions):
             # doing this will make the energy for the subsector match, but it won't exactly match the system shape used in the dispatch
             correction_factors = util.remove_df_levels(energy_slice, 'demand_technology') / return_shape.xs(2, level='timeshift_type').groupby(level=cfg.primary_geography).sum()
             return_shape = util.DfOper.mult((return_shape, correction_factors))
+        
+#        if self.id == 15:
+#            pdb.set_trace()
+        try:
+            print self.id, self.name, (self.get_electricity_consumption(year).groupby(level=cfg.primary_geography).sum() - return_shape.groupby(level=cfg.primary_geography).sum())
+        except:
+            pdb.set_trace()
         return return_shape
 
     def add_energy_system_data(self):
@@ -1792,7 +1799,7 @@ class Subsector(DataMapFunctions):
                                                           unit_to_den=self.stock.time_unit)
                     # divide by capacity factor stock inputs to get a service demand stock
                     # ex. kBtu/hour/capacity factor equals kBtu/hour stock
-                    self.stock.remap(map_from='raw_values', map_to='int_values', fill_timeseries=False)
+                    self.stock.remap(map_from='raw_values', map_to='int_values', fill_timeseries=True)
                     _, x = util.difference_in_df_names(time_step_service, self.stock.int_values)
                     if x:
                         raise ValueError('service demand must have the same index levels as stock when stock is specified in capacity factor terms')
