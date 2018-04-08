@@ -54,7 +54,7 @@ class Shapes(object):
 
     def create_empty_shapes(self):
         """ This should be called first as it creates a record of all of the shapes that are in the database."""
-        for id in util.sql_read_table(self.sql_id_table, column_names='id', return_unique=True, return_iterable=True):
+        for id in util.sql_read_table(self.sql_id_table, column_names='id', return_unique=True, return_iterable=True, is_active=True):
             self.data[id] = Shape(id)
             self.active_shape_ids.append(id)
 
