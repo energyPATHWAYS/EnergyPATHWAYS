@@ -222,9 +222,10 @@ if __name__ == "__main__":
     solve_demand  = True,
     load_supply   = False,
     solve_supply  = False,
-    export_results= False,
+    export_results= True,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,
     clear_results = False)
+    

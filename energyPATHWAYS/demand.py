@@ -1812,7 +1812,7 @@ class Subsector(DataMapFunctions):
                                                           unit_to_den=self.stock.time_unit)
                     # divide by capacity factor stock inputs to get a service demand stock
                     # ex. kBtu/hour/capacity factor equals kBtu/hour stock
-                    self.stock.remap(map_from='raw_values', map_to='int_values', converted_geography=cfg.demand_primary_geography, fill_timeseries=False)
+                    self.stock.remap(map_from='raw_values', map_to='int_values', converted_geography=cfg.demand_primary_geography, fill_timeseries=True)
                     _, x = util.difference_in_df_names(time_step_service, self.stock.int_values)
                     if x:
                         raise ValueError('service demand must have the same index levels as stock when stock is specified in capacity factor terms')
