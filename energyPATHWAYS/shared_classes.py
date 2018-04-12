@@ -236,14 +236,13 @@ class SalesShare(Abstract, DataMapFunctions):
     def scale_reference_array_to_gap(ss_array, space_for_reference):
         num_years, num_techs, num_techs = np.shape(ss_array)
 
-        ref_sums = np.sum(ss_array, axis=1)
+        ref_sums = np.nansum(ss_array, axis=1)
 
         # ignore where no reference is specified to avoid dividing by zero
         vintage_no_ref, retiring_no_ref = np.nonzero(ref_sums)
 
         factors = np.zeros(np.shape(ref_sums))
         factors[vintage_no_ref, retiring_no_ref] += space_for_reference[vintage_no_ref, retiring_no_ref] / ref_sums[vintage_no_ref, retiring_no_ref]
-
         factors = np.reshape(np.repeat(factors, num_techs, axis=0), (num_years, num_techs, num_techs))
 
         # gross up reference sales share with the need
@@ -252,7 +251,7 @@ class SalesShare(Abstract, DataMapFunctions):
     @staticmethod
     def normalize_array(ss_array, retiring_must_have_replacement=True):
         # Normalize to 1
-        sums = np.sum(ss_array, axis=1)
+        sums = np.nansum(ss_array, axis=1)
 
         if np.any(sums == 0) and retiring_must_have_replacement:
             raise ValueError('Every retiring technology must have a replacement specified in sales share')
@@ -262,13 +261,15 @@ class SalesShare(Abstract, DataMapFunctions):
 
         # normalize all to 1
         ss_array[vintage, :, retiring] = (ss_array[vintage, :, retiring].T / sums[vintage, retiring]).T
-        ss_array = np.nan_to_num(ss_array)
+        # we either divided by zero or everything came in as zeros, this gave us NaNs that we want to return to zero
+        if not retiring_must_have_replacement:
+            ss_array = np.nan_to_num(ss_array)
         return ss_array
 
     @staticmethod
     def cap_array_at_1(ss_array):
         # Normalize down to 1
-        sums = np.sum(ss_array, axis=1)
+        sums = np.nansum(ss_array, axis=1)
         vintage, retiring = np.nonzero(sums > 1)
         # normalize those greater than 1
         ss_array[vintage, :, retiring] = (ss_array[vintage, :, retiring].T / sums[vintage, retiring]).T

@@ -2704,7 +2704,7 @@ class Subsector(DataMapFunctions):
             return ss_array
         for tech_id in self.tech_ids:
             for sales_share in self.technologies[tech_id].sales_shares.values():
-                if tech_lookup.has_key(sales_share.replaced_demand_tech_id):
+                if sales_share.replaced_demand_tech_id:
                     # We deal with those techs with a replaced tech at the very end. So continue
                     continue
                 tech_index = tech_lookup[sales_share.demand_technology_id]
@@ -2712,9 +2712,6 @@ class Subsector(DataMapFunctions):
                 # we start by setting everything to nan, thus before we add to it, we must set it to zero otherwise
                 # we keep getting nans when we add and the measure doesn't work
                 if np.any(np.isnan(ss_array[:, tech_index, :])):
-                    if not np.all(np.isnan(ss_array[:, tech_index, :])):
-                        logging.info('weird behavior')
-                        pdb.set_trace()
                     ss_array[:, tech_index, :] = 0
                 ss_array[:, tech_index, :] += ss_values
         # if the sales share measures sum to over 100%, we normalize them down
@@ -2769,8 +2766,7 @@ class Subsector(DataMapFunctions):
         y_i, t_i = np.nonzero(np.sum(ss_array_ref_scaled, axis=1)==0)
         ss_array_ref_scaled[y_i, t_i, t_i] = space_for_reference[y_i, t_i]
         # we've accounted for them, now the nans need to go to zero
-        ss_array_meas_n_repl_zeros = np.nan_to_num(ss_array_meas_n_repl)
-        ss_new_ref = ss_array_ref_scaled + ss_array_meas_n_repl_zeros
+        ss_new_ref = ss_array_ref_scaled + np.nan_to_num(ss_array_meas_n_repl)
 
         ss_array_repl = self.helper_calc_sales_share_measure_w_replaced_tech_new(elements, ss_new_ref, reference_run)
         ss_array = ss_new_ref + ss_array_repl
