@@ -98,8 +98,9 @@ class Output(object):
                     df.to_csv(os.path.join(path, file_name), header=False, mode='a', compression=compression)
                     return
                 except OSError:
-                    logging.error('waiting {} seconds to try to write {}...'.format(2 ** tries, file_name))
-                    time.sleep(min(30, 2 ** tries) * np.random.rand())
+                    wait_time = min(30, 2 ** tries) * np.random.rand()
+                    logging.error('waiting {} seconds to try to write {}...'.format(wait_time))
+                    time.sleep(wait_time)
                     if tries >= 30:
                         raise
                     tries += 1
