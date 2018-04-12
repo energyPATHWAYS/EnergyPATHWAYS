@@ -99,8 +99,8 @@ class Output(object):
                     return
                 except OSError:
                     logging.error('waiting {} seconds to try to write {}...'.format(2 ** tries, file_name))
-                    time.sleep(2 ** tries)
-                    if tries >= 10:
+                    time.sleep(min(30, 2 ** tries) * np.random.rand())
+                    if tries >= 30:
                         raise
                     tries += 1
         else:
