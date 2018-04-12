@@ -337,7 +337,7 @@ class Supply(object):
         dispatch_write_step = int(cfg.cfgfile.get('output_detail','dispatch_write_step'))
         logging.info("Dispatch year step = {}".format(dispatch_year_step))
         self.dispatch_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_year_step))
-        if dispatch_year_step ==0:
+        if dispatch_write_step ==0:
             self.dispatch_write_years = []
         else:
             self.dispatch_write_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_write_step))
@@ -3228,10 +3228,6 @@ class Node(DataMapFunctions):
                         else:
                             mult=0
                         self.active_internal_trade_df.loc[row_indexer, col_indexer] *= mult
-                if np.all(np.round(self.active_internal_trade_df.sum().values,2)==1.) or np.all(np.round(self.active_internal_trade_df.sum().values,2)==0):
-                    pass
-                else:
-                    pdb.set_trace()
                 self.internal_trades = "stop and feed"
             else:
                 self.internal_trades = "stop"
@@ -4163,7 +4159,7 @@ class SupplyPotential(Abstract):
         if self.data is True:
             self.conversion = conversion
             self.resource_unit=resource_unit
-            self.remap(filter_geo=False)
+            self.remap(filter_geo=True)
             if self.enforce_potential_constraint!=True:
                 self.values = self.values[self.values.values>0]
                 max_bin = np.asarray(list(set(self.values.index.get_level_values('resource_bin')))).max()
@@ -4202,10 +4198,10 @@ class SupplyPotential(Abstract):
         original_supply_curve = util.remove_df_levels(self.supply_curve.loc[:,year].to_frame().sort(),[x for x in self.supply_curve.loc[:,year].index.names if x not in [primary_geography, 'resource_bin', 'demand_sector']])
         self.active_supply_curve = util.remove_df_levels(original_supply_curve,[x for x in self.supply_curve.loc[:,year].index.names if x not in [primary_geography, 'resource_bin', 'demand_sector']])
         if tradable_geography is not None and tradable_geography!=primary_geography:
-                map_df = cfg.geo.map_df(primary_geography,tradable_geography,normalize_as='total',eliminate_zeros=False,filter_geo=False)
+                map_df = cfg.geo.map_df(primary_geography,tradable_geography,normalize_as='total',eliminate_zeros=False,filter_geo=True)
                 original_supply_curve = util.DfOper.mult([map_df,original_supply_curve])
-                self.geo_map(converted_geography=tradable_geography, attr='active_supply_curve', inplace=True, current_geography=primary_geography,filter_geo=False)
-                self.geo_map(converted_geography=tradable_geography, attr='active_throughput', inplace=True, current_geography=primary_geography,filter_geo=False)
+                self.geo_map(converted_geography=tradable_geography, attr='active_supply_curve', inplace=True, current_geography=primary_geography,filter_geo=True)
+                self.geo_map(converted_geography=tradable_geography, attr='active_throughput', inplace=True, current_geography=primary_geography,filter_geo=True)
         self.active_supply_curve = self.active_supply_curve.groupby(level=[x for x in self.active_supply_curve.index.names if x not in 'resource_bin']).cumsum()         
         reindexed_throughput = util.DfOper.none([self.active_throughput,self.active_supply_curve],expandable=(True,False),collapsible=(True,True))           
         self.active_supply_curve = util.expand_multi(self.active_supply_curve, reindexed_throughput.index.levels,reindexed_throughput.index.names)        
@@ -4220,6 +4216,7 @@ class SupplyPotential(Abstract):
             normalized = original_supply_curve.groupby(level=[tradable_geography,'resource_bin']).transform(lambda x: x/x.sum())
             self.active_supply_curve = util.remove_df_levels(util.DfOper.mult([normalized,self.active_supply_curve]),tradable_geography)
         self.active_supply_curve.columns = ['value']
+        self.geo_map(converted_geography=tradable_geography, attr='active_supply_curve', inplace=True, current_geography=primary_geography,filter_geo=True)
 
     def remap_to_potential_and_normalize(self,active_throughput, year,tradable_geography=None) :
         """returns the proportion of the supply curve that is in each bin"""
@@ -4233,9 +4230,9 @@ class SupplyPotential(Abstract):
             self.active_geomapped_supply = active_supply
         else:
             self.active_potential = self.values.loc[:,year].to_frame()
-            self.active_geomapped_potential = self.geo_map(converted_geography=tradable_geography, attr='active_potential', inplace=False, current_geography=cfg.primary_geography, current_data_type='total',filter_geo=False)
+            self.active_geomapped_potential = self.geo_map(converted_geography=tradable_geography, attr='active_potential', inplace=False, current_geography=cfg.primary_geography, current_data_type='total',filter_geo=True)
             self.active_geomapped_supply = active_supply
-            self.active_geomapped_supply = self.geo_map(converted_geography=tradable_geography, attr='active_geomapped_supply', inplace=False, current_geography=cfg.primary_geography, current_data_type='total',filter_geo=False)
+            self.active_geomapped_supply = self.geo_map(converted_geography=tradable_geography, attr='active_geomapped_supply', inplace=False, current_geography=cfg.primary_geography, current_data_type='total',filter_geo=True)
         levels = util.intersect(self.active_geomapped_supply.index.names, self.active_geomapped_supply.index.names)
         disallowed_potential_levels = [x for x in self.active_geomapped_potential.index.names if x not in levels]
         disallowed_supply_levels = [x for x in self.active_geomapped_supply.index.names if x not in levels]
@@ -5656,7 +5653,10 @@ class ImportNode(Node):
                     self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.primary_geography], self.demand_sectors],levels_names=[cfg.primary_geography,'demand_sector'])
                 else:
                     raise ValueError("too many indexes in cost inputs of node %s" %self.id)
-            self.levelized_costs.loc[:,year] = DfOper.mult([self.active_embodied_cost,self.active_supply]).values
+            try:
+                self.levelized_costs.loc[:,year] = DfOper.mult([self.active_embodied_cost,self.active_supply]).values
+            except:
+                pdb.set_trace()
     
     def calculate_annual_costs(self,year):
         if hasattr(self,'active_embodied_cost'):
@@ -5693,7 +5693,7 @@ class ImportNode(Node):
         cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
         levels = ['demand_sector',cfg.primary_geography]
         tradable_levels = ['demand_sector',self.tradable_geography]
-        map_df = cfg.geo.map_df(cfg.primary_geography,self.tradable_geography,normalize_as='total',eliminate_zeros=False,filter_geo=False)
+        map_df = cfg.geo.map_df(cfg.primary_geography,self.tradable_geography,normalize_as='total',eliminate_zeros=False,filter_geo=True)
         traded_cost = util.DfOper.mult([cost,map_df])
         traded_cost = traded_cost.groupby(level=[x for x in tradable_levels if x in traded_cost.index.names]).transform(lambda x: x.max())
         cost = traded_cost.groupby(level = [x for x in levels if x in cost.index.names]).max()
@@ -5803,7 +5803,7 @@ class PrimaryNode(Node):
         cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
         levels = ['demand_sector',cfg.primary_geography]
         tradable_levels = ['demand_sector',self.tradable_geography]
-        map_df = cfg.geo.map_df(cfg.primary_geography,self.tradable_geography,normalize_as='total',eliminate_zeros=False,filter_geo=False)
+        map_df = cfg.geo.map_df(cfg.primary_geography,self.tradable_geography,normalize_as='total',eliminate_zeros=False,filter_geo=True)
         traded_cost = util.DfOper.mult([cost,map_df])
         traded_cost = traded_cost.groupby(level=[x for x in tradable_levels if x in traded_cost.index.names]).transform(lambda x: x.max())
         cost = traded_cost.groupby(level = [x for x in levels if x in cost.index.names]).max()

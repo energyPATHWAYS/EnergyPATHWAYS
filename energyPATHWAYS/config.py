@@ -96,15 +96,15 @@ available_cpus = None
 
 #logging
 log_name = None
-
+           # 'lumen = candela * steradian',
+            #'lumen_hour = candela * steradian * hour',
 unit_defs = ['US_gge = 120,500 * BTU',
+             'lumen_hour = watt_hour * 683',
             'US_gde = 138,490 * BTU',
             'US_gee = 80337.35 * BTU',
             'lng_gallon = 82,644 * BTU',
             'mmBtu = 1,000,000 * BTU',
             'mmbtu = 1,000,000 * BTU',
-            'lumen = candela * steradian',
-            'lumen_hour = candela * steradian * hour',
             'quad = 1,000,000,000,000,000 * BTU',
             'cubic_foot = 28316.8 * cubic_centimeter',
             'cubic_meter = 1000000 * cubic_centimeter',

@@ -213,17 +213,17 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\OCT'
-    config = 'config.INI'
-    scenario = ['OCT']
+    workingdir = r'\\DESKTOP-PHIEDQS\Users\PC-User\Documents\EU'
+    config = 'config.INI' 
+    scenario = ['138_LDV Hybrid']
 
 
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
-    solve_supply  = False,
-    export_results= False,
+    solve_supply  = True,
+    export_results= True,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,

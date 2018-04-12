@@ -217,8 +217,7 @@ class GeoMapper:
         if not eliminate_zeros:
             index = pd.MultiIndex.from_product(table.index.levels, names=table.index.names)
             table = table.reorder_levels(index.names)
-            table = table.reindex(index, fill_value=0.0)
-            
+            table = table.reindex(index, fill_value=0.0)   
         return table
         
     def filter_extra_geos_from_df(self, df):

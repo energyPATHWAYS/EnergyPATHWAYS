@@ -201,7 +201,12 @@ class DataMapFunctions:
 
         # create dataframe with map from one geography to another
         map_df = cfg.geo.map_df(current_geography, converted_geography, normalize_as=current_data_type, map_key=geography_map_key,filter_geo=filter_geo)
-        mapped_data = DfOper.mult([getattr(self, attr), map_df], fill_value=fill_value)
+        if current_geography == converted_geography:
+            df = getattr(self,attr)
+            df = util.remove_df_elements(df, [x for x in df.index.get_level_values(current_geography) if x not in map_df.index.get_level_values(current_geography)], current_geography)
+            mapped_data = DfOper.mult([df, map_df], fill_value=fill_value)
+        else:
+            mapped_data = DfOper.mult([getattr(self, attr), map_df], fill_value=fill_value)
         if current_geography!=converted_geography:
             mapped_data = util.remove_df_levels(mapped_data, current_geography)
             
@@ -285,10 +290,10 @@ class DataMapFunctions:
                 self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, time_index_name=time_index_name,
                                       interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
                                       lower=lower, upper=upper)
-            if current_geography != converted_geography:
-                self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
-                             current_data_type=current_data_type, fill_value=fill_value,filter_geo=filter_geo)
-                current_geography = converted_geography
+            #if current_geography != converted_geography:
+            self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
+                         current_data_type=current_data_type, fill_value=fill_value,filter_geo=filter_geo)
+            current_geography = converted_geography
         else:
             # becomes an attribute of self just because we may do a geomap on it
             self.total_driver = DfOper.mult(util.put_in_list(drivers))
@@ -344,7 +349,7 @@ class DataMapFunctions:
             if current_data_type != 'intensity':
                 raise ValueError(str(self.__class__) + ' id ' + str(self.id) + ': type must be intensity if variable has denominator drivers')
 
-            if current_geography != converted_geography:
+            #if current_geography != converted_geography:
                 # While not on primary geography, geography does have some information we would like to preserve
                 df, current_geography = self.account_for_foreign_gaus(map_from, current_data_type, current_geography)
                 setattr(self,map_to,df)                
