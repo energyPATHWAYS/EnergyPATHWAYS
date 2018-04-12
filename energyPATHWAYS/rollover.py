@@ -178,13 +178,13 @@ class Rollover(object):
         inc = 1 if incremental_retirement > 0 else -1
         temp_prinxy[retireable] = np.floor(temp_prinxy[retireable]) if incremental_retirement > 0 else np.ceil(temp_prinxy[retireable])
         while inc * incremental_retirement > inc * (new_rolloff - starting_rolloff):
-            if (np.all(temp_prinxy[retireable] == 0) and inc == -1) or (np.all(temp_prinxy[retireable] == self.num_years - 1) and inc == 1):
+            if (np.all(temp_prinxy[retireable] == 0) and inc == -1) or (np.all(temp_prinxy[retireable] == (self.num_years - 1)*self.spy) and inc == 1):
                 self.prinxy = temp_prinxy
                 return
-            temp_prinxy[retireable] = np.clip(temp_prinxy[retireable] + inc, 0, self.num_years - 1)
+            temp_prinxy[retireable] = np.clip(temp_prinxy[retireable] + inc, 0, (self.num_years - 1)*self.spy)
             old_rolloff, new_rolloff = new_rolloff, np.sum(self.calc_stock_rolloff(temp_prinxy))
         temp_prinxy[retireable] -= inc * (1. - (incremental_retirement + starting_rolloff - old_rolloff) / (new_rolloff - old_rolloff))
-        temp_prinxy[retireable] = np.clip(temp_prinxy[retireable], 0, self.num_years - 1)
+        temp_prinxy[retireable] = np.clip(temp_prinxy[retireable], 0, (self.num_years - 1)*self.spy)
         self.prinxy = temp_prinxy
 
     def calc_remaining_stock_initial(self):
@@ -487,7 +487,7 @@ class Rollover(object):
             self.check_outputs()
             self.calculate_outputs(list_steps)
             #increment self.i, this saves the position where the rollover left off
-            self.i = min(self.num_years, i+1)
+            self.i = min((self.num_years - 1)*self.spy, i+1)
 
     def rewind(self, num_years):
         self.i -= num_years*self.spy

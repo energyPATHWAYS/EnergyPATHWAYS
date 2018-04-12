@@ -2215,7 +2215,7 @@ class Subsector(DataMapFunctions):
             self.calc_tech_survival_functions()
             self.calculate_sales_shares(reference_run)
             self.reconcile_sales_shares()
-            self.stock_rollover()
+            self.stock_rollover(reference_run)
             self.stock.projected = True
 
     def project_total_stock(self, map_from, service_dependent=False, stock_dependent = False):
@@ -2651,8 +2651,7 @@ class Subsector(DataMapFunctions):
         needed_sales_share_names = self.stock.rollover_group_names + ['vintage']
         for demand_technology in self.technologies.values():
             demand_technology.reconcile_sales_shares('sales_shares', needed_sales_share_levels, needed_sales_share_names)
-            demand_technology.reconcile_sales_shares('reference_sales_shares', needed_sales_share_levels,
-                                              needed_sales_share_names)
+            demand_technology.reconcile_sales_shares('reference_sales_shares', needed_sales_share_levels, needed_sales_share_names)
 
     def helper_calc_sales_share_reference_new(self, elements, initial_stock):
         num_techs, num_years = len(self.tech_ids), len(self.years)
@@ -2663,6 +2662,7 @@ class Subsector(DataMapFunctions):
             sales_ratio = np.zeros(num_techs)
         elif np.nansum(initial_stock) == 0:
             # we don't have an initial stock and therefore no information, we can just return ones on the diagonal
+            # return np.ones(shape=(num_years, num_techs, num_techs))/num_techs
             return np.tile(np.eye(len(self.tech_ids)), (len(self.years), 1, 1))
         else:
             # nan to num replaces nans with zeros
@@ -2694,11 +2694,14 @@ class Subsector(DataMapFunctions):
             ss_array_ref += np.reshape(np.repeat(space_for_reference*sales_shares_fill, num_techs, 1), (num_years, num_techs, num_techs))
         return ss_array_ref
 
-    def helper_calc_sales_share_measure_no_replaced_tech_new(self, elements):
+    def helper_calc_sales_share_measure_no_replaced_tech_new(self, elements, reference_run):
         num_techs, num_years = len(self.tech_ids), len(self.years)
         tech_lookup = dict(zip(self.tech_ids, range(num_techs)))
         ss_array = np.empty(shape=(num_years, num_techs, num_techs))
         ss_array[:] = np.nan
+        # if it's the reference run, we don't want any measures
+        if reference_run:
+            return ss_array
         for tech_id in self.tech_ids:
             for sales_share in self.technologies[tech_id].sales_shares.values():
                 if tech_lookup.has_key(sales_share.replaced_demand_tech_id):
@@ -2706,6 +2709,13 @@ class Subsector(DataMapFunctions):
                     continue
                 tech_index = tech_lookup[sales_share.demand_technology_id]
                 ss_values = util.df_slice(sales_share.values, elements, self.stock.rollover_group_names).values
+                # we start by setting everything to nan, thus before we add to it, we must set it to zero otherwise
+                # we keep getting nans when we add and the measure doesn't work
+                if np.any(np.isnan(ss_array[:, tech_index, :])):
+                    if not np.all(np.isnan(ss_array[:, tech_index, :])):
+                        logging.info('weird behavior')
+                        pdb.set_trace()
+                    ss_array[:, tech_index, :] = 0
                 ss_array[:, tech_index, :] += ss_values
         # if the sales share measures sum to over 100%, we normalize them down
         ss_array = SalesShare.cap_array_at_1(ss_array)
@@ -2717,11 +2727,14 @@ class Subsector(DataMapFunctions):
                 if sales_share.replaced_demand_tech_id == replaced_tech:
                     yield sales_share
 
-    def helper_calc_sales_share_measure_w_replaced_tech_new(self, elements, ss_array_ref):
+    def helper_calc_sales_share_measure_w_replaced_tech_new(self, elements, ss_array_ref, reference_run):
         # get the sales shares for those techs that have a replaced tech, these are special because they have to be normalized in a special step
         num_techs, num_years = len(self.tech_ids), len(self.years)
         tech_lookup = dict(zip(self.tech_ids, range(num_techs)))
         ss_array_meas_w_rep = np.zeros(shape=(num_years, num_techs, num_techs))
+        # if it's a reference run, we don't want any measures, so we just return
+        if reference_run:
+            return ss_array_meas_w_rep
         for replaced_id in self.tech_ids:
             replaced_index = tech_lookup[replaced_id]
             temp_array = np.zeros(shape=(num_years, num_techs, num_techs))
@@ -2744,25 +2757,29 @@ class Subsector(DataMapFunctions):
         ss_array_meas_w_rep[ss_array_meas_w_rep == -0] = 0
         return ss_array_meas_w_rep
 
-    def calculate_total_sales_share_new(self, elements, initial_stock):
-        ss_array_meas_n_repl = self.helper_calc_sales_share_measure_no_replaced_tech_new(elements)
+    def calculate_total_sales_share_new(self, elements, initial_stock, reference_run):
+        ss_array_meas_n_repl = self.helper_calc_sales_share_measure_no_replaced_tech_new(elements, reference_run)
         space_for_reference = 1 - np.nansum(ss_array_meas_n_repl, axis=1)
         # These are the reference sales shares for all years. Columns sum to 1. They are equal to the initial sales shares based on initial stock unless a reference sales share is input
         ss_array_ref = self.helper_calc_sales_share_reference_new(elements, initial_stock)
         # anything with a sales share measure we zero because it needs to be overridden
         ss_array_ref[np.nonzero(np.isfinite(ss_array_meas_n_repl))] = 0
         ss_array_ref_scaled = SalesShare.scale_reference_array_to_gap(ss_array_ref, space_for_reference)
+        # sometimes there is no reference to scale into the gap and we need to go back and put ones on the diagonal
+        y_i, t_i = np.nonzero(np.sum(ss_array_ref_scaled, axis=1)==0)
+        ss_array_ref_scaled[y_i, t_i, t_i] = space_for_reference[y_i, t_i]
         # we've accounted for them, now the nans need to go to zero
         ss_array_meas_n_repl_zeros = np.nan_to_num(ss_array_meas_n_repl)
         ss_new_ref = ss_array_ref_scaled + ss_array_meas_n_repl_zeros
 
-        ss_array_repl = self.helper_calc_sales_share_measure_w_replaced_tech_new(elements, ss_new_ref)
+        ss_array_repl = self.helper_calc_sales_share_measure_w_replaced_tech_new(elements, ss_new_ref, reference_run)
         ss_array = ss_new_ref + ss_array_repl
         if np.any(np.isnan(ss_array)):
             raise ValueError('Sales share has NaN values in subsector ' + str(self.id))
         try:
             assert np.all(np.isclose(np.sum(ss_array, axis=1), 1))
         except:
+            logging.info('Sales shares are not summing to 1 on the columns')
             pdb.set_trace()
         return ss_array
 
@@ -2875,7 +2892,7 @@ class Subsector(DataMapFunctions):
         self.stock.sales_new = copy.deepcopy(self.stock.sales)
         self.stock.sales_replacement = copy.deepcopy(self.stock.sales)
 
-    def stock_rollover(self):
+    def stock_rollover(self, reference_run):
         """ Stock rollover function."""
         self.format_demand_technology_stock()
         self.create_tech_survival_functions()
@@ -2888,7 +2905,7 @@ class Subsector(DataMapFunctions):
             elements = util.ensure_tuple(elements)
 
             initial_stock = self.calculate_initial_stock(elements)
-            sales_share = self.calculate_total_sales_share_new(elements, initial_stock)
+            sales_share = self.calculate_total_sales_share_new(elements, initial_stock, reference_run)
 
             # # the perturbation object is used to create supply curves of demand technologies
             # if self.perturbation is not None:
