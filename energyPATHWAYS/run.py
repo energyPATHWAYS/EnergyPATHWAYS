@@ -215,15 +215,15 @@ class SubsectorPerturbation(object):
 if __name__ == "__main__":
     workingdir = r'\\DESKTOP-PHIEDQS\Users\PC-User\Documents\EU'
     config = 'config.INI' 
-    scenario = ['138_LDV Hybrid']
+    scenario = ['131_HDV EV - Pre 2025']
 
 
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
-    load_supply   = False,
-    solve_supply  = True,
-    export_results= True,
+    load_supply   = True,
+    solve_supply  = False,
+    export_results= False,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,

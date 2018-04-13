@@ -308,6 +308,7 @@ class DataMapFunctions:
             else:
                 driver_mapping_data_type = 'total'
             total_driver_current_geo = self.geo_map(current_geography, attr='total_driver', inplace=False, current_geography=driver_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=False)                          
+            
             if current_data_type == 'total':
                 if fill_value is np.nan:
                     df_intensity = DfOper.divi((getattr(self, map_to), total_driver_current_geo), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf],0)
@@ -327,7 +328,8 @@ class DataMapFunctions:
                 try:
                     setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo), expandable=(True, False), collapsible=(False, True), fill_value=fill_value))
                 except:
-                    pdb.set_trace()
+                    setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo), expandable=(True, True), collapsible=(False, True), fill_value=fill_value))
+                    print "violates rule for expanding dataframes with intensity"
             self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='total', fill_value=fill_value, filter_geo=filter_geo)
             # we don't want to keep this around
             del self.total_driver
@@ -346,13 +348,14 @@ class DataMapFunctions:
         current_geography = self.geography if current_geography is None else current_geography
         setattr(self, map_to, getattr(self, map_from).copy())
         if len(denominator_driver_ids):
+            df, current_geography = self.account_for_foreign_gaus(map_from, current_data_type, current_geography)
             if current_data_type != 'intensity':
                 raise ValueError(str(self.__class__) + ' id ' + str(self.id) + ': type must be intensity if variable has denominator drivers')
-
-            #if current_geography != converted_geography:
-                # While not on primary geography, geography does have some information we would like to preserve
-                df, current_geography = self.account_for_foreign_gaus(map_from, current_data_type, current_geography)
                 setattr(self,map_to,df)                
+                self.geo_map(converted_geography, current_geography=current_geography, attr=map_to, inplace=True)
+                current_geography = converted_geography
+            else:
+                setattr(self,map_to,df)    
                 self.geo_map(converted_geography, current_geography=current_geography, attr=map_to, inplace=True)
                 current_geography = converted_geography
             total_driver = util.DfOper.mult([self.drivers[id].values for id in denominator_driver_ids])          
