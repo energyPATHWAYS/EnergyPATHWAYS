@@ -557,7 +557,7 @@ def delete_scenario():
     else:
         os.remove(path)
     _msg("file {} has been deleted".format(scenario_to_delete))
-    scenarios = _get_scenario_list()
+    scenarios = _get_scenario_list('scenario_folder')
     sht.range('scenario_list').clear_contents()
     sht.range('scenario_list').value = [[s] for s in scenarios]  # stack
 

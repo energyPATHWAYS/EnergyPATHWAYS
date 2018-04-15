@@ -337,7 +337,7 @@ class Supply(object):
         dispatch_write_step = int(cfg.cfgfile.get('output_detail','dispatch_write_step'))
         logging.info("Dispatch year step = {}".format(dispatch_year_step))
         self.dispatch_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_year_step))
-        if dispatch_write_step ==0:
+        if dispatch_write_step == 0:
             self.dispatch_write_years = []
         else:
             self.dispatch_write_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_write_step))
@@ -1484,8 +1484,6 @@ class Supply(object):
                     capacity_factor_indexer = util.level_specific_indexer(dispatch_df,['thermal_generators','IO'], [str(resource),'gen_cf'])
                     capacity_factor = np.nan_to_num(dispatch_df.loc[capacity_factor_indexer,year]*ratio)
                     node.stock.capacity_factor.loc[resource,year] += capacity_factor
-                    dispatch_capacity_indexer = util.level_specific_indexer(dispatch_df,['thermal_generators','IO'], [str(resource),'stock_changes'])
-                    node.stock.dispatch_cap.loc[resource,year] += dispatch_df.loc[dispatch_capacity_indexer,year].values
 
     def calculate_curtailment(self,year):
         if year == int(cfg.cfgfile.get('case','current_year')):
@@ -5143,7 +5141,9 @@ class SupplyStockNode(Node):
         self.stock.act_rem = (self.stock.remaining.loc[:,year].to_frame().groupby(level=util.ix_incl(self.stock.act_tech,self.stock.act_tech.index.names)).sum())   
         self.stock.act_tech_or_rem = self.stock.act_tech.fillna(self.stock.act_rem)
         self.stock.act_tech_or_rem = DfOper.add([self.stock.act_tech_or_rem,util.remove_df_levels(self.stock.dispatch_cap.loc[:,year].to_frame(),'vintage')])
-        
+
+
+
     def update_total(self, year):
         """sets the minimum necessary total stock - based on throughput (stock requirement) and total of the technology and remaining stock"""
         self.stock.act_total_energy = DfOper.mult([self.stock.total.loc[:,year].to_frame(), self.stock.act_energy_capacity_ratio],fill_value=np.nan)
@@ -5154,7 +5154,8 @@ class SupplyStockNode(Node):
         self.stock.act_total= util.DfOper.add([self.stock.total.loc[:,year].to_frame(),util.remove_df_levels(self.stock.dispatch_cap.loc[:,year].to_frame(),['supply_technology','vintage'])])
         self.stock.act_total = self.stock.act_total.fillna(self.stock.act_tech_or_rem.groupby(level=self.stock.rollover_group_names).sum())
 
-    def update_requirement(self,year,loop):    
+
+    def update_requirement(self,year,loop):
         """updates annual stock requirements with the maximum of required stock and specified and remaining natural rolloff. Also
         distributes the necessary stock changes to the available residuals in the supply curve bins if the stock has resource_bin indexers
         """
@@ -5283,8 +5284,7 @@ class SupplyStockNode(Node):
             self.embodied_cost = util.empty_df(index, columns=self.years,fill_value=0)
             self.embodied_cost = util.remove_df_levels(self.embodied_cost,'resource_bin')
          
-        self.stock.capital_cost_new.loc[:,year] = self.rollover_output(tech_class='capital_cost_new',tech_att='values_level',
-                                                                         stock_att='values_financial_new',year=year)
+        self.stock.capital_cost_new.loc[:,year] = self.rollover_output(tech_class='capital_cost_new',tech_att='values_level', stock_att='values_financial_new',year=year)
         self.stock.capital_cost_replacement.loc[:,year] = self.rollover_output(tech_class='capital_cost_replacement',tech_att='values_level',
                                                                          stock_att='values_financial_replacement',year=year)
         self.stock.fixed_om.loc[:,year] =  self.rollover_output(tech_class='fixed_om',tech_att='values_level', stock_att='values',year=year)  
@@ -5359,10 +5359,22 @@ class SupplyStockNode(Node):
     
     def stock_normalize(self,year):
         """returns normalized stocks for use in other node calculations"""
-        self.stock.values_normal.loc[:,year] = self.stock.values.loc[:,year].to_frame().groupby(level=[x for x in self.stock.rollover_group_names if x!='resource_bin']).transform(lambda x: x / x.sum()).fillna(0)
-        self.stock.values_normal_energy.loc[:,year] = DfOper.mult([self.stock.values.loc[:,year].to_frame(), self.stock.capacity_factor.loc[:,year].to_frame()]).groupby(level=[x for x in self.stock.rollover_group_names if x!='resource_bin']).transform(lambda x: x / x.sum()).fillna(0)
-        self.stock.values_normal.loc[:,year].replace(np.inf,0,inplace=True)
-        self.stock.values_normal_energy.loc[:,year].replace(np.inf,0,inplace=True)
+        def norm_without_null(df):
+            if df.sum().sum() == 0:
+                indexer = util.level_specific_indexer(df, 'vintage', year)
+                df.loc[indexer,] = 1. / len(self.tech_ids)
+                return df
+            else:
+                return df / df.sum()
+
+        self.stock.values_normal.loc[:,year] = self.stock.values.loc[:,year].to_frame().groupby(level=[x for x in self.stock.rollover_group_names if x!='resource_bin']).apply(norm_without_null)
+        self.stock.values_normal_energy.loc[:,year] = util.DfOper.mult([self.stock.values.loc[:,year].to_frame(), self.stock.capacity_factor.loc[:,year].to_frame()]).groupby(level=[x for x in self.stock.rollover_group_names if x!='resource_bin']).apply(norm_without_null)
+
+        # self.stock.values_normal.loc[:,year] = self.stock.values.loc[:,year].to_frame().groupby(level=[x for x in self.stock.rollover_group_names if x!='resource_bin']).transform(lambda x: x / x.sum()).fillna(0)
+        # self.stock.values_normal_energy.loc[:,year] = DfOper.mult([self.stock.values.loc[:,year].to_frame(), self.stock.capacity_factor.loc[:,year].to_frame()]).groupby(level=[x for x in self.stock.rollover_group_names if x!='resource_bin']).transform(lambda x: x / x.sum()).fillna(0)
+        # self.stock.values_normal.loc[:,year].replace(np.inf,0,inplace=True)
+        # self.stock.values_normal_energy.loc[:,year].replace(np.inf,0,inplace=True)
+
 
     def calculate_co2_capture_rate(self,year):
          if not hasattr(self,'co2_capture_rate'):
