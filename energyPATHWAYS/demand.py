@@ -934,6 +934,7 @@ class Subsector(DataMapFunctions):
         is populated with stock data """
         if self.has_stock:
             for tech in self.technologies:
+                self.technologies[tech].set_geography_map_key(self.stock.geography_map_key)
                 self.technologies[tech].add_specified_stock_measures()
                 self.technologies[tech].add_sales_share_measures()
 
@@ -2236,7 +2237,7 @@ class Subsector(DataMapFunctions):
         self.stock.project(map_from=map_from, map_to='total', current_geography=current_geography, converted_geography=cfg.demand_primary_geography,
                            additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent),
                            current_data_type=current_data_type, projected=projected)
-        self.stock.total = util.remove_df_levels(self.stock.total, ['demand_technology', 'final_energy']+cfg.removed_demand_levels )
+        self.stock.total = util.remove_df_levels(self.stock.total, ['demand_technology', 'final_energy']+cfg.removed_demand_levels)
         self.stock.total = self.stock.total.swaplevel('year',-1)
         if stock_dependent:
             self.stock.project(map_from=map_from, map_to='total_unfiltered', current_geography=current_geography, converted_geography=cfg.demand_primary_geography,
@@ -2268,8 +2269,8 @@ class Subsector(DataMapFunctions):
             index = pd.MultiIndex.from_product(full_levels, names=full_names)
             self.stock.technology = self.stock.total.reindex(index)
         self.stock.technology = util.remove_df_levels(self.stock.technology, cfg.removed_demand_levels)
-        if map_from == 'int_values':
-            self.stock.technology[self.stock.technology.index.get_level_values('year')>=int(cfg.cfgfile.get('case','current_year'))] = np.nan
+        if not self.stock.specify_stocks_past_current_year:
+            self.stock.technology[self.stock.technology.index.get_level_values('year')>int(cfg.cfgfile.get('case','current_year'))] = np.nan
         self.remap_linked_stock()
         if self.stock.has_linked_demand_technology:
             # if a stock a demand_technology stock that is linked from other subsectors, we goup by the levels found in the stotal stock of the subsector
@@ -2303,8 +2304,8 @@ class Subsector(DataMapFunctions):
             if len(demand_technology.specified_stocks) and reference_run==False:
                for specified_stock in demand_technology.specified_stocks.values():
                    try:
-                       specified_stock.remap(map_from='values', current_geography=cfg.demand_primary_geography, drivers=self.stock.total,
-                                             driver_geography=cfg.demand_primary_geography, fill_value=np.nan, interpolation_method=None, extrapolation_method=None)
+                       specified_stock.remap(map_from='values', current_geography=cfg.demand_primary_geography, converted_geography=cfg.demand_primary_geography,
+                                             drivers=self.stock.total, driver_geography=cfg.demand_primary_geography, fill_value=np.nan, interpolation_method=None, extrapolation_method=None)
                    except:
                        pdb.set_trace()
                    self.stock.technology.sort(inplace=True)
@@ -2321,7 +2322,6 @@ class Subsector(DataMapFunctions):
     
     def max_total(self):
         tech_sum = util.remove_df_levels(self.stock.technology,'demand_technology')
-#        self.stock.total = self.stock.total.fillna(tech_sum)
         self.stock.total.sort(inplace=True)
         try:
             self.stock.total[self.stock.total<tech_sum] = tech_sum
@@ -2758,7 +2758,9 @@ class Subsector(DataMapFunctions):
         ss_array_meas_n_repl = self.helper_calc_sales_share_measure_no_replaced_tech_new(elements, reference_run)
         space_for_reference = 1 - np.nansum(ss_array_meas_n_repl, axis=1)
         # These are the reference sales shares for all years. Columns sum to 1. They are equal to the initial sales shares based on initial stock unless a reference sales share is input
-        ss_array_ref = self.helper_calc_sales_share_reference_new(elements, initial_stock)
+        last_specified = self.get_last_specified_stock(elements)
+        reference_stock = initial_stock if last_specified is None else last_specified
+        ss_array_ref = self.helper_calc_sales_share_reference_new(elements, reference_stock)
         # anything with a sales share measure we zero because it needs to be overridden
         ss_array_ref[np.nonzero(np.isfinite(ss_array_meas_n_repl))] = 0
         ss_array_ref_scaled = SalesShare.scale_reference_array_to_gap(ss_array_ref, space_for_reference)
@@ -2938,23 +2940,38 @@ class Subsector(DataMapFunctions):
         if self.sub_type != 'link':
             self.fuel_switch_stock_calc()
 
+    def get_last_specified_stock(self, elements, percent_spec_cut=0.99):
+        tech_slice = util.df_slice(self.stock.technology, elements, self.stock.rollover_group_names)
+        spec_threshold = percent_spec_cut*self.stock.total.loc[elements,:].values.flatten()
+        demand_technology_years = tech_slice.sum(axis=1)[tech_slice.sum(axis=1)>spec_threshold].index.get_level_values('year')
+        if not len(demand_technology_years):
+            # we don't have specified stock for any of the years
+            return None
+        # last_specified_year = max(demand_technology_years[demand_technology_years <= int(cfg.cfgfile.get('case','current_year'))])
+        last_specified_year = max(demand_technology_years)
+        last_specified = self.stock.technology.loc[elements+(last_specified_year,),:].values
+        last_total = util.df_slice(self.stock.total, elements+(last_specified_year,), self.stock.rollover_group_names+['year']).values[0]
+        return last_specified / np.nansum(last_specified) * last_total
 
-    def calculate_initial_stock(self, elements):
+    def calculate_initial_stock(self, elements, percent_spec_cut=0.99):
         initial_total = util.df_slice(self.stock.total, elements, self.stock.rollover_group_names).values[0]
-        demand_technology_years = self.stock.technology.sum(axis=1)[self.stock.technology.sum(axis=1)>0].index.get_level_values('year')
+        tech_slice = util.df_slice(self.stock.technology, elements, self.stock.rollover_group_names)
+        spec_threshold = percent_spec_cut*self.stock.total.loc[elements,:].values.flatten()
+        demand_technology_years = tech_slice.sum(axis=1)[tech_slice.sum(axis=1)>spec_threshold].index.get_level_values('year')
         initial_sales_share = self.helper_calc_sales_share_reference_new(elements, initial_stock=None)[0]
         if len(demand_technology_years):
              min_demand_technology_year = min(demand_technology_years)
         else:
              min_demand_technology_year = None
         #Best way is if we have all demand_technology stocks specified
-        if (np.nansum(self.stock.technology.loc[elements,:].values[0])/self.stock.total.loc[elements,:].values[0])>.99:
+        if (np.nansum(self.stock.technology.loc[elements,:].values[0])/self.stock.total.loc[elements,:].values[0])>percent_spec_cut:
             initial_stock = self.stock.technology.loc[elements,:].values[0]
             # gross up if it is just under 100% of the stock represented
             initial_stock /= np.nansum(self.stock.technology.loc[elements,:].values[0])/initial_total
         #Second best way is if we have all demand_technology stocks specified in some year before the current year
-        elif min_demand_technology_year is not None and min_demand_technology_year<=int(cfg.cfgfile.get('case','current_year')) and np.nansum(self.stock.technology.loc[elements+(min_demand_technology_year,),:].values)==self.stock.total.loc[elements+(min_demand_technology_year,),:].values:
-            initial_stock = self.stock.technology.loc[elements+(min_demand_technology_year,),:].values/np.nansum(self.stock.technology.loc[elements+(min_demand_technology_year,),:].values) * initial_total
+        elif min_demand_technology_year is not None and min_demand_technology_year<=int(cfg.cfgfile.get('case','current_year')):
+            initial_stock = self.stock.technology.loc[elements+(min_demand_technology_year,),:]
+            initial_stock = initial_stock/np.nansum(initial_stock) * initial_total
         #Third best way is if we have an initial sales share
         elif initial_sales_share.sum():
             initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, transition_matrix=initial_sales_share, num_years=len(self.years))

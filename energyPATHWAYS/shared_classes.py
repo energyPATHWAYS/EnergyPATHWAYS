@@ -184,6 +184,8 @@ class SpecifiedStock(Abstract, DataMapFunctions):
         else:
             self.values = None
 
+    def set_geography_map_key(self, geography_map_key):
+        self.geography_map_key = geography_map_key
 
 class SalesShare(Abstract, DataMapFunctions):
     def __init__(self, id, subsector_id, sql_id_table, sql_data_table, primary_key, data_id_key, reference=False, scenario=None):

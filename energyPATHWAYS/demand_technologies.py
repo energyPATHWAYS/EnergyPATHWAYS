@@ -271,6 +271,11 @@ class DemandTechnology(StockItem):
         self.min_year()
         self.shape = shape.shapes.data[self.shape_id] if self.shape_id is not None else None
 
+    def set_geography_map_key(self, geography_map_key):
+        # specified stock measures do not have their own map keys but instead need to use the same map key as StockData else we can have a mismatch in stock totals
+        # by passing it in here, we can grab it when we geomap the specified stock
+        self.geography_map_key = geography_map_key
+
     def get_shape(self, default_shape):
         return default_shape.values if self.shape is None else self.shape.values
 
@@ -298,6 +303,7 @@ class DemandTechnology(StockItem):
                                                                     sql_id_table='DemandStockMeasures',
                                                                     sql_data_table='DemandStockMeasuresData',
                                                                     scenario=self.scenario)
+            self.specified_stocks[specified_stock_id].set_geography_map_key(self.geography_map_key)
 
     def add_service_links(self):
         """adds all technology service links"""
