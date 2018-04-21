@@ -352,6 +352,7 @@ class Supply(object):
         self._calculate_initial_loop()
         self.calculated_years = calculated_years
         for year in [x for x in years if x not in self.calculated_years]:
+            print year
             logging.info("Starting supply side calculations for {}".format(year))
             for loop in [1, 2, 3]:
                 # starting loop

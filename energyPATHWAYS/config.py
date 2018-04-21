@@ -119,7 +119,7 @@ unit_defs = ['US_gge = 120,500 * BTU',
 
 def initialize_config(_path, _cfgfile_name, _log_name):
     global weibul_coeff_of_var, available_cpus, workingdir, cfgfile_name, log_name, log_initialized, index_levels, solver_name, timestamp
-    workingdir = os.getcwd() if _path is None else _path
+    workingdir = _path
     cfgfile_name = _cfgfile_name 
     init_cfgfile(os.path.join(workingdir, cfgfile_name))
     
@@ -145,7 +145,11 @@ def setuplogging():
         os.makedirs(os.path.join(workingdir, 'logs'))
     log_path = os.path.join(workingdir, 'logs', log_name)
     log_level = cfgfile.get('log', 'log_level').upper()
-    logging.basicConfig(filename=log_path, level=log_level)
+    log_to_file = True
+    if log_to_file:
+        logging.basicConfig(filename=log_path, level=log_level)
+    else:
+        logging.basicConfig(level=log_level)
     logger = logging.getLogger()
     if cfgfile.get('log', 'stdout').lower() == 'true' and not any(type(h) is logging.StreamHandler for h in logger.handlers):
         soh = logging.StreamHandler(sys.stdout)

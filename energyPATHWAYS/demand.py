@@ -1792,7 +1792,7 @@ class Subsector(DataMapFunctions):
                                                           unit_to_den=self.stock.time_unit)
                     # divide by capacity factor stock inputs to get a service demand stock
                     # ex. kBtu/hour/capacity factor equals kBtu/hour stock
-                    self.stock.remap(map_from='raw_values', map_to='int_values', fill_timeseries=False)
+                    self.stock.remap(map_from='raw_values', map_to='int_values', fill_timeseries=True)
                     _, x = util.difference_in_df_names(time_step_service, self.stock.int_values)
                     if x:
                         raise ValueError('service demand must have the same index levels as stock when stock is specified in capacity factor terms')
@@ -2047,6 +2047,8 @@ class Subsector(DataMapFunctions):
 #            sd_modifier.sort_index()
             # loop through technologies and add service demand modifiers by demand_technology-specific input (i.e. demand_technology has a
         # a service demand modifier class)
+        if cfg.cfgfile.get('case', 'derive_service_demand_modifiers').lower()=='false':
+            sd_modifier[:] = 1
         for tech in self.tech_ids:
             try:
                 if self.technologies[tech].service_demand_modifier.raw_values is not None:
