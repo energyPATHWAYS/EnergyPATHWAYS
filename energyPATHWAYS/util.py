@@ -50,7 +50,8 @@ def loop_geo_multiply(df1, df2, geo_label, geographies, levels_to_keep=None):
             geography_df_list.append(geography_df)
     df = pd.concat(geography_df_list)
     if levels_to_keep:
-        df = df.groupby(level=levels_to_keep).sum()
+        filtered_ltk = [x for x in levels_to_keep if x in df.index.names]
+        df = df.groupby(level=filtered_ltk).sum()
     return df
 
 def add_to_df_index(df, names, keys):
@@ -509,6 +510,7 @@ def unit_conversion(unit_from_num=None, unit_from_den=None, unit_to_num=None, un
             denominator_factor = unit_conversion_factor(unit_from_den, unit_to_den)
             flipped = False
         except ValueError:
+            asdf
             pdb.set_trace()
             numerator_factor = unit_conversion_factor(unit_from_den, unit_to_num)
             denominator_factor = unit_conversion_factor(unit_from_num, unit_to_den)

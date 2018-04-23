@@ -6,6 +6,7 @@ Created on Thu Oct 01 09:26:56 2015
 """
 
 import numpy as np
+import pandas as pd
 import util
 import logging
 import pdb
@@ -385,11 +386,10 @@ class Rollover(object):
         natural_replacements = min(self.rolloff_summed - self.sum_defined_sales, sales_to_allocate)
         # this is the portion of sales that is from stock growth, and we may want to allocate it differently
         stock_growth = sales_to_allocate - natural_replacements
-        if natural_replacements<0: 
-            replacements_by_tech = np.dot(self.sales_share[i], natural_replacements * stock_replacement_allocation)
+        replacements_by_tech = np.dot(self.sales_share[i], natural_replacements * stock_replacement_allocation)
+        if natural_replacements<0:
             growth_by_tech = np.dot(self.sales_share[i], stock_growth * stock_replacement_allocation)
         else:
-            replacements_by_tech = np.dot(self.sales_share[i], natural_replacements * stock_replacement_allocation)
             growth_by_tech = np.dot(self.sales_share[i], stock_growth * stock_growth_allocation)
         solveable_by_tech = replacements_by_tech + growth_by_tech
         

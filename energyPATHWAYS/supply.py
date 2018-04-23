@@ -2741,7 +2741,7 @@ class Node(DataMapFunctions):
         if hasattr(self,'capacity_factor'):
             self.capacity_factor.calculate(self.years, self.demand_sectors)
         if hasattr(self,'cost'):
-            self.cost.calculate(self.conversion, self.resource_unit)
+            self.cost.calculate(self.years, self.demand_sectors, self.conversion, self.resource_unit)
 
     def add_total_stock_measures(self, scenario):
         self.total_stocks = {}
@@ -3392,6 +3392,7 @@ class Node(DataMapFunctions):
 class Export(Abstract):
     def __init__(self,node_id, measure_id=None, **kwargs):
         self.input_type = 'total'
+        self.name = None
         if measure_id is None:
             self.id = node_id
             self.sql_id_table = 'SupplyExport'
@@ -4256,7 +4257,7 @@ class SupplyCost(Abstract):
         if self.cost_of_capital == None:
             self.cost_of_capital = cost_of_capital
             
-    def calculate(self, years, demand_sectors):
+    def calculate(self, years, demand_sectors, conversion=None, resource_unit=None):
         self.years = years
         self.vintages = [years[0]-1] + years 
         self.demand_sectors = demand_sectors
@@ -5654,7 +5655,10 @@ class ImportNode(Node):
             else:
                 allowed_indices = ['demand_sector', cfg.supply_primary_geography]
                 if set(self.cost.values.index.names).issubset(allowed_indices):
-                    self.active_embodied_cost = self.cost.values.loc[:,year].to_frame()
+                    try:
+                        self.active_embodied_cost = self.cost.values.loc[:,year].to_frame()
+                    except:
+                        pdb.set_trace()
                     self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [cfg.geo.geographies[cfg.supply_primary_geography], self.demand_sectors],levels_names=[cfg.supply_primary_geography,'demand_sector'])
                 else:
                     raise ValueError("too many indexes in cost inputs of node %s" %self.id)
@@ -5710,7 +5714,7 @@ class ImportCost(Abstract):
         self.sql_data_table = 'ImportCostData'
         Abstract.__init__(self, self.id, 'import_node_id')
         
-    def calculate(self, years, demand_sectors):
+    def calculate(self, years, demand_sectors, conversion=None, resource_unit=None):
         self.years = years
         self.demand_sectors = demand_sectors
         if self.data is True:
@@ -5742,7 +5746,7 @@ class PrimaryNode(Node):
         if self.conversion is not None:
             self.conversion.calculate(self.resource_unit)    
         self.potential.calculate(self.conversion, self.resource_unit)
-        self.cost.calculate(self.conversion, self.resource_unit)
+        self.cost.calculate(self.years, self.demand_sectors,self.conversion, self.resource_unit)
         self.emissions.calculate(self.conversion, self.resource_unit)
         self.coefficients.calculate(self.years, self.demand_sectors)
         if self.coefficients.data is True:
@@ -5816,7 +5820,7 @@ class PrimaryCost(Abstract):
         self.sql_data_table = 'PrimaryCostData'
         Abstract.__init__(self, self.id, 'primary_node_id')
         
-    def calculate(self, conversion, resource_unit):
+    def calculate(self, years, demand_sectors, conversion, resource_unit):
         if self.data is True:
             self.conversion = conversion
             self.resource_unit=resource_unit   

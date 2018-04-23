@@ -149,7 +149,7 @@ class PathwaysModel(object):
 
             result_df = getattr(res_obj, 'return_cleaned_output')(attribute)
             keys = [self.scenario.name.upper(), cfg.timestamp]
-            names = ['SCENARIO','TIMESTAMP']
+            names = ['SCENARIO', 'TIMESTAMP']
             for key, name in zip(keys, names):
                 result_df = pd.concat([result_df], keys=[key], names=[name])
 
@@ -396,15 +396,13 @@ class PathwaysModel(object):
         # reorder levels so dfs match
         for name in [x for x in embodied_energy.index.names if x not in demand_energy.index.names]:
             demand_energy[name] = "N/A"
-            demand_energy.set_index(name,append=True,inplace=True)
+            demand_energy.set_index(name, append=True, inplace=True)
         demand_energy = demand_energy.groupby(level=embodied_energy.index.names).sum()
-        demand_energy = demand_energy.reorder_levels(embodied_energy.index.names)
         if export_energy is not None:
             for name in [x for x in embodied_energy.index.names if x not in export_energy.index.names]:
                 export_energy[name] = "N/A"
                 export_energy.set_index(name,append=True,inplace=True)
             export_energy = export_energy.groupby(level=embodied_energy.index.names).sum()
-            export_energy = export_energy.reorder_levels(embodied_energy.index.names)
 
         self.outputs.c_energy = pd.concat([embodied_energy, demand_energy, export_energy])
         self.outputs.c_energy = self.outputs.c_energy[self.outputs.c_energy['VALUE']!=0]
@@ -413,16 +411,12 @@ class PathwaysModel(object):
 
     def export_io(self):
         io_table_write_step = int(cfg.cfgfile.get('output_detail','io_table_write_step'))
-        io_table_years = sorted([min(cfg.supply_years)] + range(max(cfg.supply_years), min(cfg.supply_years), -io_table_write_step))
+        io_table_years = sorted([min(self.supply.years)] + range(max(self.supply.years), min(self.supply.years), -io_table_write_step))
         df_list = []
         for year in io_table_years:
-            sector_df_list = []
             keys = self.supply.demand_sectors
-            name = ['sector']
-            for sector in self.supply.demand_sectors:
-                sector_df_list.append(self.supply.io_dict[year][sector])
-            year_df = pd.concat(sector_df_list, keys=keys,names=name)
-            year_df = pd.concat([year_df]*len(keys),keys=keys,names=name,axis=1)
+            year_df = pd.concat([self.supply.io_dict[year][sector] for sector in keys], keys=keys,names=['sector'])
+            year_df = pd.concat([year_df]*len(keys), keys=keys, names=['sector'], axis=1)
             df_list.append(year_df)
         keys = io_table_years
         name = ['year']

@@ -150,7 +150,10 @@ class DemandTechEfficiency(Abstract):
         self.vintages = vintages
         self.years = years
         if self.data and self.raw_values is not None:
-            self.convert()
+            try:
+                self.convert()
+            except:
+                pdb.set_trace()
             self.remap(map_from='values', map_to='values', time_index_name='vintage', converted_geography=cfg.demand_primary_geography)
             util.convert_age(self, reverse=True, vintages=self.vintages, years=self.years)
             self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')

@@ -18,6 +18,7 @@ import numpy as np
 from collections import OrderedDict, defaultdict
 import csv
 import time
+import shutil
 
 class PathwaysLookupError(KeyError):
     def __init__(self, val, table, col):
@@ -408,6 +409,54 @@ def run_on_windows(command, working_dir):
     command = ["start", "cmd", "/k"] + command
     subprocess.call(command, shell=True);
 
+def make_subfolders():
+    _connect_to_db()
+    folder = sht.range('scenario_folder_controls').value
+    working_dir = os.path.join(directory, folder)
+    config_name = sht.range('configINI_name').value
+    config_path = os.path.join(working_dir, config_name)
+    scenarios = [s for s in sht.range('scenario_list_controls').value if s]
+    for scenario in scenarios:
+        path = os.path.join(working_dir, scenario.rstrip().lstrip())
+        if not os.path.exists(path):
+            os.mkdir(path)
+        shutil.copy2(config_path, path)
+        shutil.copy2(os.path.join(working_dir, scenario+'.json'), path)
+        # shutil.copy2(os.path.join(working_dir, scenario+'_full_model.p'), path)
+
+def traverse_files(input_directory, output_directory):
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+    for f in os.listdir(input_directory):
+        if f.endswith('csv'):
+            print f
+            append_write(os.path.join(input_directory, f), os.path.join(output_directory, f))
+        elif os.path.isdir(os.path.join(input_directory, f)):
+            traverse_files(os.path.join(input_directory, f), os.path.join(output_directory, f))
+
+def append_write(write_from, write_to):
+    write_to_already_exists = os.path.isfile(write_to)
+    with open(write_from, 'rb') as infile:
+        csvreader = csv.reader(infile, delimiter=',')
+        if write_to_already_exists:
+            # get rid of the header row in this case
+            csvreader.next()
+        with open(write_to, 'ab') as outfile:
+            csvwriter = csv.writer(outfile, delimiter=',')
+            for row in csvreader:
+                csvwriter.writerow(row)
+
+def aggregate_subfolders():
+    _connect_to_db()
+    folder = sht.range('scenario_folder_controls').value
+    working_dir = os.path.join(directory, folder)
+    scenarios = [s for s in sht.range('scenario_list_controls').value if s]
+    for scenario in scenarios:
+        input_directory = os.path.join(working_dir, scenario)
+        if not os.path.exists(input_directory):
+            continue
+        traverse_files(input_directory, working_dir)
+
 def start_energypathways():
     _connect_to_db()
     folder = sht.range('scenario_folder_controls').value
@@ -557,7 +606,7 @@ def delete_scenario():
     else:
         os.remove(path)
     _msg("file {} has been deleted".format(scenario_to_delete))
-    scenarios = _get_scenario_list()
+    scenarios = _get_scenario_list('scenario_folder')
     sht.range('scenario_list').clear_contents()
     sht.range('scenario_list').value = [[s] for s in scenarios]  # stack
 

@@ -157,6 +157,7 @@ class DataMapFunctions:
                          time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing'):
         if time_index is None:
             time_index=cfg.cfgfile.get('case', 'years')
+            # time_index = self._get_active_time_index(time_index, time_index_name)
         interpolation_method = self.interpolation_method if interpolation_method is 'missing' else interpolation_method
         extrapolation_method = self.extrapolation_method if extrapolation_method is 'missing' else extrapolation_method
         exp_growth_rate = self.extrapolation_growth if hasattr(self, 'extrapolation_growth') else None
@@ -293,17 +294,14 @@ class DataMapFunctions:
 
             # Clean the timeseries as an intensity
             if fill_timeseries:
-                self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method)
+                self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method, lower=lower, upper=upper)
 
 #            self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='intensity', fill_value=fill_value, filter_geo=filter_geo)
 #            total_driver_converted_geo = self.geo_map(converted_geography, attr='total_driver', inplace=False, current_geography=driver_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=filter_geo)
             if current_data_type == 'total':
                 setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo), fill_value=fill_value))
             else:
-                try:
-                    setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo), expandable=(True, False), collapsible=(False, True), fill_value=fill_value))
-                except:
-                    pdb.set_trace()
+                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo), expandable=(True, False), collapsible=(False, True), fill_value=fill_value))
             self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='total', fill_value=fill_value, filter_geo=filter_geo)
             # we don't want to keep this around
             del self.total_driver

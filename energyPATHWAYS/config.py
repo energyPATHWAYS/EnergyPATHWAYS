@@ -294,8 +294,7 @@ def init_date_lookup():
 
 def init_removed_levels():
     global removed_demand_levels
-    removed_demand_levels  = [str(g) for g in cfgfile.get('removed_levels', 'levels').split(',') if len(g)]
-
+    removed_demand_levels = [str(g).rstrip().lstrip() for g in cfgfile.get('removed_levels', 'levels').split(',') if len(g)]
 
 def init_output_levels():
     global output_demand_levels, output_supply_levels, output_combined_levels
