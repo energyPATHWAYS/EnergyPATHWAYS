@@ -306,12 +306,16 @@ class Demand(object):
             self.output_subsector_electricity_profiles()
 
     def output_subsector_electricity_profiles(self):
-        # include_technology = True if cfg.cfgfile.get('demand_output_detail','subsector_profiles_include_technology').lower() == 'true' else False
-        output_years = [int(dy) for dy in cfg.cfgfile.get('demand_output_detail', 'subsector_profile_years').split(',') if len(dy)]
+        subsector_profile_years = cfg.cfgfile.get('demand_output_detail', 'subsector_profile_years')
+        if subsector_profile_years.lower().rstrip().lstrip() == 'all':
+            output_years = cfg.supply_years
+        else:
+            output_years = [int(dy.lstrip().rstrip()) for dy in subsector_profile_years.split(',') if len(dy)]
         stack = []
         for output_year in output_years:
             if output_year not in cfg.supply_years:
                 continue
+            logging.info(output_year)
             profiles_df = self.stack_subsector_electricity_profiles(output_year)
             stack.append(profiles_df)
         stack = pd.concat(stack)
@@ -321,23 +325,38 @@ class Demand(object):
     def stack_subsector_electricity_profiles(self, year):
         # df_zeros = pd.DataFrame(0, columns=['value'], index=pd.MultiIndex.from_product((cfg.demand_geographies, shape.shapes.active_dates_index), names=[cfg.demand_primary_geography, 'weather_datetime']))
         stack = []
-        index_levels = ['year', cfg.demand_primary_geography, 'dispatch_feeder', 'sector', 'subsector', 'timeshift_type', 'weather_datetime']
+        aggregate_subsector_profiles_to_sector = cfg.cfgfile.get('demand_output_detail','aggregate_subsector_profiles_to_sector').lower() == 'true'
+        if aggregate_subsector_profiles_to_sector:
+            index_levels = ['year', cfg.demand_primary_geography, 'dispatch_feeder', 'sector', 'weather_datetime']
+            # index_levels = ['year', cfg.demand_primary_geography, 'dispatch_feeder', 'sector', 'timeshift_type', 'weather_datetime']
+        else:
+            index_levels = ['year', cfg.demand_primary_geography, 'dispatch_feeder', 'sector', 'subsector', 'weather_datetime']
+            # index_levels = ['year', cfg.demand_primary_geography, 'dispatch_feeder', 'sector', 'subsector', 'timeshift_type', 'weather_datetime']
         for sector in self.sectors.values():
             feeder_allocation = self.feeder_allocation_class.values_demand_geo.xs(year, level='year').xs(sector.id, level='sector')
+            sector_stack = []
             for subsector in sector.subsectors.values():
                 df = subsector.aggregate_electricity_shapes(year, for_direct_use=True)
                 if df is None:
                     continue
-                    # df = df_zeros.copy(deep=True)
+                # todo make this a config param
+                df = df.xs(0, level='timeshift_type')
                 df['sector'] = sector.id
-                df['subsector'] = subsector.id
                 df['year'] = year
-                df = df.set_index(['sector', 'subsector', 'year'], append=True).sort()
+                if aggregate_subsector_profiles_to_sector:
+                    df = df.set_index(['sector', 'year'], append=True).sort()
+                else:
+                    df['subsector'] = subsector.id
+                    df = df.set_index(['sector', 'subsector', 'year'], append=True).sort()
                 df = util.DfOper.mult((df, feeder_allocation))
-                df = df.reorder_levels(index_levels)
-                stack.append(df)
+                df = df.reorder_levels(index_levels).sort()
+                sector_stack.append(df)
+            if aggregate_subsector_profiles_to_sector:
+                sector_stack = [util.DfOper.add(sector_stack)]
+            stack += sector_stack
         stack = pd.concat(stack).sort()
-        stack *= self.energy_demand.xs([cfg.electricity_energy_type_id, year], level=['final_energy', 'year']).sum().sum() / (stack.xs(0, level='timeshift_type').sum().sum())
+        # stack *= self.energy_demand.xs([cfg.electricity_energy_type_id, year], level=['final_energy', 'year']).sum().sum() / (stack.xs(0, level='timeshift_type').sum().sum())
+        stack *= self.energy_demand.xs([cfg.electricity_energy_type_id, year], level=['final_energy', 'year']).sum().sum() / (stack.sum().sum())
         return stack
 
     def link_to_supply(self, embodied_emissions_link, direct_emissions_link, energy_link, cost_link):
