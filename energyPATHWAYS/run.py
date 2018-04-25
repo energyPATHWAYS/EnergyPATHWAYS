@@ -177,16 +177,16 @@ class SubsectorPerturbation(object):
 if __name__ == "__main__":
     workingdir = r'\\DESKTOP-PHIEDQS\Users\PC-User\Documents\EU'
     config = 'config.INI'
-    scenario = ['109_HE Refrigeration']
+    scenario = ['148_biodiesel']
 
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
-    solve_supply  = False,
-    export_results= True,
+    solve_supply  = True,
+    export_results= False,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
     api_run       = False,
-    clear_results = True)
+    clear_results = False)
