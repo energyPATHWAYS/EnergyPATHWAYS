@@ -2700,10 +2700,13 @@ class Subsector(DataMapFunctions):
         x = initial_stock/tech_lifetimes
         x = np.nan_to_num(x)
         x /= sum(x)
-        for i, tech_id in enumerate(self.tech_ids): 
-            for sales_share in self.technologies[tech_id].sales_shares.values():
-                if sales_share.replaced_demand_tech_id is None:
-                    ref_array[:,:,i] = x
+        if self.id in [2, 16]:
+            pass
+        else:
+            for i, tech_id in enumerate(self.tech_ids): 
+                for sales_share in self.technologies[tech_id].sales_shares.values():
+                    if sales_share.replaced_demand_tech_id is None:
+                        ref_array[:,:,i] = x
         ss_reference = SalesShare.scale_reference_array_to_gap(ref_array, space_for_reference)        
         #sales shares are always 1 with only one demand_technology so the default can be used as a reference
         return SalesShare.normalize_array(ss_reference + ss_measure, retiring_must_have_replacement=False)

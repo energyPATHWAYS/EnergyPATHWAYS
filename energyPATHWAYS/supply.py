@@ -352,7 +352,6 @@ class Supply(object):
         self._calculate_initial_loop()
         self.calculated_years = calculated_years
         for year in [x for x in years if x not in self.calculated_years]:
-            print year
             logging.info("Starting supply side calculations for {}".format(year))
             for loop in [1, 2, 3]:
                 # starting loop
@@ -389,6 +388,7 @@ class Supply(object):
                     self.prepare_dispatch_inputs(year, loop)
                     self.solve_electricity_dispatch(year)
                     self._recalculate_stocks_and_io(year, loop)
+                    self.reconcile_oversupply(year, loop)
             self.calculate_embodied_costs(year, loop=3)
             self.calculate_embodied_emissions(year)
             self.calculate_annual_costs(year)

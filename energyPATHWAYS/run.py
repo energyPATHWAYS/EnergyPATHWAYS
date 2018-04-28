@@ -177,13 +177,13 @@ class SubsectorPerturbation(object):
 if __name__ == "__main__":
     workingdir = r'\\DESKTOP-PHIEDQS\Users\PC-User\Documents\EU'
     config = 'config.INI'
-    scenario = ['148_biodiesel']
+    scenario = ['122_LDV ICE']
 
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
-    solve_supply  = True,
+    solve_supply  = False,
     export_results= False,
     load_error    = False,
     pickle_shapes = True,
