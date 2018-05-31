@@ -38,6 +38,7 @@ class PathwaysModel(object):
 
             # it is nice if when loading a demand side object to rerun supply, it doesn't re-output these results every time
             if self.demand_solved and export_results and not self.api_run and not (load_demand and solve_supply):
+                # self.demand.output_subsector_electricity_profiles()
                 self.export_result_to_csv('demand_outputs')
 
             if solve_supply and not load_supply:

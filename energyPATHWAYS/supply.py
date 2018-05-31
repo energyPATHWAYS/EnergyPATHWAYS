@@ -337,7 +337,7 @@ class Supply(object):
         dispatch_write_step = int(cfg.cfgfile.get('output_detail','dispatch_write_step'))
         logging.info("Dispatch year step = {}".format(dispatch_year_step))
         self.dispatch_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_year_step))
-        if dispatch_year_step ==0:
+        if dispatch_write_step == 0:
             self.dispatch_write_years = []
         else:
             self.dispatch_write_years = sorted([min(self.years)] + range(max(self.years), min(self.years), -dispatch_write_step))
@@ -732,7 +732,6 @@ class Supply(object):
                             if load_or_gen=='load':
                                 indexer = util.level_specific_indexer(self.dist_load,[cfg.dispatch_geography,'dispatch_feeder'], [geography,feeder])
                                 dispatch =  np.transpose([dispatch_budget.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
-                                pdb.set_trace()
                                 for timeshift_type in list(set(self.distribution_load.index.get_level_values('timeshift_type'))):
                                     indexer = util.level_specific_indexer(self.distribution_load,[cfg.dispatch_geography,'timeshift_type'], [geography,timeshift_type])
                                     self.distribution_load.loc[indexer,:] += dispatch

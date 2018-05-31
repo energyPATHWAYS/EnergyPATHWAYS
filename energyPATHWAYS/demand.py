@@ -879,6 +879,10 @@ class Subsector(DataMapFunctions):
             correction_factors = util.remove_df_levels(energy_slice, 'demand_technology') / native
             return_shape = util.DfOper.mult((return_shape, correction_factors))
 
+            # we multiply by feeder allocation after, which will normalize this back down
+            if 'dispatch_feeder' in return_shape.index.names:
+                return_shape *= len(return_shape.index.get_level_values('dispatch_feeder').unique())
+
         return return_shape
 
     def add_energy_system_data(self):

@@ -155,17 +155,17 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\NREL\med_rapid_aeo'
+    workingdir = r'Z:\NREL\gas use for ReEDS\ref_moder_aeo'
     config = 'config.INI'
-    scenario = ['med_rapid_aeo']
+    scenario = ['ref_moder_aeo']
 
     run(workingdir, config, scenario,
-    load_demand   = True,
+    load_demand   = False,
     solve_demand  = False,
-    load_supply   = False,
+    load_supply   = True,
     solve_supply  = False,
-    export_results= True,
+    export_results= False,
     load_error    = False,
     pickle_shapes = True,
-    save_models   = True,
-    clear_results = True)
+    save_models   = False,
+    clear_results = False)
