@@ -3802,7 +3802,7 @@ class SupplyNode(Node,StockItem):
             elements = util.ensure_tuple(elements)
             try:
                 self.rollover_dict[elements].use_stock_changes = True
-                self.rollover_dict[elements].run(1, stock_changes.loc[elements],np.array(self.stock.total_rollover.loc[elements+(year,)]))
+                self.rollover_dict[elements].run(1, stock_changes.loc[elements], np.array(self.stock.total_rollover.loc[elements+(year,)]))
             except:
                 logging.error('error encountered in rollover for node ' + str(self.id) + ' in elements '+ str(elements) + ' year ' + str(year))
                 raise
@@ -3977,6 +3977,7 @@ class SupplyNode(Node,StockItem):
             bin_supply_curve = bin_supply_curve.groupby(level=util.ix_excl(bin_supply_curve,'resource_bin')).diff().fillna(bin_supply_curve)
             self.stock.requirement_energy.loc[:,year] = util.DfOper.add([self.stock.act_total_energy, bin_supply_curve])
             self.stock.requirement.loc[:,year] = util.DfOper.divi([self.stock.requirement_energy.loc[:,year].to_frame(),self.stock.act_energy_capacity_ratio])             
+
         if year == int(cfg.cfgfile.get('case','current_year')) and year==min(self.years):
             self.stock.act_stock_changes = self.stock.requirement[year]*0
         else:
@@ -5224,16 +5225,12 @@ class SupplyStockNode(Node):
         """
         previous_year = max(min(self.years),year-1)
         #TODO Flexible Nodes can't have SupplyPotential
-#        if self.potential.data is False:    
         self.stock.requirement.loc[:,year] = self.stock.act_total
         if year == int(cfg.cfgfile.get('case','current_year')) and year==min(self.years):
             self.stock.act_stock_changes = self.stock.requirement[year].to_frame()*0
         else:
             #stock changes only equal capacity added from the dispatch
-            self.stock.act_stock_changes = util.DfOper.subt([self.stock.requirement.loc[:,year].to_frame(),
-                                                        util.remove_df_levels(self.stock.values[previous_year].to_frame(),['vintage','supply_technology'])])
-#        else:
-#            self.stock.act_stock_changes = DfOper.subt([self.stock.requirement[year].to_frame(),util.remove_df_levels(self.stock.act_rem,'supply_technology')])
+            self.stock.act_stock_changes = util.DfOper.subt([self.stock.requirement.loc[:,year].to_frame(), util.remove_df_levels(self.stock.values[previous_year].to_frame(),['vintage','supply_technology'])])
         self.stock.act_stock_changes = self.stock.act_stock_changes[year]
             
     def setup_financial_stock(self):

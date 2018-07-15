@@ -18,6 +18,11 @@ class Rollover(object):
                  exceedance_tolerance=0.01, index_current_year=0,lifetimes=None):
         """
         initial stock of NaN is assumed to be zero
+
+        markov matrix has 3 dimensions
+            first dimension is the technology
+            second is the age of the technology
+            third is next X years during which retirements may occur. This is the dimension that prinxy moves up and down.
         """
         if np.any(np.isnan(vintaged_markov_matrix)) or np.any(np.isnan(initial_markov_matrix)):
             raise ValueError('Markov Matrix cannot contain NaN')
@@ -33,7 +38,6 @@ class Rollover(object):
         self.exceedance_tolerance = exceedance_tolerance
         self.index_current_year = index_current_year
 
-
         # additional inputs
         self.initialize_initial_stock(initial_stock)
         self.initialize_sales_share(sales_share)
@@ -42,7 +46,6 @@ class Rollover(object):
         self.initialize_specified_stock(specified_stock)
         self.initialize_specified_sales(specified_sales)
         self.lifetimes = lifetimes if lifetimes is not None else np.ones(self.num_techs)
-        
         
         self.stock_changes_as_min = stock_changes_as_min
         self.all_techs = np.arange(self.num_techs, dtype=int)
@@ -110,12 +113,6 @@ class Rollover(object):
             self.specified_stock.fill(np.nan)
         else:
             self.specified_stock = np.array(util.flatten_list([[[np.nan]*self.num_techs]*(self.spy-1) + [list(util.ensure_iterable_and_not_string(ss))] for ss in specified_stock]))
-#            if self.spy == 1:
-#                self.specified_stock = specified_stock
-#            else:
-#                self.specified_stock = np.array(util.flatten_list([[[np.nan]*self.num_techs]*(self.spy-1) + [list(util.ensure_iterable_and_not_string(ss))] for ss in specified_stock]))
-#                if self.num_techs == 1:
-#                    self.specified_stock = self.specified_stock.flatten()
         if np.any(self.specified_stock<-1E-9):
             raise ValueError("Specified stock cannot be initialized with negative numbers")
         self.specified_stock = np.clip(self.specified_stock, 0, None)
@@ -179,13 +176,13 @@ class Rollover(object):
         inc = 1 if incremental_retirement > 0 else -1
         temp_prinxy[retireable] = np.floor(temp_prinxy[retireable]) if incremental_retirement > 0 else np.ceil(temp_prinxy[retireable])
         while inc * incremental_retirement > inc * (new_rolloff - starting_rolloff):
-            if (np.all(temp_prinxy[retireable] == 0) and inc == -1) or (np.all(temp_prinxy[retireable] == (self.num_years - 1)*self.spy) and inc == 1):
+            if (np.all(temp_prinxy[retireable] == 0) and inc == -1) or (np.all(temp_prinxy[retireable] == self.num_years*self.spy - 1) and inc == 1):
                 self.prinxy = temp_prinxy
                 return
-            temp_prinxy[retireable] = np.clip(temp_prinxy[retireable] + inc, 0, (self.num_years - 1)*self.spy)
+            temp_prinxy[retireable] = np.clip(temp_prinxy[retireable] + inc, 0, self.num_years*self.spy - 1)
             old_rolloff, new_rolloff = new_rolloff, np.sum(self.calc_stock_rolloff(temp_prinxy))
         temp_prinxy[retireable] -= inc * (1. - (incremental_retirement + starting_rolloff - old_rolloff) / (new_rolloff - old_rolloff))
-        temp_prinxy[retireable] = np.clip(temp_prinxy[retireable], 0, (self.num_years - 1)*self.spy)
+        temp_prinxy[retireable] = np.clip(temp_prinxy[retireable], 0, self.num_years*self.spy - 1)
         self.prinxy = temp_prinxy
 
     def calc_remaining_stock_initial(self):
@@ -425,10 +422,6 @@ class Rollover(object):
             self.prior_year_stock = self.initial_stock if i == 0 else np.sum(self.stock[:, :i + 1, i - 1], axis=1)
             if np.sum(self.prior_year_stock) + np.sum(self.stock_changes[list_steps])>np.nansum(self.specified_stock[list_steps]) and not np.all(np.isnan(self.specified_stock[list_steps])) and self.stock_changes_as_min and self.use_stock_changes:
                 self.specified_stock[list_steps] *= (np.sum(self.prior_year_stock) + np.sum(self.stock_changes[list_steps]))/np.nansum(self.specified_stock[list_steps])
-#                self.stock_changes[list_steps] = np.reshape(np.repeat(0/self.spy, self.spy, axis=0), len(list_steps))
-
-
-#            self.specified_stock[list_steps] = np.reshape(np.repeat(introduced_specified_stock, self.spy, axis=0), len(list_steps))
 
         if introduced_specified_sales is not None:
             if num!=len(util.ensure_iterable_and_not_string(introduced_specified_sales)):
