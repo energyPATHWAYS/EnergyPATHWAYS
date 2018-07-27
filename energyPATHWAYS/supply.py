@@ -35,6 +35,7 @@ import dispatch_generators
 #    if hasattr(node, 'stock'):
 #        node.update_stock(node.year,node.loop)
 #    return node 
+
            
 class Supply(object):
 
@@ -71,6 +72,15 @@ class Supply(object):
             del self.map_dict[None]
         self.CO2PriceMeasures = scenario.get_measures('CO2PriceMeasures', self.thermal_dispatch_node_id)
         self.add_co2_price_to_dispatch(self.CO2PriceMeasures)
+        self.rio_distribution_losses = dict()
+        self.rio_transmission_losses = dict()
+        self.rio_distribution_load = dict()
+        self.rio_flex_load = dict()
+        self.rio_bulk_load = dict()
+        self.rio_flex_pmin = dict
+        self.rio_flex_pmax = dict()
+        self.currencies_conversion = util.sql_read_table('CurrenciesConversion', ['currency_id','currency_year_id','value'])
+        self.inflation__conversion = util.sql_read_table('InflationConversion', ['currency_year_id','currency_id','value'])
     
     def add_co2_price_to_dispatch(self,CO2PriceMeasures):
         if len(self.CO2PriceMeasures)>1:
@@ -966,6 +976,8 @@ class Supply(object):
         if cfg.dispatch_geography != cfg.supply_primary_geography:
             map_df = cfg.geo.map_df(cfg.supply_primary_geography,cfg.dispatch_geography,normalize_as='intensity',map_key=geography_map_key,eliminate_zeros=False)
             self.distribution_losses =  util.remove_df_levels(DfOper.mult([self.distribution_losses,map_df]),cfg.supply_primary_geography)
+        self.rio_distribution_losses[year] = copy.deepcopy(self.distribution_losses)
+    
     
     def set_transmission_losses(self,year):
         transmission_grid_node =self.nodes[self.transmission_node_id]
@@ -978,6 +990,7 @@ class Supply(object):
         else:
             self.transmission_losses = coefficients
         self.transmission_losses = util.remove_df_levels(self.transmission_losses,'demand_sector',agg_function='mean')
+        self.rio_transmission_losses[year] = copy.deepcopy(self.transmission_losses)
 
     def set_net_load_thresholds(self, year):
         # MOVE?
@@ -1886,8 +1899,11 @@ class Supply(object):
             self.output_final_demand_for_bulk_dispatch_outputs(distribution_native_load)
         self.distribution_gen = self.shaped_dist(year, self.non_flexible_gen, generation=True)
         self.distribution_load = util.DfOper.add([distribution_native_load, self.shaped_dist(year, self.non_flexible_load, generation=False)])
+        self.rio_distribution_load[year] =copy.deepcopy(self.distribution_load)
+        self.rio_flex_load[year] = copy.deepcopy(self.distribution_flex_load)
         self.bulk_gen = self.shaped_bulk(year, self.non_flexible_gen, generation=True)
         self.bulk_load = self.shaped_bulk(year, self.non_flexible_load, generation=False)
+        self.rio_bulk_load[year] = copy.deepcopy(self.bulk_load)
         self.update_net_load_signal()
         
     def output_final_demand_for_bulk_dispatch_outputs(self, distribution_native_load):
@@ -2153,7 +2169,20 @@ class Supply(object):
                io_adjusted.loc[:,col_indexer] = 0
         return io_adjusted
 
-
+    def rio_adjust(self,io):
+        """Adjusts for import nodes. Their io column must be zeroed out so that we don't double count upstream values.
+        
+        Args:
+            io (DataFrame) = DataFrame to be adjusted 
+            node_class (Class) = Supply node attribute class (i.e. cost) to use to determine whether upstream values are zeroed out 
+        Returns:
+            io_adjusted (DataFrame) = adjusted DataFrame
+        """
+        io_adjusted = copy.deepcopy(io)
+        for node in self.blend_nodes:
+            col_indexer = util.level_specific_indexer(io_adjusted,'supply_node',node, axis=1)
+            io_adjusted.loc[:,col_indexer] = 0
+        return io_adjusted    
                         
     def calculate_coefficients(self, year, loop):
         """Loops through all supply nodes and calculates active coefficients
@@ -2608,9 +2637,24 @@ class Supply(object):
         for node in self.nodes.values():
             indexer = util.level_specific_indexer(self.io_supply_df,levels=['supply_node'], elements = [node.id])
             node.active_supply = self.io_supply_df.loc[indexer,year].groupby(level=[cfg.supply_primary_geography, 'demand_sector']).sum().to_frame()
-                    
+   
+    def calculate_rio_blend_demand(self):
+        self.io_rio_supply_df = copy.deepcopy(self.io_supply_df)
+        for year in self.years:
+            total_demand = util.DfOper.add([self.io_demand_df.loc[:,year].to_frame(),self.io_export_df.loc[:,year].to_frame()])
+            for sector in self.demand_sectors:
+                indexer = util.level_specific_indexer(self.io_total_active_demand_df,'demand_sector', sector)
+                rio_io = self.io_dict[year][sector]
+                rio_io = self.rio_adjust(rio_io)
+                active_demand = total_demand.loc[indexer,:]  
+                temp = solve_IO(rio_io.values, active_demand.values)
+                temp[np.nonzero(rio_io.values.sum(axis=1) + active_demand.values.flatten()==0)[0]] = 0
+                self.io_rio_supply_df.loc[indexer,year] = temp  
+        self.io_rio_supply_df = util.remove_df_levels(self.io_rio_supply_df,'demand_sector')
     
     def add_initial_demand_dfs(self, year):
+        
+        
         for node in self.nodes.values():
             node.internal_demand = copy.deepcopy(self.empty_output_df)
             node.export_demand = copy.deepcopy(self.empty_output_df)

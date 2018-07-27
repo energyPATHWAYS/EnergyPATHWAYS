@@ -1846,7 +1846,7 @@ class Subsector(DataMapFunctions):
                     self.stock.map_from = 'int_values'
                     # stock is by definition service demand dependent
                     self.service_demand.int_values = self.service_demand.values
-                    self.stock.is_service_demand_dependent = 1
+                    #self.stock.is_service_demand_dependent = 1
                     self.service_subset = None
                 else:
                     # used when we don't have service demand, just energy demand
@@ -1891,7 +1891,7 @@ class Subsector(DataMapFunctions):
                         self.stock.int_values = util.DfOper.divi([time_step_service, self.stock.int_values],expandable=(False,True),collapsible=(True,False))
                         self.stock.clean_timeseries('int_values', time_index=self.years)
                     # stock is by definition service demand dependent
-                    self.stock.is_service_demand_dependent = 1
+                    #self.stock.is_service_demand_dependent = 1
                     self.service_demand.int_values = self.service_demand.int_values.groupby(level=self.stock.rollover_group_names+['year']).sum()
                     self.service_subset = None
             elif self.stock.demand_stock_unit_type == 'service demand':
@@ -2267,6 +2267,8 @@ class Subsector(DataMapFunctions):
                            additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent),
                            current_data_type=current_data_type, projected=projected)
         self.stock.total = util.remove_df_levels(self.stock.total, ['demand_technology', 'final_energy']+cfg.removed_demand_levels)
+        if np.any(np.isinf(self.stock.total)):
+            pdb.set_trace()
         self.stock.total = self.stock.total.swaplevel('year',-1)
         if stock_dependent:
             self.stock.project(map_from=map_from, map_to='total_unfiltered', current_geography=current_geography, converted_geography=cfg.demand_primary_geography,

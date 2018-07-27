@@ -16,6 +16,7 @@ import inspect
 import csv
 from collections import defaultdict, OrderedDict
 import cPickle as pickle
+import pdb
 
 class Output(object):
     def __init__(self):
@@ -53,6 +54,30 @@ class Output(object):
         else:
             df.columns = [x.upper() if isinstance(x, basestring) else x for x in df.columns]
         return df
+    
+    @staticmethod
+    def clean_rio_df(df, stack_years=False,add_geography=True,replace_gau=True):
+        if type(df) is not pd.core.frame.DataFrame:
+            raise ValueError('output_type must be a pandas dataframe')
+        if stack_years and 'year' not in df.index.names:
+            df = df.stack()
+            util.replace_index_name(df,'year')
+            df.columns = ['value']
+        dct = cfg.outputs_id_map
+        df = df.reset_index()
+        for col_name in df.columns.get_level_values(0):
+            if col_name in cfg.outputs_id_map.keys():
+                try:
+                    df[col_name] = [dct[col_name][x] if x in dct[col_name].keys() else x for x in df[col_name].values]
+                except:
+                    pdb.set_trace()
+            if col_name in cfg.geo.geographies.keys():
+                if replace_gau:
+                    util.replace_column_name(df,'gau',col_name)
+                if add_geography:
+                    df['geography'] = col_name
+        df.columns = [x.lower() for x in df.columns]
+        return df
 
     @staticmethod
     def pickle(obj, file_name, path):
@@ -63,11 +88,14 @@ class Output(object):
             pickle.dump(obj, outfile, pickle.HIGHEST_PROTOCOL)
 
     @staticmethod
-    def write(df, file_name, path, compression=None):
+    def write(df, file_name, path, compression=None,index=True):
         # roughly follows the solutions here: http://stackoverflow.com/questions/11114492/check-if-a-file-is-not-open-not-used-by-other-process-in-python
         # note that there is still a small, but real chance of a race condition causing an error error, thus this is "safer" but not safe
         if not os.path.exists(path):
-            os.mkdir(path)
+            try:
+                os.makedirs(path)
+            except:
+                pdb.set_trace()
 
         if compression == 'gzip':
             file_name += '.gz'
@@ -80,7 +108,7 @@ class Output(object):
                     os.rename(os.path.join(path, file_name), os.path.join(path, "_" + file_name))
                     os.rename(os.path.join(path, "_" + file_name), os.path.join(path, file_name))
                     # append and don't write header because the file already exists
-                    df.to_csv(os.path.join(path, file_name), header=False, mode='a', compression=compression)
+                    df.to_csv(os.path.join(path, file_name), header=False, mode='a', compression=compression,index=index)
                     return
                 except OSError:
                     wait_time = min(30, 2 ** tries) * np.random.rand()
@@ -90,7 +118,44 @@ class Output(object):
                         raise
                     tries += 1
         else:
-            df.to_csv(os.path.join(path, file_name), header=True, mode='w')
+            df.to_csv(os.path.join(path, file_name), header=True, mode='w',index=index)
+
+    @staticmethod
+    def write_rio(df, file_name, path, compression=None, index=True,force_lower=True):
+        # roughly follows the solutions here: http://stackoverflow.com/questions/11114492/check-if-a-file-is-not-open-not-used-by-other-process-in-python
+        # note that there is still a small, but real chance of a race condition causing an error error, thus this is "safer" but not safe
+        if not os.path.exists(path):
+            try:
+                os.makedirs(path)
+            except:
+                pdb.set_trace()
+
+        if compression == 'gzip':
+            file_name += '.gz'
+
+        for col in df.columns:
+            if df[col].dtype == np.object:
+                df[col] = df[col].str.lower()
+
+        if os.path.isfile(os.path.join(path, file_name)):
+            tries = 1
+            while True:
+                try:
+                    # rename the file back and forth to see if it is being used
+                    os.rename(os.path.join(path, file_name), os.path.join(path, "_" + file_name))
+                    os.rename(os.path.join(path, "_" + file_name), os.path.join(path, file_name))
+                    # append and don't write header because the file already exists
+                    df.to_csv(os.path.join(path, file_name), header=False, mode='a', compression=compression, index=index)
+                    return
+                except OSError:
+                    wait_time = min(30, 2 ** tries) * np.random.rand()
+                    logging.error('waiting {} seconds to try to write {}...'.format(wait_time))
+                    time.sleep(wait_time)
+                    if tries >= 30:
+                        raise
+                    tries += 1
+        else:
+            df.to_csv(os.path.join(path, file_name), header=True, mode='w', index=index)
 
     @staticmethod
     def writeobj(obj, write_directory=None, name=None, clean=False):

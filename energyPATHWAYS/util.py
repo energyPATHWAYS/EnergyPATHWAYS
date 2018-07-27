@@ -422,7 +422,10 @@ def unit_conversion_factor(unit_from, unit_to):
                 unit_from.magnitude()
                 quant_from = unit_from
             except:
-                quant_from = cfg.ureg.Quantity(unit_from)
+                try:
+                    quant_from = cfg.ureg.Quantity(unit_from)
+                except:
+                    pdb.set_trace()
             try:
                 unit_to.magnitude()
                 quant_to = unit_to
@@ -626,6 +629,11 @@ def remove_df_levels(data, levels, total_label=None, agg_function='sum'):
             return data.groupby(level=levels_to_keep).sum()
         elif agg_function =='mean':
             return data.groupby(level=levels_to_keep).mean()
+
+        elif agg_function == 'max':
+            return data.groupby(level=levels_to_keep).max()
+        elif agg_function == 'min':
+            return data.groupby(level=levels_to_keep).min()
         else:
             raise ValueError('unknown agg function specified')
     else:
@@ -698,12 +706,16 @@ def ix_incl(df, include=None):
 
 def replace_column_name(df, replace_labels, labels=None):
     " Use replace_label to replace specified name label"
-    if not isinstance(replace_labels,basestring):
-        for replace_label in replace_labels:
-                index = replace_labels.index(replace_label)
-                df.columns.names = [replace_label if x == labels[index]  else x for x in df.columns.names]
-    else:
-        df.columns.names = [replace_labels if x == labels else x for x in df.columns.names]
+    if df.columns.dtype == 'O':
+        dct = dict(zip(ensure_iterable_and_not_string(labels),ensure_iterable_and_not_string(replace_labels)))
+        df.rename(columns=dct,inplace=True)
+    else:    
+        if not isinstance(replace_labels,basestring):
+            for replace_label in replace_labels:
+                    index = replace_labels.index(replace_label)
+                    df.columns.names = [replace_label if x == labels[index]  else x for x in df.columns.names]
+        else:
+            df.columns.names = [replace_labels if x == labels else x for x in df.columns.names]
 
 def replace_column(df, replace_labels, labels=None):
     " Use replace_label to replace specified name label"
