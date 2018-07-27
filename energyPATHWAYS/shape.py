@@ -137,9 +137,7 @@ class Shapes(object):
             for id in self.active_shape_ids:
                 self.data[id].process_shape()
         
-        dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))
-        self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.timezone_names[dispatch_outputs_timezone_id])
-        self.active_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H', tz=self.dispatch_outputs_timezone)
+        self.active_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H')
         self.num_active_years = num_active_years(self.active_dates_index)
         self._geography_check = (cfg.demand_primary_geography_id, cfg.supply_primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
         self._timespan_check = (cfg.shape_start_date, cfg.shape_years)
@@ -250,19 +248,14 @@ class Shape(dmf.DataMapFunctions):
         self.standardize_time_across_timezones()
         self.geomap_to_primary_geography()
         self.sum_over_time_zone()
+        # it's much easier to work with if we just strip out the timezone information at this point
+        self.values = self.values.tz_localize(None, level='weather_datetime')
         self.normalize()
-        # self.add_timeshift_type()
         # raw values can be very large, so we delete it in this one case
         if self.values.isnull().any().any():
             logging.warning("       NaN values found in shape: {}".format(self.name))
             logging.warning(util.remove_df_levels(self.values[self.values.isnull().values], 'weather_datetime'))
         del self.raw_values
-
-    def add_timeshift_type(self):
-        """Later these shapes will need a level called timeshift type, and it is faster to add it now if it doesn't already have it"""
-        if 'timeshift_type' not in self.values.index.names:
-            self.values['timeshift_type'] = 2 # index two is the native demand shape
-            self.values = self.values.set_index('timeshift_type', append=True).swaplevel('timeshift_type', 'weather_datetime').sort_index()
 
     def normalize(self):
         group_to_normalize = [n for n in self.values.index.names if n!='weather_datetime']
@@ -333,7 +326,7 @@ class Shape(dmf.DataMapFunctions):
             return df
 
     def standardize_time_across_timezones(self, attr='values', inplace=True):
-        self.final_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H', tz=self.dispatch_outputs_timezone)
+        self.final_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H', tz=pytz.FixedOffset(self.dispatch_outputs_tz_offset))
         df = util.reindex_df_level_with_new_elements(getattr(self, attr).copy(), 'weather_datetime', self.final_dates_index)
         levels = [n for n in self.values.index.names if n!='weather_datetime']
         df = df.groupby(level=levels).fillna(method='bfill').fillna(method='ffill')
@@ -346,8 +339,6 @@ class Shape(dmf.DataMapFunctions):
     def localize_shapes(self, attr='values', inplace=True):
         """ Step through time zone and put each profile maped to time zone in that time zone
         """
-        dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))
-        self.dispatch_outputs_timezone = pytz.timezone(cfg.geo.timezone_names[dispatch_outputs_timezone_id])
         new_df = []
         for tz_id, group in getattr(self, attr).groupby(level='time zone'):
             # get the time zone name and figure out the offset from UTC
@@ -358,11 +349,15 @@ class Shape(dmf.DataMapFunctions):
             # localize and then convert to dispatch_outputs_timezone
             df = group.tz_localize(pytz.FixedOffset(offset), level='weather_datetime')
             new_df.append(df)
-        
+
+        dispatch_outputs_timezone_id = int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))
+        tz = pytz.timezone(cfg.geo.timezone_names[dispatch_outputs_timezone_id])
+        self.dispatch_outputs_tz_offset = (tz.utcoffset(DT.datetime(2015, 1, 1)) + tz.dst(DT.datetime(2015, 1, 1))).total_seconds()/60.
+
         if inplace:
-            setattr(self, attr, pd.concat(new_df).tz_convert(self.dispatch_outputs_timezone, level='weather_datetime').sort_index())
+            setattr(self, attr, pd.concat(new_df).tz_convert(pytz.FixedOffset(self.dispatch_outputs_tz_offset), level='weather_datetime').sort_index())
         else:
-            return pd.concat(new_df).tz_convert(self.dispatch_outputs_timezone, level='weather_datetime').sort_index()
+            return pd.concat(new_df).tz_convert(pytz.FixedOffset(self.dispatch_outputs_tz_offset), level='weather_datetime').sort_index()
 
     def convert_index_to_datetime(self, dataframe_name, index_name='weather_datetime'):
         df = getattr(self, dataframe_name)

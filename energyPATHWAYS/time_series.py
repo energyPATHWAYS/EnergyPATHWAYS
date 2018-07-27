@@ -174,6 +174,14 @@ class TimeSeries:
 
         # y = c * exp(k*x)
         fill = np.exp(intercept) * np.exp(slope*newindex)
+        if any(np.isinf(fill)):
+            # sometimes if the data is too steep, it can return inf, try to get an exponential fit just using the beginning and ending points
+            # note, this can be dangerous
+            fill_dict = dict(zip(x, y))
+            firstx, lastx = min(x), max(x)
+            firsty, lasty = fill_dict[firstx], fill_dict[lastx]
+            growth_rate = (lasty / firsty) ** (1. / (lastx - firstx))
+            fill = firsty * (growth_rate) ** (newindex - firstx)
         return fill
 
     @staticmethod
