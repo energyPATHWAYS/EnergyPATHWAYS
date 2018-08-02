@@ -412,8 +412,7 @@ class Supply(object):
 
     def discover_bulk_id(self):
         for node in self.nodes.values():
-            if hasattr(node, 'active_coefficients_total') and getattr(node, 'active_coefficients_total') is not None:
-                if self.thermal_dispatch_node_id in node.active_coefficients_total.index.get_level_values('supply_node'):
+                if self.thermal_dispatch_node_id in node.nodes:
                     self.bulk_id = node.id
                     
     def discover_thermal_nodes(self):

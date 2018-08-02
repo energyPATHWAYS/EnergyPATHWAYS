@@ -160,7 +160,7 @@ if __name__ == "__main__":
     scenario = ['oct_base_withsupply']
 
     run(workingdir, config, scenario,
-    load_demand   = True,
+    load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
     solve_supply  = True,

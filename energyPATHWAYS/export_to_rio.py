@@ -28,6 +28,8 @@ from dateutil.relativedelta import relativedelta
 class RioExport(object):
     def __init__(self, model, scenario_index):
         self.supply = model.supply
+        #todo fix this hardcode
+        self.supply.bulk_node_id = 6
         self.db_dir = os.path.join(cfg.workingdir, 'rio_db_export')
         self.meta_dict = defaultdict(list)
         self.scenario_index = scenario_index
@@ -557,8 +559,14 @@ class RioExport(object):
                             df_rows['variable_om'] = 0
                         df_rows['variable_om_unit'] = cfg.calculation_energy_unit
                         if hasattr(self.supply.nodes[node].technologies[tech_id].fixed_om,'values'):
-                            df_rows['fixed_om'] = util.unit_convert(self.supply.nodes[node].technologies[tech_id].fixed_om.values.loc[gau,plant[-1]][0],\
-                                                         unit_from_den=cfg.calculation_energy_unit,unit_to_den='megawatt_hour')
+                            try:
+                                if 'resource_bin' in self.supply.nodes[node].technologies[tech_id].fixed_om.values.index.names:
+                                    indexer = (gau,)+plant[1:]
+                                else:
+                                    indexer = (gau,) + (plant[-1],)
+                                df_rows['fixed_om'] = util.unit_convert(self.supply.nodes[node].technologies[tech_id].fixed_om.values.loc[indexer][0],unit_from_den=cfg.calculation_energy_unit,unit_to_den='megawatt_hour')
+                            except:
+                                pdb.set_trace()
                         else:
                              df_rows['fixed_om'] = 0
                         df_rows['fixed_om_unit'] = 'megawatt'
@@ -1307,9 +1315,9 @@ class RioExport(object):
         self.blend_node_inputs = list(set(util.flatten_list([self.supply.nodes[x].nodes for x in self.blend_node_subset])))
         df = pd.DataFrame(self.blend_node_subset_names)
         df['exceed_demand'] = True
-        df['enforce_geography'] = [False if self.supply.nodes[x].tradable_geography!= cfg.supply_primary_geography else True for x in self.blend_node_subset
+        #df['enforce_geography'] = [False if self.supply.nodes[x].tradable_geography!= cfg.supply_primary_geography else True for x in self.blend_node_subset]
         df['enforce_storage_constraints'] = False
-        df.columns = ['name', 'exceed_demand' 'enforce_storage_constraints']
+        df.columns = ['name', 'exceed_demand','enforce_storage_constraints']
         Output.write_rio(df, "BLEND_MAIN" + '.csv', self.db_dir+'\\Fuel Inputs\\Blends', index=False)
 
 
@@ -1740,9 +1748,11 @@ class RioExport(object):
                             self.supply.nodes[node].potential.raw_values.index.get_level_values('resource_bin')):
                         if hasattr(self.supply.nodes[node].cost,'values'):
                             if resource_bin in self.supply.nodes[node].cost.values.index.names:
-                                df = util.df_slice(self.supply.nodes[node].cost.values, resource_bin, 'resource_bin').groupby(level=[cfg.supply_primary_geography,'year']).mean()
+                                df = util.df_slice(self.supply.nodes[node].cost.values, resource_bin, 'resource_bin')
                             else:
-                                df = copy.deepcopy(self.supply.nodes[node].cost.values).groupby(level=[cfg.supply_primary_geography,'year']).mean()
+                                df = copy.deepcopy(self.supply.nodes[node].cost.values)
+                            if len(df.index.names) > 1:
+                                df = df.groupby(level=[cfg.supply_primary_geography]).mean()
                             df = df.stack().to_frame()
                             df.columns = ['value']
                             util.replace_index_name(df, 'year')
@@ -1839,9 +1849,12 @@ class RioExport(object):
                             self.supply.nodes[node].potential.raw_values.index.get_level_values('resource_bin')):
                         if hasattr(self.supply.nodes[node].potential, 'values'):
                             try:
-                                df = util.df_slice(self.supply.nodes[node].potential.values, resource_bin, 'resource_bin').groupby(level=[cfg.supply_primary_geography,'year']).sum()
+                                df = util.df_slice(self.supply.nodes[node].potential.values, resource_bin, 'resource_bin')
                             except:
+                                print "no potential in resource bin %s in node %s " %(resource_bin,node)
                                 continue
+                            if len(df.index.names)>1:
+                                df.groupby(level=[cfg.supply_primary_geography]).sum()
                             df = df.stack().to_frame()
                             df.columns = ['value']
                             util.replace_index_name(df, 'year')
@@ -1849,17 +1862,6 @@ class RioExport(object):
                             df_list.append(df)
                             if self.supply.nodes[node].tradable_geography == cfg.supply_primary_geography:
                                 df_geo_nodes.append(self.supply.nodes[node].name + "_" + str(resource_bin))
-                            
-                else:
-                    if hasattr(self.supply.nodes[node].potential,'values'):
-                        df = copy.deepcopy(self.supply.nodes[node].potential.values).groupby(level=[cfg.supply_primary_geography,'year']).sum()
-                        df = df.stack().to_frame()
-                        df.columns = ['value']
-                        util.replace_index_name(df, 'year')
-                        df['name'] = self.supply.nodes[node].name
-                        df_list.append(df)
-                        if self.supply.nodes[node].tradable_geography == cfg.supply_primary_geography:
-                            df_geo_nodes.append(self.supply.nodes[node].name)
         df = pd.concat(df_list)
         df = Output.clean_rio_df(df)
         util.replace_column_name(df, 'gau', cfg.supply_primary_geography)
@@ -1992,38 +1994,38 @@ class RioExport(object):
     def flatten_load_dicts(self):
         dist_list = []
         bulk_list = []
-        for year in self.supply.years:
+        for year in self.supply.rio_distribution_load.keys():
             dist_df = self.supply.rio_distribution_load[year]
             dist_df.columns = ['value']
             dist_list.append(dist_df)
             bulk_df  = self.supply.rio_bulk_load[year]
             bulk_df.columns = ['value']
             bulk_list.append(bulk_df)
-        return pd.concat(dist_list, keys=self.supply.years, names=['year']), pd.concat(bulk_list, keys=self.supply.years,
+        return pd.concat(dist_list, keys=self.supply.rio_distribution_load.keys(), names=['year']), pd.concat(bulk_list, keys=self.supply.rio_distribution_load.keys(),
                                                                                      names=['year'])
     def flatten_flex_load_dict(self):
         df_list = []
-        for year in self.supply.years:
+        for year in self.supply.rio_flex_load.keys():
             df = self.supply.rio_flex_load[year]
             if df is not None:
                 df.columns = ['value']
                 df_list.append(df)
         if len(df_list):
-            return pd.concat(df_list, keys=self.supply.years, names=['year'])
+            return pd.concat(df_list, keys=self.supply.rio_flex_load.keys(), names=['year'])
         else:
             return None
 
     def flatten_loss_dicts(self):
         dist_list = []
         bulk_list = []
-        for year in self.supply.years:
+        for year in self.supply.rio_distribution_losses.keys():
             dist_df = self.supply.rio_distribution_losses[year]
             dist_df.columns = ['value']
             dist_list.append(dist_df)
             bulk_df = self.supply.rio_transmission_losses[year]
             bulk_df.columns = ['value']
             bulk_list.append(bulk_df)
-        return pd.concat(dist_list), pd.concat(bulk_list,keys=self.supply.years,names=['year'])
+        return pd.concat(dist_list), pd.concat(bulk_list,keys=self.supply.rio_distribution_losses.keys(),names=['year'])
 
     def write_potential_empty(self):
        self.write_empty("POTENTIAL_GROUP","\\Technology Inputs\\Generation",['name', 'incremental', 'source', 'notes', 'unit', 'time_unit', 'geography', 'gau', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth_rate', 'year', 'value', 'sensitivity'])
