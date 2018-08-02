@@ -686,7 +686,7 @@ class RioExport(object):
                     node_df =  util.DfOper.add([cap_cost_df,\
                                                 installation_cost_df])
                     if node_df is None:
-                        continue
+                        node_df = sales_df *0
                     node_df = node_df[node_df.index.get_level_values('vintage') >= min(cfg.supply_years)]
                     df = util.df_slice(node_df,plant,plant_index)
                     if len(util.ensure_iterable_and_not_string(plant)) == 2:
@@ -1312,6 +1312,7 @@ class RioExport(object):
         self.blend_node_subset = [x for x in blend_node_subset if x not in blend_node_inputs]
         self.blend_node_subset = [x for x in self.blend_node_subset if self.input_compatibility_check(self.supply.nodes[x].nodes)]
         self.blend_node_subset_names = [self.supply.nodes[x].name.upper() for x in self.blend_node_subset]
+        self.blend_node_subset_lookup = dict(zip(self.blend_node_subset,self.blend_node_subset_names))
         self.blend_node_inputs = list(set(util.flatten_list([self.supply.nodes[x].nodes for x in self.blend_node_subset])))
         df = pd.DataFrame(self.blend_node_subset_names)
         df['exceed_demand'] = True
@@ -1525,7 +1526,7 @@ class RioExport(object):
                                 eff_blend_df = eff_blend_df.reorder_levels(
                                     [cfg.supply_primary_geography, 'vintage', 'supply_node'])
                                 eff_blend_df['name'] = cfg.outputs_id_map['supply_node'][node] + "_" + \
-                                                       cfg.outputs_id_map['supply_technology'][technology]
+                                                       cfg.outputs_id_map['supply_technology'][technology] + "_" + self.blend_node_subset_lookup[blend_node]
                                 df_list.append(eff_blend_df)
                             for delivery_node in set(eff_df.index.get_level_values('supply_node')):
                                 if self.supply.nodes[delivery_node].supply_type == 'Delivery':
@@ -1541,7 +1542,7 @@ class RioExport(object):
                                         eff_del = util.DfOper.mult([temp_df, eff_del]).reorder_levels(
                                                 [cfg.supply_primary_geography, 'vintage', 'supply_node'])
                                         eff_del['name'] = cfg.outputs_id_map['supply_node'][node] + "_" + \
-                                                      cfg.outputs_id_map['supply_technology'][technology]
+                                                      cfg.outputs_id_map['supply_technology'][technology]+ "_" + self.blend_node_subset_lookup[blend_node]
                                         df_list.append(eff_del)
         df = pd.concat(df_list)
         df = Output.clean_rio_df(df)
@@ -1585,7 +1586,7 @@ class RioExport(object):
                                 cost_df = self.supply.nodes[node].technologies[technology].fixed_om.values.groupby(
                                     level=[cfg.supply_primary_geography, 'vintage']).sum()
                                 cost_df['name'] = cfg.outputs_id_map['supply_node'][node] + "_" + \
-                                                  cfg.outputs_id_map['supply_technology'][technology]
+                                                  cfg.outputs_id_map['supply_technology'][technology]+ "_" + self.blend_node_subset_lookup[blend]
                                 df_list.append(cost_df)
         df = pd.concat(df_list)
         df = Output.clean_rio_df(df)
@@ -1622,7 +1623,7 @@ class RioExport(object):
                             util.replace_index_name(df, 'year')
                             df = df[np.isfinite(df.values)]
                             df['name'] = cfg.outputs_id_map['supply_node'][node] + "_" + \
-                                         cfg.outputs_id_map['supply_technology'][technology]
+                                         cfg.outputs_id_map['supply_technology'][technology]+ "_" + self.blend_node_subset_lookup[blend]
                             df_list.append(df)
         df = pd.concat(df_list)
         df = Output.clean_rio_df(df)
@@ -1661,7 +1662,7 @@ class RioExport(object):
                                 cost_df.set_index('age', append=True, inplace=True)
                                 cost_df = util.remove_df_levels(cost_df, 'year')
                                 cost_df['name'] = cfg.outputs_id_map['supply_node'][node] + "_" + \
-                                                  cfg.outputs_id_map['supply_technology'][technology]
+                                                  cfg.outputs_id_map['supply_technology'][technology]+ "_" + self.blend_node_subset_lookup[blend]
                                 df_list.append(cost_df)
         df = pd.concat(df_list)
         df = Output.clean_rio_df(df)
@@ -1698,7 +1699,7 @@ class RioExport(object):
                                     technology].installation_cost_new.values.groupby(
                                     level=[cfg.supply_primary_geography, 'vintage']).sum()])
                             cost_df['name'] = cfg.outputs_id_map['supply_node'][node] + "_" + \
-                                              cfg.outputs_id_map['supply_technology'][technology]
+                                              cfg.outputs_id_map['supply_technology'][technology]+ "_" + self.blend_node_subset_lookup[blend]
                             cost_df['lifetime'] = self.supply.nodes[node].technologies[technology].mean_lifetime
                             cost_df['recovery_factor'] = self.supply.nodes[node].technologies[
                                 technology].cost_of_capital
@@ -1853,6 +1854,7 @@ class RioExport(object):
                             except:
                                 print "no potential in resource bin %s in node %s " %(resource_bin,node)
                                 continue
+                            pdb.set_trace()
                             if len(df.index.names)>1:
                                 df.groupby(level=[cfg.supply_primary_geography]).sum()
                             df = df.stack().to_frame()
@@ -1906,17 +1908,19 @@ class RioExport(object):
         self.conversion_names = []
         for node in self.blend_node_inputs:
             if self.supply.nodes[node].supply_type == 'Conversion':
-                if self.supply.nodes[node].potential.raw_values is not None:
-                    for technology in self.supply.nodes[node].technologies.keys():
-                        for resource_bin in set(
-                                self.supply.nodes[node].potential.raw_values.index.get_level_values('resource_bin')):
-                            self.conversion_names.append(
-                                self.supply.nodes[node].name + "_" + self.supply.nodes[node].technologies[
-                                    technology].name + "_" + str(resource_bin))
-                else:
-                    for technology in self.supply.nodes[node].technologies.keys():
-                        self.conversion_names.append(
-                            self.supply.nodes[node].name + "_" + self.supply.nodes[node].technologies[technology].name)
+                for blend_node in self.blend_node_subset:
+                    if node in self.supply.nodes[blend_node].nodes:
+                        if self.supply.nodes[node].potential.raw_values is not None:
+                            for technology in self.supply.nodes[node].technologies.keys():
+                                for resource_bin in set(
+                                        self.supply.nodes[node].potential.raw_values.index.get_level_values('resource_bin')):
+                                    self.conversion_names.append(
+                                        self.supply.nodes[node].name + "_" + self.supply.nodes[node].technologies[
+                                            technology].name + "_" + str(resource_bin)) + "_" + self.blend_node_subset_lookup[blend_node]
+                        else:
+                            for technology in self.supply.nodes[node].technologies.keys():
+                                self.conversion_names.append(
+                                    self.supply.nodes[node].name + "_" + self.supply.nodes[node].technologies[technology].name+ "_" + self.blend_node_subset_lookup[blend_node])
         df = pd.DataFrame(zip(self.conversion_names, [None for x in self.conversion_names]), columns=['name', 'dummy'])
         Output.write_rio(df, "CONVERSION_MAIN" + '.csv', self.db_dir + "\\Fuel Inputs\\Conversions", index=False)
 
