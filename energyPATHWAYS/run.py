@@ -155,12 +155,12 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\RIO_to_EP'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\OCT'
     config = 'config.INI'
-    scenario = ['high_moder_aeo']
+    scenario = ['oct_base_withsupply']
 
     run(workingdir, config, scenario,
-    load_demand   = False,
+    load_demand   = True,
     solve_demand  = True,
     load_supply   = False,
     solve_supply  = True,

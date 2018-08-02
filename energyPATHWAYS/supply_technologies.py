@@ -141,7 +141,9 @@ class StorageTechnology(SupplyTechnology):
         self.installation_cost_replacement = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost', 'SupplyTechsInstallationCostReplacementData', self.scenario, self.book_life, self.cost_of_capital)
         self.fixed_om = SupplyTechFixedOMCost(self.id, 'SupplyTechsFixedMaintenanceCost', 'SupplyTechsFixedMaintenanceCostData', self.scenario)
         self.variable_om = SupplyTechVariableOMCost(self.id, 'SupplyTechsVariableMaintenanceCost', 'SupplyTechsVariableMaintenanceCostData', self.scenario)
-        
+        self.duration = StorageTechDuration(self.id, self.scenario)
+
+
         self.replace_costs('capital_cost_new_capacity', 'capital_cost_replacement_capacity')
         self.replace_costs('capital_cost_new_energy', 'capital_cost_replacement_energy')
         self.replace_costs('installation_cost_new', 'installation_cost_replacement')
@@ -254,6 +256,23 @@ class StorageTechEnergyCost(SupplyTechInvestmentCost):
             self.absolute = True
         else:
             self.absolute = False
+
+
+class StorageTechDuration(Abstract):
+    def __init__(self, id, scenario, **kwargs):
+        self.id = id
+        self.input_type = 'intensity'
+        self.sql_id_table = 'StorageTechsDuration'
+        self.sql_data_table = 'StorageTechsDurationData'
+        self.scenario = scenario
+        Abstract.__init__(self, id, 'supply_tech_id')
+
+    def calculate(self, vintages, years):
+        self.vintages = vintages
+        self.years = years
+        if self.data and self.raw_values is not None:
+            self.remap(time_index_name='year', converted_geography=cfg.supply_primary_geography)
+            self.values.replace(0, 1, inplace=True)
 
 
 class SupplyTechFixedOMCost(SupplyTechCost):

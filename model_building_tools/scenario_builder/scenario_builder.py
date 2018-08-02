@@ -81,11 +81,19 @@ SENSITIVITIES = {"DemandDriversData":
                      {'side': 'd', 'parent_table': "DemandSubsectors"},
                  "SupplyPotentialData":
                      {'side': 's', 'parent_table': "SupplyNodes"},
+                 "StorageDurationData":
+                     {'side': 's', 'parent_table': "SupplyTechs"},
                  "SupplyEmissionsData":
                      {'side': 's', 'parent_table': "SupplyNodes"},
                  "SupplyStockData":
                      {'side': 's', 'parent_table': "SupplyNodes"},
                  "StorageTechsCapacityCapitalCostNewData":
+                     {'side': 's', 'parent_table': "SupplyTechs"},
+                 "StorageTechsEnergyCapitalCostNewData":
+                     {'side': 's', 'parent_table': "SupplyTechs"},
+                 "SupplyTechsCapacityCapitalCostNewData":
+                     {'side': 's', 'parent_table': "SupplyTechs"},
+                 "SupplyTechsCapacityFactorData":
                      {'side': 's', 'parent_table': "SupplyTechs"},
                  "DispatchTransmissionConstraintData":
                      {'side': 's', 'parent_table': "DispatchTransmissionConstraint"},
