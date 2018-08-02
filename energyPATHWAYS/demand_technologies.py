@@ -105,6 +105,7 @@ class ParasiticEnergy(Abstract):
             self.convert()
             self.remap(map_from='values', map_to='values', time_index_name='vintage')
             util.convert_age(self, reverse=True, vintages=self.vintages, years=self.years)
+            self.values[self.values<0] = 0 
             self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
         if self.data is False:
             self.absolute = False

@@ -175,14 +175,14 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'\\DESKTOP-PHIEDQS\Users\PC-User\Documents\EU'
+    workingdir = r'C:\Users\PC-User\Documents\EU\2030\128_HDV_LPG'
     config = 'config.INI'
-    scenario = ['122_LDV ICE']
+    scenario = ['128_HDV_LPG']
 
     run(workingdir, config, scenario,
     load_demand   = False,
-    solve_demand  = True,
-    load_supply   = False,
+    solve_demand  = False,
+    load_supply   = True,
     solve_supply  = False,
     export_results= False,
     load_error    = False,
