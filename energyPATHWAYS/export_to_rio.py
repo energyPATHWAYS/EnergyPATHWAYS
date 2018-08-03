@@ -28,6 +28,7 @@ from dateutil.relativedelta import relativedelta
 class RioExport(object):
     def __init__(self, model, scenario_index):
         self.supply = model.supply
+        pdb.set_trace()
         self.db_dir = os.path.join(cfg.workingdir, 'rio_db_export')
         self.meta_dict = defaultdict(list)
         self.scenario_index = scenario_index
@@ -821,12 +822,15 @@ class RioExport(object):
         df_list = []
         active_nodes = self.supply.nodes[self.supply.thermal_dispatch_node_id].nodes +  self.supply.nodes[self.supply.bulk_id].nodes  + self.supply.nodes[self.supply.distribution_node_id].nodes
         for node in active_nodes:
-            if not isinstance(self.supply.nodes[node],BlendNode):
+            print "supply nodes %s" %node
+            if not isinstance(self.supply.nodes[node],BlendNode) and hasattr(self.supply.nodes[node],'technologies'):
                 sales_df = copy.deepcopy(self.supply.nodes[node].stock.sales)
                 plant_index = [x for x in sales_df.index.names if x not in [cfg.supply_primary_geography,'vintage']]
                 for plant in sales_df.groupby(level=plant_index).groups.keys():
                     plant = util.ensure_iterable_and_not_string(plant)
                     tech_id = plant[-1]
+                    print plant
+                    print tech_id
                     df = util.df_slice(sales_df,plant,plant_index)
                     df['value'] = 1
                     name = cfg.outputs_id_map['supply_technology'][tech_id]
@@ -1308,7 +1312,7 @@ class RioExport(object):
         self.blend_node_inputs = list(set(util.flatten_list([self.supply.nodes[x].nodes for x in self.blend_node_subset])))
         df = pd.DataFrame(self.blend_node_subset_names)
         df['exceed_demand'] = True
-        df['enforce_geography'] = [False if self.supply.nodes[x].tradable_geography!= cfg.supply_primary_geography else True for x in self.blend_node_subset
+        df['enforce_geography'] = [False if self.supply.nodes[x].tradable_geography!= cfg.supply_primary_geography else True for x in self.blend_node_subset]
         df['enforce_storage_constraints'] = False
         df.columns = ['name', 'exceed_demand' 'enforce_storage_constraints']
         Output.write_rio(df, "BLEND_MAIN" + '.csv', self.db_dir+'\\Fuel Inputs\\Blends', index=False)
