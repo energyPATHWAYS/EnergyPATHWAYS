@@ -27,7 +27,7 @@ class TestClusterGenerators(unittest.TestCase):
         self.must_run = np.array([0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1])
         self.n_clusters = 4
         self.zero_mc_4_must_run = True
-        self.pad_stack=True
+        self.pad_stack=False
 
     def _helper_run_cluster_generators(self):
         mc_approx = dispatch_generators.cluster_generators(self.n_clusters,
@@ -93,3 +93,22 @@ class TestClusterGenerators(unittest.TestCase):
         supply_curve = Dispatch.generator_supply_curve(self.pmax, self.marginal_cost, self.FORs, self.MORs,
                                                        self.must_run, decimals, self.zero_mc_4_must_run)
         pylab.plot(supply_curve)
+
+
+pmax = np.array([.001, .01, .1, 1, 10, 60, 50, 20, 20, 5, 2, 2.4, 2.6])
+marginal_cost = np.array([80, 70, 60, 50, 40, 45, 60, 30, 61, 80, 100, 42, 55])
+FORs = np.array([0, 0, 0, 0, 0, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05])
+MORs = FORs[-1::-1]
+must_run = np.array([0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1])
+n_clusters = 4
+zero_mc_4_must_run = True
+pad_stack=True
+
+mc_approx = dispatch_generators.cluster_generators(n_clusters,
+                                                   pmax,
+                                                   marginal_cost,
+                                                   FORs,
+                                                   MORs,
+                                                   must_run,
+                                                   pad_stack=pad_stack,
+                                                   zero_mc_4_must_run=zero_mc_4_must_run)

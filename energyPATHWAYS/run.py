@@ -115,6 +115,7 @@ def run(path, config, scenario_ids, load_demand=False, solve_demand=True, load_s
     for scenario_id in scenario_ids:
         scenario_start_time = time.time()
         logging.info('Starting scenario {}'.format(scenario_id))
+        logging.info('Start time {}'.format(str(datetime.datetime.now()).split('.')[0]))
         if api_run:
             # FIXME: This will be broken since we changed the scenario list from a list of database ids to a list of
             # filenames. The API-related code will need to be updated before we can update the server with newer
@@ -170,8 +171,10 @@ def load_model(load_demand, load_supply, load_error, scenario_id, api_run):
         return model
 
     if load_error:
-        model = read_pickle(error_file, 'crashed')
-
+        with open(os.path.join(cfg.workingdir, str(scenario_id) + cfg.model_error_append_name), 'rb+') as infile:
+#        with open(os.path.join(cfg.workingdir, 'dispatch_class.p'), 'rb') as infile:
+            model = pickle.load(infile)
+        logging.info('Loaded crashed EnergyPATHWAYS model from pickle')
     elif load_supply:
         model = read_pickle(supply_file, 'complete')
 
@@ -190,7 +193,7 @@ def load_model(load_demand, load_supply, load_error, scenario_id, api_run):
     return model
 
 def send_gmail(scenario_id, subject, body):
-    toaddr = util.active_user_email(scenario_id)
+    toaddr = util.active_user_emailzx(scenario_id)
     if not toaddr:
         logging.warning('Unable to find a user email for scenario %s; skipping sending email with subject "%s".' %\
                         (scenario_id, subject))
@@ -221,19 +224,19 @@ if __name__ == "__main__":
     if os.getenv('USER') == 'rjp':
         workingdir = '/Users/rjp/Projects/EvolvedEnergy/integration'
     else:
-        workingdir = r'C:\Github\us_energypathways_db'
-
+        workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\OCT'
     config = 'config.INI'
     scenario = ['aeo_2017_reference']
 
     run(workingdir, config, scenario,
-        load_demand   = False, # True,
-        solve_demand  = True,
-        load_supply   = False,
-        solve_supply  = False,
-        export_results= True,
-        load_error    = False,
-        pickle_shapes = True,
-        save_models   = True,
-        api_run       = False,
-        clear_results = False)
+    load_demand   = False,
+    solve_demand  = True,
+    load_supply   = False,
+    solve_supply  = False,
+    export_results= True,
+    load_error    = False,
+    pickle_shapes = True,
+    save_models   = True,
+    api_run       = False,
+    clear_results = False)
+    

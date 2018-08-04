@@ -428,14 +428,15 @@ def unit_conversion_factor(unit_from, unit_to):
 
 def exchange_rate(currency_from, currency_from_year, currency_to=None):
     """calculate exchange rate between two specified currencies"""
-    currency_to_name = cfg.cfgfile.get('case', 'currency_name') if currency_to is None else currency_to
-    currency_to = sql_read_table('Currencies',column_names='id',name=currency_to_name)
-    currency_from_values = sql_read_table('CurrenciesConversion', 'value', currency_id=currency_from,
-                                          currency_year_id=currency_from_year)
-    currency_from_value = np.asarray(currency_from_values).mean()
-    currency_to_values = sql_read_table('CurrenciesConversion', 'value', currency_id=currency_to,
-                                        currency_year_id=currency_from_year)
-    currency_to_value = np.asarray(currency_to_values).mean()
+    try:
+        currency_to_name = cfg.cfgfile.get('case', 'currency_name') if currency_to is None else sql_read_table('Currencies',column_names='name',id=currency_to)
+        currency_to = sql_read_table('Currencies',column_names='id',name=currency_to_name)
+        currency_from_values = sql_read_table('CurrenciesConversion', 'value', currency_id=currency_from,currency_year_id=currency_from_year)
+        currency_from_value = np.asarray(currency_from_values).mean()
+        currency_to_values = sql_read_table('CurrenciesConversion', 'value', currency_id=currency_to,currency_year_id=currency_from_year)
+        currency_to_value = np.asarray(currency_to_values).mean()
+    except:
+        pdb.set_trace()
     return currency_to_value / currency_from_value
 
 
@@ -453,9 +454,10 @@ def inflation_rate(currency, currency_from_year, currency_to_year=None):
 
 def currency_convert(data, currency_from, currency_from_year):
     """converts cost data in original currency specifications (currency,year) to model currency and year"""
-    currency_to_name, currency_to_year = cfg.cfgfile.get('case', 'currency_name'), cfg.cfgfile.get('case', 'currency_year_id')
+    currency_to_name, currency_to_year = cfg.cfgfile.get('case', 'currency_name'), int(cfg.cfgfile.get('case', 'currency_year_id'))
     currency_to = sql_read_table('Currencies',column_names='id',name=currency_to_name)
     # inflate in original currency and then exchange in model currency year
+    
     try:
         a = inflation_rate(currency_from, currency_from_year)
         b = exchange_rate(currency_from, currency_to_year)
@@ -473,13 +475,12 @@ def currency_convert(data, currency_from, currency_from_year):
                 # in original currency year. Inflate to model currency year. Exchange to model currency in model currency year.
                 a = exchange_rate(currency_from, currency_from_year, currency_to=41)
                 b = inflation_rate(currency=41, currency_from_year=currency_from_year)
-                c = exchange_rate(currency_from=41, currency_from_year=currency_to_year
-                                  , currency_to=currency_to)
+                c = exchange_rate(currency_from=41, currency_from_year=currency_to_year, currency_to=currency_to)
                 return data * a * b * c
             except:
                 raise ValueError(
                     "currency conversion failed. Make sure that the data in InflationConvert and CurrencyConvert can support this conversion")
-
+        
 
 def unit_conversion(unit_from_num=None, unit_from_den=None, unit_to_num=None, unit_to_den=None):
     # try to see if we need to flip the units to make them convertable
@@ -497,6 +498,7 @@ def unit_conversion(unit_from_num=None, unit_from_den=None, unit_to_num=None, un
             denominator_factor = unit_conversion_factor(unit_from_den, unit_to_den)
             flipped = False
         except ValueError:
+            pdb.set_trace()
             numerator_factor = unit_conversion_factor(unit_from_den, unit_to_num)
             denominator_factor = unit_conversion_factor(unit_from_num, unit_to_den)
             flipped = True
@@ -554,7 +556,9 @@ def ensure_tuple(obj):
         return (obj,)
 
 
-def df_slice(df, elements, levels, drop_level=True, reset_index=False):
+def df_slice(df, elements, levels, drop_level=True, reset_index=False, return_none=False):
+    if df is None:
+        return None
     elements, levels = ensure_iterable_and_not_string(elements), ensure_iterable_and_not_string(levels)
     if not len(levels):
         return None
@@ -563,12 +567,16 @@ def df_slice(df, elements, levels, drop_level=True, reset_index=False):
 
     # special case where we use a different method to handle multiple elements
     if len(levels) == 1 and len(elements) > 1:
-        return df.reset_index().loc[df.reset_index()[levels[0]].isin(elements)].set_index(df.index.names)
+        df =  df.reset_index().loc[df.reset_index()[levels[0]].isin(elements)].set_index(df.index.names)
     else:
         # remove levels if they are not in the df
         elements, levels = zip(*[(e, l) for e, l in zip(elements, levels) if l in df.index.names])
         result = df.xs(elements, level=levels, drop_level=drop_level)
-        return result.reset_index().set_index(result.index.names) if reset_index else result
+        df = result.reset_index().set_index(result.index.names) if reset_index else result
+    if not len(df) and return_none:
+        return None
+    else:
+        return df
 
 
 def intersect(a, b):

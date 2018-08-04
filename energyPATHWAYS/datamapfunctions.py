@@ -317,18 +317,14 @@ class DataMapFunctions:
             # turns out we don't always have a year or vintage column for drivers. For instance when linked_demand_technology gets remapped
             if time_index_name in self.total_driver.index.names:
                 # sometimes when we have a linked service demand driver in a demand subsector it will come in on a fewer number of years than self.years, making this clean timeseries necesary
-                self.clean_timeseries(attr='total_driver', inplace=True, time_index_name=time_index_name,
-                                      time_index=time_index, lower=None, upper=None, interpolation_method='missing', extrapolation_method='missing')
+                self.clean_timeseries(attr='total_driver', inplace=True, time_index_name=time_index_name, time_index=time_index, lower=None, upper=None, interpolation_method='missing', extrapolation_method='missing')
 
             # While not on primary geography, geography does have some information we would like to preserve
             if hasattr(self,'drivers') and len(drivers) == len(self.drivers) and set([x.input_type for x in self.drivers.values()]) == set(['intensity']) and set([x.base_driver_id for x in self.drivers.values()]) == set([None]):
                 driver_mapping_data_type = 'intensity'
             else:
                 driver_mapping_data_type = 'total'
-            total_driver_current_geo = self.geo_map(current_geography, attr='total_driver', inplace=False,
-                                              current_geography=driver_geography, current_data_type=driver_mapping_data_type,
-                                              fill_value=fill_value, filter_geo=False)
-
+            total_driver_current_geo = self.geo_map(current_geography, attr='total_driver', inplace=False, current_geography=driver_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=False)                          
             if current_data_type == 'total':
                 if fill_value is np.nan:
                     df_intensity = DfOper.divi((getattr(self, map_to), total_driver_current_geo), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf],0)
@@ -342,11 +338,13 @@ class DataMapFunctions:
 
 #            self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='intensity', fill_value=fill_value, filter_geo=filter_geo)
 #            total_driver_converted_geo = self.geo_map(converted_geography, attr='total_driver', inplace=False, current_geography=driver_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=filter_geo)
-
             if current_data_type == 'total':
                 setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo), fill_value=fill_value))
             else:
-                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo), expandable=(True, False), collapsible=(False, True), fill_value=fill_value))
+                try:
+                    setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo), expandable=(True, False), collapsible=(False, True), fill_value=fill_value))
+                except:
+                    pdb.set_trace()
             self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='total', fill_value=fill_value, filter_geo=filter_geo)
             # we don't want to keep this around
             del self.total_driver
@@ -372,11 +370,13 @@ class DataMapFunctions:
 
             if current_geography != converted_geography:
                 # While not on primary geography, geography does have some information we would like to preserve
-                self.geo_map(converted_geography, attr=map_to, inplace=True)
+                df, current_geography = self.account_for_foreign_gaus(map_from, current_data_type, current_geography)
+                setattr(self,map_to,df)                
+                self.geo_map(converted_geography, current_geography=current_geography, attr=map_to, inplace=True)
                 current_geography = converted_geography
-            total_driver = DfOper.mult([self.drivers[id].values for id in denominator_driver_ids])
+            total_driver = util.DfOper.mult([self.drivers[id].values for id in denominator_driver_ids])          
             self.geo_map(current_geography=current_geography, attr=map_to, converted_geography=cfg.disagg_geography, current_data_type = 'intensity')
-            setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver)))
+            setattr(self, map_to, util.DfOper.mult((getattr(self, map_to), total_driver)))
             self.geo_map(current_geography=cfg.disagg_geography, attr=map_to, converted_geography=current_geography,current_data_type='total')
             # the datatype is now total
             current_data_type = 'total'

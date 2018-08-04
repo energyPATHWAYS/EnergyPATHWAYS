@@ -32,8 +32,10 @@ def cluster_generators(n_clusters, pmax, marginal_cost, FORs, MORs, must_run, pa
     FORs = FORs[ind]
     MORs = MORs[ind]
     must_run = must_run[ind]
-    assert n_clusters>= 1
-    assert n_clusters <= len(pmax)
+    if len(pmax) == 0:
+        return {'FORs':np.array([0]), 'MORs':np.array([0]), 'must_run':np.array([0]),
+                'derated_pmax':np.array([0]), 'pmax':np.array([0]), 'marginal_cost':np.array([0])}
+    n_clusters = min(n_clusters, len(pmax))
     new_mc = copy.deepcopy(marginal_cost)  # copy mc before changing it
     if zero_mc_4_must_run:
         new_mc[np.nonzero(must_run)] = 0
@@ -59,8 +61,7 @@ def cluster_generators(n_clusters, pmax, marginal_cost, FORs, MORs, must_run, pa
     clustered['pmax'] = np.array([group_sum(c, pmax) for c in range(n_clusters)])[order]
     clustered['FORs'] = np.array([group_wgtav(c, pmax, FORs) for c in range(n_clusters)])[order]
     clustered['MORs'] = np.array([group_wgtav(c, pmax, MORs) for c in range(n_clusters)])[order]
-    clustered['must_run'] = np.array([round(group_wgtav(c, pmax, must_run)) for c in range(n_clusters)], dtype=int)[
-        order]
+    clustered['must_run'] = np.array([round(group_wgtav(c, pmax, must_run)) for c in range(n_clusters)], dtype=int)[order]
 
     # check the result
     #        np.testing.assert_almost_equal(sum(clustered['pmax'][np.where(clustered['must_run']==0)]), sum(pmax[np.where(must_run==0)]))
@@ -270,7 +271,7 @@ def run_thermal_dispatch(params):
                                                                     gen_categories=gen_categories, return_dispatch_by_category=return_dispatch_by_category,
                                                                     reserves=reserves, thermal_capacity_multiplier=thermal_capacity_multiplier)
 
-    if sum(dispatch_results['stock_changes']) > np.max(load):
+    if sum(dispatch_results['stock_changes']) > np.max(load)*1.15 and np.max(load) > 0:
         logging.error("we've built too much capacity")
         pdb.set_trace()
 

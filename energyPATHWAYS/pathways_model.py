@@ -4,18 +4,12 @@ import os
 from demand import Demand
 import util
 from outputs import Output
-import cPickle as pickle
-import time
 import shutil
 import config as cfg
 from supply import Supply
 import pandas as pd
 import logging
 import shape
-from datetime import datetime
-# from supply import Supply
-import smtplib
-from profilehooks import timecall
 import pdb
 from scenario_loader import Scenario
 from scenario_loader_new import ScenarioNew
@@ -54,7 +48,8 @@ class PathwaysModel(object):
             if not append_results:
                 self.remove_old_results()
 
-            if self.demand_solved and export_results and not self.api_run:
+            # it is nice if when loading a demand side object to rerun supply, it doesn't re-output these results every time
+            if self.demand_solved and export_results and not self.api_run and not (load_demand and solve_supply):
                 self.export_result_to_csv('demand_outputs')
 
             if solve_supply and not load_supply:
@@ -64,7 +59,11 @@ class PathwaysModel(object):
                 self.supply = Supply(self.scenario, demand_object=self.demand)
                 self.calculate_supply(save_models)
 
-            if self.supply_solved and export_results:
+            if load_demand and solve_supply:
+                # we do this now because we delayed before
+                self.export_result_to_csv('demand_outputs')
+
+            if self.supply_solved and export_results and load_supply or solve_supply:
                 self.supply.calculate_supply_outputs()
                 self.pass_supply_results_back_to_demand()
                 self.calculate_combined_results()
@@ -158,7 +157,7 @@ class PathwaysModel(object):
                 continue
 
             result_df = getattr(res_obj, 'return_cleaned_output')(attribute)
-            keys = [self.scenario.name.upper(), str(datetime.now().replace(second=0, microsecond=0))]
+            keys = [self.scenario.name.upper(), cfg.timestamp]
             names = ['SCENARIO','TIMESTAMP']
             for key, name in zip(keys, names):
                 result_df = pd.concat([result_df], keys=[key], names=[name])
@@ -519,7 +518,7 @@ class PathwaysModel(object):
                     df.loc[util.level_specific_indexer(df,'sector',row_sector),util.level_specific_indexer(df,'sector',col_sector,axis=1)] = 0
         self.supply.outputs.io = df
         result_df = self.supply.outputs.return_cleaned_output('io')
-        keys = [self.scenario.name.upper(),str(datetime.now().replace(second=0,microsecond=0))]
+        keys = [self.scenario.name.upper(), cfg.timestamp]
         names = ['SCENARIO','TIMESTAMP']
         for key, name in zip(keys,names):
             result_df = pd.concat([result_df], keys=[key],names=[name])
@@ -533,7 +532,7 @@ class PathwaysModel(object):
         df.columns = ['value']
         self.supply.outputs.stacked_io = df
         result_df = self.supply.outputs.return_cleaned_output('stacked_io')
-        keys = [self.scenario.name.upper(),str(datetime.now().replace(second=0,microsecond=0))]
+        keys = [self.scenario.name.upper(), cfg.timestamp]
         names = ['SCENARIO','TIMESTAMP']
         for key, name in zip(keys,names):
             result_df = pd.concat([result_df], keys=[key],names=[name])

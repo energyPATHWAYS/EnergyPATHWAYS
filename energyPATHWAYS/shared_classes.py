@@ -10,6 +10,7 @@ import pandas as pd
 from datamapfunctions import Abstract, DataMapFunctions
 import config as cfg
 import pdb
+import logging
 
 class StockItem(object):
     def __init__(self):
@@ -64,11 +65,8 @@ class StockItem(object):
         if self.stock_decay_function == 'weibull':
             return np.exp(-(np.arange(periods) / self.weibull_alpha_parameter) ** self.weibull_beta_parameter)
         elif self.stock_decay_function == 'linear':
-            start = [1] * int(round(self.min_lifetime*self.spy))
-            if self.max_lifetime ==1 and self.min_lifetime ==1:
-                middle = np.linspace(1, 0, int(round((self.max_lifetime - self.min_lifetime)*self.spy)))
-            else:
-                middle = np.linspace(1, 0, int(round((self.max_lifetime - self.min_lifetime)*self.spy)) + 1)
+            start = [1] * int(round((self.min_lifetime - 1)*self.spy))
+            middle = np.linspace(1, 0, int(round((self.max_lifetime - self.min_lifetime)*self.spy)) + 1)
             end = [0] * int(max(periods - (len(start) + len(middle)), 0))
             return np.concatenate((start, middle, end))[:periods]
         elif self.stock_decay_function == 'exponential':
@@ -207,11 +205,14 @@ class SalesShare(Abstract, DataMapFunctions):
             self.replaced_demand_tech_id = None
             # measure specific sales share does not require technology filtering
             Abstract.__init__(self, self.id, primary_key=primary_key, data_id_key=data_id_key)
+            if self.raw_values is None:           
+                raise ValueError('error encountered in sales share measure ' + str(self.id))
 
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
         self.remap(time_index_name='vintage')
+        self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels,agg_function='mean')
         
     def reconcile_with_stock_levels(self, needed_sales_share_levels, needed_sales_share_names):
         if self.input_type == 'intensity':

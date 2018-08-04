@@ -219,7 +219,7 @@ class Demand(object):
         no_shape = [self.shape_from_subsectors_with_no_shape(year)]
         inflex_load = util.DfOper.add(no_shape+inflexible, expandable=False, collapsible=False)
         inflex_load = util.DfOper.mult((inflex_load, self.electricity_reconciliation))
-        flex_load = util.DfOper.add([sector.aggregate_flexible_electricity_shape(year) for sector in self.sectors.values()], expandable=False, collapsible=False)
+        flex_load = util.DfOper.add([sector.aggregate_flexible_electricity_shape(year) for sector in self.sectors.values()], expandable=False, collapsible=False)      
         if flex_load is None:
             agg_load = pd.concat([inflex_load], keys=[2], names=['timeshift_type'])
         else:
@@ -240,7 +240,8 @@ class Demand(object):
             return util.remove_df_levels(util.DfOper.mult((feeder_allocation,
                                                            self.ele_energy_helper.loc[subsector_slice].groupby(level=('sector', cfg.primary_geography)).sum())), 'sector')
         else:
-            return None
+            dispatch_feeders = self.feeder_allocation_class.values.index.get_level_values('dispatch_feeder').unique()
+            return pd.DataFrame(0, columns=['value'], index=pd.MultiIndex.from_product((cfg.geographies, dispatch_feeders),names=(cfg.primary_geography, 'dispatch_feeder')))
 
     def shape_from_subsectors_with_no_shape(self, year):
         """ Final levels that will always return from this function
@@ -253,7 +254,8 @@ class Demand(object):
             shapes_map[sector.id] = sector.shape.values.xs(2, level='timeshift_type') if hasattr(sector, 'shape') else None
         shapes_map[None] = self.default_electricity_shape.values.xs(2, level='timeshift_type')
         df = util.DfOper.add([util.DfOper.mult((self.electricity_energy_slice(year, subsectors_map[id]), shapes_map[id])) for id in subsectors_map])
-        del self.ele_energy_helper
+        if hasattr(self, 'ele_energy_helper'):
+            del self.ele_energy_helper
         return df
 
     def create_electricity_reconciliation(self):
@@ -303,12 +305,14 @@ class Demand(object):
             df = driver.geo_map(attr='values',current_geography=cfg.disagg_geography, converted_geography=cfg.primary_geography, current_data_type='total', inplace=False)
             df['unit'] = driver.unit_base
             df.set_index('unit',inplace=True,append=True)
-            if hasattr(driver,'other_index_1'):
-                util.replace_index_name(df,"other_index_1",driver.other_index_1)
-            if hasattr(driver,'other_index_2'):
-                util.replace_index_name(df,"other_index_2",driver.other_index_2)
+            other_indexers = [x for x in df.index.names if x not in [cfg.primary_geography,'year','unit']]
+            for i,v in enumerate(other_indexers):
+                if i == 0:
+                    util.replace_index_name(df,"other_index_1",v)
+                else:
+                    util.replace_index_name(df,"other_index_2",v)
             df_list.append(df)
-        df=util.df_list_concatenate(df_list, keys=[x.id for x in self.drivers.values()],new_names='driver',levels_to_keep=['driver','unit']+cfg.output_demand_levels+["other_index_1","other_index_2"])
+        df=util.df_list_concatenate(df_list, keys=[x.id for x in self.drivers.values()],new_names='driver',levels_to_keep=['driver','unit']+cfg.output_demand_levels)
         df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
         self.outputs.d_driver = df
 
@@ -363,6 +367,46 @@ class Demand(object):
             sector.aggregate_subsector_energy_for_supply_side()
         self.aggregate_sector_energy_for_supply_side()
 
+        # we are going to output the shapes for all the demand subsectors for specific years
+        if cfg.cfgfile.get('demand_output_detail','subsector_electricity_profiles').lower() == 'true':
+            self.create_electricity_reconciliation()
+            self.output_subsector_electricity_profiles()
+
+    def output_subsector_electricity_profiles(self):
+        # include_technology = True if cfg.cfgfile.get('demand_output_detail','subsector_profiles_include_technology').lower() == 'true' else False
+        output_years = [int(dy) for dy in cfg.cfgfile.get('demand_output_detail', 'subsector_profile_years').split(',') if len(dy)]
+        stack = []
+        for output_year in output_years:
+            if output_year not in cfg.supply_years:
+                continue
+            profiles_df = self.stack_subsector_electricity_profiles(output_year)
+            stack.append(profiles_df)
+        stack = pd.concat(stack)
+        stack.columns = [cfg.calculation_energy_unit.upper()]
+        self.outputs.subsector_electricity_profiles = stack
+
+    def stack_subsector_electricity_profiles(self, year):
+        # df_zeros = pd.DataFrame(0, columns=['value'], index=pd.MultiIndex.from_product((cfg.geographies, shape.shapes.active_dates_index), names=[cfg.primary_geography, 'weather_datetime']))
+        stack = []
+        index_levels = ['year', cfg.primary_geography, 'dispatch_feeder', 'sector', 'subsector', 'timeshift_type', 'weather_datetime']
+        for sector in self.sectors.values():
+            feeder_allocation = self.feeder_allocation_class.values.xs(year, level='year').xs(sector.id, level='sector')
+            for subsector in sector.subsectors.values():
+                df = subsector.aggregate_electricity_shapes(year, for_direct_use=True)
+                if df is None:
+                    continue
+                    # df = df_zeros.copy(deep=True)
+                df['sector'] = sector.id
+                df['subsector'] = subsector.id
+                df['year'] = year
+                df = df.set_index(['sector', 'subsector', 'year'], append=True).sort()
+                df = util.DfOper.mult((df, feeder_allocation))
+                df = df.reorder_levels(index_levels)
+                stack.append(df)
+        stack = pd.concat(stack).sort()
+        stack *= self.energy_demand.xs([cfg.electricity_energy_type_id, year], level=['final_energy', 'year']).sum().sum() / stack.xs(2, level='timeshift_type').sum().sum()
+        return stack
+
     def link_to_supply(self, embodied_emissions_link, direct_emissions_link, energy_link, cost_link):
         logging.info("linking supply emissions to energy demand")
         setattr(self.outputs, 'demand_embodied_emissions', self.group_linked_output(embodied_emissions_link))
@@ -374,18 +418,10 @@ class Demand(object):
         setattr(self.outputs, 'demand_embodied_energy', self.group_linked_output(energy_link))
 
     def link_to_supply_tco(self, embodied_emissions_link, direct_emissions_link,cost_link):
-#        logging.info("linking supply emissions to energy demand for tco calculations")
-#        setattr(self.outputs, 'demand_embodied_emissions_tco', self.group_linked_output_tco(embodied_emissions_link))
-#        logging.info("calculating direct demand emissions for tco calculations")
-#        setattr(self.outputs, 'demand_direct_emissions_tco', self.group_linked_output_tco(direct_emissions_link))
         logging.info("linking supply costs to energy demand for tco calculations")
         setattr(self.outputs, 'demand_embodied_energy_costs_tco', self.group_linked_output_tco(cost_link))
 
     def link_to_supply_payback(self, embodied_emissions_link, direct_emissions_link,cost_link):
-#        logging.info("linking supply emissions to energy demand for tco calculations")
-#        setattr(self.outputs, 'demand_embodied_emissions_tco', self.group_linked_output_tco(embodied_emissions_link))
-#        logging.info("calculating direct demand emissions for tco calculations")
-#        setattr(self.outputs, 'demand_direct_emissions_tco', self.group_linked_output_tco(direct_emissions_link))
         logging.info("linking supply costs to energy demand for payback calculations")
         setattr(self.outputs, 'demand_embodied_energy_costs_payback', self.group_linked_output_payback(cost_link))
 
@@ -694,7 +730,8 @@ class Sector(object):
             return None
 
     def aggregate_electricity_shape(self, year, ids=None):
-        agg_shape = util.DfOper.add([self.subsectors[id].aggregate_electricity_shapes(year) for id in (self.subsectors.keys() if ids is None else ids)], expandable=False, collapsible=False)
+        # we make this expandable because sometimes it has dispatch feeder
+        agg_shape = util.DfOper.add([self.subsectors[id].aggregate_electricity_shapes(year) for id in (self.subsectors.keys() if ids is None else ids)], expandable=True, collapsible=False)
         return util.DfOper.mult((self.feeder_allocation.xs(year, level='year'), agg_shape))
 
     def set_default_shape(self, default_shape):
@@ -792,7 +829,7 @@ class Subsector(DataMapFunctions):
 
     def return_shape_after_flex_load(self, shape_values, percent_flexible, max_lag_hours, max_lead_hours):
         timeshift_levels = sorted(list(util.get_elements_from_level(shape_values, 'timeshift_type')))
-        # using electricity reconcilliation with a profile with a timeshift type can cause big problems, so it is avoided
+        # using electricity reconciliation with a profile with a timeshift type can cause big problems, so it is avoided
         shape_df = shape_values if timeshift_levels == [1, 2, 3] else util.DfOper.mult((shape_values, self.electricity_reconciliation))
         flex = shape.Shape.produce_flexible_load(shape_df, percent_flexible=percent_flexible, hr_delay=max_lag_hours, hr_advance=max_lead_hours)
         return flex
@@ -803,9 +840,10 @@ class Subsector(DataMapFunctions):
         techs_with_energy = sorted(energy_slice[energy_slice['value'] != 0].index.get_level_values('demand_technology').unique())
         return [tech_id for tech_id in candidate_techs if tech_id in techs_with_energy]
 
-    def aggregate_electricity_shapes(self, year):
+    def aggregate_electricity_shapes(self, year, for_direct_use=False):
         """ Final levels that will always return from this function
         ['gau', 'weather_datetime'] or ['timeshift_type', 'gau', 'weather_datetime']
+        if for_direct_use, we are outputing the shape directly to csv
         """
         energy_slice = self.get_electricity_consumption(year)
         # if we have no electricity consumption, we don't make a shape
@@ -814,10 +852,10 @@ class Subsector(DataMapFunctions):
         # to speed this up, we are removing anything that has zero energy
         energy_slice = energy_slice[energy_slice['value'] != 0]
 
-        active_shape = self.shape if hasattr(self, 'shape') else self.default_shape
+        active_shape = self.shape if self.shape is not None else self.default_shape
         active_hours = {}
-        active_hours['lag'] = self.max_lag_hours if hasattr(self, 'max_lag_hours') is not None else self.default_max_lag_hours
-        active_hours['lead'] = self.max_lead_hours if hasattr(self, 'max_lead_hours') is not None else self.default_max_lead_hours
+        active_hours['lag'] = self.max_lag_hours if self.max_lag_hours is not None else self.default_max_lag_hours
+        active_hours['lead'] = self.max_lead_hours if self.max_lead_hours is not None else self.default_max_lead_hours
         has_flexible_load = True if hasattr(self, 'flexible_load_measure') and \
                                     self.flexible_load_measure.values.xs(year,level='year').sum().sum() > 0 else False
         flexible_load_tech_index = True if has_flexible_load and 'demand_technology' in self.flexible_load_measure.values.index.names else False
@@ -864,17 +902,32 @@ class Subsector(DataMapFunctions):
                 if remaining_shape is not None:
                     remaining_shape = util.DfOper.mult((remaining_shape, self.electricity_reconciliation), collapsible=False)
                     remaining_shape = pd.concat([remaining_shape] * 3, keys=[1, 2, 3], names=['timeshift_type'])
-                return util.DfOper.add((unique_tech_load, remaining_shape), collapsible=False)
+                return_shape = util.DfOper.add((unique_tech_load, remaining_shape), collapsible=False)
             else:
                 # here we have flexible load, but it is not indexed by technology
                 remaining_shape = util.DfOper.mult((active_shape.values, remaining_energy), collapsible=False)
                 remaining_shape = util.DfOper.add((remaining_shape, tech_load), collapsible=False)
-                remaining_shape = self.return_shape_after_flex_load(remaining_shape, percent_flexible, active_hours['lag'], active_hours['lead'])
-                return remaining_shape
+                return_shape = self.return_shape_after_flex_load(remaining_shape, percent_flexible, active_hours['lag'], active_hours['lead'])
         else:
             # if we don't have flexible load, we don't introduce electricity reconcilliation because that is done at a more aggregate level
             remaining_shape = util.DfOper.mult((active_shape.values.xs(2, level='timeshift_type'), remaining_energy))
-            return (tech_load.xs(2, level='timeshift_type') + remaining_shape) if tech_load is not None else remaining_shape
+            return_shape = (tech_load.xs(2, level='timeshift_type') + remaining_shape) if tech_load is not None else remaining_shape
+            if for_direct_use:
+                return_shape = util.DfOper.mult((return_shape, self.electricity_reconciliation), collapsible=False)
+                return_shape = pd.concat([return_shape] * 3, keys=[1, 2, 3], names=['timeshift_type'])
+
+        if for_direct_use:
+            # doing this will make the energy for the subsector match, but it won't exactly match the system shape used in the dispatch
+            correction_factors = util.remove_df_levels(energy_slice, 'demand_technology') / return_shape.xs(2, level='timeshift_type').groupby(level=cfg.primary_geography).sum()
+            return_shape = util.DfOper.mult((return_shape, correction_factors))
+        
+#        if self.id == 15:
+#            pdb.set_trace()
+        try:
+            print self.id, self.name, (self.get_electricity_consumption(year).groupby(level=cfg.primary_geography).sum() - return_shape.groupby(level=cfg.primary_geography).sum())
+        except:
+            pdb.set_trace()
+        return return_shape
 
     def add_energy_system_data(self):
         """
@@ -886,7 +939,7 @@ class Subsector(DataMapFunctions):
         if self.has_stock is True and self.has_service_demand is True:
             self.service_demand = ServiceDemands(self.name, scenario=self.scenario, drivers=self.drivers)
             self.add_stock()
-            if self.stock.demand_stock_unit_type == 'equipment':
+            if self.stock.demand_stock_unit_type == 'equipment' or self.stock.demand_stock_unit_type == 'capacity factor':
                 self.add_technologies(self.service_demand.unit, self.stock.time_unit)
             else:
                 self.add_technologies(self.stock.unit, self.stock.time_unit)
@@ -1063,19 +1116,35 @@ class Subsector(DataMapFunctions):
     def format_output_service_demand(self, override_levels_to_keep):
         if not hasattr(self, 'service_demand'):
             return None
-        if hasattr(self.service_demand,'modifier'):
-            df = util.DfOper.mult([util.remove_df_elements(self.service_demand.modifier, 9999, 'final_energy'),self.stock.values]).groupby(level=self.service_demand.values.index.names).transform(lambda x: x/x.sum())
+        if hasattr(self.service_demand, 'modifier') and cfg.cfgfile.get('case', 'use_service_demand_modifiers').lower()=='true':
+            df = util.DfOper.mult([util.remove_df_elements(self.service_demand.modifier, 9999, 'final_energy'),self.stock.values_efficiency_normal]).groupby(level=self.service_demand.values.index.names).transform(lambda x: x/x.sum())
             df = util.DfOper.mult([df,self.service_demand.values])
+            original_other_indexers = [x for x in self.service_demand.values.index.names if x not in [cfg.primary_geography,'year']]
+            for i,v in enumerate(original_other_indexers):
+                if i == 0:                
+                    util.replace_index_name(df,"other_index_1",v)
+                else:
+                    util.replace_index_name(df,"other_index_2",v)
+        elif hasattr(self, 'stock'):
+            df = util.DfOper.mult([self.stock.values_efficiency_normal,self.service_demand.values])
+            original_other_indexers = [x for x in self.service_demand.values.index.names if x not in [cfg.primary_geography,'year']]
+            for i,v in enumerate(original_other_indexers):
+                if i == 0:                
+                    util.replace_index_name(df,"other_index_1",v)
+                else:
+                    util.replace_index_name(df,"other_index_2",v)
         else:
-            df = self.service_demand.values
+            df = copy.deepcopy(self.service_demand.values)
+            original_other_indexers = [x for x in self.service_demand.values.index.names if x not in [cfg.primary_geography,'year']]
+            for i,v in enumerate(original_other_indexers):
+                if i == 0:                
+                    util.replace_index_name(df,"other_index_1",v)
+                else:
+                    util.replace_index_name(df,"other_index_2",v)
         levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
-        if hasattr(self.service_demand,'other_index_1'):
-            util.replace_index_name(df,"other_index_1",self.service_demand.other_index_1)
-        if hasattr(self.service_demand,'other_index_2'):
-            util.replace_index_name(df,"other_index_2",self.service_demand.other_index_2)
         levels_to_eliminate = [l for l in df.index.names if l not in levels_to_keep]
         df = util.remove_df_levels(df,levels_to_eliminate).sort_index()
-        df = df.stack().to_frame()
+        if len(df.columns)>1:df = df.stack().to_frame()
         util.replace_column_name(df,'value')
         util.replace_index_name(df, 'year')
         df = util.add_and_set_index(df, 'unit', self.service_demand.unit.upper(), index_location=-2)
@@ -1086,7 +1155,7 @@ class Subsector(DataMapFunctions):
         if not hasattr(self, 'service_demand'):
             return None
         if hasattr(self.service_demand,'modifier'):
-            df = self.stock.values.groupby(level=self.service_demand.values.index.names).transform(lambda x: x/x.sum())
+            df = self.stock.values.groupby(level=[x for x in self.stock.values.index.names if x not in ['demand_technology', 'vintage']]).transform(lambda x: x/x.sum())
             df = util.DfOper.mult([df,self.service_demand.values])
         else:
             return None
@@ -1127,10 +1196,12 @@ class Subsector(DataMapFunctions):
         levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
         levels_to_eliminate = [l for l in self.stock.sales.index.names if l not in levels_to_keep]
         df = self.stock.sales
-        if hasattr(self.stock,'other_index_1'):
-            util.replace_index_name(df,"other_index_1",self.stock.other_index_1)
-        if hasattr(self.stock,'other_index_2'):
-            util.replace_index_name(df,"other_index_2",self.stock.other_index_2)
+        other_indexers = [x for x in self.stock.rollover_group_names if x not in [cfg.primary_geography]]
+        for i,v in enumerate(other_indexers):
+            if i == 0:                
+                util.replace_index_name(df,"other_index_1",v)
+            else:
+               util.replace_index_name(df,"other_index_2",v)   
         util.replace_index_name(df, 'year','vintage')
         df = util.remove_df_levels(df, levels_to_eliminate).sort_index()
         df = util.add_and_set_index(df, 'unit', self.stock.unit.upper(), -2)
@@ -1140,11 +1211,13 @@ class Subsector(DataMapFunctions):
         if not hasattr(self, 'stock'):
             return None
         levels_to_keep = cfg.output_demand_levels if override_levels_to_keep is None else override_levels_to_keep
-        df = self.stock.values
-        if hasattr(self.stock,'other_index_1'):
-            util.replace_index_name(df,"other_index_1",self.stock.other_index_1)
-        if hasattr(self.stock,'other_index_2'):
-            util.replace_index_name(df,"other_index_2",self.stock.other_index_2)
+        df = copy.deepcopy(self.stock.values)
+        other_indexers = [x for x in self.stock.rollover_group_names if x not in [cfg.primary_geography]]
+        for i,v in enumerate(other_indexers):
+            if i == 0:                
+                util.replace_index_name(df,"other_index_1",v)
+            else:
+               util.replace_index_name(df,"other_index_2",v)   
         levels_to_eleminate = [l for l in df.index.names if l not in levels_to_keep]
         df = util.remove_df_levels(df, levels_to_eleminate).sort_index()
         # stock starts with vintage as an index and year as a column, but we need to stack it for export
@@ -1181,7 +1254,7 @@ class Subsector(DataMapFunctions):
                 df_list.append(df)
             if len(df_list):
                 keys = measure_types
-                names = ['measure_types']
+                names = ['cost_type']
                 df = util.df_list_concatenate(df_list,keys=keys,new_names=names,levels_to_keep=override_levels_to_keep)
                 unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
                 df.columns = [unit]
@@ -1200,15 +1273,21 @@ class Subsector(DataMapFunctions):
                 cost_list.append(cost)
         if len(cost_list) == 0:
             return None
-        if len(cost_list) == 1:
+        elif len(cost_list) == 1 and stock_costs is not None:
             df = cost_list[0]
+            df['cost_category'] = 'stock'
+            df.set_index('cost_category', append=True, inplace=True)
+            return util.remove_df_levels(util.DfOper.mult([df,npv]),'year')
+        elif len(cost_list) == 1 and measure_costs is not None:
+            df =  cost_list[0]
+            df['cost_category'] = 'measure'
+            df.set_index('cost_category', append=True, inplace=True)
             return util.remove_df_levels(util.DfOper.mult([df,npv]),'year')
         else:
             keys = ['stock', 'measure']
-            names = ['cost_type']
+            names = ['cost_category']
             df = util.df_list_concatenate(cost_list,keys=keys,new_names=names)
             return util.remove_df_levels(util.DfOper.mult([df,npv]),'year')
-
 
     def format_output_costs(self,att,override_levels_to_keep=None):
         stock_costs = self.format_output_stock_costs(att, override_levels_to_keep)
@@ -1216,11 +1295,19 @@ class Subsector(DataMapFunctions):
         cost_list = [c for c in [stock_costs, measure_costs] if c is not None]
         if len(cost_list) == 0:
             return None
-        if len(cost_list) == 1:
-            return cost_list[0]
+        elif len(cost_list) == 1 and stock_costs is not None:
+            df =  cost_list[0]
+            df['cost_category'] = 'stock'
+            df.set_index('cost_category', append=True, inplace=True)
+            return df
+        elif len(cost_list) == 1 and measure_costs is not None:
+            df =  cost_list[0]
+            df['cost_category'] = 'measure'
+            df.set_index('cost_category', append=True, inplace=True)
+            return df
         else:
-            return util.df_list_concatenate(cost_list,keys=['stock', 'measure'],new_names=['cost_type'])
-
+            return util.df_list_concatenate(cost_list,keys=['stock', 'measure'],new_names=['cost_category'])
+  
     def format_output_stock_costs(self, att, override_levels_to_keep=None):
         """
         Formats cost outputs
@@ -1627,7 +1714,10 @@ class Subsector(DataMapFunctions):
         self.technologies = {}
         ids = util.sql_read_table("DemandTechs",column_names='id',subsector_id=self.id, return_iterable=True)
         for id in ids:
-            self.add_demand_technology(id, self.id, service_demand_unit, stock_time_unit, self.cost_of_capital, self.scenario)
+            try:
+                self.add_demand_technology(id, self.id, service_demand_unit, stock_time_unit, self.cost_of_capital, self.scenario)
+            except:
+                pdb.set_trace()
         if self.perturbation is not None:
             self.add_new_technology_for_perturbation()
         self.tech_ids = self.technologies.keys()
@@ -1664,8 +1754,11 @@ class Subsector(DataMapFunctions):
                 # attr_class in the list. If so, continue.
 #                  if getattr(getattr(self.technologies[demand_technology], attr_class), 'absolute'):
 #                      continue
-                self.remap_tech_attr(demand_technology, attr_class, attr)
-
+                try:
+                    self.remap_tech_attr(demand_technology, attr_class, attr)
+                except:
+                    pdb.set_trace()
+                
     def remap_tech_attr(self, demand_technology, class_name, attr):
         """
         map reference demand_technology values to their associated demand_technology classes
@@ -1695,6 +1788,7 @@ class Subsector(DataMapFunctions):
                         new_data = util.DfOper.mult([tech_data, getattr(ref_tech_class, attr)])
                     if hasattr(ref_tech_class, 'values_level'):
                         if hasattr(tech_class, 'reference_tech_operation') and tech_class.reference_tech_operation == 'add':
+                            tech_data = getattr(tech_class, 'values_level')
                             new_data_level = util.DfOper.add([tech_data, getattr(ref_tech_class, 'values_level')])
                         else:
                             new_data_level = util.DfOper.mult([tech_data, getattr(ref_tech_class, 'values_level')])
@@ -1788,27 +1882,26 @@ class Subsector(DataMapFunctions):
                     self.min_year = self.min_cal_year(self.service_demand)
                     self.max_year = self.max_cal_year(self.service_demand)
                     # project the service demand
-                    self.service_demand.project(map_from='raw_values', fill_timeseries=False, service_dependent=self.stock.is_service_demand_depedent)
+                    self.service_demand.project(map_from='raw_values', fill_timeseries=False)
                     # service demand is projected, so change map from to values
                     self.service_demand.map_from = 'values'
                     # change the service demand to a per stock_time_unit service demand
                     # ex. kBtu/year to kBtu/hour average service demand
-                    time_step_service = util.unit_convert(self.service_demand.values, unit_from_den='year',
+                    time_step_service = util.unit_convert(self.service_demand.values, unit_from_num=self.service_demand.unit,unit_to_num=self.stock.unit, unit_from_den='year',
                                                           unit_to_den=self.stock.time_unit)
                     # divide by capacity factor stock inputs to get a service demand stock
                     # ex. kBtu/hour/capacity factor equals kBtu/hour stock
-                    self.stock.remap(map_from='raw_values', map_to='int_values', fill_timeseries=False)
+                    self.stock.remap(map_from='raw_values', map_to='int_values', fill_timeseries=True)
                     _, x = util.difference_in_df_names(time_step_service, self.stock.int_values)
 
                     if x:
                         raise ValueError('service demand must have the same index levels as stock when stock is specified in capacity factor terms')
                     else:
-                        self.stock.int_values = DfOper.divi([time_step_service, self.stock.int_values])
-
+                        self.stock.int_values = DfOper.divi([time_step_service, self.stock.int_values],expandable=(False,True),collapsible=(True,False))
                     # change map_from to int_values, which is an intermediate value, not yet final
                     self.stock.map_from = 'int_values'
                     # stock is by definition service demand dependent
-                    self.service_demand.int_values = self.service_demand.int_values.groupby(level=self.stock.rollover_group_names+['year']).sum()
+                    self.service_demand.int_values = self.service_demand.values
                     self.stock.is_service_demand_dependent = 1
                     self.service_subset = None
 
@@ -2061,12 +2154,15 @@ class Subsector(DataMapFunctions):
             # loop through technologies and add service demand modifiers by demand_technology-specific input (i.e. demand_technology has a
         # a service demand modifier class)
         for tech in self.tech_ids:
-            if self.technologies[tech].service_demand_modifier.raw_values is not None:
-                tech_modifier = getattr(getattr(self.technologies[tech], 'service_demand_modifier'), 'values')
-                tech_modifier = util.expand_multi(tech_modifier, sd_modifier.index.levels, sd_modifier.index.names,
-                                                  drop_index='demand_technology').fillna(method='bfill')
-                indexer = util.level_specific_indexer(sd_modifier, 'demand_technology', tech)
-                sd_modifier.loc[indexer, :] = tech_modifier.values
+            try:
+                if self.technologies[tech].service_demand_modifier.raw_values is not None:
+                    tech_modifier = getattr(getattr(self.technologies[tech], 'service_demand_modifier'), 'values')
+                    tech_modifier = util.expand_multi(tech_modifier, sd_modifier.index.levels, sd_modifier.index.names,
+                                                      drop_index='demand_technology').fillna(method='bfill')
+                    indexer = util.level_specific_indexer(sd_modifier, 'demand_technology', tech)
+                    sd_modifier.loc[indexer, :] = tech_modifier.values
+            except:
+                pdb.set_trace()
         # multiply stock by service demand modifiers
         stock_values = DfOper.mult([sd_modifier, self.stock.values_efficiency]).groupby(level=self.stock.rollover_group_names).sum()
 #        # group stock and adjusted stock values
@@ -2254,12 +2350,8 @@ class Subsector(DataMapFunctions):
             current_geography = self.stock.geography
             current_data_type = self.stock.input_type
             projected = False
-
-        self.stock.project(map_from=map_from, map_to='total', current_geography=current_geography,
-                           additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent),
-                           current_data_type=current_data_type, projected=projected)
-
-        self.stock.total = util.remove_df_levels(self.stock.total, ['demand_technology', 'final_energy'])
+        self.stock.project(map_from=map_from, map_to='total', current_geography=current_geography, additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent), current_data_type=current_data_type, projected=projected)
+        self.stock.total = util.remove_df_levels(self.stock.total, ['demand_technology', 'final_energy']+cfg.removed_demand_levels )
         self.stock.total = self.stock.total.swaplevel('year',-1)
 
         if stock_dependent:
@@ -2292,6 +2384,7 @@ class Subsector(DataMapFunctions):
             full_levels = self.stock.total.index.levels + [self.tech_ids]
             index = pd.MultiIndex.from_product(full_levels, names=full_names)
             self.stock.technology = self.stock.total.reindex(index)
+        self.stock.technology = util.remove_df_levels(self.stock.technology, cfg.removed_demand_levels)
         if map_from == 'int_values':
             self.stock.technology[self.stock.technology.index.get_level_values('year')>=int(cfg.cfgfile.get('case','current_year'))] = np.nan
         self.remap_linked_stock()
@@ -2326,7 +2419,10 @@ class Subsector(DataMapFunctions):
         for demand_technology in self.technologies.values():
             if len(demand_technology.specified_stocks) and reference_run==False:
                for specified_stock in demand_technology.specified_stocks.values():
-                   specified_stock.remap(map_from='values', current_geography = cfg.primary_geography, drivers=self.stock.total, driver_geography=cfg.primary_geography, fill_value=np.nan)
+                   try:
+                       specified_stock.remap(map_from='values', current_geography = cfg.primary_geography, drivers=self.stock.total, driver_geography=cfg.primary_geography, fill_value=np.nan, interpolation_method=None, extrapolation_method=None)
+                   except:
+                       pdb.set_trace()
                    self.stock.technology.sort(inplace=True)
                    indexer = util.level_specific_indexer(self.stock.technology,'demand_technology',demand_technology.id)
                    df = util.remove_df_levels(self.stock.technology.loc[indexer,:],'demand_technology')
@@ -2343,7 +2439,10 @@ class Subsector(DataMapFunctions):
         tech_sum = util.remove_df_levels(self.stock.technology,'demand_technology')
 #        self.stock.total = self.stock.total.fillna(tech_sum)
         self.stock.total.sort(inplace=True)
-        self.stock.total[self.stock.total<tech_sum] = tech_sum
+        try:
+            self.stock.total[self.stock.total<tech_sum] = tech_sum
+        except:
+            pdb.set_trace()
 
     def project_ee_measure_stock(self):
         """
@@ -2579,7 +2678,7 @@ class Subsector(DataMapFunctions):
                 subsector_stock = util.remove_df_levels(self.stock.technology,'year')
             self.stock.remap(map_from='linked_demand_technology', map_to='linked_demand_technology', drivers=subsector_stock.replace([0,np.nan],[1e-10,1e-10]),
                              current_geography=cfg.primary_geography, current_data_type='total',
-                             time_index=self.years, driver_geography=cfg.primary_geography)
+                             time_index=self.years, driver_geography=cfg.primary_geography, interpolation_method=None, extrapolation_method=None)
             self.stock.linked_demand_technology[self.stock.linked_demand_technology==0]=np.nan
             self.stock.has_linked_demand_technology = True
         else:
@@ -2626,6 +2725,7 @@ class Subsector(DataMapFunctions):
         if service_dependent:
             self.service_demand.project(map_from=map_from, map_to='values_unfiltered', current_geography=current_geography,
                                     additional_drivers=self.additional_drivers(stock_or_service='service',stock_dependent=stock_dependent),current_data_type=current_data_type,projected=projected,filter_geo=False)
+        self.service_demand.values = util.remove_df_levels(self.service_demand.values,cfg.removed_demand_levels)    
         self.service_demand_forecast = self.service_demand.values
         # calculates the service demand change from service demand measures
         self.service_demand_savings_calc()
@@ -2646,7 +2746,7 @@ class Subsector(DataMapFunctions):
             current_data_type =  'total'
             projected =  True
         self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography, additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent),current_data_type=current_data_type, projected=projected)
-
+        self.energy_demand.values = util.remove_df_levels(self.energy_demand.values,cfg.removed_demand_levels)                                                                    
 
     def calculate_sales_shares(self,reference_run=False):
         for tech in self.tech_ids:
@@ -2801,9 +2901,10 @@ class Subsector(DataMapFunctions):
         sd_modifier = copy.deepcopy(self.tech_sd_modifier)
         sd_modifier = sd_modifier[sd_modifier>0]
         service_modified_sales = util.df_slice(sd_modifier,elements,levels,drop_level=False)
-        service_modified_sales=service_modified_sales.groupby(level=levels+['demand_technology','vintage']).mean().mean(axis=1).to_frame()
+        service_modified_sales =service_modified_sales.groupby(level=levels+['demand_technology','vintage']).mean().mean(axis=1).to_frame()
         service_modified_sales = service_modified_sales.swaplevel('demand_technology','vintage')
         service_modified_sales.sort(inplace=True)
+        service_modified_sales = service_modified_sales.fillna(1)
         service_modified_sales = service_modified_sales.unstack('demand_technology').values
         service_modified_sales = np.array([np.outer(i, 1./i).T for i in service_modified_sales])[1:]
         sales_share *= service_modified_sales
@@ -2876,12 +2977,11 @@ class Subsector(DataMapFunctions):
             #returns sales share and a flag as to whether the sales share can be used to parameterize initial stock.
             sales_share, initial_sales_share = self.calculate_total_sales_share(elements, self.stock.rollover_group_names)  # group is not necessarily the same for this other dataframe
             if np.any(np.isnan(sales_share)):
-                raise ValueError('Sales share has NaN values in subsector ' + str(self.id))
-
+                raise ValueError('Sales share has NaN values in subsector ' + str(self.id))   
             initial_stock, rerun_sales_shares = self.calculate_initial_stock(elements, sales_share, initial_sales_share)
 
             if rerun_sales_shares:
-               sales_share =  self.calculate_total_sales_share_after_initial(elements, self.stock.rollover_group_names, initial_stock)
+               sales_share = self.calculate_total_sales_share_after_initial(elements, self.stock.rollover_group_names, initial_stock)
 
             # the perturbation object is used to create supply curves of demand technologies
             if self.perturbation is not None:
@@ -2893,8 +2993,6 @@ class Subsector(DataMapFunctions):
             demand_technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names)
             if cfg.evolved_run=='true':
                 sales_share[len(self.years) -len(cfg.supply_years):] = 1/float(len(self.tech_ids))
-
-            demand_technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names)
             annual_stock_change = util.df_slice(self.stock.annual_stock_changes, elements, self.stock.rollover_group_names)
             self.rollover = Rollover(vintaged_markov_matrix=self.stock.vintaged_markov_matrix,
                                          initial_markov_matrix=self.stock.initial_markov_matrix,
@@ -2902,9 +3000,12 @@ class Subsector(DataMapFunctions):
                                          num_techs=len(self.tech_ids), initial_stock=initial_stock,
                                          sales_share=sales_share, stock_changes=annual_stock_change.values,
                                          specified_stock=demand_technology_stock.values, specified_retirements=None,
-                                         steps_per_year=self.stock.spy,lifetimes=np.array([x.book_life for x in self.technologies.values()]))
+                                         steps_per_year=self.stock.spy,lifetimes=np.array([self.technologies[tech_id].book_life for tech_id in self.tech_ids]))
 
-            self.rollover.run()
+            try:               
+                self.rollover.run()
+            except:
+                pdb.set_trace()
             stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
             self.stock.values.loc[elements], self.stock.values_new.loc[elements], self.stock.values_replacement.loc[elements] = stock, stock_new, stock_replacement
             self.stock.retirements.loc[elements, 'value'], self.stock.retirements_natural.loc[elements, 'value'], \
@@ -2948,7 +3049,11 @@ class Subsector(DataMapFunctions):
         elif min_demand_technology_year:
             initial_stock = self.stock.technology.loc[elements+(min_demand_technology_year,),:].values/np.nansum(self.stock.technology.loc[elements+(min_demand_technology_year,),:].values) * initial_total
             rerun_sales_shares = False
+        elif np.nansum(initial_total) == 0:
+            initial_stock = np.zeros(len(self.tech_ids))
+            rerun_sales_shares = False
         else:
+            pdb.set_trace()
             raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the demand_technology composition of the initial stock in subsector %s' %self.id)
         return initial_stock, rerun_sales_shares
 
@@ -3173,7 +3278,7 @@ class Subsector(DataMapFunctions):
                 link.geography_map_key=None
             link.input_type = 'total'
             link.geography = cfg.primary_geography
-            df = link.geo_map(attr='values',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography, current_data_type='total', inplace=False)
+            df = link.geo_map(attr='values',current_geography=cfg.primary_geography,converted_geography=cfg.disagg_geography, current_data_type='intensity', inplace=False)
             df = pd.DataFrame(df.stack(), columns=['value'])
             util.replace_index_name(df, 'year')
             self.output_service_drivers[link.linked_subsector_id] = df
@@ -3210,6 +3315,7 @@ class Subsector(DataMapFunctions):
         """
         for id in self.service_links:
             link = self.service_links[id]
+            #pdb.set_trace()
             link.values = self.rollover_output_dict(tech_dict='service_links',tech_dict_key=id, tech_att='values', stock_att='values_normal')
 #            # sum over demand_technology and vintage to get a total stock service efficiency
             link.values = util.remove_df_levels(link.values,['demand_technology', 'vintage'])
@@ -3344,10 +3450,18 @@ class Subsector(DataMapFunctions):
         self.calculate_parasitic()
         self.service_demand.values = self.service_demand.values.unstack('year')
         self.service_demand.values.columns = self.service_demand.values.columns.droplevel()
-        all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'],self.service_demand.modifier, self.service_demand.values])
+        if len([x for x in self.stock.rollover_group_names if x not in self.service_demand.values.index.names]):
+            multiplier = self.stock.values.groupby(level=[x for x in self.stock.rollover_group_names if x not in self.service_demand.values.index.names]).sum()/self.stock.values.sum()
+            all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'],self.service_demand.modifier, self.service_demand.values,multiplier])
+        else:
+            all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'],self.service_demand.modifier, self.service_demand.values])
         self.energy_forecast = util.DfOper.add([all_energy, self.parasitic_energy])
         self.energy_forecast = pd.DataFrame(self.energy_forecast.stack())
-        all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'], self.service_demand.values])
+        if len([x for x in self.stock.rollover_group_names if x not in self.service_demand.values.index.names]):
+            multiplier = self.stock.values.groupby(level=[x for x in self.stock.rollover_group_names if x not in self.service_demand.values.index.names]).sum()/self.stock.values.sum()
+            all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'], self.service_demand.values,multiplier])
+        else:
+            all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'], self.service_demand.values])
         self.energy_forecast_no_modifier = util.DfOper.add([all_energy, self.parasitic_energy])
         self.energy_forecast_no_modifier = pd.DataFrame(self.energy_forecast_no_modifier.stack())
         util.replace_index_name(self.energy_forecast, 'year')
@@ -3359,6 +3473,15 @@ class Subsector(DataMapFunctions):
 
         if cfg.cfgfile.get('case', 'use_service_demand_modifiers').lower()=='false':
             self.energy_forecast = self.energy_forecast_no_modifier
+        if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_1') :
+            util.replace_index_name(self.energy_forecast,"other_index_1",self.service_demand.other_index_1)
+        if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_2') :
+            util.replace_index_name(self.energy_forecast,"other_index_2",self.service_demand.other_index_2)
+        if hasattr(self,'energy_demand') and hasattr(self.energy_demand,'other_index_1'):
+            util.replace_index_name(self.energy_forecast,"other_index_1",self.service_demand.other_index_1)
+        if hasattr(self,'energy_demand') and hasattr(self.energy_demand,'other_index_2'):
+            util.replace_index_name(self.energy_forecast,"other_index_2",self.service_demand.other_index_2)
+
 
         if hasattr(self,'service_demand'):
             for attr in ('other_index_1', 'other_index_2'):

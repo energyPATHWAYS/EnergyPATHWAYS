@@ -72,14 +72,14 @@ supply_years = None
 # shapes
 shape_start_date = None
 shape_years = None
-
-# electricity shapes
 date_lookup = None
 time_slice_col = None
 electricity_energy_type_id = None
 electricity_energy_type_shape_id = None
 opt_period_length = None
 solver_name = None
+transmission_constraint_id = None
+filter_dispatch_less_than_x = None
 
 # outputs
 output_levels = None
@@ -91,6 +91,7 @@ output_supply_levels = None
 output_combined_levels = None
 outputs_id_map = defaultdict(dict)
 dispatch_write_years = None
+timestamp = None
 
 # parallel processing
 available_cpus = None
@@ -106,10 +107,13 @@ unit_defs = ['US_gge = 120,500 * BTU',
             'mmbtu = 1,000,000 * BTU',
             'lumen = candela * steradian',
             'lumen_hour = candela * steradian * hour',
+            'lumen_year = candela * steradian * year',
             'quad = 1,000,000,000,000,000 * BTU',
             'cubic_foot = 28316.8 * cubic_centimeter',
             'cubic_meter = 1000000 * cubic_centimeter',
             'cubic_foot_hour = cubic_foot * hour',
+            'cubic_foot_year = cubic_foot * year',
+            'cubic_feet_year = cubic_foot * year',
             'TBtu  = 1,000,000,000,000 * BTU',
             'ton_mile = ton * mile',
             'h2_kilogram = 39.5 * kilowatt_hour',
@@ -119,7 +123,7 @@ unit_defs = ['US_gge = 120,500 * BTU',
             'bee = 3,559,000 * Btu']
 
 def initialize_config(_path, _cfgfile_name, _log_name):
-    global weibul_coeff_of_var, available_cpus, workingdir, cfgfile_name, log_name, log_initialized, index_levels, solver_name
+    global weibul_coeff_of_var, available_cpus, workingdir, cfgfile_name, log_name, log_initialized, index_levels, solver_name, timestamp
     workingdir = os.getcwd() if _path is None else _path
     cfgfile_name = _cfgfile_name
     init_cfgfile(os.path.join(workingdir, cfgfile_name))
@@ -139,6 +143,7 @@ def initialize_config(_path, _cfgfile_name, _log_name):
 
     available_cpus = int(cfgfile.get('case','num_cores'))
     weibul_coeff_of_var = util.create_weibul_coefficient_of_variation()
+    timestamp = str(datetime.datetime.now().replace(second=0,microsecond=0))
 
 def setuplogging():
     if not os.path.exists(os.path.join(workingdir, 'logs')):
@@ -249,7 +254,7 @@ def init_shapes():
 
 
 def init_date_lookup():
-    global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id, opt_period_length
+    global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id, opt_period_length, transmission_constraint_id, filter_dispatch_less_than_x
     class DateTimeLookup:
         def __init__(self):
             self.dates = {}
@@ -269,6 +274,15 @@ def init_date_lookup():
     time_slice_col = ['year', 'month', 'week', 'hour', 'day_type']
     electricity_energy_type_id, electricity_energy_type_shape_id = util.sql_read_table('FinalEnergy', column_names=['id', 'shape_id'], name='electricity')
     opt_period_length = int(cfgfile.get('opt', 'period_length'))
+    transmission_constraint_id = cfgfile.get('opt','transmission_constraint_id')
+    transmission_constraint_id = int(transmission_constraint_id) if transmission_constraint_id != "" else None
+    filter_dispatch_less_than_x = cfgfile.get('output_detail','filter_dispatch_less_than_x')
+    filter_dispatch_less_than_x = float(filter_dispatch_less_than_x) if filter_dispatch_less_than_x != "" else None
+
+def init_removed_levels():
+    global removed_demand_levels
+    removed_demand_levels  = [str(g) for g in cfgfile.get('removed_levels', 'levels').split(',') if len(g)]
+
 
 def init_output_levels():
     global output_demand_levels, output_supply_levels, output_combined_levels
@@ -318,6 +332,7 @@ def init_outputs_id_map():
     outputs_id_map['dispatch_feeder'][0] = 'BULK'
     outputs_id_map['other_index_1'] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name']))
     outputs_id_map['other_index_2'] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name']))
+    outputs_id_map['timeshift_type'] = util.upper_dict(util.sql_read_table('FlexibleLoadShiftTypes', ['id', 'name']))
     for id, name in util.sql_read_table('OtherIndexes', ('id', 'name'), return_iterable=True):
         if name in ('demand_technology', 'final_energy'):
             continue
@@ -332,6 +347,7 @@ def init_output_parameters():
     evolved_run = cfgfile.get('evolved','evolved_run').lower()
     evolved_years = [int(x) for x in util.ensure_iterable_and_not_string(cfgfile.get('evolved','evolved_years'))]
     evolved_blend_nodes =  [int(g) for g in cfgfile.get('evolved','evolved_blend_nodes').split(',') if len(g)]
+    init_removed_levels()
     init_output_levels()
     init_outputs_id_map()
 
