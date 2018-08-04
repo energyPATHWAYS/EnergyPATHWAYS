@@ -329,8 +329,11 @@ def init_outputs_id_map():
     demand_primary_geography = geo.get_demand_primary_geography_name()
     supply_primary_geography = geo.get_supply_primary_geography_name()
     dispatch_geography_name = geo.get_dispatch_geography_name()
-    outputs_id_map[demand_primary_geography] = util.upper_dict(geo.geography_names.items())
-    outputs_id_map[supply_primary_geography] = util.upper_dict(geo.geography_names.items())
+    for key in geo.geographies.keys():
+        outputs_id_map[key] = util.upper_dict(geo.geography_names.items())
+    #outputs_id_map['gau'] = util.upper_dict(geo.geography_names.items())
+    #outputs_id_map[demand_primary_geography] = util.upper_dict(geo.geography_names.items())
+    #outputs_id_map[supply_primary_geography] = util.upper_dict(geo.geography_names.items())
     outputs_id_map[supply_primary_geography + "_supply"] = util.upper_dict(geo.geography_names.items())
     outputs_id_map[supply_primary_geography + "_input"] = util.upper_dict(geo.geography_names.items())
     outputs_id_map[supply_primary_geography + "_output"] = util.upper_dict(geo.geography_names.items())
@@ -356,6 +359,9 @@ def init_outputs_id_map():
     outputs_id_map['other_index_1'] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name']))
     outputs_id_map['other_index_2'] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name']))
     outputs_id_map['timeshift_type'] = util.upper_dict(util.sql_read_table('FlexibleLoadShiftTypes', ['id', 'name']))
+    outputs_id_map['currency'] = util.upper_dict(util.sql_read_table('Currencies',['id','name']))
+    outputs_id_map['dispatch_constraint'] = util.upper_dict(util.sql_read_table('DispatchConstraintTypes',['id','name']))
+
     for id, name in util.sql_read_table('OtherIndexes', ('id', 'name'), return_iterable=True):
         if name in ('demand_technology', 'final_energy'):
             continue

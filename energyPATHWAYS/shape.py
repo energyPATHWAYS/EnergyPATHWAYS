@@ -156,11 +156,12 @@ class Shapes(object):
         time_slice_elements['hour24'] = time_slice_elements['hour'] + 1
         return time_slice_elements
 
-    def make_flat_load_shape(self, index, column='value'):
+    def make_flat_load_shape(self, index, column='value', num_active_years=None):
         assert 'weather_datetime' in index.names
         flat_shape = util.empty_df(fill_value=1., index=index, columns=[column])
         group_to_normalize = [n for n in flat_shape.index.names if n!='weather_datetime']
-        flat_shape = flat_shape.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
+        num_active_years =  self.num_active_years if num_active_years is None else num_active_years
+        flat_shape = flat_shape.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*num_active_years
         return flat_shape
 
 class Shape(dmf.DataMapFunctions):    
