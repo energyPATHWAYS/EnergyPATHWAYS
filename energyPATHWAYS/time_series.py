@@ -158,7 +158,34 @@ class TimeSeries:
         return fill
 
     @staticmethod
-    def fill_with_exponential(x, y, newindex, growth_rate=None):
+    def fill_with_exponential_regression(x, y, newindex):
+        """If growth_rate is None, extrapolates with NaN"""
+        if np.all(y==0):
+            # edge case where we don't want to throw an error, we just want to fill with zeros
+            return np.array([0] * len(newindex))
+
+        if np.any(y<0):
+            raise ValueError("fitting with exponential shouldn't be done with negative inputs: y={}, x={}".format(y, x))
+
+        if np.sum(y>0)<2:
+            raise ValueError("more than two non-zero points are needed for fitting with exponential: y={}, x={}".format(y, x))
+
+        slope, intercept = np.polyfit(x[y>0], np.log(y[y>0]), 1, w=np.sqrt(y[y>0]))
+
+        # y = c * exp(k*x)
+        fill = np.exp(intercept) * np.exp(slope*newindex)
+        if any(np.isinf(fill)):
+            # sometimes if the data is too steep, it can return inf, try to get an exponential fit just using the beginning and ending points
+            # note, this can be dangerous
+            fill_dict = dict(zip(x, y))
+            firstx, lastx = min(x), max(x)
+            firsty, lasty = fill_dict[firstx], fill_dict[lastx]
+            growth_rate = (lasty / firsty) ** (1. / (lastx - firstx))
+            fill = firsty * (growth_rate) ** (newindex - firstx)
+        return fill
+
+    @staticmethod
+    def fill_with_exponential_interpolation(x, y, newindex, growth_rate=None):
         """If growth_rate is None, extrapolates with NaN"""
         fill_dict = dict(zip(x, y))
         fill = np.array(map(lambda p: fill_dict.get(p, np.NaN), newindex))
@@ -208,8 +235,10 @@ class TimeSeries:
             return TimeSeries.spline_fill(x, y, newindex, k=2, s=0)
         elif method == 'nearest':
             return TimeSeries.fill_with_nearest(x, y, newindex)
-        elif method == 'exponential':
-            return TimeSeries.fill_with_exponential(x, y, newindex, kwargs.get('exp_growth_rate'))
+        elif method == 'exponential_interpolation':
+            return TimeSeries.fill_with_exponential_interpolation(x, y, newindex, kwargs.get('exp_growth_rate'))
+        elif method == 'exponential_regression':
+            return TimeSeries.fill_with_exponential_regression(x, y, newindex)
         elif method == 'average' or method == 'mean':
             return TimeSeries.fill_with_average(x, y, newindex)
         elif method == 'decay_towards_linear_regression':
@@ -220,19 +249,23 @@ class TimeSeries:
     @staticmethod
     def _clean_method_checks(x, interpolation_method, extrapolation_method, **kwargs):
         if len(x)==1:
-            if interpolation_method=='exponential' and kwargs.get('exp_growth_rate') is None:
+            if interpolation_method=='exponential_interpolation' and kwargs.get('exp_growth_rate') is None:
+                interpolation_method = 'nearest'
+            elif interpolation_method=='exponential_regression':
                 interpolation_method = 'nearest'
             elif interpolation_method=='logistic':
                 interpolation_method = 'nearest'
-                logging.debug('More than one x, y pair is needed for logistic regression')
+                logging.debug('More than one x, y pair is needed for logistic regression, changed to nearest')
             elif interpolation_method is not None and interpolation_method != 'none':
                 interpolation_method = 'nearest'
 
-            if extrapolation_method=='exponential' and kwargs.get('exp_growth_rate', None) is None:
+            if extrapolation_method=='exponential_interpolation' and kwargs.get('exp_growth_rate', None) is None:
+                extrapolation_method = 'nearest'
+            elif extrapolation_method=='exponential_regression':
                 extrapolation_method = 'nearest'
             elif extrapolation_method=='logistic':
                 extrapolation_method = 'nearest'
-                logging.debug('More than one x, y pair is needed for logistic regression')
+                logging.debug('More than one x, y pair is needed for logistic regression, changed to nearest')
             elif extrapolation_method is not None and extrapolation_method != 'none':
                 extrapolation_method = 'nearest'
 
@@ -448,18 +481,18 @@ class TimeSeries:
 # pylab.plot(newindex, filled.values.flatten(), '.')
 # pylab.plot(x, y, '*')
 
-#newindex = np.arange(2000, 2051)
-##x = np.array([2015, 2020, 2025, 2030, 2040, 2050])
-##y = np.array([0.01, 0.03, .1, 1, .8, .4])
-#x = np.array([2000, 2010, 2015])
-#y = np.array([0.6, 0.716194956, .725])
-#start = pd.DataFrame(y, index=x)
-#interpolation_method = 'linear_interpolation'
-#extrapolation_method = 'linear_interpolation'
-#filled = TimeSeries.clean(start, newindex, interpolation_method, extrapolation_method)
+# newindex = np.arange(2000, 2051)
+# # x = np.array([2015, 2020, 2025, 2030, 2040, 2050])
+# # y = np.array([0.01, 0.03, .1, 1, .8, .4])
+# x = np.array([2000, 2010, 2015])
+# y = np.array([0.6, 0.716194956, .725])
+# start = pd.DataFrame(y, index=x)
+# interpolation_method = 'linear_interpolation'
+# extrapolation_method = 'exponential_regression'
+# filled = TimeSeries.clean(start, newindex, interpolation_method, extrapolation_method)
 #
-#pylab.plot(newindex, filled.values.flatten(), '-.')
-#pylab.plot(x, y, '*')
+# pylab.plot(newindex, filled.values.flatten(), '-.')
+# pylab.plot(x, y, '*')
 #
 #'linear_interpolation'
 #'linear_regression'

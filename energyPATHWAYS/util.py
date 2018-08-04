@@ -34,9 +34,30 @@ import pdb
 from operator import mul
 
 from psycopg2.extensions import register_adapter, AsIs
+
 def addapt_numpy_float64(numpy_float64):
   return AsIs(numpy_float64)
 register_adapter(np.int64, addapt_numpy_float64)
+
+def loop_geo_multiply(df1, df2, geo_label, geographies, levels_to_keep=None):
+    geography_df_list = []
+    for geography in geographies:
+        if geography in df2.index.get_level_values(geo_label):
+            supply_indexer = level_specific_indexer(df2, [geo_label], [geography])
+            demand_indexer = level_specific_indexer(df1, [geo_label], [geography])
+            geography_df = DfOper.mult([df1.loc[demand_indexer, :], df2.loc[supply_indexer, :]])
+            geography_df = geography_df[geography_df != 0] # make it smaller
+            geography_df_list.append(geography_df)
+    df = pd.concat(geography_df_list)
+    if levels_to_keep:
+        filtered_ltk = [x for x in levels_to_keep if x in df.index.names]
+        df = df.groupby(level=filtered_ltk).sum()
+    return df
+
+def add_to_df_index(df, names, keys):
+    for key, name in zip(keys, names):
+        df = pd.concat([df], keys=[key], names=[name])
+    return df
 
 def percent_larger(a, b):
     return (a - b) / a
@@ -498,6 +519,7 @@ def unit_conversion(unit_from_num=None, unit_from_den=None, unit_to_num=None, un
             denominator_factor = unit_conversion_factor(unit_from_den, unit_to_den)
             flipped = False
         except ValueError:
+            asdf
             pdb.set_trace()
             numerator_factor = unit_conversion_factor(unit_from_den, unit_to_num)
             denominator_factor = unit_conversion_factor(unit_from_num, unit_to_den)
@@ -701,7 +723,7 @@ def replace_column(df, replace_labels, labels=None):
     else:
         df.columns= [replace_labels if x == labels else x for x in df.columns.names]
 
-def expand_multi(a, levels_list, levels_names, how='outer', incremental=False, drop_index=None):
+def expand_multi(df, levels_list, levels_names, how='outer', incremental=False, drop_index=None):
     """
     creates an additional layer in a mutlilevel index, repeating values from all other previous
     indexes
@@ -709,7 +731,7 @@ def expand_multi(a, levels_list, levels_names, how='outer', incremental=False, d
     drop_index = ensure_iterable_and_not_string(drop_index)
     if incremental:
         levels_list = [ensure_iterable_and_not_string(levels_list)]
-        for name, level in zip(a.index.names, a.index.levels):
+        for name, level in zip(df.index.names, df.index.levels):
             if name == drop_index:
                 pass
             else:
@@ -727,13 +749,13 @@ def expand_multi(a, levels_list, levels_names, how='outer', incremental=False, d
         levels_list = unfrozen_levels
         levels_names = unfrozen_names
     expand = pd.DataFrame(index=pd.MultiIndex.from_product(levels_list, names=levels_names),dtype='int64')
-    common_headers = intersect(a.index.names, expand.index.names)
+    common_headers = intersect(df.index.names, expand.index.names)
     levels_names = expand.index.names
     expand = expand.reset_index()
-    a = a.reset_index()
-    a = pd.merge(a, expand, on=common_headers, how=how)
-    a = a.set_index(levels_names).sort_index()
-    return a
+    df = df.reset_index()
+    df = pd.merge(df, expand, on=common_headers, how=how)
+    df = df.set_index(levels_names).sort_index()
+    return df
 
 
 def is_numeric(obj):

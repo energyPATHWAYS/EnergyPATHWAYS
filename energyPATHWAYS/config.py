@@ -51,11 +51,16 @@ calculation_energy_unit = None
 
 # Geography
 geo = None
-primary_geography = None
-primary_geography_id = None
+demand_primary_geography = None
+demand_primary_geography_id = None
+supply_primary_geography = None
+supply_primary_geography_id = None
+combined_outputs_geography_side = None
+combined_outputs_geography = None
 primary_subset_id = None
 breakout_geography_id = None
-geographies = None
+demand_geographies = None
+supply_geographies = None
 include_foreign_gaus = None
 dispatch_geography = None
 dispatch_geography_id = None
@@ -64,6 +69,7 @@ dispatch_breakout_geography_id = None
 dispatch_geographies = None
 disagg_geography = None
 disagg_geography_id = None
+combined_geographies = None
 
 # run years
 years = None
@@ -216,11 +222,19 @@ def init_units():
 
 def init_geo():
     #Geography conversions
-    global geo, primary_geography, primary_geography_id, geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id, disagg_geography, disagg_geography_id
+    global geo, demand_geographies, supply_geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id, disagg_geography, disagg_geography_id
     global primary_subset_id, breakout_geography_id, dispatch_breakout_geography_id, disagg_breakout_geography_id, include_foreign_gaus
+<<<<<<< HEAD
 
+=======
+    global demand_primary_geography, demand_primary_geography_id, supply_primary_geography, supply_primary_geography_id, combined_outputs_geography_side, combined_outputs_geography
+    global combined_geographies
+    
+>>>>>>> NREL_final
     # from config file
-    primary_geography_id = int(cfgfile.get('case', 'primary_geography_id'))
+    demand_primary_geography_id = int(cfgfile.get('case', 'demand_primary_geography_id'))
+    supply_primary_geography_id = int(cfgfile.get('case', 'supply_primary_geography_id'))
+    combined_outputs_geography_side = cfgfile.get('case', 'combined_outputs_geography_side')
     primary_subset_id = [int(g) for g in cfgfile.get('case', 'primary_subset_id').split(',') if len(g)]
     breakout_geography_id = [int(g) for g in cfgfile.get('case', 'breakout_geography_id').split(',') if len(g)]
     dispatch_geography_id = int(cfgfile.get('case', 'dispatch_geography_id'))
@@ -234,10 +248,15 @@ def init_geo():
 
     # derived from inputs and geomapper object
     dispatch_geography = geo.get_dispatch_geography_name()
-    primary_geography = geo.get_primary_geography_name()
+    demand_primary_geography = geo.get_demand_primary_geography_name()
+    supply_primary_geography = geo.get_supply_primary_geography_name()
+    assert combined_outputs_geography_side.lower() == 'demand' or combined_outputs_geography_side.lower() == 'supply'
+    combined_outputs_geography = demand_primary_geography if combined_outputs_geography_side.lower() == 'demand' else supply_primary_geography
     disagg_geography = geo.get_disagg_geography_name()
     dispatch_geographies = geo.geographies[dispatch_geography]
-    geographies = geo.geographies[primary_geography]
+    demand_geographies = geo.geographies[demand_primary_geography]
+    supply_geographies = geo.geographies[supply_primary_geography]
+    combined_geographies = geo.geographies[combined_outputs_geography]
 
 def init_shapes():
     global shape_start_date, shape_years
@@ -281,14 +300,14 @@ def init_date_lookup():
 
 def init_removed_levels():
     global removed_demand_levels
-    removed_demand_levels  = [str(g) for g in cfgfile.get('removed_levels', 'levels').split(',') if len(g)]
-
+    removed_demand_levels = [str(g).rstrip().lstrip() for g in cfgfile.get('removed_levels', 'levels').split(',') if len(g)]
 
 def init_output_levels():
     global output_demand_levels, output_supply_levels, output_combined_levels
-    output_demand_levels = ['year', 'vintage', 'demand_technology', primary_geography, 'sector', 'subsector', 'final_energy','other_index_1','other_index_2','cost_type','new/replacement']
-    output_supply_levels = ['year', 'vintage', 'supply_technology', primary_geography,  'demand_sector', 'supply_node', 'ghg', 'resource_bin','cost_type']
-    output_combined_levels = list(set(output_supply_levels + output_demand_levels + [primary_geography + "_supply"]))
+    output_demand_levels = ['year', 'vintage', 'demand_technology', demand_primary_geography, 'sector', 'subsector', 'final_energy','other_index_1','other_index_2','cost_type','new/replacement']
+    output_supply_levels = ['year', 'vintage', 'supply_technology', supply_primary_geography,  'demand_sector', 'supply_node', 'ghg', 'resource_bin','cost_type']
+    output_combined_levels = list(set(output_supply_levels + output_demand_levels + [combined_outputs_geography + "_supply"]))
+    output_combined_levels = list(set(output_combined_levels) - set([demand_primary_geography, supply_primary_geography])) + [combined_outputs_geography]
 
     for x in [x[0] for x in cfgfile.items('demand_output_detail')]:
         if x in output_demand_levels and cfgfile.get('demand_output_detail', x).lower() != 'true':
@@ -299,7 +318,7 @@ def init_output_levels():
     for x in [x[0] for x in cfgfile.items('combined_output_detail')]:
         if cfgfile.get('combined_output_detail',x).lower() != 'true':
             if x == 'supply_geography':
-                x = primary_geography + "_supply"
+                x = combined_outputs_geography + "_supply"
             if x in output_combined_levels:
                 output_combined_levels.remove(x)
 
@@ -307,13 +326,17 @@ def init_output_levels():
 
 def init_outputs_id_map():
     global outputs_id_map
-    primary_geography_name = geo.get_primary_geography_name()
+    demand_primary_geography = geo.get_demand_primary_geography_name()
+    supply_primary_geography = geo.get_supply_primary_geography_name()
     dispatch_geography_name = geo.get_dispatch_geography_name()
-    outputs_id_map[primary_geography_name] = util.upper_dict(geo.geography_names.items())
-    outputs_id_map[primary_geography_name + "_supply"] = outputs_id_map[primary_geography_name]
-    outputs_id_map[primary_geography_name + "_input"] = outputs_id_map[primary_geography_name]
-    outputs_id_map[primary_geography_name + "_output"] = outputs_id_map[primary_geography_name]
-    outputs_id_map[dispatch_geography_name] = outputs_id_map[primary_geography_name]
+    outputs_id_map[demand_primary_geography] = util.upper_dict(geo.geography_names.items())
+    outputs_id_map[supply_primary_geography] = util.upper_dict(geo.geography_names.items())
+    outputs_id_map[supply_primary_geography + "_supply"] = util.upper_dict(geo.geography_names.items())
+    outputs_id_map[supply_primary_geography + "_input"] = util.upper_dict(geo.geography_names.items())
+    outputs_id_map[supply_primary_geography + "_output"] = util.upper_dict(geo.geography_names.items())
+    outputs_id_map[demand_primary_geography + "_input"] = util.upper_dict(geo.geography_names.items())
+    outputs_id_map[demand_primary_geography + "_output"] = util.upper_dict(geo.geography_names.items())
+    outputs_id_map[dispatch_geography_name] = util.upper_dict(geo.geography_names.items())
     outputs_id_map['demand_technology'] = util.upper_dict(util.sql_read_table('DemandTechs', ['id', 'name']))
     outputs_id_map['supply_technology'] = util.upper_dict(util.sql_read_table('SupplyTechs', ['id', 'name']))
     outputs_id_map['final_energy'] = util.upper_dict(util.sql_read_table('FinalEnergy', ['id', 'name']))

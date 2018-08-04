@@ -20,8 +20,6 @@ class StockItem(object):
         sales_shares = getattr(self, sales_shares)
         for sales_share in sales_shares.values():
             sales_share.calculate(vintages=self.vintages[1:], years=self.years)
-            if reference_run:
-                sales_share.values*=0
                 
     def calculate_sales(self, sales):
         sales= getattr(self, sales)
@@ -68,7 +66,7 @@ class StockItem(object):
             start = [1] * int(round((self.min_lifetime - 1)*self.spy))
             middle = np.linspace(1, 0, int(round((self.max_lifetime - self.min_lifetime)*self.spy)) + 1)
             end = [0] * int(max(periods - (len(start) + len(middle)), 0))
-            return np.concatenate((start, middle, end))[:periods]
+            return np.concatenate((start, middle, end))[:int(periods)]
         elif self.stock_decay_function == 'exponential':
             rate = 1. / (self.mean_lifetime*self.spy)
             return np.exp(-rate * np.arange(periods))
@@ -167,6 +165,7 @@ class SpecifiedStock(Abstract, DataMapFunctions):
     def __init__(self, id, sql_id_table, sql_data_table, scenario=None):
         self.id = id
         self.sql_id_table = sql_id_table
+        self.primary_geography = cfg.demand_primary_geography if 'Demand' in sql_id_table else cfg.supply_primary_geography
         self.sql_data_table = sql_data_table
         self.scenario = scenario
         self.mapped = False
@@ -178,19 +177,22 @@ class SpecifiedStock(Abstract, DataMapFunctions):
         self.years = years
         if self.raw_values is not None:
             try:
-                self.remap(fill_value=np.nan)
+                self.remap(fill_value=np.nan, converted_geography=self.primary_geography)
             except:
                 print self.raw_values
                 raise
         else:
             self.values = None
 
+    def set_geography_map_key(self, geography_map_key):
+        self.geography_map_key = geography_map_key
 
 class SalesShare(Abstract, DataMapFunctions):
     def __init__(self, id, subsector_id, sql_id_table, sql_data_table, primary_key, data_id_key, reference=False, scenario=None):
         self.id = id
         self.subsector_id = subsector_id
         self.sql_id_table = sql_id_table
+        self.primary_geography = cfg.demand_primary_geography if 'Demand' in sql_id_table else cfg.supply_primary_geography
         self.sql_data_table = sql_data_table
         self.scenario = scenario
         self.mapped = False
@@ -211,8 +213,8 @@ class SalesShare(Abstract, DataMapFunctions):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        self.remap(time_index_name='vintage')
-        self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels,agg_function='mean')
+        self.remap(time_index_name='vintage', converted_geography=self.primary_geography)
+        self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
         
     def reconcile_with_stock_levels(self, needed_sales_share_levels, needed_sales_share_names):
         if self.input_type == 'intensity':
@@ -236,15 +238,13 @@ class SalesShare(Abstract, DataMapFunctions):
     def scale_reference_array_to_gap(ss_array, space_for_reference):
         num_years, num_techs, num_techs = np.shape(ss_array)
 
-        ref_sums = np.sum(ss_array, axis=1)
+        ref_sums = np.nansum(ss_array, axis=1)
 
         # ignore where no reference is specified to avoid dividing by zero
         vintage_no_ref, retiring_no_ref = np.nonzero(ref_sums)
 
         factors = np.zeros(np.shape(ref_sums))
-        factors[vintage_no_ref, retiring_no_ref] += space_for_reference[vintage_no_ref, retiring_no_ref] / ref_sums[
-            vintage_no_ref, retiring_no_ref]
-
+        factors[vintage_no_ref, retiring_no_ref] += space_for_reference[vintage_no_ref, retiring_no_ref] / ref_sums[vintage_no_ref, retiring_no_ref]
         factors = np.reshape(np.repeat(factors, num_techs, axis=0), (num_years, num_techs, num_techs))
 
         # gross up reference sales share with the need
@@ -253,7 +253,7 @@ class SalesShare(Abstract, DataMapFunctions):
     @staticmethod
     def normalize_array(ss_array, retiring_must_have_replacement=True):
         # Normalize to 1
-        sums = np.sum(ss_array, axis=1)
+        sums = np.nansum(ss_array, axis=1)
 
         if np.any(sums == 0) and retiring_must_have_replacement:
             raise ValueError('Every retiring technology must have a replacement specified in sales share')
@@ -263,13 +263,15 @@ class SalesShare(Abstract, DataMapFunctions):
 
         # normalize all to 1
         ss_array[vintage, :, retiring] = (ss_array[vintage, :, retiring].T / sums[vintage, retiring]).T
-        ss_array = np.nan_to_num(ss_array)
+        # we either divided by zero or everything came in as zeros, this gave us NaNs that we want to return to zero
+        if not retiring_must_have_replacement:
+            ss_array = np.nan_to_num(ss_array)
         return ss_array
 
     @staticmethod
     def cap_array_at_1(ss_array):
         # Normalize down to 1
-        sums = np.sum(ss_array, axis=1)
+        sums = np.nansum(ss_array, axis=1)
         vintage, retiring = np.nonzero(sums > 1)
         # normalize those greater than 1
         ss_array[vintage, :, retiring] = (ss_array[vintage, :, retiring].T / sums[vintage, retiring]).T

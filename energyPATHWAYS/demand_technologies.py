@@ -39,7 +39,7 @@ class DemandTechCost(Abstract):
         self.years = years
         if self.data and self.raw_values is not None:
             self.convert_cost()
-            self.remap(map_from='values', map_to='values', time_index_name='vintage')
+            self.remap(map_from='values', map_to='values', time_index_name='vintage', converted_geography=cfg.demand_primary_geography)
             self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
             self.levelize_costs()
         if self.data is False:
@@ -103,7 +103,7 @@ class ParasiticEnergy(Abstract):
         self.years = years
         if self.data and self.raw_values is not None:
             self.convert()
-            self.remap(map_from='values', map_to='values', time_index_name='vintage')
+            self.remap(map_from='values', map_to='values', time_index_name='vintage', converted_geography=cfg.demand_primary_geography)
             util.convert_age(self, reverse=True, vintages=self.vintages, years=self.years)
             self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
         if self.data is False:
@@ -150,8 +150,11 @@ class DemandTechEfficiency(Abstract):
         self.vintages = vintages
         self.years = years
         if self.data and self.raw_values is not None:
-            self.convert()
-            self.remap(map_from='values', map_to='values', time_index_name='vintage')
+            try:
+                self.convert()
+            except:
+                pdb.set_trace()
+            self.remap(map_from='values', map_to='values', time_index_name='vintage', converted_geography=cfg.demand_primary_geography)
             util.convert_age(self, reverse=True, vintages=self.vintages, years=self.years)
             self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
         if self.data is False:
@@ -205,7 +208,7 @@ class DemandTechServiceLink(Abstract):
         self.vintages = vintages
         self.years = years
         if self.data and self.raw_values is not None:
-            self.remap(map_from='raw_values', map_to='values', time_index_name='vintage')
+            self.remap(map_from='raw_values', map_to='values', time_index_name='vintage', converted_geography=cfg.demand_primary_geography)
             util.convert_age(self, reverse=True, vintages=self.vintages, years=self.years)
             self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
         if self.data is False:
@@ -232,7 +235,7 @@ class ServiceDemandModifier(Abstract):
         self.vintages = vintages
         self.years = years
         if self.data and self.raw_values is not None:
-            self.remap(map_from='raw_values', map_to='values', time_index_name='vintage')
+            self.remap(map_from='raw_values', map_to='values', time_index_name='vintage', converted_geography=cfg.demand_primary_geography)
             util.convert_age(self, attr_from='values', attr_to='values', reverse=False, vintages=self.vintages,
                              years=self.years)
             self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
@@ -271,6 +274,11 @@ class DemandTechnology(StockItem):
         self.min_year()
         self.shape = shape.shapes.data[self.shape_id] if self.shape_id is not None else None
 
+    def set_geography_map_key(self, geography_map_key):
+        # specified stock measures do not have their own map keys but instead need to use the same map key as StockData else we can have a mismatch in stock totals
+        # by passing it in here, we can grab it when we geomap the specified stock
+        self.geography_map_key = geography_map_key
+
     def get_shape(self, default_shape):
         return default_shape.values if self.shape is None else self.shape.values
 
@@ -298,6 +306,7 @@ class DemandTechnology(StockItem):
                                                                     sql_id_table='DemandStockMeasures',
                                                                     sql_data_table='DemandStockMeasuresData',
                                                                     scenario=self.scenario)
+            self.specified_stocks[specified_stock_id].set_geography_map_key(self.geography_map_key)
 
     def add_service_links(self):
         """adds all technology service links"""

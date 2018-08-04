@@ -26,7 +26,7 @@ class CO2PriceMeasure(Abstract):
         self.input_type = 'intensity'
 
     def calculate(self):
-        self.remap()
+        self.remap(converted_geography=cfg.supply_primary_geography)
         self.values.sort_index(inplace=True)
     
 class BlendMeasure(Abstract):
@@ -41,10 +41,10 @@ class BlendMeasure(Abstract):
         self.vintages = vintages
         self.years = years
         self.input_type = 'intensity'
-        self.remap()
+        self.remap(converted_geography=cfg.supply_primary_geography)
         self.values['supply_node'] = self.supply_node_id
         self.values.set_index('supply_node',append=True,inplace=True)
-        primary_geography = cfg.primary_geography
+        primary_geography = cfg.supply_primary_geography
         self.values = util.reindex_df_level_with_new_elements(self.values, primary_geography, cfg.geo.geographies[primary_geography],fill_value=0.0)
         
 class ExportMeasure(Abstract):
