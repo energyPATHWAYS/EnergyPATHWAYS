@@ -156,9 +156,10 @@ class ClassGenerator(object):
 
 @click.command()
 @click.option('--dbfile', '-D', is_flag=True,
-              help='''Use the CSV database rather than PostgreSQL. If this option is 
-              used, the --dbname option can be a full pathname. If the dbname doesn't end
-              in ".db", this suffix is added. Default is therefore "pathways.db"''')
+              help='''\
+Use the CSV database rather than PostgreSQL. If this option is used, \
+the --dbname option can be a full pathname. If the dbname doesn't end \
+in ".db", this suffix is added. Default is therefore "pathways.db"''')
 
 @click.option('--dbname', '-d', default='pathways',
               help='PostgreSQL database name (default="pathways")')
@@ -180,8 +181,7 @@ class ClassGenerator(object):
 
 def main(dbfile, dbname, host, linewidth, outfile, password, user):
 
-    if dbfile:
-        dbdir = dbname + ('' if dbname.endswith('.db') else '.db')
+    dbdir = dbname + ('' if dbname.endswith('.db') else '.db') if dbfile else None
 
     obj = ClassGenerator(dbdir, dbname, host, linewidth, outfile, password, user)
     obj.generateClasses()

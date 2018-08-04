@@ -30,8 +30,8 @@ from postgres import PostgresDatabase
               which is to process all tables.''')
 
 @click.option('--ids/--no-ids', default=False,
-              help='''Indicates whether to include database ids in the data (and thus, in the
-              generated class, which read the CSV headers. This option exists to facilitate
+              help='''Indicates whether to include database ids in the data, and thus, in the
+              generated class, which reads the CSV headers. This option exists to facilitate
               integration, and will be removed for the final production run.''')
 
 def main(dbname, db_dir, host, user, password, limit, tables, ids):

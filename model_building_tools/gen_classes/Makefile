@@ -1,7 +1,7 @@
 #
 # Remake schema and copy it to the source directory.
 #
-DATABASE = 171112_US
+DATABASE = 180728_US
 SRCDIR   = ../../energyPATHWAYS
 
 all : $(SRCDIR)/schema.py $(SRCDIR)/text_mappings.py

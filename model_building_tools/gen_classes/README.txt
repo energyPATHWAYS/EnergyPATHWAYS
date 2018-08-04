@@ -1,4 +1,4 @@
-The code in this folder holds a few programs and ancilliary files:
+The code in this folder holds a few programs and ancillary files:
 
 1. psql_to_csv.py => text_mappings.py, foreign_keys.csv
 
@@ -23,7 +23,7 @@ The code in this folder holds a few programs and ancilliary files:
 
 5. Makefile
 
-- Runs all required commands in correct order if files dependencies indicate something is out of date.
+- Runs all required commands in correct order if file dependencies indicate something is out of date.
 
 6. test_*.py
 
