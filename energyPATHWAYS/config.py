@@ -224,13 +224,9 @@ def init_geo():
     #Geography conversions
     global geo, demand_geographies, supply_geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id, disagg_geography, disagg_geography_id
     global primary_subset_id, breakout_geography_id, dispatch_breakout_geography_id, disagg_breakout_geography_id, include_foreign_gaus
-<<<<<<< HEAD
-
-=======
     global demand_primary_geography, demand_primary_geography_id, supply_primary_geography, supply_primary_geography_id, combined_outputs_geography_side, combined_outputs_geography
     global combined_geographies
     
->>>>>>> NREL_final
     # from config file
     demand_primary_geography_id = int(cfgfile.get('case', 'demand_primary_geography_id'))
     supply_primary_geography_id = int(cfgfile.get('case', 'supply_primary_geography_id'))
