@@ -96,3 +96,4 @@ model_building_tools/gen_classes/170817_US.db
 model_building_tools/gen_classes/171112_US.db
 model_building_tools/gen_classes/foreign_keys.csv
 model_building_tools/gen_classes/text_mappings.py
+abstract_db_2.py
