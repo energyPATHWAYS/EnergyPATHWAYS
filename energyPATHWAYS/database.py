@@ -87,11 +87,12 @@ def find_parent_col(table, cols):
     Find the column identifying the parent record.
     '''
     exceptions = {
-        'DemandSalesData'               : 'demand_technology',
         'DispatchFeedersAllocationData' : 'name',
-        'SupplyTechsEfficiencyData'     : 'supply_tech',
-        'SupplySalesData'               : 'supply_technology',
-        'SupplySalesShareData'          : 'supply_technology',
+        'GeographiesData'               : 'geography',
+        'OtherIndexesData'              : 'other_index',
+        'SupplyTechsEfficiencyData'     : 'supply_tech',            # also has supply_node, but that's not the link
+        # 'SupplySalesData'               : 'supply_technology',    # seems to be supply_node, not supply_technology
+        # 'SupplySalesShareData'          : 'supply_technology',    # seems to be supply_node, not supply_technology
     }
 
     # List adapted from scenario_loader.PARENT_COLUMN_NAMES. We don't reference that
@@ -460,15 +461,21 @@ class AbstractDatabase(object):
             if tbl.data is None:
                 tbl.load_all()
 
+            data = tbl.data
+
             # some mapping tables have other columns, but we need just id and name
             id_col = 'id'
             name_col = 'name'
 
-            df = tbl.data[[id_col, name_col]]
+            if name == 'DemandServiceLink':
+                data.name = data.id.map(lambda id: 'dem_svc_link_{}'.format(id))
+                pass
+
+            df = data[[id_col, name_col]]
             # coerce names to str since we use numeric ids in some cases
             self.text_maps[name] = {id: str(name) for idx, (id, name) in df.iterrows()}
 
-        print('Loaded text mappings')
+        print('Loaded text mapping tables')
 
     def get_text(self, tableName, key=None):
         """

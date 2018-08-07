@@ -2,6 +2,7 @@
 from __future__ import print_function
 import click
 import os
+import pandas as pd
 from energyPATHWAYS.database import Tables_to_ignore, mkdirs
 from postgres import PostgresDatabase
 
@@ -53,7 +54,31 @@ def main(dbname, db_dir, host, user, password, limit, tables, ids):
 
     for tbl in table_objs:
         tbl.load_all(limit=limit)
+
+        # One-off patches
+        df = tbl.data
+        if tbl.name == 'DemandServiceLink':
+            df['name'] = df.id.map(lambda id: 'dem_svc_link_{}'.format(id))
+
+        elif tbl.name == 'DemandTechsServiceLink':
+            df['name'] = df.id.map(lambda id: 'dem_tech_svc_link_{}'.format(id))
+            df.drop('id', axis=1, inplace=True)
+
+        elif tbl.name == 'DemandTechsServiceLinkData':
+            df['parent'] = df.parent_id.map(lambda id: 'dem_tech_svc_link_{}'.format(id))
+            df.drop(['id', 'parent_id'], axis=1, inplace=True)
+
         tbl.to_csv(db_dir, save_ids=ids)
+
+    # Merge generated DemandTechsServiceLink* to form DemandServiceLinkData for 3-way merge
+    dtsl      = pd.read_csv(os.path.join(db_dir, 'DemandTechsServiceLink.csv'), index_col=None)
+    dtsl_data = pd.read_csv(os.path.join(db_dir, 'DemandTechsServiceLinkData.csv'), index_col=None)
+    merged = pd.merge(dtsl, dtsl_data, left_on='name', right_on='parent', how='left')
+    merged.drop('parent', axis=1, inplace=True)
+    merged.rename(index=str, columns={'name': 'old_parent', 'service_link' : 'parent'}, inplace=True)
+
+    pathname = os.path.join(db_dir, 'DemandServiceLinkData.csv')
+    merged.to_csv(pathname, index=None)
 
     # Save foreign keys so they can be used by CSV database
     foreign_keys_path = os.path.join(db_dir, 'foreign_keys.csv')

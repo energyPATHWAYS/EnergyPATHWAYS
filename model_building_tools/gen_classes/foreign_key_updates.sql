@@ -73,6 +73,11 @@ alter table "DemandTechsServiceDemandModifierData"
   add constraint "DemandTechsServiceDemandModifierData_demand_technology_id_fkey"
   foreign key (demand_technology_id) references "DemandTechs"(id);
 
+alter table "DemandTechsServiceLinkData" drop constraint "DemandTechsServiceLinkData_parent_id_fkey";
+alter table "DemandTechsServiceLinkData"
+  add constraint "DemandTechsServiceLinkData_parent_id_fkey"
+  foreign key (parent_id) references "DemandTechsServiceLink"(id);
+
 /*  alter table "DispatchFeedersAllocationData" drop constraint "DispatchFeedersAllocationData_parent_id_fkey"; */
 alter table "DispatchFeedersAllocationData"
   add constraint "DispatchFeedersAllocationData_parent_id_fkey"
@@ -100,6 +105,12 @@ alter table "StorageTechsCapacityCapitalCostNewData"
 alter table "StorageTechsCapacityCapitalCostReplacementData" drop constraint "StorageTechsCapacityCapitalCostReplacementData_supply_tech_id_fkey";
 alter table "StorageTechsCapacityCapitalCostReplacementData"
   add constraint "StorageTechsCapacityCapitalCostReplacementData_supply_tech_id_fkey"
+  foreign key (supply_tech_id) references "SupplyTechs"(id);
+
+/* All the keys for this table are misnamed, but this one points to the wrong foreign table, so we fix only this */
+alter table "StorageTechsDurationData" drop constraint "StorageTechsCapacityCapitalCostNewData_copy_supply_tech_id_fkey";
+alter table "StorageTechsDurationData"
+  add constraint "StorageTechsDurationData_supply_tech_id_fkey"
   foreign key (supply_tech_id) references "SupplyTechs"(id);
 
 alter table "StorageTechsEnergyCapitalCostNewData" drop constraint "StorageTechsEnergyCapitalCostNewData_supply_tech_id_fkey";

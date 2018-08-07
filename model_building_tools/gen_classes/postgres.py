@@ -2,94 +2,8 @@ import os
 import gzip
 import pandas as pd
 import psycopg2
-from energyPATHWAYS.database import AbstractDatabase, AbstractTable, Text_mapping_tables, ForeignKey, mkdirs
-from energyPATHWAYS.error import RowNotFound, DuplicateRowsFound, SubclassProtocolError
-
-# TODO: Abstract class copied from database.py. Integrate into Postgres{Table,Database} classes
-
-class AbstractTable2(object):
-    def __init__(self, db, tbl_name, cache_data=False):
-        self.db = db
-        self.name = tbl_name
-        self.cache_data = cache_data
-        self.data = None
-        self.children_by_fk_col = {}
-        self.data_class = None
-
-        if cache_data:
-            self.load_all()
-
-    def __str__(self):
-        return "<{} {}>".format(self.__class__.__name__, self.name)
-
-    def load_rows(self, id):
-        """
-        Load row(s) of data for the given id from the external storage (database, csv file).
-        This method will differ by subclass, whereas getting data from an internal cache
-        will not.
-
-        :param id: (int) primary key for the data in `table`
-        :return:
-        """
-        raise SubclassProtocolError(self.__class__, 'load_rows')
-
-    def load_all(self):
-        """
-        Abstract method to load all rows from a table as a DataFrame.
-
-        :return: (pd.DataFrame) The contents of the table.
-        """
-        raise SubclassProtocolError(self.__class__, 'load_all')
-
-    def load_data_object(self, cls, scenario):
-        self.data_class = cls
-        df = self.load_all()
-        print("Loaded {} rows for {}".format(df.shape[0], self.name))
-
-        key_col = cls._key_col
-        for _, row in df.iterrows():
-            key = row[key_col]
-            obj = cls(key, scenario)  # adds itself to the classes _instances_by_id dict
-            obj.init_from_series(row, scenario)
-
-
-    def get_row(self, key_col, key, raise_error=True):
-        """
-        Get a tuple for the row with the given id in the table associated with this class.
-        Expects to find exactly one row with the given id. User must instantiate the database
-        before calling this method.
-
-        :param key_col: (str) the name of the column holding the key value
-        :param key: (str) the unique id of a row in `table`
-        :param raise_error: (bool) whether to raise an error or return None if the id
-           is not found.
-        :return: (tuple) of values in the order the columns are defined in the table
-        :raises RowNotFound: if raise_error is True and `id` is not present in `table`.
-        """
-        name = self.name
-        query = "{} == '{}'".format(key_col, key)
-
-        if self.data is not None:
-            rows = self.data.query(query)
-            # print('Getting row {} from cache'.format(query))
-            # print(rows)
-            tups = [tuple(row) for idx, row in rows.iterrows()]
-        else:
-            # print('Getting row {} from database'.format(query))
-            tups = self.load_rows(key)
-
-        count = len(tups)
-        if count == 0:
-            if raise_error:
-                raise RowNotFound(name, key)
-            else:
-                return None
-
-        if count > 1:
-            raise DuplicateRowsFound(name, key)
-
-        return tups[0]
-
+import re
+from energyPATHWAYS.database import AbstractDatabase, AbstractTable, Text_mapping_tables, ForeignKey, mkdirs, find_key_col
 
 class PostgresTable(AbstractTable):
     """
@@ -126,7 +40,7 @@ class PostgresTable(AbstractTable):
         self.map_strings()
         return self.data
 
-    def map_strings(self, save_ids=False):
+    def map_strings(self):
         tbl_name = self.name
         df = self.data
         text_maps = self.db.text_maps
@@ -135,6 +49,7 @@ class PostgresTable(AbstractTable):
         for fk in fkeys:
             ftable = fk.foreign_table_name
             text_map = text_maps.get(ftable)
+
             if text_map is not None:
                 str_col = id_col = fk.column_name
 
@@ -153,10 +68,6 @@ class PostgresTable(AbstractTable):
     col_renames = {
         'CurrenciesConversion':
             {'currency_year_id' : 'currency_year'},
-        # 'DemandTechsServiceLink':
-        #     {'service_link' : 'name'},
-        'DemandTechsServiceLinkData':
-            {'parent_id' : 'service_link'},
         'DispatchFeedersAllocationData':
             {'parent_id' : 'name'},
         'DispatchFeedersAllocation':
@@ -198,17 +109,16 @@ class PostgresTable(AbstractTable):
             df = df.rename(columns=renames)
             self.renames = renames
 
-        # TBD: temp fix to make keys unique in these 4 tables
+        # temp fix to make keys unique in these tables
         tables_to_patch = {
-            'DemandFuelSwitchingMeasures': '{name} - {subsector} - {final_energy_from} to {final_energy_to}',
-            # 'DemandTechsServiceLink' : None
+            'DemandFuelSwitchingMeasures' : '{name} - {subsector} - {final_energy_from} to {final_energy_to}',
         }
 
         if name in tables_to_patch:
             df = df.copy()
-            from energyPATHWAYS.database import find_key_col
             key_col = find_key_col(name, cols_to_save)
             template = tables_to_patch[name]
+
             for idx, row in df.iterrows():
                 kwargs = {col: row[col] for col in cols_to_save}
                 df.loc[idx, key_col] = template.format(**kwargs)
@@ -222,8 +132,14 @@ class PostgresTable(AbstractTable):
             shapes = self.db.get_table('Shapes')
             shape_names = list(shapes.data.name)
 
+            pat1 = re.compile('[\s\(\)-]')
+            pat2 = re.compile('__+')
+
             for shape_name in shape_names:
-                filename = shape_name.replace(' ', '_') + '.csv.gz'
+                shape_name = re.sub(pat1, '_', shape_name)      # convert symbols not usable in python identifiers to "_"
+                shape_name = re.sub(pat2, '_', shape_name)      # convert sequences of "_" to a single "_"
+
+                filename = shape_name + '.csv.gz'
                 pathname = os.path.join(dirname, filename)
                 chunk = df.query('parent == "{}"'.format(shape_name))
                 print("Writing {} rows to {}".format(len(chunk), pathname))
@@ -257,116 +173,6 @@ JOIN information_schema.key_column_usage y
     AND y.constraint_name = c.unique_constraint_name
 ORDER BY c.constraint_name, x.ordinal_position;
 '''
-
-class AbstractDatabase2(object):
-    """
-    A simple Database class that caches table data and provides a few fetch methods.
-    Serves as a base for a CSV-based subclass and a PostgreSQL-based subclass.
-    """
-    instance = None
-
-    def __init__(self, table_class, cache_data=False):
-        self.cache_data = cache_data
-        self.table_class = table_class
-        self.table_objs = {}              # dict of table instances keyed by name
-        self.table_names = {}             # all known table names
-        self.text_maps = {}               # dict by table name of dicts by id of text mapping tables
-
-    @classmethod
-    def _get_database(cls, **kwargs):
-        if not AbstractDatabase.instance:
-            instance = AbstractDatabase.instance = cls(**kwargs)
-            instance._cache_table_names()
-
-        return instance
-
-    def get_table_names(self):
-        raise SubclassProtocolError(self.__class__, 'get_table_names')
-
-    def _cache_table_names(self):
-        self.table_names = {name: True for name in self.get_table_names()}
-
-    def is_table(self, name):
-        return self.table_names.get(name, False)
-
-    def get_table(self, name):
-        try:
-            return self.table_objs[name]
-
-        except KeyError:
-            tbl = self.table_class(self, name, cache_data=self.cache_data)
-            self.table_objs[name] = tbl
-            return tbl
-
-    def tables_with_classes(self, include_on_demand=False):
-        exclude = ['CurrenciesConversion', 'GeographyMap', 'IDMap', 'InflationConversion',
-                   'DispatchTransmissionHurdleRate', 'DispatchTransmissionLosses',
-                   'Version', 'foreign_keys'] + Simple_mapping_tables
-
-        # Don't create classes for "Data" tables; these are rendered as DataFrames only
-        tables = [name for name in self.get_table_names() if not (name in exclude or name.endswith('Data'))]
-        ignore = Tables_to_ignore + (Tables_to_load_on_demand if not include_on_demand else [])
-        result = sorted(list(set(tables) - set(ignore)))
-        return result
-
-    def load_text_mappings(self):
-        for name in Text_mapping_tables:
-            tbl = self.get_table(name)
-
-            # class generator needs this since we don't load entire DB
-            if tbl.data is None:
-                tbl.load_all()
-
-            # some mapping tables have other columns, but we need just id and name
-            id_col = 'id'
-            name_col = 'name'
-
-            df = tbl.data[[id_col, name_col]]
-            # coerce names to str since we use numeric ids in some cases
-            self.text_maps[name] = {id: str(name) for idx, (id, name) in df.iterrows()}
-
-        print('Loaded text mappings')
-
-    def get_text(self, tableName, key=None):
-        """
-        Get a value from a given text mapping table or the mapping dict itself,
-        if key is None.
-
-        :param tableName: (str) the name of the table that held this mapping data
-        :param key: (int) the key to map to a text value, or None
-        :return: (str or dict) if the key is None, return the text mapping dict
-           itself, otherwise return the text value for the given key.
-        """
-        try:
-            text_map = self.text_maps[tableName]
-            if key is None:
-                return text_map
-
-            return text_map[key]
-        except KeyError:
-            return None
-
-    def _cache_foreign_keys(self):
-        raise SubclassProtocolError(self.__class__, '_cache_foreign_keys')
-
-    def fetchcolumn(self, sql):
-        rows = self.fetchall(sql)
-        return [row[0] for row in rows]
-
-    def fetchone(self, sql):
-        raise SubclassProtocolError(self.__class__, 'fetchone')
-
-    def fetchall(self, sql):
-        raise SubclassProtocolError(self.__class__, 'fetchall')
-
-    def get_columns(self, table):
-        raise SubclassProtocolError(self.__class__, 'get_columns')
-
-    def get_row_from_table(self, name, key_col, key, raise_error=True):
-        tbl = self.get_table(name)
-        tup = tbl.get_row(key_col, key, raise_error=raise_error)
-        return tup
-
 
 class PostgresDatabase(AbstractDatabase):
     def __init__(self, host='localhost', dbname='pathways', user='postgres', password='',

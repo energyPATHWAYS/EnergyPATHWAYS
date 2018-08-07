@@ -28,3 +28,10 @@ The code in this folder holds a few programs and ancillary files:
 6. test_*.py
 
 - Various test programs
+
+============================
+
+To regenerate the schema and text mappings:
+
+  python psql_to_csv.py -d 180728_US --ids
+  python genClasses.py  -d 180728_US -D -o schema.py
