@@ -76,6 +76,7 @@ def find_key_col(table, cols):
     '''
     exceptions = {
         'DemandFlexibleLoadMeasures': 'subsector', # has 'name' col that isn't the key
+        'CurrenciesConversion' : 'currency',
     }
 
     key_cols = ('name', 'parent', 'subsector', 'demand_technology', 'supply_node',
@@ -121,6 +122,7 @@ Simple_mapping_tables = [
     'Geographies',
     'GeographyMapKeys',
     'GreenhouseGasEmissionsType',
+    'ImportPrimaryCostMethod',
     'InputTypes',
     'OtherIndexes',
     'ShapesTypes',
@@ -167,6 +169,17 @@ Tables_to_ignore = [
     'GeographyIntersection',
     'GeographyIntersectionData',
     'GeographyMap',
+]
+
+Tables_without_classes = [
+    'CurrenciesConversion',
+    'GeographyMap',
+    'IDMap',
+    'InflationConversion',
+    'DispatchTransmissionHurdleRate',
+    'DispatchTransmissionLosses',
+    'Version',
+    'foreign_keys',
 ]
 
 Tables_to_load_on_demand = [
@@ -443,9 +456,7 @@ class AbstractDatabase(object):
             return tbl
 
     def tables_with_classes(self, include_on_demand=False):
-        exclude = ['CurrenciesConversion', 'GeographyMap', 'IDMap', 'InflationConversion',
-                   'DispatchTransmissionHurdleRate', 'DispatchTransmissionLosses',
-                   'Version', 'foreign_keys'] + Simple_mapping_tables
+        exclude = Tables_without_classes + Simple_mapping_tables
 
         # Don't create classes for "Data" tables; these are rendered as DataFrames only
         tables = [name for name in self.get_table_names() if not (name in exclude or name.endswith('Data'))]

@@ -92,6 +92,11 @@ alter table "ImportCostData"
   add constraint "ImportCostData_import_node_id_fkey"
   foreign key (import_node_id) references "SupplyNodes"(id);
 
+/* alter table "ImportCost" drop constraint "ImportCost_cost_method_id_fkey"; */
+alter table "ImportCost"
+  add constraint "ImportCost_cost_method_id_fkey"
+  foreign key (cost_method_id) references "ImportPrimaryCostMethod"(id);
+
 alter table "PrimaryCostData" drop constraint "PrimaryCostData_primary_node_id_fkey";
 alter table "PrimaryCostData"
   add constraint "PrimaryCostData_primary_node_id_fkey"

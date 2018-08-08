@@ -11,8 +11,9 @@ from postgres import PostgresDatabase
               help='PostgreSQL database name (default="pathways")')
 
 @click.option('--db-dir', '-D', default=None,
-              help='''Directory under which to store CSV "tables". Defaults to the 
-              postgres database name with ".db" extension in the current directory.''')
+              help='''
+Directory under which to store CSV "tables". Defaults to the postgres \
+database name with ".db" extension in the current directory.''')
 
 @click.option('--host', '-h', default='localhost',
               help='Host running PostgreSQL (default="localhost")')
@@ -31,9 +32,10 @@ from postgres import PostgresDatabase
               which is to process all tables.''')
 
 @click.option('--ids/--no-ids', default=False,
-              help='''Indicates whether to include database ids in the data, and thus, in the
-              generated class, which reads the CSV headers. This option exists to facilitate
-              integration, and will be removed for the final production run.''')
+              help='''
+Indicates whether to include database ids in the data, and thus, in the \
+generated class, which reads the CSV headers. This option exists to facilitate \
+integration, and will be removed for the final production run.''')
 
 def main(dbname, db_dir, host, user, password, limit, tables, ids):
     db = PostgresDatabase(host=host, dbname=dbname, user=user, password=password, cache_data=False)
@@ -52,6 +54,9 @@ def main(dbname, db_dir, host, user, password, limit, tables, ids):
     if limit:
         print("\n*** Limiting reads to %d rows per table! ***\n" % limit)
 
+    def _drop(df, *cols):
+        df.drop(list(cols), axis=1, inplace=True)
+
     for tbl in table_objs:
         tbl.load_all(limit=limit)
 
@@ -62,23 +67,27 @@ def main(dbname, db_dir, host, user, password, limit, tables, ids):
 
         elif tbl.name == 'DemandTechsServiceLink':
             df['name'] = df.id.map(lambda id: 'dem_tech_svc_link_{}'.format(id))
-            df.drop('id', axis=1, inplace=True)
+            _drop(df, 'id')
 
         elif tbl.name == 'DemandTechsServiceLinkData':
             df['parent'] = df.parent_id.map(lambda id: 'dem_tech_svc_link_{}'.format(id))
-            df.drop(['id', 'parent_id'], axis=1, inplace=True)
+            _drop(df, 'id', 'parent_id')
+
+        elif tbl.name == 'CurrenciesConversion':
+            _drop(df, 'id')
 
         tbl.to_csv(db_dir, save_ids=ids)
 
-    # Merge generated DemandTechsServiceLink* to form DemandServiceLinkData for 3-way merge
-    dtsl      = pd.read_csv(os.path.join(db_dir, 'DemandTechsServiceLink.csv'), index_col=None)
-    dtsl_data = pd.read_csv(os.path.join(db_dir, 'DemandTechsServiceLinkData.csv'), index_col=None)
-    merged = pd.merge(dtsl, dtsl_data, left_on='name', right_on='parent', how='left')
-    merged.drop('parent', axis=1, inplace=True)
-    merged.rename(index=str, columns={'name': 'old_parent', 'service_link' : 'parent'}, inplace=True)
+    if False:
+        # Merge generated DemandTechsServiceLink* to form DemandServiceLinkData for 3-way merge
+        dtsl      = pd.read_csv(os.path.join(db_dir, 'DemandTechsServiceLink.csv'), index_col=None)
+        dtsl_data = pd.read_csv(os.path.join(db_dir, 'DemandTechsServiceLinkData.csv'), index_col=None)
+        merged = pd.merge(dtsl, dtsl_data, left_on='name', right_on='parent', how='left')
+        merged.drop('parent', axis=1, inplace=True)
+        merged.rename(index=str, columns={'name': 'old_parent', 'service_link' : 'parent'}, inplace=True)
 
-    pathname = os.path.join(db_dir, 'DemandServiceLinkData.csv')
-    merged.to_csv(pathname, index=None)
+        pathname = os.path.join(db_dir, 'DemandServiceLinkData.csv')
+        merged.to_csv(pathname, index=None)
 
     # Save foreign keys so they can be used by CSV database
     foreign_keys_path = os.path.join(db_dir, 'foreign_keys.csv')
