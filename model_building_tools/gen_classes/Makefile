@@ -1,4 +1,4 @@
-#
+
 # Remake schema and copy it to the source directory.
 #
 SRCDIR    = ../../energyPATHWAYS
@@ -10,6 +10,21 @@ NEW_DB_BASE  = new_database
 NEW_DB_FILE  = ../../energyPATHWAYS/$(NEW_DB_BASE).py
 NEW_DB_CLASS = EnergyPathwaysDatabase
 NEW_DB_OBJ   = energyPATHWAYS.$(NEW_DB_BASE).$(NEW_DB_CLASS)
+
+options:
+	@echo "Available targets:"
+	@echo "all          Make csvdb, merge, schema"
+	@echo "csvdb        Export data from postgres to CSV files"
+	@echo "merge        Combine (denormalize) parent and child data files"
+	@echo "schema       Generate custom classes for the merged tables"
+	@echo "redo         Make clean, all"
+	@echo "regen        Make clean_schema, schema"
+	@echo "remerge      Make clean_merge, merge"
+	@echo "clean        Make clean_schema, clean_csvdb, clean_merge"
+	@echo "clean_schema Remove schema.py"
+	@echo "clean_csvdb  Remove the unmerged CSV database and text_mappings.py"
+	@echo "clean_merge  remove the merged CSV database directory and the generated CsvDatabase subclass"
+
 
 all : csvdb merge schema 
 
@@ -45,13 +60,11 @@ schema.py: $(SRCDIR)/data_object.py $(SRCDIR)/database.py
 
 remerge: clean_merge merge
 
-redo: clean_all all
+redo: clean all
 
 regen: clean_schema schema
 
-clean: clean_schema clean_csvdb
-
-clean_all: clean clean_merge
+clean: clean_schema clean_csvdb clean_merge
 
 clean_schema:
 	rm -f schema.py
