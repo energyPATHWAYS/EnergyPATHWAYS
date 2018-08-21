@@ -279,7 +279,7 @@ class Shape(dmf.DataMapFunctions):
             
             self.values = temp
         else:
-            self.values = self.values.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years        
+            self.values = self.values.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
 
     def geomap_to_time_zone(self, attr='values', inplace=True):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table

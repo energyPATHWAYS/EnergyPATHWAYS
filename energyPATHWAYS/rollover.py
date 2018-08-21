@@ -480,7 +480,7 @@ class Rollover(object):
             self.check_outputs()
             self.calculate_outputs(list_steps)
             #increment self.i, this saves the position where the rollover left off
-            self.i = min((self.num_years - 1)*self.spy, i+1)
+            self.i = min(self.num_years*self.spy, i+1)
 
     def rewind(self, num_years):
         self.i -= num_years*self.spy

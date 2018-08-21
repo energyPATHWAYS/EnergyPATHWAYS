@@ -510,7 +510,7 @@ def unit_conversion(unit_from_num=None, unit_from_den=None, unit_to_num=None, un
             denominator_factor = unit_conversion_factor(unit_from_den, unit_to_den)
             flipped = False
         except ValueError:
-            asdf
+            raise
             pdb.set_trace()
             numerator_factor = unit_conversion_factor(unit_from_den, unit_to_num)
             denominator_factor = unit_conversion_factor(unit_from_num, unit_to_den)

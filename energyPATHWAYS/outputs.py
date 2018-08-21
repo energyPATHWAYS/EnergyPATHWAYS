@@ -69,9 +69,6 @@ class Output(object):
         if not os.path.exists(path):
             os.mkdir(path)
 
-        if compression == 'gzip':
-            file_name += '.gz'
-
         if os.path.isfile(os.path.join(path, file_name)):
             tries = 1
             while True:
@@ -80,7 +77,7 @@ class Output(object):
                     os.rename(os.path.join(path, file_name), os.path.join(path, "_" + file_name))
                     os.rename(os.path.join(path, "_" + file_name), os.path.join(path, file_name))
                     # append and don't write header because the file already exists
-                    df.to_csv(os.path.join(path, file_name), header=False, mode='a', compression=compression)
+                    df.to_csv(os.path.join(path, file_name), header=False, mode='a')
                     return
                 except OSError:
                     logging.error('waiting {} seconds to try to write {}...'.format(2 ** tries, file_name))
@@ -89,7 +86,9 @@ class Output(object):
                         raise
                     tries += 1
         else:
-            df.to_csv(os.path.join(path, file_name), header=True, mode='w')
+            if compression == 'gzip':
+                file_name += '.gz'
+            df.to_csv(os.path.join(path, file_name), header=True, mode='w', compression=compression)
 
     @staticmethod
     def writeobj(obj, write_directory=None, name=None, clean=False):

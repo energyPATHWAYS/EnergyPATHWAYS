@@ -192,25 +192,26 @@ class Demand(object):
 
     def create_electricity_reconciliation(self):
         logging.info('Creating electricity shape reconciliation')
-        # weather_year is the year for which we have top down load data
-        weather_year = int(np.round(np.mean(shape.shapes.active_dates_index.year)))
-        
-        # the next four lines create the top down load shape in the weather_year
-        levels_to_keep = [cfg.demand_primary_geography, 'year', 'final_energy']
-        temp_energy = self.group_output('energy', levels_to_keep=levels_to_keep, specific_years=weather_year)
-        top_down_energy = util.remove_df_levels(util.df_slice(temp_energy, cfg.electricity_energy_type_id, 'final_energy'), levels='year')
-        top_down_shape = top_down_energy * self.default_electricity_shape.values
-        
-        # this calls the functions that create the bottom up load shape for the weather_year
-        bottom_up_shape = self.aggregate_electricity_shapes(weather_year, geomap_to_dispatch_geography=False, reconciliation_step=True)
-        # 0 is inflexible, 2 is native flexible
-        bottom_up_shape = util.df_slice(bottom_up_shape, 0, 'timeshift_type')
-        bottom_up_shape = util.remove_df_levels(bottom_up_shape, 'dispatch_feeder')
-        
-        # at this point we have a top down and bottom up estimates for the load shape across all demand
-        # to get the reconciliation we divide one by the other
-        self.electricity_reconciliation = util.DfOper.divi((top_down_shape, bottom_up_shape))
-        # the final step is to pass the reconciliation result down to subsectors. It becomes a pre-multiplier on all of the subsector shapes
+        self.electricity_reconciliation = None
+        # # weather_year is the year for which we have top down load data
+        # weather_year = int(np.round(np.mean(shape.shapes.active_dates_index.year)))
+        #
+        # # the next four lines create the top down load shape in the weather_year
+        # levels_to_keep = [cfg.demand_primary_geography, 'year', 'final_energy']
+        # temp_energy = self.group_output('energy', levels_to_keep=levels_to_keep, specific_years=weather_year)
+        # top_down_energy = util.remove_df_levels(util.df_slice(temp_energy, cfg.electricity_energy_type_id, 'final_energy'), levels='year')
+        # top_down_shape = top_down_energy * self.default_electricity_shape.values
+        #
+        # # this calls the functions that create the bottom up load shape for the weather_year
+        # bottom_up_shape = self.aggregate_electricity_shapes(weather_year, geomap_to_dispatch_geography=False, reconciliation_step=True)
+        # # 0 is inflexible, 2 is native flexible
+        # bottom_up_shape = util.df_slice(bottom_up_shape, 0, 'timeshift_type')
+        # bottom_up_shape = util.remove_df_levels(bottom_up_shape, 'dispatch_feeder')
+        #
+        # # at this point we have a top down and bottom up estimates for the load shape across all demand
+        # # to get the reconciliation we divide one by the other
+        # self.electricity_reconciliation = util.DfOper.divi((top_down_shape, bottom_up_shape))
+        # # the final step is to pass the reconciliation result down to subsectors. It becomes a pre-multiplier on all of the subsector shapes
         self.pass_electricity_reconciliation()
         self.pass_default_shape()
 
@@ -1347,8 +1348,7 @@ class Subsector(DataMapFunctions):
 #        self.calculate_driver_min_year()
         driver_min_year = 9999
         if self.sub_type == 'stock and energy':
-            stock_min_year = min(
-                self.stock.raw_values.index.levels[util.position_in_index(self.stock.raw_values, 'year')])
+            stock_min_year = min(self.stock.raw_values.index.levels[util.position_in_index(self.stock.raw_values, 'year')])
             sales_share = util.sql_read_table('DemandSalesData', 'vintage', return_iterable=True, subsector_id=self.id)            
             if len(sales_share):                
                 sales_share_min_year = min(sales_share)
@@ -3304,7 +3304,10 @@ class Subsector(DataMapFunctions):
             tech_df = util.DfOper.add(tech_dfs)
             tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names]+[x for x in tech_df.index.names if x not in stock_df.index.names])
             tech_df = tech_df.sort_index()
-            c = util.DfOper.mult((tech_df, stock_df), expandable=(True, stock_expandable), collapsible=(False, True))
+            try:
+                c = util.DfOper.mult((tech_df, stock_df), expandable=(True, stock_expandable), collapsible=(False, True))
+            except:
+                pdb.set_trace()
         else:
             util.empty_df(stock_df.index, stock_df.columns.values, 0.)
 
