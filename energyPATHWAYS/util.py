@@ -9,6 +9,7 @@ Contains unclassified global functions
 """
 
 import config as cfg
+from .error import ColumnNotFound
 import pint
 import pandas as pd
 import os
@@ -34,6 +35,25 @@ import pdb
 from operator import mul
 
 from psycopg2.extensions import register_adapter, AsIs
+
+def splitclean(s, delim=',', allow_empties=False, as_type=None):
+    """
+    Split a delimited string (default is comma-delimited) into elements that are
+    stripped of surrounding whitespace. Filter out empty strings unless `allow_empties`
+    is True.
+
+    :param s: (str) the string to split
+    :param delim: (str) the delimiter to split on
+    :param allow_empties: (bool) whether to allow empty strings in the result
+    :param as_type: (class or type) a type to convert all elements to
+    :return: (list of str) the resulting substrings
+    """
+    result = [item.strip() for item in s.split(delim) if (allow_empties or len(item))]
+
+    if as_type:
+        result = map(as_type, result)
+
+    return result
 
 def addapt_numpy_float64(numpy_float64):
   return AsIs(numpy_float64)
@@ -73,20 +93,20 @@ def freeze_recursivedict(recursivedict):
     return recursivedict
 
 def upper_dict(query, append=None):
-    id_dict = {} if query is None else dict([(id, name.upper()) for id, name in (query if is_iterable(query[0]) else [query])])    
+    id_dict = {} if query is None else dict([(id, name.upper()) for id, name in (query if is_iterable(query[0]) else [query])])
     for key,value in id_dict.iteritems():
         if append is not None:
             id_dict[key] = value + append
     return id_dict
-                
+
 def df_list_concatenate(df_list, keys, new_names, levels_to_keep=None):
     new_names = put_in_list(new_names)
     #remove any elements in the list that are not pandas df
     df_list = [df for df in df_list if type(df) is pd.core.frame.DataFrame]
-    
+
     df_names_set = set(flatten_list([df.index.names if df.index.nlevels>1 else [df.index.name] for df in df_list]))
     levels_to_keep = levels_to_keep if levels_to_keep is not None else list(df_names_set)
-    
+
     #add missing levels
     for df in df_list:
         starting_names = df.index.names if df.index.nlevels>1 else df.index.name
@@ -94,7 +114,7 @@ def df_list_concatenate(df_list, keys, new_names, levels_to_keep=None):
         for missing_name in missing_names:
             df[missing_name] = "N/A"
         df.set_index(missing_names, append=True, inplace=True)
-    
+
     #aggregate extra levels and order
     df_list = [df.groupby(level=list(set(levels_to_keep)-set(new_names)), sort=False).sum() for df in df_list]
 
@@ -102,12 +122,12 @@ def df_list_concatenate(df_list, keys, new_names, levels_to_keep=None):
         return None
     else:
         df = pd.concat(df_list, keys=keys, names=new_names).sort()
-    
+
     #eliminate any new_names we picked up that are not in levels_to_keep, also reorder levels
     return df.groupby(level=levels_to_keep, sort=False).sum()
 
 def order_of_magnitude_difference(df_numerator, df_denominator):
-    return 10**int(round(np.log10(df_numerator.mean().mean())-np.log10(df_denominator.mean().mean())))  
+    return 10**int(round(np.log10(df_numerator.mean().mean())-np.log10(df_denominator.mean().mean())))
 
 def time_stamp(t):
     """Prints the difference between the parameter and current time. This is useful for timing program execution if timestamps are periodicly saved.
@@ -152,7 +172,7 @@ def object_att_from_table(tablename, id, primary_key='id'):
     if attributes is None:
         return None
     native_tuples = [(table_headers, attributes)] if len(table_headers)==1 else zip(table_headers, attributes)
-    
+
     named_tuples = []
     for t in native_tuples:
         col_name = id_to_name(id_col=t[0], id_num=t[1], return_type='tuple')
@@ -177,7 +197,7 @@ def id_to_name(id_col, id_num, return_type='item'):
             id_to_name.lookup_dict[_id_col] = {}
             for _id_num, _name in sql_read_table(_table, 'id, name', return_iterable=True):
                 id_to_name.lookup_dict[_id_col][_id_num] = _name
-    
+
     if id_to_name.lookup_dict.has_key(id_col):
         name = id_to_name.lookup_dict[id_col].get(id_num)
         col = id_col[:-3]
@@ -194,18 +214,29 @@ def empty_df(index, columns, fill_value=0.0, data_type=None):
     df.data_type = data_type
     return df
 
-
-def sql_read_table(table_name, column_names='*', return_unique=False, return_iterable=False, **filters):
+# TODO: this func has been hijacked for now to work with csvdb; we'll change the name later.
+def sql_read_table(table_name, column_names=None, return_unique=False, return_iterable=False, **filters):
     """Get data from a table filtering by columns
     key word arguments give column name, column criteria pairs
 
     example:
         util.sql_read_table('DemandDriversID', 'ID', driver='oil and gas mining VOS')
     """
-    if not isinstance(column_names, basestring):
-        column_names = ', '.join(column_names)
+    from csvdb.data_object import get_database
+
+    db  = get_database()
+    tbl = db.get_table(table_name)
+    df  = tbl.data
+
+    unknown = set(column_names) - set(df.columns)
+    if unknown:
+        raise ColumnNotFound(table_name, list(unknown))
+
+    cols = df[column_names] if column_names else df
+
     distinct = 'DISTINCT ' if return_unique else ''
     query = 'SELECT ' + distinct + column_names + ' FROM "%s"' % table_name
+
     if len(filters):
         datatypes = sql_get_datatype(table_name, filters.keys())
         list_of_filters = ['"' + col + '"=' + fix_sql_query_type(fil, datatypes[col]) if fil is not None else '"' + col + '"is' + 'NULL' for col, fil in filters.items()]
@@ -391,7 +422,7 @@ def write_output_to_db(scenario_run_id, output_type_id, output_df, keep_cut_off=
 def unpack_dict(dictionary, _keys=None, return_items=True):
     if not isinstance(dictionary, dict):
         raise TypeError('unpack_dict takes a dictionary as an argument')
-    
+
     if return_items:
         for key, value in dictionary.items():
             combined_key = put_in_list(_keys) + put_in_list(key) if _keys is not None else put_in_list(key)
@@ -469,7 +500,7 @@ def currency_convert(data, currency_from, currency_from_year):
     currency_to_name, currency_to_year = cfg.cfgfile.get('case', 'currency_name'), int(cfg.cfgfile.get('case', 'currency_year_id'))
     currency_to = sql_read_table('Currencies',column_names='id',name=currency_to_name)
     # inflate in original currency and then exchange in model currency year
-    
+
     try:
         a = inflation_rate(currency_from, currency_from_year)
         b = exchange_rate(currency_from, currency_to_year)
@@ -492,7 +523,7 @@ def currency_convert(data, currency_from, currency_from_year):
             except:
                 raise ValueError(
                     "currency conversion failed. Make sure that the data in InflationConvert and CurrencyConvert can support this conversion")
-        
+
 
 def unit_conversion(unit_from_num=None, unit_from_den=None, unit_to_num=None, unit_to_den=None):
     # try to see if we need to flip the units to make them convertable
@@ -653,7 +684,7 @@ def level_specific_indexer(df, levels, elements, axis=0):
 #            indexer[df.index.names.index(level)] = ensure_iterable_and_not_string(element)
             indexer[df.index.names.index(level)] = element
         if axis == 1:
-#            indexer[df.columns.names.index(level)] = ensure_iterable_and_not_string(element) 
+#            indexer[df.columns.names.index(level)] = ensure_iterable_and_not_string(element)
             indexer[df.columns.names.index(level)] = element
     indexer = tuple(indexer)
     return indexer
@@ -661,7 +692,7 @@ def level_specific_indexer(df, levels, elements, axis=0):
 def multi_merge(df_list):
     a = df_list[0]
     index_names = [x for x in a.index.names]
-    for b in df_list[1:]:   
+    for b in df_list[1:]:
         for name in b.index.names:
             if name not in index_names:
                 index_names.append(b.index.names)
@@ -752,12 +783,12 @@ def expand_multi(df, levels_list, levels_names, how='outer', incremental=False, 
 def is_numeric(obj):
     """
     Checks to see object is numeric.
-    
+
     Args:
         obj (object)
-        
+
     Returns:
-        Boolean    
+        Boolean
     """
     try:
         float(obj)
@@ -822,7 +853,7 @@ def convert_age(self, reverse, vintages, years, attr_from='values', attr_to='val
     """
     Broadcasts vintage values that decay over time to year columns
     """
-    
+
     df = getattr(self,attr_from)
     index_order = df.index.names
     if hasattr(self, 'age_growth_or_decay') and self.age_growth_or_decay is not None:
@@ -846,7 +877,7 @@ def create_markov_matrix(markov_vector, num_techs, num_years, steps_per_year=1):
     if len(range(int(num_years*steps_per_year)))>1:
         markov_matrix[:, :, -1] = 0
     return np.cumprod(markov_matrix, axis=2)
-    
+
 def vintage_year_matrix(years,vintages):
     index = pd.MultiIndex.from_product([years,vintages],names=['year','vintage'])
     data = index.get_level_values('year')==index.get_level_values('vintage')
@@ -883,14 +914,14 @@ def std_weibul_factor(beta):
 
 def create_weibul_coefficient_of_variation(smallest_beta=.02, largest_beta=250, resolution=0.01):
     """ beta is shape parameter of weibull https://en.wikipedia.org/wiki/Weibull_distribution
-        beta < 1 indicates that the failure rate decreases over time. This happens if there is significant "infant mortality", 
-        or defective items failing early and the failure rate decreasing over time as the defective items are weeded out 
+        beta < 1 indicates that the failure rate decreases over time. This happens if there is significant "infant mortality",
+        or defective items failing early and the failure rate decreasing over time as the defective items are weeded out
         of the population.
-        
-        beta = 1 indicates that the failure rate is constant over time. This might suggest random external events 
+
+        beta = 1 indicates that the failure rate is constant over time. This might suggest random external events
         are causing mortality, or failure.
-        
-        beta > 1 indicates that the failure rate increases with time. This happens if there is an "aging" process, 
+
+        beta > 1 indicates that the failure rate increases with time. This happens if there is an "aging" process,
         or parts that are more likely to fail as time goes on.
     """
     # mean is almost always higher than median
@@ -1161,7 +1192,7 @@ class DfOper:
             # Make 'year' and 'vintage' match between dataframes
             new_a, new_b = DfOper._reindex_dfs_so_elements_match(a, b, level_names=non_expandable_levels, how='union')
 
-            # After year and vintage match, do we have others that don't match? 
+            # After year and vintage match, do we have others that don't match?
             elements_a_not_in_b, elements_b_not_in_a = difference_in_df_elements(new_a, new_b, return_bool=False)
             if fill_value is None:
                 if elements_a_not_in_b:
@@ -1328,7 +1359,7 @@ def add_and_set_index(df, name, elements, index_location=None):
 def determ_energy(unit):
     """
     determines whether a unit is an energy unit
-    
+
     """
     # TODO check if static method appropriate
     if cfg.ureg.Quantity(unit).dimensionality == cfg.ureg.Quantity(cfg.calculation_energy_unit).dimensionality:
@@ -1342,8 +1373,8 @@ def sum_chunk(x, chunk_size, axis=-1):
         axis += x.ndim
     shape = shape[:axis] + (shape[axis]/chunk_size, chunk_size) + shape[axis+1:]
     return np.sum(x.reshape(shape), axis=axis+1)
-    
-    
+
+
 def mean_chunk(x, chunk_size, axis=-1):
     """http://stackoverflow.com/questions/18582544/sum-parts-of-numpy-array"""
     shape = x.shape
@@ -1357,10 +1388,10 @@ def sum_chunk_vintage(x, chunk_size, axis=-1):
     shape = x.shape
     slice_index = tuple([slice(None) if e!=axis else slice(1, s) for e, s in enumerate(shape)])
     residual_index = tuple([slice(None) if e!=axis else 0 for e, s in enumerate(shape)])
-    
+
     if axis < 0:
         axis += x.ndim
-    
+
     residual_shape = shape[:axis] + (1,) + shape[axis+1:]
     shape = shape[:axis] + ((shape[axis]-1)/chunk_size, chunk_size) + shape[axis+1:]
     return np.concatenate((x[residual_index].reshape(residual_shape), np.sum(x[slice_index].reshape(shape), axis=axis+1)), axis=axis)
