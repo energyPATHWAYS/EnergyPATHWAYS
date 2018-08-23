@@ -5,7 +5,7 @@ Created on Mon Feb 15 22:06:19 2016
 @author: Ben
 """
 import util
-import numpy as np 
+import numpy as np
 from datamapfunctions import Abstract,DataMapFunctions
 import copy
 import pandas as pd
@@ -67,7 +67,7 @@ def flexible_load_result_to_list(flexible_load):
     items = flexible_load.iteritems()
     lists = [key + (value.value,) for key, value in items]
     return lists
-    
+
 
 def ld_result_to_list(provide_power):
     items = provide_power.iteritems()
@@ -111,10 +111,10 @@ class Dispatch(object):
         for col, att in util.object_att_from_table('DispatchConfig', 1):
             setattr(self, col, att)
         self.node_config_dict = dict()
-        for supply_node in util.sql_read_table('DispatchNodeConfig','supply_node_id',return_iterable=True):
+        for supply_node in util.csv_read_table('DispatchNodeConfig', 'supply_node_id', return_iterable=True):
             self.node_config_dict[supply_node] = DispatchNodeConfig(supply_node)
         self.set_dispatch_orders()
-        self.dispatch_window_dict = dict(util.sql_read_table('DispatchWindows'))  
+        self.dispatch_window_dict = dict(util.csv_read_table('DispatchWindows'))
         self.curtailment_cost = util.unit_convert(0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.unserved_capacity_cost = util.unit_convert(10000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.dist_net_load_penalty = util.unit_convert(15000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
@@ -133,7 +133,7 @@ class Dispatch(object):
         else:
             self.stdout_detail = True
         self.solve_kwargs = {"keepfiles": False, "tee": False}
-  
+
     def set_dispatch_orders(self):
         order = [x.dispatch_order for x in self.node_config_dict.values() if x.optimized!=True]
         nodes = [x for x in self.node_config_dict.keys() if self.node_config_dict[x].optimized!=True]
@@ -185,7 +185,7 @@ class Dispatch(object):
             self.bulk_net_load_thresholds[geography] = transmission_stock.loc[geography].values[0]
             for feeder in self.feeders:
                 if feeder == 0:
-                    self.dist_net_load_thresholds[(geography,feeder)] = 0 
+                    self.dist_net_load_thresholds[(geography,feeder)] = 0
                 else:
                     self.dist_net_load_thresholds[(geography,feeder)] =  util.df_slice(distribution_stock,[geography, feeder],[self.dispatch_geography, 'dispatch_feeder']).values[0][0]
 
@@ -282,7 +282,7 @@ class Dispatch(object):
         # this includes must run generation
         self.ld_bulk_net_load_df = util.DfOper.subt((util.remove_df_levels(bulk_net_load,'period').to_frame(), must_run_sum))
         self.ld_bulk_net_load = self.ld_bulk_net_load_df.squeeze().to_dict()
-        
+
     def set_average_net_loads(self, total_net_load):
         df = total_net_load.copy()
         df['period'] = util.flatten_list([[p]*self.period_lengths[p] for p in self.periods])*len(cfg.dispatch_geographies)
@@ -290,12 +290,12 @@ class Dispatch(object):
         self.period_net_load = df.groupby(level=[self.dispatch_geography, 'period']).sum().squeeze().to_dict()
         self.average_net_load = df.groupby(level=[self.dispatch_geography]).sum()/float(len(self.periods))
         self.average_net_load = self.average_net_load[self.average_net_load.columns[0]].to_dict()
-    
+
     def set_technologies(self,storage_capacity_dict, storage_efficiency_dict, thermal_dispatch_df):
       """prepares storage technologies for dispatch optimization
         args:
             storage_capacity_dict = dictionary of storage discharge capacity and storage discharge duration
-            storage_efficiency_dict = dictionary of storage efficiency 
+            storage_efficiency_dict = dictionary of storage efficiency
         sets:
             capacity = dictionary of storage discharge capacity with keys of dispatch period and unique tech_dispatch_id, a tuple of dispatch_geography,zone,feeder,and technology
             duration = dictionary of storage discharge duration with keys of dispatch period and unique tech_dispatch_id, a tuple of dispatch_geography,zone,feeder,and technology
@@ -327,7 +327,7 @@ class Dispatch(object):
       self.ld_geography = util.recursivedict()
       self.ld_capacity = util.recursivedict()
       self.ld_min_capacity = util.recursivedict()
-      self.ld_feeder = util.recursivedict()      
+      self.ld_feeder = util.recursivedict()
       for dispatch_geography in storage_capacity_dict['power'].keys():
           for zone in storage_capacity_dict['power'][dispatch_geography].keys():
              for feeder in storage_capacity_dict['power'][dispatch_geography][zone].keys():
@@ -349,27 +349,27 @@ class Dispatch(object):
                         if not np.isfinite(x):
                             x = 1
                         self.alloc_charging_efficiency[tech_dispatch_id] = x
-                        self.alloc_discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.alloc_charging_efficiency)[tech_dispatch_id] 
+                        self.alloc_discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.alloc_charging_efficiency)[tech_dispatch_id]
                      else:
                         self.large_storage[tech_dispatch_id] = 0
                      x = 1/np.sqrt(storage_efficiency_dict[dispatch_geography][zone][feeder][tech])
                      if not np.isfinite(x):
                          x = 1
                      self.charging_efficiency[tech_dispatch_id] = x
-                     self.discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.charging_efficiency)[tech_dispatch_id] 
+                     self.discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.charging_efficiency)[tech_dispatch_id]
                      self.feeder[tech_dispatch_id] = feeder
       for dispatch_geography in cfg.dispatch_geographies:
           self.set_gen_technologies(dispatch_geography,thermal_dispatch_df)
       self.convert_all_to_period()
       self.set_transmission_energy()
-      
+
     def set_transmission_energy(self):
         self.tx_energy_dict = util.recursivedict()
         tx_dict = self.transmission.constraints.get_values_as_dict(self.year)
         for t in tx_dict.keys():
             for p in self.period_lengths.keys():
-                self.tx_energy_dict[(t,p)] = tx_dict[t] * self.period_lengths[p] 
-        
+                self.tx_energy_dict[(t,p)] = tx_dict[t] * self.period_lengths[p]
+
 
     def convert_all_to_period(self):
       self.min_capacity = self.convert_to_period(self.min_capacity)
@@ -378,7 +378,7 @@ class Dispatch(object):
       self.energy = self.convert_to_period(self.energy)
       self.feeder = self.convert_to_period(self.feeder)
       self.geography = self.convert_to_period(self.geography)
-    
+
     def set_gen_technologies(self, geography, thermal_dispatch_df):
         pmax = np.array(util.df_slice(thermal_dispatch_df,['capacity',geography],['IO',self.dispatch_geography]).values).T[0]
         marginal_cost = np.array(util.df_slice(thermal_dispatch_df,['cost',geography],['IO',self.dispatch_geography]).values).T[0]
@@ -403,7 +403,7 @@ class Dispatch(object):
         args:
             dictionary
         returns:
-            new_dictionary 
+            new_dictionary
         """
         new_dictionary = dict()
         for period in self.periods:
@@ -445,12 +445,12 @@ class Dispatch(object):
             self.pickle_for_debugging()
             raise ValueError('NaNs in storage dispatch outputs in dispatch period {}'.format(period))
         return df
-    
-    
+
+
     def parse_generator_result(self, lists, period):
         charge_columns = ['tech','hour',self.year,self.dispatch_geography]
         for x in lists:
-            x.append(self.geography[0][str(x[0])])     
+            x.append(self.geography[0][str(x[0])])
         try:
             df = pd.DataFrame(lists, columns=charge_columns)
             df = df.set_index([charge_columns[0], charge_columns[1], charge_columns[3]])
@@ -516,7 +516,7 @@ class Dispatch(object):
         charge = pd.concat([self.parse_storage_result(result['Charge'], period) for period, result in enumerate(results)])
         discharge = pd.concat([self.parse_storage_result(result['Storage_Provide_Power'], period) for period, result in enumerate(results)])
         flex_load_df = pd.concat([self.parse_flexible_load_result(result['Flexible_Load'], period) for period, result in enumerate(results)])
-        generator_df = pd.concat([self.parse_generator_result(result['Generator_Provide_Power'], period) for period, result in enumerate(results)])   
+        generator_df = pd.concat([self.parse_generator_result(result['Generator_Provide_Power'], period) for period, result in enumerate(results)])
         if len(self.ld_technologies):
             ld_df = pd.concat([self.parse_ld_result(result['LD_Provide_Power'], period) for period, result in enumerate(results)])
             ld_df = self._replace_hour_with_weather_datetime(ld_df)
@@ -530,7 +530,7 @@ class Dispatch(object):
         storage_df = self._replace_hour_with_weather_datetime(storage_df)
         storage_df = storage_df.reorder_levels([self.dispatch_geography, 'dispatch_feeder', 'charge_discharge', 'weather_datetime']).sort_index()
         flex_load_df = self._replace_hour_with_weather_datetime(flex_load_df)
-        
+
         return storage_df, flex_load_df, ld_df, transmission_flow_df, generator_df
 
 
@@ -543,7 +543,7 @@ class Dispatch(object):
         return instance if return_model_instance else all_results_to_list(instance)
 
     def test_instance_constraints(model):
-        instance = model.create_instance(report_timing=False)        
+        instance = model.create_instance(report_timing=False)
         for c in instance.component_objects(Constraint):
             c.activate()
             solver = SolverFactory(cfg.solver_name)
@@ -553,7 +553,7 @@ class Dispatch(object):
             else:
                 print c.name
                 c.activate()
-            
+
 
     @staticmethod
     def get_empty_plot(num_rows, num_columns):
@@ -610,14 +610,14 @@ class Dispatch(object):
         except:
             self.pickle_for_debugging()
             raise
-                
+
     def run_year_to_month_allocation(self):
         model = dispatch_long_duration.ld_storage_formulation(self)
         results = self.run_pyomo(model, None)
         state_of_charge, ld_energy_budgets = self.export_allocation_results(results)
         return state_of_charge, ld_energy_budgets
-    
-    
+
+
     def solve_ld_optimization(self):
         if len(self.ld_technologies):
             model = dispatch_long_duration.ld_energy_formulation(self)

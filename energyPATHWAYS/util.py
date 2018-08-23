@@ -168,7 +168,7 @@ def object_att_from_table(tablename, id, primary_key='id'):
     if not len(table_headers):
         return []
 
-    attributes = sql_read_table(tablename, column_names=table_headers, **dict([(primary_key, id)]))
+    attributes = csv_read_table(tablename, column_names=table_headers, **dict([(primary_key, id)]))
     if attributes is None:
         return None
     native_tuples = [(table_headers, attributes)] if len(table_headers)==1 else zip(table_headers, attributes)
@@ -193,9 +193,9 @@ def id_to_name(id_col, id_num, return_type='item'):
     if not hasattr(id_to_name, 'lookup_dict'):
         id_to_name.lookup_dict = {}
         # the lookup cache hasn't been populated yet, so take a time out to populate it
-        for _id_col, _table in sql_read_table('IDMap', 'identifier_id, ref_table'):
+        for _id_col, _table in csv_read_table('IDMap', 'identifier_id, ref_table'):
             id_to_name.lookup_dict[_id_col] = {}
-            for _id_num, _name in sql_read_table(_table, 'id, name', return_iterable=True):
+            for _id_num, _name in csv_read_table(_table, 'id, name', return_iterable=True):
                 id_to_name.lookup_dict[_id_col][_id_num] = _name
 
     if id_to_name.lookup_dict.has_key(id_col):
@@ -214,15 +214,16 @@ def empty_df(index, columns, fill_value=0.0, data_type=None):
     df.data_type = data_type
     return df
 
-# TODO: this func has been hijacked for now to work with csvdb; we'll change the name later.
-def sql_read_table(table_name, column_names=None, return_unique=False, return_iterable=False, **filters):
-    """Get data from a table filtering by columns
-    key word arguments give column name, column criteria pairs
+def csv_read_table(table_name, column_names=None, return_unique=False, return_iterable=False, **filters):
+    """
+    Get data from a table filtering by columns.
+    Key word arguments give column name, column criteria pairs.
 
-    example:
-        util.sql_read_table('DemandDriversID', 'ID', driver='oil and gas mining VOS')
+    Example:
+        util.csv_read_table('DemandDrivers', 'name', driver='oil and gas mining VOS')
     """
     from csvdb.data_object import get_database
+    from csvdb.utils import filter_query
 
     db  = get_database()
     tbl = db.get_table(table_name)
@@ -232,78 +233,121 @@ def sql_read_table(table_name, column_names=None, return_unique=False, return_it
     if unknown:
         raise ColumnNotFound(table_name, list(unknown))
 
-    cols = df[column_names] if column_names else df
+    if filters:
+        df = filter_query(df, filters)
 
-    distinct = 'DISTINCT ' if return_unique else ''
-    query = 'SELECT ' + distinct + column_names + ' FROM "%s"' % table_name
+    if column_names:
+        df = df[column_names]
+    else:
+        column_names = list(df.columns)
 
-    if len(filters):
-        datatypes = sql_get_datatype(table_name, filters.keys())
-        list_of_filters = ['"' + col + '"=' + fix_sql_query_type(fil, datatypes[col]) if fil is not None else '"' + col + '"is' + 'NULL' for col, fil in filters.items()]
-        if list_of_filters:
-            query = query + " where " + " and ".join(list_of_filters)
-            cfg.cur.execute(query)
-            data = [tup[0] if len(tup) == 1 else tup for tup in cfg.cur.fetchall()]
-        else:
-            data = [None]
+    if return_unique:
+        df.drop_duplicates(inplace=True)
+
+    rows, cols = df.shape
+    if rows == 0:
+        data = [None]
+
+    elif cols == 1:
+        data = df.iloc[:, 0].tolist()
 
     else:
-        cfg.cur.execute(query)
-        data = [tup[0] if len(tup) == 1 else tup for tup in cfg.cur.fetchall()]
+        data = list(df.itertuples(index=False, name=None))
+
     # pull out the first element if length is 1 and we don't want to return an iterable
     if len(data) == 0 or data == [None]:
         return [] if return_iterable else None
+
     elif len(data) == 1:
         return data if return_iterable else data[0]
+
     else:
         return data
 
-
-def sql_get_datatype(table_name, column_names):
-    if isinstance(column_names, basestring):
-        column_names = [column_names]
-    cfg.cur.execute("select column_name, data_type from INFORMATION_SCHEMA.COLUMNS where table_name = %s and table_schema = 'public';", (table_name,))
-    table_info = cfg.cur.fetchall()
-    return dict([tup for tup in table_info if tup[0] in column_names])
-
-
-def fix_sql_query_type(string, sqltype):
-    if sqltype == 'INTEGER':
-        return str(string)
-    else:
-        return "'" + str(string) + "'"
-
-
-def sql_read_dataframe(table_name, index_column_name=None, data_column_names='*', **filters):
-    """
-    Read data and create a dataframe
-    Example:
-        data = util.sql_read_dataframe('DemandDrivers', index_column_name='year', data_column_names='value',
-                                        ID=1, gau='total', dau='single-family', add='total')
-    """
-    if not isinstance(index_column_name, basestring):
-        if len(index_column_name) > 1:
-            raise ValueError("Only one index_column_name should be given")
-        else:
-            index_column_name = index_column_name[0]
-
-    if data_column_names == '*':
-        data_column_names = [n for n in sql_read_headers(table_name) if n != index_column_name]
-    if (not isinstance(data_column_names, list)) and (not isinstance(data_column_names, tuple)):
-        data_column_names = [data_column_names]
-
-    data = sql_read_table(table_name, column_names=data_column_names, **filters)
-    if index_column_name is not None:
-        index = sql_read_table(table_name, column_names=index_column_name, **filters)
-        if (not len(index)) or (not len(data)):
-            raise ValueError('sql_read_dataframe returned empty data')
-
-        data_frame = pd.DataFrame(data=data, index=index, columns=data_column_names)
-        data_frame.sort_index(inplace=True)
-    else:
-        data_frame = pd.DataFrame(data=data, columns=data_column_names)
-
-    return data_frame
+# Deprecated
+# def sql_read_table(table_name, column_names=None, return_unique=False, return_iterable=False, **filters):
+#     from csvdb.data_object import get_database
+#
+#     db  = get_database()
+#     tbl = db.get_table(table_name)
+#     df  = tbl.data
+#
+#     unknown = set(column_names) - set(df.columns)
+#     if unknown:
+#         raise ColumnNotFound(table_name, list(unknown))
+#
+#     cols = df[column_names] if column_names else df
+#
+#     distinct = 'DISTINCT ' if return_unique else ''
+#     query = 'SELECT ' + distinct + column_names + ' FROM "%s"' % table_name
+#
+#     if len(filters):
+#         datatypes = sql_get_datatype(table_name, filters.keys())
+#         list_of_filters = ['"' + col + '"=' + fix_sql_query_type(fil, datatypes[col]) if fil is not None else '"' + col + '"is' + 'NULL' for col, fil in filters.items()]
+#         if list_of_filters:
+#             query = query + " where " + " and ".join(list_of_filters)
+#             cfg.cur.execute(query)
+#             data = [tup[0] if len(tup) == 1 else tup for tup in cfg.cur.fetchall()]
+#         else:
+#             data = [None]
+#
+#     else:
+#         cfg.cur.execute(query)
+#         data = [tup[0] if len(tup) == 1 else tup for tup in cfg.cur.fetchall()]
+#     # pull out the first element if length is 1 and we don't want to return an iterable
+#     if len(data) == 0 or data == [None]:
+#         return [] if return_iterable else None
+#     elif len(data) == 1:
+#         return data if return_iterable else data[0]
+#     else:
+#         return data
+#
+#
+# def sql_get_datatype(table_name, column_names):
+#     if isinstance(column_names, basestring):
+#         column_names = [column_names]
+#     cfg.cur.execute("select column_name, data_type from INFORMATION_SCHEMA.COLUMNS where table_name = %s and table_schema = 'public';", (table_name,))
+#     table_info = cfg.cur.fetchall()
+#     return dict([tup for tup in table_info if tup[0] in column_names])
+#
+#
+# def fix_sql_query_type(string, sqltype):
+#     if sqltype == 'INTEGER':
+#         return str(string)
+#     else:
+#         return "'" + str(string) + "'"
+#
+#
+# def sql_read_dataframe(table_name, index_column_name=None, data_column_names='*', **filters):
+#     """
+#     Read data and create a dataframe
+#     Example:
+#         data = util.sql_read_dataframe('DemandDrivers', index_column_name='year', data_column_names='value',
+#                                         ID=1, gau='total', dau='single-family', add='total')
+#     """
+#     if not isinstance(index_column_name, basestring):
+#         if len(index_column_name) > 1:
+#             raise ValueError("Only one index_column_name should be given")
+#         else:
+#             index_column_name = index_column_name[0]
+#
+#     if data_column_names == '*':
+#         data_column_names = [n for n in sql_read_headers(table_name) if n != index_column_name]
+#     if (not isinstance(data_column_names, list)) and (not isinstance(data_column_names, tuple)):
+#         data_column_names = [data_column_names]
+#
+#     data = csv_read_table(table_name, column_names=data_column_names, **filters)
+#     if index_column_name is not None:
+#         index = csv_read_table(table_name, column_names=index_column_name, **filters)
+#         if (not len(index)) or (not len(data)):
+#             raise ValueError('sql_read_dataframe returned empty data')
+#
+#         data_frame = pd.DataFrame(data=data, index=index, columns=data_column_names)
+#         data_frame.sort_index(inplace=True)
+#     else:
+#         data_frame = pd.DataFrame(data=data, columns=data_column_names)
+#
+#     return data_frame
 
 
 def sql_read_headers(table_name):
@@ -321,7 +365,7 @@ def sql_read_dict(table_name, key_col, value_col):
     try:
         return sql_read_dict.memo[memo_key]
     except KeyError:
-        data = sql_read_table(table_name, column_names=(key_col, value_col))
+        data = csv_read_table(table_name, column_names=(key_col, value_col))
         sql_read_dict.memo[memo_key] = {row[0]: row[1] for row in data}
         return sql_read_dict.memo[memo_key]
 sql_read_dict.memo = {}
@@ -472,11 +516,11 @@ def unit_conversion_factor(unit_from, unit_to):
 def exchange_rate(currency_from, currency_from_year, currency_to=None):
     """calculate exchange rate between two specified currencies"""
     try:
-        currency_to_name = cfg.cfgfile.get('case', 'currency_name') if currency_to is None else sql_read_table('Currencies',column_names='name',id=currency_to)
-        currency_to = sql_read_table('Currencies',column_names='id',name=currency_to_name)
-        currency_from_values = sql_read_table('CurrenciesConversion', 'value', currency_id=currency_from,currency_year_id=currency_from_year)
+        currency_to_name = cfg.cfgfile.get('case', 'currency_name') if currency_to is None else csv_read_table('Currencies', column_names='name', id=currency_to)
+        currency_to = csv_read_table('Currencies', column_names='id', name=currency_to_name)
+        currency_from_values = csv_read_table('CurrenciesConversion', 'value', currency_id=currency_from, currency_year_id=currency_from_year)
         currency_from_value = np.asarray(currency_from_values).mean()
-        currency_to_values = sql_read_table('CurrenciesConversion', 'value', currency_id=currency_to,currency_year_id=currency_from_year)
+        currency_to_values = csv_read_table('CurrenciesConversion', 'value', currency_id=currency_to, currency_year_id=currency_from_year)
         currency_to_value = np.asarray(currency_to_values).mean()
     except:
         pdb.set_trace()
@@ -486,10 +530,10 @@ def exchange_rate(currency_from, currency_from_year, currency_to=None):
 def inflation_rate(currency, currency_from_year, currency_to_year=None):
     """calculate inflation rate between two years in a specified currency"""
     currency_to_year = cfg.cfgfile.get('case', 'currency_year_id') if currency_to_year is None else currency_to_year
-    currency_from_values = sql_read_table('InflationConversion', 'value', currency_id=currency,
+    currency_from_values = csv_read_table('InflationConversion', 'value', currency_id=currency,
                                           currency_year_id=currency_from_year)
     currency_from_value = np.asarray(currency_from_values).mean()
-    currency_to_values = sql_read_table('InflationConversion', 'value', currency_id=currency,
+    currency_to_values = csv_read_table('InflationConversion', 'value', currency_id=currency,
                                         currency_year_id=currency_to_year)
     currency_to_value = np.asarray(currency_to_values).mean()
     return currency_to_value / currency_from_value
@@ -498,7 +542,7 @@ def inflation_rate(currency, currency_from_year, currency_to_year=None):
 def currency_convert(data, currency_from, currency_from_year):
     """converts cost data in original currency specifications (currency,year) to model currency and year"""
     currency_to_name, currency_to_year = cfg.cfgfile.get('case', 'currency_name'), int(cfg.cfgfile.get('case', 'currency_year_id'))
-    currency_to = sql_read_table('Currencies',column_names='id',name=currency_to_name)
+    currency_to = csv_read_table('Currencies', column_names='id', name=currency_to_name)
     # inflate in original currency and then exchange in model currency year
 
     try:

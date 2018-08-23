@@ -22,7 +22,7 @@ class DataMapFunctions:
     def _other_indexes_dict():
         this_method = DataMapFunctions._other_indexes_dict
         if not hasattr(this_method, 'memoized_result'):
-            other_indexes_data = util.sql_read_table('OtherIndexesData', ('id', 'other_index_id'))
+            other_indexes_data = util.csv_read_table('OtherIndexesData', ('id', 'other_index_id'))
             this_method.memoized_result = {row[0]: row[1] for row in other_indexes_data}
         return this_method.memoized_result
 
@@ -61,7 +61,7 @@ class DataMapFunctions:
                 filters['sensitivity'] = self.scenario.get_sensitivity(self.sql_data_table, self.id)
 
         # read each line of the data_table matching an id and assign the value to self.raw_values
-        read_data = util.sql_read_table(self.sql_data_table, return_iterable=True, **filters)
+        read_data = util.csv_read_table(self.sql_data_table, return_iterable=True, **filters)
         self.inspect_index_levels(headers, read_data)
         self._validate_other_indexes(headers, read_data)
 
@@ -153,7 +153,7 @@ class DataMapFunctions:
                                          other_index_names[index_attr_value]
                         ))
 
-    def clean_timeseries(self, attr='values', inplace=True, time_index_name='year', 
+    def clean_timeseries(self, attr='values', inplace=True, time_index_name='year',
                          time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing'):
         if time_index is None:
             time_index=cfg.cfgfile.get('case', 'years')
@@ -202,7 +202,7 @@ class DataMapFunctions:
 
         mapped_data = cfg.geo.geo_map(getattr(self, attr), current_geography, converted_geography,
                                       current_data_type, geography_map_key, fill_value, filter_geo)
-        
+
         if inplace:
             setattr(self, attr, mapped_data.sort())
         else:
@@ -263,7 +263,7 @@ class DataMapFunctions:
 
         if (drivers is None) or (not len(drivers)):
             # we have no drivers, just need to do a clean timeseries and a geomap
-            if fill_timeseries:     
+            if fill_timeseries:
                 self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, time_index_name=time_index_name,
                                       interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,
                                       lower=lower, upper=upper)
@@ -284,7 +284,7 @@ class DataMapFunctions:
                 driver_mapping_data_type = 'intensity'
             else:
                 driver_mapping_data_type = 'total'
-            total_driver_current_geo = self.geo_map(current_geography, attr='total_driver', inplace=False, current_geography=driver_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=False)                          
+            total_driver_current_geo = self.geo_map(current_geography, attr='total_driver', inplace=False, current_geography=driver_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=False)
             if current_data_type == 'total':
                 if fill_value is np.nan:
                     df_intensity = DfOper.divi((getattr(self, map_to), total_driver_current_geo), expandable=(False, True), collapsible=(False, True),fill_value=fill_value).replace([np.inf],0)
@@ -309,7 +309,7 @@ class DataMapFunctions:
 
     def project(self, map_from='raw_values', map_to='values', additional_drivers=None, interpolation_method='missing',extrapolation_method='missing',
                 time_index_name='year', fill_timeseries=True, converted_geography=None, current_geography=None, current_data_type=None, fill_value=0.,projected=False,filter_geo=True):
-        
+
         current_data_type = self.input_type if current_data_type is None else current_data_type
         if map_from != 'raw_values' and current_data_type == 'total':
             denominator_driver_ids = []
@@ -325,10 +325,10 @@ class DataMapFunctions:
             if current_geography != converted_geography:
                 # While not on primary geography, geography does have some information we would like to preserve
                 df, current_geography = self.account_for_foreign_gaus(map_from, current_data_type, current_geography)
-                setattr(self,map_to,df)                
+                setattr(self,map_to,df)
                 self.geo_map(converted_geography, current_geography=current_geography, attr=map_to, inplace=True)
                 current_geography = converted_geography
-            total_driver = util.DfOper.mult([self.drivers[id].values for id in denominator_driver_ids])          
+            total_driver = util.DfOper.mult([self.drivers[id].values for id in denominator_driver_ids])
             self.geo_map(current_geography=current_geography, attr=map_to, converted_geography=cfg.disagg_geography, current_data_type = 'intensity')
             setattr(self, map_to, util.DfOper.mult((getattr(self, map_to), total_driver)))
             self.geo_map(current_geography=cfg.disagg_geography, attr=map_to, converted_geography=current_geography,current_data_type='total')

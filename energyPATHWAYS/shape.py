@@ -40,7 +40,7 @@ def num_active_years(active_dates_index):
     year_counts = [sum(active_dates_index.year==y) for y in unique_years]
     years = sum([yc/(8784. if is_leap_year(y) else 8760.) for y, yc in zip(unique_years, year_counts)])
     return min(1., years) # we normalize up to one year
-    
+
 class Shapes(object):
     def __init__(self):
         self.data = {}
@@ -54,7 +54,7 @@ class Shapes(object):
 
     def create_empty_shapes(self):
         """ This should be called first as it creates a record of all of the shapes that are in the database."""
-        for id in util.sql_read_table(self.sql_id_table, column_names='id', return_unique=True, return_iterable=True, is_active=True):
+        for id in util.csv_read_table(self.sql_id_table, column_names='id', return_unique=True, return_iterable=True, is_active=True):
             self.data[id] = Shape(id)
             self.active_shape_ids.append(id)
 
@@ -77,9 +77,9 @@ class Shapes(object):
             if shape.shape_type=='weather date':
                 shape.convert_index_to_datetime('raw_values', 'weather_datetime')
                 date_position = util.position_in_index(shape.raw_values, 'weather_datetime')
-                
+
                 shape.start_date, shape.end_date = min(shape.raw_values.index.levels[date_position]), max(shape.raw_values.index.levels[date_position])
-                
+
                 self.start_date = shape.start_date if self.start_date is None else max(shape.start_date, self.start_date)
                 self.end_date = shape.end_date if self.end_date is None else min(shape.end_date, self.end_date)
         self.set_active_dates()
@@ -121,7 +121,7 @@ class Shapes(object):
 
         self.active_dates_index = pd.date_range(self.start_date, self.end_date, freq='H')
         self.time_slice_elements = self.create_time_slice_elements(self.active_dates_index)
-        
+
         for id in self.active_shape_ids:
             self.data[id].active_dates_index = self.active_dates_index
             self.data[id].time_slice_elements = self.time_slice_elements
@@ -129,24 +129,24 @@ class Shapes(object):
     def process_active_shapes(self):
         #run the weather date shapes first because they inform the daterange for dispatch
         logging.info(' mapping data for:')
-        
+
         if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
             shapes = helper_multiprocess.safe_pool(helper_multiprocess.process_shapes, self.data.values())
             self.data = dict(zip(self.data.keys(), shapes))
         else:
             for id in self.active_shape_ids:
                 self.data[id].process_shape()
-        
+
         self.active_dates_index = pd.date_range(self.active_dates_index[0], periods=len(self.active_dates_index), freq='H')
         self.num_active_years = num_active_years(self.active_dates_index)
         self._geography_check = (cfg.demand_primary_geography_id, cfg.supply_primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
         self._timespan_check = (cfg.shape_start_date, cfg.shape_years)
-    
+
     @staticmethod
     def create_time_slice_elements(active_dates_index):
         business_days = pd.bdate_range(active_dates_index[0].date(), active_dates_index[-1].date())
-        biz_map = {v: k for k, v in util.sql_read_table('DayType', column_names='*', return_iterable=False)}
-        
+        biz_map = {v: k for k, v in util.csv_read_table('DayType', column_names='*', return_iterable=False)}
+
         time_slice_elements = {}
         for ti in cfg.time_slice_col:
             if ti=='day_type':
@@ -163,7 +163,7 @@ class Shapes(object):
         flat_shape = flat_shape.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
         return flat_shape
 
-class Shape(dmf.DataMapFunctions):    
+class Shape(dmf.DataMapFunctions):
     def __init__(self, id):
         self.id = id
         self.sql_id_table = 'Shapes'
@@ -180,10 +180,10 @@ class Shape(dmf.DataMapFunctions):
     def create_empty_shape_data(self):
         self._active_time_keys = [ind for ind in self.raw_values.index.names if ind in cfg.time_slice_col]
         self._active_time_dict = dict([(ind, loc) for loc, ind in enumerate(self.raw_values.index.names) if ind in cfg.time_slice_col])
-        
+
         self._non_time_keys = [ind for ind in self.raw_values.index.names if ind not in self._active_time_keys]
         self._non_time_dict = dict([(ind, loc) for loc, ind in enumerate(self.raw_values.index.names) if ind in self._non_time_keys])
-        
+
         data = pd.DataFrame(index=pd.Index(self.active_dates_index, name='weather_datetime'), columns=['value'])
 
         for ti in self._active_time_keys:
@@ -193,11 +193,11 @@ class Shape(dmf.DataMapFunctions):
                 data[ti] = self.time_slice_elements['hour24']
             else:
                 data[ti] = self.time_slice_elements[ti]
-        
+
         non_time_levels = [list(l) for l, n in zip(self.raw_values.index.levels, self.raw_values.index.names) if n in self._non_time_keys]
         # this next step could be done outside of a for loop, but I'm not able to get the Pandas syntax to take
         for name, level in zip(self._non_time_keys, non_time_levels):
-            data = pd.concat([data]*len(level), keys=level, names=[name])  
+            data = pd.concat([data]*len(level), keys=level, names=[name])
         try:
             data.reset_index(inplace=True)
         except:
@@ -209,7 +209,7 @@ class Shape(dmf.DataMapFunctions):
     def process_shape(self):
         logging.info('    shape: ' + self.name)
         self.num_active_years = num_active_years(self.active_dates_index)
-        
+
         if self.shape_type=='weather date':
             self.values = util.reindex_df_level_with_new_elements(self.raw_values, 'weather_datetime', self.active_dates_index)
             self.values  = self.values.replace(np.nan,0)# this step is slow, consider replacing
@@ -218,24 +218,24 @@ class Shape(dmf.DataMapFunctions):
 
         elif self.shape_type=='time slice':
             self.values = self.create_empty_shape_data()
-            
+
             non_time_elements_in_levels = [list(util.get_elements_from_level(self.values, e)) for e in self._non_time_keys]
             time_elements_in_levels = [list(util.get_elements_from_level(self.values, e)) for e in self._active_time_keys]
-            
+
             for ind, value in self.raw_values.iterrows():
                 non_time_portion = [ind[self._non_time_dict[e]] for e in self._non_time_keys]
                 time_portion = [ind[self._active_time_dict[e]] for e in self._active_time_keys]
                 if not np.all([s in l for s, l in zip(non_time_portion+time_portion, non_time_elements_in_levels+time_elements_in_levels)]):
                     continue
-                
+
                 indexer = tuple(non_time_portion + time_portion + [slice(None)])
-                                
+
                 if self.shape_unit_type=='energy':
                     len_slice = len(self.values.loc[indexer])
                     self.values.loc[indexer] = value[0]/float(len_slice)*self.num_active_years
                 elif self.shape_unit_type=='power':
                     self.values.loc[indexer] = value[0]
-            
+
             if self.values.isnull().values.any():
                 raise ValueError('Shape time slice data did not give full coverage of the active dates')
             # reindex to remove the helper columns
@@ -264,21 +264,21 @@ class Shape(dmf.DataMapFunctions):
             combined_map_df = util.DfOper.mult((self.map_df_tz, self.map_df_primary))
             normalization_factors = combined_map_df.groupby(level=self.primary_geography).sum()
             self.values = util.DfOper.divi((self.values, normalization_factors))
-            
+
             temp = self.values.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
             # TODO: 2, and 3 should not be hard coded here, they represent p_min and p_max
             indexer = util.level_specific_indexer(temp, 'dispatch_constraint', [[2,3]])
             temp.loc[indexer, :] = self.values.loc[indexer, :]
-            
+
             self.values = temp
         else:
-            self.values = self.values.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years        
+            self.values = self.values.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
 
     def geomap_to_time_zone(self, attr='values', inplace=True):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table
         """
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
-        
+
         # create dataframe with map from one geography to another
         # we always want to normalize as a total here because we will re-sum over time zone later
         self.map_df_tz = cfg.geo.map_df(self.geography, 'time zone', normalize_as='total', map_key=geography_map_key)
@@ -294,7 +294,7 @@ class Shape(dmf.DataMapFunctions):
         """ maps the dataframe to primary geography
         """
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
-        
+
         self.map_df_primary = cfg.geo.map_df(self.geography, self.primary_geography, normalize_as=self.input_type, map_key=geography_map_key)
         mapped_data = util.DfOper.mult((getattr(self, attr), self.map_df_primary), fill_value=None)
         if self.geography!=self.primary_geography and self.geography!='time zone':
@@ -308,13 +308,13 @@ class Shape(dmf.DataMapFunctions):
 
     def sum_over_time_zone(self, attr='values', inplace=True):
         converted_geography = self.primary_geography
-        
+
         if converted_geography=='time zone':
             if inplace:
                 return
             else:
                 return getattr(self, attr)
-                
+
         levels = [ind for ind in getattr(self, attr).index.names if ind!='time zone']
         df = getattr(self, attr).groupby(level=levels).sum()
         df.sort(inplace=True)
@@ -329,7 +329,7 @@ class Shape(dmf.DataMapFunctions):
         df = util.reindex_df_level_with_new_elements(getattr(self, attr).copy(), 'weather_datetime', self.final_dates_index)
         levels = [n for n in self.values.index.names if n!='weather_datetime']
         df = df.groupby(level=levels).fillna(method='bfill').fillna(method='ffill')
-        
+
         if inplace:
             setattr(self, attr, df)
         else:
@@ -374,7 +374,7 @@ class Shape(dmf.DataMapFunctions):
 
         add_to_1 = min(0, (cum_df[2] - cum_df[1]).min())*1.01
         subtract_from_3 = min(0, (cum_df[3] - cum_df[2]).min())*1.01
-        
+
         if add_to_1 < 0:
             df.iloc[0,0] += add_to_1
             cum_df = df[1].groupby(level=names).cumsum()
@@ -384,7 +384,7 @@ class Shape(dmf.DataMapFunctions):
                 df.iloc[make_zero, 0] = 0
                 df.iloc[replace, 0] = cum_df.iloc[replace]
             df.iloc[-1, 0] += (df[2].sum() - df[1].sum())
-        
+
         if subtract_from_3 < 0:
             df.iloc[0,2] -= subtract_from_3
             cum_df = df[3].groupby(level=names).cumsum()
@@ -408,14 +408,14 @@ class Shape(dmf.DataMapFunctions):
             logging.error('Infeasible flexible load constraints were created where the advanced load shape is less than the native load shape')
             logging.error(cum_df[cum_df[2] > cum_df[3]])
             pdb.set_trace()
-        
+
         return df
 
     @staticmethod
     def produce_flexible_load(native_slice, percent_flexible=None, hr_delay=None, hr_advance=None):
         hr_delay = 0 if hr_delay is None else hr_delay
         hr_advance = 0 if hr_advance is None else hr_advance
-        
+
         native_slice_stacked = pd.concat([native_slice]*3, keys=[1,2,3], names=['timeshift_type'])
 
         pflex_stacked = pd.concat([percent_flexible]*3, keys=[1,2,3], names=['timeshift_type'])
@@ -433,7 +433,7 @@ class Shape(dmf.DataMapFunctions):
         advance_load = native_slice.groupby(level=non_weather).apply(advance_load_function, hr=hr_advance)
 
         full_load = pd.concat([delay_load, native_slice, advance_load], keys=[1,2,3], names=['timeshift_type'])
-        
+
         return util.DfOper.add((util.DfOper.mult((full_load, pflex_stacked), collapsible=False),
                                 util.DfOper.mult((native_slice_stacked, 1-pflex_stacked), collapsible=False)))
 
@@ -449,7 +449,7 @@ def init_shapes(pickle_shapes=True):
         logging.info('Loading shapes')
         with open(os.path.join(cfg.workingdir, filename), 'rb') as infile:
             shapes = pickle.load(infile)
-    
+
     geography_check = (cfg.demand_primary_geography_id, cfg.supply_primary_geography_id, tuple(sorted(cfg.primary_subset_id)), tuple(cfg.breakout_geography_id))
     timespan_check = (cfg.shape_start_date, cfg.shape_years)
     if (shapes._version != version) or (shapes._geography_check != geography_check) or (shapes._timespan_check != timespan_check) or force_rerun_shapes:
@@ -458,7 +458,7 @@ def init_shapes(pickle_shapes=True):
         shapes.create_empty_shapes()
         shapes.initiate_active_shapes()
         shapes.process_active_shapes()
-        
+
         if pickle_shapes:
             logging.info('Pickling shapes')
             filename = 'd_{}_s_{}_shapes.p'.format(cfg.demand_primary_geography, cfg.supply_primary_geography)

@@ -15,18 +15,18 @@ from energyPATHWAYS.time_series import TimeSeries
 class GeoMapper:
     def __init__(self):
         self.geographies = OrderedDict()
-        self.geography_names = dict(util.sql_read_table('GeographiesData', ['id', 'name'], return_unique=True, return_iterable=True)) # this is used for outputs
+        self.geography_names = dict(util.csv_read_table('GeographiesData', ['id', 'name'], return_unique=True, return_iterable=True)) # this is used for outputs
         self.timezone_names = {}
         self.map_keys = []
         self.read_geography_indicies()
         self.gau_to_geography = dict(util.flatten_list([(v, k) for v in vs] for k, vs in self.geographies.iteritems()))
-        self.id_to_geography = dict((k, v) for k, v in util.sql_read_table('Geographies'))
+        self.id_to_geography = dict((k, v) for k, v in util.csv_read_table('Geographies'))
         self.read_geography_data()
         self._create_composite_geography_levels()
         self.geographies_unfiltered = copy.copy(self.geographies) # keep a record
         self._update_geographies_after_subset()
 
-            
+
     def read_geography_indicies(self):
         cfg.cur.execute(textwrap.dedent("""\
             SELECT "Geographies".name, ARRAY_AGG("GeographiesData".id) AS geography_data_ids
@@ -40,7 +40,7 @@ class GeoMapper:
             self.geographies[row[0]] = row[1]
         for value in self.geographies.values():
             value.sort()
-        for id, name in util.sql_read_table('TimeZones', column_names=['id', 'name']):
+        for id, name in util.csv_read_table('TimeZones', column_names=['id', 'name']):
             self.timezone_names[id] = name
         cfg.cur.execute('SELECT name FROM "GeographyMapKeys" ORDER BY id')
         self.map_keys = [name for (name,) in cfg.cur.fetchall()]
@@ -96,7 +96,7 @@ class GeoMapper:
         names = self.geographies.keys()
         # values is the actual container for the data
         self.values = pd.DataFrame(data, index=pd.MultiIndex.from_tuples(index, names=names), columns=self.map_keys)
-        self.values['intersection_id'] = sorted(util.sql_read_table('GeographyIntersection'))
+        self.values['intersection_id'] = sorted(util.csv_read_table('GeographyIntersection'))
         self.values = self.values.set_index('intersection_id', append=True)
         # sortlevel sorts all of the indicies so that we can slice the dataframe
         self.values = self.values.sort()
@@ -114,12 +114,12 @@ class GeoMapper:
             logging.info('Geomap table will be filtered')
             for id in cfg.primary_subset_id:
                 logging.info(' analysis will include the {} {}'.format(self.gau_to_geography[id], self.geography_names[id]))
-        
+
         if cfg.breakout_geography_id:
             logging.info('Breakout geographies will be used')
             for id in cfg.breakout_geography_id:
                 logging.info(' analysis will include the {} {}'.format(self.gau_to_geography[id], self.geography_names[id]))
-    
+
     def _get_iloc_geo_subset(self, df, primary_subset_id=None):
         """
         get a positional index in self.values (geomap table) that describes the primary_subset geography
@@ -129,13 +129,13 @@ class GeoMapper:
             return list(set(np.concatenate([np.nonzero(df.index.get_level_values(self.gau_to_geography[id])==id)[0] for id in primary_subset_id])))
         else:
             return range(len(df))
-    
+
     def _update_geographies_after_subset(self):
         self.filtered_values = self.values.iloc[self._get_iloc_geo_subset(self.values)]
         for key in self.geographies:
             self.geographies[key] = list(set(self.filtered_values.index.get_level_values(key)))
             self.geographies[key].sort()
-    
+
     def _normalize(self, table, levels):
         if table.index.nlevels>1:
             table = table.groupby(level=levels).transform(lambda x: x / (x.sum()))
@@ -154,12 +154,12 @@ class GeoMapper:
 
 #        if any(impacted in breakout_geography_id for impacted in impacted_gaus):
 #            raise ValueError('breakout geographies in config cannot overlap geographically')
-        
+
         self.values[new_level_name] = base_gaus
         self.values = self.values.set_index(new_level_name, append=True)
         # add to self.geographies
         self.geographies[new_level_name] = list(set(self.values.index.get_level_values(new_level_name)))
-        
+
     def _create_composite_geography_levels(self):
         """
         Potential to create one for primary geography and one for dispatch geography
@@ -176,7 +176,7 @@ class GeoMapper:
         dispatch_geography_name = self.get_dispatch_geography_name()
         if cfg.dispatch_breakout_geography_id and (dispatch_geography_name not in self.values.index.names):
             self._create_composite_geography_level(dispatch_geography_name, self.id_to_geography[cfg.dispatch_geography_id], cfg.dispatch_breakout_geography_id)
-        
+
     def map_df(self, current_geography, converted_geography, normalize_as='total', map_key=None, reset_index=False,
                eliminate_zeros=True, primary_subset_id='from config', geomap_data='from self',filter_geo=True, active_gaus=None):
         """ main function that maps geographies to one another
@@ -315,7 +315,7 @@ class GeoMapper:
         allocated_gau_years = list(allocated_foreign_gau_slice_foreign_geo.index.get_level_values(y_or_v).values)
         allocated_foreign_gau_slice_foreign_geo = allocated_foreign_gau_slice_foreign_geo.reorder_levels(df.index.names).sort()
         indexer = util.level_specific_indexer(allocated_foreign_gau_slice_foreign_geo, [current_geography, y_or_v], [foreign_gau, allocated_gau_years])
-            
+
         df.loc[indexer, :] = allocated_foreign_gau_slice_foreign_geo.loc[indexer, :]
 
         new_impacted_gaus = util.DfOper.subt((impacted_gaus_slice, allocated_foreign_gau_slice_new_geo), fill_value=np.nan, non_expandable_levels=[])
@@ -364,7 +364,7 @@ class GeoMapper:
             return df, current_geography
 
         y_or_v = GeoMapper._get_df_time_index_name(df)
-            
+
         index_with_nans = [df.index.names[i] for i in set(np.nonzero([np.isnan(row) for row in df.index.get_values()])[1])]
         # if we have an index with nan, that typically indicates that one of the foreign gaus didn't have all the index levels
         # if this is the case, we have two options (1) ignore the foreign gau (2) get rid of the other index
@@ -391,13 +391,13 @@ class GeoMapper:
             base_gaus[index] = foreign_gau
             if any(impacted in foreign_gaus for impacted in impacted_gaus):
                 raise ValueError('foreign gaus in the database cannot overlap geographically')
-            
+
             # if the data_type is a total, we need to net out the total
             if data_type=='total':
                 df = self._update_dataframe_totals_after_foreign_gau(df, current_geography, foreign_geography, impacted_gaus, foreign_gau, map_key, zero_out_negatives)
             elif data_type == 'intensity':
                 logging.debug('Foreign GAUs with intensities is not yet implemented, totals will not be conserved')
-        
+
         assert not any([any(np.isnan(row)) for row in df.index.get_values()])
         new_geography_name = self.make_new_geography_name(current_geography, list(foreign_gaus))
         df.index = df.index.rename(new_geography_name, level=current_geography)
@@ -427,10 +427,10 @@ class GeoMapper:
         foreign_gaus = ncf[2] if foreign_gaus is None else foreign_gaus
         current_gaus = ncf[1]
         assert len(foreign_gaus - current_gaus) == 0
-        
+
         if not foreign_gaus:
             return df
-        
+
         # if the index has nans, we need to be careful about data types
         index_with_nans_before = [df.index.names[i] for i in set(np.nonzero([np.isnan(row) for row in df.index.get_values()])[1])]
         indexer = util.level_specific_indexer(df, current_geography, [list(current_gaus-foreign_gaus)])
@@ -445,5 +445,5 @@ class GeoMapper:
         if tuple(sorted(foreign_gaus)) == tuple(sorted(ncf[2])):
             assert not any([any(np.isnan(row)) for row in df.index.get_values()])
         return df
-        
-        
+
+

@@ -32,29 +32,30 @@ import pdb
 model = None
 run_start_time = time.time()
 
-def myexcepthook(exctype, value, tb):
-    logging.error("Exception caught during model run.", exc_info=(exctype, value, tb))
-    # It is possible that we arrived here due to a database exception, and if so the database will be in a state
-    # where it is not accepting commands. To be safe, we do a rollback before attempting to write the run status.
-    try:
-        cfg.con.rollback()
-    except (psycopg2.InterfaceError, AttributeError):
-        logging.exception("Unable to rollback database connection while handling an exception, "
-                          "probably because the connection hasn't been opened yet or was already closed.")
-    sys.__excepthook__(exctype, value, tb)
-sys.excepthook = myexcepthook
-
-def signal_handler(signal, frame):
-    logging.error('Execution interrupted by signal ' + str(signal))
-    # As documented here,
-    # http://stackoverflow.com/questions/39215527/psycopg2-connection-unusable-after-selects-interrupted-by-os-signal
-    # The normal database connection may be in an unusable state here if the signal arrived while the connection
-    # was in the middle of performing some work. Therefore, we re-initialize the connection so that we can use it to
-    # write the cancelation status to the db.
-    cfg.init_db()
-    sys.exit(0)
-signal.signal(signal.SIGINT, signal_handler)
-signal.signal(signal.SIGTERM, signal_handler)
+# Deprecated
+# def myexcepthook(exctype, value, tb):
+#     logging.error("Exception caught during model run.", exc_info=(exctype, value, tb))
+#     # It is possible that we arrived here due to a database exception, and if so the database will be in a state
+#     # where it is not accepting commands. To be safe, we do a rollback before attempting to write the run status.
+#     try:
+#         cfg.con.rollback()
+#     except (psycopg2.InterfaceError, AttributeError):
+#         logging.exception("Unable to rollback database connection while handling an exception, "
+#                           "probably because the connection hasn't been opened yet or was already closed.")
+#     sys.__excepthook__(exctype, value, tb)
+# sys.excepthook = myexcepthook
+#
+# def signal_handler(signal, frame):
+#     logging.error('Execution interrupted by signal ' + str(signal))
+#     # As documented here,
+#     # http://stackoverflow.com/questions/39215527/psycopg2-connection-unusable-after-selects-interrupted-by-os-signal
+#     # The normal database connection may be in an unusable state here if the signal arrived while the connection
+#     # was in the middle of performing some work. Therefore, we re-initialize the connection so that we can use it to
+#     # write the cancelation status to the db.
+#     cfg.init_db()
+#     sys.exit(0)
+# signal.signal(signal.SIGINT, signal_handler)
+# signal.signal(signal.SIGTERM, signal_handler)
 
 @click.command()
 @click.option('-p', '--path', type=click.Path(exists=True), help='Working directory for energyPATHWAYS run.')

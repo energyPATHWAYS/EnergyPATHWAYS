@@ -19,9 +19,9 @@ def read_table(table_name, column_names='*', return_unique=False, return_iterabl
     raise ValueError("Mock doesn't know how to provide this table read: " +
                      str(table_name) + ", " + str(column_names) + ", " + str(filters))
 
-mock_sql_read_table = mock.create_autospec(sql_read_table, side_effect=read_table)
+mock_sql_read_table = mock.create_autospec(csv_read_table, side_effect=read_table)
 
-@mock.patch('energyPATHWAYS.util.sql_read_table', mock_sql_read_table)
+@mock.patch('energyPATHWAYS.util.csv_read_table', mock_sql_read_table)
 class TestIdToName(unittest.TestCase):
 
     def test_basic_lookup(self):

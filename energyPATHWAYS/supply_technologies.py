@@ -30,13 +30,13 @@ class SupplyTechnology(StockItem):
         self.capacity_factor = SupplyTechCapacityFactor(id, self.scenario)
         self.co2_capture = SupplyTechCO2Capture(id, self.scenario)
         self.reference_sales_shares = {}
-        if self.id in util.sql_read_table('SupplySalesShareData', 'supply_technology_id', return_unique=True, return_iterable=True):
+        if self.id in util.csv_read_table('SupplySalesShareData', 'supply_technology_id', return_unique=True, return_iterable=True):
             self.reference_sales_shares[1] = SupplySalesShare(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySalesShare', sql_data_table='SupplySalesShareData', primary_key='supply_node_id', data_id_key='supply_technology_id', scenario=self.scenario)
         self.reference_sales = {}
-        if self.id in util.sql_read_table('SupplySalesData','supply_technology_id', return_unique=True, return_iterable=True):
+        if self.id in util.csv_read_table('SupplySalesData', 'supply_technology_id', return_unique=True, return_iterable=True):
             self.reference_sales[1] = SupplySales(id=self.id, supply_node_id=self.supply_node_id, reference=True,sql_id_table='SupplySales', sql_data_table='SupplySalesData', primary_key='supply_node_id', data_id_key='supply_technology_id', scenario=self.scenario)
         StockItem.__init__(self)
-        
+
         if self.shape_id is not None:
             self.shape = shape.shapes.data[self.shape_id]
 
@@ -57,7 +57,7 @@ class SupplyTechnology(StockItem):
                                                                  reference=False, sql_id_table='SupplySalesShareMeasures',
                                                                  sql_data_table='SupplySalesShareMeasuresData',
                                                                  primary_key='id', data_id_key='parent_id')
-                                                               
+
     def add_sales_measures(self, scenario):
         self.sales = {}
         measure_ids = scenario.get_measures('SupplySalesMeasures', self.supply_node_id, self.id)
@@ -78,9 +78,9 @@ class SupplyTechnology(StockItem):
 
     def add_costs(self):
         """
-        Adds all conversion technology costs and uses replace_costs function on 
+        Adds all conversion technology costs and uses replace_costs function on
         equivalent costs.
-        
+
         """
         self.capital_cost_new = SupplyTechInvestmentCost(self.id, 'SupplyTechsCapitalCost','SupplyTechsCapitalCostNewData', self.scenario, self.book_life, self.cost_of_capital)
         self.capital_cost_replacement = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost', 'SupplyTechsCapitalCostReplacementData', self.scenario, self.book_life, self.cost_of_capital)
@@ -88,18 +88,18 @@ class SupplyTechnology(StockItem):
         self.installation_cost_replacement = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost', 'SupplyTechsInstallationCostReplacementData', self.scenario, self.book_life, self.cost_of_capital)
         self.fixed_om = SupplyTechFixedOMCost(self.id, 'SupplyTechsFixedMaintenanceCost', 'SupplyTechsFixedMaintenanceCostData', self.scenario)
         self.variable_om = SupplyTechVariableOMCost(self.id, 'SupplyTechsVariableMaintenanceCost', 'SupplyTechsVariableMaintenanceCostData', self.scenario)
-        
+
         self.replace_costs('capital_cost_new', 'capital_cost_replacement')
         self.replace_costs('installation_cost_new', 'installation_cost_replacement')
         self.replace_costs('fixed_om')
         self.replace_costs('variable_om')
 
     def replace_costs(self, class_a, class_b=None):
-        """ 
-        Adds all available cost data to classes. Removes classes with no data and replaces 
+        """
+        Adds all available cost data to classes. Removes classes with no data and replaces
         them with cost classes containing equivalent data.
-        
-        Ex. If capital costs for new installations are input but capital costs for replacement are not, 
+
+        Ex. If capital costs for new installations are input but capital costs for replacement are not,
         it copies capital costs for new to the replacement capital cost class
         """
         # if no class_b is specified, there is no equivalent cost for class_a
@@ -129,19 +129,19 @@ class StorageTechnology(SupplyTechnology):
 
     def add_costs(self):
         """
-        Adds all conversion technology costs and uses replace_costs function on 
+        Adds all conversion technology costs and uses replace_costs function on
         equivalent costs.
         """
         self.capital_cost_new_capacity = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost', 'StorageTechsCapacityCapitalCostNewData', self.scenario, self.book_life, self.cost_of_capital)
         self.capital_cost_replacement_capacity = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost', 'StorageTechsCapacityCapitalCostReplacementData', self.scenario, self.book_life, self.cost_of_capital)
         self.capital_cost_new_energy = StorageTechEnergyCost(self.id, 'StorageTechsEnergyCapitalCost', 'StorageTechsEnergyCapitalCostNewData', self.scenario, self.book_life, self.cost_of_capital)
         self.capital_cost_replacement_energy = StorageTechEnergyCost(self.id, 'StorageTechsEnergyCapitalCost', 'StorageTechsEnergyCapitalCostReplacementData', self.scenario, self.book_life, self.cost_of_capital)
-        
+
         self.installation_cost_new = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost', 'SupplyTechsInstallationCostNewData', self.scenario, self.book_life, self.cost_of_capital)
         self.installation_cost_replacement = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost', 'SupplyTechsInstallationCostReplacementData', self.scenario, self.book_life, self.cost_of_capital)
         self.fixed_om = SupplyTechFixedOMCost(self.id, 'SupplyTechsFixedMaintenanceCost', 'SupplyTechsFixedMaintenanceCostData', self.scenario)
         self.variable_om = SupplyTechVariableOMCost(self.id, 'SupplyTechsVariableMaintenanceCost', 'SupplyTechsVariableMaintenanceCostData', self.scenario)
-        
+
         self.replace_costs('capital_cost_new_capacity', 'capital_cost_replacement_capacity')
         self.replace_costs('capital_cost_new_energy', 'capital_cost_replacement_energy')
         self.replace_costs('installation_cost_new', 'installation_cost_replacement')
@@ -157,8 +157,8 @@ class SupplyTechCost(Abstract):
         self.scenario = scenario
         self.book_life = book_life
         Abstract.__init__(self, id, primary_key='supply_tech_id', data_id_key='supply_tech_id')
-    
-    
+
+
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
@@ -179,12 +179,12 @@ class SupplyTechInvestmentCost(SupplyTechCost):
         self.cost_of_capital = cost_of_capital
         if self.cost_of_capital is None:
             self.cost_of_capital = cost_of_capital
-    
+
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
         if self.data and self.raw_values is not None:
-            if self.definition == 'absolute': 
+            if self.definition == 'absolute':
                 self.convert()
             else:
                 self.values = copy.deepcopy(self.raw_values)
@@ -214,7 +214,7 @@ class SupplyTechInvestmentCost(SupplyTechCost):
                 self.values = np.pv(rate, self.book_life, -1, 0, 'end') * self.values
         else:
             raise ValueError('Supply Technology id %s needs to indicate whether costs are levelized ' %self.id)
-            
+
     def convert(self):
         """
         convert raw_values to model currency and capacity (energy_unit/time_step)
@@ -238,8 +238,8 @@ class SupplyTechInvestmentCost(SupplyTechCost):
         else:
             self.absolute = False
 
-           
-class StorageTechEnergyCost(SupplyTechInvestmentCost):           
+
+class StorageTechEnergyCost(SupplyTechInvestmentCost):
     def _init__(self, id, sql_id_table, sql_data_table, scenario, book_life=None, cost_of_capital=None,**kwargs):
         SupplyTechInvestmentCost.__init__(self, id, sql_id_table, sql_data_table, scenario, book_life, cost_of_capital)
 
@@ -259,7 +259,7 @@ class StorageTechEnergyCost(SupplyTechInvestmentCost):
 class SupplyTechFixedOMCost(SupplyTechCost):
     def __init__(self, id, sql_id_table, sql_data_table, scenario, book_life=None, **kwargs):
         SupplyTechCost.__init__(self, id, sql_id_table, sql_data_table, scenario, book_life)
-            
+
     def convert(self):
         """
         convert raw_values to model currency and capacity (energy_unit/time_step)
@@ -287,7 +287,7 @@ class SupplyTechFixedOMCost(SupplyTechCost):
 class SupplyTechVariableOMCost(SupplyTechCost):
     def __init__(self, id, sql_id_table, sql_data_table, scenario, book_life=None, **kwargs):
         SupplyTechCost.__init__(self, id, sql_id_table, sql_data_table, scenario, book_life)
-            
+
     def convert(self):
         """
         convert raw_values to model currency and capacity (energy_unit/time_step)
@@ -299,9 +299,9 @@ class SupplyTechVariableOMCost(SupplyTechCost):
             self.absolute = True
         else:
             self.absolute = False
-            
-            
-            
+
+
+
 
 
 class SupplyTechEfficiency(Abstract):
@@ -313,7 +313,7 @@ class SupplyTechEfficiency(Abstract):
         self.scenario = scenario
         Abstract.__init__(self, self.id, 'supply_tech_id')
 
-        
+
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
@@ -327,7 +327,7 @@ class SupplyTechEfficiency(Abstract):
             # if the class is empty, then there is no data for conversion, so the class is considered converted
             self.absolute = True
 
-          
+
 
     def convert(self):
         """
@@ -350,8 +350,8 @@ class SupplyTechCapacityFactor(Abstract):
         self.sql_data_table = 'SupplyTechsCapacityFactorData'
         self.scenario = scenario
         Abstract.__init__(self, id, 'supply_tech_id')
-            
-        
+
+
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
@@ -360,7 +360,7 @@ class SupplyTechCapacityFactor(Abstract):
             self.values.replace(0,1,inplace=True)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
 
- 
+
 class SupplyTechCO2Capture(Abstract):
     def __init__(self, id, scenario, **kwargs):
         self.id = id
@@ -369,8 +369,8 @@ class SupplyTechCO2Capture(Abstract):
         self.sql_data_table = 'SupplyTechsCO2CaptureData'
         self.scenario = scenario
         Abstract.__init__(self, id, 'supply_tech_id')
-            
-        
+
+
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
@@ -379,11 +379,10 @@ class SupplyTechCO2Capture(Abstract):
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         elif self.data is False:
             index = pd.MultiIndex.from_product([cfg.geo.geographies[cfg.supply_primary_geography],self.vintages], names=[cfg.supply_primary_geography,'vintage'])
-            self.values = util.empty_df(index,columns=years,fill_value=0.0)    
+            self.values = util.empty_df(index,columns=years,fill_value=0.0)
             self.data = True
 
 
 
 
 
-    

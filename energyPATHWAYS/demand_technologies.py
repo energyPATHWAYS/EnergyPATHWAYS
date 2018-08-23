@@ -216,7 +216,7 @@ class DemandTechServiceLink(Abstract):
         if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered converted
             self.absolute = True
-        
+
 
 
 class ServiceDemandModifier(Abstract):
@@ -244,7 +244,7 @@ class ServiceDemandModifier(Abstract):
         if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered converted
             self.absolute = True
-        
+
 
 class DemandTechnology(StockItem):
     def __init__(self, id, subsector_id, service_demand_unit, stock_time_unit, cost_of_capital, scenario=None, **kwargs):
@@ -264,7 +264,7 @@ class DemandTechnology(StockItem):
         # we can have multiple sales shares because sales share may be specific
         # to the transition between two technolog)
         self.reference_sales_shares = {}
-        if self.id in util.sql_read_table('DemandSalesData', 'demand_technology_id', return_unique=True, return_iterable=True):
+        if self.id in util.csv_read_table('DemandSalesData', 'demand_technology_id', return_unique=True, return_iterable=True):
             self.reference_sales_shares[1] = SalesShare(id=self.id, subsector_id=self.subsector_id, reference=True,
                                                         sql_id_table='DemandSales', sql_data_table='DemandSalesData',
                                                         primary_key='subsector_id', data_id_key='demand_technology_id',
@@ -311,12 +311,12 @@ class DemandTechnology(StockItem):
     def add_service_links(self):
         """adds all technology service links"""
         self.service_links = {}
-        service_links = util.sql_read_table('DemandTechsServiceLink', 'service_link_id', return_unique=True,
+        service_links = util.csv_read_table('DemandTechsServiceLink', 'service_link_id', return_unique=True,
                                             demand_technology_id=self.id)
         if service_links is not None:
             service_links = util.ensure_iterable_and_not_string(service_links)
             for service_link in service_links:
-                id = util.sql_read_table('DemandTechsServiceLink', 'id', return_unique=True, demand_technology_id=self.id,
+                id = util.csv_read_table('DemandTechsServiceLink', 'id', return_unique=True, demand_technology_id=self.id,
                                          service_link_id=service_link)
                 self.service_links[service_link] = DemandTechServiceLink(self, id, 'DemandTechsServiceLink',
                                                                          'DemandTechsServiceLinkData',

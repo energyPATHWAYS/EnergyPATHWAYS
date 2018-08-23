@@ -5,13 +5,14 @@ import errno
 import ConfigParser
 import pint
 import geomapper
-from .util import splitclean, sql_read_table, create_weibul_coefficient_of_variation, upper_dict, ensure_iterable_and_not_string
+from .util import splitclean, csv_read_table, create_weibul_coefficient_of_variation, upper_dict, ensure_iterable_and_not_string
 import warnings
 import pandas as pd
 from collections import defaultdict
 import datetime
 import logging
 import sys
+from csvdb.data_object import str_to_id
 from pyomo.opt import SolverFactory
 import pdb
 
@@ -82,7 +83,7 @@ shape_years = None
 date_lookup = None
 time_slice_col = None
 electricity_energy_type_id = None
-electricity_energy_type_shape_id = None
+electricity_energy_type_shape = None
 opt_period_length = None
 solver_name = None
 transmission_constraint_id = None
@@ -146,7 +147,7 @@ def initialize_config(_path, _cfgfile_name, _log_name):
     init_date_lookup()
     init_output_parameters()
     # used when reading in raw_values from data tables
-    index_levels = sql_read_table('IndexLevels', column_names=['index_level', 'data_column_name'])
+    index_levels = csv_read_table('IndexLevels', column_names=['index_level', 'data_column_name'])
     solver_name = find_solver()
 
     available_cpus = getParamAsInt('num_cores')
@@ -262,7 +263,7 @@ def init_shapes():
 
 
 def init_date_lookup():
-    global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape_id, opt_period_length, transmission_constraint_id, filter_dispatch_less_than_x
+    global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape, opt_period_length, transmission_constraint_id, filter_dispatch_less_than_x
     class DateTimeLookup:
         def __init__(self):
             self.dates = {}
@@ -280,9 +281,10 @@ def init_date_lookup():
 
     date_lookup = DateTimeLookup()
     time_slice_col = ['year', 'month', 'week', 'hour', 'day_type']
-    # todo electricity energy type needs to make reference to our id assigned to electricity
-    electricity_energy_type_shape_id = sql_read_table('FinalEnergy', column_names=['shape'], name='electricity')
+
+    electricity_energy_type_shape = csv_read_table('FinalEnergy', column_names=['shape'], name='electricity')
     electricity_energy_type_id = str_to_id('electricity')
+
     opt_period_length = int(cfgfile.get('opt', 'period_length'))
     transmission_constraint_id = cfgfile.get('opt','transmission_constraint_id')
     transmission_constraint_id = int(transmission_constraint_id) if transmission_constraint_id != "" else None
@@ -298,7 +300,7 @@ def init_output_levels():
     output_demand_levels = ['year', 'vintage', 'demand_technology', demand_primary_geography, 'sector', 'subsector', 'final_energy','other_index_1','other_index_2','cost_type','new/replacement']
     output_supply_levels = ['year', 'vintage', 'supply_technology', supply_primary_geography,  'demand_sector', 'supply_node', 'ghg', 'resource_bin','cost_type']
     output_combined_levels = list(set(output_supply_levels + output_demand_levels + [combined_outputs_geography + "_supply"]))
-    output_combined_levels = list(set(output_combined_levels) - set([demand_primary_geography, supply_primary_geography])) + [combined_outputs_geography]
+    output_combined_levels = list(set(output_combined_levels) - {demand_primary_geography, supply_primary_geography}) + [combined_outputs_geography]
 
     for x in [x[0] for x in cfgfile.items('demand_output_detail')]:
         if x in output_demand_levels and cfgfile.get('demand_output_detail', x).lower() != 'true':
@@ -315,7 +317,7 @@ def init_output_levels():
 
 def table_dict(table_name, columns=['id', 'name'], append=False,
                other_index_id=id, return_iterable=False, return_unique=True):
-    df = sql_read_table(table_name, columns,
+    df = csv_read_table(table_name, columns,
                         other_index_id=other_index_id,
                         return_iterable=return_iterable,
                         return_unique=return_unique)
@@ -361,7 +363,7 @@ def init_outputs_id_map():
     outputs_id_map['other_index_2'] = table_dict('OtherIndexesData')
     outputs_id_map['timeshift_type'] = table_dict('FlexibleLoadShiftTypes')
 
-    for id, name in sql_read_table('OtherIndexes', ('id', 'name'), return_iterable=True):
+    for id, name in csv_read_table('OtherIndexes', ('id', 'name'), return_iterable=True):
         if name in ('demand_technology', 'final_energy'):
             continue
         outputs_id_map[name] = table_dict('OtherIndexesData', other_index_id=id, return_unique=True)

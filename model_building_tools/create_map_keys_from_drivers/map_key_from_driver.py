@@ -37,9 +37,9 @@ model = PathwaysModel(scenario_id, api_run=False)
 demand = model.demand
 demand.add_drivers()
 
-existing_geo_map_key_ids, existing_geo_map_key_names = zip(*util.sql_read_table('GeographyMapKeys'))
+existing_geo_map_key_ids, existing_geo_map_key_names = zip(*util.csv_read_table('GeographyMapKeys'))
 next_map_key_id = max(existing_geo_map_key_ids)+1
-next_geo_map_id = max(util.sql_read_table('GeographyMap', 'id'))+1
+next_geo_map_id = max(util.csv_read_table('GeographyMap', 'id')) + 1
 
 ###############################################
 # user inputs
