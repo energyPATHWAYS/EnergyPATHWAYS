@@ -281,7 +281,8 @@ def init_date_lookup():
     date_lookup = DateTimeLookup()
     time_slice_col = ['year', 'month', 'week', 'hour', 'day_type']
     # todo electricity energy type needs to make reference to our id assigned to electricity
-    electricity_energy_type_id, electricity_energy_type_shape_id = sql_read_table('FinalEnergy', column_names=['name', 'shape'], name='electricity')
+    electricity_energy_type_shape_id = sql_read_table('FinalEnergy', column_names=['shape'], name='electricity')
+    electricity_energy_type_id = str_to_id('electricity')
     opt_period_length = int(cfgfile.get('opt', 'period_length'))
     transmission_constraint_id = cfgfile.get('opt','transmission_constraint_id')
     transmission_constraint_id = int(transmission_constraint_id) if transmission_constraint_id != "" else None
