@@ -140,7 +140,8 @@ def initialize_config(_path, _cfgfile_name, _log_name):
 
     init_db()
     init_units()
-    init_geo()
+    geo = geomapper.GeoMapper()
+    # init_geo()
     init_shapes()
     init_date_lookup()
     init_output_parameters()
@@ -148,7 +149,7 @@ def initialize_config(_path, _cfgfile_name, _log_name):
     index_levels = sql_read_table('IndexLevels', column_names=['index_level', 'data_column_name'])
     solver_name = find_solver()
 
-    available_cpus = int(cfgfile.get('case','num_cores'))
+    available_cpus = getParamAsInt('num_cores')
     weibul_coeff_of_var = create_weibul_coefficient_of_variation()
     timestamp = str(datetime.datetime.now().replace(second=0,microsecond=0))
 
@@ -176,16 +177,16 @@ def init_cfgfile(cfgfile_path):
     cfgfile = ConfigParser.ConfigParser()
     cfgfile.read(cfgfile_path)
 
-    years = range(int(cfgfile.get('case', 'demand_start_year')),
-                   int(cfgfile.get('case', 'end_year')) + 1,
-                   int(cfgfile.get('case', 'year_step')))
+    years = range(getParamAsInt( 'demand_start_year'),
+                   getParamAsInt( 'end_year') + 1,
+                   getParamAsInt( 'year_step'))
 
-    supply_years = range(int(cfgfile.get('case', 'current_year')),
-                          int(cfgfile.get('case', 'end_year')) + 1,
-                          int(cfgfile.get('case', 'year_step')))
+    supply_years = range(getParamAsInt( 'current_year'),
+                          getParamAsInt( 'end_year') + 1,
+                          getParamAsInt( 'year_step'))
 
-    cfgfile.set('case', 'years', years)
-    cfgfile.set('case', 'supply_years', supply_years)
+    # cfgfile.set('case', 'years', years)
+    # cfgfile.set('case', 'supply_years', supply_years)
 
 def init_db():
     data_tables = ['GeographiesSpatialJoin', 'GeographyMapKeys']
@@ -211,40 +212,40 @@ def init_units():
             continue
         ureg.define(unit_def)
 
-def init_geo():
-    #Geography conversions
-    global geo, demand_geographies, supply_geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id, disagg_geography, disagg_geography_id
-    global primary_subset_id, breakout_geography_id, dispatch_breakout_geography_id, disagg_breakout_geography_id, include_foreign_gaus
-    global demand_primary_geography, demand_primary_geography_id, supply_primary_geography, supply_primary_geography_id, combined_outputs_geography_side, combined_outputs_geography
-    global combined_geographies
-
-    # from config file
-    demand_primary_geography_id = cfgfile.get('case', 'demand_primary_geography')
-    supply_primary_geography_id = cfgfile.get('case', 'supply_primary_geography')
-    combined_outputs_geography_side = cfgfile.get('case', 'combined_outputs_geography_side')
-    #primary_subset_id = [g for g in cfgfile.get('case', 'primary_subset').split(',') if len(g)]
-    primary_subset_id = splitclean(getParam('primary_subset'))
-    breakout_geography_id = splitclean(cfgfile.get('case', 'breakout_geography'))
-    dispatch_geography_id = cfgfile.get('case', 'dispatch_geography')
-    dispatch_breakout_geography_id = splitclean(cfgfile.get('case', 'dispatch_breakout_geography'))
-    disagg_geography_id = cfgfile.get('case', 'disagg_geography')
-    disagg_breakout_geography_id = splitclean(cfgfile.get('case', 'disagg_breakout_geography'))
-    include_foreign_gaus = True if cfgfile.get('case', 'include_foreign_gaus').lower()=='true' else False
-
-    # geography conversion object
-    geo = geomapper.GeoMapper()
-
-    # derived from inputs and geomapper object
-    dispatch_geography = geo.get_dispatch_geography_name()
-    demand_primary_geography = geo.get_demand_primary_geography_name()
-    supply_primary_geography = geo.get_supply_primary_geography_name()
-    assert combined_outputs_geography_side.lower() == 'demand' or combined_outputs_geography_side.lower() == 'supply'
-    combined_outputs_geography = demand_primary_geography if combined_outputs_geography_side.lower() == 'demand' else supply_primary_geography
-    disagg_geography = geo.get_disagg_geography_name()
-    dispatch_geographies = geo.geographies[dispatch_geography]
-    demand_geographies = geo.geographies[demand_primary_geography]
-    supply_geographies = geo.geographies[supply_primary_geography]
-    combined_geographies = geo.geographies[combined_outputs_geography]
+# def init_geo():
+#     #Geography conversions
+#     global geo, demand_geographies, supply_geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id, disagg_geography, disagg_geography_id
+#     global primary_subset_id, breakout_geography_id, dispatch_breakout_geography_id, disagg_breakout_geography_id, include_foreign_gaus
+#     global demand_primary_geography, demand_primary_geography_id, supply_primary_geography, supply_primary_geography_id, combined_outputs_geography_side, combined_outputs_geography
+#     global combined_geographies
+#
+#     # from config file
+#     demand_primary_geography_id = cfgfile.get('case', 'demand_primary_geography')
+#     supply_primary_geography_id = cfgfile.get('case', 'supply_primary_geography')
+#     combined_outputs_geography_side = cfgfile.get('case', 'combined_outputs_geography_side')
+#     #primary_subset_id = [g for g in cfgfile.get('case', 'primary_subset').split(',') if len(g)]
+#     primary_subset_id = splitclean(getParam('primary_subset'))
+#     breakout_geography_id = splitclean(cfgfile.get('case', 'breakout_geography'))
+#     dispatch_geography_id = cfgfile.get('case', 'dispatch_geography')
+#     dispatch_breakout_geography_id = splitclean(cfgfile.get('case', 'dispatch_breakout_geography'))
+#     disagg_geography_id = cfgfile.get('case', 'disagg_geography')
+#     disagg_breakout_geography_id = splitclean(cfgfile.get('case', 'disagg_breakout_geography'))
+#     include_foreign_gaus = True if cfgfile.get('case', 'include_foreign_gaus').lower()=='true' else False
+#
+#     # geography conversion object
+#     geo = geomapper.GeoMapper()
+#
+#     # derived from inputs and geomapper object
+#     dispatch_geography = geo.get_dispatch_geography_name()
+#     demand_primary_geography = geo.get_demand_primary_geography_name()
+#     supply_primary_geography = geo.get_supply_primary_geography_name()
+#     assert combined_outputs_geography_side.lower() == 'demand' or combined_outputs_geography_side.lower() == 'supply'
+#     combined_outputs_geography = demand_primary_geography if combined_outputs_geography_side.lower() == 'demand' else supply_primary_geography
+#     disagg_geography = geo.get_disagg_geography_name()
+#     dispatch_geographies = geo.geographies[dispatch_geography]
+#     demand_geographies = geo.geographies[demand_primary_geography]
+#     supply_geographies = geo.geographies[supply_primary_geography]
+#     combined_geographies = geo.geographies[combined_outputs_geography]
 
 def init_shapes():
     global shape_start_date, shape_years
@@ -279,7 +280,8 @@ def init_date_lookup():
 
     date_lookup = DateTimeLookup()
     time_slice_col = ['year', 'month', 'week', 'hour', 'day_type']
-    electricity_energy_type_id, electricity_energy_type_shape_id = sql_read_table('FinalEnergy', column_names=['id', 'shape_id'], name='electricity')
+    # todo electricity energy type needs to make reference to our id assigned to electricity
+    electricity_energy_type_id, electricity_energy_type_shape_id = sql_read_table('FinalEnergy', column_names=['name', 'shape'], name='electricity')
     opt_period_length = int(cfgfile.get('opt', 'period_length'))
     transmission_constraint_id = cfgfile.get('opt','transmission_constraint_id')
     transmission_constraint_id = int(transmission_constraint_id) if transmission_constraint_id != "" else None
@@ -365,8 +367,8 @@ def init_outputs_id_map():
 
 def init_output_parameters():
     global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes, evolved_years
-    currency_name = cfgfile.get('case', 'currency_name')
-    output_currency = cfgfile.get('case', 'currency_year_id') + ' ' + currency_name
+    currency_name = getParam('currency_name')
+    output_currency = getParam('currency_year_id') + ' ' + currency_name
     output_tco = cfgfile.get('output_detail', 'output_tco').lower()
     output_payback = cfgfile.get('output_detail', 'output_payback').lower()
     evolved_run = cfgfile.get('evolved','evolved_run').lower()

@@ -155,9 +155,9 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\run for ben\2020 end census'
+    workingdir = r'C:\github\EP_runs\csv-migration'
     config = 'config.INI'
-    scenario = ['high_moder_aeo']
+    scenario = ['ref_moder_aeo']
 
     run(workingdir, config, scenario,
     load_demand   = False,
@@ -167,5 +167,5 @@ if __name__ == "__main__":
     export_results= True,
     load_error    = False,
     pickle_shapes = True,
-    save_models   = True,
+    save_models   = False,
     clear_results = True)

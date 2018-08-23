@@ -10,132 +10,154 @@ from collections import OrderedDict, defaultdict
 import textwrap
 import logging
 import pdb
-from energyPATHWAYS.time_series import TimeSeries
+
+from RIO.time_series import TimeSeries
+from RIO.riodb.rio_db_loader import RioDatabase
 
 class GeoMapper:
-    def __init__(self):
-        self.geographies = OrderedDict()
-        self.geography_names = dict(util.sql_read_table('GeographiesData', ['id', 'name'], return_unique=True, return_iterable=True)) # this is used for outputs
-        self.timezone_names = {}
-        self.map_keys = []
-        self.read_geography_indicies()
-        self.gau_to_geography = dict(util.flatten_list([(v, k) for v in vs] for k, vs in self.geographies.iteritems()))
-        self.id_to_geography = dict((k, v) for k, v in util.sql_read_table('Geographies'))
-        self.read_geography_data()
+    _instance = None
+    _global_geography = 'global'
+    _global_gau = 'all'
+
+    base_demand_primary_geography = None
+    base_supply_primary_geography = None
+    base_dispatch_geography = None
+    base_disagg_geography = None
+
+    demand_primary_geography = None
+    supply_primary_geography = None
+    dispatch_geography = None
+    disagg_geography = None
+    combined_outputs_geography = None
+
+    primary_subset = None
+    breakout_geography = None
+    dispatch_breakout_geography = None
+    disagg_breakout_geography = None
+
+    include_foreign_gaus = None
+    default_geography_map_key = None
+
+    # todo these need to eventually map to integers
+    dispatch_geographies = None
+    demand_geographies = None
+    supply_geographies = None
+    combined_geographies = None
+
+    @classmethod
+    def get_instance(cls, database_path=None):
+        if cls._instance is None:
+            cls._instance = GeoMapper(database_path)
+        return cls._instance
+
+    def __init__(self, database_path=None):
+        data, map_keys, geography_to_gau, gau_to_geography = self.read_geography_data(database_path)
+        self.data = data
+        self.map_keys = map_keys
+        self.geography_to_gau = geography_to_gau
+        self.geography_to_gau_unfiltered = copy.copy(self.geography_to_gau)
+        self.gau_to_geography = gau_to_geography
+
+        GeoMapper.breakout_geography = [g.lstrip().rstrip() for g in cfg.getParam('breakout_geography').split(',') if len(g)]
+        # if GeoMapper.cfg_gau_breakout:
+        #     self.create_breakout_geography_level()
+
+        GeoMapper.cfg_gau_subset = [g.lstrip().rstrip() for g in cfg.getParam('primary_subset').split(',') if len(g)]
+        if GeoMapper.cfg_gau_subset:
+            self._update_geographies_after_subset()
+
+        GeoMapper.base_demand_primary_geography = cfg.getParam('demand_primary_geography')
+        GeoMapper.breakout_geography = util.splitclean(cfg.getParam('breakout_geography'))
+        GeoMapper.demand_primary_geography = self.make_new_geography_name(GeoMapper.base_demand_primary_geography, GeoMapper.breakout_geography)
+
+        GeoMapper.base_supply_primary_geography = cfg.getParam('supply_primary_geography')
+        GeoMapper.supply_primary_geography = self.make_new_geography_name(GeoMapper.base_supply_primary_geography, GeoMapper.breakout_geography)
+
+        GeoMapper.base_dispatch_geography = cfg.getParam('dispatch_geography')
+        GeoMapper.dispatch_breakout_geography = util.splitclean(cfg.getParam('dispatch_breakout_geography'))
+        GeoMapper.dispatch_geography = self.make_new_geography_name(GeoMapper.base_dispatch_geography, GeoMapper.dispatch_breakout_geography)
+
+        GeoMapper.base_disagg_geography = cfg.getParam('disagg_geography')
+        GeoMapper.disagg_breakout_geography = util.splitclean(cfg.getParam('disagg_breakout_geography'))
+        GeoMapper.disagg_geography = self.make_new_geography_name(GeoMapper.base_disagg_geography, GeoMapper.disagg_breakout_geography)
+
+        combined_outputs_geography_side = cfg.getParam('combined_outputs_geography_side')
+        assert combined_outputs_geography_side.lower() == 'demand' or combined_outputs_geography_side.lower() == 'supply'
+        GeoMapper.combined_outputs_geography = GeoMapper.demand_primary_geography if combined_outputs_geography_side.lower() == 'demand' else GeoMapper.supply_primary_geography
+
+        GeoMapper.primary_subset = util.splitclean(cfg.getParam('primary_subset'))
+        GeoMapper.include_foreign_gaus = cfg.getParamAsBoolean('include_foreign_gaus')
+        GeoMapper.default_geography_map_key = cfg.getParam('default_geography_map_key')
+
         self._create_composite_geography_levels()
-        self.geographies_unfiltered = copy.copy(self.geographies) # keep a record
-        self._update_geographies_after_subset()
 
-            
-    def read_geography_indicies(self):
-        cfg.cur.execute(textwrap.dedent("""\
-            SELECT "Geographies".name, ARRAY_AGG("GeographiesData".id) AS geography_data_ids
-            FROM "Geographies"
-            JOIN "GeographiesData" ON "Geographies".id = "GeographiesData".geography_id
-            GROUP BY "Geographies".id
-            ORDER BY "Geographies".id;
-        """))
+        GeoMapper.demand_geographies = self.geography_to_gau[GeoMapper.demand_primary_geography]
+        GeoMapper.supply_geographies = self.geography_to_gau[GeoMapper.supply_primary_geography]
+        GeoMapper.dispatch_geographies = self.geography_to_gau[GeoMapper.dispatch_geography]
+        GeoMapper.combined_geographies = self.geography_to_gau[GeoMapper.combined_outputs_geography]
 
-        for row in cfg.cur.fetchall():
-            self.geographies[row[0]] = row[1]
-        for value in self.geographies.values():
-            value.sort()
-        for id, name in util.sql_read_table('TimeZones', column_names=['id', 'name']):
-            self.timezone_names[id] = name
-        cfg.cur.execute('SELECT name FROM "GeographyMapKeys" ORDER BY id')
-        self.map_keys = [name for (name,) in cfg.cur.fetchall()]
+        self.log_geo()
 
-    def read_geography_data(self):
-        cfg.cur.execute('SELECT COUNT(*) FROM "GeographyIntersection"')
-        expected_rows = cfg.cur.fetchone()[0]
+    def read_geography_data(self, database_path):
+        db = RioDatabase.get_database(database_path)
+        geographies_table = db.get_table("Geographies").data
+        global_geographies = pd.DataFrame([[GeoMapper._global_geography, GeoMapper._global_gau]], columns=['geography', 'gau'])
+        geographies_table = pd.concat((geographies_table, global_geographies))
+        assert len(geographies_table['gau']) == len(geographies_table['gau'].unique())
 
-        # This query pulls together the geography map from its constituent tables. Its rows look like:
-        # intersection_id, [list of geographical units that define intersection],
-        # [list of values for map keys for this intersection]
-        # Note that those internal lists are specifically being drawn out in the order of their Geographies and
-        # GeographyMapKeys, respectively, so that they are in the same order as the expected dataframe indexes
-        # and column headers
-        cfg.cur.execute(textwrap.dedent("""\
-            SELECT intersections.id,
-                   intersections.intersection,
-                   ARRAY_AGG("GeographyMap".value ORDER BY "GeographyMap".geography_map_key_id) AS values
-            FROM
-            (
-                SELECT "GeographyIntersection".id,
-                       ARRAY_AGG("GeographyIntersectionData".gau_id ORDER BY "GeographiesData".geography_id) AS intersection
-                FROM "GeographyIntersection"
-                JOIN "GeographyIntersectionData"
-                     ON "GeographyIntersectionData".intersection_id = "GeographyIntersection".id
-                JOIN "GeographiesData"
-                     ON "GeographyIntersectionData".gau_id = "GeographiesData".id
-                GROUP BY "GeographyIntersection".id
-                ORDER BY "GeographyIntersection".id
-            ) AS intersections
+        gau_to_geography = dict(zip(geographies_table['gau'].values, geographies_table['geography'].values))
+        geography_to_gau = {}
+        for k, v in gau_to_geography.iteritems():
+            geography_to_gau[v] = geography_to_gau.get(v, [])
+            geography_to_gau[v].append(k)
 
-            JOIN "GeographyMap" ON "GeographyMap".intersection_id = intersections.id
-            GROUP BY intersections.id, intersections.intersection;
-        """))
+        data = db.get_table("GeographiesSpatialJoin").data
+        data[GeoMapper._global_geography] = GeoMapper._global_gau
+        data = data.set_index(list(geographies_table['geography'].unique())).sort_index()
+        map_keys = util.flatten_list(db.get_table("GeographyMapKeys").data.values)
 
-        map = cfg.cur.fetchall()
-        assert len(map) == expected_rows, "Expected %i rows in the geography map but found %i" % (expected_rows, len(map))
+        map_keys_not_in_data = [mk for mk in map_keys if mk not in data.columns]
+        if map_keys_not_in_data:
+            logging.warning('The following map keys were not found in the spatial join table: {}'.format(map_keys_not_in_data))
+        data_cols_not_in_map_keys = [mk for mk in data.columns if mk not in map_keys]
+        if data_cols_not_in_map_keys:
+            logging.warning('Extra spatial join table columns were found that are not in map keys: {}'.format(data_cols_not_in_map_keys))
 
-        # convert the query results into a list of indexes and a list of data (column values) that can be used
-        # to construct a data frame
-        expected_layers = len(self.geographies)
-        expected_values = len(self.map_keys)
-        index = []
-        data = []
-        for row in map:
-            id_, intersection, values = row
-            assert len(intersection) == expected_layers, "Expected each geography map row to have %i geographic layers but row id %i has %i" % (expected_layers, id_, len(intersection))
-            assert len(values) == expected_values, "Expected each geography map row to have %i data values but row id %i has %i" % (expected_values, id_, len(values))
-            index.append(tuple(intersection))
-            data.append(values)
-
-        # construct the data frame
-        names = self.geographies.keys()
-        # values is the actual container for the data
-        self.values = pd.DataFrame(data, index=pd.MultiIndex.from_tuples(index, names=names), columns=self.map_keys)
-        self.values['intersection_id'] = sorted(util.sql_read_table('GeographyIntersection'))
-        self.values = self.values.set_index('intersection_id', append=True)
-        # sortlevel sorts all of the indicies so that we can slice the dataframe
-        self.values = self.values.sort()
-        # self.values.replace(0,1e-10,inplace=True)
-        # self.values = self.values.groupby(level=[x for x in self.values.index.names if x not in ['intersection_id']]).first()
+        return data, map_keys, geography_to_gau, gau_to_geography
 
     def log_geo(self):
         """
         get a positional index in self.values (geomap table) that describes the primary_subset geography
         """
-        logging.info('Demand primary geography is {}'.format(self.id_to_geography[cfg.demand_primary_geography_id]))
-        logging.info('Supply primary geography is {}'.format(self.id_to_geography[cfg.supply_primary_geography_id]))
-        logging.info('Dispatch geography is {}'.format(self.id_to_geography[cfg.dispatch_geography_id]))
-        if cfg.primary_subset_id:
+        logging.info('Demand primary geography is {}'.format(GeoMapper.demand_primary_geography))
+        logging.info('Supply primary geography is {}'.format(GeoMapper.supply_primary_geography))
+        logging.info('Dispatch geography is {}'.format(GeoMapper.dispatch_geography))
+        if GeoMapper.primary_subset:
             logging.info('Geomap table will be filtered')
-            for id in cfg.primary_subset_id:
-                logging.info(' analysis will include the {} {}'.format(self.gau_to_geography[id], self.geography_names[id]))
-        
-        if cfg.breakout_geography_id:
+            for gau in GeoMapper.primary_subset:
+                logging.info(' analysis will include the {} {}'.format(self.gau_to_geography[gau], gau))
+
+        if GeoMapper.breakout_geography:
             logging.info('Breakout geographies will be used')
-            for id in cfg.breakout_geography_id:
-                logging.info(' analysis will include the {} {}'.format(self.gau_to_geography[id], self.geography_names[id]))
-    
-    def _get_iloc_geo_subset(self, df, primary_subset_id=None):
+            for gau in GeoMapper.breakout_geography:
+                logging.info(' analysis will include the {} {}'.format(self.gau_to_geography[gau], gau))
+
+    def _get_iloc_geo_subset(self, df, primary_subset=None):
         """
-        get a positional index in self.values (geomap table) that describes the primary_subset geography
+        get a positional index in self.data (geomap table) that describes the primary_subset geography
         """
-        primary_subset_id = cfg.primary_subset_id if primary_subset_id is None else primary_subset_id
-        if primary_subset_id:
-            return list(set(np.concatenate([np.nonzero(df.index.get_level_values(self.gau_to_geography[id])==id)[0] for id in primary_subset_id])))
+        primary_subset = GeoMapper.cfg_gau_subset if primary_subset is None else primary_subset
+        if primary_subset:
+            return list(set(np.concatenate([np.nonzero(df.index.get_level_values(self.gau_to_geography[id])==id)[0] for id in primary_subset if id in self.gau_to_geography])))
         else:
             return range(len(df))
-    
+
     def _update_geographies_after_subset(self):
-        self.filtered_values = self.values.iloc[self._get_iloc_geo_subset(self.values)]
-        for key in self.geographies:
-            self.geographies[key] = list(set(self.filtered_values.index.get_level_values(key)))
-            self.geographies[key].sort()
-    
+        self.filtered_values = self.data.iloc[self._get_iloc_geo_subset(self.data)]
+        for key in self.geography_to_gau:
+            self.geography_to_gau[key] = list(set(self.filtered_values.index.get_level_values(key)))
+            self.geography_to_gau[key].sort()
+
     def _normalize(self, table, levels):
         if table.index.nlevels>1:
             table = table.groupby(level=levels).transform(lambda x: x / (x.sum()))
@@ -144,41 +166,42 @@ class GeoMapper:
             table[:] = 1
         return table
 
-    def _create_composite_geography_level(self, new_level_name, base_geography, breakout_geography_id):
-        base_gaus = np.array(self.values.index.get_level_values(base_geography), dtype=int)
+    def _create_composite_geography_level(self, new_level_name, base_geography, breakout_geography):
+        base_gaus = np.array(self.data.index.get_level_values(base_geography))
         impacted_gaus = set()
-        for id in breakout_geography_id:
-            index = np.nonzero(self.values.index.get_level_values(self.gau_to_geography[id])==id)[0]
+        for gau in breakout_geography:
+            index = np.nonzero(self.data.index.get_level_values(self.gau_to_geography[gau]) == gau)[0]
             impacted_gaus = impacted_gaus | set(base_gaus[index])
-            base_gaus[index] = id
+            base_gaus[index] = gau
 
-#        if any(impacted in breakout_geography_id for impacted in impacted_gaus):
-#            raise ValueError('breakout geographies in config cannot overlap geographically')
-        
-        self.values[new_level_name] = base_gaus
-        self.values = self.values.set_index(new_level_name, append=True)
+        #        if any(impacted in breakout_geography_id for impacted in impacted_gaus):
+        #            raise ValueError('breakout geographies in config cannot overlap geographically')
+
+        self.data[new_level_name] = base_gaus
+        self.data = self.data.set_index(new_level_name, append=True)
         # add to self.geographies
-        self.geographies[new_level_name] = list(set(self.values.index.get_level_values(new_level_name)))
-        
+        self.geography_to_gau[new_level_name] = list(set(self.data.index.get_level_values(new_level_name)))
+
+
     def _create_composite_geography_levels(self):
         """
         Potential to create one for primary geography and one for dispatch geography
         """
-        demand_primary_geography_name = self.get_demand_primary_geography_name()
-        if cfg.breakout_geography_id and (demand_primary_geography_name not in self.values.index.names):
-            self._create_composite_geography_level(demand_primary_geography_name, self.id_to_geography[cfg.demand_primary_geography_id], cfg.breakout_geography_id)
-        supply_primary_geography_name = self.get_supply_primary_geography_name()
-        if cfg.breakout_geography_id and (supply_primary_geography_name not in self.values.index.names):
-            self._create_composite_geography_level(supply_primary_geography_name, self.id_to_geography[cfg.supply_primary_geography_id], cfg.breakout_geography_id)
-        disagg_geography_name = self.get_disagg_geography_name()
-        if cfg.disagg_breakout_geography_id and (disagg_geography_name not in self.values.index.names):
-            self._create_composite_geography_level(disagg_geography_name, self.id_to_geography[cfg.disagg_geography_id], cfg.disagg_breakout_geography_id)
-        dispatch_geography_name = self.get_dispatch_geography_name()
-        if cfg.dispatch_breakout_geography_id and (dispatch_geography_name not in self.values.index.names):
-            self._create_composite_geography_level(dispatch_geography_name, self.id_to_geography[cfg.dispatch_geography_id], cfg.dispatch_breakout_geography_id)
-        
+        if GeoMapper.breakout_geography and (GeoMapper.demand_primary_geography not in self.data.index.names):
+            self._create_composite_geography_level(GeoMapper.demand_primary_geography, GeoMapper.base_demand_primary_geography, GeoMapper.breakout_geography)
+
+        if GeoMapper.breakout_geography and (GeoMapper.supply_primary_geography not in self.data.index.names):
+            self._create_composite_geography_level(GeoMapper.supply_primary_geography, GeoMapper.base_supply_primary_geography, GeoMapper.breakout_geography)
+
+        if GeoMapper.disagg_breakout_geography and (GeoMapper.disagg_geography not in self.data.index.names):
+            self._create_composite_geography_level(GeoMapper.disagg_geography, GeoMapper.base_disagg_geography, GeoMapper.disagg_breakout_geography)
+
+        if GeoMapper.dispatch_breakout_geography and (GeoMapper.dispatch_geography not in self.data.index.names):
+            self._create_composite_geography_level(GeoMapper.dispatch_geography, GeoMapper.base_dispatch_geography, GeoMapper.dispatch_breakout_geography)
+
+
     def map_df(self, current_geography, converted_geography, normalize_as='total', map_key=None, reset_index=False,
-               eliminate_zeros=True, primary_subset_id='from config', geomap_data='from self',filter_geo=True, active_gaus=None):
+               eliminate_zeros=True, primary_subset='from config', geomap_data='from self', filter_geo=True, active_gaus=None):
         """ main function that maps geographies to one another
         Two options for two overlapping areas
             (A u B) / A     (A is supersection)
@@ -192,18 +215,24 @@ class GeoMapper:
             "what fraction of each state is in each census division
         """
         assert normalize_as=='total' or normalize_as=='intensity'
-        geomap_data = self.values if geomap_data=='from self' else geomap_data
-        map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if map_key is None else map_key
+        geomap_data = self.data if geomap_data=='from self' else geomap_data
+        map_key = cfg.getParam('default_geography_map_key') if map_key is None else map_key
         table = geomap_data[map_key].to_frame()
 
-        if primary_subset_id == 'from config' and filter_geo:
-            table = table.iloc[self._get_iloc_geo_subset(table, cfg.primary_subset_id)]
+        if primary_subset == 'from config' and filter_geo:
+            table = table.iloc[self._get_iloc_geo_subset(table, GeoMapper.cfg_gau_subset)]
 
         if active_gaus is not None:
-            table = table.iloc[self._get_iloc_geo_subset(table, list(active_gaus))]
+            iloc_subset = self._get_iloc_geo_subset(table, list(active_gaus))
+            # if we have a gau filter that doesn't intersect with the active gaus, it can happen that we have no overlaps
+            # in this instance, we just want to zero the table todo: how will this work with intensities?
+            if len(iloc_subset):
+                table = table.iloc[iloc_subset]
+            else:
+                table[:] = 0
 
-        current_geography = util.ensure_iterable_and_not_string(current_geography)
-        converted_geography = util.ensure_iterable_and_not_string(converted_geography)
+        current_geography = util.ensure_iterable(current_geography)
+        converted_geography = util.ensure_iterable(converted_geography)
         union_geo = list(set(current_geography) | set(converted_geography))
 
         table = table.groupby(level=union_geo).sum()
@@ -235,56 +264,52 @@ class GeoMapper:
         mapped_data = df.reorder_levels(new_order)
         return mapped_data
 
-    def geo_map(self, df, current_geography, converted_geography, current_data_type, geography_map_key=None, fill_value=0., filter_geo=True):
+    @classmethod
+    def geo_map(cls, df, current_geography, converted_geography, current_data_type, geography_map_key=None, fill_value=0.,filter_geo=True, non_expandable_levels=None,operation='mult'):
         if current_geography==converted_geography:
             return df
         assert current_geography in df.index.names
-        geography_map_key = geography_map_key or cfg.cfgfile.get('case', 'default_geography_map_key')
+        geography_map_key = geography_map_key or cfg.getParam('default_geography_map_key')
         # create dataframe with map from one geography to another
         active_gaus = df.index.get_level_values(current_geography).unique()
-        map_df = self.map_df(current_geography, converted_geography, normalize_as=current_data_type,
-                             map_key=geography_map_key, filter_geo=filter_geo, active_gaus=active_gaus)
-        mapped_data = util.DfOper.mult([df, map_df], fill_value=fill_value)
+        map_df = cls.get_instance().map_df(current_geography, converted_geography, normalize_as=current_data_type,
+                                           map_key=geography_map_key, filter_geo=filter_geo, active_gaus=active_gaus)
+        map_df_gaus = map_df.index.get_level_values(current_geography).unique()
+        if len(np.intersect1d(active_gaus, map_df_gaus)):
+            # we have gaus that overlap
+            if operation == 'mult':
+                mapped_data = util.DfOper.mult([df, map_df], non_expandable_levels=non_expandable_levels, fill_value=fill_value)
+            elif operation == 'none':
+                mapped_data = util.DfOper.none([df, map_df], non_expandable_levels=non_expandable_levels, fill_value=fill_value)
+        else:
+            # no gaus overlap, all we can do is add the new converted geography and then set the dataframe to zero
+            new_gaus = map_df.index.get_level_values(converted_geography).unique()
+            mapped_data = pd.concat([df]*len(new_gaus), keys=list(new_gaus), names=[converted_geography])
+            mapped_data[:] = 0
         mapped_data = util.remove_df_levels(mapped_data, current_geography)
         if hasattr(mapped_data.index, 'swaplevel'):
             mapped_data = GeoMapper.reorder_df_geo_left_year_right(mapped_data, converted_geography)
-        return mapped_data.sort()
+        return mapped_data.sort_index()
 
     def filter_extra_geos_from_df(self, df):
         # we have a subset geography and should remove the data that is completely outside of the breakout
-        if cfg.primary_subset_id:
-            levels = [n for n in df.index.names if n in self.geographies]
-            elements = [self.geographies[n] for n in levels]
+        if GeoMapper.cfg_gau_subset:
+            levels = [n for n in df.index.names if n in self.geography_to_gau]
+            elements = [self.geography_to_gau[n] for n in levels]
             indexer = util.level_specific_indexer(df, levels=levels, elements=elements)
             df = df.sort_index()
             df = df.loc[indexer, :]
-            return df.reset_index().set_index(df.index.names).sort()
+            return df.reset_index().set_index(df.index.names).sort_index()
         else:
             return df
 
-    def make_new_geography_name(self, base_geography, breakout_ids=None):
-        if breakout_ids:
-            base_geography += " breaking out " + ", ".join([self.geography_names[id] for id in breakout_ids])
+    def make_new_geography_name(self, base_geography, gau_breakout=None):
+        if gau_breakout:
+            base_geography += " breaking out " + ", ".join(gau_breakout)
         return base_geography
 
-    def get_supply_primary_geography_name(self):
-        return self.make_new_geography_name(self.id_to_geography[cfg.supply_primary_geography_id],
-                                            cfg.breakout_geography_id)
-
-    def get_demand_primary_geography_name(self):
-        return self.make_new_geography_name(self.id_to_geography[cfg.demand_primary_geography_id],
-                                            cfg.breakout_geography_id)
-
-    def get_disagg_geography_name(self):
-        return self.make_new_geography_name(self.id_to_geography[cfg.disagg_geography_id],
-                                            cfg.disagg_breakout_geography_id)
-
-    def get_dispatch_geography_name(self):
-        return self.make_new_geography_name(self.id_to_geography[cfg.dispatch_geography_id],
-                                            cfg.dispatch_breakout_geography_id)
-
     def get_native_current_foreign_gaus(self, df, current_geography):
-        native_gaus = set(self.geographies_unfiltered[current_geography])
+        native_gaus = set(self.geography_to_gau_unfiltered[current_geography])
         current_gaus = set(df.index.get_level_values(current_geography))
         foreign_gaus = current_gaus - native_gaus
         return native_gaus, current_gaus, foreign_gaus
@@ -300,7 +325,7 @@ class GeoMapper:
         foreign_gau_slice.index = foreign_gau_slice.index.rename(foreign_geography, level=current_geography)
 
         # do the allocation, take the ratio of foreign to native, do a clean timeseries, then reconstitute the foreign gau data over all years
-        allocation = self.map_df(foreign_geography, current_geography, map_key=map_key, primary_subset_id=[foreign_gau])
+        allocation = self.map_df(foreign_geography, current_geography, map_key=map_key, primary_subset=[foreign_gau])
         allocated_foreign_gau_slice = util.DfOper.mult((foreign_gau_slice, allocation), fill_value=np.nan)
         allocated_foreign_gau_slice = allocated_foreign_gau_slice.reorder_levels([-1]+range(df.index.nlevels))
         ratio_allocated_to_impacted = util.DfOper.divi((allocated_foreign_gau_slice, impacted_gaus_slice), fill_value=np.nan, non_expandable_levels=[])
@@ -315,7 +340,7 @@ class GeoMapper:
         allocated_gau_years = list(allocated_foreign_gau_slice_foreign_geo.index.get_level_values(y_or_v).values)
         allocated_foreign_gau_slice_foreign_geo = allocated_foreign_gau_slice_foreign_geo.reorder_levels(df.index.names).sort()
         indexer = util.level_specific_indexer(allocated_foreign_gau_slice_foreign_geo, [current_geography, y_or_v], [foreign_gau, allocated_gau_years])
-            
+
         df.loc[indexer, :] = allocated_foreign_gau_slice_foreign_geo.loc[indexer, :]
 
         new_impacted_gaus = util.DfOper.subt((impacted_gaus_slice, allocated_foreign_gau_slice_new_geo), fill_value=np.nan, non_expandable_levels=[])
@@ -360,11 +385,11 @@ class GeoMapper:
     def incorporate_foreign_gaus(self, df, current_geography, data_type, map_key, keep_oth_index_over_oth_gau=False, zero_out_negatives=True):
         native_gaus, current_gaus, foreign_gaus = self.get_native_current_foreign_gaus(df, current_geography)
         # we don't have any foreign gaus
-        if not foreign_gaus or not cfg.include_foreign_gaus:
+        if not foreign_gaus or not cfg.getParamAsBoolean('include_foreign_gaus'):
             return df, current_geography
 
         y_or_v = GeoMapper._get_df_time_index_name(df)
-            
+
         index_with_nans = [df.index.names[i] for i in set(np.nonzero([np.isnan(row) for row in df.index.get_values()])[1])]
         # if we have an index with nan, that typically indicates that one of the foreign gaus didn't have all the index levels
         # if this is the case, we have two options (1) ignore the foreign gau (2) get rid of the other index
@@ -383,42 +408,36 @@ class GeoMapper:
         df_years = sorted(list(set(df_no_foreign_gaus.index.get_level_values(y_or_v).values)))
         df = util.reindex_df_level_with_new_elements(df, y_or_v, df_years)
 
-        base_gaus = np.array(self.values.index.get_level_values(current_geography), dtype=int)
+        base_gaus = np.array(self.data.index.get_level_values(current_geography), dtype=int)
         for foreign_gau in foreign_gaus:
             foreign_geography = self.gau_to_geography[foreign_gau]
-            index = np.nonzero(self.values.index.get_level_values(self.gau_to_geography[foreign_gau])==foreign_gau)[0]
+            index = np.nonzero(self.data.index.get_level_values(self.gau_to_geography[foreign_gau])==foreign_gau)[0]
             impacted_gaus = list(set(base_gaus[index]))
             base_gaus[index] = foreign_gau
             if any(impacted in foreign_gaus for impacted in impacted_gaus):
                 raise ValueError('foreign gaus in the database cannot overlap geographically')
-            
+
             # if the data_type is a total, we need to net out the total
             if data_type=='total':
                 df = self._update_dataframe_totals_after_foreign_gau(df, current_geography, foreign_geography, impacted_gaus, foreign_gau, map_key, zero_out_negatives)
             elif data_type == 'intensity':
                 logging.debug('Foreign GAUs with intensities is not yet implemented, totals will not be conserved')
-        
+
         assert not any([any(np.isnan(row)) for row in df.index.get_values()])
         new_geography_name = self.make_new_geography_name(current_geography, list(foreign_gaus))
         df.index = df.index.rename(new_geography_name, level=current_geography)
-        if new_geography_name not in self.geographies:
+        if new_geography_name not in self.geography_to_gau:
             self.add_new_geography(new_geography_name, base_gaus)
         # df = GeoMapper.reorder_level_names_after_incorporating_foreign_gaus(df, new_geography_name, y_or_v)
         return df, new_geography_name
 
-    # @staticmethod (didn't fix the problem)
-    # def reorder_level_names_after_incorporating_foreign_gaus(df, geography, y_or_v):
-    #     # seems to be necessary sometimes to make sure that years are on the right and gau on the left
-    #     new_order = [geography] + [l for l in df.index.names if l not in [geography, y_or_v]] + [y_or_v]
-    #     return df.reorder_levels(new_order).sort()
-
     def add_new_geography(self, new_geography_name, base_gaus):
-        self.values[new_geography_name] = base_gaus
-        self.values = self.values.set_index(new_geography_name, append=True)
-        # add to self.geographies
-        self.geographies_unfiltered[new_geography_name] = sorted(list(set(self.values.index.get_level_values(new_geography_name))))
+        self.data[new_geography_name] = base_gaus
+        self.data = self.data.set_index(new_geography_name, append=True)
+        # add to self.geography_to_gau
+        self.geography_to_gau_unfiltered[new_geography_name] = sorted(list(set(self.data.index.get_level_values(new_geography_name))))
         self._update_geographies_after_subset()
-        self.geographies[new_geography_name] = sorted(list(set(self.filtered_values.index.get_level_values(new_geography_name))))
+        self.geography_to_gau[new_geography_name] = sorted(list(set(self.filtered_values.index.get_level_values(new_geography_name))))
 
     def filter_foreign_gaus(self, df, current_geography, foreign_gaus=None):
         """ Remove foreign gaus from the dataframe
@@ -426,24 +445,11 @@ class GeoMapper:
         ncf = self.get_native_current_foreign_gaus(df, current_geography)
         foreign_gaus = ncf[2] if foreign_gaus is None else foreign_gaus
         current_gaus = ncf[1]
-        assert len(foreign_gaus - current_gaus) == 0
-        
+
         if not foreign_gaus:
             return df
-        
-        # if the index has nans, we need to be careful about data types
-        index_with_nans_before = [df.index.names[i] for i in set(np.nonzero([np.isnan(row) for row in df.index.get_values()])[1])]
+
         indexer = util.level_specific_indexer(df, current_geography, [list(current_gaus-foreign_gaus)])
         index_names = df.index.names
-        df = df.loc[indexer]
-        index_with_nans_after = [df.index.names[i] for i in set(np.nonzero([np.isnan(row) for row in df.index.get_values()])[1])]
-        df = df.reset_index()
-        index_without_nans_anymore = list(set(index_with_nans_before) - set(index_with_nans_after))
-        df[index_without_nans_anymore] = df[index_without_nans_anymore].values.astype(int)
-        df = df.set_index(index_names)
-        # we shouldn't have any nans (or anything but integers in the index)
-        if tuple(sorted(foreign_gaus)) == tuple(sorted(ncf[2])):
-            assert not any([any(np.isnan(row)) for row in df.index.get_values()])
+        df = df.loc[indexer,].reset_index().set_index(index_names).sort_index()
         return df
-        
-        
