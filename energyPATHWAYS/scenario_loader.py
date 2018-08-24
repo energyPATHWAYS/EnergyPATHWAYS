@@ -5,7 +5,7 @@ import itertools
 from collections import defaultdict
 import config as cfg
 import pdb
-
+from .util import csv_read_table
 
 class Scenario():
     MEASURE_CATEGORIES = ("DemandEnergyEfficiencyMeasures",
@@ -130,33 +130,25 @@ class Scenario():
     def _load_sensitivities(self, sensitivities):
         if not isinstance(sensitivities, list):
             raise ValueError("The 'Sensitivities' for a scenario should be a list of objects containing "
-                             "the keys 'table', 'parent_id' and 'sensitivity'.")
+                             "the keys 'table', 'name' and 'sensitivity'.")
+
         for sensitivity_spec in sensitivities:
             table = sensitivity_spec['table']
-            parent_id = sensitivity_spec['parent_id']
+            name = sensitivity_spec['name']
             sensitivity = sensitivity_spec['sensitivity']
 
-            if parent_id in self._sensitivities[table]:
-                raise ValueError("Scenario specifies sensitivity for {} {} more than once".format(table, parent_id))
+            if name in self._sensitivities[table]:
+                raise ValueError("Scenario specifies sensitivity for {} {} more than once".format(table, name))
 
             # Check that the sensitivity actually exists in the database before using it
-            from .util import csv_read_table
-
-            filters = {'sensitivity' : sensitivity,
-                       self.parent_col(table) : parent_id}
+            # TBD: apparently this translation is wrong since DemandEnergyDemands lacks a 'name' column. Needs Ryan's attention...
+            filters = {'sensitivity' : sensitivity, 'name' : name}
             data = csv_read_table(table, **filters)
 
-            # cfg.cur.execute("""
-            #             SELECT COUNT(*) AS count
-            #             FROM "{}"
-            #             WHERE {} = %s AND sensitivity = %s
-            #         """.format(table, self.parent_col(table)), (parent_id, sensitivity))
-            # row_count = cfg.cur.fetchone()[0]
-
             if len(data) == 0:
-                raise ValueError("Could not find sensitivity '{}' for {} {}.".format(sensitivity, table, parent_id))
+                raise ValueError("Could not find sensitivity '{}' for {} {}.".format(sensitivity, table, name))
 
-            self._sensitivities[table][parent_id] = sensitivity
+            self._sensitivities[table][name] = sensitivity
 
     def _load_measures(self, tree):
         """

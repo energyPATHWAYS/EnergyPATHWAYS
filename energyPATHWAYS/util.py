@@ -34,6 +34,9 @@ import logging
 import pdb
 from operator import mul
 
+from csvdb.data_object import get_database
+from csvdb.utils import filter_query
+
 from psycopg2.extensions import register_adapter, AsIs
 
 def splitclean(s, delim=',', allow_empties=False, as_type=None):
@@ -214,6 +217,14 @@ def empty_df(index, columns, fill_value=0.0, data_type=None):
     df.data_type = data_type
     return df
 
+def verify_columns(table_name, df, column_names, raise_error=True):
+    unknown = set(column_names) - set(df.columns)
+    if unknown and raise_error:
+        raise ColumnNotFound(table_name, list(unknown))
+
+    return len(unknown) == 0
+
+
 def table_data(table_name, column_names=None, as_tup_iter=False):
     """
     Get the DataFrame holding the data for the given table_name. The
@@ -225,17 +236,12 @@ def table_data(table_name, column_names=None, as_tup_iter=False):
     :param as_tup_iter: (bool) if True, return a tuple iterator, else a DataFrame
     :return: the DataFrame or tuple iterator providing the selected data
     """
-    from csvdb.data_object import get_database
-
     db = get_database()
     tbl = db.get_table(table_name)
     df = tbl.data
 
     if column_names:
-        unknown = set(column_names) - set(df.columns)
-        if unknown:
-            raise ColumnNotFound(table_name, list(unknown))
-
+        verify_columns(table_name, df, column_names)
         df = df[column_names]
 
     return df.itertuples(index=False, name=None) if as_tup_iter else df
@@ -248,24 +254,18 @@ def csv_read_table(table_name, column_names=None, return_unique=False, return_it
     Example:
         util.csv_read_table('DemandDrivers', 'name', driver='oil and gas mining VOS')
     """
-    from csvdb.data_object import get_database
-    from csvdb.utils import filter_query
-
     db  = get_database()
     tbl = db.get_table(table_name)
     df  = tbl.data
-
-    unknown = set(column_names) - set(df.columns)
-    if unknown:
-        raise ColumnNotFound(table_name, list(unknown))
+    df_col_set = set(df.columns)
 
     if filters:
+        verify_columns(table_name, df, filters.keys())
         df = filter_query(df, filters)
 
     if column_names:
+        verify_columns(table_name, df, column_names)
         df = df[column_names]
-    else:
-        column_names = list(df.columns)
 
     if return_unique:
         df.drop_duplicates(inplace=True)
