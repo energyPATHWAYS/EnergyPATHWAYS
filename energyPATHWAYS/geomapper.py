@@ -96,8 +96,6 @@ class GeoMapper:
         GeoMapper.dispatch_geographies = self.geography_to_gau[GeoMapper.dispatch_geography]
         GeoMapper.combined_geographies = self.geography_to_gau[GeoMapper.combined_outputs_geography]
 
-        self.log_geo()
-
     def read_geography_data(self, database_path):
         db = RioDatabase.get_database(database_path)
         geographies_table = db.get_table("Geographies").data

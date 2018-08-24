@@ -18,12 +18,11 @@ from energyPATHWAYS.pathways_model import PathwaysModel
 import energyPATHWAYS.shape as shape
 from energyPATHWAYS.outputs import Output
 from energyPATHWAYS.dispatch_classes import Dispatch
+from energyPATHWAYS.geomapper import GeoMapper
 import time
 import datetime
 import logging
 import smtplib
-from email.MIMEMultipart import MIMEMultipart
-from email.MIMEText import MIMEText
 import cProfile
 import traceback
 import pandas as pd
@@ -81,8 +80,10 @@ def run(path, config, scenarios, load_demand=False, solve_demand=True, load_supp
     path = os.getcwd() if path is None else path
     cfg.initialize_config(path, config, log_name)
     if not subfolders:
-        cfg.geo.log_geo()
-    shape.init_shapes(pickle_shapes)
+        GeoMapper.get_instance().log_geo()
+
+    #todo we need to switch this over to the new system
+    # shape.init_shapes(pickle_shapes)
 
     if not scenarios:
         scenarios = [os.path.basename(p) for p in glob.glob(os.path.join(cfg.workingdir, '*.json'))]
@@ -100,7 +101,7 @@ def run(path, config, scenarios, load_demand=False, solve_demand=True, load_supp
             logging.getLogger(None).handlers = []
             cfg.initialize_config(os.path.join(path, scenario), config, log_name)
             logging.info('SUBFOLDERS ARE IN USE')
-            cfg.geo.log_geo()
+            GeoMapper.get_instance().log_geo()
         scenario_start_time = time.time()
         logging.info('Starting scenario {}'.format(scenario))
         logging.info('Start time {}'.format(str(datetime.datetime.now()).split('.')[0]))

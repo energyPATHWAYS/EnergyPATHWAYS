@@ -50,28 +50,28 @@ storage_tech_classes = ['installation_cost_new','installation_cost_replacement',
 ureg = None
 calculation_energy_unit = None
 
-# Geography
-geo = None
-demand_primary_geography = None
-demand_primary_geography_id = None  # deprecated?
-supply_primary_geography = None
-supply_primary_geography_id = None  # deprecated?
-combined_outputs_geography_side = None
-combined_outputs_geography = None
-primary_subset_id = None
-breakout_geography_id = None
-demand_geographies = None
-supply_geographies = None
-include_foreign_gaus = None
-dispatch_geography = None
-dispatch_geography_id = None
-dispatch_subset_id = None
-dispatch_breakout_geography = None
-dispatch_breakout_geography_id = None # deprecated?
-dispatch_geographies = None
-disagg_geography = None
-disagg_geography_id = None      # deprecated?
-combined_geographies = None
+# # Geography
+# geo = None
+# demand_primary_geography = None
+# demand_primary_geography_id = None  # deprecated?
+# supply_primary_geography = None
+# supply_primary_geography_id = None  # deprecated?
+# combined_outputs_geography_side = None
+# combined_outputs_geography = None
+# primary_subset_id = None
+# breakout_geography_id = None
+# demand_geographies = None
+# supply_geographies = None
+# include_foreign_gaus = None
+# dispatch_geography = None
+# dispatch_geography_id = None
+# dispatch_subset_id = None
+# dispatch_breakout_geography = None
+# dispatch_breakout_geography_id = None # deprecated?
+# dispatch_geographies = None
+# disagg_geography = None
+# disagg_geography_id = None      # deprecated?
+# combined_geographies = None
 
 # run years
 years = None
@@ -297,10 +297,10 @@ def init_removed_levels():
 
 def init_output_levels():
     global output_demand_levels, output_supply_levels, output_combined_levels
-    output_demand_levels = ['year', 'vintage', 'demand_technology', demand_primary_geography, 'sector', 'subsector', 'final_energy','other_index_1','other_index_2','cost_type','new/replacement']
-    output_supply_levels = ['year', 'vintage', 'supply_technology', supply_primary_geography,  'demand_sector', 'supply_node', 'ghg', 'resource_bin','cost_type']
-    output_combined_levels = list(set(output_supply_levels + output_demand_levels + [combined_outputs_geography + "_supply"]))
-    output_combined_levels = list(set(output_combined_levels) - {demand_primary_geography, supply_primary_geography}) + [combined_outputs_geography]
+    output_demand_levels = ['year', 'vintage', 'demand_technology', geomapper.GeoMapper.demand_primary_geography, 'sector', 'subsector', 'final_energy','other_index_1','other_index_2','cost_type','new/replacement']
+    output_supply_levels = ['year', 'vintage', 'supply_technology', geomapper.GeoMapper.supply_primary_geography,  'demand_sector', 'supply_node', 'ghg', 'resource_bin','cost_type']
+    output_combined_levels = list(set(output_supply_levels + output_demand_levels + [geomapper.GeoMapper.combined_outputs_geography + "_supply"]))
+    output_combined_levels = list(set(output_combined_levels) - {geomapper.GeoMapper.demand_primary_geography, geomapper.GeoMapper.supply_primary_geography}) + [geomapper.GeoMapper.combined_outputs_geography]
 
     for x in [x[0] for x in cfgfile.items('demand_output_detail')]:
         if x in output_demand_levels and cfgfile.get('demand_output_detail', x).lower() != 'true':
@@ -311,7 +311,7 @@ def init_output_levels():
     for x in [x[0] for x in cfgfile.items('combined_output_detail')]:
         if cfgfile.get('combined_output_detail',x).lower() != 'true':
             if x == 'supply_geography':
-                x = combined_outputs_geography + "_supply"
+                x = geomapper.GeoMapper.combined_outputs_geography + "_supply"
             if x in output_combined_levels:
                 output_combined_levels.remove(x)
 
@@ -325,48 +325,48 @@ def table_dict(table_name, columns=['id', 'name'], append=False,
     result = upper_dict(df, append=append)
     return result
 
-def init_outputs_id_map():
-    global outputs_id_map
-
-    demand_primary_geography = geo.get_demand_primary_geography_name()
-    supply_primary_geography = geo.get_supply_primary_geography_name()
-    dispatch_geography_name = geo.get_dispatch_geography_name()
-
-    geo_names = geo.geography_names.items()
-
-    outputs_id_map[demand_primary_geography] = upper_dict(geo_names)
-    outputs_id_map[supply_primary_geography] = upper_dict(geo_names)
-    outputs_id_map[supply_primary_geography + "_supply"] = upper_dict(geo_names)
-    outputs_id_map[supply_primary_geography + "_input"]  = upper_dict(geo_names)
-    outputs_id_map[supply_primary_geography + "_output"] = upper_dict(geo_names)
-    outputs_id_map[demand_primary_geography + "_input"]  = upper_dict(geo_names)
-    outputs_id_map[demand_primary_geography + "_output"] = upper_dict(geo_names)
-    outputs_id_map[dispatch_geography_name] = upper_dict(geo_names)
-
-    outputs_id_map['demand_technology'] = table_dict('DemandTechs')
-    outputs_id_map['supply_technology'] = table_dict('SupplyTechs')
-    outputs_id_map['final_energy'] = table_dict('FinalEnergy')
-    outputs_id_map['supply_node'] = table_dict('SupplyNodes')
-    outputs_id_map['blend_node'] = table_dict('SupplyNodes')
-    outputs_id_map['input_node'] = table_dict('SupplyNodes')
-    outputs_id_map['supply_node_output'] = outputs_id_map['supply_node']
-    outputs_id_map['supply_node_input'] = outputs_id_map['supply_node']
-    outputs_id_map['supply_node_export'] = table_dict('SupplyNodes', append=True) # " EXPORT")  ? Why was this passed as a boolean parameter?
-    outputs_id_map['subsector'] = table_dict('DemandSubsectors')
-    outputs_id_map['demand_sector'] = table_dict('DemandSectors')
-    outputs_id_map['sector'] = outputs_id_map['demand_sector']
-    outputs_id_map['ghg'] = table_dict('GreenhouseGases')
-    outputs_id_map['driver'] = table_dict('DemandDrivers')
-    outputs_id_map['dispatch_feeder'] = table_dict('DispatchFeeders')
-    outputs_id_map['dispatch_feeder'][0] = 'BULK'
-    outputs_id_map['other_index_1'] = table_dict('OtherIndexesData')
-    outputs_id_map['other_index_2'] = table_dict('OtherIndexesData')
-    outputs_id_map['timeshift_type'] = table_dict('FlexibleLoadShiftTypes')
-
-    for id, name in csv_read_table('OtherIndexes', ('id', 'name'), return_iterable=True):
-        if name in ('demand_technology', 'final_energy'):
-            continue
-        outputs_id_map[name] = table_dict('OtherIndexesData', other_index_id=id, return_unique=True)
+# def init_outputs_id_map():
+#     global outputs_id_map
+#
+#     demand_primary_geography = geo.get_demand_primary_geography_name()
+#     supply_primary_geography = geo.get_supply_primary_geography_name()
+#     dispatch_geography_name = geo.get_dispatch_geography_name()
+#
+#     geo_names = geo.geography_names.items()
+#
+#     outputs_id_map[demand_primary_geography] = upper_dict(geo_names)
+#     outputs_id_map[supply_primary_geography] = upper_dict(geo_names)
+#     outputs_id_map[supply_primary_geography + "_supply"] = upper_dict(geo_names)
+#     outputs_id_map[supply_primary_geography + "_input"]  = upper_dict(geo_names)
+#     outputs_id_map[supply_primary_geography + "_output"] = upper_dict(geo_names)
+#     outputs_id_map[demand_primary_geography + "_input"]  = upper_dict(geo_names)
+#     outputs_id_map[demand_primary_geography + "_output"] = upper_dict(geo_names)
+#     outputs_id_map[dispatch_geography_name] = upper_dict(geo_names)
+#
+#     outputs_id_map['demand_technology'] = table_dict('DemandTechs')
+#     outputs_id_map['supply_technology'] = table_dict('SupplyTechs')
+#     outputs_id_map['final_energy'] = table_dict('FinalEnergy')
+#     outputs_id_map['supply_node'] = table_dict('SupplyNodes')
+#     outputs_id_map['blend_node'] = table_dict('SupplyNodes')
+#     outputs_id_map['input_node'] = table_dict('SupplyNodes')
+#     outputs_id_map['supply_node_output'] = outputs_id_map['supply_node']
+#     outputs_id_map['supply_node_input'] = outputs_id_map['supply_node']
+#     outputs_id_map['supply_node_export'] = table_dict('SupplyNodes', append=True) # " EXPORT")  ? Why was this passed as a boolean parameter?
+#     outputs_id_map['subsector'] = table_dict('DemandSubsectors')
+#     outputs_id_map['demand_sector'] = table_dict('DemandSectors')
+#     outputs_id_map['sector'] = outputs_id_map['demand_sector']
+#     outputs_id_map['ghg'] = table_dict('GreenhouseGases')
+#     outputs_id_map['driver'] = table_dict('DemandDrivers')
+#     outputs_id_map['dispatch_feeder'] = table_dict('DispatchFeeders')
+#     outputs_id_map['dispatch_feeder'][0] = 'BULK'
+#     outputs_id_map['other_index_1'] = table_dict('OtherIndexesData')
+#     outputs_id_map['other_index_2'] = table_dict('OtherIndexesData')
+#     outputs_id_map['timeshift_type'] = table_dict('FlexibleLoadShiftTypes')
+#
+#     for id, name in csv_read_table('OtherIndexes', ('id', 'name'), return_iterable=True):
+#         if name in ('demand_technology', 'final_energy'):
+#             continue
+#         outputs_id_map[name] = table_dict('OtherIndexesData', other_index_id=id, return_unique=True)
 
 def init_output_parameters():
     global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes, evolved_years
@@ -379,7 +379,7 @@ def init_output_parameters():
     evolved_blend_nodes = splitclean(cfgfile.get('evolved','evolved_blend_nodes'), as_type=int)
     init_removed_levels()
     init_output_levels()
-    init_outputs_id_map()
+    # init_outputs_id_map()
 
 def find_solver():
     dispatch_solver = cfgfile.get('opt', 'dispatch_solver')
