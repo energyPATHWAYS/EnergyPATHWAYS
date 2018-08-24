@@ -24,17 +24,18 @@ class Scenario():
     # These are the columns that various data tables use to refer to the id of their parent table
     # Order matters here; we use the first one that is found in the table. This is because some tables'
     # "true" parent is a subsector/node, but they are further subindexed by technology
-    PARENT_COLUMN_NAMES = ('parent_id', 'subsector_id', 'supply_node_id', 'primary_node_id', 'import_node_id',
-                           'demand_tech_id', 'demand_technology_id', 'supply_tech_id', 'supply_technology_id')
+    PARENT_COLUMN_NAMES = ('parent', 'subsector', 'supply_node', 'primary_node', 'import_node',
+                           'demand_tech', 'demand_technology', 'supply_tech', 'supply_technology')
 
-    def __init__(self, scenario_id):
-        self._id = scenario_id
+    def __init__(self, scenario):
+        self._id = scenario
         self._bucket_lookup = self._load_bucket_lookup()
 
-        scenario_file = scenario_id if scenario_id.endswith('.json') else scenario_id + '.json'
+        scenario_file = scenario if scenario.endswith('.json') else scenario + '.json'
         path_to_scenario_file = os.path.join(cfg.workingdir, scenario_file)
         with open(path_to_scenario_file) as scenario_data:
             scenario = json.load(scenario_data)
+
         assert len(scenario) == 1, "More than one scenario found at top level in {}: {}".format(
             path_to_scenario_file, ", ".join(scenario_data.keys)
         )
@@ -54,32 +55,35 @@ class Scenario():
     def _index_col(measure_table):
         """Returns the name of the column that should be used to index the given type of measure"""
         if measure_table.startswith('Demand'):
-            return 'subsector_id'
+            return 'subsector'
         elif measure_table == "BlendNodeBlendMeasures":
-            return 'blend_node_id'
+            return 'blend_node'
         else:
-            return 'supply_node_id'
+            return 'supply_node'
 
     @staticmethod
     def _subindex_col(measure_table):
         """Returns the name of the column that subindexes the given type of measure, i.e. the technology id column"""
         if measure_table in ("DemandSalesShareMeasures", "DemandStockMeasures"):
-            return 'demand_technology_id'
+            return 'demand_technology'
         elif measure_table in ("SupplySalesMeasures", "SupplySalesShareMeasures", "SupplyStockMeasures"):
-            return 'supply_technology_id'
+            return 'supply_technology'
         else:
             return None
 
     @classmethod
     def parent_col(cls, data_table):
         """Returns the name of the column in the data table that references the parent table"""
+
         # These are one-off exceptions to our general preference order for parent columns
         if data_table == 'DemandSalesData':
-            return 'demand_technology_id'
+            return 'demand_technology'
+
         if data_table == 'SupplyTechsEfficiencyData':
-            return 'supply_tech_id'
+            return 'supply_tech'
+
         if data_table in ('SupplySalesData', 'SupplySalesShareData'):
-            return 'supply_technology_id'
+            return 'supply_technology'
 
         cfg.cur.execute("""
             SELECT column_name FROM information_schema.columns
@@ -105,17 +109,22 @@ class Scenario():
         Returns a dictionary matching each measure_id to the combination of subsector/supply_node and technology
         that it applies to. If the measure does not apply to a technology, the second member of tuple is None.
         """
+        from .util import table_data
+
         lookup = defaultdict(dict)
+
         for table in self.MEASURE_CATEGORIES:
+            index_col = self._index_col(table)
             subindex_col = self._subindex_col(table)
-            if subindex_col:
-                cfg.cur.execute('SELECT id, {}, {} FROM "{}";'.format(self._index_col(table), subindex_col, table))
-                for row in cfg.cur.fetchall():
-                    lookup[table][row[0]] = (row[1], row[2])
-            else:
-                cfg.cur.execute('SELECT id, {} FROM "{}";'.format(self._index_col(table), table))
-                for row in cfg.cur.fetchall():
-                    lookup[table][row[0]] = (row[1], None)
+            col_names = ['name', index_col] + ([subindex_col] if subindex_col else [])
+            num_cols = len(col_names)
+
+            tbl_dict = lookup[table]
+            tup_iter = table_data(table, column_names=col_names, as_tup_iter=True)
+
+            for row in tup_iter:
+                tbl_dict[row[0]] = (row[1], row[2] if num_cols == 3 else None)
+
         return lookup
 
     def _load_sensitivities(self, sensitivities):
@@ -126,18 +135,25 @@ class Scenario():
             table = sensitivity_spec['table']
             parent_id = sensitivity_spec['parent_id']
             sensitivity = sensitivity_spec['sensitivity']
+
             if parent_id in self._sensitivities[table]:
                 raise ValueError("Scenario specifies sensitivity for {} {} more than once".format(table, parent_id))
 
             # Check that the sensitivity actually exists in the database before using it
-            cfg.cur.execute("""
-                        SELECT COUNT(*) AS count
-                        FROM "{}"
-                        WHERE {} = %s AND sensitivity = %s
-                    """.format(table, self.parent_col(table)), (parent_id, sensitivity))
-            row_count = cfg.cur.fetchone()[0]
+            from .util import csv_read_table
 
-            if row_count == 0:
+            filters = {'sensitivity' : sensitivity,
+                       self.parent_col(table) : parent_id}
+            data = csv_read_table(table, **filters)
+
+            # cfg.cur.execute("""
+            #             SELECT COUNT(*) AS count
+            #             FROM "{}"
+            #             WHERE {} = %s AND sensitivity = %s
+            #         """.format(table, self.parent_col(table)), (parent_id, sensitivity))
+            # row_count = cfg.cur.fetchone()[0]
+
+            if len(data) == 0:
                 raise ValueError("Could not find sensitivity '{}' for {} {}.".format(sensitivity, table, parent_id))
 
             self._sensitivities[table][parent_id] = sensitivity
@@ -152,17 +168,22 @@ class Scenario():
         for key, subtree in tree.iteritems():
             if key.lower() == 'sensitivities':
                 self._load_sensitivities(subtree)
+
             elif isinstance(subtree, dict):
                 self._load_measures(subtree)
+
             elif key in self.MEASURE_CATEGORIES and isinstance(subtree, list):
                 for measure in subtree:
                     try:
                         bucket_id = self._bucket_lookup[key][measure]
                     except KeyError:
                         raise ValueError("{} scenario wants to use {} {} but no such measure was found in the database.".format(self._id, key, measure))
+
                     if measure in self._measures[key][bucket_id]:
                         raise ValueError("Scenario uses {} {} more than once.".format(key, measure))
+
                     self._measures[key][bucket_id].append(measure)
+
             elif not isinstance(subtree, basestring):
                 pdb.set_trace()
                 raise ValueError("Encountered an uninterpretable non-string leaf node while loading the scenario. "

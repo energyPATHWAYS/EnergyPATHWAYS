@@ -214,6 +214,32 @@ def empty_df(index, columns, fill_value=0.0, data_type=None):
     df.data_type = data_type
     return df
 
+def table_data(table_name, column_names=None, as_tup_iter=False):
+    """
+    Get the DataFrame holding the data for the given table_name. The
+    database must have already been opened (with explicit path) so that
+    the call here returns the singleton instance.
+
+    :param table_name: (str) the name of a table
+    :param column_names: (list of str) the columns to return
+    :param as_tup_iter: (bool) if True, return a tuple iterator, else a DataFrame
+    :return: the DataFrame or tuple iterator providing the selected data
+    """
+    from csvdb.data_object import get_database
+
+    db = get_database()
+    tbl = db.get_table(table_name)
+    df = tbl.data
+
+    if column_names:
+        unknown = set(column_names) - set(df.columns)
+        if unknown:
+            raise ColumnNotFound(table_name, list(unknown))
+
+        df = df[column_names]
+
+    return df.itertuples(index=False, name=None) if as_tup_iter else df
+
 def csv_read_table(table_name, column_names=None, return_unique=False, return_iterable=False, **filters):
     """
     Get data from a table filtering by columns.
