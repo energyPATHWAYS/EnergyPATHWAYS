@@ -133,16 +133,16 @@ class Scenario():
                              "the keys 'table', 'name' and 'sensitivity'.")
 
         for sensitivity_spec in sensitivities:
-            table = sensitivity_spec['table']
-            name = sensitivity_spec['name']
+            table       = sensitivity_spec['table']
+            name        = sensitivity_spec['name']
+            col_name    = sensitivity_spec['col_name']      # TODO: not sure this is right, but neither was "name"
             sensitivity = sensitivity_spec['sensitivity']
 
             if name in self._sensitivities[table]:
                 raise ValueError("Scenario specifies sensitivity for {} {} more than once".format(table, name))
 
             # Check that the sensitivity actually exists in the database before using it
-            # TBD: apparently this translation is wrong since DemandEnergyDemands lacks a 'name' column. Needs Ryan's attention...
-            filters = {'sensitivity' : sensitivity, 'name' : name}
+            filters = {'sensitivity' : sensitivity, col_name : name}
             data = csv_read_table(table, **filters)
 
             if len(data) == 0:

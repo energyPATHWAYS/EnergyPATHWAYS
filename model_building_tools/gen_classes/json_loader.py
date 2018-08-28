@@ -36,7 +36,7 @@ def make_unique(names):
 
 table_by_name = {}
 
-def get_name_for_id(table_name, id):
+def get_name_for_id(table_name, id, fix_dupes=True):
     '''
     Get the string name of the measure in `table_name` with the given `id`.
     Table data are cached when first read.
@@ -50,7 +50,8 @@ def get_name_for_id(table_name, id):
         table_by_name[table_name] = names
 
         if len(names) != len(names.unique()):
-            names = make_unique(names)
+            if fix_dupes:
+                names = make_unique(names)
 
     if id in names:
         return names[id]

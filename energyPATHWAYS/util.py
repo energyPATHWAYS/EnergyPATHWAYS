@@ -219,6 +219,7 @@ def empty_df(index, columns, fill_value=0.0, data_type=None):
 
 def verify_columns(table_name, df, column_names, raise_error=True):
     unknown = set(column_names) - set(df.columns)
+
     if unknown and raise_error:
         raise ColumnNotFound(table_name, list(unknown))
 
@@ -257,7 +258,6 @@ def csv_read_table(table_name, column_names=None, return_unique=False, return_it
     db  = get_database()
     tbl = db.get_table(table_name)
     df  = tbl.data
-    df_col_set = set(df.columns)
 
     if filters:
         verify_columns(table_name, df, filters.keys())
