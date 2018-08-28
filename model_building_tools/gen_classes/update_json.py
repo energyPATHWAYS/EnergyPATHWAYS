@@ -75,8 +75,7 @@ def main(json_file, dbname, host, user, password, outfile, backup, fix_dupes):
                         if len(fkey) == 1:
                             foreign_table  = fkey['foreign_table_name'].iloc[0]
                             sens_dict['name'] = get_name_for_id(foreign_table, parent_id, fix_dupes=fix_dupes)
-                            sens_dict['col_name'] = strip_suffix(par_col, '_id')
-                            sens_dict['table'] = strip_suffix(table, 'Data')    # Strip trailing 'Data' from name to match merged table
+                            sens_dict['table'] = strip_suffix(strip_suffix(table, 'DataNew'), 'Data')    # Strip trailing 'DataNew' or 'Data' from name
                             del sens_dict['parent_id']
                 else:
                     for key, values in measure_dict.items():

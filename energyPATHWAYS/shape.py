@@ -17,13 +17,17 @@ import cPickle as pickle
 import os
 import logging
 import pdb
-from RIO import util
-from RIO import config as cfg
-from RIO.time_series import TimeSeries
-from RIO.riodb.rio_db_loader import RioDatabase
-from RIO.riodb.data_mapper import DataMapper
-from RIO.geomapper import GeoMapper
-from RIO import fileio
+
+from csvdb import CsvDatabase
+from . import config as cfg
+from .geomapper import GeoMapper
+from .time_series import TimeSeries
+from . import util
+
+from .data_object import DataObject
+
+# from RIO.riodb.data_mapper import DataMapper
+# from RIO import fileio
 
 #http://stackoverflow.com/questions/27491988/canonical-offset-from-utc-using-pytz
 
@@ -70,14 +74,14 @@ class Shapes(object):
     time_slice_col = ['year', 'month', 'week', 'day_type', 'hour']
 
     def __init__(self, database_path=None):
-        db = RioDatabase.get_database(database_path)
+        db = CsvDatabase.get_database(database_path)
         db.shapes.load_all()
         self.cfg_weather_years = [int(y) for y in cfg.getParam('weather_years').split(',')]
         self.set_active_dates()
         self.num_active_years = num_active_years(self.active_dates_index)
         self.cfg_outputs_timezone = pytz.timezone(cfg.getParam('dispatch_outputs_timezone'))
         self.cfg_hash_tuple = (GeoMapper.cfg_geography, tuple(sorted(GeoMapper.cfg_gau_subset)),
-                               tuple(GeoMapper.cfg_gau_breakout), tuple([int(y) for y in cfg.getParam('weather_years').split(',')]), tuple(DataMapper.get_default_years()))
+                               tuple(GeoMapper.cfg_gau_breakout), tuple([int(y) for y in cfg.getParam('weather_years').split(',')]), tuple(DataObject.get_default_years()))
         self.cfg_hash = hash(self.cfg_hash_tuple)
 
         shape_meta = db.get_table("SHAPE_META").data
@@ -97,7 +101,7 @@ class Shapes(object):
 
         # load from pickle
         cfg_hash = hash((GeoMapper.cfg_geography, tuple(sorted(GeoMapper.cfg_gau_subset)),
-                         tuple(GeoMapper.cfg_gau_breakout), tuple([int(y) for y in cfg.getParam('weather_years').split(',')]), tuple(DataMapper.get_default_years())))
+                         tuple(GeoMapper.cfg_gau_breakout), tuple([int(y) for y in cfg.getParam('weather_years').split(',')]), tuple(DataObject.get_default_years())))
         pickle_path = os.path.join(database_path, 'ShapeData', 'pickles', '{}_shapes_{}.p'.format(GeoMapper.cfg_geography, cfg_hash))
         if os.path.isfile(pickle_path) and os.path.getmtime(pickle_path) > newest_shape_file_modified_date(database_path):
             logging.info('Loading shapes')
@@ -109,7 +113,7 @@ class Shapes(object):
         # pickle didn't exist or was not what was needed
         Shapes._instance = Shapes(database_path)
         logging.info('Pickling shapes')
-        fileio.checkexistormakedir(os.path.join(database_path, 'ShapeData', 'pickles'))
+        util.makedirs_if_needed(os.path.join(database_path, 'ShapeData', 'pickles'))
         with open(pickle_path, 'wb') as outfile:
             pickle.dump(Shapes._instance, outfile, pickle.HIGHEST_PROTOCOL)
         return Shapes._instance
@@ -138,7 +142,7 @@ class Shapes(object):
             sensitivity_name = sensitivities[sensitivity_id] if sensitivity_id in sensitivities.index else '_reference_'
             self.data[shape_name].slice_sensitivity(sensitivity_name)
 
-class Shape(DataMapper):
+class Shape(DataObject):
     def __init__(self, meta, timeseries, all_shapes):
         self.name = meta['name']
         self.shape_type = meta['shape_type']
@@ -179,10 +183,10 @@ class Shape(DataMapper):
     def create_empty_shape_data(self):
         self._active_time_keys = [ind for ind in self.timeseries.index.names if ind in Shapes.time_slice_col]
         self._active_time_dict = dict([(ind, loc) for loc, ind in enumerate(self.timeseries.index.names) if ind in Shapes.time_slice_col])
-        
+
         self._non_time_keys = [ind for ind in self.timeseries.index.names if ind not in self._active_time_keys]
         self._non_time_dict = dict([(ind, loc) for loc, ind in enumerate(self.timeseries.index.names) if ind in self._non_time_keys])
-        
+
         data = pd.DataFrame(index=pd.Index(self.all_shapes.active_dates_index, name='weather_datetime'))
 
         for ti in self._active_time_keys:
@@ -257,7 +261,7 @@ class Shape(DataMapper):
             combined_map_df = util.DfOper.mult((self.map_df_tz, self.map_df_primary))
             normalization_factors = combined_map_df.groupby(level=GeoMapper.cfg_geography).sum()
             norm_df = util.DfOper.divi((df, normalization_factors))
-            
+
             temp = norm_df.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.all_shapes.num_active_years
             indexer = util.level_specific_indexer(temp, 'dispatch_constraint', [['p_min', 'p_max']])
             temp.loc[indexer, :] = norm_df.loc[indexer, :]
@@ -285,7 +289,7 @@ class Shape(DataMapper):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table
         """
         geography_map_key = self.geography_map_key or GeoMapper.cfg_default_geography_map_key
-        
+
         # create dataframe with map from one geography to another
         # we always want to normalize as a total here because we will re-sum over time zone later
         self.map_df_tz = GeoMapper.get_instance().map_df(self.geography, 'time zone', normalize_as='total', map_key=geography_map_key)
@@ -298,7 +302,7 @@ class Shape(DataMapper):
         """ maps the dataframe to primary geography
         """
         geography_map_key = self.geography_map_key or GeoMapper.cfg_default_geography_map_key
-        
+
         self.map_df_primary = GeoMapper.get_instance().map_df(self.geography, GeoMapper.cfg_geography, normalize_as=self.input_type, map_key=geography_map_key)
         mapped_data = util.DfOper.mult((df, self.map_df_primary), fill_value=None)
 
@@ -363,7 +367,7 @@ class Shape(DataMapper):
 
         add_to_1 = min(0, (cum_df[2] - cum_df[1]).min())*1.01
         subtract_from_3 = min(0, (cum_df[3] - cum_df[2]).min())*1.01
-        
+
         if add_to_1 < 0:
             df.iloc[0,0] += add_to_1
             cum_df = df[1].groupby(level=names).cumsum()
@@ -373,7 +377,7 @@ class Shape(DataMapper):
                 df.iloc[make_zero, 0] = 0
                 df.iloc[replace, 0] = cum_df.iloc[replace]
             df.iloc[-1, 0] += (df[2].sum() - df[1].sum())
-        
+
         if subtract_from_3 < 0:
             df.iloc[0,2] -= subtract_from_3
             cum_df = df[3].groupby(level=names).cumsum()
@@ -397,14 +401,14 @@ class Shape(DataMapper):
             logging.error('Infeasible flexible load constraints were created where the advanced load shape is less than the native load shape')
             logging.error(cum_df[cum_df[2] > cum_df[3]])
             pdb.set_trace()
-        
+
         return df
 
     @staticmethod
     def produce_flexible_load(shape_df, percent_flexible=None, hr_delay=None, hr_advance=None):
         hr_delay = 0 if hr_delay is None else hr_delay
         hr_advance = 0 if hr_advance is None else hr_advance
-        
+
         native_slice = util.df_slice(shape_df, elements=2, levels='timeshift_type')
         native_slice_stacked = pd.concat([native_slice]*3, keys=[1,2,3], names=['timeshift_type'])
 
@@ -422,21 +426,21 @@ class Shape(DataMapper):
         elif timeshift_levels==[2]:
             # positive hours is a shift forward, negative hours a shift back
             shift = lambda df, hr: df.shift(hr).ffill().fillna(value=0)
-            
+
             def fix_first_point(df, hr):
                 df.iloc[0] += native_slice.iloc[:hr].sum().sum()
                 return df
-            
+
             non_weather = [n for n in native_slice.index.names if n!='weather_datetime']
-            
+
             delay_load = native_slice.groupby(level=non_weather).apply(shift, hr=hr_delay)
             advance_load = native_slice.groupby(level=non_weather).apply(shift, hr=-hr_advance)
             advance_load = advance_load.groupby(level=non_weather).transform(fix_first_point, hr=hr_advance)
-            
+
             full_load = pd.concat([delay_load, native_slice, advance_load], keys=[1,2,3], names=['timeshift_type'])
         else:
             raise ValueError("elements in the level timeshift_type are not recognized")
-        
+
         return util.DfOper.add((util.DfOper.mult((full_load, pflex_stacked), collapsible=False),
                                 util.DfOper.mult((native_slice_stacked, 1-pflex_stacked), collapsible=False)))
 

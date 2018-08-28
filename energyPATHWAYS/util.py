@@ -39,6 +39,13 @@ from csvdb.utils import filter_query
 
 from psycopg2.extensions import register_adapter, AsIs
 
+def makedirs_if_needed(path):
+    '''Checks to see if a directory exists, and creates it if not
+    '''
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+
 def splitclean(s, delim=',', allow_empties=False, as_type=None):
     """
     Split a delimited string (default is comma-delimited) into elements that are

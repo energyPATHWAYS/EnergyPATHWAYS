@@ -6,6 +6,8 @@ from collections import defaultdict
 import config as cfg
 import pdb
 from .util import csv_read_table
+from csvdb.data_object import get_database
+
 
 class Scenario():
     MEASURE_CATEGORIES = ("DemandEnergyEfficiencyMeasures",
@@ -71,38 +73,40 @@ class Scenario():
         else:
             return None
 
-    @classmethod
-    def parent_col(cls, data_table):
-        """Returns the name of the column in the data table that references the parent table"""
-
-        # These are one-off exceptions to our general preference order for parent columns
-        if data_table == 'DemandSalesData':
-            return 'demand_technology'
-
-        if data_table == 'SupplyTechsEfficiencyData':
-            return 'supply_tech'
-
-        if data_table in ('SupplySalesData', 'SupplySalesShareData'):
-            return 'supply_technology'
-
-        cfg.cur.execute("""
-            SELECT column_name FROM information_schema.columns
-            WHERE table_schema = 'public' AND table_name = %s
-        """, (data_table,))
-
-        cols = [row[0] for row in cfg.cur]
-        if not cols:
-            raise ValueError("Could not find any columns for table {}. Did you misspell the table "
-                             "name?".format(data_table))
-        # We do it this way so that we use a column earlier in the PARENT_COLUMN_NAMES list over one that's later
-        parent_cols = [col for col in cls.PARENT_COLUMN_NAMES if col in cols]
-        if not parent_cols:
-            raise ValueError("Could not find any known parent-referencing columns in {}. "
-                             "Are you sure it's a table that references a parent table?".format(data_table))
-        elif len(parent_cols) > 1:
-            logging.debug("More than one potential parent-referencing column was found in {}; "
-                          "we are using the first in this list: {}".format(data_table, parent_cols))
-        return parent_cols[0]
+    # Deprecated: used only by db_to_file utility
+    #
+    # @classmethod
+    # def parent_col(cls, data_table):
+    #     """Returns the name of the column in the data table that references the parent table"""
+    #
+    #     # These are one-off exceptions to our general preference order for parent columns
+    #     if data_table == 'DemandSalesData':
+    #         return 'demand_technology'
+    #
+    #     if data_table == 'SupplyTechsEfficiencyData':
+    #         return 'supply_tech'
+    #
+    #     if data_table in ('SupplySalesData', 'SupplySalesShareData'):
+    #         return 'supply_technology'
+    #
+    #     cfg.cur.execute("""
+    #         SELECT column_name FROM information_schema.columns
+    #         WHERE table_schema = 'public' AND table_name = %s
+    #     """, (data_table,))
+    #
+    #     cols = [row[0] for row in cfg.cur]
+    #     if not cols:
+    #         raise ValueError("Could not find any columns for table {}. Did you misspell the table "
+    #                          "name?".format(data_table))
+    #     # We do it this way so that we use a column earlier in the PARENT_COLUMN_NAMES list over one that's later
+    #     parent_cols = [col for col in cls.PARENT_COLUMN_NAMES if col in cols]
+    #     if not parent_cols:
+    #         raise ValueError("Could not find any known parent-referencing columns in {}. "
+    #                          "Are you sure it's a table that references a parent table?".format(data_table))
+    #     elif len(parent_cols) > 1:
+    #         logging.debug("More than one potential parent-referencing column was found in {}; "
+    #                       "we are using the first in this list: {}".format(data_table, parent_cols))
+    #     return parent_cols[0]
 
     def _load_bucket_lookup(self):
         """
@@ -132,17 +136,19 @@ class Scenario():
             raise ValueError("The 'Sensitivities' for a scenario should be a list of objects containing "
                              "the keys 'table', 'name' and 'sensitivity'.")
 
+        db = get_database()
+
         for sensitivity_spec in sensitivities:
             table       = sensitivity_spec['table']
             name        = sensitivity_spec['name']
-            col_name    = sensitivity_spec['col_name']      # TODO: not sure this is right, but neither was "name"
             sensitivity = sensitivity_spec['sensitivity']
 
             if name in self._sensitivities[table]:
                 raise ValueError("Scenario specifies sensitivity for {} {} more than once".format(table, name))
 
             # Check that the sensitivity actually exists in the database before using it
-            filters = {'sensitivity' : sensitivity, col_name : name}
+            md = db.table_metadata(table)
+            filters = {'sensitivity' : sensitivity, md.key_col : name}
             data = csv_read_table(table, **filters)
 
             if len(data) == 0:
