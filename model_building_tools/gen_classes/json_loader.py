@@ -4,6 +4,7 @@ import logging
 import itertools
 from collections import defaultdict
 import psycopg2
+import pandas as pd
 
 # postgres stuff
 con = None
@@ -20,10 +21,22 @@ def init_db(pg_host, pg_database, pg_user, pg_password=None):
     con = psycopg2.connect(conn_str)
     cur = con.cursor()
 
+def make_unique(names):
+    d = defaultdict(int)
+
+    # Count occurrences of each name
+    for id, name in names.iteritems():
+        d[name] += 1
+
+    for id, name in names.iteritems():
+        if d[name] > 1:
+            names[id] = names[id] + ' ({})'.format(id)
+
+    return names
+
 table_by_name = {}
 
-
-def get_measure_name(table_name, id):
+def get_name_for_id(table_name, id):
     '''
     Get the string name of the measure in `table_name` with the given `id`.
     Table data are cached when first read.
@@ -33,7 +46,11 @@ def get_measure_name(table_name, id):
     except KeyError:
         query = 'select id, name from "{}"'.format(table_name)
         cur.execute(query)
-        table_by_name[table_name] = names = {tup[0] : tup[1] for tup in cur.fetchall()}
+        names = pd.Series({tup[0] : tup[1] for tup in cur.fetchall()})
+        table_by_name[table_name] = names
+
+        if len(names) != len(names.unique()):
+            names = make_unique(names)
 
     if id in names:
         return names[id]
@@ -41,6 +58,14 @@ def get_measure_name(table_name, id):
     print("Id {} was not found for table {}".format(id, table_name))
     return None
 
+def read_foreign_keys():
+    from postgres import ForeignKeyQuery
+
+    cur.execute(ForeignKeyQuery)
+    rows = cur.fetchall()
+    columns = ['table_name', 'column_name', 'foreign_table_name', 'foreign_column_name']
+    df = pd.DataFrame(data=rows, columns=columns)
+    return df
 
 #
 # A few functions from postgres-era energyPATHWAYS.util
