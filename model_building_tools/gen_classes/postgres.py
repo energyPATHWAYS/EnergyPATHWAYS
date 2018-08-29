@@ -135,6 +135,7 @@ Tables_to_ignore = [
     'GeographyIntersection',
     'GeographyIntersectionData',
     'GeographyMap',
+    'GeographiesSpatialJoin'
 ]
 
 Tables_without_classes = [

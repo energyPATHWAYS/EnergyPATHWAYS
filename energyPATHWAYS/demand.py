@@ -1,6 +1,7 @@
 __author__ = 'Ben Haley & Ryan Jones'
 
 import config as cfg
+from config import getParam, getParamAsBoolean
 import shape
 import util
 from datamapfunctions import DataMapFunctions
@@ -42,9 +43,17 @@ class Demand(object):
         self.drivers = {}
         self.sectors = {}
         self.outputs = Output()
-        self.default_electricity_shape = shape.shapes.data[cfg.electricity_energy_type_shape] if shape.shapes.data else None
-        self.feeder_allocation_class = dispatch_classes.DispatchFeederAllocation(1)
-        self.feeder_allocation_class.values_demand_geo.index = self.feeder_allocation_class.values_demand_geo.index.rename('sector', 'demand_sector')
+
+        # TODO: restore this to continue debugging shapes
+        # self.default_electricity_shape = shape.shapes.data[cfg.electricity_energy_type_shape] if shape.shapes.data else None
+        self.default_electricity_shape = None
+
+        # This seems to be a misnomer since DispatchFeederAllocation(1) returns an instance, not a class
+        self.feeder_allocation_class = dispatch_classes.DispatchFeederAllocation('1')
+
+        vals_dem_geo = self.feeder_allocation_class.values_demand_geo
+        vals_dem_geo.index = vals_dem_geo.index.rename('sector', 'demand_sector')   # TBD: why not use inplace=True?
+
         self.electricity_reconciliation = None
         self.scenario = scenario
 
@@ -58,7 +67,7 @@ class Demand(object):
         self.calculate_demand()
         logging.info("Aggregating demand results")
         self.aggregate_results()
-        if cfg.evolved_run == 'true':
+        if getParamAsBoolean('evolved_run', section='evolved'):
             self.aggregate_results_evolved(cfg.evolved_years)
 
 
@@ -93,8 +102,9 @@ class Demand(object):
     def add_driver(self, id, scenario):
         """add driver object to demand"""
         if id in self.drivers:
-            # ToDo note that a driver by the same name was added twice
+            logging.warn('A driver named {} was added multiple times', id)
             return
+
         self.drivers[id] = Driver(id, scenario)
 
     def remap_drivers(self):
@@ -474,7 +484,7 @@ class Sector(object):
         self.service_demand_subsector_ids = util.csv_read_table('DemandServiceDemands', 'subsector_id', return_iterable=True)
         self.energy_demand_subsector_ids = util.csv_read_table('DemandEnergyDemands', 'subsector_id', return_iterable=True)
         self.service_efficiency_ids = util.csv_read_table('DemandServiceEfficiency', 'subsector_id', return_iterable=True)
-        feeder_allocation_class = dispatch_classes.DispatchFeederAllocation(1)
+        feeder_allocation_class = dispatch_classes.DispatchFeederAllocation('1')
         # FIXME: This next line will fail if we don't have a feeder allocation for each demand_sector
         self.feeder_allocation = util.df_slice(feeder_allocation_class.values_demand_geo, id, 'demand_sector')
         self.electricity_reconciliation = None

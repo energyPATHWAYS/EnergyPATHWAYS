@@ -6,6 +6,7 @@ from collections import OrderedDict
 import numpy as np
 
 from . import config as cfg
+from .config import getParam
 from .time_series import TimeSeries
 from .util import (DfOper, put_in_list, remove_df_levels, get_elements_from_level,
                    reindex_df_level_with_new_elements, splitclean)
@@ -296,8 +297,19 @@ class DataObject(CsvDataObject):
 
     def _get_active_time_index(self, time_index, time_index_name):
         if time_index is None:
-            index_plus_s = time_index_name + "s"
-            time_index = getattr(self, index_plus_s) if hasattr(self, index_plus_s) else cfg.cfgfile.get('case', 'years')
+
+            # TODO: 'index_plus_s' doesn't seem to be created anywhere, so this appears to be an obsolete test
+            # index_plus_s = time_index_name + "s"
+            # time_index = getattr(self, index_plus_s) if hasattr(self, index_plus_s) else cfg.cfgfile.get('case', 'years')
+
+            # TODO: check that definition is correct
+            # active_time_index: %(demand_start_year)s:%(end_year)s:%(year_step)s
+
+            # get string of form 'start:end:step' and convert to a list of years
+            text = getParam('active_time_index')
+            args = map(int, text.split(':'))
+            time_index = range(*args)
+
         return time_index  # this is a list of years
 
     def _get_df_index_names_in_a_list(self, df):
@@ -315,8 +327,8 @@ class DataObject(CsvDataObject):
             drivers (list of or single dataframe): drivers for the remap
             input_type_override (string): either 'total' or 'intensity' (defaults to self.type)
         """
-        driver_geography    = driver_geography or cfg.disagg_geography
-        converted_geography = converted_geography or cfg.primary_geography
+        driver_geography    = driver_geography or getParam('disagg_geography')
+        converted_geography = converted_geography or getParam('primary_geography')
         current_data_type   = current_data_type or self.input_type
         current_geography   = current_geography or self.geography
         time_index = self._get_active_time_index(time_index, time_index_name)

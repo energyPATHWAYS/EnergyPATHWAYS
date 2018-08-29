@@ -57,7 +57,7 @@ class Supply(object):
         self.electricity_nodes = defaultdict(list)
         self.injection_nodes = defaultdict(list)
         self.ghgs = util.csv_read_table('GreenhouseGases', 'id', return_iterable=True)
-        self.dispatch_feeder_allocation = DispatchFeederAllocation(id=1)
+        self.dispatch_feeder_allocation = DispatchFeederAllocation('1')
         self.dispatch_feeders = list(set(self.dispatch_feeder_allocation.values_supply_geo.index.get_level_values('dispatch_feeder')))
         self.dispatch = Dispatch(self.dispatch_feeders, cfg.dispatch_geography, cfg.dispatch_geographies, self.scenario)
         self.outputs = Output()

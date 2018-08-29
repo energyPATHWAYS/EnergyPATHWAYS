@@ -11,6 +11,7 @@ import copy
 import pandas as pd
 import math
 import config as cfg
+from config import getParam, getParamAsBoolean
 import os
 from pyomo.opt import SolverFactory, SolverStatus
 import csv
@@ -29,25 +30,27 @@ import dispatch_long_duration
 from pyomo.opt import TerminationCondition
 from pyomo.environ import Constraint
 
+from .generated import schema
 
-class DispatchFeederAllocation(Abstract):
+class DispatchFeederAllocation(schema.DispatchFeedersAllocation):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
-    def __init__(self, id,**kwargs):
-        self.id = id
-        self.sql_id_table = 'DispatchFeedersAllocation'
-        self.sql_data_table = 'DispatchFeedersAllocationData'
-        Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
-        self.remap(map_from='raw_values', map_to='values_demand_geo', converted_geography=cfg.demand_primary_geography)
-        self.remap(map_from='raw_values', map_to='values_supply_geo', converted_geography=cfg.supply_primary_geography)
-        self.values_demand_geo.sort_index(inplace=True)
-        self.values_supply_geo.sort_index(inplace=True)
+    def __init__(self, name, scenario=None, **kwargs):
+        super(DispatchFeederAllocation, self).__init__(name, scenario=scenario)
+        self.init_from_db(name, scenario)
 
-class DispatchNodeConfig(DataMapFunctions):
-    def __init__(self, id, **kwargs):
-        self.id = id
-        self.sql_id_table = 'DispatchNodeConfig'
-        for col, att in util.object_att_from_table(self.sql_id_table, id, primary_key='supply_node_id'):
-            setattr(self, col, att)
+        # TODO: Is this all now deprecated?
+        # self.remap(map_from='raw_values', map_to='values_demand_geo', converted_geography=getParam('demand_primary_geography'))
+        # self.remap(map_from='raw_values', map_to='values_supply_geo', converted_geography=getParam('supply_primary_geography'))
+        # self.values_demand_geo.sort_index(inplace=True)
+        # self.values_supply_geo.sort_index(inplace=True)
+
+class DispatchNodeConfig(schema.DispatchNodeConfig):
+    def __init__(self, name, scenario=None):
+        super(DispatchNodeConfig, self).__init__(name, scenario=scenario)
+        self.init_from_db(name, scenario=scenario)
+
+        # for col, att in util.object_att_from_table(self.sql_id_table, id, primary_key='supply_node_id'):
+        #     setattr(self, col, att)
 
 def all_results_to_list(instance):
     return {'Charge':storage_result_to_list(instance.Charge),
@@ -111,13 +114,16 @@ class Dispatch(object):
         for col, att in util.object_att_from_table('DispatchConfig', 1):
             setattr(self, col, att)
         self.node_config_dict = dict()
-        for supply_node in util.csv_read_table('DispatchNodeConfig', 'supply_node_id', return_iterable=True):
+
+        for supply_node in util.csv_read_table('DispatchNodeConfig', 'supply_node', return_iterable=True):
             self.node_config_dict[supply_node] = DispatchNodeConfig(supply_node)
+
         self.set_dispatch_orders()
         self.dispatch_window_dict = dict(util.csv_read_table('DispatchWindows'))
         self.curtailment_cost = util.unit_convert(0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.unserved_capacity_cost = util.unit_convert(10000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.dist_net_load_penalty = util.unit_convert(15000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+
         # this bulk penalty is mostly for transmission
         self.bulk_net_load_penalty = util.unit_convert(5000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.ld_upward_imbalance_penalty = util.unit_convert(150.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
@@ -126,12 +132,9 @@ class Dispatch(object):
         self.feeders = [0] + dispatch_feeders
         self.dispatch_geography = dispatch_geography
         self.dispatch_geographies = dispatch_geographies
-        self.stdout_detail = cfg.cfgfile.get('opt','stdout_detail')
+        self.stdout_detail = getParamAsBoolean('stdout_detail', 'opt')
         self.transmission = dispatch_transmission.DispatchTransmission(cfg.transmission_constraint_id, scenario)
-        if self.stdout_detail == 'False':
-            self.stdout_detail = False
-        else:
-            self.stdout_detail = True
+
         self.solve_kwargs = {"keepfiles": False, "tee": False}
 
     def set_dispatch_orders(self):

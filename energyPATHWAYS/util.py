@@ -173,12 +173,17 @@ def is_iterable(some_object):
         return False
 
 
-def object_att_from_table(tablename, id, primary_key='id'):
-    table_headers = [h for h in sql_read_headers(tablename) if h != primary_key]
+def object_att_from_table(tablename, id, primary_key='name'):
+    db = get_database()
+    tbl = db.get_table(tablename)
+
+    table_headers = [h for h in tbl.get_columns() if h != primary_key]
+    # table_headers = [h for h in sql_read_headers(tablename) if h != primary_key]
+
     if not len(table_headers):
         return []
 
-    attributes = csv_read_table(tablename, column_names=table_headers, **dict([(primary_key, id)]))
+    attributes = csv_read_table(tablename, column_names=table_headers, **{primary_key : id})
     if attributes is None:
         return None
     native_tuples = [(table_headers, attributes)] if len(table_headers)==1 else zip(table_headers, attributes)

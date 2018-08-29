@@ -1,5 +1,5 @@
 from csvdb import CsvMetadata, CsvDatabase
-from .text_mappings import MappedCols
+from energyPATHWAYS.generated.text_mappings import MappedCols
 
 _Metadata = [
     CsvMetadata('BlendNodeBlendMeasures',
@@ -109,7 +109,7 @@ _Metadata = [
                 key_col='name',
                 df_cols=['gau', 'year', 'value', 'dispatch_feeder', 'demand_sector']),
     CsvMetadata('DispatchNodeConfig',
-                data_table=True),
+                key_col='supply_node'),
     CsvMetadata('DispatchTransmissionConstraint',
                 key_col='name',
                 lowcase_cols=['sensitivity'],
@@ -237,12 +237,12 @@ _Metadata = [
 class EnergyPathwaysDatabase(CsvDatabase):
     def __init__(self, pathname=None, load=True, output_tables=False, compile_sensitivities=False, tables_to_not_load=None):
         super(EnergyPathwaysDatabase, self).__init__(
-            metadata=_Metadata,  
-            pathname=pathname, 
-            load=load, 
+            metadata=_Metadata,
+            pathname=pathname,
+            load=load,
             mapped_cols=MappedCols,
-            output_tables=output_tables, 
-            compile_sensitivities=compile_sensitivities, 
-            tables_to_not_load=tables_to_not_load, 
-            tables_without_classes=['CurrenciesConversion', 'GeographyMap', 'IDMap', 'InflationConversion', 'DispatchTransmissionHurdleRate', 'DispatchTransmissionLosses', 'Version', 'foreign_keys'], 
-            tables_to_ignore=['CurrencyYears', 'DispatchConfig', 'GeographyIntersection', 'GeographyIntersectionData', 'GeographyMap'])
+            output_tables=output_tables,
+            compile_sensitivities=compile_sensitivities,
+            tables_to_not_load=tables_to_not_load,
+            tables_without_classes=['CurrenciesConversion', 'GeographyMap', 'IDMap', 'InflationConversion', 'DispatchTransmissionHurdleRate', 'DispatchTransmissionLosses', 'Version', 'foreign_keys'],
+            tables_to_ignore=['CurrencyYears', 'DispatchConfig', 'GeographyIntersection', 'GeographyIntersectionData', 'GeographyMap', 'GeographiesSpatialJoin'])

@@ -2,7 +2,7 @@
 # This is a generated file. Manual edits may be lost!
 #
 import sys
-from csvdb.data_object import DataObject # superclass of generated classes
+from energyPATHWAYS.data_object import DataObject # superclass of generated classes
 
 _Module = sys.modules[__name__]  # get ref to our own module object
 
@@ -14,8 +14,6 @@ class BlendNodeBlendMeasures(DataObject):
              "interpolation_method", "name", "other_index_1", "supply_node"]
     _df_cols = ["gau", "demand_sector", "value", "year"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, name, scenario):
         DataObject.__init__(self, name, scenario)
 
@@ -60,8 +58,6 @@ class CO2PriceMeasures(DataObject):
              "interpolation_method", "name", "supply_node"]
     _df_cols = ["gau", "sensitivity", "value", "year"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, name, scenario):
         DataObject.__init__(self, name, scenario)
 
@@ -104,8 +100,6 @@ class DemandDrivers(DataObject):
              "other_index_2", "source", "unit_base", "unit_prefix"]
     _df_cols = ["gau", "value", "oth_2", "oth_1", "year", "sensitivity"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, name, scenario):
         DataObject.__init__(self, name, scenario)
 
@@ -167,8 +161,6 @@ class DemandEnergyDemands(DataObject):
     _df_cols = ["gau", "demand_technology", "value", "oth_2", "oth_1", "year", "final_energy",
              "sensitivity"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, subsector, scenario):
         DataObject.__init__(self, subsector, scenario)
 
@@ -241,8 +233,6 @@ class DemandEnergyEfficiencyMeasures(DataObject):
              "subsector", "unit"]
     _df_cols = ["gau", "value", "oth_2", "oth_1", "year", "final_energy"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, name, scenario):
         DataObject.__init__(self, name, scenario)
 
@@ -307,8 +297,6 @@ class DemandEnergyEfficiencyMeasuresCost(DataObject):
              "is_levelized", "other_index_1", "other_index_2", "parent"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "final_energy"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, parent, scenario):
         DataObject.__init__(self, parent, scenario)
 
@@ -366,8 +354,6 @@ class DemandFlexibleLoadMeasures(DataObject):
              "name", "other_index_1", "subsector"]
     _df_cols = ["gau", "demand_technology", "value", "oth_1", "year"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, subsector, scenario):
         DataObject.__init__(self, subsector, scenario)
 
@@ -410,8 +396,6 @@ class DemandFuelSwitchingMeasuresCost(DataObject):
              "is_levelized", "other_index_1", "other_index_2", "parent"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, parent, scenario):
         DataObject.__init__(self, parent, scenario)
 
@@ -469,8 +453,6 @@ class DemandFuelSwitchingMeasuresEnergyIntensity(DataObject):
              "other_index_1", "other_index_2", "parent"]
     _df_cols = ["gau", "value", "oth_2", "oth_1", "year"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, parent, scenario):
         DataObject.__init__(self, parent, scenario)
 
@@ -512,8 +494,6 @@ class DemandFuelSwitchingMeasuresImpact(DataObject):
              "interpolation_method", "other_index_1", "other_index_2", "parent", "unit"]
     _df_cols = ["gau", "value", "oth_2", "oth_1", "year"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, parent, scenario):
         DataObject.__init__(self, parent, scenario)
 
@@ -559,8 +539,6 @@ class DemandSales(DataObject):
              "interpolation_method", "other_index_1", "other_index_2", "subsector"]
     _df_cols = ["vintage", "gau", "demand_technology", "value", "oth_2", "oth_1"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, subsector, scenario):
         DataObject.__init__(self, subsector, scenario)
 
@@ -605,8 +583,6 @@ class DemandSalesShareMeasures(DataObject):
              "subsector"]
     _df_cols = ["vintage", "gau", "oth_1", "value"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, name, scenario):
         DataObject.__init__(self, name, scenario)
 
@@ -658,8 +634,6 @@ class DemandServiceDemandMeasures(DataObject):
              "stock_decay_function", "subsector", "unit"]
     _df_cols = ["gau", "value", "oth_2", "oth_1", "year"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, name, scenario):
         DataObject.__init__(self, name, scenario)
 
@@ -727,8 +701,6 @@ class DemandServiceDemandMeasuresCost(DataObject):
              "is_levelized", "other_index_1", "other_index_2", "parent"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, parent, scenario):
         DataObject.__init__(self, parent, scenario)
 
@@ -790,8 +762,6 @@ class DemandServiceDemands(DataObject):
     _df_cols = ["gau", "demand_technology", "value", "oth_2", "oth_1", "year", "final_energy",
              "sensitivity"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, subsector, scenario):
         DataObject.__init__(self, subsector, scenario)
 
@@ -863,8 +833,6 @@ class DemandServiceEfficiency(DataObject):
              "other_index_2", "subsector"]
     _df_cols = ["gau", "value", "oth_2", "oth_1", "year", "final_energy"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, subsector, scenario):
         DataObject.__init__(self, subsector, scenario)
 
@@ -918,8 +886,6 @@ class DemandStock(DataObject):
              "time_unit", "unit"]
     _df_cols = ["gau", "demand_technology", "value", "oth_2", "oth_1", "year"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, subsector, scenario):
         DataObject.__init__(self, subsector, scenario)
 
@@ -994,8 +960,6 @@ class DemandStockMeasures(DataObject):
              "interpolation_method", "name", "other_index_1", "subsector"]
     _df_cols = ["gau", "oth_1", "value", "year"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, name, scenario):
         DataObject.__init__(self, name, scenario)
 
@@ -1043,8 +1007,6 @@ class DemandTechsAuxEfficiency(DataObject):
              "other_index_2", "reference_tech_id", "shape"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "sensitivity"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, demand_technology, scenario):
         DataObject.__init__(self, demand_technology, scenario)
 
@@ -1119,8 +1081,6 @@ class DemandTechsFixedMaintenanceCost(DataObject):
              "other_index_2", "reference_tech_id"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "sensitivity"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, demand_technology, scenario):
         DataObject.__init__(self, demand_technology, scenario)
 
@@ -1185,8 +1145,6 @@ class DemandTechsFuelSwitchCost(DataObject):
              "other_index_1", "other_index_2", "reference_tech_id"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "sensitivity"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, demand_technology, scenario):
         DataObject.__init__(self, demand_technology, scenario)
 
@@ -1246,8 +1204,6 @@ class DemandTechsMainEfficiency(DataObject):
              "numerator_unit", "other_index_1", "other_index_2", "reference_tech_id", "utility_factor"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "sensitivity"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, demand_technology, scenario):
         DataObject.__init__(self, demand_technology, scenario)
 
@@ -1321,8 +1277,6 @@ class DemandTechsParasiticEnergy(DataObject):
              "time_unit"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "final_energy", "sensitivity"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, demand_technology, scenario):
         DataObject.__init__(self, demand_technology, scenario)
 
@@ -1384,8 +1338,6 @@ class DemandTechsServiceDemandModifier(DataObject):
              "other_index_1", "other_index_2"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "sensitivity"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, demand_technology, scenario):
         DataObject.__init__(self, demand_technology, scenario)
 
@@ -1435,8 +1387,6 @@ class DemandTechsServiceLink(DataObject):
              "name", "other_index_1", "other_index_2", "reference_id", "service_link"]
     _df_cols = ["vintage", "gau", "oth_1", "oth_2", "value"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, name, scenario):
         DataObject.__init__(self, name, scenario)
 
@@ -1496,8 +1446,6 @@ class DispatchFeedersAllocation(DataObject):
              "interpolation_method", "name"]
     _df_cols = ["gau", "year", "value", "dispatch_feeder", "demand_sector"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, name, scenario):
         DataObject.__init__(self, name, scenario)
 
@@ -1528,6 +1476,40 @@ class DispatchFeedersAllocation(DataObject):
                   geography_map_key=geography_map_key, input_type=input_type,
                   interpolation_method=interpolation_method, name=name)
 
+class DispatchNodeConfig(DataObject):
+    _instances_by_key = {}
+    _table_name = "DispatchNodeConfig"
+    _key_col = "supply_node"
+    _cols = ["dispatch_order", "dispatch_window", "geography", "optimized", "supply_node"]
+    _df_cols = []
+    _df_filters = []
+    def __init__(self, supply_node, scenario):
+        DataObject.__init__(self, supply_node, scenario)
+
+        DispatchNodeConfig._instances_by_key[self._key] = self
+
+        self.dispatch_order = None
+        self.dispatch_window = None
+        self.geography = None
+        self.optimized = None
+        self.supply_node = None
+
+    def set_args(self, scenario, dispatch_order=None, dispatch_window=None, geography=None, optimized=None,
+                 supply_node=None):
+        self.check_scenario(scenario)
+
+        self.dispatch_order = dispatch_order
+        self.dispatch_window = dispatch_window
+        self.geography = geography
+        self.optimized = optimized
+        self.supply_node = supply_node
+
+    def init_from_tuple(self, tup, scenario, **kwargs):    
+        (supply_node, dispatch_order, dispatch_window, geography, optimized,) = tup
+
+        self.set_args(scenario, dispatch_order=dispatch_order, dispatch_window=dispatch_window, geography=geography,
+                  optimized=optimized, supply_node=supply_node)
+
 class DispatchTransmissionConstraint(DataObject):
     _instances_by_key = {}
     _table_name = "DispatchTransmissionConstraint"
@@ -1537,8 +1519,6 @@ class DispatchTransmissionConstraint(DataObject):
              "time_zone_id"]
     _df_cols = ["gau_to", "gau_from", "hour", "sensitivity", "value", "month", "day_type", "year"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, name, scenario):
         DataObject.__init__(self, name, scenario)
 
@@ -1578,6 +1558,30 @@ class DispatchTransmissionConstraint(DataObject):
                   hurdle_currency_id=hurdle_currency_id, hurdle_currency_year_id=hurdle_currency_year_id,
                   interpolation_method=interpolation_method, name=name, time_zone_id=time_zone_id)
 
+class GeographyMapKeys(DataObject):
+    _instances_by_key = {}
+    _table_name = "GeographyMapKeys"
+    _key_col = "name"
+    _cols = ["name"]
+    _df_cols = []
+    _df_filters = []
+    def __init__(self, name, scenario):
+        DataObject.__init__(self, name, scenario)
+
+        GeographyMapKeys._instances_by_key[self._key] = self
+
+        self.name = None
+
+    def set_args(self, scenario, name=None):
+        self.check_scenario(scenario)
+
+        self.name = name
+
+    def init_from_tuple(self, tup, scenario, **kwargs):    
+        (name,) = tup
+
+        self.set_args(scenario, name=name)
+
 class ImportCost(DataObject):
     _instances_by_key = {}
     _table_name = "ImportCost"
@@ -1587,8 +1591,6 @@ class ImportCost(DataObject):
              "source"]
     _df_cols = ["sensitivity", "demand_sector", "value", "resource_bin", "year", "gau"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, import_node, scenario):
         DataObject.__init__(self, import_node, scenario)
 
@@ -1641,8 +1643,6 @@ class PrimaryCost(DataObject):
              "primary_node"]
     _df_cols = ["sensitivity", "year", "value", "resource_bin", "oth_1", "demand_sector", "gau"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, primary_node, scenario):
         DataObject.__init__(self, primary_node, scenario)
 
@@ -1693,8 +1693,6 @@ class StorageTechsDuration(DataObject):
              "reference_tech", "supply_tech", "time_unit"]
     _df_cols = ["gau", "value", "oth_2", "oth_1", "year", "sensitivity"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, supply_tech, scenario):
         DataObject.__init__(self, supply_tech, scenario)
 
@@ -1736,8 +1734,6 @@ class SupplyCapacityFactor(DataObject):
              "extrapolation_method", "geography", "interpolation_method", "supply_node", "unit"]
     _df_cols = ["gau", "demand_sector", "value", "resource_bin", "year"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, supply_node, scenario):
         DataObject.__init__(self, supply_node, scenario)
 
@@ -1786,8 +1782,6 @@ class SupplyCost(DataObject):
              "supply_node", "throughput_correlation", "time_unit"]
     _df_cols = ["sensitivity", "demand_sector", "value", "resource_bin", "year", "gau"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, name, scenario):
         DataObject.__init__(self, name, scenario)
 
@@ -1860,8 +1854,6 @@ class SupplyEfficiency(DataObject):
     _df_cols = ["efficiency_type", "sensitivity", "demand_sector", "value", "resource_bin", "year",
              "supply_node", "gau"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, name, scenario):
         DataObject.__init__(self, name, scenario)
 
@@ -1907,8 +1899,6 @@ class SupplyEmissions(DataObject):
              "interpolation_method", "mass_unit", "notes", "other_index_1", "source", "supply_node"]
     _df_cols = ["gau", "demand_sector", "value", "ghg", "oth_1", "year", "sensitivity", "ghg_type"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, supply_node, scenario):
         DataObject.__init__(self, supply_node, scenario)
 
@@ -1958,8 +1948,6 @@ class SupplyExport(DataObject):
              "interpolation_method", "other_index_1", "supply_node", "unit"]
     _df_cols = ["gau", "value", "resource_bin", "oth_1", "year"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, supply_node, scenario):
         DataObject.__init__(self, supply_node, scenario)
 
@@ -2005,8 +1993,6 @@ class SupplyExportMeasures(DataObject):
              "supply_node", "unit"]
     _df_cols = ["gau", "oth_1", "value", "year"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, name, scenario):
         DataObject.__init__(self, name, scenario)
 
@@ -2048,8 +2034,6 @@ class SupplyPotential(DataObject):
              "interpolation_method", "other_index_1", "supply_node", "time_unit", "unit"]
     _df_cols = ["gau", "year", "value", "resource_bin", "oth_1", "demand_sector", "sensitivity"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, supply_node, scenario):
         DataObject.__init__(self, supply_node, scenario)
 
@@ -2097,8 +2081,6 @@ class SupplyPotentialConversion(DataObject):
              "interpolation_method", "other_index_1", "resource_unit_denominator", "supply_node"]
     _df_cols = ["gau", "value", "resource_bin", "oth_1", "year"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, supply_node, scenario):
         DataObject.__init__(self, supply_node, scenario)
 
@@ -2144,8 +2126,6 @@ class SupplySales(DataObject):
              "geography_map_key", "interpolation_method", "supply_node", "time_unit"]
     _df_cols = ["vintage", "gau", "value", "resource_bin", "demand_sector", "supply_technology"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, supply_node, scenario):
         DataObject.__init__(self, supply_node, scenario)
 
@@ -2191,8 +2171,6 @@ class SupplySalesMeasures(DataObject):
              "interpolation_method", "name", "other_index_1", "supply_node", "supply_technology"]
     _df_cols = ["vintage", "gau", "value", "resource_bin", "oth_1", "demand_sector"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, name, scenario):
         DataObject.__init__(self, name, scenario)
 
@@ -2240,8 +2218,6 @@ class SupplySalesShare(DataObject):
              "supply_node"]
     _df_cols = ["vintage", "gau", "value", "demand_sector", "supply_technology"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, supply_node, scenario):
         DataObject.__init__(self, supply_node, scenario)
 
@@ -2278,8 +2254,6 @@ class SupplySalesShareMeasures(DataObject):
              "supply_node", "supply_technology", "time_unit"]
     _df_cols = ["vintage", "gau", "value", "resource_bin", "oth_1", "demand_sector"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, name, scenario):
         DataObject.__init__(self, name, scenario)
 
@@ -2334,8 +2308,6 @@ class SupplyStock(DataObject):
     _df_cols = ["sensitivity", "demand_sector", "value", "resource_bin", "year", "supply_technology",
              "gau"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, supply_node, scenario):
         DataObject.__init__(self, supply_node, scenario)
 
@@ -2382,8 +2354,6 @@ class SupplyStockMeasures(DataObject):
              "supply_technology", "time_unit"]
     _df_cols = ["gau", "demand_sector", "value", "resource_bin", "oth_1", "year"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, name, scenario):
         DataObject.__init__(self, name, scenario)
 
@@ -2438,8 +2408,6 @@ class SupplyTechsCO2Capture(DataObject):
              "supply_tech"]
     _df_cols = ["vintage", "gau", "resource_bin", "value"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, supply_tech, scenario):
         DataObject.__init__(self, supply_tech, scenario)
 
@@ -2489,8 +2457,6 @@ class SupplyTechsCapacityFactor(DataObject):
              "supply_tech"]
     _df_cols = ["vintage", "sensitivity", "value", "resource_bin", "oth_1", "gau"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, supply_tech, scenario):
         DataObject.__init__(self, supply_tech, scenario)
 
@@ -2541,8 +2507,6 @@ class SupplyTechsEfficiency(DataObject):
     _df_cols = ["efficiency_type", "vintage", "sensitivity", "value", "resource_bin", "demand_sector",
              "supply_node", "gau"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, supply_tech, scenario):
         DataObject.__init__(self, supply_tech, scenario)
 
@@ -2604,8 +2568,6 @@ class SupplyTechsFixedMaintenanceCost(DataObject):
              "supply_tech", "time_unit"]
     _df_cols = ["vintage", "sensitivity", "value", "resource_bin", "demand_sector", "gau"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, supply_tech, scenario):
         DataObject.__init__(self, supply_tech, scenario)
 
@@ -2672,8 +2634,6 @@ class SupplyTechsVariableMaintenanceCost(DataObject):
              "interpolation_method", "notes", "reference_tech_id", "source", "supply_tech"]
     _df_cols = ["vintage", "sensitivity", "value", "resource_bin", "demand_sector", "gau"]
     _df_filters = []
-    _data_table_name = None
-
     def __init__(self, supply_tech, scenario):
         DataObject.__init__(self, supply_tech, scenario)
 

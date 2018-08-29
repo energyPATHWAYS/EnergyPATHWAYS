@@ -9,8 +9,8 @@ import shutil
 
 from energyPATHWAYS.generated.text_mappings import MappedCols
 
-from .pg_database import (find_key_col, find_parent_col, mkdirs, Simple_mapping_tables,
-                          Tables_without_classes, Tables_to_ignore)
+from .postgres import (find_key_col, find_parent_col, mkdirs, Simple_mapping_tables,
+                       Tables_without_classes, Tables_to_ignore)
 
 def _read_csv(pathname, tbl_name):
     # Avoid reading empty strings as nan
@@ -20,6 +20,12 @@ def _read_csv(pathname, tbl_name):
 
     df = pd.read_csv(pathname, index_col=None, converters=converters)
     return df
+
+def get_key_col(dbdir, table_name):
+    path = os.path.join(dbdir,  table_name + '.csv')
+    df = _read_csv(path, table_name)
+    key_col = find_key_col(table_name, df.columns)
+    return key_col
 
 def denormalize(dbdir, outdir, table_name, force):
     child_name = table_name + 'Data'
@@ -39,7 +45,7 @@ def denormalize(dbdir, outdir, table_name, force):
     childDF  = _read_csv(childPath,  child_name)
 
     # In these cases, the child table already holds the desired result
-    if table_name in ['Geographies', 'OtherIndexes']:
+    if table_name in ['Geographies', 'OtherIndexes', 'GeographiesSpatialJoin']:
         childDF.to_csv(mergedPath, index=None)
         return {'data_table': True}
 
@@ -168,7 +174,8 @@ def main(dbdir, outdir, metadata_file, classname, force, shapes):
 
     metadata = {}
 
-    # exclude = Tables_without_classes + Simple_mapping_tables
+    # exceptions to "data_table" rule
+    not_data_table = ['DispatchNodeConfig']
 
     for tbl_name in tables:
         child_name = tbl_name + 'Data'
@@ -185,12 +192,13 @@ def main(dbdir, outdir, metadata_file, classname, force, shapes):
             dst = os.path.join(outdir, basename)
             shutil.copy2(src, dst)
 
-            df = _read_csv(src, tbl_name)
-            cols = list(df.columns)
-            key_col = find_key_col(tbl_name, cols)
-            # md = gen_metadata(key_col, cols)
-            # md['data_table'] = True
-            metadata[tbl_name] = {'data_table': True}
+            if tbl_name in not_data_table:
+                key_col = get_key_col(dbdir, tbl_name)
+                md = {'key_col' : key_col}
+            else:
+                md = {'data_table': True}
+
+            metadata[tbl_name] = md
 
     gen_database_file(metadata_file, metadata, classname)
 

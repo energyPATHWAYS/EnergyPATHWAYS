@@ -347,24 +347,25 @@ class DataMapFunctions:
 
 
 class Abstract(DataMapFunctions):
-    def __init__(self, id, primary_key='id', data_id_key=None, **filters):
+    def __init__(self, name, primary_key='name', data_id_key=None, **filters):
         # From Ryan: I've introduced a new parameter called data_id_key, which is the key in the "Data" table
         # because we are introducing primary keys into the Data tables, it is sometimes necessary to specify them separately
         # before we only has primary_key, which was shared in the "parent" and "data" tables, and this is still the default as we make the change.
         if data_id_key is None:
             data_id_key = primary_key
 
+        table = self.sql_id_table
+
         try:
-            col_att = util.object_att_from_table(self.sql_id_table, id, primary_key)
+            col_att = util.object_att_from_table(table, name, primary_key)
         except:
-            logging.error(self.sql_id_table, id, primary_key)
+            logging.error(table, name, primary_key)
             raise
 
         if col_att is None:
             self.data = False
         else:
             for col, att in col_att:
-                # if att is not None:
                 setattr(self, col, att)
             self.data = True
 
