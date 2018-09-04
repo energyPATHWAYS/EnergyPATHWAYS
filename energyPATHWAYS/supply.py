@@ -411,10 +411,9 @@ class Supply(object):
             self.calculated_years.append(year)
 
     def discover_bulk_id(self):
-        for node in self.nodes.values():
-            if hasattr(node, 'active_coefficients_total') and getattr(node, 'active_coefficients_total') is not None:
-                if self.thermal_dispatch_node_id in node.active_coefficients_total.index.get_level_values('supply_node'):
-                    self.bulk_id = node.id
+        for blend in self.blend_nodes:
+                if self.thermal_dispatch_node_id in self.nodes[blend].nodes:
+                    self.bulk_id = blend
                     
     def discover_thermal_nodes(self):
         self.thermal_nodes = []
@@ -2143,8 +2142,9 @@ class Supply(object):
             keys = self.demand_sectors
             name = ['sector']
             for sector in self.demand_sectors:   
-               df = copy.deepcopy(embodied_dict[year][sector]).loc[:,idx[:,supply_nodes]]
-               util.replace_column_name(df,'supply_node_export',  'supply_node')
+               df = copy.deepcopy(embodied_dict[year][sector])
+               util.replace_column_name(df,'supply_node_export','supply_node')
+               df = df.loc[:,idx[:,supply_nodes]]
                util.replace_index_name(df, cfg.supply_primary_geography + "_supply", cfg.supply_primary_geography)
                stack_levels =[cfg.supply_primary_geography, "supply_node_export"]
                try:
