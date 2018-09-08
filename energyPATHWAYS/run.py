@@ -155,21 +155,18 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    # workingdir = r'C:\github\EP_runs\NARIS'
-    # config = 'config.INI'
-    # scenario = ['med_moder_aeo', 'high_moder_aeo', 'ref_moder_aeo']
-    workingdir = r'Z:\NREL\supply side\ref_moder_aeo'
+    workingdir = r'C:\github\EP_runs\NARIS'
     config = 'config.INI'
-    scenario = ['ref_moder_aeo']
+    scenario = ['med_moder_aeo', 'high_moder_aeo', 'ref_moder_aeo']
     # scenario = ['high_moder_aeo']
 
     run(workingdir, config, scenario,
     load_demand   = False,
-    solve_demand  = False,
-    load_supply   = True,
+    solve_demand  = True,
+    load_supply   = False,
     solve_supply  = False,
     export_results= True,
     load_error    = False,
     pickle_shapes = False,
-    save_models   = False,
-    clear_results = False)
+    save_models   = True,
+    clear_results = True)
