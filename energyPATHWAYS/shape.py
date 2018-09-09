@@ -302,7 +302,7 @@ class Shape(dmf.DataMapFunctions):
         """
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
         
-        self.map_df_primary = cfg.geo.map_df(self.geography, self.primary_geography, normalize_as=self.input_type, map_key=geography_map_key)
+        self.map_df_primary = cfg.geo.map_df(self.geography, ['time zone', self.primary_geography], normalize_as=self.input_type, map_key=geography_map_key)
         mapped_data = util.DfOper.mult((getattr(self, attr), self.map_df_primary), fill_value=None)
         if self.geography!=self.primary_geography and self.geography!='time zone':
             mapped_data = util.remove_df_levels(mapped_data, self.geography)
