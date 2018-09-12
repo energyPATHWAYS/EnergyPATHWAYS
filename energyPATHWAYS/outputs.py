@@ -44,7 +44,7 @@ class Output(object):
             df = df[df.index.get_level_values('year')>=int(cfg.cfgfile.get('case','current_year'))]
         dct = cfg.outputs_id_map
         index = df.index
-        index.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(index.names, index.levels)], inplace=True)
+        index.set_levels([[int(dct[name].get(item, item)) for item in level] for name, level in zip(index.names, index.levels)], inplace=True)
         index.names = [x.upper() if isinstance(x, basestring) else x for x in index.names]
         if isinstance(df.columns,pd.MultiIndex):
             columns = df.columns
@@ -89,7 +89,7 @@ class Output(object):
                         raise
                     tries += 1
         else:
-            df.to_csv(os.path.join(path, file_name), header=True, mode='w')
+            df.to_csv(os.path.join(path, file_name), header=True, mode='w', compression=compression)
 
     @staticmethod
     def writeobj(obj, write_directory=None, name=None, clean=False):

@@ -36,30 +36,42 @@ class PathwaysModel(object):
             if not append_results:
                 self.remove_old_results()
 
+            for sector_id in self.demand.sectors:
+                if self.demand.sectors[sector_id].shape_id is not None:
+                    self.demand.sectors[sector_id].shape = shape.shapes.data[self.demand.sectors[sector_id].shape_id]
+                for subsector_id in self.demand.sectors[sector_id].subsectors:
+                    if self.demand.sectors[sector_id].subsectors[subsector_id].shape_id is not None:
+                        self.demand.sectors[sector_id].subsectors[subsector_id].shape = shape.shapes.data[self.demand.sectors[sector_id].subsectors[subsector_id].shape_id]
+
+            cfg.outputs_id_map['weather_datetime'] = dict(zip(shape.shapes.active_dates_index, range(len(shape.shapes.active_dates_index))))
+
             # it is nice if when loading a demand side object to rerun supply, it doesn't re-output these results every time
             if self.demand_solved and export_results and not self.api_run and not (load_demand and solve_supply):
-                # self.demand.output_subsector_electricity_profiles()
+                self.demand.electricity_reconciliation = None
+                self.demand.create_electricity_reconciliation()
+                self.demand.output_subsector_electricity_profiles()
+                self.demand.outputs.subsector_electricity_profiles = self.demand.outputs.subsector_electricity_profiles.round(2)
                 self.export_result_to_csv('demand_outputs')
 
-            if solve_supply and not load_supply:
-                if load_demand:
-                    # if we are loading the demand, we are changing the supply measures and want to reload our scenarios
-                    self.scenario = Scenario(self.scenario_id)
-                self.supply = Supply(self.scenario, demand_object=self.demand)
-                self.calculate_supply(save_models)
-
-            if load_demand and solve_supply:
-                # we do this now because we delayed before
-                self.export_result_to_csv('demand_outputs')
-
-            if self.supply_solved and export_results and load_supply or solve_supply:
-                self.supply.calculate_supply_outputs()
-                self.pass_supply_results_back_to_demand()
-                self.calculate_combined_results()
-                self.outputs.electricity_reconciliation = self.demand.electricity_reconciliation # we want to write these to outputs
-                self.export_result_to_csv('supply_outputs')
-                self.export_result_to_csv('combined_outputs')
-                self.export_io()
+        #     if solve_supply and not load_supply:
+        #         if load_demand:
+        #             # if we are loading the demand, we are changing the supply measures and want to reload our scenarios
+        #             self.scenario = Scenario(self.scenario_id)
+        #         self.supply = Supply(self.scenario, demand_object=self.demand)
+        #         self.calculate_supply(save_models)
+        #
+        #     if load_demand and solve_supply:
+        #         # we do this now because we delayed before
+        #         self.export_result_to_csv('demand_outputs')
+        #
+        #     if self.supply_solved and export_results and load_supply or solve_supply:
+        #         self.supply.calculate_supply_outputs()
+        #         self.pass_supply_results_back_to_demand()
+        #         self.calculate_combined_results()
+        #         self.outputs.electricity_reconciliation = self.demand.electricity_reconciliation # we want to write these to outputs
+        #         self.export_result_to_csv('supply_outputs')
+        #         self.export_result_to_csv('combined_outputs')
+        #         self.export_io()
         except:
             # pickle the model in the event that it crashes
             if save_models:
@@ -145,20 +157,23 @@ class PathwaysModel(object):
             raise ValueError('result_name not recognized')
 
         for attribute in dir(res_obj):
+            if attribute != 'subsector_electricity_profiles':
+                continue
+
             if not isinstance(getattr(res_obj, attribute), pd.DataFrame):
                 continue
 
             result_df = getattr(res_obj, 'return_cleaned_output')(attribute)
-            keys = [self.scenario.name.upper(), cfg.timestamp]
-            names = ['SCENARIO', 'TIMESTAMP']
-            for key, name in zip(keys, names):
-                result_df = pd.concat([result_df], keys=[key], names=[name])
+            # keys = [self.scenario.name.upper(), cfg.timestamp]
+            # names = ['SCENARIO', 'TIMESTAMP']
+            # for key, name in zip(keys, names):
+            #     result_df = pd.concat([result_df], keys=[key], names=[name])
 
             if attribute in ('hourly_dispatch_results', 'electricity_reconciliation', 'hourly_marginal_cost', 'hourly_production_cost'):
                 # Special case for hourly dispatch results where we want to write them outside of supply_outputs
                 Output.write(result_df, attribute + '.csv', os.path.join(cfg.workingdir, 'dispatch_outputs'))
             else:
-                Output.write(result_df, attribute+'.csv', os.path.join(cfg.workingdir, result_name))
+                Output.write(result_df, attribute+'.csv', os.path.join(cfg.workingdir, result_name), compression='gzip')
         
     def calculate_tco(self):
         cost_unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')

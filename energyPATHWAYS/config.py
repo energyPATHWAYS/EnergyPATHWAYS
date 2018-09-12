@@ -320,40 +320,40 @@ def init_output_levels():
 
 def init_outputs_id_map():
     global outputs_id_map
-    demand_primary_geography = geo.get_demand_primary_geography_name()
-    supply_primary_geography = geo.get_supply_primary_geography_name()
-    dispatch_geography_name = geo.get_dispatch_geography_name()
-    outputs_id_map[demand_primary_geography] = util.upper_dict(geo.geography_names.items())
-    outputs_id_map[supply_primary_geography] = util.upper_dict(geo.geography_names.items())
-    outputs_id_map[supply_primary_geography + "_supply"] = util.upper_dict(geo.geography_names.items())
-    outputs_id_map[supply_primary_geography + "_input"] = util.upper_dict(geo.geography_names.items())
-    outputs_id_map[supply_primary_geography + "_output"] = util.upper_dict(geo.geography_names.items())
-    outputs_id_map[demand_primary_geography + "_input"] = util.upper_dict(geo.geography_names.items())
-    outputs_id_map[demand_primary_geography + "_output"] = util.upper_dict(geo.geography_names.items())
-    outputs_id_map[dispatch_geography_name] = util.upper_dict(geo.geography_names.items())
-    outputs_id_map['demand_technology'] = util.upper_dict(util.sql_read_table('DemandTechs', ['id', 'name']))
-    outputs_id_map['supply_technology'] = util.upper_dict(util.sql_read_table('SupplyTechs', ['id', 'name']))
-    outputs_id_map['final_energy'] = util.upper_dict(util.sql_read_table('FinalEnergy', ['id', 'name']))
-    outputs_id_map['supply_node'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name']))     
-    outputs_id_map['blend_node'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name']))     
-    outputs_id_map['input_node'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name']))         
-    outputs_id_map['supply_node_output'] = outputs_id_map['supply_node']
-    outputs_id_map['supply_node_input'] = outputs_id_map['supply_node']
-    outputs_id_map['supply_node_export'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name'])," EXPORT")
-    outputs_id_map['subsector'] = util.upper_dict(util.sql_read_table('DemandSubsectors', ['id', 'name']))           
-    outputs_id_map['demand_sector'] = util.upper_dict(util.sql_read_table('DemandSectors', ['id', 'name']))
-    outputs_id_map['sector'] = outputs_id_map['demand_sector']
-    outputs_id_map['ghg'] = util.upper_dict(util.sql_read_table('GreenhouseGases', ['id', 'name']))
-    outputs_id_map['driver'] = util.upper_dict(util.sql_read_table('DemandDrivers', ['id', 'name']))
-    outputs_id_map['dispatch_feeder'] = util.upper_dict(util.sql_read_table('DispatchFeeders', ['id', 'name']))
-    outputs_id_map['dispatch_feeder'][0] = 'BULK'
-    outputs_id_map['other_index_1'] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name']))
-    outputs_id_map['other_index_2'] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name']))
-    outputs_id_map['timeshift_type'] = util.upper_dict(util.sql_read_table('FlexibleLoadShiftTypes', ['id', 'name']))
-    for id, name in util.sql_read_table('OtherIndexes', ('id', 'name'), return_iterable=True):
-        if name in ('demand_technology', 'final_energy'):
-            continue
-        outputs_id_map[name] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name'], other_index_id=id, return_unique=True))
+    # demand_primary_geography = geo.get_demand_primary_geography_name()
+    # supply_primary_geography = geo.get_supply_primary_geography_name()
+    # dispatch_geography_name = geo.get_dispatch_geography_name()
+    # outputs_id_map[demand_primary_geography] = util.upper_dict(geo.geography_names.items())
+    # outputs_id_map[supply_primary_geography] = util.upper_dict(geo.geography_names.items())
+    # outputs_id_map[supply_primary_geography + "_supply"] = util.upper_dict(geo.geography_names.items())
+    # outputs_id_map[supply_primary_geography + "_input"] = util.upper_dict(geo.geography_names.items())
+    # outputs_id_map[supply_primary_geography + "_output"] = util.upper_dict(geo.geography_names.items())
+    # outputs_id_map[demand_primary_geography + "_input"] = util.upper_dict(geo.geography_names.items())
+    # outputs_id_map[demand_primary_geography + "_output"] = util.upper_dict(geo.geography_names.items())
+    # outputs_id_map[dispatch_geography_name] = util.upper_dict(geo.geography_names.items())
+    # outputs_id_map['demand_technology'] = util.upper_dict(util.sql_read_table('DemandTechs', ['id', 'name']))
+    # outputs_id_map['supply_technology'] = util.upper_dict(util.sql_read_table('SupplyTechs', ['id', 'name']))
+    # outputs_id_map['final_energy'] = util.upper_dict(util.sql_read_table('FinalEnergy', ['id', 'name']))
+    # outputs_id_map['supply_node'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name']))
+    # outputs_id_map['blend_node'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name']))
+    # outputs_id_map['input_node'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name']))
+    # outputs_id_map['supply_node_output'] = outputs_id_map['supply_node']
+    # outputs_id_map['supply_node_input'] = outputs_id_map['supply_node']
+    # outputs_id_map['supply_node_export'] = util.upper_dict(util.sql_read_table('SupplyNodes', ['id', 'name'])," EXPORT")
+    # outputs_id_map['subsector'] = util.upper_dict(util.sql_read_table('DemandSubsectors', ['id', 'name']))
+    # outputs_id_map['demand_sector'] = util.upper_dict(util.sql_read_table('DemandSectors', ['id', 'name']))
+    # outputs_id_map['sector'] = outputs_id_map['demand_sector']
+    # outputs_id_map['ghg'] = util.upper_dict(util.sql_read_table('GreenhouseGases', ['id', 'name']))
+    # outputs_id_map['driver'] = util.upper_dict(util.sql_read_table('DemandDrivers', ['id', 'name']))
+    # outputs_id_map['dispatch_feeder'] = util.upper_dict(util.sql_read_table('DispatchFeeders', ['id', 'name']))
+    # outputs_id_map['dispatch_feeder'][0] = 'BULK'
+    # outputs_id_map['other_index_1'] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name']))
+    # outputs_id_map['other_index_2'] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name']))
+    # outputs_id_map['timeshift_type'] = util.upper_dict(util.sql_read_table('FlexibleLoadShiftTypes', ['id', 'name']))
+    # for id, name in util.sql_read_table('OtherIndexes', ('id', 'name'), return_iterable=True):
+    #     if name in ('demand_technology', 'final_energy'):
+    #         continue
+    #     outputs_id_map[name] = util.upper_dict(util.sql_read_table('OtherIndexesData', ['id', 'name'], other_index_id=id, return_unique=True))
 
 def init_output_parameters():
     global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes, evolved_years
