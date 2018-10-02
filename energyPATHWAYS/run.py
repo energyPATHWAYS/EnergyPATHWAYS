@@ -155,10 +155,10 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\NARIS'
+    workingdir = r'C:\github\EP_runs\NARIS\scenarios'
     config = 'config.INI'
-    scenario = ['med_moder_aeo', 'high_moder_aeo', 'ref_moder_aeo']
-    # scenario = ['high_moder_aeo']
+    scenario = ['ref_moder_aeo', 'high_moder_aeo']
+    # scenario = ['med_moder_aeo']
 
     run(workingdir, config, scenario,
     load_demand   = False,
@@ -167,6 +167,6 @@ if __name__ == "__main__":
     solve_supply  = False,
     export_results= True,
     load_error    = False,
-    pickle_shapes = False,
+    pickle_shapes = True,
     save_models   = True,
     clear_results = True)
