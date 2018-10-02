@@ -1832,8 +1832,10 @@ class Subsector(DataMapFunctions):
                     self.service_demand.map_from = 'values'
                     # change the service demand to a per stock_time_unit service demand
                     # ex. kBtu/year to kBtu/hour average service demand
-                    time_step_service = util.unit_convert(self.service_demand.values, unit_from_num=self.service_demand.unit,unit_to_num=self.stock.unit, unit_from_den='year',
-                                                          unit_to_den=self.stock.time_unit)
+                    #time_step_service = util.unit_convert(self.service_demand.values, unit_from_num=self.service_demand.unit,unit_to_num=self.stock.unit, unit_from_den='year',
+                                                          #unit_to_den=self.stock.time_unit)
+                    time_step_service = util.unit_convert(self.service_demand.values, unit_from_den='year',unit_to_den = self.stock.time_unit)
+                    self.stock.unit = self.service_demand.unit
                     # divide by capacity factor stock inputs to get a service demand stock
                     # ex. kBtu/hour/capacity factor equals kBtu/hour stock
                     self.stock.remap(map_from='raw_values', map_to='int_values', converted_geography=cfg.demand_primary_geography, fill_timeseries=True)
@@ -1860,6 +1862,7 @@ class Subsector(DataMapFunctions):
                     # change the energy demand to a per stock_time_unit energy demand
                     # ex. kBtu/year to kBtu/hour average service demand
                     time_step_energy = util.unit_convert(self.energy_demand.values, unit_from_den='year',unit_to_den=self.stock.time_unit)
+                    self.stock.unit = self.energy_demand.unit
                     # divide by capacity factor stock inputs to get a service demand stock
                     # ex. kBtu/hour/capacity factor equals kBtu/hour stock
                     self.stock.remap(map_from='raw_values', converted_geography=cfg.demand_primary_geography, map_to='int_values')

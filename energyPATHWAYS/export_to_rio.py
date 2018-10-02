@@ -37,18 +37,27 @@ class RioExport(object):
 
     def write_all(self):
         self.write_blend()
-        self.write_conversion()
-        self.write_product()
-        self.write_topography()
-        self.write_potential_group()
-        self.write_existing_gen()
-        self.write_new_gen()
-        self.write_transmission()
-        self.write_flex_load()
+        self.flex_load_df = self.flatten_flex_load_dict()
         if self.scenario_index == 0:
             self.write_reference_tables()
             self.write_all_empty()
             self.write_shapes()
+            self.write_blend_main()
+            self.write_new_tech_main()
+            self.write_existing_gen()
+            self.write_conversion_main()
+            if self.flex_load_df is not None:
+                self.write_flex_tech_main()
+            self.write_capacity_zone_main()
+            self.write_product_main()
+        self.write_conversion()
+        self.write_product()
+        self.write_topography()
+        self.write_potential_group()
+        self.write_new_gen()
+        self.write_transmission()
+        self.write_flex_load()
+
 
     def write_reference_tables(self):
         self.write_geographies()
@@ -89,9 +98,8 @@ class RioExport(object):
 
 
     def write_flex_load(self):
-        self.flex_load_df = self.flatten_flex_load_dict()
         if self.flex_load_df is not None:
-            self.write_flex_tech_main()
+            #self.write_flex_tech_main()
             self.write_flex_tech_shapes()
             self.write_flex_tech_p_max()
             self.write_flex_tech_p_min()
@@ -281,7 +289,7 @@ class RioExport(object):
 
 
     def write_conversion(self):
-        self.write_conversion_main()
+        #self.write_conversion_main()
         self.write_conversion_capital_cost()
         self.write_conversion_fixed_om()
         self.write_conversion_variable_om()
@@ -289,13 +297,13 @@ class RioExport(object):
         self.write_conversion_schedule()
 
     def write_product(self):
-        self.write_product_main()
+       # self.write_product_main()
         self.write_product_emissions()
         self.write_product_cost()
         self.write_product_potential()
 
     def write_blend(self):
-        self.write_blend_main()
+        self.determine_blends()
         self.write_blend_exo_demand()
         self.write_blend_inputs()
 
@@ -326,7 +334,6 @@ class RioExport(object):
         self.write_new_tech_duration()
         self.write_new_tech_efficiency()
         self.write_new_tech_fixed_om()
-        self.write_new_tech_main()
         self.write_new_tech_p_min()
         self.write_new_tech_ramp()
         self.write_new_tech_standard_unit()
@@ -467,7 +474,10 @@ class RioExport(object):
                     print "No existing technologies in %s" % node
                     continue
                 for gau in cfg.geo.geographies[cfg.supply_primary_geography]:
-                    if self.supply.nodes[node].stock.extrapolation_method != 'none':
+                    if hasattr(self.supply.nodes[node].case_stock, 'total') or hasattr(
+                        self.supply.nodes[node].case_stock, 'technology'):
+                        node_df = util.df_slice(self.supply.nodes[node].stock.sales, gau, cfg.supply_primary_geography)
+                    elif self.supply.nodes[node].stock.extrapolation_method != 'none':
                         node_df = util.df_slice(self.supply.nodes[node].stock.technology,gau,cfg.supply_primary_geography)
                         node_df.replace(np.nan,0)
                         #node_df.iloc[:,1:] = node_df.iloc[:,1:].values - node_df.iloc[:,:-1].values
@@ -489,7 +499,8 @@ class RioExport(object):
                         df_rows['min_gen_efficiency'] *= float(len(df_rows))
                         df_rows['capacity_unit'] = 'megawatt'
                         df_rows['capacity'] = util.unit_convert(df.values[0],unit_from_num=cfg.calculation_energy_unit,unit_to_num='megawatt_hour')/float(len(df_rows))
-
+                        df_rows['standard_unit_size'] = df_rows['capacity']
+                        df_rows['net_to_gross'] = 1
                         if len(plant) == 3:
                             name = "existing_" + cfg.outputs_id_map['supply_technology'][tech_id]  + "_" + str(plant[0])
                             df_rows['name'] = name
@@ -509,15 +520,14 @@ class RioExport(object):
                         else:
                             gen_type = 'fixed'
                         df_rows['type'] = gen_type
-                        pdb.set_trace()
-                        df_rows['energy'] = df_rows['capacity'].values * self.supply.nodes[node].technologies[tech_id].discharge_duration if gen_type == 'storage' else np.nan
+                        df_rows['energy'] = df_rows['capacity'].values * self.supply.nodes[node].technologies[tech_id].duration.values.loc[(gau,plant[-1]),:].values if gen_type == 'storage' else np.nan
                         df_rows['energy_unit'] = 'megawatt_hour'
                         #we specify the lifetime as 1 and 'rebuild' the stock every year if it is specified.'
                         if self.supply.nodes[node].stock.extrapolation_method != 'none':
                             df_rows['lifetime'] = 1
                         else:
                             df_rows['lifetime'] = self.supply.nodes[node].technologies[tech_id].mean_lifetime
-                        df_rows['recovery_factor'] = self.supply.nodes[node].technologies[tech_id].cost_of_capital
+                        df_rows['recovery_factor'] = self.supply.nodes[node].technologies[tech_id].cost_of_capital -float(cfg.cfgfile.get('case', 'inflation_rate'))
                         df_rows['retirement_type'] = 'simple' if self.supply.nodes[node].stock.extrapolation_method!='none' else 'complex'
                         df_rows['use_retirement_year'] = False
                         if len(plant) == 3:
@@ -591,7 +601,7 @@ class RioExport(object):
         df = Output.clean_rio_df(df,add_geography=False,replace_gau=False)
         df['blend_in'] = df['supply_node']
         df = df[['name','type','lifetime','recovery_factor','retirement_type','use_retirement_year','potential_group','potential_group_geo', 'ancillary_service_eligible','plant', 'capacity_zone','shape',\
-                 'net_for_binning', 'must_run','allow_long_term_charging','geography','gau','capacity_unit','capacity','energy_unit','energy',\
+                 'net_for_binning', 'must_run','allow_long_term_charging','geography','gau','capacity_unit','capacity','standard_unit_size','net_to_gross','energy_unit','energy',\
                  'generation_p_min','generation_p_max',
                             'load_p_min','load_p_max','ramp_rate', 'ramp_rate_time_unit','unit_in','unit_out','blend_in',\
                             'output_numerator','min_gen_efficiency','max_gen_efficiency','capacity_factor','operating_year','retirement_year', 'currency','currency_year',
@@ -709,7 +719,7 @@ class RioExport(object):
                     df['currency_year'] = cfg.cfgfile.get('case', 'currency_year_id')
                     df['cost_type'] = 'capacity'
                     df['lifecycle'] = 'new'
-                    df['recovery_factor'] = self.supply.nodes[node].technologies[tech_id].cost_of_capital
+                    df['recovery_factor'] = self.supply.nodes[node].technologies[tech_id].cost_of_capital -float(cfg.cfgfile.get('case', 'inflation_rate'))
                     df['levelized'] = False
                     df['geography_map_key'] = None
                     df['interpolation_method'] = 'linear_interpolation'
@@ -757,7 +767,7 @@ class RioExport(object):
                     df['currency_year'] = cfg.cfgfile.get('case', 'currency_year_id')
                     df['cost_type'] = 'energy'
                     df['lifecycle'] = 'new'
-                    df['recovery_factor'] = self.supply.nodes[node].technologies[tech_id].cost_of_capital
+                    df['recovery_factor'] = self.supply.nodes[node].technologies[tech_id].cost_of_capital -float(cfg.cfgfile.get('case', 'inflation_rate'))
                     df['levelized'] = False
                     df['geography_map_key'] = None
                     df['interpolation_method'] = 'linear_interpolation'
@@ -1037,7 +1047,7 @@ class RioExport(object):
                     df['currency_year'] = cfg.cfgfile.get('case', 'currency_year_id')
                     df['cost_type'] = 'capacity'
                     df['lifecycle'] = 'new'
-                    df['recovery_factor'] = self.supply.nodes[node].technologies[tech_id].cost_of_capital
+                    df['recovery_factor'] = self.supply.nodes[node].technologies[tech_id].cost_of_capital-float(cfg.cfgfile.get('case', 'inflation_rate'))
                     df['levelized'] = False
                     df['geography_map_key'] = None
                     df['interpolation_method'] = 'linear_interpolation'
@@ -1308,11 +1318,12 @@ class RioExport(object):
     
 
     def write_topography(self):
-        self.write_capacity_zone_main()
+        #self.write_capacity_zone_main()
         self.write_bulk_capacity_zone_load()
         self.write_bulk_capacity_zone_losses()
 
-    def write_blend_main(self):
+
+    def determine_blends(self):
         blend_node_subset = [x for x in self.supply.blend_nodes if x not in [self.supply.bulk_id,
                                                                              self.supply.thermal_dispatch_node_id,
                                                                              self.supply.distribution_node_id]]
@@ -1326,11 +1337,14 @@ class RioExport(object):
         self.blend_node_subset_names = [self.supply.nodes[x].name.upper() for x in self.blend_node_subset]
         self.blend_node_subset_lookup = dict(zip(self.blend_node_subset,self.blend_node_subset_names))
         self.blend_node_inputs = list(set(util.flatten_list([self.supply.nodes[x].nodes for x in self.blend_node_subset])))
+
+    def write_blend_main(self):
         df = pd.DataFrame(self.blend_node_subset_names)
         df['exceed_demand'] = True
         #df['enforce_geography'] = [False if self.supply.nodes[x].tradable_geography!= cfg.supply_primary_geography else True for x in self.blend_node_subset]
+        df['enforce_zonal_constraints'] = False
         df['enforce_storage_constraints'] = False
-        df.columns = ['name', 'exceed_demand','enforce_storage_constraints']
+        df.columns = ['name', 'enforce_zonal_constraints','exceed_demand','enforce_storage_constraints']
         Output.write_rio(df, "BLEND_MAIN" + '.csv', self.db_dir+'\\Fuel Inputs\\Blends', index=False)
 
 
@@ -1726,7 +1740,7 @@ class RioExport(object):
                                               cfg.outputs_id_map['supply_technology'][technology]+ "_" + self.blend_node_subset_lookup[blend]
                             cost_df['lifetime'] = self.supply.nodes[node].technologies[technology].mean_lifetime
                             cost_df['recovery_factor'] = self.supply.nodes[node].technologies[
-                                technology].cost_of_capital
+                                technology].cost_of_capital -float(cfg.cfgfile.get('case', 'inflation_rate'))
                             df_list.append(cost_df)
         df = pd.concat(df_list)
         df.reset_index(inplace=True)
@@ -2006,6 +2020,7 @@ class RioExport(object):
             load_shape_df = util.DfOper.divi([df, util.remove_df_levels(df, 'weather_datetime', 'sum')])
             #load_shape_df = load_shape_df.tz_localize(None, level='weather_datetime')
             load_shape_df = Output.clean_rio_df(load_shape_df,add_geography=False)
+            load_shape_df['sensitivity'] = self.supply.scenario.name
             df = util.remove_df_levels(df,'weather_datetime')
             df = Output.clean_rio_df(df)
             df['interpolation_method'] = 'linear_interpolation'
@@ -2082,14 +2097,14 @@ def run(path, config, scenarios):
 
     logging.info('Scenario run list: {}'.format(', '.join(scenarios)))
     folder =os.path.join(cfg.workingdir, 'rio_db_export')
-    if os.path.exists(folder):
-        for file in folder:
-            filelist = [f for f in os.listdir(folder) if f.endswith(".csv")]
-            for f in filelist:
-                os.remove(os.path.join(folder, f))
-        for dir in os.listdir(folder):
-            if os.path.isdir(os.path.join(folder,dir)) and dir != 'System Inputs':
-                shutil.rmtree(os.path.join(folder,dir))
+    # if os.path.exists(folder):
+    #     for file in folder:
+    #         filelist = [f for f in os.listdir(folder) if f.endswith(".csv")]
+    #         for f in filelist:
+    #             os.remove(os.path.join(folder, f))
+    #     for dir in os.listdir(folder):
+    #         if os.path.isdir(os.path.join(folder,dir)) and dir != 'System Inputs':
+    #             shutil.rmtree(os.path.join(folder,dir))
     for scenario_index, scenario in enumerate(scenarios):
         model = load_model(False, True, False, scenario)
         export = RioExport(model,scenario_index)
@@ -2129,6 +2144,6 @@ def load_model(load_demand, load_supply, load_error, scenario):
 if __name__ == "__main__":
     workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\OCT'
     config = 'config.INI'
-    scenario = ['oct_base_withsupply']
+    scenario = ['oct_base_withsupply','oct_low_elect','aeo_2017_reference']
     export = run(workingdir, config, scenario)
     self = export

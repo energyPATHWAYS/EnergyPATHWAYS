@@ -106,6 +106,45 @@ class DispatchTransmissionHurdleRate(TransmissionSuper):
             unit_factor = util.unit_convert(1, unit_from_den=self.energy_unit, unit_to_den=cfg.calculation_energy_unit)
             self.values *= unit_factor
 
+
+class DispatchTransmissionCost(TransmissionSuper):
+    """loads and cleans the data that allocates demand sectors to dispatch feeders"""
+    def __init__(self, id, scenario):
+        self.id = id
+        self.scenario = scenario
+        self.sql_id_table = 'DispatchTransmissionCost'
+        self.sql_data_table = 'DispatchTransmissionCostData'
+        TransmissionSuper.__init__(self)
+        self.convert()
+        self.levelize_costs()
+
+
+    def convert(self):
+        """
+        convert raw_values to model currency and capacity (energy_unit/time_step)
+        """
+        self.values = util.currency_convert(self.values, self.currency_id, self.currency_year_id)
+        model_energy_unit = cfg.calculation_energy_unit
+        model_time_step = cfg.cfgfile.get('case', 'time_step')
+        if self.time_unit is not None:
+            # if a cost has a time_unit, then the unit is energy and must be converted to capacity
+            self.values = util.unit_convert(self.values,
+                                            unit_from_den=self.self.capacity_or_energy_unit,
+                                            unit_from_num=self.time_unit, unit_to_den=model_energy_unit,
+                                            unit_to_num=model_time_step)
+        else:
+            self.values = util.unit_convert(self.values, unit_from_den=self.capacity_or_energy_unit+"_"+model_time_step,
+                                                unit_to_den=model_energy_unit)
+
+
+    def levelize_costs(self):
+        inflation = float(cfg.cfgfile.get('case', 'inflation_rate'))
+        rate = self.cost_of_capital - inflation
+        self.values_level = - np.pmt(rate, self.lifetime, 1, 0, 'end') * self.values
+
+
+
+
 class DispatchTransmissionLosses(TransmissionSuper):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
     def __init__(self, id, scenario):
@@ -121,6 +160,7 @@ class DispatchTransmission():
         self.constraints = DispatchTransmissionConstraint(id, scenario)
         self.hurdles = DispatchTransmissionHurdleRate(id, scenario)
         self.losses = DispatchTransmissionLosses(id, scenario)
+        self.cost = DispatchTransmissionCost(id,scenario)
         self.list_transmission_lines = self.get_transmission_lines()
 
     def get_transmission_lines(self):

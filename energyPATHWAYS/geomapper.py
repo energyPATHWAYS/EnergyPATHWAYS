@@ -240,10 +240,26 @@ class GeoMapper:
             return df
         assert current_geography in df.index.names
         geography_map_key = geography_map_key or cfg.cfgfile.get('case', 'default_geography_map_key')
-        # create dataframe with map from one geography to another
-        active_gaus = df.index.get_level_values(current_geography).unique()
-        map_df = self.map_df(current_geography, converted_geography, normalize_as=current_data_type,
-                             map_key=geography_map_key, filter_geo=filter_geo, active_gaus=active_gaus)
+        propper_length = np.product([len(set(df.index.get_level_values(x))) for x in df.index.names])
+        if len(df) != propper_length and current_data_type == 'intensity':
+            # special case were if we don't have full geography coverage on all our index levels an implied fill value of zero causes issues
+            # the solution is to groupby any extra levels and do a geomap for each group separately
+            levels = [name for name in df.index.names if name not in ['year', 'vintage', current_geography]]
+            groups = df.groupby(level=levels).groups
+            map_df = []
+            for elements in groups.keys():
+                slice = util.df_slice(df, elements, levels)
+                active_gaus = slice.index.get_level_values(current_geography).unique()
+                slice_map_df = self.map_df(current_geography, converted_geography, normalize_as=current_data_type,
+                                     map_key=geography_map_key, filter_geo=filter_geo, active_gaus=active_gaus)
+                map_df.append(slice_map_df)
+            map_df = pd.concat(map_df, keys=groups.keys(), names=levels)
+        else:
+            # create dataframe with map from one geography to another
+            active_gaus = df.index.get_level_values(current_geography).unique()
+            map_df = self.map_df(current_geography, converted_geography, normalize_as=current_data_type,
+                                 map_key=geography_map_key, filter_geo=filter_geo, active_gaus=active_gaus)
+
         mapped_data = util.DfOper.mult([df, map_df], fill_value=fill_value)
         mapped_data = util.remove_df_levels(mapped_data, current_geography)
         if hasattr(mapped_data.index, 'swaplevel'):

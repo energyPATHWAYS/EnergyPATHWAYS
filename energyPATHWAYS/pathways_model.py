@@ -28,43 +28,48 @@ class PathwaysModel(object):
         self.supply = None
         self.demand_solved, self.supply_solved = False, False
 
-    def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, export_results, save_models, append_results):
-        try:
-            if solve_demand and not (load_demand or load_supply):
-                self.calculate_demand(save_models)
-            
-            if not append_results:
-                self.remove_old_results()
+    def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, export_results, save_models, append_results,rio_scenario):
+        #try:
+        self.rio_scenario = rio_scenario
+        if solve_demand and not (load_demand or load_supply):
+            self.calculate_demand(save_models)
 
-            # it is nice if when loading a demand side object to rerun supply, it doesn't re-output these results every time
-            if self.demand_solved and export_results and not self.api_run and not (load_demand and solve_supply):
-                # self.demand.output_subsector_electricity_profiles()
-                self.export_result_to_csv('demand_outputs')
+        if not append_results:
+            self.remove_old_results()
 
-            if solve_supply and not load_supply:
-                if load_demand:
-                    # if we are loading the demand, we are changing the supply measures and want to reload our scenarios
-                    self.scenario = Scenario(self.scenario_id)
-                self.supply = Supply(self.scenario, demand_object=self.demand)
-                self.calculate_supply(save_models)
+        # it is nice if when loading a demand side object to rerun supply, it doesn't re-output these results every time
+        if self.demand_solved and export_results and not self.api_run and not (load_demand and solve_supply):
+            # self.demand.output_subsector_electricity_profiles()
+            self.export_result_to_csv('demand_outputs')
 
-            if load_demand and solve_supply:
-                # we do this now because we delayed before
-                self.export_result_to_csv('demand_outputs')
+        if solve_supply and not load_supply:
+            if load_demand:
+                # if we are loading the demand, we are changing the supply measures and want to reload our scenarios
+                self.scenario = Scenario(self.scenario_id)
+            self.supply = Supply(self.scenario, demand_object=self.demand,rio_scenario=rio_scenario)
+            self.calculate_supply(save_models)
 
-            if self.supply_solved and export_results and load_supply or solve_supply:
-                self.supply.calculate_supply_outputs()
-                self.pass_supply_results_back_to_demand()
-                self.calculate_combined_results()
-                self.outputs.electricity_reconciliation = self.demand.electricity_reconciliation # we want to write these to outputs
-                self.export_result_to_csv('supply_outputs')
-                self.export_result_to_csv('combined_outputs')
-                self.export_io()
-        except:
+        if load_demand and solve_supply:
+            # we do this now because we delayed before
+            self.export_result_to_csv('demand_outputs')
+
+        if self.supply_solved and export_results and load_supply or solve_supply:
+            self.supply.calculate_supply_outputs()
+            self.pass_supply_results_back_to_demand()
+            self.calculate_combined_results()
+            self.outputs.electricity_reconciliation = self.demand.electricity_reconciliation # we want to write these to outputs
+            self.export_result_to_csv('supply_outputs')
+            self.export_result_to_csv('combined_outputs')
+            self.export_io()
+        #except:
             # pickle the model in the event that it crashes
-            if save_models:
-                Output.pickle(self, file_name=str(scenario_id) + cfg.model_error_append_name, path=cfg.workingdir)
-            raise
+            #if save_models:
+             #   if cfg.rio_supply_run:
+              #      Output.pickle(self, file_name=self.rio_scenario + cfg.model_error_append_name, path=cfg.workingdir)
+               # else:
+                #    Output.pickle(self, file_name=str(self.scenario_id) + cfg.model_error_append_name,
+                 #                 path=cfg.workingdir)
+
 
     def calculate_demand(self, save_models):
         self.demand.setup_and_solve()
@@ -74,7 +79,10 @@ class PathwaysModel(object):
                 self.calculate_d_payback()
                 self.calculate_d_payback_energy()
         if save_models:
-            Output.pickle(self, file_name=str(self.scenario_id) + cfg.demand_model_append_name, path=cfg.workingdir)
+            if cfg.rio_supply_run:
+                Output.pickle(self, file_name=str(self.rio_scenario) + cfg.demand_model_append_name, path=cfg.workingdir)
+            else:
+                Output.pickle(self, file_name=str(self.scenario_id) + cfg.demand_model_append_name, path=cfg.workingdir)
 
     def calculate_supply(self, save_models):
         if not self.demand_solved:
@@ -88,7 +96,10 @@ class PathwaysModel(object):
         self.supply.final_calculate()
         self.supply_solved = True
         if save_models:
-            Output.pickle(self, file_name=str(self.scenario_id) + cfg.full_model_append_name, path=cfg.workingdir)
+            if cfg.rio_supply_run:
+                Output.pickle(self, file_name=self.rio_scenario + cfg.full_model_append_name, path=cfg.workingdir)
+            else:
+                Output.pickle(self, file_name=str(self.scenario_id) + cfg.full_model_append_name, path=cfg.workingdir)
             # we don't need the demand side object any more, so we can remove it to save drive space
             if os.path.isfile(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name)):
                 os.remove(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name))
@@ -149,7 +160,10 @@ class PathwaysModel(object):
                 continue
 
             result_df = getattr(res_obj, 'return_cleaned_output')(attribute)
-            keys = [self.scenario.name.upper(), cfg.timestamp]
+            if cfg.rio_supply_run:
+                keys = [self.rio_scenario.upper(),cfg.timestamp]
+            else:
+                keys = [self.scenario.name.upper(), cfg.timestamp]
             names = ['SCENARIO', 'TIMESTAMP']
             for key, name in zip(keys, names):
                 result_df = pd.concat([result_df], keys=[key], names=[name])

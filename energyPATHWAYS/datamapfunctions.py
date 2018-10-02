@@ -270,7 +270,6 @@ class DataMapFunctions:
             if current_geography != converted_geography:
                 self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
                              current_data_type=current_data_type, fill_value=fill_value,filter_geo=filter_geo)
-                current_geography = converted_geography
         else:
             # becomes an attribute of self just because we may do a geomap on it
             self.total_driver = DfOper.mult(util.put_in_list(drivers))

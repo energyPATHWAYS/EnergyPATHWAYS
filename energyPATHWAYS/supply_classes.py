@@ -179,4 +179,46 @@ class SupplySpecifiedStock(SpecifiedStock):
                                             unit_from_den = model_time_step,
                                             unit_to_num=model_energy_unit,
                                             unit_to_den=model_time_step)
-                                            
+
+
+
+class RioSpecifiedStock(DataMapFunctions):
+    def __init__(self, rio_data):
+        self.raw_values = rio_data
+        self.geography = cfg.rio_geography
+        self.capacity_or_energy_unit = cfg.rio_energy_unit
+        self.time_unit = cfg.rio_time_unit
+        self.input_timestep = cfg.rio_timestep_multiplier
+        self.input_type = 'total'
+        self.interpolation_method = 'linear_interpolation'
+        self.extrapolation_method = 'nearest'
+
+    def calculate(self, vintages, years):
+        self.vintages = vintages
+        self.years = years
+        if self.raw_values is not None:
+            try:
+                self.remap(fill_value=np.nan, converted_geography=cfg.supply_primary_geography)
+            except:
+                print self.raw_values
+                raise
+        else:
+            self.values = None
+
+    def convert(self):
+        """
+        convert values to model currency and capacity (energy_unit/time_step)
+        """
+        if self.values is not None:
+            model_energy_unit = cfg.calculation_energy_unit
+            model_time_step = cfg.cfgfile.get('case', 'time_step')
+            if self.time_unit is not None:
+                self.values = util.unit_convert(self.values/self.input_timestep, unit_from_num=self.capacity_or_energy_unit,
+                                                unit_from_den=self.time_unit, unit_to_num=model_energy_unit,
+                                                unit_to_den=model_time_step)
+            else:
+                self.values = util.unit_convert(self.values/self.input_timestep, unit_from_num=cfg.ureg.Quantity(self.capacity_or_energy_unit)
+                                                                           * cfg.ureg.Quantity(model_time_step),
+                                                unit_from_den=model_time_step,
+                                                unit_to_num=model_energy_unit,
+                                                unit_to_den=model_time_step)
