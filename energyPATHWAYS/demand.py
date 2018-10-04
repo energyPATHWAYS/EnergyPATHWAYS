@@ -2939,7 +2939,6 @@ class Subsector(DataMapFunctions):
 
             initial_stock = self.calculate_initial_stock(elements)
             sales_share = self.calculate_total_sales_share_new(elements, initial_stock, reference_run)
-
             # # the perturbation object is used to create supply curves of demand technologies
             # if self.perturbation is not None:
             #     sales_share = self.sales_share_perturbation(elements, self.stock.rollover_group_names, sales_share)
@@ -2951,6 +2950,8 @@ class Subsector(DataMapFunctions):
             if cfg.evolved_run=='true':
                 sales_share[len(self.years) -len(cfg.supply_years):] = 1/float(len(self.tech_ids))
             annual_stock_change = util.df_slice(self.stock.annual_stock_changes, elements, self.stock.rollover_group_names)
+            # if elements == (5177, 28, 63):
+            #     pdb.set_trace()
             self.rollover = Rollover(vintaged_markov_matrix=self.stock.vintaged_markov_matrix,
                                          initial_markov_matrix=self.stock.initial_markov_matrix,
                                          num_years=len(self.years), num_vintages=len(self.vintages),
@@ -2982,8 +2983,8 @@ class Subsector(DataMapFunctions):
         if not len(demand_technology_years):
             # we don't have specified stock for any of the years
             return None
-        # last_specified_year = max(demand_technology_years[demand_technology_years <= int(cfg.cfgfile.get('case','current_year'))])
-        last_specified_year = max(demand_technology_years)
+        last_specified_year = max(demand_technology_years[demand_technology_years <= int(cfg.cfgfile.get('case','current_year'))])
+        # last_specified_year = max(demand_technology_years)
         last_specified = self.stock.technology.loc[elements+(last_specified_year,),:].values
         last_total = util.df_slice(self.stock.total, elements+(last_specified_year,), self.stock.rollover_group_names+['year']).values[0]
         return last_specified / np.nansum(last_specified) * last_total
@@ -2999,7 +3000,7 @@ class Subsector(DataMapFunctions):
         #Best way is if we have all demand_technology stocks specified for some year before current year
         if len(good_years) and min(good_years)<=int(cfg.cfgfile.get('case','current_year')):
             chosen_year = min(good_years)
-            # gross up if it is just under 100% of the stock represented
+            # gross up if it is just under 100% of the stock represente
             initial_stock = self.stock.technology.loc[elements+(chosen_year,),:]
             initial_stock = initial_stock/np.nansum(initial_stock) * initial_total
         #Second best way is if we have an initial sales share

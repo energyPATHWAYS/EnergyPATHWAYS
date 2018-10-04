@@ -515,7 +515,7 @@ class RioExport(object):
                             gen_type = 'storage'
                         elif self.supply.nodes[node].is_flexible==True and node in self.supply.nodes[self.supply.bulk_id].nodes:
                             gen_type  = 'hydro'
-                        elif self.supply.nodes[node].is_flexible==True and node in self.supply.nodes[self.supply.thermal_dispatch_node_id].nodes:
+                        elif node in self.supply.nodes[self.supply.thermal_dispatch_node_id].nodes:
                             gen_type = 'thermal'
                         else:
                             gen_type = 'fixed'
