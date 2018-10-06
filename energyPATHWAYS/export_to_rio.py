@@ -1159,35 +1159,41 @@ class RioExport(object):
 
 
     def calc_existing_gen_efficiency(self,gau,node,technology,plant):
-        if gau not in self.supply.nodes[node].technologies[technology].efficiency.values.index.get_level_values(cfg.supply_primary_geography).values:
-            return None
         if len(plant) == 3:
             resource_bin = plant[0]
             vintage = plant[-1]
         elif len(plant) == 2:
             vintage = plant[-1]
-        if 'resource_bin' in self.supply.nodes[node].technologies[technology].efficiency.values.index.names:   
-            eff_df = util.df_slice(self.supply.nodes[node].technologies[technology].efficiency.values,[resource_bin,vintage,gau],['resource_bin','vintage',cfg.supply_primary_geography])
+        if 'resource_bin' in self.supply.nodes[node].technologies[technology].efficiency.values.index.names:
+            if gau not in self.supply.nodes[node].technologies[technology].efficiency.values.index.get_level_values(
+                    cfg.supply_primary_geography).values:
+                eff_df = util.remove_df_levels(util.df_slice(self.supply.nodes[node].technologies[technology].efficiency.values,[resource_bin,vintage],['resource_bin','vintage']),cfg.supply_primary_geography,agg_function='mean')
+            else:
+                eff_df = util.df_slice(self.supply.nodes[node].technologies[technology].efficiency.values,[resource_bin,vintage,gau],['resource_bin','vintage',cfg.supply_primary_geography])
         else:
-            eff_df = util.df_slice(self.supply.nodes[node].technologies[technology].efficiency.values,[vintage,gau],['vintage',cfg.supply_primary_geography])
+            if gau not in self.supply.nodes[node].technologies[technology].efficiency.values.index.get_level_values(
+                    cfg.supply_primary_geography).values:
+                eff_df = util.remove_df_levels(util.df_slice(self.supply.nodes[node].technologies[technology].efficiency.values,[vintage],['vintage']),cfg.supply_primary_geography,agg_function='mean')
+            else:
+                eff_df = util.df_slice(self.supply.nodes[node].technologies[technology].efficiency.values,[vintage,gau],['vintage',cfg.supply_primary_geography])
         eff_df = util.remove_df_levels(eff_df,['supply_technology','efficiency_type'])
         eff_df = eff_df.stack().to_frame()
         eff_df.columns = ['value']
         util.replace_index_name(eff_df, 'year')
-        eff_df = eff_df[
-            vintage == eff_df.index.get_level_values('year')]
+        eff_df = eff_df[vintage == eff_df.index.get_level_values('year')]
         eff_df = util.remove_df_levels(eff_df, 'year')
         if len(eff_df) == 0:
             return None
         idx = pd.IndexSlice
-        if np.any(self.supply.blend_nodes in eff_df.index.get_level_values('supply_node').values):
-            eff_blend_df = eff_df.loc[idx[self.supply.blend_nodes], :]
+        if np.any([x in eff_df.index.get_level_values('supply_node').values for x in self.supply.blend_nodes]):
+            blend_nodes = [x for x in eff_df.index.get_level_values('supply_node').values if x in self.supply.blend_nodes]
+            eff_blend_df = eff_df.loc[idx[blend_nodes], :]
         else:
             eff_blend_df = None
         if eff_blend_df is not None:
             eff_blend_df['max_gen_efficiency'] = eff_blend_df['value']
             eff_blend_df['min_gen_efficiency'] = eff_blend_df['value']
-            eff_blend_df.drop(axis=1,labels='value')
+            eff_blend_df = eff_blend_df.drop(axis=1,labels='value')
             eff_blend_df = eff_blend_df.dropna()
             eff_blend_df = eff_blend_df.reset_index()
         eff_del = None
@@ -1208,11 +1214,17 @@ class RioExport(object):
             eff_del = util.remove_df_levels(eff_del,'efficiency_type')
             eff_del['max_gen_efficiency'] = eff_del['value']
             eff_del['min_gen_efficiency'] = eff_del['value']
-            eff_del.drop(axis=1,labels='value')
+            eff_del = eff_del.drop(axis=1,labels='value')
             eff_del = eff_del.reset_index()
         else:
             eff_del = None
-        return util.DfOper.add([eff_blend_df,eff_del])
+        try:
+            if eff_blend_df is None and eff_del is None:
+                return None
+            else:
+                return pd.concat([eff_blend_df,eff_del])
+        except:
+            pdb.set_trace()
 
 
     def calc_new_gen_efficiency(self,node,technology,plant,plant_index):
@@ -2097,14 +2109,14 @@ def run(path, config, scenarios):
 
     logging.info('Scenario run list: {}'.format(', '.join(scenarios)))
     folder =os.path.join(cfg.workingdir, 'rio_db_export')
-    # if os.path.exists(folder):
-    #     for file in folder:
-    #         filelist = [f for f in os.listdir(folder) if f.endswith(".csv")]
-    #         for f in filelist:
-    #             os.remove(os.path.join(folder, f))
-    #     for dir in os.listdir(folder):
-    #         if os.path.isdir(os.path.join(folder,dir)) and dir != 'System Inputs':
-    #             shutil.rmtree(os.path.join(folder,dir))
+    if os.path.exists(folder):
+        for file in folder:
+            filelist = [f for f in os.listdir(folder) if f.endswith(".csv")]
+            for f in filelist:
+                os.remove(os.path.join(folder, f))
+        for dir in os.listdir(folder):
+            if os.path.isdir(os.path.join(folder,dir)) and dir != 'System Inputs':
+                shutil.rmtree(os.path.join(folder,dir))
     for scenario_index, scenario in enumerate(scenarios):
         model = load_model(False, True, False, scenario)
         export = RioExport(model,scenario_index)
