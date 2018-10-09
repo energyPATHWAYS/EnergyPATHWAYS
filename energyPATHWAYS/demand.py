@@ -2598,6 +2598,7 @@ class Subsector(DataMapFunctions):
                              current_geography=cfg.demand_primary_geography, converted_geography=cfg.demand_primary_geography, current_data_type='total',
                              time_index=self.years, driver_geography=cfg.demand_primary_geography, interpolation_method=None, extrapolation_method=None)
             self.stock.linked_demand_technology[self.stock.linked_demand_technology==0]=np.nan
+            self.stock.linked_demand_technology = self.stock.linked_demand_technology[self.stock.linked_demand_technology.index.get_level_values(cfg.demand_primary_geography).isin(cfg.geo.geographies[cfg.demand_primary_geography])]
             self.stock.has_linked_demand_technology = True
         else:
             self.stock.has_linked_demand_technology = False

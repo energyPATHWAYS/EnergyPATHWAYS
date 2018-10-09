@@ -180,5 +180,5 @@ if __name__ == "__main__":
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
-    clear_results = True,
+    clear_results = False,
     rio_scenario=rio_scenario)

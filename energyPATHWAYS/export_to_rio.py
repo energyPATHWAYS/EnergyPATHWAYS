@@ -468,7 +468,7 @@ class RioExport(object):
         active_nodes = self.supply.nodes[self.supply.bulk_id].nodes + self.supply.nodes[self.supply.thermal_dispatch_node_id].nodes + self.supply.nodes[self.supply.distribution_node_id].nodes
         for node in active_nodes:
             if not isinstance(self.supply.nodes[node],BlendNode) and hasattr(self.supply.nodes[node],'technologies'):
-                if self.supply.nodes[node].stock.technology.sum().sum() > 0:
+                if self.supply.nodes[node].stock.technology.sum().sum() > 0 or len(self.supply.nodes[node].technologies)==1:
                     pass
                 else:
                     print "No existing technologies in %s" % node
@@ -476,9 +476,10 @@ class RioExport(object):
                 for gau in cfg.geo.geographies[cfg.supply_primary_geography]:
                     if hasattr(self.supply.nodes[node].case_stock, 'total') or hasattr(
                         self.supply.nodes[node].case_stock, 'technology'):
-                        node_df = util.df_slice(self.supply.nodes[node].stock.sales, gau, cfg.supply_primary_geography)
-                    elif self.supply.nodes[node].stock.extrapolation_method != 'none':
-                        node_df = util.df_slice(self.supply.nodes[node].stock.technology,gau,cfg.supply_primary_geography)
+                        node_df = util.remove_df_levels(util.df_slice(self.supply.nodes[node].stock.sales, gau, cfg.supply_primary_geography),'demand_sector')
+                    elif self.supply.nodes[node].stock.technology.sum().sum() > 0 and hasattr(self.supply.nodes[node].stock,'extrapolation_method') and self.supply.nodes[node].stock.extrapolation_method != 'none' :
+                        node_df = util.remove_df_levels(util.df_slice(self.supply.nodes[node].stock.technology,gau,cfg.supply_primary_geography),
+                                                        'demand_sector')
                         node_df.replace(np.nan,0)
                         #node_df.iloc[:,1:] = node_df.iloc[:,1:].values - node_df.iloc[:,:-1].values
                         #node_df[node_df.values==np.nan] = util.df_slice(self.supply.nodes[node].stock.technology,gau,cfg.supply_primary_geography)
@@ -486,7 +487,7 @@ class RioExport(object):
                         util.replace_index_name(node_df,'vintage','year')
                         node_df.columns = ['value']
                     else:
-                        node_df = util.df_slice(self.supply.nodes[node].stock.sales,gau,cfg.supply_primary_geography)
+                        node_df = util.remove_df_levels(util.df_slice(self.supply.nodes[node].stock.sales,gau,cfg.supply_primary_geography),'demand_sector')
                         node_df = node_df[node_df.index.get_level_values('vintage')<min(cfg.supply_years)]
                     for plant in node_df.groupby(level=node_df.index.names).groups.keys():
                         df = node_df.loc[plant]
@@ -583,7 +584,7 @@ class RioExport(object):
                              df_rows['fixed_om'] = 0
                         df_rows['fixed_om_unit'] = 'megawatt'
                         df_rows['allow_long_term_charging'] = False
-                        df_rows['capacity_factor'] = self.supply.nodes[node].stock.capacity_factor_rio.loc[(gau,) + plant].max()
+                        df_rows['capacity_factor'] = util.remove_df_levels(self.supply.nodes[node].stock.capacity_factor_rio,'demand_sector',agg_function='mean').loc[(gau,) + plant].max()
                         df_rows['operating_year'] = plant[-1]
                         df_rows['retirement_year'] = df_rows['operating_year'] + df_rows['lifetime']
                         df_rows['shutdown_cost_unit'] = 'megawatt'
