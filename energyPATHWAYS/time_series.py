@@ -324,8 +324,8 @@ class TimeSeries:
 
         if not isinstance(data, pd.core.frame.DataFrame):
             raise ValueError('cleaning requires a pandas dataframe as an input')
-        
-        if np.all(data.isnull()):
+
+        if data.isnull().all().all():
             raise ValueError('cleaning requires at least one finite data point')
 
         if data.index.nlevels > 1:

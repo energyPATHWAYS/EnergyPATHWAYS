@@ -285,6 +285,7 @@ class StorageTechDuration(Abstract):
 
     def set_rio_duration(self,rio_inputs):
         if self.id in set(rio_inputs.duration.index.get_level_values('technology'))and self.id not in cfg.rio_excluded_technologies:
+            self.data = True
             self.raw_values = util.df_slice(rio_inputs.duration,self.id,'technology')
             self.geography = cfg.rio_geography
             self.capacity_or_energy_unit = cfg.rio_energy_unit
@@ -297,7 +298,10 @@ class StorageTechDuration(Abstract):
         self.vintages = vintages
         self.years = years
         if self.data and self.raw_values is not None:
-            self.remap(time_index_name='year', converted_geography=cfg.supply_primary_geography)
+            try:
+                self.remap(time_index_name='year', converted_geography=cfg.supply_primary_geography)
+            except:
+                pdb.set_trace()
             self.values.replace(0, 1, inplace=True)
 
 
@@ -406,6 +410,7 @@ class SupplyTechCapacityFactor(Abstract):
                 df = df[df.index.get_level_values('resource_bin') != 'n/a']
                 df = df.groupby(level=df.index.names).sum()
             self.raw_values = df
+            self.data = True
             self.geography = cfg.rio_geography
             self.capacity_or_energy_unit = cfg.rio_energy_unit
             self.time_unit = cfg.rio_time_unit

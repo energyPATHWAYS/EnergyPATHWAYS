@@ -12,6 +12,7 @@ from datamapfunctions import Abstract,DataMapFunctions
 import numpy as np
 import inspect
 from util import DfOper
+import pdb
 
 class SupplyMeasure(object):
     def __init__(self):
@@ -78,6 +79,8 @@ class ExportMeasure(Abstract):
     def __init__(self,id):
         self.id = id
         Abstract.__init__(self, self.id)
+
+
         
 class StockMeasure(Abstract):
     def __init__(self,id):

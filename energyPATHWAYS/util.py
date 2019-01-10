@@ -45,8 +45,13 @@ def loop_geo_multiply(df1, df2, geo_label, geographies, levels_to_keep=None):
         if geography in df2.index.get_level_values(geo_label):
             supply_indexer = level_specific_indexer(df2, [geo_label], [geography])
             demand_indexer = level_specific_indexer(df1, [geo_label], [geography])
-            geography_df = DfOper.mult([df1.loc[demand_indexer, :], df2.loc[supply_indexer, :]])
-            geography_df = geography_df[geography_df != 0] # make it smaller
+            demand_df = df1.loc[demand_indexer, :]
+            demand_df = demand_df.round(12)
+            demand_df = demand_df[demand_df.values!=0]
+            supply_df =  df2.loc[supply_indexer, :]
+            supply_df = supply_df.round(12)
+            supply_df = supply_df[supply_df.values != 0]
+            geography_df = DfOper.mult([demand_df,supply_df])
             geography_df_list.append(geography_df)
     df = pd.concat(geography_df_list)
     if levels_to_keep:

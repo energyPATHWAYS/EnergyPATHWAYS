@@ -149,6 +149,16 @@ class RioExport(object):
             #shape_df = shape_df.tz_localize(None, level='weather_datetime')
             shape_df = Output.clean_rio_df(shape_df,add_geography=False)
             Output.write_rio(shape_df,shape_name.lower()+ ".csv",self.db_dir + "\\ShapeData",index=False)
+        self.meta_dict['name'].append('bulk')
+        self.meta_dict['shape_type'].append('weather date')
+        self.meta_dict['input_type'].append('intensity')
+        self.meta_dict['shape_unit_type'].append('power')
+        self.meta_dict['time_zone'].append(
+            cfg.outputs_id_map['time zone'][int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))])
+        self.meta_dict['geography'].append(cfg.dispatch_geography)
+        self.meta_dict['geography_map_key'].append(None)
+        self.meta_dict['interpolation_method'].append('linear_interpolation')
+        self.meta_dict['extrapolation_method'].append('nearest')
         df = pd.DataFrame(self.meta_dict)
         df = df[['name', 'shape_type', 'input_type', 'shape_unit_type', 'time_zone', 'geography', 'geography_map_key', 'interpolation_method', 'extrapolation_method']]
         Output.write_rio(df, "SHAPE_META" + '.csv', self.db_dir, index=False)
@@ -2046,15 +2056,6 @@ class RioExport(object):
             Output.write_rio(df, "BULK_CAPACITY_ZONE_LOAD" + '.csv', self.db_dir + "\\Topography Inputs\Capacity Zones", index=False)
             Output.write_rio(load_shape_df, "bulk" + ".csv", self.db_dir + "\\ShapeData", index = False)
 
-            self.meta_dict['name'].append('bulk')
-            self.meta_dict['shape_type'].append( 'weather date')
-            self.meta_dict['input_type'].append( 'intensity')
-            self.meta_dict['shape_unit_type'].append('power')
-            self.meta_dict['time_zone'].append(cfg.outputs_id_map['time zone'][int(cfg.cfgfile.get('case', 'dispatch_outputs_timezone_id'))])
-            self.meta_dict['geography'].append(cfg.dispatch_geography)
-            self.meta_dict['geography_map_key'].append(None)
-            self.meta_dict['interpolation_method'].append('linear_interpolation')
-            self.meta_dict['extrapolation_method'].append('nearest')
 
     def flatten_load_dicts(self):
         dist_list = []
@@ -2155,8 +2156,8 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\OCT'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\Rhodium_DAC_lowest_electrification'
     config = 'config.INI'
-    scenario = ['oct_base_withsupply','oct_low_elect','aeo_2017_reference']
+    scenario = ['oct_lowest_elect']
     export = run(workingdir, config, scenario)
     self = export

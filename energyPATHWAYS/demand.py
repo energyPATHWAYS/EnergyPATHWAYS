@@ -408,7 +408,6 @@ class Demand(object):
             geo_label = cfg.combined_outputs_geography + '_supply'
         else:
             geo_label = cfg.combined_outputs_geography
-
         levels_to_keep = cfg.output_combined_levels if levels_to_keep is None else levels_to_keep
         demand_levels_to_keep = [x for x in levels_to_keep if x in demand_df.index.names]
         demand_df = demand_df.groupby(level=demand_levels_to_keep).sum()
@@ -2270,7 +2269,7 @@ class Subsector(DataMapFunctions):
                            additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent),
                            current_data_type=current_data_type, projected=projected)
         self.stock.total = util.remove_df_levels(self.stock.total, ['demand_technology', 'final_energy']+cfg.removed_demand_levels)
-        if np.any(np.isinf(self.stock.total)):
+        if np.any(np.any(np.isinf(self.stock.total))):
             pdb.set_trace()
         self.stock.total = self.stock.total.swaplevel('year',-1)
         if stock_dependent:
@@ -2338,8 +2337,7 @@ class Subsector(DataMapFunctions):
             if len(demand_technology.specified_stocks) and reference_run==False:
                for specified_stock in demand_technology.specified_stocks.values():
                    try:
-                       specified_stock.remap(map_from='values', current_geography=cfg.demand_primary_geography, converted_geography=cfg.demand_primary_geography,
-                                             drivers=self.stock.total, driver_geography=cfg.demand_primary_geography, fill_value=np.nan, interpolation_method=None, extrapolation_method=None)
+                       specified_stock.remap(map_from='values', current_geography=cfg.demand_primary_geography, converted_geography=cfg.demand_primary_geography, drivers=self.stock.total, driver_geography=cfg.demand_primary_geography, fill_value=np.nan, interpolation_method=None, extrapolation_method=None)
                    except:
                        pdb.set_trace()
                    self.stock.technology.sort(inplace=True)
@@ -2981,7 +2979,7 @@ class Subsector(DataMapFunctions):
         tech_slice = util.df_slice(self.stock.technology, elements, self.stock.rollover_group_names)
         spec_threshold = percent_spec_cut*self.stock.total.loc[elements,:].values.flatten()
         demand_technology_years = tech_slice.sum(axis=1)[tech_slice.sum(axis=1)>spec_threshold].index.get_level_values('year')
-        if not len(demand_technology_years):
+        if not len(demand_technology_years) or all(demand_technology_years > int(cfg.cfgfile.get('case','current_year'))):
             # we don't have specified stock for any of the years
             return None
         last_specified_year = max(demand_technology_years[demand_technology_years <= int(cfg.cfgfile.get('case','current_year'))])
@@ -2990,7 +2988,7 @@ class Subsector(DataMapFunctions):
         last_total = util.df_slice(self.stock.total, elements+(last_specified_year,), self.stock.rollover_group_names+['year']).values[0]
         return last_specified / np.nansum(last_specified) * last_total
 
-    def calculate_initial_stock(self, elements, percent_spec_cut=0.99):
+    def calculate_initial_stock(self, elements, percent_spec_cut=0.95):
         # todo, we have an issue here if the total and technology come in on different years.. this is sometimes happening in industry
         tech_slice = util.df_slice(self.stock.technology, elements, self.stock.rollover_group_names)
         total_slice = util.df_slice(self.stock.total, elements, self.stock.rollover_group_names)

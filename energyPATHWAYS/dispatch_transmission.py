@@ -28,6 +28,7 @@ class TransmissionSuper(Abstract):
         else:
             self._setup_and_validate()
 
+
     def _setup_and_validate(self):
         Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
         if self.raw_values is None:
@@ -115,8 +116,9 @@ class DispatchTransmissionCost(TransmissionSuper):
         self.sql_id_table = 'DispatchTransmissionCost'
         self.sql_data_table = 'DispatchTransmissionCostData'
         TransmissionSuper.__init__(self)
-        self.convert()
-        self.levelize_costs()
+        if self.values.sum().sum()>0:
+            self.convert()
+            self.levelize_costs()
 
 
     def convert(self):

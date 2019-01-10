@@ -53,7 +53,7 @@ class PathwaysModel(object):
             # we do this now because we delayed before
             self.export_result_to_csv('demand_outputs')
 
-        if self.supply_solved and export_results and load_supply or solve_supply:
+        if self.supply_solved and export_results and (load_supply or solve_supply):
             self.supply.calculate_supply_outputs()
             self.pass_supply_results_back_to_demand()
             self.calculate_combined_results()
@@ -80,7 +80,7 @@ class PathwaysModel(object):
                 self.calculate_d_payback_energy()
         if save_models:
             if cfg.rio_supply_run:
-                Output.pickle(self, file_name=str(self.rio_scenario) + cfg.demand_model_append_name, path=cfg.workingdir)
+                Output.pickle(self, file_name=str(self.scenario_id) + cfg.demand_model_append_name, path=cfg.workingdir)
             else:
                 Output.pickle(self, file_name=str(self.scenario_id) + cfg.demand_model_append_name, path=cfg.workingdir)
 
@@ -101,8 +101,9 @@ class PathwaysModel(object):
             else:
                 Output.pickle(self, file_name=str(self.scenario_id) + cfg.full_model_append_name, path=cfg.workingdir)
             # we don't need the demand side object any more, so we can remove it to save drive space
-            if os.path.isfile(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name)):
-                os.remove(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name))
+            if not cfg.rio_supply_run:
+                if os.path.isfile(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name)):
+                    os.remove(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name))
 
     def pass_supply_results_back_to_demand(self):
         # we need to geomap to the combined output geography
@@ -167,7 +168,7 @@ class PathwaysModel(object):
             names = ['SCENARIO', 'TIMESTAMP']
             for key, name in zip(keys, names):
                 result_df = pd.concat([result_df], keys=[key], names=[name])
-
+                result_df = result_df.fillna(0)
             if attribute in ('hourly_dispatch_results', 'electricity_reconciliation', 'hourly_marginal_cost', 'hourly_production_cost'):
                 # Special case for hourly dispatch results where we want to write them outside of supply_outputs
                 Output.write(result_df, attribute + '.csv', os.path.join(cfg.workingdir, 'dispatch_outputs'))

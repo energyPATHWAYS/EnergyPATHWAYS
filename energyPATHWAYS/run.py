@@ -97,6 +97,7 @@ def run(path, config, scenarios, load_demand=False, solve_demand=True, load_supp
     else:
         rio_scenario = util.ensure_iterable_and_not_string(rio_scenario)
 
+
     combined_scenarios = zip(scenarios,rio_scenario)
     logging.info('Scenario run list: {}'.format(', '.join(scenarios)))
     for scenario,rio_scenario in combined_scenarios:
@@ -133,7 +134,7 @@ def load_model(load_demand, load_supply, load_error, scenario,rio_scenario):
     pathways_scenario = scenario
     scenario = scenario if rio_scenario is None else rio_scenario
     if load_error:
-        with open(os.path.join(cfg.workingdir, str(scenario) + cfg.model_error_append_name), 'rb+') as infile:
+        with open(os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.model_error_append_name), 'rb+') as infile:
 #        with open(os.path.join(cfg.workingdir, 'dispatch_class.p'), 'rb') as infile:
             model = pickle.load(infile)
         logging.info('Loaded crashed EnergyPATHWAYS model from pickle')
@@ -142,14 +143,14 @@ def load_model(load_demand, load_supply, load_error, scenario,rio_scenario):
             model = pickle.load(infile)
         logging.info('Loaded complete EnergyPATHWAYS model from pickle')
     elif load_demand:
-        demand_file = os.path.join(cfg.workingdir, str(scenario) + cfg.demand_model_append_name)
-        supply_file = os.path.join(cfg.workingdir, str(scenario) + cfg.full_model_append_name)
+        demand_file = os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.demand_model_append_name)
+        supply_file = os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.full_model_append_name)
         if os.path.isfile(demand_file):
-            with open(os.path.join(cfg.workingdir, str(scenario) + cfg.demand_model_append_name), 'rb') as infile:
+            with open(os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.demand_model_append_name), 'rb') as infile:
                 model = pickle.load(infile)
                 logging.info('Loaded demand-side EnergyPATHWAYS model from pickle')
         elif os.path.isfile(supply_file):
-            with open(os.path.join(cfg.workingdir, str(scenario) + cfg.full_model_append_name), 'rb') as infile:
+            with open(os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.full_model_append_name), 'rb') as infile:
                 model = pickle.load(infile)
                 logging.info('Loaded complete EnergyPATHWAYS model from pickle')
         else:
@@ -167,16 +168,30 @@ class SubsectorPerturbation(object):
 if __name__ == "__main__":
     workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\OCT'
     config = 'config.INI'
-    #scenario = ['oct_base_withsupply','oct_base_withsupply','oct_base_withsupply','oct_low_elect','oct_base_withsupply']
-    #rio_scenario = ['base','constrained biomass','constrained tech NETS','low electrification','low land NETS']
-    scenario = ['oct_base_withsupply']
-    rio_scenario = [None]
+    rio_scenario = ['350 - No Tech NETS', '350 - No New Nuclear']
+    scenario = ['oct_base_withsupply','oct_base_withsupply']
+    #rio_scenario = None
+    #scenario = [ 'nw_reference','nw_ddp_central','nw_ddp_limited_demand_transformation','nw_ddp_increased_gas_transport']
+    #rio_scenario = ['5 ddp limited demand', '6 ddp constrained biomass', '7 ddp increased gas','8 ddp integration economic']
+    #scenario = ['nw_ddp_limited_demand_transformation','nw_ddp_central','nw_ddp_increased_gas_transport','nw_ddp_central']
+    #rio_scenario = ['Baseline']
+    #scenario = ['aeo_2017_reference']
+
+# 1 reference
+# 2 ddp central
+# 3 ddp prohibit gas
+# 4 ddp 100 percent clean
+# 5 ddp limited demand
+# 6 ddp constrained biomass
+# 7 ddp increased gas
+# 8 ddp integration economic
+
     run(workingdir, config, scenario,
-    load_demand   = False,
+    load_demand   = True,
     solve_demand  = True,
     load_supply   = False,
-    solve_supply  = False,
-    export_results= False,
+    solve_supply  = True,
+    export_results= True,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,

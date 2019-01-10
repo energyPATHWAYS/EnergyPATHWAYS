@@ -45,7 +45,7 @@ def handle_exception(exc_type, exc_value, exc_traceback):
 
     _msg("Python encountered an exception; see 'exception' worksheet.")
 
-sys.excepthook = handle_exception
+# sys.excepthook = handle_exception
 
 wb = xw.Book('scenario_builder.xlsm')
 sht = wb.sheets.active
@@ -81,7 +81,7 @@ SENSITIVITIES = {"DemandDriversData":
                      {'side': 'd', 'parent_table': "DemandSubsectors"},
                  "SupplyPotentialData":
                      {'side': 's', 'parent_table': "SupplyNodes"},
-                 "StorageDurationData":
+                 "StorageTechsDurationData":
                      {'side': 's', 'parent_table': "SupplyTechs"},
                  "SupplyEmissionsData":
                      {'side': 's', 'parent_table': "SupplyNodes"},
@@ -91,16 +91,16 @@ SENSITIVITIES = {"DemandDriversData":
                      {'side': 's', 'parent_table': "SupplyTechs"},
                  "StorageTechsEnergyCapitalCostNewData":
                      {'side': 's', 'parent_table': "SupplyTechs"},
-                 "SupplyTechsCapacityCapitalCostNewData":
-                     {'side': 's', 'parent_table': "SupplyTechs"},
-                 "SupplyTechsCapacityFactorData":
-                     {'side': 's', 'parent_table': "SupplyTechs"},
                  "DispatchTransmissionConstraintData":
                      {'side': 's', 'parent_table': "DispatchTransmissionConstraint"},
                  "DispatchTransmissionHurdleRate":
                      {'side': 's', 'parent_table': "DispatchTransmissionConstraint"},
                  "DispatchTransmissionLosses":
-                     {'side': 's', 'parent_table': "DispatchTransmissionConstraint"}
+                     {'side': 's', 'parent_table': "DispatchTransmissionConstraint"},
+                 "SupplyExportData":
+                     {'side': 's', 'parent_table': "SupplyNodes"},
+                 "DemandServiceEfficiencyData":
+                     {'side': 'd', 'parent_table': "DemandSubsectors"},
                  }
 
 PARENT_COLUMN_NAMES = ('parent_id', 'subsector_id', 'supply_node_id', 'primary_node_id', 'import_node_id',
@@ -1376,4 +1376,4 @@ if __name__ == '__main__':
     import ipdb
     with ipdb.launch_ipdb_on_exception():
         # This is just an example; call whatever you're trying to debug here
-        delete_measure()
+        refresh_scenario_list()
