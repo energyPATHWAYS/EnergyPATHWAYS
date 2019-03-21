@@ -166,10 +166,10 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\OCT'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\SDG&E'
     config = 'config.INI'
-    rio_scenario = ['350 - No Tech NETS', '350 - No New Nuclear']
-    scenario = ['oct_base_withsupply','oct_base_withsupply']
+    rio_scenario = [None]
+    scenario = ['scoping_plan']
     #rio_scenario = None
     #scenario = [ 'nw_reference','nw_ddp_central','nw_ddp_limited_demand_transformation','nw_ddp_increased_gas_transport']
     #rio_scenario = ['5 ddp limited demand', '6 ddp constrained biomass', '7 ddp increased gas','8 ddp integration economic']
@@ -177,23 +177,37 @@ if __name__ == "__main__":
     #rio_scenario = ['Baseline']
     #scenario = ['aeo_2017_reference']
 
-# 1 reference
-# 2 ddp central
-# 3 ddp prohibit gas
-# 4 ddp 100 percent clean
-# 5 ddp limited demand
-# 6 ddp constrained biomass
-# 7 ddp increased gas
-# 8 ddp integration economic
+    # 1 reference
+    # 2 ddp central
+    # 3 ddp prohibit gas
+    # 4 ddp 100 percent clean
+    # 5 ddp limited demand
+    # 6 ddp constrained biomass
+    # 7 ddp increased gas
+    # 8 ddp integration economic
 
     run(workingdir, config, scenario,
-    load_demand   = True,
+    load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
-    solve_supply  = True,
-    export_results= True,
+    solve_supply  = False,
+    export_results= False,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
-    clear_results = False,
+    clear_results = True,
     rio_scenario=rio_scenario)
+
+    # run_str = "run('C:\Github\EnergyPATHWAYS_scenarios\SDG&E', 'config.INI', 'scoping_plan', \
+    # load_demand   = True,\
+    # solve_demand  = True,\
+    # load_supply   = False,\
+    # solve_supply  = True,\
+    # export_results= False,\
+    # load_error    = False,\
+    # pickle_shapes = True,\
+    # save_models   = True,\
+    # clear_results = False,\
+    # rio_scenario=None)"
+    #
+    # cProfile.run(run_str, filename='system.prof')

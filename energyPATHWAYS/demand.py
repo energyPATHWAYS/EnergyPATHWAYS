@@ -88,6 +88,7 @@ class Demand(object):
         ids = util.sql_read_table('DemandDrivers',column_names='id',return_iterable=True)
         for id in ids:
             self.add_driver(id, self.scenario)
+
         self.remap_drivers()
 
     def add_driver(self, id, scenario):
@@ -852,7 +853,10 @@ class Subsector(DataMapFunctions):
                     return_shape = flexible_tech_load
             else:
                 # here we have flexible load, but it is not indexed by technology
-                remaining_shape = util.DfOper.mult((active_shape.values, remaining_energy), collapsible=False)
+                try:
+                    remaining_shape = util.DfOper.mult((active_shape.values, remaining_energy), collapsible=False)
+                except:
+                    pdb.set_trace()
                 remaining_shape = util.DfOper.add((remaining_shape, inflexible_tech_load), collapsible=False)
                 return_shape = self.return_shape_after_flex_load(remaining_shape, percent_flexible, active_hours['lag'], active_hours['lead'])
             flex_native = return_shape.xs(2, level='timeshift_type')
@@ -2336,10 +2340,7 @@ class Subsector(DataMapFunctions):
         for demand_technology in self.technologies.values():
             if len(demand_technology.specified_stocks) and reference_run==False:
                for specified_stock in demand_technology.specified_stocks.values():
-                   try:
-                       specified_stock.remap(map_from='values', current_geography=cfg.demand_primary_geography, converted_geography=cfg.demand_primary_geography, drivers=self.stock.total, driver_geography=cfg.demand_primary_geography, fill_value=np.nan, interpolation_method=None, extrapolation_method=None)
-                   except:
-                       pdb.set_trace()
+                   specified_stock.remap(map_from='values', current_geography=cfg.demand_primary_geography, converted_geography=cfg.demand_primary_geography, drivers=self.stock.total, driver_geography=cfg.demand_primary_geography, fill_value=np.nan, interpolation_method=None, extrapolation_method=None)
                    self.stock.technology.sort(inplace=True)
                    indexer = util.level_specific_indexer(self.stock.technology,'demand_technology',demand_technology.id)
                    df = util.remove_df_levels(self.stock.technology.loc[indexer,:],'demand_technology')
@@ -3008,7 +3009,6 @@ class Subsector(DataMapFunctions):
         elif initial_total == 0 or pd.isnull(initial_total):
             initial_stock = np.zeros(len(self.tech_ids))
         else:
-            pdb.set_trace()
             raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the demand_technology composition of the initial stock in subsector %s' %self.id)
         return initial_stock
 

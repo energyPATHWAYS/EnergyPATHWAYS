@@ -195,7 +195,6 @@ class DataMapFunctions:
         current_data_type = self.input_type if current_data_type is None else current_data_type
         current_geography = self.geography if current_geography is None else current_geography
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
-
         if current_geography not in getattr(self, attr).index.names:
             logging.error("Dataframe being mapped doesn't have the stated current geography: {}".format(self.__class__))
             pdb.set_trace()
@@ -308,7 +307,6 @@ class DataMapFunctions:
 
     def project(self, map_from='raw_values', map_to='values', additional_drivers=None, interpolation_method='missing',extrapolation_method='missing',
                 time_index_name='year', fill_timeseries=True, converted_geography=None, current_geography=None, current_data_type=None, fill_value=0.,projected=False,filter_geo=True):
-        
         current_data_type = self.input_type if current_data_type is None else current_data_type
         if map_from != 'raw_values' and current_data_type == 'total':
             denominator_driver_ids = []

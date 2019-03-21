@@ -468,7 +468,6 @@ class Rollover(object):
             self.account_for_specified_stock()
             # if stock change is less than specified sales minus rolloff, we need additional retirements
             self.account_for_stock_shrinkage()
-
             self.set_final_stock_changes()
             self.update_stock()
             self.set_final_sales()

@@ -1316,7 +1316,10 @@ class Supply(object):
         #solves electricity storage and flexible demand load optimizatio
         self.solve_storage_and_flex_load_optimization(year)
         #updates the grid capacity factors for distribution and transmission grid (i.e. load factors)
-        self.set_grid_capacity_factors(year)
+        try:
+            self.set_grid_capacity_factors(year)
+        except:
+            pdb.set_trace()
         #solves dispatch (stack model) for thermal resource connected to thermal dispatch node
         self.solve_thermal_dispatch(year)
         self.solve_hourly_curtailment(year)
@@ -1960,7 +1963,6 @@ class Supply(object):
             self.distribution_flex_load = util.df_slice(final_demand, [1,2,3], 'timeshift_type', drop_level=False, reset_index=True)
         else:
             raise ValueError('Unrecognized timeshift types in the electricity shapes, found: {}'.format(tuple(final_demand.index.get_level_values('timeshift_type').unique())))
-
         if year in self.dispatch_write_years:
             self.output_final_demand_for_bulk_dispatch_outputs(distribution_native_load)
         self.distribution_gen = self.shaped_dist(year, self.non_flexible_gen, generation=True)
@@ -4338,9 +4340,9 @@ class SupplyNode(Node,StockItem):
        if cost.supply_cost_type == 'tariff':
             tariff = cost.values_level_no_vintage[year].to_frame()           
             if cost.capacity is True:
-                rev_req = util.DfOper.mult([tariff,first_yr_stock],expandable=(False,False))[year].to_frame()    
+                rev_req = util.DfOper.mult([tariff,first_yr_stock],expandable=(True,False))[year].to_frame()
             else:
-                rev_req = util.DfOper.mult([tariff,first_yr_energy],expandable=(False,False))[year].to_frame()  
+                rev_req = util.DfOper.mult([tariff,first_yr_energy],expandable=(True,False))[year].to_frame()
        elif cost.supply_cost_type == 'revenue requirement':
             rev_req = cost.values_level_no_vintage[year].to_frame()
        return rev_req * (1- cost.throughput_correlation)
@@ -4814,7 +4816,7 @@ class SupplyStockNode(Node):
         if cfg.rio_supply_run:
             self.stock.technology.loc[:, cfg.supply_years] = self.stock.technology.loc[:, cfg.supply_years].fillna(0)
         self.format_rollover_stocks()
-   
+
     def max_total(self):
         tech_sum = util.remove_df_levels(self.stock.technology,'supply_technology')
 #        self.stock.total = self.stock.total.fillna(tech_sum)

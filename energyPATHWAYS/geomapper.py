@@ -314,14 +314,22 @@ class GeoMapper:
 
         foreign_gau_slice = util.df_slice(df, foreign_gau, current_geography, drop_level=False, reset_index=True)
         foreign_gau_slice.index = foreign_gau_slice.index.rename(foreign_geography, level=current_geography)
+        foreign_gau_years = foreign_gau_slice.dropna().index.get_level_values(y_or_v).unique()
+        all_years = sorted(df.index.get_level_values(y_or_v).unique())
+
+        impacted_gaus_slice_reduced_years = util.df_slice(impacted_gaus_slice, foreign_gau_years, y_or_v, drop_level=False, reset_index=True)
+        foreign_gau_slice_reduced_years = util.df_slice(foreign_gau_slice, foreign_gau_years, y_or_v, drop_level=False, reset_index=True)
 
         # do the allocation, take the ratio of foreign to native, do a clean timeseries, then reconstitute the foreign gau data over all years
         allocation = self.map_df(foreign_geography, current_geography, map_key=map_key, primary_subset_id=[foreign_gau])
-        allocated_foreign_gau_slice = util.DfOper.mult((foreign_gau_slice, allocation), fill_value=np.nan)
+        allocated_foreign_gau_slice = util.DfOper.mult((foreign_gau_slice_reduced_years, allocation), fill_value=np.nan)
         allocated_foreign_gau_slice = allocated_foreign_gau_slice.reorder_levels([-1]+range(df.index.nlevels))
-        ratio_allocated_to_impacted = util.DfOper.divi((allocated_foreign_gau_slice, impacted_gaus_slice), fill_value=np.nan, non_expandable_levels=[])
-        ratio_allocated_to_impacted.iloc[np.nonzero(impacted_gaus_slice.values==0)] = 0
-        clean_ratio = TimeSeries.clean(data=ratio_allocated_to_impacted, time_index_name=y_or_v, interpolation_method='linear_interpolation', extrapolation_method='nearest')
+        ratio_allocated_to_impacted = util.DfOper.divi((allocated_foreign_gau_slice, impacted_gaus_slice_reduced_years), fill_value=np.nan, non_expandable_levels=[])
+        ratio_allocated_to_impacted.iloc[np.nonzero(impacted_gaus_slice_reduced_years.values==0)] = 0
+        ratio_allocated_to_impacted = ratio_allocated_to_impacted.dropna().reset_index().set_index(ratio_allocated_to_impacted.index.names)
+
+        clean_ratio = TimeSeries.clean(data=ratio_allocated_to_impacted, newindex=all_years, time_index_name=y_or_v, interpolation_method='linear_interpolation', extrapolation_method='nearest')
+
         allocated_foreign_gau_slice_all_years = util.DfOper.mult((clean_ratio, impacted_gaus_slice), fill_value=np.nan, non_expandable_levels=[])
         allocated_foreign_gau_slice_new_geo = util.remove_df_levels(allocated_foreign_gau_slice_all_years, foreign_geography)
         allocated_foreign_gau_slice_foreign_geo = util.remove_df_levels(allocated_foreign_gau_slice_all_years, current_geography)
@@ -330,9 +338,11 @@ class GeoMapper:
         # update foreign GAUs after clean timeseries
         allocated_gau_years = list(allocated_foreign_gau_slice_foreign_geo.index.get_level_values(y_or_v).values)
         allocated_foreign_gau_slice_foreign_geo = allocated_foreign_gau_slice_foreign_geo.reorder_levels(df.index.names).sort()
-        indexer = util.level_specific_indexer(allocated_foreign_gau_slice_foreign_geo, [current_geography, y_or_v], [foreign_gau, allocated_gau_years])
-            
-        df.loc[indexer, :] = allocated_foreign_gau_slice_foreign_geo.loc[indexer, :]
+        afgsfg = allocated_foreign_gau_slice_foreign_geo # to give it a shorter name
+        afgsfg = afgsfg.reindex(index=pd.MultiIndex.from_product(afgsfg.index.levels, names=afgsfg.index.names), fill_value=np.nan)
+        indexer = util.level_specific_indexer(afgsfg, [current_geography, y_or_v], [foreign_gau, allocated_gau_years])
+
+        df.loc[indexer, :] = afgsfg.loc[indexer, :]
 
         new_impacted_gaus = util.DfOper.subt((impacted_gaus_slice, allocated_foreign_gau_slice_new_geo), fill_value=np.nan, non_expandable_levels=[])
         new_impacted_gaus = new_impacted_gaus.reorder_levels(df.index.names).sort()
