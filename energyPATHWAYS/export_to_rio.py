@@ -188,7 +188,7 @@ class RioExport(object):
     def write_flex_tech_schedule(self):
         dist_losses, bulk_losses = self.flatten_loss_dicts()
         df = util.df_slice(self.flex_load_df,2,'timeshift_type')
-        df = util.unit_convert(df.groupby(level=[x for x in df.index.names if x not in 'weather_datetime']).max(),
+        df = util.unit_convert(df.groupby(level=[x for x in df.index.names if x not in 'weather_datetime']).sum(),
                                unit_from_num=cfg.calculation_energy_unit,unit_to_num='megawatt_hour')
         df_list = []
         for geography in cfg.rio_feeder_geographies:
@@ -308,7 +308,6 @@ class RioExport(object):
     def write_flex_tech_p_min(self):
         df = util.df_slice(self.flex_load_df,2,'timeshift_type')
         #todo make mins work
-        df = util.DfOper.divi([df.groupby(level=[x for x in df.index.names if x not in 'weather_datetime']).min(),df.groupby(level=[x for x in df.index.names if x not in 'weather_datetime']).max()])*0
         df_list = []
         for geography in cfg.rio_feeder_geographies:
             for feeder in self.supply.dispatch_feeders:
