@@ -463,9 +463,13 @@ class Supply(object):
                     self.prepare_dispatch_inputs_RIO(year,loop)
                 elif loop == 3 and year in self.dispatch_years and cfg.cfgfile.get('rio','rio_supply_run').lower() == 'true':
                     logging.info("   loop {}: solving RIO limited dispatch".format(loop))
-                    self.prepare_dispatch_inputs_RIO(year, loop)
-                    self.set_grid_capacity_factors(year)
-
+                    # loop - 1 is necessary so that it uses last year's throughput
+                    self.calculate_embodied_costs(year, loop-1) # necessary here because of the dispatch
+                    #necessary to calculate emissions to apply CO2 price in year 1 if applicable
+                    self.calculate_embodied_emissions(year)
+                    self.prepare_dispatch_inputs(year, loop)
+                    self.solve_electricity_dispatch_rio(year)
+                    self._recalculate_stocks_and_io(year, loop)
 
             self.calculate_embodied_costs(year, loop=3)
             self.calculate_embodied_emissions(year)
@@ -1340,7 +1344,26 @@ class Supply(object):
                 Output.write(result_df, 'hourly_dispatch_results.csv', os.path.join(cfg.workingdir, 'dispatch_outputs'))
         self.calculate_thermal_totals(year)
         self.calculate_curtailment(year)
-                
+
+    def solve_electricity_dispatch_rio(self, year):
+        # MOVE
+        """solves heuristic dispatch, optimization dispatch, and thermal dispatch
+        Args:
+            year (int) = year of analysis
+        """
+        # solves dispatched load and gen on the supply-side for nodes like hydro and H2 electrolysis
+        self.solve_heuristic_load_and_gen(year)
+        # solves electricity storage and flexible demand load optimizatio
+        self.solve_storage_and_flex_load_optimization(year)
+        # updates the grid capacity factors for distribution and transmission grid (i.e. load factors)
+        try:
+            self.set_grid_capacity_factors(year)
+        except:
+            pdb.set_trace()
+
+
+
+
     def solve_hourly_curtailment(self,year):
         # MOVE
         if year in self.dispatch_write_years:
