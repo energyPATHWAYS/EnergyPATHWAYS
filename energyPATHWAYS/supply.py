@@ -1993,9 +1993,15 @@ class Supply(object):
         self.rio_distribution_load[year] =copy.deepcopy(self.distribution_load)
         self.rio_flex_load[year] = copy.deepcopy(self.distribution_flex_load)
         self.bulk_gen = self.shaped_bulk(year, self.non_flexible_gen, generation=True)
+        if cfg.cfgfile.get('rio','rio_db_run').lower() == 'true':
+            for blend_id in [x for x in self.blend_nodes if x not in cfg.rio_excluded_blends]:
+                for node_id in self.nodes[blend_id].nodes:
+                    self.non_flexible_load[self.non_flexible_load.index.get_level_values('supply_node')==node_id]=0
         self.bulk_load = self.shaped_bulk(year, self.non_flexible_load, generation=False)
         self.rio_bulk_load[year] = copy.deepcopy(self.bulk_load)
         self.update_net_load_signal()
+
+
 
     def output_final_demand_for_bulk_dispatch_outputs(self, distribution_native_load):
         df_output = DfOper.mult([distribution_native_load, self.distribution_losses,self.transmission_losses])
@@ -2725,8 +2731,11 @@ class Supply(object):
             temp[np.nonzero(active_cost_io.values.sum(axis=1) + self.active_demand.values.flatten()==0)[0]] = 0
             self.inverse_dict['cost'][year][sector] = pd.DataFrame(temp, index=index, columns=index)
             idx = pd.IndexSlice
-            self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:]
-            self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:] 
+            #try:
+             #   self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['energy'][year][sector].loc[idx[:,self.non_storage_nodes],:]
+            #except:
+             #   pdb.set_trace()
+            #self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:] = self.inverse_dict['cost'][year][sector].loc[idx[:,self.non_storage_nodes],:]
         for node in self.nodes.values():
             indexer = util.level_specific_indexer(self.io_supply_df,levels=['supply_node'], elements = [node.id])
             node.active_supply = self.io_supply_df.loc[indexer,year].groupby(level=[cfg.supply_primary_geography, 'demand_sector']).sum().to_frame()
