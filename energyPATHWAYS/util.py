@@ -75,8 +75,13 @@ def loop_geo_multiply(df1, df2, geo_label, geographies, levels_to_keep=None):
         if geography in df2.index.get_level_values(geo_label):
             supply_indexer = level_specific_indexer(df2, [geo_label], [geography])
             demand_indexer = level_specific_indexer(df1, [geo_label], [geography])
-            geography_df = DfOper.mult([df1.loc[demand_indexer, :], df2.loc[supply_indexer, :]])
-            geography_df = geography_df[geography_df != 0] # make it smaller
+            demand_df = df1.loc[demand_indexer, :]
+            demand_df = demand_df.round(12)
+            demand_df = demand_df[demand_df.values!=0]
+            supply_df =  df2.loc[supply_indexer, :]
+            supply_df = supply_df.round(12)
+            supply_df = supply_df[supply_df.values != 0]
+            geography_df = DfOper.mult([demand_df,supply_df])
             geography_df_list.append(geography_df)
     df = pd.concat(geography_df_list)
     if levels_to_keep:
@@ -535,7 +540,10 @@ def unit_conversion_factor(unit_from, unit_to):
                 unit_from.magnitude()
                 quant_from = unit_from
             except:
-                quant_from = cfg.ureg.Quantity(unit_from)
+                try:
+                    quant_from = cfg.ureg.Quantity(unit_from)
+                except:
+                    pdb.set_trace()
             try:
                 unit_to.magnitude()
                 quant_to = unit_to
@@ -739,6 +747,11 @@ def remove_df_levels(data, levels, total_label=None, agg_function='sum'):
             return data.groupby(level=levels_to_keep).sum()
         elif agg_function =='mean':
             return data.groupby(level=levels_to_keep).mean()
+
+        elif agg_function == 'max':
+            return data.groupby(level=levels_to_keep).max()
+        elif agg_function == 'min':
+            return data.groupby(level=levels_to_keep).min()
         else:
             raise ValueError('unknown agg function specified')
     else:
@@ -811,12 +824,19 @@ def ix_incl(df, include=None):
 
 def replace_column_name(df, replace_labels, labels=None):
     " Use replace_label to replace specified name label"
-    if not isinstance(replace_labels,basestring):
-        for replace_label in replace_labels:
-                index = replace_labels.index(replace_label)
-                df.columns.names = [replace_label if x == labels[index]  else x for x in df.columns.names]
-    else:
+    if df.columns.dtype == 'O' and np.all(df.columns.names==[None]):
+        #dct = dict(zip(ensure_iterable_and_not_string(replace_labels),ensure_iterable_and_not_string(labels)))
+        #df.rename(columns=dct,inplace=True)
+        df.columns = [replace_labels if x == labels else x for x in df.columns]
+    elif df.columns.dtype == 'O' and np.all(df.columns==[None]):
         df.columns.names = [replace_labels if x == labels else x for x in df.columns.names]
+    else:
+        if not isinstance(replace_labels,basestring):
+            for replace_label in replace_labels:
+                    index = replace_labels.index(replace_label)
+                    df.columns.names = [replace_label if x == labels[index]  else x for x in df.columns.names]
+        else:
+            df.columns.names = [replace_labels if x == labels else x for x in df.columns.names]
 
 def replace_column(df, replace_labels, labels=None):
     " Use replace_label to replace specified name label"

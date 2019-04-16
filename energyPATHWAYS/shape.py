@@ -166,6 +166,14 @@ class Shape(DataObject):
         self.final_data = None
         self.final_data_all_sensitivities = None
 
+    def make_flat_load_shape(self, index, column='value', num_active_years=None):
+        assert 'weather_datetime' in index.names
+        flat_shape = util.empty_df(fill_value=1., index=index, columns=[column])
+        group_to_normalize = [n for n in flat_shape.index.names if n!='weather_datetime']
+        num_active_years =  self.num_active_years if num_active_years is None else num_active_years
+        flat_shape = flat_shape.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*num_active_years
+        return flat_shape
+
     def slice_sensitivity(self, sensitivity_name):
         # if the shape doesn't have sensitivities, we don't want to copy it
         if self.final_data_all_sensitivities is None and 'sensitivity' not in self.final_data.index.names:

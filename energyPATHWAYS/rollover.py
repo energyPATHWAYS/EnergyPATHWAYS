@@ -46,7 +46,7 @@ class Rollover(object):
         self.initialize_specified_stock(specified_stock)
         self.initialize_specified_sales(specified_sales)
         self.lifetimes = lifetimes if lifetimes is not None else np.ones(self.num_techs)
-        
+
         self.stock_changes_as_min = stock_changes_as_min
         self.all_techs = np.arange(self.num_techs, dtype=int)
         self.stock = np.zeros((self.num_techs, self.num_vintages*self.spy + 1, self.num_years*self.spy))
@@ -468,7 +468,6 @@ class Rollover(object):
             self.account_for_specified_stock()
             # if stock change is less than specified sales minus rolloff, we need additional retirements
             self.account_for_stock_shrinkage()
-
             self.set_final_stock_changes()
             self.update_stock()
             self.set_final_sales()
@@ -480,7 +479,7 @@ class Rollover(object):
             self.check_outputs()
             self.calculate_outputs(list_steps)
             #increment self.i, this saves the position where the rollover left off
-            self.i = min((self.num_years - 1)*self.spy, i+1)
+            self.i = min(self.num_years*self.spy, i+1)
 
     def rewind(self, num_years):
         self.i -= num_years*self.spy

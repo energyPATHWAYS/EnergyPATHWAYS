@@ -369,11 +369,24 @@ def table_dict(table_name, columns=['id', 'name'], append=False,
 #         outputs_id_map[name] = table_dict('OtherIndexesData', other_index_id=id, return_unique=True)
 
 def init_output_parameters():
-    global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes, evolved_years
+    global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes, evolved_years,\
+    rio_supply_run, rio_geography, rio_feeder_geographies, rio_energy_unit, rio_time_unit, rio_timestep_multiplier, rio_zonal_blend_nodes, rio_excluded_technologies, rio_excluded_blends, rio_export_blends, rio_no_negative_blends
+
     currency_name = getParam('currency_name')
     output_currency = getParam('currency_year_id') + ' ' + currency_name
     output_tco = cfgfile.get('output_detail', 'output_tco').lower()
     output_payback = cfgfile.get('output_detail', 'output_payback').lower()
+    rio_supply_run = True if cfgfile.get('rio','rio_supply_run').lower() == 'true' else False
+    rio_geography = cfgfile.get('rio','rio_geography')
+    rio_feeder_geographies = [int(g) for g in cfgfile.get('rio', 'rio_feeder_geographies').split(',') if len(g)]
+    rio_energy_unit = cfgfile.get('rio','rio_energy_unit')
+    rio_time_unit = cfgfile.get('rio','rio_time_unit')
+    rio_timestep_multiplier = int(cfgfile.get('rio','rio_timestep_multiplier'))
+    rio_zonal_blend_nodes = [int(g) for g in cfgfile.get('rio', 'rio_zonal_blends').split(',') if len(g)]
+    rio_excluded_technologies = [int(g) for g in cfgfile.get('rio', 'rio_excluded_technologies').split(',') if len(g)]
+    rio_excluded_blends = [int(g) for g in cfgfile.get('rio', 'rio_excluded_blends').split(',') if len(g)]
+    rio_export_blends = [int(g) for g in cfgfile.get('rio', 'rio_export_blends').split(',') if len(g)]
+    rio_no_negative_blends = [int(g) for g in cfgfile.get('rio', 'rio_no_negative_blends').split(',') if len(g)]
     evolved_run = cfgfile.get('evolved','evolved_run').lower()
     evolved_years = [int(x) for x in ensure_iterable_and_not_string(cfgfile.get('evolved','evolved_years'))]
     evolved_blend_nodes = splitclean(cfgfile.get('evolved','evolved_blend_nodes'), as_type=int)

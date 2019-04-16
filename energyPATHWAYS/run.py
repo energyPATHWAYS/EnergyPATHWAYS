@@ -75,7 +75,7 @@ def click_run(path, config, scenario, load_demand, solve_demand, load_supply, so
     run(path, config, scenario, load_demand, solve_demand, load_supply, solve_supply, load_error, export_results, pickle_shapes, save_models, log_name, clear_results, subfolders)
 
 def run(path, config, scenarios, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, load_error=False,
-        export_results=True, pickle_shapes=True, save_models=True, log_name=None, clear_results=False, subfolders=False):
+        export_results=True, pickle_shapes=True, save_models=True, log_name=None, clear_results=False, subfolders=False,rio_scenario=None):
     global model
     path = os.getcwd() if path is None else path
     cfg.initialize_config(path, config, log_name)
@@ -92,10 +92,17 @@ def run(path, config, scenarios, load_demand=False, solve_demand=True, load_supp
 
     # Users may have specified a scenario using the full filename, but for our purposes the 'id' of the scenario
     # is just the part before the .json
+    scenarios = util.ensure_iterable_and_not_string(scenarios)
     scenarios = [os.path.splitext(s)[0] for s in scenarios]
+    if rio_scenario==None:
+        rio_scenario = [None for s in scenarios]
+    else:
+        rio_scenario = util.ensure_iterable_and_not_string(rio_scenario)
 
+
+    combined_scenarios = zip(scenarios,rio_scenario)
     logging.info('Scenario run list: {}'.format(', '.join(scenarios)))
-    for scenario in scenarios:
+    for scenario,rio_scenario in combined_scenarios:
         if subfolders:
             logging.shutdown()
             logging.getLogger(None).handlers = []
@@ -105,8 +112,10 @@ def run(path, config, scenarios, load_demand=False, solve_demand=True, load_supp
         scenario_start_time = time.time()
         logging.info('Starting scenario {}'.format(scenario))
         logging.info('Start time {}'.format(str(datetime.datetime.now()).split('.')[0]))
-
-        model = load_model(load_demand, load_supply, load_error, scenario)
+        if cfg.rio_supply_run:
+            model = load_model(load_demand, load_supply, load_error,scenario, rio_scenario)
+        else:
+            model = load_model(load_demand, load_supply, load_error, scenario, None)
         if not load_error:
             model.run(scenario,
                       solve_demand=solve_demand,
@@ -115,7 +124,7 @@ def run(path, config, scenarios, load_demand=False, solve_demand=True, load_supp
                       load_supply=load_supply,
                       export_results=export_results,
                       save_models=save_models,
-                      append_results=False if (scenario == scenarios[0] and clear_results) else True)
+                      append_results=False if (scenario == scenarios[0] and clear_results) else True,rio_scenario=rio_scenario)
 
         logging.info('EnergyPATHWAYS run for scenario {} successful!'.format(scenario))
         logging.info('Scenario calculation time {}'.format(str(datetime.timedelta(seconds=time.time() - scenario_start_time)).split('.')[0]))
@@ -123,9 +132,11 @@ def run(path, config, scenarios, load_demand=False, solve_demand=True, load_supp
     logging.shutdown()
     logging.getLogger(None).handlers = [] # necessary to totally flush the logger
 
-def load_model(load_demand, load_supply, load_error, scenario):
+def load_model(load_demand, load_supply, load_error, scenario,rio_scenario):
+    pathways_scenario = scenario
+    scenario = scenario if rio_scenario is None else rio_scenario
     if load_error:
-        with open(os.path.join(cfg.workingdir, str(scenario) + cfg.model_error_append_name), 'rb+') as infile:
+        with open(os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.model_error_append_name), 'rb+') as infile:
 #        with open(os.path.join(cfg.workingdir, 'dispatch_class.p'), 'rb') as infile:
             model = pickle.load(infile)
         logging.info('Loaded crashed EnergyPATHWAYS model from pickle')
@@ -134,20 +145,20 @@ def load_model(load_demand, load_supply, load_error, scenario):
             model = pickle.load(infile)
         logging.info('Loaded complete EnergyPATHWAYS model from pickle')
     elif load_demand:
-        demand_file = os.path.join(cfg.workingdir, str(scenario) + cfg.demand_model_append_name)
-        supply_file = os.path.join(cfg.workingdir, str(scenario) + cfg.full_model_append_name)
+        demand_file = os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.demand_model_append_name)
+        supply_file = os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.full_model_append_name)
         if os.path.isfile(demand_file):
-            with open(os.path.join(cfg.workingdir, str(scenario) + cfg.demand_model_append_name), 'rb') as infile:
+            with open(os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.demand_model_append_name), 'rb') as infile:
                 model = pickle.load(infile)
                 logging.info('Loaded demand-side EnergyPATHWAYS model from pickle')
         elif os.path.isfile(supply_file):
-            with open(os.path.join(cfg.workingdir, str(scenario) + cfg.full_model_append_name), 'rb') as infile:
+            with open(os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.full_model_append_name), 'rb') as infile:
                 model = pickle.load(infile)
                 logging.info('Loaded complete EnergyPATHWAYS model from pickle')
         else:
             raise("No model file exists")
     else:
-        model = PathwaysModel(scenario)
+        model = PathwaysModel(pathways_scenario)
     return model
 
 class SubsectorPerturbation(object):
@@ -159,15 +170,17 @@ class SubsectorPerturbation(object):
 if __name__ == "__main__":
     workingdir = r'C:\github\EP_runs\csv-migration'
     config = 'config.INI'
+    rio_scenario = [None]
     scenario = ['ref_moder_aeo']
 
     run(workingdir, config, scenario,
-    load_demand   = False,
+    load_demand   = True,
     solve_demand  = True,
     load_supply   = False,
-    solve_supply  = False,
-    export_results= True,
+    solve_supply  = True,
+    export_results= False,
     load_error    = False,
     pickle_shapes = True,
     save_models   = False,
-    clear_results = True)
+    clear_results = True,
+    rio_scenario=rio_scenario)

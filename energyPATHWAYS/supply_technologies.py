@@ -12,10 +12,11 @@ import copy
 import numpy as np
 import config as cfg
 from shared_classes import StockItem
-from supply_classes import SupplySalesShare, SupplySales, SupplySpecifiedStock
+from supply_classes import SupplySalesShare, SupplySales, SupplySpecifiedStock,RioSpecifiedStock
 import pandas as pd
 import shape
 import logging
+import pdb
 
 class SupplyTechnology(StockItem):
     def __init__(self, id, cost_of_capital, scenario, **kwargs):
@@ -47,7 +48,7 @@ class SupplyTechnology(StockItem):
         for att in attributes:
             obj = getattr(self, att)
             if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'calculate'):
-                    obj.calculate(self.vintages, self.years)
+                obj.calculate(self.vintages, self.years)
 
     def add_sales_share_measures(self, scenario):
         self.sales_shares = {}
@@ -74,7 +75,22 @@ class SupplyTechnology(StockItem):
             self.specified_stocks[specified_stock] = SupplySpecifiedStock(id=specified_stock,
                                                                     sql_id_table='SupplyStockMeasures',
                                                                     sql_data_table='SupplyStockMeasuresData',
-                                                                    scenario=scenario)
+                                                                          scenario=scenario)
+    def add_rio_stock_measures(self,rio_inputs):
+        self.specified_stocks = {}
+        df = rio_inputs.stock
+        if self.id in set(df.index.get_level_values('technology')):
+            df = util.df_slice(df,[self.id],['technology'])
+            if np.any([isinstance(x,int) for x in df.index.get_level_values('resource_bin').values]):
+                df = df[df.index.get_level_values('resource_bin')!='n/a']
+                df = df.groupby(level=df.index.names).sum()
+                self.specified_stocks[1] = RioSpecifiedStock(df)
+            else:
+                self.specified_stocks[1] = RioSpecifiedStock(util.remove_df_levels(df,'resource_bin'))
+
+
+
+
 
     def add_costs(self):
         """
@@ -141,6 +157,8 @@ class StorageTechnology(SupplyTechnology):
         self.installation_cost_replacement = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost', 'SupplyTechsInstallationCostReplacementData', self.scenario, self.book_life, self.cost_of_capital)
         self.fixed_om = SupplyTechFixedOMCost(self.id, 'SupplyTechsFixedMaintenanceCost', 'SupplyTechsFixedMaintenanceCostData', self.scenario)
         self.variable_om = SupplyTechVariableOMCost(self.id, 'SupplyTechsVariableMaintenanceCost', 'SupplyTechsVariableMaintenanceCostData', self.scenario)
+        self.duration = StorageTechDuration(self.id, self.scenario)
+
 
         self.replace_costs('capital_cost_new_capacity', 'capital_cost_replacement_capacity')
         self.replace_costs('capital_cost_new_energy', 'capital_cost_replacement_energy')
@@ -256,6 +274,37 @@ class StorageTechEnergyCost(SupplyTechInvestmentCost):
             self.absolute = False
 
 
+class StorageTechDuration(Abstract):
+    def __init__(self, id, scenario, **kwargs):
+        self.id = id
+        self.input_type = 'intensity'
+        self.sql_id_table = 'StorageTechsDuration'
+        self.sql_data_table = 'StorageTechsDurationData'
+        self.scenario = scenario
+        Abstract.__init__(self, id, 'supply_tech_id')
+
+    def set_rio_duration(self,rio_inputs):
+        if self.id in set(rio_inputs.duration.index.get_level_values('technology'))and self.id not in cfg.rio_excluded_technologies:
+            self.data = True
+            self.raw_values = util.df_slice(rio_inputs.duration,self.id,'technology')
+            self.geography = cfg.rio_geography
+            self.capacity_or_energy_unit = cfg.rio_energy_unit
+            self.time_unit = cfg.rio_time_unit
+            self.input_timestep = cfg.rio_timestep_multiplier
+            self.interpolation_method = 'linear_interpolation'
+            self.extrapolation_method = 'nearest'
+
+    def calculate(self, vintages, years):
+        self.vintages = vintages
+        self.years = years
+        if self.data and self.raw_values is not None:
+            try:
+                self.remap(time_index_name='year', converted_geography=cfg.supply_primary_geography)
+            except:
+                pdb.set_trace()
+            self.values.replace(0, 1, inplace=True)
+
+
 class SupplyTechFixedOMCost(SupplyTechCost):
     def __init__(self, id, sql_id_table, sql_data_table, scenario, book_life=None, **kwargs):
         SupplyTechCost.__init__(self, id, sql_id_table, sql_data_table, scenario, book_life)
@@ -268,9 +317,9 @@ class SupplyTechFixedOMCost(SupplyTechCost):
         model_time_step = cfg.cfgfile.get('case', 'time_step')
         if self.time_unit is not None:
             # if a cost has a time_unit, then the unit is energy and must be converted to capacity
-            self.values = util.unit_convert(self.raw_values, unit_from_num=self.capacity_or_energy_unit,
-                                            unit_from_den=self.time_unit, unit_to_num=model_energy_unit,
-                                            unit_to_den=model_time_step)
+            self.values = util.unit_convert(self.raw_values, unit_from_den=self.capacity_or_energy_unit,
+                                            unit_from_num=self.time_unit, unit_to_den=model_energy_unit,
+                                            unit_to_num=model_time_step)
         else:
             # if a cost is a capacity unit, the model must convert the unit type to an energy unit for conversion ()
             self.values = util.unit_convert(self.raw_values, unit_from_den=cfg.ureg.Quantity(self.capacity_or_energy_unit)
@@ -351,14 +400,40 @@ class SupplyTechCapacityFactor(Abstract):
         self.scenario = scenario
         Abstract.__init__(self, id, 'supply_tech_id')
 
+    def set_rio_capacity_factor(self,rio_inputs):
+        df =rio_inputs.capacity_factor
+        if self.id in set(df.index.get_level_values('technology')) and  self.id not in cfg.rio_excluded_technologies:
+            df = util.df_slice(df, self.id, 'technology')
+            if not np.any([isinstance(x,int) for x in df.index.get_level_values('resource_bin').values]):
+                df = (util.remove_df_levels(df,'resource_bin'))
+            else:
+                df = df[df.index.get_level_values('resource_bin') != 'n/a']
+                df = df.groupby(level=df.index.names).sum()
+            self.raw_values = df
+            self.data = True
+            self.geography = cfg.rio_geography
+            self.capacity_or_energy_unit = cfg.rio_energy_unit
+            self.time_unit = cfg.rio_time_unit
+            self.input_timestep = cfg.rio_timestep_multiplier
+            self.interpolation_method = 'linear_interpolation'
+            self.extrapolation_method = 'nearest'
 
+        
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.raw_values is not None:
-            self.remap(time_index_name='vintage', converted_geography=cfg.supply_primary_geography)
+        if self.data and self.raw_values is not None and (cfg.rio_supply_run is not True or 'vintage' in self.raw_values.index.names):
+            self.remap(time_index_name='vintage', converted_geography=cfg.supply_primary_geography,fill_value=np.nan)
             self.values.replace(0,1,inplace=True)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
+        elif self.data and self.raw_values is not None and cfg.rio_supply_run==True:
+            try:
+                self.remap(time_index_name='year', converted_geography=cfg.supply_primary_geography, fill_value=np.nan)
+            except:
+                pdb.set_trace()
+            self.values.replace(0, 1, inplace=True)
+            self.values = util.add_and_set_index(self.values,'vintage',self.vintages,index_location=-1)
+            self.values = self.values.squeeze().unstack(level='year')
 
 
 class SupplyTechCO2Capture(Abstract):

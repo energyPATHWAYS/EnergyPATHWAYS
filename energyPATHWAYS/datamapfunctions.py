@@ -195,7 +195,6 @@ class DataMapFunctions:
         current_data_type = self.input_type if current_data_type is None else current_data_type
         current_geography = self.geography if current_geography is None else current_geography
         geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
-
         if current_geography not in getattr(self, attr).index.names:
             logging.error("Dataframe being mapped doesn't have the stated current geography: {}".format(self.__class__))
             pdb.set_trace()
@@ -270,7 +269,6 @@ class DataMapFunctions:
             if current_geography != converted_geography:
                 self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
                              current_data_type=current_data_type, fill_value=fill_value,filter_geo=filter_geo)
-                current_geography = converted_geography
         else:
             # becomes an attribute of self just because we may do a geomap on it
             self.total_driver = DfOper.mult(util.put_in_list(drivers))

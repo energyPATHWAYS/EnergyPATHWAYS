@@ -21,7 +21,10 @@ def process_shapes(shape):
 
 def node_calculate(node):
     cfg.initialize_config(node.workingdir, node.cfgfile_name, node.log_name)
-    node.calculate()
+    if node.id == 6 and cfg.rio_supply_run:
+        node.calculate(calculate_residual=False)
+    else:
+        node.calculate()
     cfg.cur.close()
     return node
 
