@@ -38,11 +38,10 @@ class DispatchFeederAllocation(schema.DispatchFeedersAllocation):
         super(DispatchFeederAllocation, self).__init__(name, scenario=scenario)
         self.init_from_db(name, scenario)
 
-        # TODO: Is this all now deprecated?
-        # self.remap(map_from='raw_values', map_to='values_demand_geo', converted_geography=getParam('demand_primary_geography'))
-        # self.remap(map_from='raw_values', map_to='values_supply_geo', converted_geography=getParam('supply_primary_geography'))
-        # self.values_demand_geo.sort_index(inplace=True)
-        # self.values_supply_geo.sort_index(inplace=True)
+        self.remap(map_from='_timeseries', map_to='values_demand_geo', converted_geography=getParam('demand_primary_geography'))
+        self.remap(map_from='_timeseries', map_to='values_supply_geo', converted_geography=getParam('supply_primary_geography'))
+        self.values_demand_geo.sort_index(inplace=True)
+        self.values_supply_geo.sort_index(inplace=True)
 
 class DispatchNodeConfig(schema.DispatchNodeConfig):
     def __init__(self, name, scenario=None):

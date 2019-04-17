@@ -17,6 +17,8 @@ import cPickle as pickle
 import os
 import logging
 import pdb
+import traceback
+import pathos
 
 from csvdb import CsvDatabase
 from . import config as cfg
@@ -58,16 +60,15 @@ def num_active_years(active_dates_index):
     years = sum([yc/(8784. if is_leap_year(y) else 8760.) for y, yc in zip(unique_years, year_counts)])
     return int(round(years))
 
+time_zones = pd.read_csv(os.path.join(os.path.split(os.path.dirname(os.path.realpath(__file__)))[0], 'energyPATHWAYS', 'time_zones.csv'))
+time_zones = dict(zip([tz.lower() for tz in time_zones.values.flatten()],time_zones.values.flatten()))
 def format_timezone_str(tz):
-    tz = tz.split("/")
-    tz = [x.split("_") for x in tz]
-    tz = [[y.lower().capitalize() if len(y) != 2 else y.upper() for y in x] for x in tz]
-    tz = ["_".join(x) for x in tz]
-    tz = "/".join(tz)
-    return tz
+    return time_zones[tz.lower()]
 
 def newest_shape_file_modified_date(database_path):
-    return max([os.path.getmtime(os.path.join(database_path, 'ShapeData', file_name)) for file_name in os.listdir(os.path.join(database_path, 'ShapeData'))])
+    max_shapes_data_modified = max([os.path.getmtime(os.path.join(database_path, 'ShapeData', file_name)) for file_name in os.listdir(os.path.join(database_path, 'ShapeData'))])
+    shape_meta_modified = os.path.getmtime(os.path.join(database_path, 'Shapes.csv'))
+    return max(max_shapes_data_modified, shape_meta_modified)
 
 class Shapes(object):
     _instance = None
@@ -80,11 +81,13 @@ class Shapes(object):
         self.set_active_dates()
         self.num_active_years = num_active_years(self.active_dates_index)
         self.cfg_outputs_timezone = pytz.timezone(cfg.getParam('dispatch_outputs_timezone'))
-        self.cfg_hash_tuple = (GeoMapper.cfg_geography, tuple(sorted(GeoMapper.cfg_gau_subset)),
-                               tuple(GeoMapper.cfg_gau_breakout), tuple([int(y) for y in cfg.getParam('weather_years').split(',')]), tuple(DataObject.get_default_years()))
+        self.cfg_hash_tuple = self.get_hash_tuple()
         self.cfg_hash = hash(self.cfg_hash_tuple)
 
-        shape_meta = db.get_table("SHAPE_META").data
+        if len(db.shapes.slices.keys()) == 0:
+            raise ValueError("No shapes data found, check path to the database. The folder ShapeData must be located in the database folder specified")
+
+        shape_meta = db.get_table("Shapes").data
         self.data = {}
         for i, meta in shape_meta.iterrows():
             if meta['name'] not in db.shapes.slices.keys():
@@ -95,14 +98,20 @@ class Shapes(object):
         self.process_active_shapes()
 
     @classmethod
+    def get_hash_tuple(cls):
+        cfg_weather_years = [int(y) for y in cfg.getParam('weather_years').split(',')]
+        geography_check = (GeoMapper.demand_primary_geography, GeoMapper.supply_primary_geography, tuple(sorted(GeoMapper.primary_subset)), tuple(GeoMapper.breakout_geography))
+        cfg_hash_tuple = geography_check + tuple(cfg_weather_years)
+        return cfg_hash_tuple
+
+    @classmethod
     def get_instance(cls, database_path):
         if Shapes._instance is not None:
             return Shapes._instance
 
         # load from pickle
-        cfg_hash = hash((GeoMapper.cfg_geography, tuple(sorted(GeoMapper.cfg_gau_subset)),
-                         tuple(GeoMapper.cfg_gau_breakout), tuple([int(y) for y in cfg.getParam('weather_years').split(',')]), tuple(DataObject.get_default_years())))
-        pickle_path = os.path.join(database_path, 'ShapeData', 'pickles', '{}_shapes_{}.p'.format(GeoMapper.cfg_geography, cfg_hash))
+        cfg_hash = hash(cls.get_hash_tuple())
+        pickle_path = os.path.join(database_path, 'ShapeData', 'pickles', 'shapes_{}.p'.format(cfg_hash))
         if os.path.isfile(pickle_path) and os.path.getmtime(pickle_path) > newest_shape_file_modified_date(database_path):
             logging.info('Loading shapes')
             with open(pickle_path, 'rb') as infile:
@@ -128,11 +137,29 @@ class Shapes(object):
         self.time_slice_elements = create_time_slice_elements(self.active_dates_index)
 
     def process_active_shapes(self):
-        #run the weather date shapes first because they inform the daterange for dispatch
         logging.info(' mapping data for:')
 
-        for shape_name in self.data:
-            self.data[shape_name].process_shape()
+        if cfg.getParamAsBoolean('setup_parallel_process'):
+            pool = pathos.multiprocessing.Pool(processes=cfg.getParamAsInt('setup_num_cores'), maxtasksperchild=1)
+            shapes = pool.map(self.helper_multiprocess_process_shapes, self.data.values(), chunksize=1)
+            pool.close()
+            pool.join()
+            self.data = dict(zip(self.data.keys(), shapes))
+        else:
+            for id in self.data:
+                self.data[id].process_shape()
+
+    def helper_multiprocess_process_shapes(self, shape):
+        try:
+            db_path = cfg.getParam('database_path')
+            GeoMapper.get_instance(db_path)
+            # UnitConverter.get_instance(db_path)
+            shape.process_shape()
+        except Exception as e:
+            print 'Caught exception in shape {}'.format(shape.name)
+            traceback.print_exc()
+            raise e
+        return shape
 
     def slice_sensitivities(self, sensitivities):
         logging.info(' slicing shape sensitivities')
@@ -152,6 +179,7 @@ class Shape(DataObject):
         if self.time_zone is not None:
             self.time_zone = format_timezone_str(self.time_zone)
         self.geography = meta['geography']
+        self.primary_geography = GeoMapper.demand_primary_geography if meta['supply_or_demand_side'] == 'd' else GeoMapper.supply_primary_geography
         self.geography_map_key = meta['geography_map_key']
         self.interpolation_method = meta['interpolation_method']
         self.extrapolation_method = meta['extrapolation_method']
@@ -165,6 +193,17 @@ class Shape(DataObject):
         self.timeseries.index = self.timeseries.index.rename(self.geography, level='gau')
         self.final_data = None
         self.final_data_all_sensitivities = None
+        self.extrapolation_growth = None
+        try:
+            self.timeseries = self.filter_foreign_gaus(self.timeseries)
+        except:
+            pdb.set_trace()
+
+    def filter_foreign_gaus(self, timeseries):
+        geographies_to_keep = GeoMapper.get_instance().geography_to_gau[self.geography]
+        keep_index = timeseries.index.get_level_values(self.geography).isin(geographies_to_keep)
+        timeseries = timeseries[keep_index].reset_index().set_index(timeseries.index.names)
+        return timeseries
 
     def make_flat_load_shape(self, index, column='value', num_active_years=None):
         assert 'weather_datetime' in index.names
@@ -214,24 +253,38 @@ class Shape(DataObject):
 
         return data.set_index(self._non_time_keys+self._active_time_keys+['weather_datetime']).sort_index()
 
-    def process_shape(self):
-        logging.info('    shape: ' + self.name)
+    def standardize_shape_type(self, timeseries):
         if self.shape_type=='weather date':
-            final_data = util.reindex_df_level_with_new_elements(self.timeseries, 'weather_datetime', self.all_shapes.active_dates_index) # this step is slow, consider replacing
+            final_data = util.reindex_df_level_with_new_elements(timeseries, 'weather_datetime', self.all_shapes.active_dates_index_unique) # this step is slow, consider replacing
             if final_data.isnull().values.any():
-                raise ValueError('Weather data for shape {} did not give full coverage of the active dates'.format(self.name))
+                # do some interpolation to fill missing values, that that still doesn't work to remove the NaNs, we raise an error
+                final_data = final_data.groupby(level=[name for name in final_data.index.names if name!='weather_datetime']).apply(pd.DataFrame.interpolate).ffill().bfill()
+                if final_data.isnull().values.any():
+                    raise ValueError('Weather data for shape {} did not give full coverage of the active dates:\n {}'.format(self.name, final_data[final_data.isnull().values]))
         elif self.shape_type=='time slice':
-            final_data = self.create_empty_shape_data()
-            final_data = pd.merge(final_data.reset_index(), self.timeseries.reset_index())
+            final_data = self.create_empty_shape_data(timeseries)
+            final_data = pd.merge(final_data, timeseries.reset_index(), how='left')
             final_data = final_data.set_index([c for c in final_data.columns if c!='value']).sort_index()
             if self.shape_unit_type=='energy':
+                if 'week' in self._active_time_keys:
+                    raise ValueError('Shape unit type energy with week timeslice is not recommended due to edge effects')
                 final_data = self.convert_energy_to_power(final_data)
             if final_data.isnull().values.any():
-                raise ValueError('Shape time slice data did not give full coverage of the active dates')
+                print final_data[final_data.isnull().values]
+                raise ValueError('Shape {} time slice data did not give full coverage of the active dates.'.format(self.name))
             # reindex to remove the helper columns
-            final_data.index = final_data.index.droplevel(self._active_time_keys)
-
+            active_time_keys_keep_hydro_year = list(set(self._active_time_keys) - set(['hydro_year']))
+            final_data.index = final_data.index.droplevel(active_time_keys_keep_hydro_year)
+            # drop any duplicates
+            final_data = final_data.groupby(level=final_data.index.names).first()
+        else:
+            raise ValueError('{} shape_type must be "weather date" or "time slice", not {}'.format(self.name, self.shape_type))
         final_data = final_data.swaplevel('weather_datetime', -1).sort_index()
+        return final_data
+
+    def process_shape(self):
+        logging.info('    shape: ' + self.name)
+        final_data = self.standardize_shape_type(self.timeseries)
         logging.debug('        ...filtering geographies')
         final_data = GeoMapper.get_instance().filter_extra_geos_from_df(final_data)
         logging.debug('        ...mapping to time zones')
@@ -244,16 +297,15 @@ class Shape(DataObject):
         final_data = self.sum_over_time_zone(final_data)
         #it's much easier to work with if we just strip out the timezone information at this point
         final_data = final_data.tz_localize(None, level='weather_datetime')
+        if 'year' in final_data.index.names:
+            final_data = self.clean_timeseries(df=final_data)
         logging.debug('        ...normalizing shapes')
         final_data = self.normalize(final_data)
-        if 'year' in final_data.index.names:
-            self.extrapolation_growth = None
-            final_data = self.clean_timeseries(df=final_data)
+        if final_data.sum().sum() == 0:
+            raise ValueError("'{}' shape data is all zeros after processing. This indicates an error upstream and if not fixed will cause issues downstream.".format(self.name))
         self.final_data = final_data
         #raw values can be very large, so we delete it in this one case
-        #index = pd.MultiIndex.from_product([GeoMapper.get_cfg_gaus(), self.all_shapes.active_dates_index], names=[GeoMapper.cfg_geography, 'weather_datetime'])
-        #self.final_data = self.make_flat_load_shape(index)
-        del self.timeseries
+        del self.timeseries, self.all_shapes
 
     def add_timeshift_type(self):
         """Later these shapes will need a level called timeshift type, and it is faster to add it now if it doesn't already have it"""
@@ -267,7 +319,7 @@ class Shape(DataObject):
         if 'dispatch_constraint' in group_to_normalize:
             # this first normailization does what we need for hydro pmin and pmax, which is a special case of normalization
             combined_map_df = util.DfOper.mult((self.map_df_tz, self.map_df_primary))
-            normalization_factors = combined_map_df.groupby(level=GeoMapper.cfg_geography).sum()
+            normalization_factors = combined_map_df.groupby(level=self.primary_geography).sum()
             norm_df = util.DfOper.divi((df, normalization_factors))
 
             temp = norm_df.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.all_shapes.num_active_years
@@ -311,10 +363,10 @@ class Shape(DataObject):
         """
         geography_map_key = self.geography_map_key or GeoMapper.cfg_default_geography_map_key
 
-        self.map_df_primary = GeoMapper.get_instance().map_df(self.geography, GeoMapper.cfg_geography, normalize_as=self.input_type, map_key=geography_map_key)
+        self.map_df_primary = GeoMapper.get_instance().map_df(self.geography, self.primary_geography, normalize_as=self.input_type, map_key=geography_map_key)
         mapped_data = util.DfOper.mult((df, self.map_df_primary), fill_value=None)
 
-        if self.geography!=GeoMapper.cfg_geography and self.geography!='time zone':
+        if self.geography!=self.primary_geography and self.geography!='time zone':
             mapped_data = util.remove_df_levels(mapped_data, self.geography)
         mapped_data = mapped_data.swaplevel('weather_datetime', -1)
 
@@ -322,7 +374,7 @@ class Shape(DataObject):
         return mapped_data
 
     def sum_over_time_zone(self, df):
-        if GeoMapper.cfg_geography=='time zone':
+        if self.primary_geography=='time zone':
             return df
 
         levels = [ind for ind in df.index.names if ind!='time zone']

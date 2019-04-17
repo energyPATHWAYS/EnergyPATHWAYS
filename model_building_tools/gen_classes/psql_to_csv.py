@@ -4,20 +4,8 @@ import click
 import os
 import pandas as pd
 
-from .postgres import Tables_to_ignore, mkdirs, PostgresDatabase
+from postgres import Tables_to_ignore, mkdirs, PostgresDatabase
 
-
-@click.command()
-@click.option('--dbname', '-d', default='pathways',
-              help='PostgreSQL database name (default="pathways")')
-
-@click.option('--db-dir', '-D', default=None,
-              help='''
-Directory under which to store CSV "tables". Defaults to the postgres \
-database name with ".db" extension in the current directory.''')
-
-@click.option('--host', '-h', default='localhost',
-              help='Host running PostgreSQL (default="localhost")')
 
 @click.option('--user', '-u', default='postgres',
               help='PostgreSQL user name (default="postgres")')

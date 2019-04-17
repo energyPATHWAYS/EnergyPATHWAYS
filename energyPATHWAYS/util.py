@@ -45,6 +45,19 @@ def makedirs_if_needed(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
+class DateTimeLookup:
+    dates = {}
+
+    @classmethod
+    def lookup(cls, series):
+        """
+        This is a faster approach to datetime parsing.
+        For large data, the same dates are often repeated. Rather than
+        re-parse these, we store all unique dates, parse them, and
+        use a lookup to convert all dates.
+        """
+        cls.dates.update({date: pd.to_datetime(date) for date in series.unique() if not cls.dates.has_key(date)})
+        return series.apply(lambda v: cls.dates[v])
 
 def splitclean(s, delim=',', allow_empties=False, as_type=None):
     """

@@ -59,8 +59,6 @@ class GeoMapper:
         self.gau_to_geography = gau_to_geography
 
         GeoMapper.breakout_geography = [g.lstrip().rstrip() for g in cfg.getParam('breakout_geography').split(',') if len(g)]
-        # if GeoMapper.cfg_gau_breakout:
-        #     self.create_breakout_geography_level()
 
         GeoMapper.cfg_gau_subset = [g.lstrip().rstrip() for g in cfg.getParam('primary_subset').split(',') if len(g)]
         if GeoMapper.cfg_gau_subset:

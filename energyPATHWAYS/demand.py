@@ -45,7 +45,7 @@ class Demand(object):
         self.outputs = Output()
 
         # TODO: restore this to continue debugging shapes
-        # self.default_electricity_shape = shape.shapes.data[cfg.electricity_energy_type_shape] if shape.shapes.data else None
+        self.default_electricity_shape = shape.shapes.data[cfg.electricity_energy_type_shape] if shape.shapes.data else None
         self.default_electricity_shape = None
 
         # This seems to be a misnomer since DispatchFeederAllocation(1) returns an instance, not a class

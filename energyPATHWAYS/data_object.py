@@ -6,10 +6,12 @@ from collections import OrderedDict
 import numpy as np
 
 from . import config as cfg
-from .config import getParam
+from .config import getParam, getParamAsBoolean
 from .time_series import TimeSeries
 from .util import (DfOper, put_in_list, remove_df_levels, get_elements_from_level,
                    reindex_df_level_with_new_elements, splitclean)
+from .geomapper import GeoMapper
+
 from csvdb.data_object import DataObject as CsvDataObject, get_database
 
 def _isListOfNoneOrNan(obj):
@@ -148,42 +150,8 @@ class DataObject(CsvDataObject):
 
         return index_levels
 
-    # TODO: this should probably live in config.py
-    @staticmethod
-    def get_default_years():
-        return splitclean(cfg.getParam('years'), as_type=int)
-
-    # TODO: Based on RIO version
-    def clean_timeseries(self, df=None, map_from=None, time_index_name='year', time_index=None, lower=0, upper=None,
-                         interpolation_method='missing', extrapolation_method='missing'):
-        assert (df is not None) or (map_from is not None)
-        if df is None:
-            df = getattr(self, map_from)
-
-        if time_index is None:
-           time_index = cfg.get_default_years()
-
-        if time_index_name not in self._get_df_index_names_in_a_list(df):
-            raise ValueError("{} in table {} doesn't have time_index_name geography {} in df index: {}".format(
-                getattr(self, self._key_col), self._table_name, time_index_name, df.index.names))
-
-        interpolation_method = self.interpolation_method if interpolation_method is 'missing' else interpolation_method
-        extrapolation_method = self.extrapolation_method if extrapolation_method is 'missing' else extrapolation_method
-
-        clean_df = TimeSeries.clean(data=df, newindex=time_index, time_index_name=time_index_name,
-                                    interpolation_method=interpolation_method,
-                                    extrapolation_method=extrapolation_method,
-                                    exp_growth_rate=self.extrapolation_growth).clip(lower=lower, upper=upper)
-
-        return clean_df
-
-    #
-    # TODO: the remainder of this file is a modified subset of datamapfunctions
-    # TODO: REDO THESE MIGRATIONS
-    #
     def clean_timeseries(self, attr='values', inplace=True, time_index_name='year',
-                         time_index=None, lower=0, upper=None, interpolation_method='missing',
-                         extrapolation_method='missing'):
+                         time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing'):
         if time_index is None:
             time_index = cfg.cfgfile.get('case', 'years')
         interpolation_method = self.interpolation_method if interpolation_method is 'missing' else interpolation_method
@@ -201,8 +169,7 @@ class DataObject(CsvDataObject):
         else:
             return clean_data
 
-    def geo_map(self, converted_geography, attr='values', inplace=True, current_geography=None, current_data_type=None,
-                fill_value=0., filter_geo=True):
+    def geo_map(self, converted_geography, attr='values', inplace=True, current_geography=None, current_data_type=None, fill_value=0.,filter_geo=True):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table
         if input type is a total, then the subsection is the geography
         to convert to and the supersection is the initial geography.
@@ -230,16 +197,8 @@ class DataObject(CsvDataObject):
             logging.error("Dataframe being mapped doesn't have the stated current geography: {}".format(self.__class__))
             pdb.set_trace()
 
-        # create dataframe with map from one geography to another
-        map_df = cfg.geo.map_df(current_geography, converted_geography, normalize_as=current_data_type,
-                                map_key=geography_map_key, filter_geo=filter_geo)
-        mapped_data = DfOper.mult([getattr(self, attr), map_df], fill_value=fill_value)
-
-        if current_geography != converted_geography:
-            mapped_data = remove_df_levels(mapped_data, current_geography)
-
-        if hasattr(mapped_data.index, 'swaplevel'):
-            mapped_data = DataObject.reorder_df_geo_left_year_right(mapped_data, converted_geography)
+        mapped_data = GeoMapper.geo_map(getattr(self, attr), current_geography, converted_geography,
+                                      current_data_type, geography_map_key, fill_value, filter_geo)
 
         if inplace:
             setattr(self, attr, mapped_data.sort())
@@ -269,29 +228,29 @@ class DataObject(CsvDataObject):
 
         # TODO: need to see which attrs are used, then to root out the getattr.
         df = getattr(self, attr).copy()
-        if cfg.include_foreign_gaus:
-            native_gaus, current_gaus, foreign_gaus = cfg.geo.get_native_current_foreign_gaus(df, current_geography)
+        if getParamAsBoolean('include_foreign_gaus'):
+            native_gaus, current_gaus, foreign_gaus = GeoMapper.get_native_current_foreign_gaus(df, current_geography)
 
             if foreign_gaus:
                 pdb.set_trace()
                 name = '{} {}'.format(self.sql_id_table, self.name if hasattr(self, 'name') else 'id' + str(self.id))
 
                 logging.info('      Detected foreign gaus for {}: {}'.format(name, ', '.join(
-                    [cfg.geo.geography_names[f] for f in foreign_gaus])))
+                    [GeoMapper.get_instance().gau_to_geography[f] for f in foreign_gaus])))
 
-                df, current_geography = cfg.geo.incorporate_foreign_gaus(df, current_geography, current_data_type,
+                df, current_geography = GeoMapper.incorporate_foreign_gaus(df, current_geography, current_data_type,
                                                                          geography_map_key)
         else:
-            df = cfg.geo.filter_foreign_gaus(df, current_geography)
+            df = GeoMapper.get_instance().filter_foreign_gaus(df, current_geography)
         return df, current_geography
 
     def _add_missing_geographies(self, df, current_geography, current_data_type):
         current_number_of_geographies = len(get_elements_from_level(df, current_geography))
-        propper_number_of_geographies = len(cfg.geo.geographies_unfiltered[current_geography])
+        propper_number_of_geographies = len(GeoMapper.get_instance().geography_to_gau_unfiltered[current_geography])
         if current_data_type == 'total' and current_number_of_geographies != propper_number_of_geographies:
             # we only want to do it when we have a total, otherwise we can't just fill with zero
             df = reindex_df_level_with_new_elements(df, current_geography,
-                                                    cfg.geo.geographies_unfiltered[current_geography],
+                                                    GeoMapper.get_instance().geography_to_gau_unfiltered[current_geography],
                                                     fill_value=np.nan)
         return df
 
@@ -306,7 +265,7 @@ class DataObject(CsvDataObject):
             # active_time_index: %(demand_start_year)s:%(end_year)s:%(year_step)s
 
             # get string of form 'start:end:step' and convert to a list of years
-            text = getParam('active_time_index')
+            text = getParam('years')
             args = map(int, text.split(':'))
             time_index = range(*args)
 
@@ -318,8 +277,7 @@ class DataObject(CsvDataObject):
 
     def remap(self, map_from='raw_values', map_to='values', drivers=None, time_index_name='year',
               time_index=None, fill_timeseries=True, interpolation_method='missing', extrapolation_method='missing',
-              converted_geography=None, current_geography=None, current_data_type=None, fill_value=0., lower=0,
-              upper=None, filter_geo=True, driver_geography=None):
+              converted_geography=None, current_geography=None, current_data_type=None, fill_value=0., lower=0, upper=None, filter_geo=True, driver_geography=None):
         """ Map data to drivers and geography
         Args:
             map_from (string): starting variable name (defaults to 'raw_values')
@@ -355,7 +313,6 @@ class DataObject(CsvDataObject):
             if current_geography != converted_geography:
                 self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
                              current_data_type=current_data_type, fill_value=fill_value, filter_geo=filter_geo)
-                current_geography = converted_geography
         else:
             # becomes an attribute of self just because we may do a geomap on it
             self.total_driver = DfOper.mult(put_in_list(drivers))
@@ -379,7 +336,6 @@ class DataObject(CsvDataObject):
                                                     current_geography=driver_geography,
                                                     current_data_type=driver_mapping_data_type,
                                                     fill_value=fill_value, filter_geo=False)
-
             if current_data_type == 'total':
                 if fill_value is np.nan:
                     df_intensity = DfOper.divi((getattr(self, map_to), total_driver_current_geo),
@@ -399,7 +355,6 @@ class DataObject(CsvDataObject):
 
             #            self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='intensity', fill_value=fill_value, filter_geo=filter_geo)
             #            total_driver_converted_geo = self.geo_map(converted_geography, attr='total_driver', inplace=False, current_geography=driver_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=filter_geo)
-
             if current_data_type == 'total':
                 setattr(self, map_to,
                         DfOper.mult((getattr(self, map_to), total_driver_current_geo), fill_value=fill_value))
@@ -421,27 +376,26 @@ class DataObject(CsvDataObject):
         # TODO: for integration stage only. Later, we'll pass this in instead of the old dict(id -> Driver)
         drivers_by_name = {driver.name: driver for driver in self.drivers.values()}
 
-        converted_geography = converted_geography or cfg.primary_geography
-        current_data_type = current_data_type or self.input_type
-
+        current_geography = current_geography or self.geography
+        current_data_type = self.input_type if current_data_type is None else current_data_type
         if map_from != 'raw_values' and current_data_type == 'total':
             denominator_drivers = None
         else:
             denominators = [self.driver_denominator_1, self.driver_denominator_2]
             denominator_drivers = filter(None, denominators)
 
-        current_geography = current_geography or self.geography
         setattr(self, map_to, getattr(self, map_from).copy())
 
         if denominator_drivers:
             if current_data_type != 'intensity':
-                # msg = "{} '{}': type must be intensity if variable has denominator drivers".format(self.__class__.__name__, self._key)
                 msg = "{} : type must be intensity if variable has denominator drivers".format(self)
                 raise ValueError(msg)
 
             if current_geography != converted_geography:
                 # While not on primary geography, geography does have some information we would like to preserve
-                self.geo_map(converted_geography, attr=map_to, inplace=True)
+                df, current_geography = self.account_for_foreign_gaus(map_from, current_data_type, current_geography)
+                setattr(self, map_to, df)
+                self.geo_map(converted_geography, current_geography=current_geography, attr=map_to, inplace=True)
                 current_geography = converted_geography
 
             total_driver = DfOper.mult([drivers_by_name[name].values for name in denominator_drivers])

@@ -341,10 +341,14 @@ class AbstractDatabase(object):
             name_col = 'name'
 
             if name == 'DemandServiceLink':
-                data.name = data.id.map(lambda id: 'dem_svc_link_{}'.format(id))
+                data['name'] = data.id.map(lambda id: 'dem_svc_link_{}'.format(id))
                 pass
 
-            df = data[[id_col, name_col]]
+            try:
+                df = data[[id_col, name_col]]
+            except:
+                import pdb
+                pdb.set_trace()
             # coerce names to str since we use numeric ids in some cases
             self.text_maps[name] = {id: str(name) for idx, (id, name) in df.iterrows()}
 
@@ -522,12 +526,15 @@ class PostgresTable(AbstractTable):
             pat2 = re.compile('__+')
 
             for shape_name in shape_names:
+                chunk = df.query('parent == "{}"'.format(shape_name))
+                chunk = chunk.loc[:,~chunk.isnull().all()]
+                del chunk['id']
+
                 shape_name = re.sub(pat1, '_', shape_name)      # convert symbols not usable in python identifiers to "_"
                 shape_name = re.sub(pat2, '_', shape_name)      # convert sequences of "_" to a single "_"
 
                 filename = shape_name + '.csv.gz'
                 pathname = os.path.join(dirname, filename)
-                chunk = df.query('parent == "{}"'.format(shape_name))
                 print("Writing {} rows to {}".format(len(chunk), pathname))
                 with gzip.open(pathname, 'wb') as f:
                     chunk.to_csv(f, index=None)

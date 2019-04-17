@@ -142,8 +142,6 @@ def initialize_config(_path, _cfgfile_name, _log_name):
     init_db()
     init_units()
     geo = geomapper.GeoMapper()
-    # init_geo()
-    init_shapes()
     init_date_lookup()
     init_output_parameters()
     # used when reading in raw_values from data tables
@@ -158,7 +156,7 @@ def setuplogging():
     if not os.path.exists(os.path.join(workingdir, 'logs')):
         os.makedirs(os.path.join(workingdir, 'logs'))
     log_path = os.path.join(workingdir, 'logs', log_name)
-    log_level = cfgfile.get('log', 'log_level').upper()
+    log_level = getParam('log_level', section='log').upper()
     logging.basicConfig(filename=log_path, level=log_level)
     logger = logging.getLogger()
     if cfgfile.get('log', 'stdout').lower() == 'true' and not any(type(h) is logging.StreamHandler for h in logger.handlers):
@@ -186,9 +184,6 @@ def init_cfgfile(cfgfile_path):
                           getParamAsInt( 'end_year') + 1,
                           getParamAsInt( 'year_step'))
 
-    # cfgfile.set('case', 'years', years)
-    # cfgfile.set('case', 'supply_years', supply_years)
-
 def init_db():
     data_tables = ['GeographiesSpatialJoin', 'GeographyMapKeys']
 
@@ -213,73 +208,25 @@ def init_units():
             continue
         ureg.define(unit_def)
 
-# def init_geo():
-#     #Geography conversions
-#     global geo, demand_geographies, supply_geographies, dispatch_geography, dispatch_geographies, dispatch_geography_id, disagg_geography, disagg_geography_id
-#     global primary_subset_id, breakout_geography_id, dispatch_breakout_geography_id, disagg_breakout_geography_id, include_foreign_gaus
-#     global demand_primary_geography, demand_primary_geography_id, supply_primary_geography, supply_primary_geography_id, combined_outputs_geography_side, combined_outputs_geography
-#     global combined_geographies
-#
-#     # from config file
-#     demand_primary_geography_id = cfgfile.get('case', 'demand_primary_geography')
-#     supply_primary_geography_id = cfgfile.get('case', 'supply_primary_geography')
-#     combined_outputs_geography_side = cfgfile.get('case', 'combined_outputs_geography_side')
-#     #primary_subset_id = [g for g in cfgfile.get('case', 'primary_subset').split(',') if len(g)]
-#     primary_subset_id = splitclean(getParam('primary_subset'))
-#     breakout_geography_id = splitclean(cfgfile.get('case', 'breakout_geography'))
-#     dispatch_geography_id = cfgfile.get('case', 'dispatch_geography')
-#     dispatch_breakout_geography_id = splitclean(cfgfile.get('case', 'dispatch_breakout_geography'))
-#     disagg_geography_id = cfgfile.get('case', 'disagg_geography')
-#     disagg_breakout_geography_id = splitclean(cfgfile.get('case', 'disagg_breakout_geography'))
-#     include_foreign_gaus = True if cfgfile.get('case', 'include_foreign_gaus').lower()=='true' else False
-#
-#     # geography conversion object
-#     geo = geomapper.GeoMapper()
-#
-#     # derived from inputs and geomapper object
-#     dispatch_geography = geo.get_dispatch_geography_name()
-#     demand_primary_geography = geo.get_demand_primary_geography_name()
-#     supply_primary_geography = geo.get_supply_primary_geography_name()
-#     assert combined_outputs_geography_side.lower() == 'demand' or combined_outputs_geography_side.lower() == 'supply'
-#     combined_outputs_geography = demand_primary_geography if combined_outputs_geography_side.lower() == 'demand' else supply_primary_geography
-#     disagg_geography = geo.get_disagg_geography_name()
-#     dispatch_geographies = geo.geographies[dispatch_geography]
-#     demand_geographies = geo.geographies[demand_primary_geography]
-#     supply_geographies = geo.geographies[supply_primary_geography]
-#     combined_geographies = geo.geographies[combined_outputs_geography]
-
-def init_shapes():
-    global shape_start_date, shape_years
-
-    raw_shape_start_date = cfgfile.get('opt', 'shape_start_date')
-    if raw_shape_start_date:
-        shape_start_date = datetime.datetime.strptime(raw_shape_start_date, '%Y-%m-%d')
-
-    raw_shape_years = cfgfile.get('opt', 'shape_years')
-    if raw_shape_years:
-        shape_years = int(raw_shape_years)
-        if shape_years < 1:
-            raise ValueError('shape_years, if provided, must be a positive integer.')
-
 
 def init_date_lookup():
     global date_lookup, time_slice_col, electricity_energy_type_id, electricity_energy_type_shape, opt_period_length, transmission_constraint_id, filter_dispatch_less_than_x
-    class DateTimeLookup:
-        def __init__(self):
-            self.dates = {}
-
-        def lookup(self, series):
-            """
-            This is a faster approach to datetime parsing.
-            For large data, the same dates are often repeated. Rather than
-            re-parse these, we store all unique dates, parse them, and
-            use a lookup to convert all dates.
-            """
-            self.dates.update({date: pd.to_datetime(date) for date in series.unique() if not self.dates.has_key(date)})
-            return series.apply(lambda v: self.dates[v])
-            ## Shapes
-
-    date_lookup = DateTimeLookup()
+    # class DateTimeLookup:
+    #     def __init__(self):
+    #         self.dates = {}
+    #
+    #     def lookup(self, series):
+    #         """
+    #         This is a faster approach to datetime parsing.
+    #         For large data, the same dates are often repeated. Rather than
+    #         re-parse these, we store all unique dates, parse them, and
+    #         use a lookup to convert all dates.
+    #         """
+    #         self.dates.update({date: pd.to_datetime(date) for date in series.unique() if not self.dates.has_key(date)})
+    #         return series.apply(lambda v: self.dates[v])
+    #         ## Shapes
+    #
+    # date_lookup = DateTimeLookup()
     time_slice_col = ['year', 'month', 'week', 'hour', 'day_type']
 
     electricity_energy_type_shape = csv_read_table('FinalEnergy', column_names=['shape'], name='electricity')
@@ -374,14 +321,15 @@ def init_output_parameters():
 
     currency_name = getParam('currency_name')
     output_currency = getParam('currency_year_id') + ' ' + currency_name
-    output_tco = cfgfile.get('output_detail', 'output_tco').lower()
-    output_payback = cfgfile.get('output_detail', 'output_payback').lower()
-    rio_supply_run = True if cfgfile.get('rio','rio_supply_run').lower() == 'true' else False
-    rio_geography = cfgfile.get('rio','rio_geography')
-    rio_feeder_geographies = [int(g) for g in cfgfile.get('rio', 'rio_feeder_geographies').split(',') if len(g)]
-    rio_energy_unit = cfgfile.get('rio','rio_energy_unit')
-    rio_time_unit = cfgfile.get('rio','rio_time_unit')
-    rio_timestep_multiplier = int(cfgfile.get('rio','rio_timestep_multiplier'))
+    output_tco = getParamAsBoolean('output_tco', section='output_detail')
+    output_payback = getParamAsBoolean('output_payback', section='output_detail')
+    rio_supply_run = getParamAsBoolean('rio_supply_run', section='rio')
+    rio_geography = getParam('rio_geography', section='rio')
+    rio_feeder_geographies = [feeder_geo.strip() for feeder_geo in getParam('rio_feeder_geographies', section='rio').split(',')]
+    rio_energy_unit = getParam('rio_energy_unit', section='rio')
+    rio_time_unit = getParam('rio_time_unit', section='rio')
+    rio_timestep_multiplier = getParamAsInt('rio_timestep_multiplier', section='rio')
+    # todo: these aren't going to be integers
     rio_zonal_blend_nodes = [int(g) for g in cfgfile.get('rio', 'rio_zonal_blends').split(',') if len(g)]
     rio_excluded_technologies = [int(g) for g in cfgfile.get('rio', 'rio_excluded_technologies').split(',') if len(g)]
     rio_excluded_blends = [int(g) for g in cfgfile.get('rio', 'rio_excluded_blends').split(',') if len(g)]

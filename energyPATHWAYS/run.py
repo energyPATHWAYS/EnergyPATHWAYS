@@ -82,8 +82,7 @@ def run(path, config, scenarios, load_demand=False, solve_demand=True, load_supp
     if not subfolders:
         GeoMapper.get_instance().log_geo()
 
-    #todo we need to switch this over to the new system
-    # shape.init_shapes(pickle_shapes)
+    shape.Shapes.get_instance(cfg.getParam('database_path'))
 
     if not scenarios:
         scenarios = [os.path.basename(p) for p in glob.glob(os.path.join(cfg.workingdir, '*.json'))]
@@ -94,15 +93,11 @@ def run(path, config, scenarios, load_demand=False, solve_demand=True, load_supp
     # is just the part before the .json
     scenarios = util.ensure_iterable_and_not_string(scenarios)
     scenarios = [os.path.splitext(s)[0] for s in scenarios]
-    if rio_scenario==None:
-        rio_scenario = [None for s in scenarios]
-    else:
-        rio_scenario = util.ensure_iterable_and_not_string(rio_scenario)
+    rio_scenario = [None]*len(scenarios) if rio_scenario is None else util.ensure_iterable_and_not_string(rio_scenario)
 
-
-    combined_scenarios = zip(scenarios,rio_scenario)
+    combined_scenarios = zip(scenarios, rio_scenario)
     logging.info('Scenario run list: {}'.format(', '.join(scenarios)))
-    for scenario,rio_scenario in combined_scenarios:
+    for scenario, rio_scenario in combined_scenarios:
         if subfolders:
             logging.shutdown()
             logging.getLogger(None).handlers = []
@@ -113,7 +108,7 @@ def run(path, config, scenarios, load_demand=False, solve_demand=True, load_supp
         logging.info('Starting scenario {}'.format(scenario))
         logging.info('Start time {}'.format(str(datetime.datetime.now()).split('.')[0]))
         if cfg.rio_supply_run:
-            model = load_model(load_demand, load_supply, load_error,scenario, rio_scenario)
+            model = load_model(load_demand, load_supply, load_error, scenario, rio_scenario)
         else:
             model = load_model(load_demand, load_supply, load_error, scenario, None)
         if not load_error:
@@ -168,13 +163,13 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\csv-migration'
+    workingdir = r'C:\github\EP_runs\csv_migration'
     config = 'config.INI'
     rio_scenario = [None]
-    scenario = ['ref_moder_aeo']
+    scenario = ['short']
 
     run(workingdir, config, scenario,
-    load_demand   = True,
+    load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
     solve_supply  = True,
@@ -183,4 +178,4 @@ if __name__ == "__main__":
     pickle_shapes = True,
     save_models   = False,
     clear_results = True,
-    rio_scenario=rio_scenario)
+    rio_scenario = rio_scenario)
