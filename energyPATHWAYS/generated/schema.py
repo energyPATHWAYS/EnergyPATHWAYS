@@ -1453,9 +1453,9 @@ class DemandTechsInstallationCost(DataObject):
     _instances_by_key = {}
     _table_name = "DemandTechsInstallationCost"
     _key_col = "demand_technology"
-    _cols = ["Unnamed: 12", "currency", "currency_year_id", "definition", "demand_technology",
-             "extrapolation_growth", "extrapolation_method", "geography", "interpolation_method",
-             "is_levelized", "other_index_1", "other_index_2", "reference_tech"]
+    _cols = ["currency", "currency_year_id", "definition", "demand_technology", "extrapolation_growth",
+             "extrapolation_method", "geography", "interpolation_method", "is_levelized",
+             "other_index_1", "other_index_2", "reference_tech"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "sensitivity"]
     _df_filters = []
     _data_table_name = None
@@ -1465,7 +1465,6 @@ class DemandTechsInstallationCost(DataObject):
 
         DemandTechsInstallationCost._instances_by_key[self._key] = self
 
-        self.Unnamed: 12 = None
         self.currency = None
         self.currency_year_id = None
         self.definition = None
@@ -1479,13 +1478,12 @@ class DemandTechsInstallationCost(DataObject):
         self.other_index_2 = None
         self.reference_tech = None
 
-    def set_args(self, scenario, Unnamed: 12=None, currency=None, currency_year_id=None, definition=None,
-                 demand_technology=None, extrapolation_growth=None, extrapolation_method=None,
-                 geography=None, interpolation_method=None, is_levelized=None, other_index_1=None,
-                 other_index_2=None, reference_tech=None):
+    def set_args(self, scenario, currency=None, currency_year_id=None, definition=None, demand_technology=None,
+                 extrapolation_growth=None, extrapolation_method=None, geography=None,
+                 interpolation_method=None, is_levelized=None, other_index_1=None, other_index_2=None,
+                 reference_tech=None):
         self.check_scenario(scenario)
 
-        self.Unnamed: 12 = Unnamed: 12
         self.currency = currency
         self.currency_year_id = currency_year_id
         self.definition = definition
@@ -1502,14 +1500,13 @@ class DemandTechsInstallationCost(DataObject):
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (demand_technology, definition, reference_tech, geography, other_index_1, other_index_2,
          currency, currency_year_id, is_levelized, interpolation_method, extrapolation_method,
-         extrapolation_growth, Unnamed: 12,) = tup
+         extrapolation_growth,) = tup
 
-        self.set_args(scenario, Unnamed: 12=Unnamed: 12, currency=currency, currency_year_id=currency_year_id,
-                  definition=definition, demand_technology=demand_technology,
-                  extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
-                  geography=geography, interpolation_method=interpolation_method,
-                  is_levelized=is_levelized, other_index_1=other_index_1, other_index_2=other_index_2,
-                  reference_tech=reference_tech)
+        self.set_args(scenario, currency=currency, currency_year_id=currency_year_id, definition=definition,
+                  demand_technology=demand_technology, extrapolation_growth=extrapolation_growth,
+                  extrapolation_method=extrapolation_method, geography=geography,
+                  interpolation_method=interpolation_method, is_levelized=is_levelized,
+                  other_index_1=other_index_1, other_index_2=other_index_2, reference_tech=reference_tech)
 
 class DemandTechsMainEfficiency(DataObject):
     _instances_by_key = {}
