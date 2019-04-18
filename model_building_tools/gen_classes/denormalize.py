@@ -9,7 +9,7 @@ import shutil
 
 from energyPATHWAYS.generated.text_mappings import MappedCols
 
-from .postgres import (find_key_col, find_parent_col, mkdirs, Simple_mapping_tables,
+from postgres import (find_key_col, find_parent_col, mkdirs, Simple_mapping_tables,
                        Tables_without_classes, Tables_to_ignore)
 
 def _read_csv(pathname, tbl_name):
