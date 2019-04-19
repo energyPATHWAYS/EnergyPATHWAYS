@@ -79,7 +79,9 @@ def denormalize(dbdir, outdir, table_name, force):
     # Missing child data records show up in the merged DF with the parent column
     # as NaN. We set the rest of the columns from the child record to '_missing'
     child_cols = list(set(childDF.columns) - set([par_col]))
-    merged.loc[merged[par_col].isnull(), child_cols] = '_missing'
+
+    # dropped this for now
+    # merged.loc[merged[par_col].isnull(), child_cols] = '_missing'
 
     # drop the redundant parent column and child id column, if present
     to_drop = [par_col]
@@ -153,7 +155,7 @@ class {classname}(CsvDatabase):
               help='Where to write the merged CSV files.')
 
 @click.option('--metadata-file', '-m', default='./_GeneratedDatabase.py',
-              help='Path to the python file to create containing metadata and database class. Default is ./_GeneratedDatabase.py')
+              help='''Path to the python file to create containing metadata and database class. Default is ./_GeneratedDatabase.py. Set to "" to skip writing the file.''')
 
 @click.option('--classname', '-c',
               help='Name of the CsvDatabase subclass to create with generated metadata. Default is basename of metadata-file.')
@@ -200,7 +202,8 @@ def main(dbdir, outdir, metadata_file, classname, force, shapes):
 
             metadata[tbl_name] = md
 
-    gen_database_file(metadata_file, metadata, classname)
+    if metadata_file:
+        gen_database_file(metadata_file, metadata, classname)
 
     if shapes:
         src = os.path.join(dbdir,  'ShapeData')

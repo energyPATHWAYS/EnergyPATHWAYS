@@ -43,6 +43,7 @@ def find_key_col(table, cols):
     exceptions = {
         'DemandFlexibleLoadMeasures': 'subsector', # has 'name' col that isn't the key
         'CurrenciesConversion' : 'currency',
+        'InflationConversion': 'currency',
     }
 
     key_cols = ('name', 'parent', 'subsector', 'demand_technology', 'supply_node',
@@ -95,7 +96,8 @@ Simple_mapping_tables = [
     'ShapesUnits',
     'StockDecayFunctions',
     'SupplyCostTypes',
-    'SupplyTypes'
+    'SupplyTypes',
+    'TimeZones',
 ]
 
 # Tables that map strings but have other columns as well
@@ -135,14 +137,15 @@ Tables_to_ignore = [
     'GeographyIntersection',
     'GeographyIntersectionData',
     'GeographyMap',
-    'GeographiesSpatialJoin'
+    'GeographiesSpatialJoin',
+    'DemandTechsCapitalCostReplacementData',
 ]
 
 Tables_without_classes = [
     'CurrenciesConversion',
+    'InflationConversion',
     'GeographyMap',
     'IDMap',
-    'InflationConversion',
     'DispatchTransmissionHurdleRate',
     'DispatchTransmissionLosses',
     'Version',
@@ -346,11 +349,11 @@ class AbstractDatabase(object):
 
             try:
                 df = data[[id_col, name_col]]
+                # coerce names to str since we use numeric ids in some cases
+                self.text_maps[name] = {id: str(name) for idx, (id, name) in df.iterrows()}
             except:
                 import pdb
                 pdb.set_trace()
-            # coerce names to str since we use numeric ids in some cases
-            self.text_maps[name] = {id: str(name) for idx, (id, name) in df.iterrows()}
 
         print('Loaded text mapping tables')
 
@@ -458,6 +461,8 @@ class PostgresTable(AbstractTable):
     col_renames = {
         'CurrenciesConversion':
             {'currency_year_id' : 'currency_year'},
+        'InflationConversion':
+            {'currency_year_id': 'currency_year'},
         'DispatchFeedersAllocationData':
             {'parent_id' : 'name'},
         'DispatchFeedersAllocation':
@@ -486,7 +491,7 @@ class PostgresTable(AbstractTable):
         skip = mapped.values()
 
         # Save text mapping tables for validation purposes, but drop the id col (unless we're renaming it)
-        if name in Text_mapping_tables and not (renames and renames.get('id')) and not save_ids:
+        if name == 'InflationConversion' or (name in Text_mapping_tables and not (renames and renames.get('id')) and not save_ids):
             skip.append('id')
 
         # Swap out str cols for id cols where they exist
@@ -513,6 +518,14 @@ class PostgresTable(AbstractTable):
                 kwargs = {col: row[col] for col in cols_to_save}
                 df.loc[idx, key_col] = template.format(**kwargs)
 
+        pat1 = re.compile('[\s\(\)-]')
+        pat2 = re.compile('__+')
+
+        def fix_shape_name(name):
+            name = re.sub(pat1, '_', name)  # convert symbols not usable in python identifiers to "_"
+            name = re.sub(pat2, '_', name)  # convert sequences of "_" to a single "_"
+            return name
+
         # Handle special case for ShapesData. Split this 3.5 GB data file
         # into individual files for each Shape ID (translated to name)
         if name == 'ShapesData':
@@ -522,23 +535,27 @@ class PostgresTable(AbstractTable):
             shapes = self.db.get_table('Shapes')
             shape_names = list(shapes.data.name)
 
-            pat1 = re.compile('[\s\(\)-]')
-            pat2 = re.compile('__+')
-
             for shape_name in shape_names:
-                chunk = df.query('parent == "{}"'.format(shape_name))
-                chunk = chunk.loc[:,~chunk.isnull().all()]
+                #chunk = df.query('parent == "{}"'.format(shape_name))
+                chunk = df.query('parent == @shape_name')
+                chunk = chunk.loc[:, ~chunk.isnull().all()]
                 del chunk['id']
 
-                shape_name = re.sub(pat1, '_', shape_name)      # convert symbols not usable in python identifiers to "_"
-                shape_name = re.sub(pat2, '_', shape_name)      # convert sequences of "_" to a single "_"
-
+                shape_name = fix_shape_name(shape_name)
                 filename = shape_name + '.csv.gz'
                 pathname = os.path.join(dirname, filename)
+
                 print("Writing {} rows to {}".format(len(chunk), pathname))
                 with gzip.open(pathname, 'wb') as f:
                     chunk.to_csv(f, index=None)
         else:
+            if name == 'Shapes':
+                df.name = df.name.map(fix_shape_name)
+
+            elif name.startswith('DemandTechs') and 'demand_technology' in df.columns:
+                pat = re.compile(r'(\d+)\"')  # to convert, e.g., '11" skillet' to '11 inch skillet'
+                df.demand_technology = df.demand_technology.map(lambda s: re.sub(pat, r'\1 inch', s))
+
             pathname = os.path.join(db_dir, name + '.csv')
             df.to_csv(pathname, index=None)
 

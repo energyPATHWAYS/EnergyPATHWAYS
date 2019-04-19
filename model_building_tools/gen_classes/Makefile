@@ -79,4 +79,4 @@ clean_csvdb:
 
 clean_merge:
 	rm -rf $(MERGE_DB)
-	rm $(NEW_DB_FILE)
+	rm -f $(NEW_DB_FILE)
