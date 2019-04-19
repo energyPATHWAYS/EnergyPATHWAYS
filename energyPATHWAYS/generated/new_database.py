@@ -63,7 +63,7 @@ _Metadata = [
                 key_col='subsector',
                 df_cols=['gau', 'value', 'oth_2', 'oth_1', 'year', 'final_energy']),
     CsvMetadata('DemandServiceLink',
-                data_table=True),
+                key_col='name'),
     CsvMetadata('DemandStock',
                 key_col='subsector',
                 df_cols=['gau', 'demand_technology', 'value', 'oth_2', 'oth_1', 'year']),
