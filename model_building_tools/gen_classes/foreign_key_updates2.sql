@@ -37,7 +37,7 @@ alter table "DemandTechsParasiticEnergy"
 alter table "DemandTechsServiceLink" drop constraint if exists "DemandTechsServiceLink_reference_id_fkey";
 alter table "DemandTechsServiceLink"
   add constraint "DemandTechsServiceLink_reference_id_fkey"
-  foreign key (reference_id) references "DemandTechs"(id);
+  foreign key (reference_id) references "DemandServiceLink"(id);
 
 alter table "SupplyTechsCapacityFactor" drop constraint if exists "SupplyTechsCapacityFactor_reference_tech_id_fkey";
 alter table "SupplyTechsCapacityFactor"
