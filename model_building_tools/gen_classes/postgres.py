@@ -460,9 +460,9 @@ class PostgresTable(AbstractTable):
 
     col_renames = {
         'CurrenciesConversion':
-            {'currency_year_id' : 'currency_year'},
+            {'currency_year_id' : 'year'},
         'InflationConversion':
-            {'currency_year_id': 'currency_year'},
+            {'currency_year_id': 'year'},
         'DispatchFeedersAllocationData':
             {'parent_id' : 'name'},
         'DispatchFeedersAllocation':
@@ -526,6 +526,13 @@ class PostgresTable(AbstractTable):
             name = re.sub(pat2, '_', name)  # convert sequences of "_" to a single "_"
             return name
 
+        orig_column_order = df.columns
+        sort_order = ['name', 'sector', 'subsector', 'node', 'sensitivity', 'gau', 'oth_1', 'oth_2', 'final_energy', 'demand_technology', 'year', 'vintage', 'day_type', 'month', 'hour', 'weather_datetime']
+        all_nulls = df.isnull().all()
+        columns_that_exist = [col for col in sort_order if col in df.columns and not all_nulls[col]]
+        if columns_that_exist:
+            df = df.set_index(columns_that_exist).sort_index().reset_index()[orig_column_order]
+
         # Handle special case for ShapesData. Split this 3.5 GB data file
         # into individual files for each Shape ID (translated to name)
         if name == 'ShapesData':
@@ -540,6 +547,7 @@ class PostgresTable(AbstractTable):
                 chunk = df.query('parent == @shape_name')
                 chunk = chunk.loc[:, ~chunk.isnull().all()]
                 del chunk['id']
+                del chunk['parent']
 
                 shape_name = fix_shape_name(shape_name)
                 filename = shape_name + '.csv.gz'

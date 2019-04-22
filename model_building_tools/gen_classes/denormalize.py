@@ -90,6 +90,17 @@ def denormalize(dbdir, outdir, table_name, force):
         child_cols.remove('id')
 
     merged.drop(to_drop, axis=1, inplace=True)
+
+    # try to sort things as best we can
+    orig_column_order = merged.columns
+    sort_order = ['name', 'sector', 'subsector', 'node', 'sensitivity', 'gau', 'oth_1', 'oth_2', 'final_energy', 'demand_technology', 'year', 'vintage', 'day_type', 'month', 'hour', 'weather_datetime']
+    if key_col not in sort_order:
+        sort_order = [key_col] + sort_order
+    all_nulls = merged.isnull().all()
+    columns_that_exist = [col for col in sort_order if col in merged.columns and not all_nulls[col]]
+    if columns_that_exist:
+        merged = merged.set_index(columns_that_exist).sort_index().reset_index()[orig_column_order]
+
     merged.to_csv(mergedPath, index=None)
 
     md = gen_metadata(key_col, child_cols)
