@@ -79,3 +79,17 @@ alter table "SupplyTechsVariableMaintenanceCost"
   add constraint "SupplyTechsVariableMaintenanceCost_reference_tech_id_fkey"
   foreign key (reference_tech_id) references "SupplyTechs"(id);
 
+alter table "StorageTechsCapacityCapitalCost" drop constraint if exists "StorageTechsCapacityCapitalCost_reference_tech_id_fkey";
+alter table "StorageTechsCapacityCapitalCost"
+  add constraint "StorageTechsCapacityCapitalCost_reference_tech_id_fkey"
+  foreign key (reference_tech_id) references "SupplyTechs"(id);
+
+alter table "StorageTechsDuration" drop constraint if exists "StorageTechsDuration_reference_tech_id_fkey";
+alter table "StorageTechsDuration"
+  add constraint "StorageTechsDuration_reference_tech_id_fkey"
+  foreign key (reference_tech_id) references "SupplyTechs"(id);
+
+alter table "StorageTechsEnergyCapitalCost" drop constraint if exists "StorageTechsEnergyCapitalCost_reference_tech_id_fkey";
+alter table "StorageTechsEnergyCapitalCost"
+  add constraint "StorageTechsEnergyCapitalCost_reference_tech_id_fkey"
+  foreign key (reference_tech_id) references "SupplyTechs"(id);
