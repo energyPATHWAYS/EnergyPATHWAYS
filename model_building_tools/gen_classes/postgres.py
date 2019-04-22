@@ -463,6 +463,43 @@ class PostgresTable(AbstractTable):
             {'currency_year_id' : 'year'},
         'InflationConversion':
             {'currency_year_id': 'year'},
+        'DemandEnergyEfficiencyMeasuresCost':
+            {'currency_year_id': 'year'},
+        'DemandFuelSwitchingMeasuresCost':
+            {'currency_year_id': 'year'},
+        'DemandServiceDemandMeasuresCost':
+            {'currency_year_id': 'year'},
+        'DemandTechsCapitalCost':
+            {'currency_year_id': 'year'},
+        'DemandTechsFixedMaintenanceCost':
+            {'currency_year_id': 'year'},
+        'DemandTechsFuelSwitchCost':
+            {'currency_year_id': 'year'},
+        'DemandTechsInstallationCost':
+            {'currency_year_id': 'year'},
+        'ImportCost':
+            {'currency_year_id': 'year'},
+        'PrimaryCost':
+            {'currency_year_id': 'year'},
+        'StorageTechsCapacityCapitalCost':
+            {'currency_year_id': 'year'},
+        'StorageTechsEnergyCapitalCost':
+            {'currency_year_id': 'year'},
+        'SupplyCost':
+            {'currency_year_id': 'year'},
+        'SupplyTechsCapitalCost':
+            {'currency_year_id': 'year'},
+        'SupplyTechsFixedMaintenanceCost':
+            {'currency_year_id': 'year'},
+        'SupplyTechsInstallationCost':
+            {'currency_year_id': 'year'},
+        'SupplyTechsVariableMaintenanceCost':
+            {'currency_year_id': 'year'},
+
+        'DispatchTransmissionConstraint':
+            {'hurdle_currency_year_id': 'currency_year',
+             'hurdle_currency': 'currency'},
+
         'DispatchFeedersAllocationData':
             {'parent_id' : 'name'},
         'DispatchFeedersAllocation':

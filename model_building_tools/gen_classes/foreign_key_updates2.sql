@@ -93,3 +93,13 @@ alter table "StorageTechsEnergyCapitalCost" drop constraint if exists "StorageTe
 alter table "StorageTechsEnergyCapitalCost"
   add constraint "StorageTechsEnergyCapitalCost_reference_tech_id_fkey"
   foreign key (reference_tech_id) references "SupplyTechs"(id);
+
+alter table "DispatchTransmissionConstraint" drop constraint if exists "DispatchTransmissionConstraint_hurdle_currency_year_id_fkey";
+alter table "DispatchTransmissionConstraint"
+  add constraint "DispatchTransmissionConstraint_hurdle_currency_year_id_fkey"
+  foreign key (hurdle_currency_year_id) references "CurrencyYears"(id);
+
+alter table "DispatchTransmissionConstraint" drop constraint if exists "DispatchTransmissionConstraint_hurdle_currency_id_fkey";
+alter table "DispatchTransmissionConstraint"
+  add constraint "DispatchTransmissionConstraint_hurdle_currency_id_fkey"
+  foreign key (hurdle_currency_id) references "Currencies"(id);
