@@ -478,15 +478,15 @@ class PostgresTable(AbstractTable):
         'DemandTechsInstallationCost':
             {'currency_year_id': 'year'},
         'ImportCost':
-            {'currency_year_id': 'year'},
+            {'currency_year_id': 'currency_year'},  # N.B. ImportCostData already has 'year' column
         'PrimaryCost':
-            {'currency_year_id': 'year'},
+            {'currency_year_id': 'currency_year'},
         'StorageTechsCapacityCapitalCost':
             {'currency_year_id': 'year'},
         'StorageTechsEnergyCapitalCost':
             {'currency_year_id': 'year'},
         'SupplyCost':
-            {'currency_year_id': 'year'},
+            {'currency_year_id': 'currency_year'},
         'SupplyTechsCapitalCost':
             {'currency_year_id': 'year'},
         'SupplyTechsFixedMaintenanceCost':
