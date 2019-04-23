@@ -27,8 +27,7 @@ def get_key_col(dbdir, table_name):
     key_col = find_key_col(table_name, df.columns)
     return key_col
 
-def denormalize(dbdir, outdir, table_name, force):
-    child_name = table_name + 'Data'
+def denormalize(dbdir, outdir, table_name, child_name):
     parentPath = os.path.join(dbdir,  table_name + '.csv')
     childPath  = os.path.join(dbdir,  child_name + '.csv')
     mergedPath = os.path.join(outdir, table_name + '.csv')
@@ -192,8 +191,11 @@ def main(dbdir, outdir, metadata_file, classname, force, shapes):
 
     for tbl_name in tables:
         child_name = tbl_name + 'Data'
+        if not child_name in children:
+            child_name = tbl_name + 'NewData'
+
         if child_name in children:
-            md = denormalize(dbdir, outdir, tbl_name, force)
+            md = denormalize(dbdir, outdir, tbl_name, child_name)
             metadata[tbl_name] = md
 
         elif not (tbl_name.endswith('Data') or tbl_name in Simple_mapping_tables):

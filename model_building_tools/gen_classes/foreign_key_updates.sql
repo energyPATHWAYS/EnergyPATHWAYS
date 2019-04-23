@@ -73,7 +73,7 @@ alter table "DemandTechsServiceDemandModifierData"
   add constraint "DemandTechsServiceDemandModifierData_demand_technology_id_fkey"
   foreign key (demand_technology_id) references "DemandTechs"(id);
 
-/*  alter table "DispatchFeedersAllocationData" drop constraint if exists "DispatchFeedersAllocationData_parent_id_fkey"; */
+alter table "DispatchFeedersAllocationData" drop constraint if exists "DispatchFeedersAllocationData_parent_id_fkey";
 alter table "DispatchFeedersAllocationData"
   add constraint "DispatchFeedersAllocationData_parent_id_fkey"
   foreign key (parent_id) references "DispatchFeedersAllocation"(id);

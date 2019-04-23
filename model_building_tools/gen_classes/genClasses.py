@@ -87,9 +87,13 @@ class ClassGenerator(object):
         stream.write('    _cols = [{}]\n'.format(observeLinewidth(col_strs, self.linewidth, indent=12)))
         stream.write('    _table_name = "{}"\n'.format(table))
 
+        # We try 2 variants of data table names before giving up
         data_table = table + 'Data'
         if data_table not in self.all_tables:
-            data_table = ''
+            data_table = table + 'NewData'
+            if data_table not in self.all_tables:
+                data_table = ''
+
         stream.write('    _data_table_name = {!r}\n'.format(str(data_table) or None))
         stream.write('\n')
 
