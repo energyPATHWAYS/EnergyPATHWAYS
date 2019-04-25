@@ -155,6 +155,31 @@ class {classname}(CsvDatabase):
             tables_to_ignore={ignore})
 '''.format(classname=classname, without_classes=Tables_without_classes, ignore=Tables_to_ignore))
 
+def combine_techs(dbdir, outdir, tech_cost_tables):
+    # Combine the files StorageTechsCapacityCost, StorageTechsEnergyCapitalCost, and
+    # SupplyTechsCapitalCost. The resulting file will just be SupplyTechsCapitalCost.
+    pass
+
+def combine_tech_data(dbdir, tech_cost_tables):
+    # Needs 2 new columns in SupplyTechsCapitalCost: new_or_replacement and capacity_or_energy
+    #
+    # pd.concat([new_df, replacement_df], keys=['new', 'replacement'], names=['new_or_replacement'])
+    #
+    # Where new_df is merging CapitalCost to CapitalCostNewData and replacement_df is merging CapitalCost
+    # to CapitalCostReplacementData, both with a right join to keep only the data in the Data tables
+
+    data_suffixes = ['NewData', 'ReplacementData']
+
+    for table in tech_cost_tables:
+        dfs = []
+        for suffix in data_suffixes:
+            path = os.path.join(dbdir, table + suffix + '.csv')
+            dfs.append(_read_csv(path, table))
+
+        merged = pd.concat(dfs, keys=['new', 'replacement'], names=['new_or_replacement'])
+        merged = merged.reset_index().drop('level_1', axis='columns')
+        merged_path = os.path.join(dbdir, table + 'Data.csv')
+        merged.to_csv(merged_path, index=None)
 
 @click.command()
 
@@ -176,13 +201,17 @@ class {classname}(CsvDatabase):
 @click.option('--shapes/--no-shapes', default=True,
               help='Whether to copy the ShapeData directory to the merged database. (Default is --shapes)')
 
-
 def main(dbdir, outdir, metadata_file, classname, force, shapes):
+    mkdirs(outdir)
+
+    # Before we merge, we combine the "new" + "replacement" data into a single *Data file
+    # and delete the two original files.
+    tech_cost_tables = ['SupplyTechsCapitalCost', 'StorageTechsCapacityCapitalCost', 'StorageTechsEnergyCapitalCost']
+    combine_tech_data(dbdir, tech_cost_tables)
+
     csvFiles = glob(os.path.join(dbdir, '*.csv'))
     tables   = map(lambda path: os.path.basename(path)[:-4], csvFiles)
     children = filter(lambda x: x.endswith('Data'), tables)
-
-    mkdirs(outdir)
 
     metadata = {}
 
@@ -214,6 +243,8 @@ def main(dbdir, outdir, metadata_file, classname, force, shapes):
                 md = {'data_table': True}
 
             metadata[tbl_name] = md
+
+    combine_techs(dbdir, outdir, tech_cost_tables)
 
     if metadata_file:
         gen_database_file(metadata_file, metadata, classname)
