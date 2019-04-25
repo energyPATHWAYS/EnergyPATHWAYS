@@ -212,3 +212,12 @@ alter table "StorageTechsDurationData"
   add constraint "StorageTechsCapacityCapitalCostNewData_copy_supply_tech_id_fkey"
   foreign key (supply_tech_id) references "SupplyTechs"(id);
 
+alter table "SupplyCost" drop constraint if exists "SupplyCost_supply_cost_type_id_fkey";
+alter table "SupplyCost"
+  add constraint "SupplyCost_supply_cost_type_id_fkey"
+  foreign key (supply_cost_type_id) references "SupplyCostTypes"(id);
+
+alter table "DemandServiceDemandMeasures" drop constraint if exists "DemandServiceDemandMeasures_geography_map_key_id_fkey";
+alter table "DemandServiceDemandMeasures"
+  add constraint "DemandServiceDemandMeasures_geography_map_key_id_fkey"
+  foreign key (geography_map_key_id) references "GeographyMapKeys"(id);

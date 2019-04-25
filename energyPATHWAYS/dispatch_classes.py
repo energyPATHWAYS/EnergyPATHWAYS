@@ -29,6 +29,7 @@ import dispatch_transmission
 import dispatch_long_duration
 from pyomo.opt import TerminationCondition
 from pyomo.environ import Constraint
+from unit_converter import UnitConverter
 
 from .generated import schema
 
@@ -38,8 +39,8 @@ class DispatchFeederAllocation(schema.DispatchFeedersAllocation):
         super(DispatchFeederAllocation, self).__init__(name, scenario=scenario)
         self.init_from_db(name, scenario)
 
-        self.remap(map_from='_timeseries', map_to='values_demand_geo', converted_geography=getParam('demand_primary_geography'))
-        self.remap(map_from='_timeseries', map_to='values_supply_geo', converted_geography=getParam('supply_primary_geography'))
+        self.remap(map_from='raw_values', map_to='values_demand_geo', converted_geography=getParam('demand_primary_geography'))
+        self.remap(map_from='raw_values', map_to='values_supply_geo', converted_geography=getParam('supply_primary_geography'))
         self.values_demand_geo.sort_index(inplace=True)
         self.values_supply_geo.sort_index(inplace=True)
 
@@ -109,30 +110,31 @@ class SeriesHourlyDispatch(DispatchSuper):
 
 class Dispatch(object):
     def __init__(self, dispatch_feeders, dispatch_geography, dispatch_geographies, scenario):
-        #TODO replace 1 with a config parameter
-        for col, att in util.object_att_from_table('DispatchConfig', 1):
-            setattr(self, col, att)
+        # Todo, this doesn't seem necessary because we can put these things in the config
+        # #TODO replace 1 with a config parameter
+        # for col, att in util.object_att_from_table('DispatchConfig', 1):
+        #     setattr(self, col, att)
         self.node_config_dict = dict()
 
         for supply_node in util.csv_read_table('DispatchNodeConfig', 'supply_node', return_iterable=True):
             self.node_config_dict[supply_node] = DispatchNodeConfig(supply_node)
 
         self.set_dispatch_orders()
-        self.dispatch_window_dict = dict(util.csv_read_table('DispatchWindows'))
-        self.curtailment_cost = util.unit_convert(0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.unserved_capacity_cost = util.unit_convert(10000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.dist_net_load_penalty = util.unit_convert(15000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        # self.dispatch_window_dict = dict(util.csv_read_table('DispatchWindows')) # todo doesn't seem used
+        self.curtailment_cost = UnitConverter.unit_convert(0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.unserved_capacity_cost = UnitConverter.unit_convert(10000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.dist_net_load_penalty = UnitConverter.unit_convert(15000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
 
         # this bulk penalty is mostly for transmission
-        self.bulk_net_load_penalty = util.unit_convert(5000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.ld_upward_imbalance_penalty = util.unit_convert(150.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.ld_downward_imbalance_penalty = util.unit_convert(50.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.bulk_net_load_penalty = UnitConverter.unit_convert(5000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.ld_upward_imbalance_penalty = UnitConverter.unit_convert(150.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.ld_downward_imbalance_penalty = UnitConverter.unit_convert(50.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.dispatch_feeders = dispatch_feeders
         self.feeders = [0] + dispatch_feeders
         self.dispatch_geography = dispatch_geography
         self.dispatch_geographies = dispatch_geographies
         self.stdout_detail = getParamAsBoolean('stdout_detail', 'opt')
-        self.transmission = dispatch_transmission.DispatchTransmission(cfg.transmission_constraint_id, scenario)
+        self.transmission = dispatch_transmission.DispatchTransmission(cfg.transmission_constraint, scenario)
 
         self.solve_kwargs = {"keepfiles": False, "tee": False}
 
@@ -264,8 +266,8 @@ class Dispatch(object):
             self.max_cumulative_flex = self._timeseries_to_dict(cum_distribution_load.xs(3, level='timeshift_type'))
 
     def set_max_min_flex_loads(self, flex_pmin, flex_pmax):
-        self.flex_load_penalty_short = util.unit_convert(float(cfg.cfgfile.get('opt','flex_load_penalty_short')), unit_from_den='megawatt_hour', unit_to_den=cfg.calculation_energy_unit)
-        self.flex_load_penalty_long = util.unit_convert(float(cfg.cfgfile.get('opt','flex_load_penalty_long')), unit_from_den='megawatt_hour', unit_to_den=cfg.calculation_energy_unit)
+        self.flex_load_penalty_short = UnitConverter.unit_convert(cfg.getParamAsFloat('flex_load_penalty_short', 'opt'), unit_from_den='megawatt_hour', unit_to_den=cfg.calculation_energy_unit)
+        self.flex_load_penalty_long = UnitConverter.unit_convert(cfg.getParamAsFloat('flex_load_penalty_long', 'opt'), unit_from_den='megawatt_hour', unit_to_den=cfg.calculation_energy_unit)
         if self.has_flexible_load:
             self.max_flex_load = flex_pmax.squeeze().to_dict()
             self.min_flex_load = flex_pmin.squeeze().to_dict()
@@ -280,14 +282,14 @@ class Dispatch(object):
         self.dispatched_bulk_load = self._timeseries_to_dict(dispatched_bulk_load)
         self.bulk_gen = self._timeseries_to_dict(bulk_gen)
         thermal_unstacked = active_thermal_dispatch_df.squeeze().unstack('IO')
-        must_run_sum = thermal_unstacked[thermal_unstacked['must_run']==1]['capacity'].groupby(level=cfg.dispatch_geography).sum().to_frame()
+        must_run_sum = thermal_unstacked[thermal_unstacked['must_run']==1]['capacity'].groupby(level=GeoMapper.dispatch_geography).sum().to_frame()
         # this includes must run generation
         self.ld_bulk_net_load_df = util.DfOper.subt((util.remove_df_levels(bulk_net_load,'period').to_frame(), must_run_sum))
         self.ld_bulk_net_load = self.ld_bulk_net_load_df.squeeze().to_dict()
 
     def set_average_net_loads(self, total_net_load):
         df = total_net_load.copy()
-        df['period'] = util.flatten_list([[p]*self.period_lengths[p] for p in self.periods])*len(cfg.dispatch_geographies)
+        df['period'] = util.flatten_list([[p]*self.period_lengths[p] for p in self.periods])*len(GeoMapper.dispatch_geographies)
         df = df.set_index(['period'], append=True)
         self.period_net_load = df.groupby(level=[self.dispatch_geography, 'period']).sum().squeeze().to_dict()
         self.average_net_load = df.groupby(level=[self.dispatch_geography]).sum()/float(len(self.periods))
@@ -360,7 +362,7 @@ class Dispatch(object):
                      self.charging_efficiency[tech_dispatch_id] = x
                      self.discharging_efficiency[tech_dispatch_id] = copy.deepcopy(self.charging_efficiency)[tech_dispatch_id]
                      self.feeder[tech_dispatch_id] = feeder
-      for dispatch_geography in cfg.dispatch_geographies:
+      for dispatch_geography in GeoMapper.dispatch_geographies:
           self.set_gen_technologies(dispatch_geography,thermal_dispatch_df)
       self.convert_all_to_period()
       self.set_transmission_energy()
@@ -387,7 +389,7 @@ class Dispatch(object):
         MORs = np.array(util.df_slice(thermal_dispatch_df,['maintenance_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
         FORs = np.array(util.df_slice(thermal_dispatch_df,['forced_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
         must_run = np.array(util.df_slice(thermal_dispatch_df,['must_run',geography],['IO',self.dispatch_geography]).values).T[0]
-        clustered_dict = dispatch_generators.cluster_generators(n_clusters = int(cfg.cfgfile.get('opt','generator_steps')), pmax=pmax, marginal_cost=marginal_cost, FORs=FORs,
+        clustered_dict = dispatch_generators.cluster_generators(n_clusters = cfg.getParamAsInt('generator_steps', 'opt'), pmax=pmax, marginal_cost=marginal_cost, FORs=FORs,
                                                                 MORs=MORs, must_run=must_run, pad_stack=False, zero_mc_4_must_run=True)
         generator_numbers = range(len(clustered_dict['derated_pmax']))
         for number in generator_numbers:
@@ -502,7 +504,7 @@ class Dispatch(object):
         imports = transmission_flow_df.groupby(level=['geography_to', 'weather_datetime']).sum()
         exports = transmission_flow_df.groupby(level=['geography_from', 'weather_datetime']).sum()
         net_flow = pd.concat([imports, exports], keys=['import flows','export flows'], names=['dispatch_output'])
-        net_flow.index.names = [cfg.dispatch_geography, 'weather_datetime']
+        net_flow.index.names = [GeoMapper.dispatch_geography, 'weather_datetime']
         return net_flow
 
     def _replace_hour_with_weather_datetime(self, df):
@@ -603,7 +605,7 @@ class Dispatch(object):
                         self.ld_energy_budgets[period][technology]= self.capacity[period][technology] * self.period_lengths[period]-1
                     if self.ld_energy_budgets[period][technology]<= self.min_capacity[period][technology] * self.period_lengths[period]:
                         self.ld_energy_budgets[period][technology]= self.min_capacity[period][technology] * self.period_lengths[period]+1
-            if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
+            if cfg.getParamAsBoolean('parallel_process'):
                 params = [(dispatch_formulation.create_dispatch_model(self, period), cfg.solver_name) for period in self.periods]
                 results = helper_multiprocess.safe_pool(helper_multiprocess.run_optimization, params)
             else:
@@ -625,11 +627,11 @@ class Dispatch(object):
             model = dispatch_long_duration.ld_energy_formulation(self)
             results = self.run_pyomo(model, None)
             ld_opt_df = self.parse_ld_opt_result(ld_result_to_list(results.Provide_Power))
-            temp_df = pd.DataFrame([[r[0], r[-2], r[-1]] for r in storage_result_to_list(results.Provide_Power)], columns=[cfg.dispatch_geography, 'hour', self.year])
-            temp_df = temp_df.set_index([cfg.dispatch_geography, 'hour']).groupby(level=[cfg.dispatch_geography, 'hour']).sum()
+            temp_df = pd.DataFrame([[r[0], r[-2], r[-1]] for r in storage_result_to_list(results.Provide_Power)], columns=[GeoMapper.dispatch_geography, 'hour', self.year])
+            temp_df = temp_df.set_index([GeoMapper.dispatch_geography, 'hour']).groupby(level=[GeoMapper.dispatch_geography, 'hour']).sum()
             # this doesn't have transmission losses, so it is an approximation
-            transmit_power = pd.DataFrame([[key[0], key[1], value.value] for key, value in results.Net_Transmit_Power_by_Geo.iteritems()], columns=[cfg.dispatch_geography, 'hour', self.year])
-            self.ld_bulk_net_load_df_updated = self.ld_bulk_net_load_df - temp_df - transmit_power.set_index([cfg.dispatch_geography, 'hour'])
+            transmit_power = pd.DataFrame([[key[0], key[1], value.value] for key, value in results.Net_Transmit_Power_by_Geo.iteritems()], columns=[GeoMapper.dispatch_geography, 'hour', self.year])
+            self.ld_bulk_net_load_df_updated = self.ld_bulk_net_load_df - temp_df - transmit_power.set_index([GeoMapper.dispatch_geography, 'hour'])
             ld_energy_budgets = util.recursivedict()
             def split_and_apply(array, dispatch_periods, fun):
                 energy_by_block = np.array_split(array, np.where(np.diff(dispatch_periods)!=0)[0]+1)

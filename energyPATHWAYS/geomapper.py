@@ -10,14 +10,17 @@ from collections import OrderedDict, defaultdict
 import textwrap
 import logging
 import pdb
-
-from RIO.time_series import TimeSeries
-from RIO.riodb.rio_db_loader import RioDatabase
+from csvdb.data_object import get_database
+from time_series import TimeSeries
 
 class GeoMapper:
     _instance = None
     _global_geography = 'global'
     _global_gau = 'all'
+
+    geography_to_gau = None
+    geography_to_gau_unfiltered = None
+    gau_to_geography = None
 
     base_demand_primary_geography = None
     base_supply_primary_geography = None
@@ -34,6 +37,8 @@ class GeoMapper:
     breakout_geography = None
     dispatch_breakout_geography = None
     disagg_breakout_geography = None
+
+    cfg_gau_subset = None
 
     include_foreign_gaus = None
     default_geography_map_key = None
@@ -54,15 +59,10 @@ class GeoMapper:
         data, map_keys, geography_to_gau, gau_to_geography = self.read_geography_data(database_path)
         self.data = data
         self.map_keys = map_keys
-        self.geography_to_gau = geography_to_gau
-        self.geography_to_gau_unfiltered = copy.copy(self.geography_to_gau)
-        self.gau_to_geography = gau_to_geography
+        GeoMapper.geography_to_gau = geography_to_gau
+        GeoMapper.gau_to_geography = gau_to_geography
 
         GeoMapper.breakout_geography = [g.lstrip().rstrip() for g in cfg.getParam('breakout_geography').split(',') if len(g)]
-
-        GeoMapper.cfg_gau_subset = [g.lstrip().rstrip() for g in cfg.getParam('primary_subset').split(',') if len(g)]
-        if GeoMapper.cfg_gau_subset:
-            self._update_geographies_after_subset()
 
         GeoMapper.base_demand_primary_geography = cfg.getParam('demand_primary_geography')
         GeoMapper.breakout_geography = util.splitclean(cfg.getParam('breakout_geography'))
@@ -88,6 +88,11 @@ class GeoMapper:
         GeoMapper.default_geography_map_key = cfg.getParam('default_geography_map_key')
 
         self._create_composite_geography_levels()
+        GeoMapper.geography_to_gau_unfiltered = copy.copy(self.geography_to_gau)
+
+        GeoMapper.cfg_gau_subset = [g.lstrip().rstrip() for g in cfg.getParam('primary_subset').split(',') if len(g)]
+        if GeoMapper.cfg_gau_subset:
+            self._update_geographies_after_subset()
 
         GeoMapper.demand_geographies = self.geography_to_gau[GeoMapper.demand_primary_geography]
         GeoMapper.supply_geographies = self.geography_to_gau[GeoMapper.supply_primary_geography]
@@ -95,7 +100,7 @@ class GeoMapper:
         GeoMapper.combined_geographies = self.geography_to_gau[GeoMapper.combined_outputs_geography]
 
     def read_geography_data(self, database_path):
-        db = RioDatabase.get_database(database_path)
+        db = get_database(database_path)
         geographies_table = db.get_table("Geographies").data
         global_geographies = pd.DataFrame([[GeoMapper._global_geography, GeoMapper._global_gau]], columns=['geography', 'gau'])
         geographies_table = pd.concat((geographies_table, global_geographies))
@@ -210,7 +215,7 @@ class GeoMapper:
             self.map_df('households', subsection=('census division'), supersection=('state'))
             "what fraction of each state is in each census division
         """
-        assert normalize_as=='total' or normalize_as=='intensity'
+        assert normalize_as=='total' or normalize_as=='intensity', "normalize_as is {} and must be either total or intensity".format(normalize_as)
         geomap_data = self.data if geomap_data=='from self' else geomap_data
         map_key = cfg.getParam('default_geography_map_key') if map_key is None else map_key
         table = geomap_data[map_key].to_frame()
@@ -265,7 +270,7 @@ class GeoMapper:
         if current_geography==converted_geography:
             return df
         assert current_geography in df.index.names
-        geography_map_key = geography_map_key or cfg.cfgfile.get('case', 'default_geography_map_key')
+        geography_map_key = geography_map_key or GeoMapper.default_geography_map_key
         propper_length = np.product([len(set(df.index.get_level_values(x))) for x in df.index.names])
         if len(df) != propper_length and current_data_type == 'intensity':
             # special case were if we don't have full geography coverage on all our index levels an implied fill value of zero causes issues
@@ -276,14 +281,14 @@ class GeoMapper:
             for elements in groups.keys():
                 slice = util.df_slice(df, elements, levels)
                 active_gaus = slice.index.get_level_values(current_geography).unique()
-                slice_map_df = self.map_df(current_geography, converted_geography, normalize_as=current_data_type,
+                slice_map_df = cls.get_instance().map_df(current_geography, converted_geography, normalize_as=current_data_type,
                                      map_key=geography_map_key, filter_geo=filter_geo, active_gaus=active_gaus)
                 map_df.append(slice_map_df)
             map_df = pd.concat(map_df, keys=groups.keys(), names=levels)
         else:
             # create dataframe with map from one geography to another
             active_gaus = df.index.get_level_values(current_geography).unique()
-            map_df = self.map_df(current_geography, converted_geography, normalize_as=current_data_type,
+            map_df = cls.get_instance().map_df(current_geography, converted_geography, normalize_as=current_data_type,
                                  map_key=geography_map_key, filter_geo=filter_geo, active_gaus=active_gaus)
 
         mapped_data = util.DfOper.mult([df, map_df], fill_value=fill_value)
