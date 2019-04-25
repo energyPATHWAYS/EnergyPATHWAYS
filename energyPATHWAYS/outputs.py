@@ -17,6 +17,7 @@ import csv
 from collections import defaultdict, OrderedDict
 import cPickle as pickle
 import pdb
+from geomapper import GeoMapper
 
 class Output(object):
     def __init__(self):
@@ -42,7 +43,7 @@ class Output(object):
             util.replace_index_name(df,'year')
             df.columns = ['value']
         if 'year' in df.index.names:
-            df = df[df.index.get_level_values('year')>=int(cfg.cfgfile.get('case','current_year'))]
+            df = df[df.index.get_level_values('year')>=cfg.getParamAsInt('current_year')]
         dct = cfg.outputs_id_map
         index = df.index
         index.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(index.names, index.levels)], inplace=True)
@@ -71,7 +72,7 @@ class Output(object):
                     df[col_name] = [dct[col_name][x] if x in dct[col_name].keys() else x for x in df[col_name].values]
                 except:
                     pdb.set_trace()
-            if col_name in cfg.geo.geographies.keys():
+            if col_name in GeoMapper.geographies.keys():
                 if replace_gau:
                     util.replace_column_name(df,'gau',col_name)
                 if add_geography:

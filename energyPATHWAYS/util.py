@@ -10,34 +10,16 @@ Contains unclassified global functions
 
 import config as cfg
 from .error import ColumnNotFound
-import pint
 import pandas as pd
 import os
 import numpy as np
 from time_series import TimeSeries
-from collections import defaultdict, OrderedDict, MutableSet
+from collections import defaultdict, MutableSet
 import time
-import csv
-import matplotlib
-from matplotlib import cm
-import os as _os
-#matplotlib.style.use('ggplot')
-import math
 import scipy.special
-import copy
-from profilehooks import profile, timecall
-import functools
-import itertools
-import decimal
-import psycopg2
-import logging
-import pdb
-from operator import mul
-
 from csvdb.data_object import get_database
 from csvdb.utils import filter_query
-
-from psycopg2.extensions import register_adapter, AsIs
+import pdb
 
 def makedirs_if_needed(path):
     '''Checks to see if a directory exists, and creates it if not
@@ -78,9 +60,6 @@ def splitclean(s, delim=',', allow_empties=False, as_type=None):
 
     return result
 
-def addapt_numpy_float64(numpy_float64):
-  return AsIs(numpy_float64)
-register_adapter(np.int64, addapt_numpy_float64)
 
 def loop_geo_multiply(df1, df2, geo_label, geographies, levels_to_keep=None):
     geography_df_list = []
@@ -294,6 +273,7 @@ def csv_read_table(table_name, column_names=None, return_unique=False, return_it
         df = filter_query(df, filters)
 
     if column_names:
+        column_names = ensure_iterable(column_names)
         verify_columns(table_name, df, column_names)
         df = df[column_names]
 
@@ -320,203 +300,7 @@ def csv_read_table(table_name, column_names=None, return_unique=False, return_it
     else:
         return data
 
-# Deprecated
-# def sql_read_table(table_name, column_names=None, return_unique=False, return_iterable=False, **filters):
-#     from csvdb.data_object import get_database
-#
-#     db  = get_database()
-#     tbl = db.get_table(table_name)
-#     df  = tbl.data
-#
-#     unknown = set(column_names) - set(df.columns)
-#     if unknown:
-#         raise ColumnNotFound(table_name, list(unknown))
-#
-#     cols = df[column_names] if column_names else df
-#
-#     distinct = 'DISTINCT ' if return_unique else ''
-#     query = 'SELECT ' + distinct + column_names + ' FROM "%s"' % table_name
-#
-#     if len(filters):
-#         datatypes = sql_get_datatype(table_name, filters.keys())
-#         list_of_filters = ['"' + col + '"=' + fix_sql_query_type(fil, datatypes[col]) if fil is not None else '"' + col + '"is' + 'NULL' for col, fil in filters.items()]
-#         if list_of_filters:
-#             query = query + " where " + " and ".join(list_of_filters)
-#             cfg.cur.execute(query)
-#             data = [tup[0] if len(tup) == 1 else tup for tup in cfg.cur.fetchall()]
-#         else:
-#             data = [None]
-#
-#     else:
-#         cfg.cur.execute(query)
-#         data = [tup[0] if len(tup) == 1 else tup for tup in cfg.cur.fetchall()]
-#     # pull out the first element if length is 1 and we don't want to return an iterable
-#     if len(data) == 0 or data == [None]:
-#         return [] if return_iterable else None
-#     elif len(data) == 1:
-#         return data if return_iterable else data[0]
-#     else:
-#         return data
-#
-#
-# def sql_get_datatype(table_name, column_names):
-#     if isinstance(column_names, basestring):
-#         column_names = [column_names]
-#     cfg.cur.execute("select column_name, data_type from INFORMATION_SCHEMA.COLUMNS where table_name = %s and table_schema = 'public';", (table_name,))
-#     table_info = cfg.cur.fetchall()
-#     return dict([tup for tup in table_info if tup[0] in column_names])
-#
-#
-# def fix_sql_query_type(string, sqltype):
-#     if sqltype == 'INTEGER':
-#         return str(string)
-#     else:
-#         return "'" + str(string) + "'"
-#
-#
-# def sql_read_dataframe(table_name, index_column_name=None, data_column_names='*', **filters):
-#     """
-#     Read data and create a dataframe
-#     Example:
-#         data = util.sql_read_dataframe('DemandDrivers', index_column_name='year', data_column_names='value',
-#                                         ID=1, gau='total', dau='single-family', add='total')
-#     """
-#     if not isinstance(index_column_name, basestring):
-#         if len(index_column_name) > 1:
-#             raise ValueError("Only one index_column_name should be given")
-#         else:
-#             index_column_name = index_column_name[0]
-#
-#     if data_column_names == '*':
-#         data_column_names = [n for n in sql_read_headers(table_name) if n != index_column_name]
-#     if (not isinstance(data_column_names, list)) and (not isinstance(data_column_names, tuple)):
-#         data_column_names = [data_column_names]
-#
-#     data = csv_read_table(table_name, column_names=data_column_names, **filters)
-#     if index_column_name is not None:
-#         index = csv_read_table(table_name, column_names=index_column_name, **filters)
-#         if (not len(index)) or (not len(data)):
-#             raise ValueError('sql_read_dataframe returned empty data')
-#
-#         data_frame = pd.DataFrame(data=data, index=index, columns=data_column_names)
-#         data_frame.sort_index(inplace=True)
-#     else:
-#         data_frame = pd.DataFrame(data=data, columns=data_column_names)
-#
-#     return data_frame
 
-
-def sql_read_headers(table_name):
-    cfg.cur.execute("select column_name from INFORMATION_SCHEMA.COLUMNS where table_name = %s and table_schema = 'public';", (table_name,))
-    table_info = cfg.cur.fetchall()
-    # return list of all column headers
-    return [tup[0] for tup in table_info]
-
-def sql_read_dict(table_name, key_col, value_col):
-    """
-    Returns two columns of a table as a dictionary.
-    Memoizes the results so each dictionary is only loaded from the database once.
-    """
-    memo_key = (table_name, key_col, value_col)
-    try:
-        return sql_read_dict.memo[memo_key]
-    except KeyError:
-        data = csv_read_table(table_name, column_names=(key_col, value_col))
-        sql_read_dict.memo[memo_key] = {row[0]: row[1] for row in data}
-        return sql_read_dict.memo[memo_key]
-sql_read_dict.memo = {}
-
-def active_scenario_run_id(scenario_id):
-    query = """
-                SELECT public_runs.scenario_runs.id
-                FROM public_runs.scenario_runs
-                JOIN public_runs.scenario_run_statuses
-                  ON public_runs.scenario_runs.status_id = public_runs.scenario_run_statuses.id
-                WHERE public_runs.scenario_runs.scenario_id = %s
-                  AND public_runs.scenario_run_statuses.finished = FALSE
-            """
-
-    cfg.cur.execute(query, (scenario_id,))
-    assert cfg.cur.rowcount == 1, \
-        "Expected 1 active scenario run for scenario %i but found %i." % (scenario_id, cfg.cur.rowcount)
-    return cfg.cur.fetchone()[0]
-
-
-def active_user_email(scenario_id):
-    query = """
-                SELECT email
-                FROM shared.users
-                JOIN "Scenarios" ON "Scenarios".user_id = shared.users.id
-                WHERE "Scenarios".id = %s
-            """
-
-    cfg.cur.execute(query, (scenario_id,))
-    if cfg.cur.rowcount == 0:
-        return None
-    else:
-        return cfg.cur.fetchone()[0]
-
-
-def scenario_name(scenario_id):
-    query = 'SELECT name FROM "Scenarios" WHERE id = %s'
-    cfg.cur.execute(query, (scenario_id,))
-    return cfg.cur.fetchone()[0]
-
-
-def update_status(scenario_id, status_id):
-    """Update the status of the active run for the current scenario in the database"""
-    # FIXME: See api/models.py ScenarioRunStatus for the valid status_ids. I'm reluctant to import those constants here
-    # at this time because I don't want the dependencies of that file (e.g. sqlalchemy) to become dependencies
-    # of the main model yet.
-    scenario_run_id = active_scenario_run_id(scenario_id)
-
-    assert 3 <= status_id <= 6, "update_status() only understands status_ids between 3 and 6, inclusive."
-    end_time_update = ', end_time = now()' if status_id >= 4 else ''
-
-    cfg.cur.execute("UPDATE public_runs.scenario_runs SET status_id = %s%s WHERE id = %s",
-                    (status_id, psycopg2.extensions.AsIs(end_time_update), scenario_run_id))
-    cfg.con.commit()
-
-
-def write_output_to_db(scenario_run_id, output_type_id, output_df, keep_cut_off=0.001):
-    # For output_type_ids, see api/models.py. I am reluctant to import that file here because I don't want its
-    # dependencies (e.g. SQLAlchemy) to become dependencies of the main model yet.
-    output_df = output_df.reset_index().set_index(output_df.index.names)
-    if output_df.index.nlevels > 1:
-        index = pd.MultiIndex.from_product(output_df.index.levels, names=output_df.index.names)
-        output_df = output_df.reindex(index, fill_value=0)
-        if 'YEAR' in output_df.index.names:
-            sums = output_df.groupby(level=[l for l in output_df.index.names if l!='YEAR']).sum()
-            keep = list(sums.index[np.nonzero((sums > keep_cut_off * sums.sum()).values.flatten())])
-            output_df = output_df.loc[keep]
-
-    df = output_df.reset_index()
-    if len(df.columns)==3:
-        assert df.columns[1].lower() == 'year', \
-        "Output data frame is expected to have three columns (or columns and indexes)" \
-        "corresponding to (series, year, value) in the output_data table."
-    elif len(df.columns)==2:
-        df.columns[0].lower() == 'year', \
-        "Output data frame is expected to have two columns (or columns and indexes)" \
-        "corresponding to (year, value) in the output_data table."
-    else:
-        raise ValueError('Output data frame is expected to have either two or three columns')
-
-    unit = df.columns[-1]
-    cfg.cur.execute("""INSERT INTO public_runs.outputs (scenario_run_id, output_type_id, unit)
-                       VALUES (%s, %s, %s) RETURNING id""", (scenario_run_id, output_type_id, unit))
-    output_id = cfg.cur.fetchone()[0]
-
-    if len(df.columns)==3:
-        values_str = ','.join(cfg.cur.mogrify("(%s,%s,%s,%s)", (output_id, row[0], row[1], row[2]))
-                              for row in df.itertuples(index=False))
-        cfg.cur.execute("INSERT INTO public_runs.output_data (parent_id, series, year, value) VALUES " + values_str)
-    elif len(df.columns)==2:
-        values_str = ','.join(cfg.cur.mogrify("(%s,%s,%s)", (output_id, row[0], row[1]))
-                              for row in df.itertuples(index=False))
-        cfg.cur.execute("INSERT INTO public_runs.output_data (parent_id, year, value) VALUES " + values_str)
-
-    cfg.con.commit()
 
 
 def unpack_dict(dictionary, _keys=None, return_items=True):
@@ -540,152 +324,7 @@ def unpack_dict(dictionary, _keys=None, return_items=True):
                 yield value
 
 
-def unit_conversion_factor(unit_from, unit_to):
-    """return data converted from unit_from to unit_to"""
-    if unit_from is None or unit_to is None:
-        return 1
-    else:
-        if unit_from == unit_to:
-            # if unit_from and unit_to are equal then no conversion is necessary
-            return 1.
-        else:
-            try:
-                unit_from.magnitude()
-                quant_from = unit_from
-            except:
-                try:
-                    quant_from = cfg.ureg.Quantity(unit_from)
-                except:
-                    pdb.set_trace()
-            try:
-                unit_to.magnitude()
-                quant_to = unit_to
-            except:
-                quant_to = cfg.ureg.Quantity(unit_to)
-            if quant_from.dimensionality == quant_to.dimensionality:
-                # return conversion factor
-                return quant_from.to(quant_to).magnitude
-            else:
-                # if the dimensionality of unit_from and unit_too (i.e. length to energy) are
-                # not equal, then raise ValueError
-                error_text = "%s not convertible to %s" % (unit_from, unit_to)
-                raise ValueError(error_text)
-
-
-def exchange_rate(currency_from, currency_from_year, currency_to=None):
-    """calculate exchange rate between two specified currencies"""
-    try:
-        currency_to_name = cfg.cfgfile.get('case', 'currency_name') if currency_to is None else csv_read_table('Currencies', column_names='name', id=currency_to)
-        currency_to = csv_read_table('Currencies', column_names='id', name=currency_to_name)
-        currency_from_values = csv_read_table('CurrenciesConversion', 'value', currency_id=currency_from, currency_year_id=currency_from_year)
-        currency_from_value = np.asarray(currency_from_values).mean()
-        currency_to_values = csv_read_table('CurrenciesConversion', 'value', currency_id=currency_to, currency_year_id=currency_from_year)
-        currency_to_value = np.asarray(currency_to_values).mean()
-    except:
-        pdb.set_trace()
-    return currency_to_value / currency_from_value
-
-
-def inflation_rate(currency, currency_from_year, currency_to_year=None):
-    """calculate inflation rate between two years in a specified currency"""
-    currency_to_year = cfg.cfgfile.get('case', 'currency_year_id') if currency_to_year is None else currency_to_year
-    currency_from_values = csv_read_table('InflationConversion', 'value', currency_id=currency,
-                                          currency_year_id=currency_from_year)
-    currency_from_value = np.asarray(currency_from_values).mean()
-    currency_to_values = csv_read_table('InflationConversion', 'value', currency_id=currency,
-                                        currency_year_id=currency_to_year)
-    currency_to_value = np.asarray(currency_to_values).mean()
-    return currency_to_value / currency_from_value
-
-
-def currency_convert(data, currency_from, currency_from_year):
-    """converts cost data in original currency specifications (currency,year) to model currency and year"""
-    currency_to_name, currency_to_year = cfg.cfgfile.get('case', 'currency_name'), int(cfg.cfgfile.get('case', 'currency_year_id'))
-    currency_to = csv_read_table('Currencies', column_names='id', name=currency_to_name)
-    # inflate in original currency and then exchange in model currency year
-
-    try:
-        a = inflation_rate(currency_from, currency_from_year)
-        b = exchange_rate(currency_from, currency_to_year)
-        data *= a * b
-        return data
-    except:
-        try:
-            # convert to model currency in original currency year and then inflate to model currency year
-            a = exchange_rate(currency_from, currency_from_year)
-            b = inflation_rate(currency_to, currency_from_year)
-            return data * a * b
-        except:
-            try:
-                # use a known inflation data point of the USD. Exchange from original currency to USD
-                # in original currency year. Inflate to model currency year. Exchange to model currency in model currency year.
-                a = exchange_rate(currency_from, currency_from_year, currency_to=41)
-                b = inflation_rate(currency=41, currency_from_year=currency_from_year)
-                c = exchange_rate(currency_from=41, currency_from_year=currency_to_year, currency_to=currency_to)
-                return data * a * b * c
-            except:
-                raise ValueError(
-                    "currency conversion failed. Make sure that the data in InflationConvert and CurrencyConvert can support this conversion")
-
-
-def unit_conversion(unit_from_num=None, unit_from_den=None, unit_to_num=None, unit_to_den=None):
-    # try to see if we need to flip the units to make them convertable
-    if unit_from_num is None and unit_to_num is None:
-        numerator_factor = 1
-        denominator_factor = unit_conversion_factor(unit_from_den, unit_to_den)
-        flipped = False
-    elif unit_from_den is None and unit_to_den is None:
-        denominator_factor = 1
-        numerator_factor = unit_conversion_factor(unit_from_num, unit_to_num)
-        flipped = False
-    else:
-        try:
-            numerator_factor = unit_conversion_factor(unit_from_num, unit_to_num)
-            denominator_factor = unit_conversion_factor(unit_from_den, unit_to_den)
-            flipped = False
-        except ValueError:
-            asdf
-            pdb.set_trace()
-            numerator_factor = unit_conversion_factor(unit_from_den, unit_to_num)
-            denominator_factor = unit_conversion_factor(unit_from_num, unit_to_den)
-            flipped = True
-    return numerator_factor / denominator_factor, flipped
-
-
-def unit_convert(data, unit_from_num=None, unit_from_den=None, unit_to_num=None, unit_to_den=None):
-    """return data converted from unit_from to unit_to"""
-    if (unit_from_num is not None) and (unit_to_num is not None) and (unit_from_den is not None) and (
-                unit_to_den is not None):
-        # we have two unit ratios
-        factor, flipped = unit_conversion(unit_from_num, unit_from_den, unit_to_num, unit_to_den)
-    elif (unit_from_num is not None) and (unit_to_num is not None):
-        # units in the numerator
-        if (unit_from_den is not None) or (unit_to_den is not None):
-            # can't have units in just one other denominator
-            raise ValueError('error converting a single unit to a ratio of units')
-        factor, flipped = unit_conversion(unit_from_num=unit_from_num, unit_to_num=unit_to_num)
-    elif (unit_from_den is not None) and (unit_to_den is not None):
-        # units in the denominator
-        if (unit_from_num is not None) or (unit_to_num is not None):
-            # can't have units in just one other numerator
-            raise ValueError('error converting a single unit to a ratio of units')
-        factor, flipped = unit_conversion(unit_to_den=unit_to_den, unit_from_den=unit_from_den)
-    elif (unit_from_num is not None) and (unit_to_den is not None):
-        # units in the numerator of the first and denominator of the second
-        factor, flipped = unit_conversion(unit_to_den, unit_from_num)
-    elif (unit_from_den is not None) and (unit_to_num is not None):
-        # units in the denominator of the first and numerator of the second
-        factor, flipped = unit_conversion(unit_to_num, unit_from_den)
-    else:
-        raise ValueError('unit unable to be converted')
-        flipped = False
-        factor = 1
-    if flipped:
-        return 1 / data * factor
-    else:
-        return data * factor
-
-def ensure_iterable_and_not_string(obj):
+def ensure_iterable(obj):
     if isinstance(obj, basestring):
         return [obj]
     else:
@@ -706,7 +345,7 @@ def ensure_tuple(obj):
 def df_slice(df, elements, levels, drop_level=True, reset_index=False, return_none=False):
     if df is None:
         return None
-    elements, levels = ensure_iterable_and_not_string(elements), ensure_iterable_and_not_string(levels)
+    elements, levels = ensure_iterable(elements), ensure_iterable(levels)
     if not len(levels):
         return None
     if len(elements) != len(levels) and len(levels) > 1:
@@ -779,7 +418,7 @@ def remove_df_elements(data, elements, level):
         return data
 
 def level_specific_indexer(df, levels, elements, axis=0):
-    elements, levels = ensure_iterable_and_not_string(elements), ensure_iterable_and_not_string(levels)
+    elements, levels = ensure_iterable(elements), ensure_iterable(levels)
     if len(elements) != len(levels):
         raise ValueError('Number of elements ' + str(len(elements)) + ' must match the number of levels ' + str(len(levels)))
     if axis == 0:
@@ -822,7 +461,7 @@ def replace_index_name(df, replace_label, label=None):
 
 
 def ix_excl(df, exclude=None,axis=0):
-    exclude = ensure_iterable_and_not_string(exclude)
+    exclude = ensure_iterable(exclude)
     if axis == 0:
         return [x for x in df.index.names if x not in exclude]
     if axis == 1:
@@ -830,7 +469,7 @@ def ix_excl(df, exclude=None,axis=0):
 
 
 def ix_incl(df, include=None):
-    include = ensure_iterable_and_not_string(include)
+    include = ensure_iterable(include)
     include = [x for x in include if x in df.index.names]
     return include
 
@@ -865,9 +504,9 @@ def expand_multi(df, levels_list, levels_names, how='outer', incremental=False, 
     creates an additional layer in a mutlilevel index, repeating values from all other previous
     indexes
     """
-    drop_index = ensure_iterable_and_not_string(drop_index)
+    drop_index = ensure_iterable(drop_index)
     if incremental:
-        levels_list = [ensure_iterable_and_not_string(levels_list)]
+        levels_list = [ensure_iterable(levels_list)]
         for name, level in zip(df.index.names, df.index.levels):
             if name == drop_index:
                 pass
@@ -881,7 +520,7 @@ def expand_multi(df, levels_list, levels_names, how='outer', incremental=False, 
             if name in drop_index:
                 pass
             else:
-                unfrozen_levels.append([int(x) for x in level])
+                unfrozen_levels.append([int(x) if is_numeric(x) else x for x in level])
                 unfrozen_names.append(name)
         levels_list = unfrozen_levels
         levels_names = unfrozen_names
@@ -1465,7 +1104,7 @@ def find_weibul_beta(mean_lifetime, lifetime_variance):
 
 
 def add_and_set_index(df, name, elements, index_location=None):
-    name, elements = ensure_iterable_and_not_string(name), ensure_iterable_and_not_string(elements)
+    name, elements = ensure_iterable(name), ensure_iterable(elements)
     return_df = pd.concat([df]*len(elements), keys=elements, names=name).sort_index()
     if index_location:
         return_df = return_df.swaplevel(-1, index_location).sort_index()

@@ -7,10 +7,12 @@ Created on Tue Nov 17 08:46:24 2015
 import util 
 import numpy as np
 import pandas as pd
-from datamapfunctions import Abstract, DataMapFunctions
+from datamapfunctions import Abstract
 import config as cfg
 import pdb
 import logging
+from .generated import schema
+from .geomapper import GeoMapper
 
 class StockItem(object):
     def __init__(self):
@@ -113,16 +115,9 @@ class AggregateStock(object):
 
 
 
-class Stock(Abstract):
-    def __init__(self, id, drivers, sql_id_table, sql_data_table, primary_key, data_id_key=None, scenario=None, **kwargs):
-        self.id = id
-        self.drivers = drivers
-        self.sql_id_table = sql_id_table
-        self.sql_data_table = sql_data_table
-        self.scenario = scenario
-        if data_id_key is None:
-            data_id_key = primary_key
-        Abstract.__init__(self, self.id, primary_key=primary_key, data_id_key=data_id_key, **kwargs)
+class Stock(object):
+    def __init__(self):
+        pass
 
     def in_use_drivers(self):
         """reduces the stock driver dictionary to in-use drivers"""
@@ -161,16 +156,9 @@ class Stock(Abstract):
         return group
 
 
-class SpecifiedStock(Abstract, DataMapFunctions):
-    def __init__(self, id, sql_id_table, sql_data_table, scenario=None):
-        self.id = id
-        self.sql_id_table = sql_id_table
-        self.primary_geography = cfg.demand_primary_geography if 'Demand' in sql_id_table else cfg.supply_primary_geography
-        self.sql_data_table = sql_data_table
-        self.scenario = scenario
-        self.mapped = False
-        Abstract.__init__(self, self.id, data_id_key='parent_id')
-        self.input_type='total'
+class SpecifiedStock(object):
+    def __init__(self):
+        pass
 
     def calculate(self, vintages, years):
         self.vintages = vintages
@@ -187,28 +175,18 @@ class SpecifiedStock(Abstract, DataMapFunctions):
     def set_geography_map_key(self, geography_map_key):
         self.geography_map_key = geography_map_key
 
-class SalesShare(Abstract, DataMapFunctions):
-    def __init__(self, id, subsector_id, sql_id_table, sql_data_table, primary_key, data_id_key, reference=False, scenario=None):
-        self.id = id
-        self.subsector_id = subsector_id
-        self.sql_id_table = sql_id_table
-        self.primary_geography = cfg.demand_primary_geography if 'Demand' in sql_id_table else cfg.supply_primary_geography
-        self.sql_data_table = sql_data_table
+class DemandStockMeasure(schema.DemandStockMeasures, SpecifiedStock):
+    def __init__(self, name, subsector, scenario=None):
+        schema.DemandStockMeasures.__init__(self, name=name, scenario=scenario)
+        self.init_from_db(name, scenario, subsector=subsector)
+        self.primary_geography = GeoMapper.demand_primary_geography
         self.scenario = scenario
         self.mapped = False
-        if reference:
-                for col, att in util.object_att_from_table(self.sql_id_table, self.subsector_id, primary_key):
-                    if att is not None:
-                        setattr(self, col, att)
-                DataMapFunctions.__init__(self, data_id_key)
-                self.read_timeseries_data(subsector_id=self.subsector_id)
-                self.raw_values = util.remove_df_levels(self.raw_values, 'technology')
-        else:
-            self.replaced_demand_tech_id = None
-            # measure specific sales share does not require technology filtering
-            Abstract.__init__(self, self.id, primary_key=primary_key, data_id_key=data_id_key)
-            if self.raw_values is None:           
-                raise ValueError('error encountered in sales share measure ' + str(self.id))
+        self.input_type='total'
+
+class SalesShare(object):
+    def __init__(self):
+        pass
 
     def calculate(self, vintages, years):
         self.vintages = vintages
@@ -277,3 +255,24 @@ class SalesShare(Abstract, DataMapFunctions):
         ss_array[vintage, :, retiring] = (ss_array[vintage, :, retiring].T / sums[vintage, retiring]).T
         return ss_array
 
+class DemandSales(schema.DemandSales, SalesShare):
+    def __init__(self, demand_technology, scenario=None):
+        schema.DemandSales.__init__(self, demand_technology=demand_technology, scenario=scenario)
+        self.init_from_db(demand_technology, scenario)
+        self.primary_geography = GeoMapper.demand_primary_geography
+        self.scenario = scenario
+        self.mapped = False
+        self.replaced_demand_tech_id = None
+        if self.raw_values is None:
+            raise ValueError('error encountered in sales share measure ' + str(self.name))
+
+class DemandSalesShareMeasure(schema.DemandSalesShareMeasures, SalesShare):
+    def __init__(self, name, subsector, scenario=None):
+        schema.DemandSalesShareMeasures.__init__(self, name=name, scenario=scenario)
+        self.init_from_db(name, scenario, subsector=subsector)
+        self.primary_geography = GeoMapper.demand_primary_geography
+        self.scenario = scenario
+        self.mapped = False
+        if self.raw_values is None:
+            raise ValueError('error encountered in sales share measure ' + str(self.name))
+        self.raw_values = util.remove_df_levels(self.raw_values, 'technology')

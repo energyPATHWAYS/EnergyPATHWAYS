@@ -90,7 +90,7 @@ class DataMapFunctions:
             # We didn't find any timeseries data for this object, so now we want to let the user know if that
             # might be a problem. We only expect to find timeseries data if self actually existed in the database
             # (as opposed to being a placeholder). The existence of self in the database is flagged by self.data.
-            if self.data:
+            if self._has_data:
                 if getattr(self, 'reference_tech_id', None):
                     logging.debug('No {} found for {} with id {}; using reference technology values instead.'.format(
                         self.sql_data_table, self.sql_id_table, self.id
@@ -194,12 +194,12 @@ class DataMapFunctions:
         # Unless specified, input_type used is attribute of the object
         current_data_type = self.input_type if current_data_type is None else current_data_type
         current_geography = self.geography if current_geography is None else current_geography
-        geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
+        geography_map_key = GeoMapper.default_geography_map_key if not hasattr(self, 'geography_map_key') else self.geography_map_key
         if current_geography not in getattr(self, attr).index.names:
             logging.error("Dataframe being mapped doesn't have the stated current geography: {}".format(self.__class__))
             pdb.set_trace()
 
-        mapped_data = cfg.geo.geo_map(getattr(self, attr), current_geography, converted_geography,
+        mapped_data = GeoMapper.geo_map(getattr(self, attr), current_geography, converted_geography,
                                       current_data_type, geography_map_key, fill_value, filter_geo)
 
         if inplace:
@@ -208,24 +208,24 @@ class DataMapFunctions:
             return mapped_data.sort()
 
     def account_for_foreign_gaus(self, attr, current_data_type, current_geography):
-        geography_map_key = cfg.cfgfile.get('case', 'default_geography_map_key') if not hasattr(self, 'geography_map_key') else self.geography_map_key
+        geography_map_key = GeoMapper.default_geography_map_key if not hasattr(self, 'geography_map_key') else self.geography_map_key
         df = getattr(self, attr).copy()
-        if cfg.include_foreign_gaus:
-            native_gaus, current_gaus, foreign_gaus = cfg.geo.get_native_current_foreign_gaus(df, current_geography)
+        if GeoMapper.include_foreign_gaus:
+            native_gaus, current_gaus, foreign_gaus = GeoMapper.get_native_current_foreign_gaus(df, current_geography)
             if foreign_gaus:
                 name = '{} {}'.format(self.sql_id_table, self.name if hasattr(self, 'name') else 'id '+str(self.id))
-                logging.info('      Detected foreign gaus for {}: {}'.format(name, ', '.join([cfg.geo.geography_names[f] for f in foreign_gaus])))
-                df, current_geography = cfg.geo.incorporate_foreign_gaus(df, current_geography, current_data_type, geography_map_key)
+                logging.info('      Detected foreign gaus for {}: {}'.format(name, ', '.join([GeoMapper.geography_names[f] for f in foreign_gaus])))
+                df, current_geography = GeoMapper.incorporate_foreign_gaus(df, current_geography, current_data_type, geography_map_key)
         else:
-            df = cfg.geo.filter_foreign_gaus(df, current_geography)
+            df = GeoMapper.filter_foreign_gaus(df, current_geography)
         return df, current_geography
 
     def _add_missing_geographies(self, df, current_geography, current_data_type):
         current_number_of_geographies = len(util.get_elements_from_level(df, current_geography))
-        propper_number_of_geographies = len(cfg.geo.geographies_unfiltered[current_geography])
+        propper_number_of_geographies = len(GeoMapper.geographies_unfiltered[current_geography])
         if current_data_type == 'total' and current_number_of_geographies != propper_number_of_geographies:
             # we only want to do it when we have a total, otherwise we can't just fill with zero
-            df = util.reindex_df_level_with_new_elements(df, current_geography, cfg.geo.geographies_unfiltered[current_geography], fill_value=np.nan)
+            df = util.reindex_df_level_with_new_elements(df, current_geography, GeoMapper.geographies_unfiltered[current_geography], fill_value=np.nan)
         return df
 
     def _get_active_time_index(self, time_index, time_index_name):
@@ -246,7 +246,7 @@ class DataMapFunctions:
             drivers (list of or single dataframe): drivers for the remap
             input_type_override (string): either 'total' or 'intensity' (defaults to self.type)
         """
-        driver_geography = cfg.disagg_geography if driver_geography is None else driver_geography
+        driver_geography = GeoMapper.disagg_geography if driver_geography is None else driver_geography
         current_data_type = self.input_type if current_data_type is None else current_data_type
         current_geography = self.geography if current_geography is None else current_geography
         time_index = self._get_active_time_index(time_index, time_index_name)
@@ -327,9 +327,9 @@ class DataMapFunctions:
                 self.geo_map(converted_geography, current_geography=current_geography, attr=map_to, inplace=True)
                 current_geography = converted_geography
             total_driver = util.DfOper.mult([self.drivers[id].values for id in denominator_driver_ids])
-            self.geo_map(current_geography=current_geography, attr=map_to, converted_geography=cfg.disagg_geography, current_data_type = 'intensity')
+            self.geo_map(current_geography=current_geography, attr=map_to, converted_geography=GeoMapper.disagg_geography, current_data_type = 'intensity')
             setattr(self, map_to, util.DfOper.mult((getattr(self, map_to), total_driver)))
-            self.geo_map(current_geography=cfg.disagg_geography, attr=map_to, converted_geography=current_geography,current_data_type='total')
+            self.geo_map(current_geography=GeoMapper.disagg_geography, attr=map_to, converted_geography=current_geography,current_data_type='total')
             # the datatype is now total
             current_data_type = 'total'
         driver_ids = [getattr(self, col) for col in cfg.drivr_col_names if getattr(self, col) is not None]

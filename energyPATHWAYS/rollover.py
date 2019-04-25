@@ -71,7 +71,7 @@ class Rollover(object):
         if initial_stock is None:
             self.initial_stock = np.zeros(self.num_techs)
         else:
-            self.initial_stock = np.nanmax((np.zeros(self.num_techs), np.array(util.ensure_iterable_and_not_string(initial_stock))), axis=0)
+            self.initial_stock = np.nanmax((np.zeros(self.num_techs), np.array(util.ensure_iterable(initial_stock))), axis=0)
 
     def initialize_sales_share(self, sales_share):
         """ Sales shares are constant over all periods within the year
@@ -112,7 +112,7 @@ class Rollover(object):
             self.specified_stock = np.empty(shape)
             self.specified_stock.fill(np.nan)
         else:
-            self.specified_stock = np.array(util.flatten_list([[[np.nan]*self.num_techs]*(self.spy-1) + [list(util.ensure_iterable_and_not_string(ss))] for ss in specified_stock]))
+            self.specified_stock = np.array(util.flatten_list([[[np.nan]*self.num_techs] * (self.spy-1) + [list(util.ensure_iterable(ss))] for ss in specified_stock]))
         if np.any(self.specified_stock<-1E-9):
             raise ValueError("Specified stock cannot be initialized with negative numbers")
         self.specified_stock = np.clip(self.specified_stock, 0, None)
@@ -238,7 +238,7 @@ class Rollover(object):
                     retireable = np.array([overlap_index], dtype=int)
                     needed_retirements = self.specified_sales[i, overlap_index] - (self.specified_stock[i, overlap_index] - (self.prior_year_stock[overlap_index] - self.rolloff[overlap_index]))
                     if needed_retirements < 0:
-                        if len(util.ensure_iterable_and_not_string(overlap_index))>1:
+                        if len(util.ensure_iterable(overlap_index))>1:
                             self.specified_sales[i, overlap_index] *= (sum(self.specified_sales[i, overlap_index]) - needed_retirements)/sum(self.specified_sales[i, overlap_index])
                         else:
                             self.specified_sales[i, overlap_index] *= (self.specified_sales[i, overlap_index] - needed_retirements)/self.specified_sales[i, overlap_index]
@@ -406,16 +406,16 @@ class Rollover(object):
     def introduce_inputs_override(self, num, introduced_stock_changes, introduced_specified_stock, introduced_specified_sales, decimals=10):
         list_steps = range(self.i, self.num_years*self.spy) if num is None else range(self.i, min(self.i+num*self.spy, self.num_years*self.spy))        
         if introduced_stock_changes is not None:
-            if num!=len(util.ensure_iterable_and_not_string(introduced_stock_changes)):
+            if num!=len(util.ensure_iterable(introduced_stock_changes)):
                 raise ValueError("length of annual stock_changes must match the number of years to run")
             if np.any(np.isnan(introduced_stock_changes)):
                 raise ValueError("introduced annual stock_changes cannot be nan")
             self.stock_changes[list_steps] = np.reshape(np.repeat(introduced_stock_changes/self.spy, self.spy, axis=0), len(list_steps))
 
         if introduced_specified_stock is not None:
-            if num!=len(util.ensure_iterable_and_not_string(introduced_specified_stock)):
+            if num!=len(util.ensure_iterable(introduced_specified_stock)):
                 raise ValueError("length of annual specified_stock must match the number of years to run")
-            self.specified_stock[list_steps] = np.array(util.flatten_list([[[np.nan]*self.num_techs]*(self.spy-1) + [list(util.ensure_iterable_and_not_string(ss))] for ss in np.round(introduced_specified_stock, decimals)]))
+            self.specified_stock[list_steps] = np.array(util.flatten_list([[[np.nan]*self.num_techs] * (self.spy-1) + [list(util.ensure_iterable(ss))] for ss in np.round(introduced_specified_stock, decimals)]))
             if np.any(self.specified_stock[list_steps]<0):
                 raise ValueError("introduced specified stock cannot be negative")
             i = self.i
@@ -424,7 +424,7 @@ class Rollover(object):
                 self.specified_stock[list_steps] *= (np.sum(self.prior_year_stock) + np.sum(self.stock_changes[list_steps]))/np.nansum(self.specified_stock[list_steps])
 
         if introduced_specified_sales is not None:
-            if num!=len(util.ensure_iterable_and_not_string(introduced_specified_sales)):
+            if num!=len(util.ensure_iterable(introduced_specified_sales)):
                 raise ValueError("length of annual specified_sales must match the number of years to run")
             self.specified_sales[list_steps] = np.reshape(np.repeat(np.round(introduced_specified_sales, decimals)/self.spy, self.spy, axis=0), len(list_steps))
             if np.any(self.specified_sales[list_steps]<0):

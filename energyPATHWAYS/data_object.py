@@ -13,6 +13,8 @@ from .util import (DfOper, put_in_list, remove_df_levels, get_elements_from_leve
 from .geomapper import GeoMapper
 
 from csvdb.data_object import DataObject as CsvDataObject, get_database
+from csvdb.error import CsvdbException
+from csvdb.utils import filter_query
 
 def _isListOfNoneOrNan(obj):
     if len(obj) != 1:
@@ -35,27 +37,27 @@ class DataObject(CsvDataObject):
         super(DataObject, self).__init__(key, scenario)
 
         # Deprecated
-        self._child_data = None
+        # self._child_data = None
         # self.children_by_fk_col = {}
 
-        # ivars set in create_index_levels:
-        self.column_names = None
-        self.index_levels = None
-        self.df_index_names = None
+        # # ivars set in create_index_levels:
+        # self.column_names = None
+        # self.index_levels = None
+        # self.df_index_names = None
 
-        self.raw_values = None         # TODO: eliminate _child_data?
+        # self.raw_values = None         # TODO: eliminate _child_data?
 
         # added in effort to eliminate "if hasattr" tests
-        self.driver_1 = self.driver_2 = None
-        self.driver_denominator_1 = self.driver_denominator_2 = None
-        self.drivers = {}              # TODO: this was initialized as a list, but accessed via .values() as if a dict.
-        self.geography = None
-        self.input_type = None
+        # self.driver_1 = self.driver_2 = None
+        # self.driver_denominator_1 = self.driver_denominator_2 = None
+        # self.drivers = {}              # TODO: this was initialized as a list, but accessed via .values() as if a dict.
+        # self.geography = None
+        # self.input_type = None
 
-        # TODO: These were not defined but referenced. Are these appropriate defaults?
-        self.interpolation_method = None # TODO: or 'missing'?
-        self.extrapolation_method = None # ditto
-        self.geography_map_key    = None
+        # # TODO: These were not defined but referenced. Are these appropriate defaults?
+        # self.interpolation_method = None # TODO: or 'missing'?
+        # self.extrapolation_method = None # ditto
+        # self.geography_map_key    = None
 
     # Added for compatibility with prior implementation
     @property
@@ -72,49 +74,35 @@ class DataObject(CsvDataObject):
 
     def get_geography_map_key(self):
         return (self.geography_map_key if 'geography_map_key' in self._cols
-                else cfg.cfgfile.get('case', 'default_geography_map_key'))
+                else GeoMapper.default_geography_map_key)
 
-    # def create_raw_values(self):
-    #     # if read_data is empty, there is nothing to do here
-    #     data = self._child_data
-    #     if data is None:
-    #         return None
-    #
-    #     data_cols = data.columns
-    #     elements = {col: sorted(data[col].unique()) for col in data_cols}
-    #
-    #     # OrderedDict in necessary the way this currently works
-    #     self.column_names = OrderedDict([(index_level, column_name)
-    #                                      for index_level, column_name in cfg.index_levels
-    #                                      if (column_name in data_cols) and
-    #                                      (column_name not in self.data_id_key) and
-    #                                      not _isListOfNoneOrNan(elements[column_name])])
-    #
-    #     self.index_levels = OrderedDict([(index_level, elements[column_name])
-    #                                      for index_level, column_name in cfg.index_levels
-    #                                      if column_name in self.column_names.values()])
-    #
-    #     def renamed_col(col):
-    #         if col in self._cols:
-    #             return getattr(self, col)
-    #
-    #         if col.endswith('_id'):
-    #             strcol = col[:-3]
-    #             if strcol in self._cols:
-    #                 return getattr(self, strcol)
-    #
-    #         return col
-    #
-    #     columns = self.column_names.values() + ['value']
-    #     raw_values = self._child_data[columns].copy()
-    #
-    #     renamed = {data_col: renamed_col(col) for col, data_col in self.column_names.items()}
-    #     raw_values.rename(columns=renamed, inplace=True)
-    #
-    #     self.df_index_names = [col for col in raw_values.columns if col != 'value']
-    #     raw_values = raw_values.set_index(keys=self.df_index_names).sort()
-    #
-    #     return raw_values
+    def add_sensitivity_filter(self, key, filters): # This overwrites a parent function
+        db = get_database()
+        tbl_name = self._table_name
+        tbl = db.get_table(tbl_name)
+
+        if 'sensitivity' in tbl.data.columns:
+            # check to see if we have a matching sensitivity in our scenario
+            if tbl_name in self._scenario._sensitivities and key in self._scenario._sensitivities[tbl_name]:
+                filters['sensitivity'] = self._scenario._sensitivities[tbl_name][key]
+            else:
+                filters['sensitivity'] = '_reference_'
+        return filters
+
+    def timeseries_cleanup(self, timeseries): # This overwrites a parent function
+        db = get_database()
+        tbl_name = self._table_name
+        tbl = db.get_table(tbl_name)
+        md = tbl.metadata
+
+        # drop any columns that are all NaN
+        timeseries = timeseries.loc[:,~timeseries.isnull().all()]
+        if 'sensitivity' in timeseries.columns: #We've filtered sensitivities in an earlier step, for EP we drop them
+            del timeseries['sensitivity']
+
+        index_cols = [c for c in timeseries.columns if c not in md.df_value_col]
+        timeseries = timeseries.set_index(index_cols).sort_index()
+        return timeseries
 
     # TODO: this interim version operated on strings; we'll use a variant of it post conversion
     def create_index_levels_new(self):
@@ -153,7 +141,7 @@ class DataObject(CsvDataObject):
     def clean_timeseries(self, attr='values', inplace=True, time_index_name='year',
                          time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing'):
         if time_index is None:
-            time_index = cfg.cfgfile.get('case', 'years')
+            time_index = cfg.years
         interpolation_method = self.interpolation_method if interpolation_method is 'missing' else interpolation_method
         extrapolation_method = self.extrapolation_method if extrapolation_method is 'missing' else extrapolation_method
         exp_growth_rate = self.extrapolation_growth if hasattr(self, 'extrapolation_growth') else None
@@ -163,7 +151,6 @@ class DataObject(CsvDataObject):
                                       interpolation_method=interpolation_method,
                                       extrapolation_method=extrapolation_method,
                                       exp_growth_rate=exp_growth_rate).clip(lower=lower, upper=upper)
-
         if inplace:
             setattr(self, attr, clean_data)
         else:
@@ -246,30 +233,18 @@ class DataObject(CsvDataObject):
 
     def _add_missing_geographies(self, df, current_geography, current_data_type):
         current_number_of_geographies = len(get_elements_from_level(df, current_geography))
-        propper_number_of_geographies = len(GeoMapper.get_instance().geography_to_gau_unfiltered[current_geography])
+        propper_number_of_geographies = len(GeoMapper.geography_to_gau_unfiltered[current_geography])
         if current_data_type == 'total' and current_number_of_geographies != propper_number_of_geographies:
             # we only want to do it when we have a total, otherwise we can't just fill with zero
             df = reindex_df_level_with_new_elements(df, current_geography,
-                                                    GeoMapper.get_instance().geography_to_gau_unfiltered[current_geography],
+                                                    GeoMapper.geography_to_gau_unfiltered[current_geography],
                                                     fill_value=np.nan)
         return df
 
     def _get_active_time_index(self, time_index, time_index_name):
         if time_index is None:
-
-            # TODO: 'index_plus_s' doesn't seem to be created anywhere, so this appears to be an obsolete test
-            # index_plus_s = time_index_name + "s"
-            # time_index = getattr(self, index_plus_s) if hasattr(self, index_plus_s) else cfg.cfgfile.get('case', 'years')
-
-            # TODO: check that definition is correct
-            # active_time_index: %(demand_start_year)s:%(end_year)s:%(year_step)s
-
-            # get string of form 'start:end:step' and convert to a list of years
-            text = getParam('years')
-            args = map(int, text.split(':'))
-            time_index = range(*args)
-
-        return time_index  # this is a list of years
+            time_index = getattr(self, time_index_name + "s") if hasattr(self, time_index_name + "s") else cfg.years
+        return time_index # this is a list of years
 
     def _get_df_index_names_in_a_list(self, df):
         # TODO: is this intended to handle a case of no index? Because index.names returns [name] when nlevels == 1
@@ -324,9 +299,7 @@ class DataObject(CsvDataObject):
                                       extrapolation_method='missing')
 
             # While not on primary geography, geography does have some information we would like to preserve.
-            # RP removed the 'hasattr' since 'drivers' is set in the __init__ method.
-            # if hasattr(self, 'drivers') and len(drivers) == len(self.drivers) and set(
-            if len(drivers) == len(self.drivers) and \
+            if hasattr(self, 'drivers') and len(drivers) == len(self.drivers) and \
                     set([x.input_type for x in self.drivers.values()]) == set(['intensity']) and \
                     set([x.base_driver_id for x in self.drivers.values()]) == set([None]):
                 driver_mapping_data_type = 'intensity'
@@ -399,18 +372,21 @@ class DataObject(CsvDataObject):
                 current_geography = converted_geography
 
             total_driver = DfOper.mult([drivers_by_name[name].values for name in denominator_drivers])
-            self.geo_map(current_geography=current_geography, attr=map_to, converted_geography=cfg.disagg_geography,
+            self.geo_map(current_geography=current_geography, attr=map_to, converted_geography=GeoMapper.disagg_geography,
                          current_data_type='intensity')
 
             setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver)))
-            self.geo_map(current_geography=cfg.disagg_geography, attr=map_to, converted_geography=current_geography,
+            self.geo_map(current_geography=GeoMapper.disagg_geography, attr=map_to, converted_geography=current_geography,
                          current_data_type='total')
 
             # the datatype is now total
             current_data_type = 'total'
 
         driver_names = [self.driver_1, self.driver_2]
-        driverDFs = [drivers_by_name[name].values for name in driver_names if name]
+        try:
+            driverDFs = [drivers_by_name[name].values for name in driver_names if name]
+        except:
+            pdb.set_trace()
         # drivers = [self.drivers[key].values for key in driver_names]
 
         if additional_drivers is not None:

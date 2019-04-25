@@ -17,8 +17,8 @@ import cPickle as pickle
 import os
 import logging
 import pdb
-import traceback
 import pathos
+import helper_multiprocess
 
 from csvdb import CsvDatabase
 from . import config as cfg
@@ -78,9 +78,10 @@ class Shapes(object):
         db = CsvDatabase.get_database(database_path)
         db.shapes.load_all()
         self.cfg_weather_years = [int(y) for y in cfg.getParam('weather_years').split(',')]
-        self.set_active_dates()
+        self.active_dates_index = self.get_active_dates(self.cfg_weather_years)
+        self.active_dates_index_unique = self.active_dates_index.unique()
+        self.time_slice_elements = create_time_slice_elements(self.active_dates_index)
         self.num_active_years = num_active_years(self.active_dates_index)
-        self.cfg_outputs_timezone = pytz.timezone(cfg.getParam('dispatch_outputs_timezone'))
         self.cfg_hash_tuple = self.get_hash_tuple()
         self.cfg_hash = hash(self.cfg_hash_tuple)
 
@@ -93,9 +94,22 @@ class Shapes(object):
             if meta['name'] not in db.shapes.slices.keys():
                 logging.error('Skipping shape {}: cannot find shape data'.format(meta['name']))
                 continue
-            self.data[meta['name']] = Shape(meta, db.shapes.get_slice(meta['name']), self)
+            if meta['is_active']:
+                self.data[meta['name']] = Shape(meta, db.shapes.get_slice(meta['name']),
+                                                  self.active_dates_index,
+                                                  self.active_dates_index_unique,
+                                                  self.time_slice_elements,
+                                                  self.num_active_years)
 
         self.process_active_shapes()
+
+    @classmethod
+    def get_values(cls, key, database_path=None):
+        return cls.get_instance(database_path).data[key].values
+
+    @classmethod
+    def get_active_dates_index(cls, database_path=None):
+        return cls.get_instance(database_path).active_dates_index
 
     @classmethod
     def get_hash_tuple(cls):
@@ -105,7 +119,7 @@ class Shapes(object):
         return cfg_hash_tuple
 
     @classmethod
-    def get_instance(cls, database_path):
+    def get_instance(cls, database_path=None):
         if Shapes._instance is not None:
             return Shapes._instance
 
@@ -127,39 +141,26 @@ class Shapes(object):
             pickle.dump(Shapes._instance, outfile, pickle.HIGHEST_PROTOCOL)
         return Shapes._instance
 
-    def set_active_dates(self):
+    def get_active_dates(self, years):
         active_dates_index = []
-        for year in self.cfg_weather_years:
+        for year in years:
             start_date, end_date = DT.datetime(year, 1, 1), DT.datetime(year, 12, 31, 23)
+            # todo, change the frequency to change the timestep
             active_dates_index.append(pd.date_range(start_date, end_date, freq='H'))
-
-        self.active_dates_index = reduce(pd.DatetimeIndex.append, active_dates_index)
-        self.time_slice_elements = create_time_slice_elements(self.active_dates_index)
+        return reduce(pd.DatetimeIndex.append, active_dates_index)
 
     def process_active_shapes(self):
         logging.info(' mapping data for:')
 
-        if cfg.getParamAsBoolean('setup_parallel_process'):
-            pool = pathos.multiprocessing.Pool(processes=cfg.getParamAsInt('setup_num_cores'), maxtasksperchild=1)
-            shapes = pool.map(self.helper_multiprocess_process_shapes, self.data.values(), chunksize=1)
+        if cfg.getParamAsBoolean('parallel_process'):
+            pool = pathos.multiprocessing.Pool(processes=cfg.getParamAsInt('num_cores'), maxtasksperchild=1)
+            shapes = pool.map(helper_multiprocess.process_shapes, self.data.values(), chunksize=1)
             pool.close()
             pool.join()
             self.data = dict(zip(self.data.keys(), shapes))
         else:
             for id in self.data:
                 self.data[id].process_shape()
-
-    def helper_multiprocess_process_shapes(self, shape):
-        try:
-            db_path = cfg.getParam('database_path')
-            GeoMapper.get_instance(db_path)
-            # UnitConverter.get_instance(db_path)
-            shape.process_shape()
-        except Exception as e:
-            print 'Caught exception in shape {}'.format(shape.name)
-            traceback.print_exc()
-            raise e
-        return shape
 
     def slice_sensitivities(self, sensitivities):
         logging.info(' slicing shape sensitivities')
@@ -170,7 +171,7 @@ class Shapes(object):
             self.data[shape_name].slice_sensitivity(sensitivity_name)
 
 class Shape(DataObject):
-    def __init__(self, meta, timeseries, all_shapes):
+    def __init__(self, meta, raw_values, active_dates_index, active_dates_index_unique, time_slice_elements, num_active_years):
         self.name = meta['name']
         self.shape_type = meta['shape_type']
         self.input_type = meta['input_type']
@@ -183,87 +184,87 @@ class Shape(DataObject):
         self.geography_map_key = meta['geography_map_key']
         self.interpolation_method = meta['interpolation_method']
         self.extrapolation_method = meta['extrapolation_method']
-        self.all_shapes = all_shapes
+        self.active_dates_index = active_dates_index
+        self.active_dates_index_unique = active_dates_index_unique
+        self.time_slice_elements = time_slice_elements
+        self.num_active_years = num_active_years
 
         if self.shape_type=='weather date':
-            timeseries['weather_datetime'] = util.DateTimeLookup.lookup(timeseries['weather_datetime'])
-            timeseries['weather_datetime'].freq = 'H'
+            raw_values['weather_datetime'] = util.DateTimeLookup.lookup(raw_values['weather_datetime'])
+            raw_values['weather_datetime'].freq = 'H'
 
-        self.timeseries = timeseries.set_index([c for c in timeseries.columns if c!='value']).sort_index()
-        self.timeseries.index = self.timeseries.index.rename(self.geography, level='gau')
-        self.final_data = None
-        self.final_data_all_sensitivities = None
+        self.raw_values = raw_values.set_index([c for c in raw_values.columns if c!='value']).sort_index()
+        self.raw_values.index = self.raw_values.index.rename(self.geography, level='gau')
+        self.values = None
+        self.values_all_sensitivities = None
         self.extrapolation_growth = None
-        try:
-            self.timeseries = self.filter_foreign_gaus(self.timeseries)
-        except:
-            pdb.set_trace()
+        self.raw_values = self.filter_foreign_gaus(self.raw_values)
 
-    def filter_foreign_gaus(self, timeseries):
-        geographies_to_keep = GeoMapper.get_instance().geography_to_gau[self.geography]
-        keep_index = timeseries.index.get_level_values(self.geography).isin(geographies_to_keep)
-        timeseries = timeseries[keep_index].reset_index().set_index(timeseries.index.names)
-        return timeseries
+    def filter_foreign_gaus(self, raw_values):
+        geographies_to_keep = GeoMapper.geography_to_gau[self.geography]
+        keep_index = raw_values.index.get_level_values(self.geography).isin(geographies_to_keep)
+        raw_values = raw_values[keep_index].reset_index().set_index(raw_values.index.names)
+        return raw_values
 
     def make_flat_load_shape(self, index, column='value', num_active_years=None):
         assert 'weather_datetime' in index.names
         flat_shape = util.empty_df(fill_value=1., index=index, columns=[column])
         group_to_normalize = [n for n in flat_shape.index.names if n!='weather_datetime']
-        num_active_years =  self.num_active_years if num_active_years is None else num_active_years
+        num_active_years = num_active_years or self.num_active_years
         flat_shape = flat_shape.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*num_active_years
         return flat_shape
 
     def slice_sensitivity(self, sensitivity_name):
         # if the shape doesn't have sensitivities, we don't want to copy it
-        if self.final_data_all_sensitivities is None and 'sensitivity' not in self.final_data.index.names:
+        if self.values_all_sensitivities is None and 'sensitivity' not in self.values.index.names:
             return
 
         # because we are replacing final data, we need to keep a record of the unsliced data for the next sensitivity
-        if self.final_data_all_sensitivities is None:
-            self.final_data_all_sensitivities = self.final_data.copy()
+        if self.values_all_sensitivities is None:
+            self.values_all_sensitivities = self.values.copy()
 
-        if sensitivity_name not in self.final_data_all_sensitivities.index.get_level_values('sensitivity').unique():
+        if sensitivity_name not in self.values_all_sensitivities.index.get_level_values('sensitivity').unique():
             raise ValueError('Sensitivity name {} not found in shape {}'.format(sensitivity_name, self.name))
 
-        self.final_data = self.final_data_all_sensitivities.xs(sensitivity_name, level='sensitivity')
+        self.values = self.values_all_sensitivities.xs(sensitivity_name, level='sensitivity')
 
-    def create_empty_shape_data(self):
-        self._active_time_keys = [ind for ind in self.timeseries.index.names if ind in Shapes.time_slice_col]
-        self._active_time_dict = dict([(ind, loc) for loc, ind in enumerate(self.timeseries.index.names) if ind in Shapes.time_slice_col])
+    def create_empty_shape_data(self, raw_values):
+        self._active_time_keys = [ind for ind in raw_values.index.names if ind in Shapes.time_slice_col]
+        self._active_time_dict = dict([(ind, loc) for loc, ind in enumerate(raw_values.index.names) if ind in Shapes.time_slice_col])
 
-        self._non_time_keys = [ind for ind in self.timeseries.index.names if ind not in self._active_time_keys]
-        self._non_time_dict = dict([(ind, loc) for loc, ind in enumerate(self.timeseries.index.names) if ind in self._non_time_keys])
+        self._non_time_keys = [ind for ind in raw_values.index.names if ind not in self._active_time_keys]
+        self._non_time_dict = dict([(ind, loc) for loc, ind in enumerate(raw_values.index.names) if ind in self._non_time_keys])
 
-        data = pd.DataFrame(index=pd.Index(self.all_shapes.active_dates_index, name='weather_datetime'))
+        data = pd.DataFrame(index=pd.Index(self.active_dates_index, name='weather_datetime'))
 
         for ti in self._active_time_keys:
-            #hour is given as 1-24 not 0-23
-            if ti=='hour' and min(self.timeseries.index.levels[self._active_time_dict['hour']])==1 and max(self.timeseries.index.levels[self._active_time_dict['hour']])==24:
+            # hour is given as 1-24 not 0-23
+            if ti == 'hour' and min(raw_values.index.levels[self._active_time_dict['hour']]) == 1 and max(raw_values.index.levels[self._active_time_dict['hour']]) == 24:
                 # the minimum value is 1 and max value is 24
-                data[ti] = self.all_shapes.time_slice_elements['hour24']
+                data[ti] = self.time_slice_elements['hour24']
             else:
-                data[ti] = self.all_shapes.time_slice_elements[ti]
+                data[ti] = self.time_slice_elements[ti]
 
-        non_time_levels = [list(l) for l, n in zip(self.timeseries.index.levels, self.timeseries.index.names) if n in self._non_time_keys]
+        non_time_levels = [list(l) for l, n in zip(raw_values.index.levels, raw_values.index.names) if n in self._non_time_keys]
         # this next step could be done outside of a for loop, but I'm not able to get the Pandas syntax to take
         for name, level in zip(self._non_time_keys, non_time_levels):
-            data = pd.concat([data]*len(level), keys=level, names=[name])
+            data = pd.concat([data] * len(level), keys=level, names=[name])
 
         data.reset_index(inplace=True)
 
-        return data.set_index(self._non_time_keys+self._active_time_keys+['weather_datetime']).sort_index()
+        return data
 
-    def standardize_shape_type(self, timeseries):
+    def standardize_shape_type(self, raw_values):
         if self.shape_type=='weather date':
-            final_data = util.reindex_df_level_with_new_elements(timeseries, 'weather_datetime', self.all_shapes.active_dates_index_unique) # this step is slow, consider replacing
+            final_data = util.reindex_df_level_with_new_elements(raw_values, 'weather_datetime', self.active_dates_index) # this step is slow, consider replacing
             if final_data.isnull().values.any():
                 # do some interpolation to fill missing values, that that still doesn't work to remove the NaNs, we raise an error
                 final_data = final_data.groupby(level=[name for name in final_data.index.names if name!='weather_datetime']).apply(pd.DataFrame.interpolate).ffill().bfill()
                 if final_data.isnull().values.any():
                     raise ValueError('Weather data for shape {} did not give full coverage of the active dates:\n {}'.format(self.name, final_data[final_data.isnull().values]))
         elif self.shape_type=='time slice':
-            final_data = self.create_empty_shape_data(timeseries)
-            final_data = pd.merge(final_data, timeseries.reset_index(), how='left')
+            final_data = self.create_empty_shape_data(raw_values)
+            final_data = pd.merge(final_data, raw_values.reset_index(), how='left')
             final_data = final_data.set_index([c for c in final_data.columns if c!='value']).sort_index()
             if self.shape_unit_type=='energy':
                 if 'week' in self._active_time_keys:
@@ -284,7 +285,7 @@ class Shape(DataObject):
 
     def process_shape(self):
         logging.info('    shape: ' + self.name)
-        final_data = self.standardize_shape_type(self.timeseries)
+        final_data = self.standardize_shape_type(self.raw_values)
         logging.debug('        ...filtering geographies')
         final_data = GeoMapper.get_instance().filter_extra_geos_from_df(final_data)
         logging.debug('        ...mapping to time zones')
@@ -297,15 +298,13 @@ class Shape(DataObject):
         final_data = self.sum_over_time_zone(final_data)
         #it's much easier to work with if we just strip out the timezone information at this point
         final_data = final_data.tz_localize(None, level='weather_datetime')
-        if 'year' in final_data.index.names:
-            final_data = self.clean_timeseries(df=final_data)
         logging.debug('        ...normalizing shapes')
         final_data = self.normalize(final_data)
         if final_data.sum().sum() == 0:
             raise ValueError("'{}' shape data is all zeros after processing. This indicates an error upstream and if not fixed will cause issues downstream.".format(self.name))
-        self.final_data = final_data
+        self.values = final_data
         #raw values can be very large, so we delete it in this one case
-        del self.timeseries, self.all_shapes
+        del self.raw_values
 
     def add_timeshift_type(self):
         """Later these shapes will need a level called timeshift type, and it is faster to add it now if it doesn't already have it"""
@@ -322,13 +321,13 @@ class Shape(DataObject):
             normalization_factors = combined_map_df.groupby(level=self.primary_geography).sum()
             norm_df = util.DfOper.divi((df, normalization_factors))
 
-            temp = norm_df.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.all_shapes.num_active_years
+            temp = norm_df.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
             indexer = util.level_specific_indexer(temp, 'dispatch_constraint', [['p_min', 'p_max']])
             temp.loc[indexer, :] = norm_df.loc[indexer, :]
 
             norm_df = temp
         else:
-            norm_df = df.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.all_shapes.num_active_years
+            norm_df = df.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
 
         return norm_df
 
@@ -348,7 +347,7 @@ class Shape(DataObject):
     def geomap_to_time_zone(self, df):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table
         """
-        geography_map_key = self.geography_map_key or GeoMapper.cfg_default_geography_map_key
+        geography_map_key = self.geography_map_key or GeoMapper.default_geography_map_key
 
         # create dataframe with map from one geography to another
         # we always want to normalize as a total here because we will re-sum over time zone later
@@ -361,12 +360,12 @@ class Shape(DataObject):
     def geomap_to_primary_geography(self, df):
         """ maps the dataframe to primary geography
         """
-        geography_map_key = self.geography_map_key or GeoMapper.cfg_default_geography_map_key
+        geography_map_key = self.geography_map_key or GeoMapper.default_geography_map_key
+        # here we map to two geographies, the time zone and the model primary geography. If we don't do this it causes a bug whenever disaggregating input data
+        self.map_df_primary = GeoMapper.get_instance().map_df(self.geography, ['time zone', self.primary_geography], normalize_as=self.input_type, map_key=geography_map_key)
+        mapped_data = util.DfOper.mult((df, self.map_df_primary), fill_value=np.nan)
 
-        self.map_df_primary = GeoMapper.get_instance().map_df(self.geography, self.primary_geography, normalize_as=self.input_type, map_key=geography_map_key)
-        mapped_data = util.DfOper.mult((df, self.map_df_primary), fill_value=None)
-
-        if self.geography!=self.primary_geography and self.geography!='time zone':
+        if self.geography != self.primary_geography and self.geography != 'time zone':
             mapped_data = util.remove_df_levels(mapped_data, self.geography)
         mapped_data = mapped_data.swaplevel('weather_datetime', -1)
 
@@ -374,22 +373,24 @@ class Shape(DataObject):
         return mapped_data
 
     def sum_over_time_zone(self, df):
-        if self.primary_geography=='time zone':
+        if self.primary_geography == 'time zone':
             return df
 
-        levels = [ind for ind in df.index.names if ind!='time zone']
+        levels = [ind for ind in df.index.names if ind != 'time zone']
         df_no_tz = df.groupby(level=levels).sum()
         return df_no_tz.sort_index()
 
     def standardize_time_across_timezones(self, df):
-        tz = self.all_shapes.cfg_outputs_timezone
-        offset = (tz.utcoffset(DT.datetime(2015, 1, 1)) + tz.dst(DT.datetime(2015, 1, 1))).total_seconds()/60.
-        self.final_dates_index = pd.date_range(min(self.all_shapes.active_dates_index), periods=len(self.all_shapes.active_dates_index), freq='H', tz=pytz.FixedOffset(offset))
+        tz = pytz.timezone(cfg.getParam('dispatch_outputs_timezone'))
+        offset = (tz.utcoffset(DT.datetime(2015, 1, 1)) + tz.dst(DT.datetime(2015, 1, 1))).total_seconds() / 60.
+        new_index = pd.DatetimeIndex(self.active_dates_index_unique, tz=pytz.FixedOffset(offset))
+        # if we have hydro year, when this does a reindex, it can introduce NaNs, so we want to remove them after
+        assert not df.isnull().any().any()
+        standardize_df = util.reindex_df_level_with_new_elements(df.copy(), 'weather_datetime', new_index)
 
-        standardize_df = util.reindex_df_level_with_new_elements(df.copy(), 'weather_datetime', self.final_dates_index)
-
-        levels = [n for n in df.index.names if n!='weather_datetime']
+        levels = [n for n in df.index.names if n != 'weather_datetime']
         standardize_df = standardize_df.groupby(level=levels).fillna(method='bfill').fillna(method='ffill')
+        standardize_df = standardize_df[~standardize_df.isnull().values]
 
         return standardize_df
 
@@ -401,23 +402,22 @@ class Shape(DataObject):
             # get the time zone name and figure out the offset from UTC
             tz = pytz.timezone(self.time_zone or format_timezone_str(tz))
             _dt = DT.datetime(2015, 1, 1)
-            offset = (tz.utcoffset(_dt) + tz.dst(_dt)).total_seconds()/60.
+            offset = (tz.utcoffset(_dt) + tz.dst(_dt)).total_seconds() / 60.
             # localize and then convert to dispatch_outputs_timezone
             df2 = group.tz_localize(pytz.FixedOffset(offset), level='weather_datetime')
             local_df.append(df2)
 
-        tz = self.all_shapes.cfg_outputs_timezone
-        offset = (tz.utcoffset(DT.datetime(2015, 1, 1)) + tz.dst(DT.datetime(2015, 1, 1))).total_seconds()/60.
+        tz = pytz.timezone(cfg.getParam('dispatch_outputs_timezone'))
+        offset = (tz.utcoffset(DT.datetime(2015, 1, 1)) + tz.dst(DT.datetime(2015, 1, 1))).total_seconds() / 60.
         local_df = pd.concat(local_df).tz_convert(pytz.FixedOffset(offset), level='weather_datetime')
         return local_df.sort_index()
-
 
     def make_flat_load_shape(self, index, column='value', num_active_years=None):
         assert 'weather_datetime' in index.names
         flat_shape = util.empty_df(fill_value=1., index=index, columns=[column])
-        group_to_normalize = [n for n in flat_shape.index.names if n!='weather_datetime']
-        num_active_years =  self.all_shapes.num_active_years if num_active_years is None else num_active_years
-        flat_shape = flat_shape.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*num_active_years
+        group_to_normalize = [n for n in flat_shape.index.names if n != 'weather_datetime']
+        num_active_years = self.all_shapes.num_active_years if num_active_years is None else num_active_years
+        flat_shape = flat_shape.groupby(level=group_to_normalize).transform(lambda x: x / x.sum()) * num_active_years
         return flat_shape
 
     @staticmethod

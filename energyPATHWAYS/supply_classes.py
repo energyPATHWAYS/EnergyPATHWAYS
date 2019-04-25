@@ -10,57 +10,69 @@ from datamapfunctions import DataMapFunctions, Abstract
 import util
 import numpy as np    
 import config as cfg
+from geomapper import GeoMapper
+from unit_converter import UnitConverter
+from .generated import schema
         
-class SupplyStock(Stock, StockItem):
-    def __init__(self, id, drivers, sql_id_table='SupplyStock', sql_data_table='SupplyStockData',
-                 primary_key='node_id', **kwargs):
-        Stock.__init__(self, id, drivers, sql_id_table='SupplyStock', sql_data_table='SupplyStockData',
-                     primary_key='node_id', **kwargs)
-        StockItem.__init__(self)
-        
-    def return_stock_slice(self, elements):
-        group = self.specified.loc[elements].transpose()
+# class SupplyStock(Stock, StockItem):
+#     def __init__(self, id, drivers, sql_id_table='SupplyStock', sql_data_table='SupplyStockData',
+#                  primary_key='node_id', **kwargs):
+#         Stock.__init__(self, id, drivers, sql_id_table='SupplyStock', sql_data_table='SupplyStockData',
+#                      primary_key='node_id', **kwargs)
+#         StockItem.__init__(self)
+#
+#     def return_stock_slice(self, elements):
+#         group = self.specified.loc[elements].transpose()
+#
+#         return group
 
-        return group
+class SupplyStock(schema.SupplyStock, Stock):
+    def __init__(self, supply_node, scenario=None):
+        super(SupplyStock, self).__init__(supply_node=supply_node, scenario=scenario)
+        self.init_from_db(supply_node, scenario)
+        self.input_type = 'total'
+        self.drivers = None
+        self.scenario = scenario
 
 class SupplySales(Abstract, DataMapFunctions):
-    def __init__(self, id, supply_node_id, sql_id_table, sql_data_table, primary_key, data_id_key, reference=False, scenario=None):
-        self.id = id
+    def __init__(self):
+        # self.id = id
         self.input_type = 'total'
-        self.supply_node_id = supply_node_id
-        self.sql_id_table = sql_id_table
-        self.sql_data_table = sql_data_table
-        self.scenario = scenario
+        self.primary_geography = GeoMapper.supply_primary_geography
+        # self.supply_node_id = supply_node_id
+        # self.sql_id_table = sql_id_table
+        # self.sql_data_table = sql_data_table
+        # self.scenario = scenario
         self.mapped = False
-        if reference:
-            for col, att in util.object_att_from_table(self.sql_id_table, self.supply_node_id, primary_key):
-                setattr(self, col, att)
-            DataMapFunctions.__init__(self, data_id_key)
-            self.read_timeseries_data(supply_node_id=self.supply_node_id)
-            self.raw_values = util.remove_df_levels(self.raw_values, 'supply_technology')
-        else:
-            # measure specific sales does not require technology filtering
-            Abstract.__init__(self, self.id, primary_key=primary_key, data_id_key=data_id_key)
+        # if reference:
+        #     for col, att in util.object_att_from_table(self.sql_id_table, self.supply_node_id, primary_key):
+        #         setattr(self, col, att)
+        #     DataMapFunctions.__init__(self, data_id_key)
+        #     self.read_timeseries_data(supply_node_id=self.supply_node_id)
+        #     self.raw_values = util.remove_df_levels(self.raw_values, 'supply_technology')
+        # else:
+        #     # measure specific sales does not require technology filtering
+        #     Abstract.__init__(self, self.id, primary_key=primary_key, data_id_key=data_id_key)
 
     def calculate(self, vintages, years, interpolation_method=None, extrapolation_method=None):
         self.vintages = vintages
         self.years = years
-        self.remap(time_index_name='vintage',fill_timeseries=True, converted_geography=cfg.supply_primary_geography, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method, fill_value=np.nan)
+        self.remap(time_index_name='vintage',fill_timeseries=True, converted_geography=GeoMapper.supply_primary_geography, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method, fill_value=np.nan)
         if cfg.rio_supply_run:
             self.values[self.values.index.get_level_values('vintage')>min(cfg.supply_years)] = np.nan
         self.convert()
 
     def convert(self):
         model_energy_unit = cfg.calculation_energy_unit
-        model_time_step = cfg.cfgfile.get('case', 'time_step')
+        model_time_step = cfg.getParam('time_step')
         if self.time_unit is not None:
             # if sales has a time_unit, then the unit is energy and must be converted to capacity
-            self.values = util.unit_convert(self.values, unit_from_num=self.capacity_or_energy_unit,
+            self.values = UnitConverter.unit_convert(self.values, unit_from_num=self.capacity_or_energy_unit,
                                             unit_from_den=self.time_unit, unit_to_num=model_energy_unit,
                                             unit_to_den=model_time_step)
         else:
             # if sales is a capacity unit, the model must convert the unit type to an energy unit for conversion ()
-            self.values = util.unit_convert(self.values, unit_from_num=cfg.ureg.Quantity(self.capacity_or_energy_unit)
+            self.values = UnitConverter.unit_convert(self.values, unit_from_num=cfg.ureg.Quantity(self.capacity_or_energy_unit)
                                                                            * cfg.ureg.Quantity(model_time_step),
                                             unit_from_den=model_time_step,
                                             unit_to_num=model_energy_unit,
@@ -75,30 +87,31 @@ class SupplySales(Abstract, DataMapFunctions):
             self.values = util.expand_multi(self.values, needed_sales_share_levels,
                                             needed_sales_names).sort_index()
 
-class SupplySalesShare(Abstract, DataMapFunctions):
-    def __init__(self, id, supply_node_id, sql_id_table, sql_data_table, primary_key, data_id_key, reference=False, scenario=None):
-        self.id = id
-        self.supply_node_id = supply_node_id
-        self.sql_id_table = sql_id_table
-        self.sql_data_table = sql_data_table
+class SupplySalesObj(schema.SupplySales, SupplySales):
+    def __init__(self, supply_technology, scenario=None):
+        schema.SupplySales.__init__(self, supply_technology=supply_technology, scenario=scenario)
+        self.init_from_db(supply_technology, scenario)
+        SupplySales.__init__(self)
         self.scenario = scenario
-        self.mapped = False
+
+
+class SupplySalesMeasuresObj(schema.SupplySalesMeasures, SupplySales):
+    def __init__(self, name, supply_node, scenario=None):
+        schema.SupplySalesMeasures.__init__(self, name=name, scenario=scenario)
+        self.init_from_db(name, scenario, supply_node=supply_node)
+        SupplySales.__init__(self)
+        self.scenario = scenario
+
+class SupplySalesShare(object):
+    def __init__(self):
         self.input_type = 'intensity'
-        if reference:
-            for col, att in util.object_att_from_table(self.sql_id_table, self.supply_node_id, primary_key):
-                if att is not None:
-                    setattr(self, col, att)
-            DataMapFunctions.__init__(self, data_id_key)
-            self.read_timeseries_data(supply_node_id=self.supply_node_id)
-            self.raw_values = util.remove_df_levels(self.raw_values, ['supply_node', 'supply_technology'])
-        else:
-            # measure specific sales share does not require technology filtering
-            Abstract.__init__(self, self.id, primary_key=primary_key, data_id_key=data_id_key)
+        self.primary_geography = GeoMapper.supply_primary_geography
+        self.mapped = False
 
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        self.remap(time_index_name='vintage', converted_geography=cfg.supply_primary_geography,)
+        self.remap(time_index_name='vintage', converted_geography=GeoMapper.supply_primary_geography,)
 
     def reconcile_with_stock_levels(self, needed_sales_share_levels, needed_sales_share_names):
         if self.input_type == 'intensity':
@@ -160,9 +173,30 @@ class SupplySalesShare(Abstract, DataMapFunctions):
         ss_array[vintage, :, retiring] = (ss_array[vintage, :, retiring].T / sums[vintage, retiring]).T
         return ss_array
 
-class SupplySpecifiedStock(SpecifiedStock):
-    def __init__(self, id, sql_id_table, sql_data_table, scenario):
-        SpecifiedStock.__init__(self, id, sql_id_table, sql_data_table, scenario)
+class SupplySalesShareObj(schema.SupplySalesShare, SupplySalesShare):
+    def __init__(self, supply_technology, scenario=None):
+        schema.SupplySalesShare.__init__(self, supply_technology=supply_technology, scenario=scenario)
+        self.init_from_db(supply_technology, scenario)
+        SupplySalesShare.__init__(self)
+        self.scenario = scenario
+
+
+class SupplySalesShareMeasuresObj(schema.SupplySalesShareMeasures, SupplySalesShare):
+    def __init__(self, name, supply_node, scenario=None):
+        schema.SupplySalesShareMeasures.__init__(self, name=name, scenario=scenario)
+        self.init_from_db(name, scenario, supply_node=supply_node)
+        SupplySalesShare.__init__(self)
+        self.scenario = scenario
+
+
+class SupplySpecifiedStock(schema.SupplyStockMeasures, SpecifiedStock):
+    def __init__(self, name, supply_node, scenario):
+        schema.SupplyStockMeasures.__init__(self, name=name, scenario=scenario)
+        self.init_from_db(name, scenario, supply_node=supply_node)
+        self.primary_geography = GeoMapper.supply_primary_geography
+        self.scenario = scenario
+        self.mapped = False
+        self.input_type='total'
         
     def convert(self):
         """
@@ -170,13 +204,13 @@ class SupplySpecifiedStock(SpecifiedStock):
         """
         if self.values is not None:
             model_energy_unit = cfg.calculation_energy_unit
-            model_time_step = cfg.cfgfile.get('case', 'time_step')
+            model_time_step = cfg.getParam('time_step')
             if self.time_unit is not None:
-                self.values = util.unit_convert(self.values, unit_from_num=self.capacity_or_energy_unit,
+                self.values = UnitConverter.unit_convert(self.values, unit_from_num=self.capacity_or_energy_unit,
                                             unit_from_den=self.time_unit, unit_to_num=model_energy_unit,
                                             unit_to_den=model_time_step)
             else:
-               self.values = util.unit_convert(self.values, unit_from_num=cfg.ureg.Quantity(self.capacity_or_energy_unit)
+               self.values = UnitConverter.unit_convert(self.values, unit_from_num=cfg.ureg.Quantity(self.capacity_or_energy_unit)
                                                                            * cfg.ureg.Quantity(model_time_step),
                                             unit_from_den = model_time_step,
                                             unit_to_num=model_energy_unit,
@@ -200,7 +234,7 @@ class RioSpecifiedStock(DataMapFunctions):
         self.years = years
         if self.raw_values is not None:
             try:
-                self.remap(fill_value=np.nan, converted_geography=cfg.supply_primary_geography)
+                self.remap(fill_value=np.nan, converted_geography=GeoMapper.supply_primary_geography)
             except:
                 print self.raw_values
                 raise
@@ -213,13 +247,13 @@ class RioSpecifiedStock(DataMapFunctions):
         """
         if self.values is not None:
             model_energy_unit = cfg.calculation_energy_unit
-            model_time_step = cfg.cfgfile.get('case', 'time_step')
+            model_time_step = cfg.getParam('time_step')
             if self.time_unit is not None:
-                self.values = util.unit_convert(self.values/self.input_timestep, unit_from_num=self.capacity_or_energy_unit,
+                self.values = UnitConverter.unit_convert(self.values/self.input_timestep, unit_from_num=self.capacity_or_energy_unit,
                                                 unit_from_den=self.time_unit, unit_to_num=model_energy_unit,
                                                 unit_to_den=model_time_step)
             else:
-                self.values = util.unit_convert(self.values/self.input_timestep, unit_from_num=cfg.ureg.Quantity(self.capacity_or_energy_unit)
+                self.values = UnitConverter.unit_convert(self.values/self.input_timestep, unit_from_num=cfg.ureg.Quantity(self.capacity_or_energy_unit)
                                                                            * cfg.ureg.Quantity(model_time_step),
                                                 unit_from_den=model_time_step,
                                                 unit_to_num=model_energy_unit,

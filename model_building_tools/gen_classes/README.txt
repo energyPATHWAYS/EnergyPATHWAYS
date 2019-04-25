@@ -45,6 +45,7 @@ To regenerate the schema and text mappings:
 
 
 python psql_to_csv.py -d 190220_SDGE -D C:\github\test\190220_SDGE.db
-python denormalize.py -d C:\github\test\190220_SDGE.db -o C:\github\test\merged.db -m ../../energyPATHWAYS/generated/new_database.py -c EnergyPathwaysDatabase
+python denormalize.py -d C:\github\test\190220_SDGE.db -o C:\github\test\merged.db -m "" -c EnergyPathwaysDatabase
 genClasses -o schema.py -d C:\github\EP_US_db\180728_US.db -D energyPATHWAYS.generated.new_database.EnergyPathwaysDatabase -c energyPATHWAYS.data_object.DataObject
+genClasses -o schema.py -d C:\github\test\merged.db -D energyPATHWAYS.generated.new_database.EnergyPathwaysDatabase -c energyPATHWAYS.data_object.DataObject
 cp -p schema.py ../../energyPATHWAYS/generated/schema.py

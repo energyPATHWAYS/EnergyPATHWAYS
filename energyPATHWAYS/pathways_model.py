@@ -14,6 +14,7 @@ import pdb
 from scenario_loader import Scenario
 import copy
 import numpy as np
+from geomapper import GeoMapper
 
 class PathwaysModel(object):
     """
@@ -107,10 +108,10 @@ class PathwaysModel(object):
 
     def pass_supply_results_back_to_demand(self):
         # we need to geomap to the combined output geography
-        emissions_demand_link = cfg.geo.geo_map(self.supply.emissions_demand_link, cfg.supply_primary_geography, cfg.combined_outputs_geography, 'intensity')
-        demand_emissions_rates = cfg.geo.geo_map(self.supply.demand_emissions_rates, cfg.supply_primary_geography, cfg.combined_outputs_geography, 'intensity')
-        energy_demand_link = cfg.geo.geo_map(self.supply.energy_demand_link, cfg.supply_primary_geography, cfg.combined_outputs_geography, 'intensity')
-        cost_demand_link = cfg.geo.geo_map(self.supply.cost_demand_link, cfg.supply_primary_geography, cfg.combined_outputs_geography, 'intensity')
+        emissions_demand_link = GeoMapper.geo_map(self.supply.emissions_demand_link, GeoMapper.supply_primary_geography, cfg.combined_outputs_geography, 'intensity')
+        demand_emissions_rates = GeoMapper.geo_map(self.supply.demand_emissions_rates, GeoMapper.supply_primary_geography, cfg.combined_outputs_geography, 'intensity')
+        energy_demand_link = GeoMapper.geo_map(self.supply.energy_demand_link, GeoMapper.supply_primary_geography, cfg.combined_outputs_geography, 'intensity')
+        cost_demand_link = GeoMapper.geo_map(self.supply.cost_demand_link, GeoMapper.supply_primary_geography, cfg.combined_outputs_geography, 'intensity')
 
         logging.info("Calculating link to supply")
         self.demand.link_to_supply(emissions_demand_link, demand_emissions_rates, energy_demand_link, cost_demand_link)
@@ -176,7 +177,7 @@ class PathwaysModel(object):
                 Output.write(result_df, attribute+'.csv', os.path.join(cfg.workingdir, result_name))
         
     def calculate_tco(self):
-        cost_unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
+        cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
         initial_vintage = min(cfg.supply_years)
         supply_side_df = self.demand.outputs.demand_embodied_energy_costs_tco
         supply_side_df = supply_side_df[supply_side_df.index.get_level_values('vintage')>=initial_vintage]
@@ -203,7 +204,7 @@ class PathwaysModel(object):
         self.outputs.c_tco = self.outputs.return_cleaned_output('c_tco')
         
     def calculate_payback(self):
-        cost_unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
+        cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
         initial_vintage = min(cfg.supply_years)
         supply_side_df = self.demand.outputs.demand_embodied_energy_costs_payback
         supply_side_df = supply_side_df[supply_side_df.index.get_level_values('vintage')>=initial_vintage]
@@ -240,7 +241,7 @@ class PathwaysModel(object):
         self.outputs.c_payback = self.outputs.return_cleaned_output('c_payback')
         
     def calculate_d_payback(self):
-        cost_unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
+        cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
         initial_vintage = min(cfg.supply_years)
         demand_side_df = self.demand.d_annual_costs_payback
         demand_side_df.columns = ['value']
@@ -302,18 +303,18 @@ class PathwaysModel(object):
         #calculate and format export costs
         if self.supply.export_costs is None:
             return None
-        export_costs = cfg.geo.geo_map(self.supply.export_costs.copy(), cfg.supply_primary_geography, cfg.combined_outputs_geography, 'total')
+        export_costs = GeoMapper.geo_map(self.supply.export_costs.copy(), GeoMapper.supply_primary_geography, cfg.combined_outputs_geography, 'total')
         export_costs = Output.clean_df(export_costs)
         util.replace_index_name(export_costs, 'FINAL_ENERGY', 'SUPPLY_NODE_EXPORT')
         export_costs = util.add_to_df_index(export_costs, names=['EXPORT/DOMESTIC', "SUPPLY/DEMAND"], keys=["EXPORT", "SUPPLY"])
-        cost_unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
+        cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
         export_costs.columns = [cost_unit.upper()]
         return export_costs
 
     def calc_and_format_embodied_costs(self):
         #calculate and format emobodied supply costs
         embodied_costs = Output.clean_df(self.demand.outputs.demand_embodied_energy_costs)
-        cost_unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
+        cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
         embodied_costs.columns = [cost_unit.upper()]
         embodied_costs = util.add_to_df_index(embodied_costs, names=['EXPORT/DOMESTIC', "SUPPLY/DEMAND"], keys=["DOMESTIC","SUPPLY"])
         return embodied_costs
@@ -322,7 +323,7 @@ class PathwaysModel(object):
         #calculte and format direct demand costs
         if self.demand.outputs.d_levelized_costs is None:
             return None
-        direct_costs = cfg.geo.geo_map(self.demand.outputs.d_levelized_costs.copy(), cfg.demand_primary_geography, cfg.combined_outputs_geography, 'total')
+        direct_costs = GeoMapper.geo_map(self.demand.outputs.d_levelized_costs.copy(), GeoMapper.demand_primary_geography, cfg.combined_outputs_geography, 'total')
         levels_to_keep = [x for x in cfg.output_combined_levels if x in direct_costs.index.names]
         direct_costs = direct_costs.groupby(level=levels_to_keep).sum()
         direct_costs = Output.clean_df(direct_costs)
@@ -330,7 +331,7 @@ class PathwaysModel(object):
         return direct_costs
 
     def calculate_combined_cost_results(self):
-        cost_unit = cfg.cfgfile.get('case','currency_year_id') + " " + cfg.cfgfile.get('case','currency_name')
+        cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
         export_costs = self.calc_and_format_export_costs()
         embodied_costs = self.calc_and_format_embodied_costs()
         direct_costs = self.calc_and_format_direct_demand_costs()
@@ -344,9 +345,9 @@ class PathwaysModel(object):
         #calculate and format export emissions
         if self.supply.export_emissions is None:
             return None
-        export_emissions = cfg.geo.geo_map(self.supply.export_emissions.copy(), cfg.supply_primary_geography, cfg.combined_outputs_geography, 'total')
+        export_emissions = GeoMapper.geo_map(self.supply.export_emissions.copy(), GeoMapper.supply_primary_geography, cfg.combined_outputs_geography, 'total')
         if 'supply_geography' not in cfg.output_combined_levels:
-            util.remove_df_levels(export_emissions, cfg.supply_primary_geography +'_supply')
+            util.remove_df_levels(export_emissions, GeoMapper.supply_primary_geography +'_supply')
         export_emissions = Output.clean_df(export_emissions)
         util.replace_index_name(export_emissions, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
         export_emissions = util.add_to_df_index(export_emissions, names=['EXPORT/DOMESTIC', "SUPPLY/DEMAND"], keys=["EXPORT", "SUPPLY"])
@@ -379,13 +380,13 @@ class PathwaysModel(object):
         util.replace_index_name(self.outputs.c_emissions, cfg.combined_outputs_geography.upper() +'-EMITTED', cfg.combined_outputs_geography.upper() +'_SUPPLY')
         util.replace_index_name(self.outputs.c_emissions, cfg.combined_outputs_geography.upper() +'-CONSUMED', cfg.combined_outputs_geography.upper())
         self.outputs.c_emissions= self.outputs.c_emissions[self.outputs.c_emissions['VALUE']!=0]
-        emissions_unit = cfg.cfgfile.get('case','mass_unit')
+        emissions_unit = cfg.getParam('mass_unit')
         self.outputs.c_emissions.columns = [emissions_unit.upper()]
 
     def calc_and_format_export_energy(self):
         if self.supply.export_energy is None:
             return None
-        export_energy = cfg.geo.geo_map(self.supply.export_energy.copy(), cfg.supply_primary_geography, cfg.combined_outputs_geography, 'total')
+        export_energy = GeoMapper.geo_map(self.supply.export_energy.copy(), GeoMapper.supply_primary_geography, cfg.combined_outputs_geography, 'total')
         export_energy = Output.clean_df(export_energy)
         util.replace_index_name(export_energy, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
         export_energy = util.add_to_df_index(export_energy, names=['EXPORT/DOMESTIC', "ENERGY ACCOUNTING"], keys=["EXPORT", "EMBODIED"])
@@ -398,9 +399,9 @@ class PathwaysModel(object):
         return embodied_energy
 
     def calc_and_format_direct_demand_energy(self):
-        demand_energy = cfg.geo.geo_map(self.demand.outputs.d_energy.copy(), cfg.demand_primary_geography, cfg.combined_outputs_geography, 'total')
+        demand_energy = GeoMapper.geo_map(self.demand.outputs.d_energy.copy(), GeoMapper.demand_primary_geography, cfg.combined_outputs_geography, 'total')
         demand_energy = Output.clean_df(demand_energy)
-        demand_energy = demand_energy[demand_energy.index.get_level_values('YEAR')>=int(cfg.cfgfile.get('case','current_year'))]
+        demand_energy = demand_energy[demand_energy.index.get_level_values('YEAR')>=cfg.getParamAsInt('current_year')]
         demand_energy = util.add_to_df_index(demand_energy, names=['EXPORT/DOMESTIC', "ENERGY ACCOUNTING"], keys=['DOMESTIC','FINAL'])
         return demand_energy
 
@@ -426,7 +427,7 @@ class PathwaysModel(object):
         self.outputs.c_energy.columns = [energy_unit.upper()]
 
     def export_io(self):
-        io_table_write_step = int(cfg.cfgfile.get('output_detail','io_table_write_step'))
+        io_table_write_step = cfg.getParamAsInt('io_table_write_step', 'output_detail')
         io_table_years = sorted([min(self.supply.years)] + range(max(self.supply.years), min(self.supply.years), -io_table_write_step))
         df_list = []
         for year in io_table_years:

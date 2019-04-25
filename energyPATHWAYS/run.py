@@ -27,6 +27,7 @@ import cProfile
 import traceback
 import pandas as pd
 import pdb
+import energyPATHWAYS.unit_converter as unit_converter
 
 model = None
 run_start_time = time.time()
@@ -78,7 +79,7 @@ def run(path, config, scenarios, load_demand=False, solve_demand=True, load_supp
         export_results=True, pickle_shapes=True, save_models=True, log_name=None, clear_results=False, subfolders=False,rio_scenario=None):
     global model
     path = os.getcwd() if path is None else path
-    cfg.initialize_config(path, config, log_name)
+    cfg.initialize_config()
     if not subfolders:
         GeoMapper.get_instance().log_geo()
 
@@ -91,9 +92,9 @@ def run(path, config, scenarios, load_demand=False, solve_demand=True, load_supp
 
     # Users may have specified a scenario using the full filename, but for our purposes the 'id' of the scenario
     # is just the part before the .json
-    scenarios = util.ensure_iterable_and_not_string(scenarios)
+    scenarios = util.ensure_iterable(scenarios)
     scenarios = [os.path.splitext(s)[0] for s in scenarios]
-    rio_scenario = [None]*len(scenarios) if rio_scenario is None else util.ensure_iterable_and_not_string(rio_scenario)
+    rio_scenario = [None]*len(scenarios) if rio_scenario is None else util.ensure_iterable(rio_scenario)
 
     combined_scenarios = zip(scenarios, rio_scenario)
     logging.info('Scenario run list: {}'.format(', '.join(scenarios)))
@@ -164,18 +165,19 @@ class SubsectorPerturbation(object):
 
 if __name__ == "__main__":
     workingdir = r'C:\github\EP_runs\csv_migration'
+    os.chdir(workingdir)
     config = 'config.INI'
     rio_scenario = [None]
     scenario = ['short']
 
     run(workingdir, config, scenario,
-    load_demand   = False,
-    solve_demand  = True,
+    load_demand   = True,
+    solve_demand  = False,
     load_supply   = False,
     solve_supply  = True,
-    export_results= False,
+    export_results= True,
     load_error    = False,
     pickle_shapes = True,
-    save_models   = False,
+    save_models   = True,
     clear_results = True,
     rio_scenario = rio_scenario)

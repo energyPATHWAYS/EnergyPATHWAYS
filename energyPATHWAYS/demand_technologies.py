@@ -11,16 +11,17 @@ from datamapfunctions import Abstract
 import numpy as np
 import copy
 import inspect
-from shared_classes import StockItem, SalesShare, SpecifiedStock
+from shared_classes import StockItem, DemandSalesShareMeasure, DemandSales, DemandStockMeasure
 import shape
 import logging
 import pdb
+from .generated import schema
+from unit_converter import UnitConverter
+from geomapper import GeoMapper
+from shape import Shapes
 
-
-class DemandTechCost(Abstract):
-    def __init__(self, tech, sql_id_table, sql_data_table, scenario=None):
-        self.id = tech.id
-        self.scenario = scenario
+class DemandTechCost():
+    def __init__(self, tech):
         self.book_life = tech.book_life
         self.demand_tech_unit_type = tech.demand_tech_unit_type
         self.unit = tech.unit
@@ -29,25 +30,20 @@ class DemandTechCost(Abstract):
         self.stock_time_unit = tech.stock_time_unit
         self.cost_of_capital = tech.cost_of_capital
         self.input_type = 'intensity'
-        self.sql_id_table = sql_id_table
-        self.sql_data_table = sql_data_table
-        Abstract.__init__(self, self.id, 'demand_technology_id')
-
 
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.raw_values is not None:
+        if self._has_data and self.raw_values is not None:
             self.convert_cost()
-            self.remap(map_from='values', map_to='values', time_index_name='vintage', converted_geography=cfg.demand_primary_geography)
+            self.remap(map_from='values', map_to='values', time_index_name='vintage', converted_geography=GeoMapper.demand_primary_geography)
             self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
             self.levelize_costs()
-        if self.data is False:
+        if not self._has_data:
             self.absolute = False
         if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered converted
             self.absolute = True
-
 
     def convert_cost(self):
         """
@@ -56,20 +52,20 @@ class DemandTechCost(Abstract):
         if self.demand_tech_unit_type == 'service demand':
             if self.tech_time_unit is None:
                 self.time_unit = 'year'
-            self.values = util.unit_convert(self.raw_values, unit_from_num=self.tech_time_unit,
+            self.values = UnitConverter.unit_convert(self.raw_values, unit_from_num=self.tech_time_unit,
                                             unit_from_den=self.unit,
                                             unit_to_num=self.stock_time_unit, unit_to_den=self.service_demand_unit)
         else:
             self.values = copy.deepcopy(self.raw_values)
         if self.definition == 'absolute':
-            self.values = util.currency_convert(self.values, self.currency_id, self.currency_year_id)
+            self.values = UnitConverter.currency_convert(self.values, self.currency, self.currency_year)
             self.absolute = True
         else:
             self.absolute = False
 
     def levelize_costs(self):
         if self.definition == 'absolute' and hasattr(self, 'is_levelized'):
-            inflation = float(cfg.cfgfile.get('case', 'inflation_rate'))
+            inflation = cfg.getParamAsFloat('inflation_rate')
             rate = self.cost_of_capital - inflation
             if self.is_levelized == 0:
                 self.values_level = - np.pmt(rate, self.book_life, 1, 0, 'end') * self.values
@@ -83,30 +79,55 @@ class DemandTechCost(Abstract):
         else:
             util.convert_age(self, attr_from='values', attr_to='values_level', reverse=False, vintages=self.vintages, years=self.years)
 
+class DemandTechsCapitalCostObj(schema.DemandTechsCapitalCost, DemandTechCost):
+    def __init__(self, tech, scenario=None):
+        schema.DemandTechsCapitalCost.__init__(self, demand_technology=tech.name, scenario=scenario)
+        self.init_from_db(tech.name, scenario)
+        self.scenario = scenario
+        DemandTechCost.__init__(self, tech=tech)
+
+class DemandTechsInstallationCostObj(schema.DemandTechsInstallationCost, DemandTechCost):
+    def __init__(self, tech, scenario=None):
+        schema.DemandTechsInstallationCost.__init__(self, demand_technology=tech.name, scenario=scenario)
+        self.init_from_db(tech.name, scenario)
+        self.scenario = scenario
+        DemandTechCost.__init__(self, tech=tech)
+
+class DemandTechsFuelSwitchCostObj(schema.DemandTechsFuelSwitchCost, DemandTechCost):
+    def __init__(self, tech, scenario=None):
+        schema.DemandTechsFuelSwitchCost.__init__(self, demand_technology=tech.name, scenario=scenario)
+        self.init_from_db(tech.name, scenario)
+        self.scenario = scenario
+        DemandTechCost.__init__(self, tech=tech)
+
+class DemandTechsFixedMaintenanceCostObj(schema.DemandTechsFixedMaintenanceCost, DemandTechCost):
+    def __init__(self, tech, scenario=None):
+        schema.DemandTechsFixedMaintenanceCost.__init__(self, demand_technology=tech.name, scenario=scenario)
+        self.init_from_db(tech.name, scenario)
+        self.scenario = scenario
+        DemandTechCost.__init__(self, tech=tech)
 
 
-class ParasiticEnergy(Abstract):
-    def __init__(self, tech, sql_id_table, sql_data_table, scenario=None, **kwargs):
-        self.id = tech.id
+class ParasiticEnergy(schema.DemandTechsParasiticEnergy):
+    def __init__(self, tech, scenario=None):
+        super(ParasiticEnergy, self).__init__(demand_technology=tech.name, scenario=scenario)
+        self.init_from_db(tech.name, scenario)
         self.scenario = scenario
         self.input_type = 'intensity'
-        self.sql_id_table = sql_id_table
-        self.sql_data_table = sql_data_table
         self.tech_unit = tech.unit
         self.demand_tech_unit_type = tech.demand_tech_unit_type
         self.service_demand_unit = tech.service_demand_unit
-        Abstract.__init__(self, self.id, 'demand_technology_id')
 
 
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.raw_values is not None:
+        if self._has_data and self.raw_values is not None:
             self.convert()
-            self.remap(map_from='values', map_to='values', time_index_name='vintage', converted_geography=cfg.demand_primary_geography)
+            self.remap(map_from='values', map_to='values', time_index_name='vintage', converted_geography=GeoMapper.demand_primary_geography)
             util.convert_age(self, reverse=True, vintages=self.vintages, years=self.years)
             self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
-        if self.data is False:
+        if not self._has_data:
             self.absolute = False
         if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered absolute
@@ -119,13 +140,13 @@ class ParasiticEnergy(Abstract):
         if self.definition == 'absolute':
             if self.time_unit is None:
                 self.time_unit = 'year'
-            self.values = util.unit_convert(self.raw_values, unit_from_num=self.energy_unit,
+            self.values = UnitConverter.unit_convert(self.raw_values, unit_from_num=self.energy_unit,
                                             unit_from_den=self.time_unit,
                                             unit_to_num=cfg.calculation_energy_unit,
                                             unit_to_den='year')
             self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
             if self.demand_tech_unit_type == 'service demand':
-                self.values = util.unit_convert(self.values, unit_from_num=self.unit,
+                self.values = UnitConverter.unit_convert(self.values, unit_from_num=self.unit,
                                                 unit_to_num=self.service_demand_unit)
             self.absolute = True
 
@@ -135,29 +156,20 @@ class ParasiticEnergy(Abstract):
             self.absolute = False
 
 
-class DemandTechEfficiency(Abstract):
-    def __init__(self, tech, sql_id_table, sql_data_table, scenario=None, **kwargs):
-        self.id = tech.id
-        self.scenario = scenario
+class DemandTechEfficiency(object):
+    def __init__(self, tech):
         self.service_demand_unit = tech.service_demand_unit
         self.input_type = 'intensity'
-        self.sql_id_table = sql_id_table
-        self.sql_data_table = sql_data_table
-        Abstract.__init__(self, self.id, 'demand_technology_id')
-
 
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.raw_values is not None:
-            try:
-                self.convert()
-            except:
-                pdb.set_trace()
-            self.remap(map_from='values', map_to='values', time_index_name='vintage', converted_geography=cfg.demand_primary_geography)
+        if self.raw_values is not None:
+            self.convert()
+            self.remap(map_from='values', map_to='values', time_index_name='vintage', converted_geography=GeoMapper.demand_primary_geography)
             util.convert_age(self, reverse=True, vintages=self.vintages, years=self.years)
             self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
-        if self.data is False:
+        if not self._has_data:
             self.absolute = False
         if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered converted
@@ -168,7 +180,7 @@ class DemandTechEfficiency(Abstract):
         return values from raw_values that are converted to units consistent with output units
         """
         if self.definition == 'absolute':
-            if self.is_numerator_service == 1:
+            if self.is_numerator_service:
                 # if the numerator is service, definition has to be flipped in order to make the numerator an energy unit
                 self.values = 1 / self.raw_values
                 numerator_unit = self.denominator_unit
@@ -179,7 +191,7 @@ class DemandTechEfficiency(Abstract):
                 numerator_unit = self.numerator_unit
                 denominator_unit = self.denominator_unit
                 self.flipped = False
-            self.values = util.unit_convert(self.values, unit_from_num=numerator_unit,
+            self.values = UnitConverter.unit_convert(self.values, unit_from_num=numerator_unit,
                                             unit_from_den=denominator_unit,
                                             unit_to_num=cfg.calculation_energy_unit,
                                             unit_to_den=self.service_demand_unit)
@@ -188,30 +200,40 @@ class DemandTechEfficiency(Abstract):
             self.values = self.raw_values.copy()
             self.absolute = False
 
+class DemandTechsMainEfficiencyObj(schema.DemandTechsMainEfficiency, DemandTechEfficiency):
+    def __init__(self, tech, scenario=None):
+        schema.DemandTechsMainEfficiency.__init__(self, demand_technology=tech.name, scenario=scenario)
+        self.init_from_db(tech.name, scenario)
+        self.scenario = scenario
+        DemandTechEfficiency.__init__(self, tech=tech)
 
-class DemandTechServiceLink(Abstract):
+class DemandTechsAuxEfficiencyObj(schema.DemandTechsAuxEfficiency, DemandTechEfficiency):
+    def __init__(self, tech, scenario=None):
+        schema.DemandTechsAuxEfficiency.__init__(self, demand_technology=tech.name, scenario=scenario)
+        self.init_from_db(tech.name, scenario)
+        self.scenario = scenario
+        DemandTechEfficiency.__init__(self, tech=tech)
+
+
+class DemandTechServiceLink(schema.DemandTechsServiceLink):
     """ service link efficiency
     ex. clothes washer hot water efficiency
     """
 
-    def __init__(self, service_link_id, id, sql_id_table, sql_data_table, scenario=None, **kwargs):
-        self.service_link_id = service_link_id
-        self.id = id
+    def __init__(self, name, scenario=None):
+        super(DemandTechServiceLink, self).__init__(name=name, scenario=scenario)
+        self.init_from_db(name, scenario)
         self.scenario = scenario
         self.input_type = 'intensity'
-        self.sql_id_table = sql_id_table
-        self.sql_data_table = sql_data_table
-        Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
-
 
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.raw_values is not None:
-            self.remap(map_from='raw_values', map_to='values', time_index_name='vintage', converted_geography=cfg.demand_primary_geography)
+        if self._has_data and self.raw_values is not None:
+            self.remap(map_from='raw_values', map_to='values', time_index_name='vintage', converted_geography=GeoMapper.demand_primary_geography)
             util.convert_age(self, reverse=True, vintages=self.vintages, years=self.years)
             self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
-        if self.data is False:
+        if not self._has_data:
            self.absolute = False
         if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered converted
@@ -219,60 +241,49 @@ class DemandTechServiceLink(Abstract):
 
 
 
-class ServiceDemandModifier(Abstract):
+class ServiceDemandModifier(schema.DemandTechsServiceDemandModifier):
     """ technology specified service demand modifier. Replaces calculated modifiers
     based on stock and service/energy demand inputs."""
 
-    def __init__(self, tech, sql_id_table, sql_data_table, scenario=None, **kwargs):
-        self.id = tech.id
+    def __init__(self, tech, scenario=None):
+        super(ServiceDemandModifier, self).__init__(demand_technology=tech.name, scenario=scenario)
+        self.init_from_db(tech.name, scenario)
         self.scenario = scenario
         self.input_type = 'intensity'
-        self.sql_id_table = sql_id_table
-        self.sql_data_table = sql_data_table
-        Abstract.__init__(self, self.id, 'demand_technology_id')
 
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.raw_values is not None:
-            self.remap(map_from='raw_values', map_to='values', time_index_name='vintage', converted_geography=cfg.demand_primary_geography)
-            util.convert_age(self, attr_from='values', attr_to='values', reverse=False, vintages=self.vintages,
-                             years=self.years)
+        if self._has_data and self.raw_values is not None:
+            self.remap(map_from='raw_values', map_to='values', time_index_name='vintage', converted_geography=GeoMapper.demand_primary_geography)
+            util.convert_age(self, attr_from='values', attr_to='values', reverse=False, vintages=self.vintages, years=self.years)
             self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
-        if self.data is False:
+        if not self._has_data:
             self.absolute = False
         if self.raw_values is None:
             # if the class is empty, then there is no data for conversion, so the class is considered converted
             self.absolute = True
 
 
-class DemandTechnology(StockItem):
-    def __init__(self, id, subsector_id, service_demand_unit, stock_time_unit, cost_of_capital, scenario=None, **kwargs):
-        self.id = id
-        self.subsector_id = subsector_id
-        self.scenario = scenario
+class DemandTechnology(schema.DemandTechs, StockItem):
+    def __init__(self, name, service_demand_unit, stock_time_unit, cost_of_capital, scenario=None):
+        schema.DemandTechs.__init__(self, name=name, scenario=scenario)
+        self.init_from_db(name, scenario)
         StockItem.__init__(self)
+        self.scenario = scenario
         self.service_demand_unit = service_demand_unit
         self.stock_time_unit = stock_time_unit
-        for col, att in util.object_att_from_table('DemandTechs', self.id):
-            setattr(self, col, att)
         # if cost_of_capital at the technology level is None, it uses subsector defaults
-        if self.cost_of_capital is None:
-            self.cost_of_capital = cost_of_capital
-        else:
-            pass
+        self.cost_of_capital = self.cost_of_capital or cost_of_capital
         # we can have multiple sales shares because sales share may be specific
-        # to the transition between two technolog)
+        # to the transition between two technologies
         self.reference_sales_shares = {}
-        if self.id in util.csv_read_table('DemandSalesData', 'demand_technology_id', return_unique=True, return_iterable=True):
-            self.reference_sales_shares[1] = SalesShare(id=self.id, subsector_id=self.subsector_id, reference=True,
-                                                        sql_id_table='DemandSales', sql_data_table='DemandSalesData',
-                                                        primary_key='subsector_id', data_id_key='demand_technology_id',
-                                                        scenario=scenario)
+        if self.name in util.csv_read_table('DemandSales', column_names='demand_technology', return_iterable=True):
+            self.reference_sales_shares[1] = DemandSales(demand_technology=self.name, scenario=scenario)
         self.book_life()
         self.add_class()
         self.min_year()
-        self.shape = shape.shapes.data[self.shape_id] if self.shape_id is not None else None
+        # self.shape = shape.shapes.data[self.shape_id] if self.shape_id is not None else None
 
     def set_geography_map_key(self, geography_map_key):
         # specified stock measures do not have their own map keys but instead need to use the same map key as StockData else we can have a mismatch in stock totals
@@ -280,7 +291,7 @@ class DemandTechnology(StockItem):
         self.geography_map_key = geography_map_key
 
     def get_shape(self, default_shape):
-        return default_shape.values if self.shape is None else self.shape.values
+        return Shapes.get_values(default_shape) if self.shape is None else Shapes.get_values(self.shape)
 
     def get_max_lead_hours(self):
         return self.max_lead_hours if self.max_lead_hours else None
@@ -290,44 +301,32 @@ class DemandTechnology(StockItem):
 
     def add_sales_share_measures(self):
         self.sales_shares = {}
-        sales_share_ids = self.scenario.get_measures('DemandSalesShareMeasures', self.subsector_id, self.id)
-        for sales_share_id in sales_share_ids:
-            self.sales_shares[sales_share_id] = SalesShare(id=sales_share_id, subsector_id=self.subsector_id,
-                                                           reference=False, sql_id_table='DemandSalesShareMeasures',
-                                                           sql_data_table='DemandSalesShareMeasuresData',
-                                                           primary_key='id', data_id_key='parent_id',
-                                                           scenario=self.scenario)
+        sales_share_names = self.scenario.get_measures('DemandSalesShareMeasures', self.subsector, self.name)
+        for sales_share_name in sales_share_names:
+            self.sales_shares[sales_share_name] = DemandSalesShareMeasure(name=sales_share_name, subsector=self.subsector, scenario=self.scenario)
 
     def add_specified_stock_measures(self):
         self.specified_stocks = {}
-        specified_stock_ids = self.scenario.get_measures('DemandStockMeasures', self.subsector_id, self.id)
-        for specified_stock_id in specified_stock_ids:
-            self.specified_stocks[specified_stock_id] = SpecifiedStock(id=specified_stock_id,
-                                                                    sql_id_table='DemandStockMeasures',
-                                                                    sql_data_table='DemandStockMeasuresData',
-                                                                    scenario=self.scenario)
-            self.specified_stocks[specified_stock_id].set_geography_map_key(self.geography_map_key)
+        measure_names = self.scenario.get_measures('DemandStockMeasures', self.subsector, self.name)
+        for measure_name in measure_names:
+            self.specified_stocks[measure_name] = DemandStockMeasure(name=measure_name, subsector=self.subsector, scenario=self.scenario)
+            self.specified_stocks[measure_name].set_geography_map_key(self.geography_map_key)
 
     def add_service_links(self):
         """adds all technology service links"""
         self.service_links = {}
-        service_links = util.csv_read_table('DemandTechsServiceLink', 'service_link_id', return_unique=True,
-                                            demand_technology_id=self.id)
-        if service_links is not None:
-            service_links = util.ensure_iterable_and_not_string(service_links)
-            for service_link in service_links:
-                id = util.csv_read_table('DemandTechsServiceLink', 'id', return_unique=True, demand_technology_id=self.id,
-                                         service_link_id=service_link)
-                self.service_links[service_link] = DemandTechServiceLink(self, id, 'DemandTechsServiceLink',
-                                                                         'DemandTechsServiceLinkData',
-                                                                         scenario=self.scenario)
+        service_links = util.csv_read_table('DemandTechsServiceLink', 'service_link', return_unique=True, demand_technology=self.name)
+        if service_links:
+            for service_link in util.ensure_iterable(service_links):
+                name = util.csv_read_table('DemandTechsServiceLink', 'name', return_unique=True, demand_technology=self.name, service_link=service_link)
+                self.service_links[service_link] = DemandTechServiceLink(name, scenario=self.scenario)
 
     def min_year(self):
         """calculates the minimum or start year of data in the technology specification.
         Used to determine start year of subsector for analysis."""
 
         attributes = vars(self)
-        self.min_year = cfg.cfgfile.get('case', 'current_year')
+        self.min_year = cfg.getParam('current_year')
         for att in attributes:
             obj = getattr(self, att)
             if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'raw_values'):
@@ -370,19 +369,19 @@ class DemandTechnology(StockItem):
         equivalent costs.
 
         """
-        self.capital_cost_new = DemandTechCost(self, 'DemandTechsCapitalCost', 'DemandTechsCapitalCostNewData', scenario=self.scenario)
-        self.capital_cost_replacement = DemandTechCost(self, 'DemandTechsCapitalCost', 'DemandTechsCapitalCostReplacementData', scenario=self.scenario)
-        self.installation_cost_new = DemandTechCost(self, 'DemandTechsInstallationCost', 'DemandTechsInstallationCostNewData', scenario=self.scenario)
-        self.installation_cost_replacement = DemandTechCost(self, 'DemandTechsInstallationCost', 'DemandTechsInstallationCostReplacementData', scenario=self.scenario)
-        self.fuel_switch_cost = DemandTechCost(self, 'DemandTechsFuelSwitchCost', 'DemandTechsFuelSwitchCostData', scenario=self.scenario)
-        self.fixed_om = DemandTechCost(self, 'DemandTechsFixedMaintenanceCost', 'DemandTechsFixedMaintenanceCostData', scenario=self.scenario)
-
-        self.efficiency_main = DemandTechEfficiency(self, 'DemandTechsMainEfficiency', 'DemandTechsMainEfficiencyData', scenario=self.scenario)
-        self.efficiency_aux = DemandTechEfficiency(self, 'DemandTechsAuxEfficiency', 'DemandTechsAuxEfficiencyData', scenario=self.scenario)
+        # todo revisit new vs existing
+        self.capital_cost_new = DemandTechsCapitalCostObj(self, scenario=self.scenario)
+        self.capital_cost_replacement = DemandTechsCapitalCostObj(self, scenario=self.scenario)
+        self.installation_cost_new = DemandTechsInstallationCostObj(self, scenario=self.scenario)
+        self.installation_cost_replacement = DemandTechsInstallationCostObj(self, scenario=self.scenario)
+        self.fuel_switch_cost = DemandTechsFuelSwitchCostObj(self, scenario=self.scenario)
+        self.fixed_om = DemandTechsFixedMaintenanceCostObj(self, scenario=self.scenario)
+        self.efficiency_main = DemandTechsMainEfficiencyObj(self, scenario=self.scenario)
+        self.efficiency_aux = DemandTechsAuxEfficiencyObj(self, scenario=self.scenario)
         if hasattr(self.efficiency_main,'definition') and self.efficiency_main.definition == 'absolute':
             self.efficiency_aux.utility_factor = 1 - self.efficiency_main.utility_factor
-        self.service_demand_modifier = ServiceDemandModifier(self, 'DemandTechsServiceDemandModifier', 'DemandTechsServiceDemandModifierData', scenario=self.scenario)
-        self.parasitic_energy = ParasiticEnergy(self, 'DemandTechsParasiticEnergy', 'DemandTechsParasiticEnergyData', scenario=self.scenario)
+        self.service_demand_modifier = ServiceDemandModifier(self, scenario=self.scenario)
+        self.parasitic_energy = ParasiticEnergy(self, scenario=self.scenario)
         # add service links to service links dictionary
         self.add_service_links()
         self.replace_class('capital_cost_new', 'capital_cost_replacement')
@@ -402,18 +401,18 @@ class DemandTechnology(StockItem):
         # if no class_b is specified, there is no equivalent cost for class_a
         if class_b is None:
             class_a_instance = getattr(self, class_a)
-            if class_a_instance.data is False and hasattr(class_a_instance, 'reference_tech_id') is False:
-                logging.debug("demand technology %s has no %s cost data" % (self.id, class_a))
+            if class_a_instance._has_data is False and hasattr(class_a_instance, 'reference_tech_id') is False:
+                logging.debug("demand technology %s has no %s cost data" % (self.name, class_a))
         else:
             class_a_instance = getattr(self, class_a)
             class_b_instance = getattr(self, class_b)
-            if class_a_instance.data is True and class_a_instance.raw_values is not None and class_b_instance.data is True and class_b_instance.raw_values is not None:
+            if class_a_instance._has_data is True and class_a_instance.raw_values is not None and class_b_instance._has_data is True and class_b_instance.raw_values is not None:
                 pass
-            elif class_a_instance.data is False and class_b_instance.data is False and \
+            elif class_a_instance._has_data is False and class_b_instance._has_data is False and \
                             hasattr(class_a_instance, 'reference_tech_id') is False and \
                             hasattr(class_b_instance, 'reference_tech_id') is False:
-                logging.debug("demand technology %s has no input data for %s or %s" % (self.id, class_a, class_b))
-            elif class_a_instance.data is True and class_a_instance.raw_values is not None and (class_b_instance.data is False or (class_b_instance.data is True and class_b_instance.raw_values is None)):
+                logging.debug("demand technology %s has no input data for %s or %s" % (self.name, class_a, class_b))
+            elif class_a_instance._has_data is True and class_a_instance.raw_values is not None and (class_b_instance._has_data is False or (class_b_instance._has_data is True and class_b_instance.raw_values is None)):
                 setattr(self, class_b, copy.deepcopy(class_a_instance))
-            elif (class_a_instance.data is False or (class_a_instance.data is True and class_a_instance.raw_values is None))and class_b_instance.data is True and class_b_instance.raw_values is not None:
+            elif (class_a_instance._has_data is False or (class_a_instance._has_data is True and class_a_instance.raw_values is None))and class_b_instance._has_data is True and class_b_instance.raw_values is not None:
                 setattr(self, class_a, copy.deepcopy(class_b_instance))

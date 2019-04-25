@@ -83,8 +83,8 @@ def dispatch_to_energy_budget(load, energy_budgets, dispatch_periods=None, pmins
     load_groups = (load,) if dispatch_periods is None else np.array_split(load,
                                                                           np.where(np.diff(dispatch_periods) != 0)[
                                                                               0] + 1)
-    energy_budgets = util.ensure_iterable_and_not_string(energy_budgets)
-    pmins, pmaxs = util.ensure_iterable_and_not_string(pmins), util.ensure_iterable_and_not_string(pmaxs)
+    energy_budgets = util.ensure_iterable(energy_budgets)
+    pmins, pmaxs = util.ensure_iterable(pmins), util.ensure_iterable(pmaxs)
 
     if len(energy_budgets) != len(load_groups):
         raise ValueError('Number of energy_budgets must match the number of dispatch periods')
