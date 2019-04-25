@@ -101,6 +101,9 @@ def denormalize(dbdir, outdir, table_name, child_name):
     if columns_that_exist:
         merged = merged.set_index(columns_that_exist).sort_index().reset_index()[orig_column_order]
 
+    if table_name == 'SupplyCost':
+        merged.name = merged.name + ' - ' + merged.supply_node
+
     merged.to_csv(mergedPath, index=None)
 
     md = gen_metadata(key_col, child_cols)
