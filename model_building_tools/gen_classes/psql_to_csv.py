@@ -53,6 +53,8 @@ def main(dbname, db_dir, host, user, password, limit, tables, ids):
 
     for tbl in table_objs:
         if tbl.name == 'ShapesData':
+            dirname = os.path.join(db_dir, 'ShapeData')
+            mkdirs(dirname)
             continue
         tbl.load_all(limit=limit)
 
