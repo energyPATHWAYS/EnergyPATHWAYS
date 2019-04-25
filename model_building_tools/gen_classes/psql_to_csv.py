@@ -52,6 +52,8 @@ def main(dbname, db_dir, host, user, password, limit, tables, ids):
         df.drop(list(cols), axis=1, inplace=True)
 
     for tbl in table_objs:
+        if tbl.name == 'ShapesData':
+            continue
         tbl.load_all(limit=limit)
 
         # One-off patches
@@ -68,6 +70,9 @@ def main(dbname, db_dir, host, user, password, limit, tables, ids):
             _drop(df, 'id', 'parent_id')
 
         elif tbl.name == 'CurrenciesConversion':
+            _drop(df, 'id')
+
+        elif tbl.name == 'BlendNodeInputsData':
             _drop(df, 'id')
 
         tbl.to_csv(db_dir, save_ids=ids)

@@ -6,6 +6,7 @@ from glob import glob
 import os
 import pandas as pd
 import shutil
+import pdb
 
 from energyPATHWAYS.generated.text_mappings import MappedCols
 
@@ -155,10 +156,29 @@ class {classname}(CsvDatabase):
             tables_to_ignore={ignore})
 '''.format(classname=classname, without_classes=Tables_without_classes, ignore=Tables_to_ignore))
 
-def combine_techs(dbdir, outdir, tech_cost_tables):
+def combine_techs(outdir):
     # Combine the files StorageTechsCapacityCost, StorageTechsEnergyCapitalCost, and
     # SupplyTechsCapitalCost. The resulting file will just be SupplyTechsCapitalCost.
-    pass
+
+    SupplyTechsCapitalCost = _read_csv(os.path.join(outdir, 'SupplyTechsCapitalCost.csv'), 'SupplyTechsCapitalCost')
+    StorageTechsCapacityCapitalCost = _read_csv(os.path.join(outdir, 'StorageTechsCapacityCapitalCost.csv'), 'StorageTechsCapacityCapitalCost')
+    StorageTechsEnergyCapitalCost = _read_csv(os.path.join(outdir, 'StorageTechsEnergyCapitalCost.csv'), 'StorageTechsEnergyCapitalCost')
+    StorageTechsEnergyCapitalCost.rename(columns={'energy_unit': 'capacity_or_energy_unit'}, inplace=True)
+
+    dfs = [SupplyTechsCapitalCost, StorageTechsCapacityCapitalCost, StorageTechsEnergyCapitalCost]
+    merged = pd.concat(dfs, keys=['capacity', 'capacity_', 'energy'], names=['capacity_or_energy'])
+    merged = merged.reset_index().drop('level_1', axis='columns')
+    merged.replace({'capacity_':'capacity'}, inplace=True)
+
+    column_order = [u'supply_tech', 'capacity_or_energy', u'definition', u'reference_tech', u'geography', u'currency', u'currency_year', 'cost_of_capital', u'capacity_or_energy_unit', u'time_unit', u'is_levelized', u'interpolation_method',
+    u'extrapolation_method', u'extrapolation_growth', u'source', u'notes', u'geography_map_key', u'new_or_replacement', u'gau', u'demand_sector', u'resource_bin', u'vintage', u'value',
+    u'sensitivity']
+    merged = merged[column_order]
+    merged_path = os.path.join(outdir, 'SupplyTechsCapitalCost.csv')
+    merged.to_csv(merged_path, index=None)
+
+    os.remove(os.path.join(outdir, 'StorageTechsCapacityCapitalCost.csv'))
+    os.remove(os.path.join(outdir, 'StorageTechsEnergyCapitalCost.csv'))
 
 def combine_tech_data(dbdir, tech_cost_tables):
     # Needs 2 new columns in SupplyTechsCapitalCost: new_or_replacement and capacity_or_energy
@@ -206,7 +226,7 @@ def main(dbdir, outdir, metadata_file, classname, force, shapes):
 
     # Before we merge, we combine the "new" + "replacement" data into a single *Data file
     # and delete the two original files.
-    tech_cost_tables = ['SupplyTechsCapitalCost', 'StorageTechsCapacityCapitalCost', 'StorageTechsEnergyCapitalCost']
+    tech_cost_tables = ['SupplyTechsInstallationCost', 'SupplyTechsCapitalCost', 'StorageTechsCapacityCapitalCost', 'StorageTechsEnergyCapitalCost']
     combine_tech_data(dbdir, tech_cost_tables)
 
     csvFiles = glob(os.path.join(dbdir, '*.csv'))
@@ -227,7 +247,7 @@ def main(dbdir, outdir, metadata_file, classname, force, shapes):
             md = denormalize(dbdir, outdir, tbl_name, child_name)
             metadata[tbl_name] = md
 
-        elif not (tbl_name.endswith('Data') or tbl_name in Simple_mapping_tables):
+        elif not ((tbl_name.endswith('Data') and tbl_name != 'BlendNodeInputsData') or tbl_name in Simple_mapping_tables):
             # Copy files that aren't *Data and that don't have related *Data files,
             # and aren't simple mapping tables, which aren't needed in the csvdb
             basename = tbl_name + '.csv'
@@ -244,7 +264,7 @@ def main(dbdir, outdir, metadata_file, classname, force, shapes):
 
             metadata[tbl_name] = md
 
-    combine_techs(dbdir, outdir, tech_cost_tables)
+    combine_techs(outdir)
 
     if metadata_file:
         gen_database_file(metadata_file, metadata, classname)

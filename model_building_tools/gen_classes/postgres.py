@@ -464,37 +464,37 @@ class PostgresTable(AbstractTable):
         'InflationConversion':
             {'currency_year_id': 'year'},
         'DemandEnergyEfficiencyMeasuresCost':
-            {'currency_year_id': 'year'},
+            {'currency_year_id': 'currency_year'},
         'DemandFuelSwitchingMeasuresCost':
-            {'currency_year_id': 'year'},
+            {'currency_year_id': 'currency_year'},
         'DemandServiceDemandMeasuresCost':
-            {'currency_year_id': 'year'},
+            {'currency_year_id': 'currency_year'},
         'DemandTechsCapitalCost':
-            {'currency_year_id': 'year'},
+            {'currency_year_id': 'currency_year'},
         'DemandTechsFixedMaintenanceCost':
-            {'currency_year_id': 'year'},
+            {'currency_year_id': 'currency_year'},
         'DemandTechsFuelSwitchCost':
-            {'currency_year_id': 'year'},
+            {'currency_year_id': 'currency_year'},
         'DemandTechsInstallationCost':
-            {'currency_year_id': 'year'},
+            {'currency_year_id': 'currency_year'},
         'ImportCost':
             {'currency_year_id': 'currency_year'},  # N.B. ImportCostData already has 'year' column
         'PrimaryCost':
             {'currency_year_id': 'currency_year'},
         'StorageTechsCapacityCapitalCost':
-            {'currency_year_id': 'year'},
+            {'currency_year_id': 'currency_year'},
         'StorageTechsEnergyCapitalCost':
-            {'currency_year_id': 'year'},
+            {'currency_year_id': 'currency_year'},
         'SupplyCost':
             {'currency_year_id': 'currency_year'},
         'SupplyTechsCapitalCost':
-            {'currency_year_id': 'year'},
+            {'currency_year_id': 'currency_year'},
         'SupplyTechsFixedMaintenanceCost':
-            {'currency_year_id': 'year'},
+            {'currency_year_id': 'currency_year'},
         'SupplyTechsInstallationCost':
-            {'currency_year_id': 'year'},
+            {'currency_year_id': 'currency_year'},
         'SupplyTechsVariableMaintenanceCost':
-            {'currency_year_id': 'year'},
+            {'currency_year_id': 'currency_year'},
 
         'DispatchTransmissionConstraint':
             {'hurdle_currency_year_id': 'currency_year',

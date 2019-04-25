@@ -206,3 +206,9 @@ alter table "SupplyTechsVariableMaintenanceCostData" drop constraint if exists "
 alter table "SupplyTechsVariableMaintenanceCostData"
   add constraint "SupplyTechsVariableMaintenanceCostData_supply_tech_id_fkey"
   foreign key (supply_tech_id) references "SupplyTechs"(id);
+
+alter table "StorageTechsDurationData" drop constraint if exists "StorageTechsCapacityCapitalCostNewData_copy_supply_tech_id_fkey";
+alter table "StorageTechsDurationData"
+  add constraint "StorageTechsCapacityCapitalCostNewData_copy_supply_tech_id_fkey"
+  foreign key (supply_tech_id) references "SupplyTechs"(id);
+
