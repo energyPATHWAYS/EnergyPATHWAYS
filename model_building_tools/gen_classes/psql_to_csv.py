@@ -38,6 +38,7 @@ def main(dbname, db_dir, host, user, password, limit, tables, ids):
     print("Creating CSV database '%s'" % db_dir)
     mkdirs(db_dir)
     mkdirs(os.path.join(db_dir, 'ids'))
+    mkdirs(os.path.join(db_dir, 'ShapeData'))
 
     db.load_text_mappings()    # to replace ids with strings
 
@@ -53,9 +54,8 @@ def main(dbname, db_dir, host, user, password, limit, tables, ids):
 
     for tbl in table_objs:
         if tbl.name == 'ShapesData':
-            dirname = os.path.join(db_dir, 'ShapeData')
-            mkdirs(dirname)
             continue
+
         tbl.load_all(limit=limit)
 
         # One-off patches
@@ -79,16 +79,16 @@ def main(dbname, db_dir, host, user, password, limit, tables, ids):
 
         tbl.to_csv(db_dir, save_ids=ids)
 
-    if False:
-        # Merge generated DemandTechsServiceLink* to form DemandServiceLinkData for 3-way merge
-        dtsl      = pd.read_csv(os.path.join(db_dir, 'DemandTechsServiceLink.csv'), index_col=None)
-        dtsl_data = pd.read_csv(os.path.join(db_dir, 'DemandTechsServiceLinkData.csv'), index_col=None)
-        merged = pd.merge(dtsl, dtsl_data, left_on='name', right_on='parent', how='left')
-        merged.drop('parent', axis=1, inplace=True)
-        merged.rename(index=str, columns={'name': 'old_parent', 'service_link' : 'parent'}, inplace=True)
-
-        pathname = os.path.join(db_dir, 'DemandServiceLinkData.csv')
-        merged.to_csv(pathname, index=None)
+    # if False:
+    #     # Merge generated DemandTechsServiceLink* to form DemandServiceLinkData for 3-way merge
+    #     dtsl      = pd.read_csv(os.path.join(db_dir, 'DemandTechsServiceLink.csv'), index_col=None)
+    #     dtsl_data = pd.read_csv(os.path.join(db_dir, 'DemandTechsServiceLinkData.csv'), index_col=None)
+    #     merged = pd.merge(dtsl, dtsl_data, left_on='name', right_on='parent', how='left')
+    #     merged.drop('parent', axis=1, inplace=True)
+    #     merged.rename(index=str, columns={'name': 'old_parent', 'service_link' : 'parent'}, inplace=True)
+    #
+    #     pathname = os.path.join(db_dir, 'DemandServiceLinkData.csv')
+    #     merged.to_csv(pathname, index=None)
 
     # Save foreign keys so they can be used by CSV database
     foreign_keys_path = os.path.join(db_dir, 'foreign_keys.csv')

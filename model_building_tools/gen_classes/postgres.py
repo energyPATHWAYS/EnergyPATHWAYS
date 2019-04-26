@@ -544,13 +544,17 @@ class PostgresTable(AbstractTable):
         # temp fix to make keys unique in these tables
         tables_to_patch = {
             'DemandFuelSwitchingMeasures' : '{name} - {subsector} - {final_energy_from} to {final_energy_to}',
+            'SupplyCost' : '{name} - {supply_node}',
         }
 
         if name in tables_to_patch:
-            df = df.copy()
+            if renames:
+                cols_to_save = [renames.get(col, col) for col in cols_to_save]  # use renamed column rather than original
+
             key_col = find_key_col(name, cols_to_save)
             template = tables_to_patch[name]
 
+            df = df.copy()
             for idx, row in df.iterrows():
                 kwargs = {col: row[col] for col in cols_to_save}
                 df.loc[idx, key_col] = template.format(**kwargs)
