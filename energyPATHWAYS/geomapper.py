@@ -405,9 +405,12 @@ class GeoMapper:
         df = self._add_missing_level_elements_to_foreign_gaus(df, current_geography)
 
         # we need all the index level combinations to have all years for this to work correctly
-        df_no_foreign_gaus = self.filter_foreign_gaus(df, current_geography)
-        df_years = sorted(list(set(df_no_foreign_gaus.index.get_level_values(y_or_v).values)))
-        df = util.reindex_df_level_with_new_elements(df, y_or_v, df_years)
+        try:
+            df_no_foreign_gaus = self.filter_foreign_gaus(df, current_geography)
+            df_years = sorted(list(set(df_no_foreign_gaus.index.get_level_values(y_or_v).values)))
+            df = util.reindex_df_level_with_new_elements(df, y_or_v, df_years)
+        except:
+            pdb.set_trace()
 
         base_gaus = np.array(self.values.index.get_level_values(current_geography), dtype=int)
         for foreign_gau in foreign_gaus:
@@ -419,10 +422,13 @@ class GeoMapper:
                 raise ValueError('foreign gaus in the database cannot overlap geographically')
             
             # if the data_type is a total, we need to net out the total
-            if data_type=='total':
-                df = self._update_dataframe_totals_after_foreign_gau(df, current_geography, foreign_geography, impacted_gaus, foreign_gau, map_key, zero_out_negatives)
-            elif data_type == 'intensity':
-                logging.debug('Foreign GAUs with intensities is not yet implemented, totals will not be conserved')
+            try:
+                if data_type=='total':
+                    df = self._update_dataframe_totals_after_foreign_gau(df, current_geography, foreign_geography, impacted_gaus, foreign_gau, map_key, zero_out_negatives)
+                elif data_type == 'intensity':
+                    logging.debug('Foreign GAUs with intensities is not yet implemented, totals will not be conserved')
+            except:
+                pdb.set_trace()
         
         assert not any([any(np.isnan(row)) for row in df.index.get_values()])
         new_geography_name = self.make_new_geography_name(current_geography, list(foreign_gaus))

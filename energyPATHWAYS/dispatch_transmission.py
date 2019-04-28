@@ -33,7 +33,7 @@ class TransmissionSuper(Abstract):
         Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
         if self.raw_values is None:
             self._setup_zero_constraints()
-            return
+            return""
 
         self._validate_gaus()
         self.values = self.clean_timeseries(attr='raw_values', inplace=False, time_index=cfg.supply_years, time_index_name='year', interpolation_method=self.interpolation_method, extrapolation_method=self.extrapolation_method)
@@ -65,7 +65,8 @@ class TransmissionSuper(Abstract):
 
     def get_values_as_dict(self, year):
        # capacity = self.values.loc[year].squeeze().to_dict()
-        capacity = self.values.loc[year,'value'].to_dict()
+        #indexer = util.level_specific_indexer(self.values,'year',year)
+        capacity = util.df_slice(self.values,year,'year')['value'].to_dict()
         for key in capacity.keys():
             if key[0]==key[1]:
                 del capacity[key]

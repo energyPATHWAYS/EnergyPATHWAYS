@@ -220,10 +220,10 @@ class DataMapFunctions:
             df = cfg.geo.filter_foreign_gaus(df, current_geography)
         return df, current_geography
 
-    def _add_missing_geographies(self, df, current_geography, current_data_type):
+    def _add_missing_geographies(self, df, current_geography, current_data_type,missing_intensity_geos):
         current_number_of_geographies = len(util.get_elements_from_level(df, current_geography))
         propper_number_of_geographies = len(cfg.geo.geographies_unfiltered[current_geography])
-        if current_data_type == 'total' and current_number_of_geographies != propper_number_of_geographies:
+        if (current_data_type == 'total' or missing_intensity_geos) and current_number_of_geographies != propper_number_of_geographies:
             # we only want to do it when we have a total, otherwise we can't just fill with zero
             df = util.reindex_df_level_with_new_elements(df, current_geography, cfg.geo.geographies_unfiltered[current_geography], fill_value=np.nan)
         return df
@@ -238,7 +238,7 @@ class DataMapFunctions:
 
     def remap(self, map_from='raw_values', map_to='values', drivers=None, time_index_name='year',
               time_index=None, fill_timeseries=True, interpolation_method='missing', extrapolation_method='missing',
-              converted_geography=None, current_geography=None, current_data_type=None, fill_value=0., lower=0, upper=None, filter_geo=True, driver_geography=None):
+              converted_geography=None, current_geography=None, current_data_type=None, fill_value=0., lower=0, upper=None, filter_geo=True, driver_geography=None, missing_intensity_geos=False):
         """ Map data to drivers and geography
         Args:
             map_from (string): starting variable name (defaults to 'raw_values')
@@ -258,7 +258,7 @@ class DataMapFunctions:
         setattr(self, map_to, df)
 
         # This happens when we are on a geography level and some of the elements are missing. Such as no PR when we have all the other U.S. States.
-        setattr(self, map_to, self._add_missing_geographies(df, current_geography, current_data_type))
+        setattr(self, map_to, self._add_missing_geographies(df, current_geography, current_data_type, missing_intensity_geos))
 
         if (drivers is None) or (not len(drivers)):
             # we have no drivers, just need to do a clean timeseries and a geomap

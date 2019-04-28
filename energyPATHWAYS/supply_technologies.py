@@ -299,10 +299,11 @@ class StorageTechDuration(Abstract):
         self.years = years
         if self.data and self.raw_values is not None:
             try:
-                self.remap(time_index_name='year', converted_geography=cfg.supply_primary_geography)
+                self.remap(time_index_name='year', converted_geography=cfg.supply_primary_geography,missing_intensity_geos=True)
             except:
                 pdb.set_trace()
             self.values.replace(0, 1, inplace=True)
+            self.values.fillna(1)
 
 
 class SupplyTechFixedOMCost(SupplyTechCost):

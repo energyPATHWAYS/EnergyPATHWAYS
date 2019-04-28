@@ -364,11 +364,14 @@ class Dispatch(object):
       self.set_transmission_energy()
       
     def set_transmission_energy(self):
-        self.tx_energy_dict = util.recursivedict()
-        tx_dict = self.transmission.constraints.get_values_as_dict(self.year)
-        for t in tx_dict.keys():
-            for p in self.period_lengths.keys():
-                self.tx_energy_dict[(t,p)] = tx_dict[t] * self.period_lengths[p] 
+        try:
+            self.tx_energy_dict = util.recursivedict()
+            tx_dict = self.transmission.constraints.get_values_as_dict(self.year)
+            for t in tx_dict.keys():
+                for p in self.period_lengths.keys():
+                    self.tx_energy_dict[(t,p)] = tx_dict[t] * self.period_lengths[p]
+        except:
+            pdb.set_trace()
         
 
     def convert_all_to_period(self):
@@ -590,26 +593,23 @@ class Dispatch(object):
         hour_discharge.plot(subplots=True, ax=axes, title='AVERAGE STORAGE CHARGE (-) AND DISCHARGE (+) BY HOUR')
 
     def solve_optimization(self):
-        try:
-            self.ld_energy_budgets = self.solve_ld_optimization()
-            self.set_average_net_loads(self.ld_bulk_net_load_df_updated)
-            state_of_charge = self.run_year_to_month_allocation()
-            self.start_soc_large_storage, self.end_soc_large_storage = state_of_charge[0], state_of_charge[1]
-            for period in self.periods:
-                for technology in self.ld_technologies:
-                    if self.ld_energy_budgets[period][technology]>= self.capacity[period][technology] * self.period_lengths[period]:
-                        self.ld_energy_budgets[period][technology]= self.capacity[period][technology] * self.period_lengths[period]-1
-                    if self.ld_energy_budgets[period][technology]<= self.min_capacity[period][technology] * self.period_lengths[period]:
-                        self.ld_energy_budgets[period][technology]= self.min_capacity[period][technology] * self.period_lengths[period]+1
-            if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
-                params = [(dispatch_formulation.create_dispatch_model(self, period), cfg.solver_name) for period in self.periods]
-                results = helper_multiprocess.safe_pool(helper_multiprocess.run_optimization, params)
-            else:
-                results = [self.solve_optimization_period(period) for period in self.periods]
-            self.storage_df, self.flex_load_df, self.ld_df, self.transmission_flow_df, self.generator_df  = self.parse_optimization_results(results)
-        except:
-            self.pickle_for_debugging()
-            raise
+        self.ld_energy_budgets = self.solve_ld_optimization()
+        self.set_average_net_loads(self.ld_bulk_net_load_df_updated)
+        state_of_charge = self.run_year_to_month_allocation()
+        self.start_soc_large_storage, self.end_soc_large_storage = state_of_charge[0], state_of_charge[1]
+        for period in self.periods:
+            for technology in self.ld_technologies:
+                if self.ld_energy_budgets[period][technology]>= self.capacity[period][technology] * self.period_lengths[period]:
+                    self.ld_energy_budgets[period][technology]= self.capacity[period][technology] * self.period_lengths[period]-1
+                if self.ld_energy_budgets[period][technology]<= self.min_capacity[period][technology] * self.period_lengths[period]:
+                    self.ld_energy_budgets[period][technology]= self.min_capacity[period][technology] * self.period_lengths[period]+1
+        if cfg.cfgfile.get('case','parallel_process').lower() == 'true':
+            params = [(dispatch_formulation.create_dispatch_model(self, period), cfg.solver_name) for period in self.periods]
+            results = helper_multiprocess.safe_pool(helper_multiprocess.run_optimization, params)
+        else:
+            results = [self.solve_optimization_period(period) for period in self.periods]
+        self.storage_df, self.flex_load_df, self.ld_df, self.transmission_flow_df, self.generator_df  = self.parse_optimization_results(results)
+
                 
     def run_year_to_month_allocation(self):
         model = dispatch_long_duration.ld_storage_formulation(self)

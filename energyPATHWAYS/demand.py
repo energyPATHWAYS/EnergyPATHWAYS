@@ -853,10 +853,7 @@ class Subsector(DataMapFunctions):
                     return_shape = flexible_tech_load
             else:
                 # here we have flexible load, but it is not indexed by technology
-                try:
-                    remaining_shape = util.DfOper.mult((active_shape.values, remaining_energy), collapsible=False)
-                except:
-                    pdb.set_trace()
+                remaining_shape = util.DfOper.mult((active_shape.values, remaining_energy), collapsible=False)
                 remaining_shape = util.DfOper.add((remaining_shape, inflexible_tech_load), collapsible=False)
                 return_shape = self.return_shape_after_flex_load(remaining_shape, percent_flexible, active_hours['lag'], active_hours['lead'])
             flex_native = return_shape.xs(2, level='timeshift_type')
@@ -2273,8 +2270,6 @@ class Subsector(DataMapFunctions):
                            additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent),
                            current_data_type=current_data_type, projected=projected)
         self.stock.total = util.remove_df_levels(self.stock.total, ['demand_technology', 'final_energy']+cfg.removed_demand_levels)
-        if np.any(np.any(np.isinf(self.stock.total))):
-            pdb.set_trace()
         self.stock.total = self.stock.total.swaplevel('year',-1)
         if stock_dependent:
             self.stock.project(map_from=map_from, map_to='total_unfiltered', current_geography=current_geography, converted_geography=cfg.demand_primary_geography,
@@ -3009,6 +3004,7 @@ class Subsector(DataMapFunctions):
         elif initial_total == 0 or pd.isnull(initial_total):
             initial_stock = np.zeros(len(self.tech_ids))
         else:
+            pdb.set_trace()
             raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the demand_technology composition of the initial stock in subsector %s' %self.id)
         return initial_stock
 

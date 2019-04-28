@@ -139,9 +139,14 @@ def load_model(load_demand, load_supply, load_error, scenario,rio_scenario):
             model = pickle.load(infile)
         logging.info('Loaded crashed EnergyPATHWAYS model from pickle')
     elif load_supply:
-        with open(os.path.join(cfg.workingdir, str(scenario) + cfg.full_model_append_name), 'rb') as infile:
-            model = pickle.load(infile)
-        logging.info('Loaded complete EnergyPATHWAYS model from pickle')
+        try:
+            with open(os.path.join(cfg.workingdir, str(scenario) + cfg.full_model_append_name), 'rb') as infile:
+                model = pickle.load(infile)
+            logging.info('Loaded complete EnergyPATHWAYS model from pickle')
+        except:
+            with open(os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.full_model_append_name), 'rb') as infile:
+                model = pickle.load(infile)
+            logging.info('Loaded complete EnergyPATHWAYS model from pickle')
     elif load_demand:
         demand_file = os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.demand_model_append_name)
         supply_file = os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.full_model_append_name)
@@ -168,8 +173,9 @@ class SubsectorPerturbation(object):
 if __name__ == "__main__":
     workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\SDG&E'
     config = 'config.INI'
-    rio_scenario = [None]
-    scenario = ['high_electrification_8050']
+    rio_scenario = ['4 Renewable Pipeline 80x50',\
+                   '5 High Electrification Net Zero','6 Renewable Pipeline Net Zero']
+    scenario = ['renewable_pipeline_8050','high_electrification_NetZero','renewable_pipeline_NetZero']
     #rio_scenario = None
     #scenario = [ 'nw_reference','nw_ddp_central','nw_ddp_limited_demand_transformation','nw_ddp_increased_gas_transport']
     #rio_scenario = ['5 ddp limited demand', '6 ddp constrained biomass', '7 ddp increased gas','8 ddp integration economic']
@@ -188,14 +194,14 @@ if __name__ == "__main__":
 
     run(workingdir, config, scenario,
     load_demand   = True,
-    solve_demand  = True,
+    solve_demand  = False,
     load_supply   = False,
     solve_supply  = True,
-    export_results= False,
+    export_results= True,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
-    clear_results = True,
+    clear_results = False,
     rio_scenario=rio_scenario)
 
     # run_str = "run('C:\Github\EnergyPATHWAYS_scenarios\SDG&E', 'config.INI', 'scoping_plan', \
