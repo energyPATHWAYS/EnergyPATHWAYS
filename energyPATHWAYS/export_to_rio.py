@@ -36,27 +36,27 @@ class RioExport(object):
 
 
     def write_all(self):
-        #self.write_blend()
-        #self.flex_load_df = self.flatten_flex_load_dict()
+        self.write_blend()
+        self.flex_load_df = self.flatten_flex_load_dict()
         if self.scenario_index == 0:
-            #self.write_reference_tables()
-            #self.write_all_empty()
-            #self.write_shapes()
-            #self.write_blend_main()
-            #self.write_new_tech_main()
+            self.write_reference_tables()
+            self.write_all_empty()
+            self.write_shapes()
+            self.write_blend_main()
+            self.write_new_tech_main()
             self.write_existing_gen()
-            #self.write_conversion_main()
-            #if self.flex_load_df is not None:
-                #self.write_flex_tech_main()
-            #self.write_capacity_zone_main()
-            #self.write_product_main()
-        #self.write_conversion()
-        #self.write_product()
-        #self.write_topography()
-        #self.write_potential_group()
-        #self.write_new_gen()
-        #self.write_transmission()
-        #self.write_flex_load()
+            self.write_conversion_main()
+            if self.flex_load_df is not None:
+                self.write_flex_tech_main()
+            self.write_capacity_zone_main()
+            self.write_product_main()
+        self.write_conversion()
+        self.write_product()
+        self.write_topography()
+        self.write_potential_group()
+        self.write_new_gen()
+        self.write_transmission()
+        self.write_flex_load()
 
 
 
@@ -2402,8 +2402,8 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\NJ'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\Rhodium_DAC_lowest_electrification'
     config = 'config.INI'
-    scenario = ['reference']
+    scenario = ['oct_lowest_elect']
     export = run(workingdir, config, scenario)
     self = export
