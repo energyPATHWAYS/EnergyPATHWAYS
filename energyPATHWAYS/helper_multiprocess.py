@@ -26,11 +26,15 @@ def process_shapes(shape):
 
 
 def node_calculate(node):
-    cfg.initialize_config()
-    if node.id == 6 and cfg.rio_supply_run:
-        node.calculate(calculate_residual=False)
-    else:
-        node.calculate()
+    try:
+        cfg.initialize_config()
+        if node.name.lower() == 'bulk electricity blend' and cfg.rio_supply_run:
+            node.calculate(calculate_residual=False)
+        else:
+            node.calculate()
+    except Exception as e:
+        traceback.print_exc()
+        raise e
     return node
 
 def subsector_calculate(subsector):
@@ -53,34 +57,28 @@ def subsector_populate(subsector):
     return subsector
 
 def shapes_populate(shape):
-    cfg.initialize_config()
-    logging.info('    shape: ' + shape.name)
-    shape.read_timeseries_data()
+    try:
+        cfg.initialize_config()
+        logging.info('    shape: ' + shape.name)
+        shape.read_timeseries_data()
+    except Exception as e:
+        traceback.print_exc()
+        raise e
     return shape
 
 def individual_calculate(evolve, individual):
     evolve.calculate(individual)
 
-def aggregate_subsector_shapes(params):
-    subsector = params[0]
-    year = params[1]    
-    cfg.initialize_config()
-    aggregate_electricity_shape = subsector.aggregate_electricity_shapes(year)  
-    return aggregate_electricity_shape
-
-def aggregate_sector_shapes(params):
-    sector = params[0]
-    year = params[1]    
-    cfg.initialize_config()
-    aggregate_electricity_shape = sector.aggregate_inflexible_electricity_shape(year)
-    return aggregate_electricity_shape
-    
 def run_optimization(params, return_model_instance=False):
-    model, solver_name = params
-    instance = model.create_instance()
-    solver = SolverFactory(solver_name)
-    solution = solver.solve(instance)
-    instance.solutions.load_from(solution)
+    try:
+        model, solver_name = params
+        instance = model.create_instance()
+        solver = SolverFactory(solver_name)
+        solution = solver.solve(instance)
+        instance.solutions.load_from(solution)
+    except Exception as e:
+        traceback.print_exc()
+        raise e
     return instance if return_model_instance else dispatch_classes.all_results_to_list(instance)
 
 # Applies method to data using parallel processes and returns the result, but closes the main process's database

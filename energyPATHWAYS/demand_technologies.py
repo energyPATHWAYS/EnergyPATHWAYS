@@ -80,16 +80,16 @@ class DemandTechCost():
             util.convert_age(self, attr_from='values', attr_to='values_level', reverse=False, vintages=self.vintages, years=self.years)
 
 class DemandTechsCapitalCostObj(schema.DemandTechsCapitalCost, DemandTechCost):
-    def __init__(self, tech, scenario=None):
+    def __init__(self, tech, scenario=None, new_or_replacement=None):
         schema.DemandTechsCapitalCost.__init__(self, demand_technology=tech.name, scenario=scenario)
-        self.init_from_db(tech.name, scenario)
+        self.init_from_db(tech.name, scenario, new_or_replacement=new_or_replacement)
         self.scenario = scenario
         DemandTechCost.__init__(self, tech=tech)
 
 class DemandTechsInstallationCostObj(schema.DemandTechsInstallationCost, DemandTechCost):
-    def __init__(self, tech, scenario=None):
+    def __init__(self, tech, scenario=None, new_or_replacement=None):
         schema.DemandTechsInstallationCost.__init__(self, demand_technology=tech.name, scenario=scenario)
-        self.init_from_db(tech.name, scenario)
+        self.init_from_db(tech.name, scenario, new_or_replacement=new_or_replacement)
         self.scenario = scenario
         DemandTechCost.__init__(self, tech=tech)
 
@@ -370,10 +370,10 @@ class DemandTechnology(schema.DemandTechs, StockItem):
 
         """
         # todo revisit new vs existing
-        self.capital_cost_new = DemandTechsCapitalCostObj(self, scenario=self.scenario)
-        self.capital_cost_replacement = DemandTechsCapitalCostObj(self, scenario=self.scenario)
-        self.installation_cost_new = DemandTechsInstallationCostObj(self, scenario=self.scenario)
-        self.installation_cost_replacement = DemandTechsInstallationCostObj(self, scenario=self.scenario)
+        self.capital_cost_new = DemandTechsCapitalCostObj(self, scenario=self.scenario, new_or_replacement='new')
+        self.capital_cost_replacement = DemandTechsCapitalCostObj(self, scenario=self.scenario, new_or_replacement='replacement')
+        self.installation_cost_new = DemandTechsInstallationCostObj(self, scenario=self.scenario, new_or_replacement='new')
+        self.installation_cost_replacement = DemandTechsInstallationCostObj(self, scenario=self.scenario, new_or_replacement='replacement')
         self.fuel_switch_cost = DemandTechsFuelSwitchCostObj(self, scenario=self.scenario)
         self.fixed_om = DemandTechsFixedMaintenanceCostObj(self, scenario=self.scenario)
         self.efficiency_main = DemandTechsMainEfficiencyObj(self, scenario=self.scenario)

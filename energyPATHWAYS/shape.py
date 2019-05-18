@@ -206,12 +206,12 @@ class Shape(DataObject):
         raw_values = raw_values[keep_index].reset_index().set_index(raw_values.index.names)
         return raw_values
 
-    def make_flat_load_shape(self, index, column='value', num_active_years=None):
+    @staticmethod
+    def make_flat_load_shape(index, column='value'):
         assert 'weather_datetime' in index.names
         flat_shape = util.empty_df(fill_value=1., index=index, columns=[column])
         group_to_normalize = [n for n in flat_shape.index.names if n!='weather_datetime']
-        num_active_years = num_active_years or self.num_active_years
-        flat_shape = flat_shape.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*num_active_years
+        flat_shape = flat_shape.groupby(level=group_to_normalize).transform(lambda x: x / x.sum()) * Shapes.get_instance().num_active_years
         return flat_shape
 
     def slice_sensitivity(self, sensitivity_name):
@@ -411,14 +411,6 @@ class Shape(DataObject):
         offset = (tz.utcoffset(DT.datetime(2015, 1, 1)) + tz.dst(DT.datetime(2015, 1, 1))).total_seconds() / 60.
         local_df = pd.concat(local_df).tz_convert(pytz.FixedOffset(offset), level='weather_datetime')
         return local_df.sort_index()
-
-    def make_flat_load_shape(self, index, column='value', num_active_years=None):
-        assert 'weather_datetime' in index.names
-        flat_shape = util.empty_df(fill_value=1., index=index, columns=[column])
-        group_to_normalize = [n for n in flat_shape.index.names if n != 'weather_datetime']
-        num_active_years = self.all_shapes.num_active_years if num_active_years is None else num_active_years
-        flat_shape = flat_shape.groupby(level=group_to_normalize).transform(lambda x: x / x.sum()) * num_active_years
-        return flat_shape
 
     @staticmethod
     def ensure_feasible_flexible_load(df):

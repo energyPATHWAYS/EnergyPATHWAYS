@@ -106,7 +106,7 @@ def upper_dict(query, append=None):
             id_dict[key] = value + append
     return id_dict
 
-def df_list_concatenate(df_list, keys, new_names, levels_to_keep=None):
+def df_list_concatenate(df_list, keys=None, new_names=None, levels_to_keep=None):
     new_names = put_in_list(new_names)
     #remove any elements in the list that are not pandas df
     df_list = [df for df in df_list if type(df) is pd.core.frame.DataFrame]
@@ -1109,15 +1109,6 @@ def add_and_set_index(df, name, elements, index_location=None):
     if index_location:
         return_df = return_df.swaplevel(-1, index_location).sort_index()
     return return_df
-
-def determ_energy(unit):
-    """
-    determines whether a unit is an energy unit
-
-    """
-    # TODO check if static method appropriate
-    if cfg.ureg.Quantity(unit).dimensionality == cfg.ureg.Quantity(cfg.calculation_energy_unit).dimensionality:
-        return True
 
 
 def sum_chunk(x, chunk_size, axis=-1):

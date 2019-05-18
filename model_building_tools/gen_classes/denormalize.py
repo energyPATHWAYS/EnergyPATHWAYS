@@ -49,6 +49,11 @@ def denormalize(dbdir, outdir, table_name, child_name):
         childDF.to_csv(mergedPath, index=None)
         return {'data_table': True}
 
+    if 'source' not in parentDF.columns:
+        parentDF['source'] = None
+    if 'notes' not in parentDF.columns:
+        parentDF['notes'] = None
+
     key_col = find_key_col(table_name, parentDF.columns)
     par_col = find_parent_col(child_name, childDF.columns)
 
@@ -67,6 +72,9 @@ def denormalize(dbdir, outdir, table_name, child_name):
         new_col = 'CHILD_' + par_col
         childDF.rename(index=str, columns={par_col: new_col}, inplace=True)
         par_col = new_col
+
+    if table_name in ('DemandTechsCapitalCost', 'DemandTechsInstallationCost'):
+        parentDF['new_or_replacement'] = 'new'
 
     merged = pd.merge(parentDF, childDF, left_on=key_col, right_on=par_col, how='left')
 
@@ -91,15 +99,18 @@ def denormalize(dbdir, outdir, table_name, child_name):
 
     merged.drop(to_drop, axis=1, inplace=True)
 
+    # remove any duplicate rows. This is cleaning up errors that existed in the database
+    merged = merged.drop_duplicates()
+
     # try to sort things as best we can
-    orig_column_order = merged.columns
     sort_order = ['name', 'sector', 'subsector', 'node', 'sensitivity', 'gau', 'oth_1', 'oth_2', 'final_energy', 'demand_technology', 'year', 'vintage', 'day_type', 'month', 'hour', 'weather_datetime']
     if key_col not in sort_order:
         sort_order = [key_col] + sort_order
     all_nulls = merged.isnull().all()
     columns_that_exist = [col for col in sort_order if col in merged.columns and not all_nulls[col]]
+    new_col_order = [key_col] + [col for col in merged.columns if col != key_col]  # put the key column first
     if columns_that_exist:
-        merged = merged.set_index(columns_that_exist).sort_index().reset_index()[orig_column_order]
+        merged = merged.set_index(columns_that_exist).sort_index().reset_index()[new_col_order]
 
     merged.to_csv(mergedPath, index=None)
 
@@ -215,13 +226,10 @@ def combine_tech_data(dbdir, tech_cost_tables):
 @click.option('--classname', '-c',
               help='Name of the CsvDatabase subclass to create with generated metadata. Default is basename of metadata-file.')
 
-@click.option('--force/--no-force', default=False,
-              help='Force merge regardless of file timestamps')
-
 @click.option('--shapes/--no-shapes', default=True,
               help='Whether to copy the ShapeData directory to the merged database. (Default is --shapes)')
 
-def main(dbdir, outdir, metadata_file, classname, force, shapes):
+def main(dbdir, outdir, metadata_file, classname, shapes):
     mkdirs(outdir)
 
     # Before we merge, we combine the "new" + "replacement" data into a single *Data file
@@ -239,6 +247,9 @@ def main(dbdir, outdir, metadata_file, classname, force, shapes):
     not_data_table = ['DispatchNodeConfig']
 
     for tbl_name in tables:
+        if not shapes and tbl_name=='Shapes':
+            continue
+
         child_name = tbl_name + 'Data'
         if not child_name in children:
             child_name = tbl_name + 'NewData'

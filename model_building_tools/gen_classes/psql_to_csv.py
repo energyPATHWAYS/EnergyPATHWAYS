@@ -42,7 +42,7 @@ def main(dbname, db_dir, host, user, password, limit, tables, ids):
 
     db.load_text_mappings()    # to replace ids with strings
 
-    tables_to_skip = Tables_to_ignore + ['GeographyIntersection', 'GeographyIntersectionData']
+    tables_to_skip = Tables_to_ignore + ['GeographyIntersection', 'GeographyIntersectionData', 'Geographies', 'GeographyMapKeys', 'GeographiesData']
     table_names = (tables and tables.split(',')) or [name for name in db.get_table_names() if name not in tables_to_skip]
     table_objs  = [db.get_table(name) for name in table_names]
 
@@ -75,6 +75,9 @@ def main(dbname, db_dir, host, user, password, limit, tables, ids):
             _drop(df, 'id')
 
         elif tbl.name == 'BlendNodeInputsData':
+            _drop(df, 'id')
+
+        elif tbl.name == 'DispatchTransmissionHurdleRate' or tbl.name == 'DispatchTransmissionLosses':
             _drop(df, 'id')
 
         tbl.to_csv(db_dir, save_ids=ids)

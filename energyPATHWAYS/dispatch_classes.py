@@ -6,7 +6,6 @@ Created on Mon Feb 15 22:06:19 2016
 """
 import util
 import numpy as np
-from datamapfunctions import Abstract,DataMapFunctions
 import copy
 import pandas as pd
 import math
@@ -31,6 +30,7 @@ from pyomo.opt import TerminationCondition
 from pyomo.environ import Constraint
 from unit_converter import UnitConverter
 
+from geomapper import GeoMapper
 from .generated import schema
 
 class DispatchFeederAllocation(schema.DispatchFeedersAllocation):
@@ -62,7 +62,7 @@ def all_results_to_list(instance):
 
 def storage_result_to_list(charge_or_discharge):
     items = charge_or_discharge.iteritems()
-    lists = [[int(i) for i in key[0].replace(')','').replace('(','').split(', ')] + [key[1]] + [value.value] for key, value in items]
+    lists = [[string for string in key[0].replace("')", '').replace("('", '').split("', '")] + [key[1]] + [value.value] for key, value in items]
     return lists
 
 
@@ -130,7 +130,7 @@ class Dispatch(object):
         self.ld_upward_imbalance_penalty = UnitConverter.unit_convert(150.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.ld_downward_imbalance_penalty = UnitConverter.unit_convert(50.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.dispatch_feeders = dispatch_feeders
-        self.feeders = [0] + dispatch_feeders
+        self.feeders = ['bulk'] + dispatch_feeders
         self.dispatch_geography = dispatch_geography
         self.dispatch_geographies = dispatch_geographies
         self.stdout_detail = getParamAsBoolean('stdout_detail', 'opt')
@@ -163,7 +163,7 @@ class Dispatch(object):
         """
         if hasattr(self,'hours'):
             return
-        self.num_hours = len(shape.shapes.active_dates_index)
+        self.num_hours = len(shape.Shapes.get_active_dates_index())
         self.hours = range(self.num_hours)
         num_periods = int(round(self.num_hours / float(cfg.opt_period_length)))
         self.periods = range(num_periods)
@@ -177,7 +177,7 @@ class Dispatch(object):
         self.t_and_d_losses = dict()
         for geography in self.dispatch_geographies:
             for feeder in self.feeders:
-                if feeder == 0:
+                if feeder == 'bulk':
                     self.t_and_d_losses[(geography,feeder)] = transmission_losses.loc[geography,:].values[0]
                 else:
                     self.t_and_d_losses[(geography,feeder)] = util.df_slice(distribution_losses, [geography,feeder],[self.dispatch_geography, 'dispatch_feeder']).values[0][0] * transmission_losses.loc[geography,:].values[0]
@@ -188,7 +188,7 @@ class Dispatch(object):
         for geography in self.dispatch_geographies:
             self.bulk_net_load_thresholds[geography] = transmission_stock.loc[geography].values[0]
             for feeder in self.feeders:
-                if feeder == 0:
+                if feeder == 'bulk':
                     self.dist_net_load_thresholds[(geography,feeder)] = 0
                 else:
                     self.dist_net_load_thresholds[(geography,feeder)] =  util.df_slice(distribution_stock,[geography, feeder],[self.dispatch_geography, 'dispatch_feeder']).values[0][0]
@@ -222,9 +222,9 @@ class Dispatch(object):
 
     def _add_dispatch_feeder_level_zero(self, df):
         # if we already have dispatch feeder zero, we shouldn't add it
-        if 'dispatch_feeder' in df.index.names and 0 in df.index.get_level_values('dispatch_feeder'):
+        if 'dispatch_feeder' in df.index.names and 'bulk' in df.index.get_level_values('dispatch_feeder'):
             return df
-        levels = [list(l) if n != 'dispatch_feeder' else [0] for l, n in zip(df.index.levels, df.index.names)]
+        levels = [list(l) if n != 'dispatch_feeder' else ['bulk'] for l, n in zip(df.index.levels, df.index.names)]
         index = pd.MultiIndex.from_product(levels, names=df.index.names)
         return pd.concat((df, pd.DataFrame(0.0, columns=df.columns, index=index))).sort_index()
 
@@ -343,7 +343,7 @@ class Dispatch(object):
                      self.capacity[tech_dispatch_id] = storage_capacity_dict['power'][dispatch_geography][zone][feeder][tech]
                      self.duration[tech_dispatch_id] = storage_capacity_dict['duration'][dispatch_geography][zone][feeder][tech]
                      self.energy[tech_dispatch_id] = self.capacity[tech_dispatch_id] * self.duration[tech_dispatch_id]
-                     if self.duration[tech_dispatch_id] >= self.large_storage_duration:
+                     if self.duration[tech_dispatch_id] >= cfg.getParamAsInt('large_storage_duration', section='opt'):
                         self.alloc_technologies.append(tech_dispatch_id)
                         self.large_storage[tech_dispatch_id] = 1
                         self.alloc_geography[tech_dispatch_id] = dispatch_geography
@@ -397,7 +397,7 @@ class Dispatch(object):
             if generator not in self.generation_technologies:
                 self.generation_technologies.append(generator)
             self.geography[generator] = geography
-            self.feeder[generator] = 0
+            self.feeder[generator] = 'bulk'
             self.min_capacity[generator] = 0
             self.capacity[generator] = clustered_dict['derated_pmax'][number]
             self.variable_costs[generator] = clustered_dict['marginal_cost'][number]
@@ -437,7 +437,7 @@ class Dispatch(object):
     def load_from_pickle():
         with open(os.path.join(cfg.workingdir, 'dispatch_class.p'), 'rb') as infile:
             dispatch = pickle.load(infile)
-        shape.shapes.set_active_dates()
+        shape.Shapes.set_active_dates()
         return dispatch
 
     def parse_storage_result(self, lists, period):
@@ -509,7 +509,7 @@ class Dispatch(object):
 
     def _replace_hour_with_weather_datetime(self, df):
         i_h = df.index.names.index('hour')
-        df.index.levels = [level if i != i_h else shape.shapes.active_dates_index for i, level in enumerate(df.index.levels)]
+        df.index.levels = [level if i != i_h else shape.Shapes.get_active_dates_index() for i, level in enumerate(df.index.levels)]
         df.index.names = [name if i != i_h else 'weather_datetime' for i, name in enumerate(df.index.names)]
         return df
 

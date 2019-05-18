@@ -33,11 +33,11 @@ def meet_load_rule(model, geography, timepoint):
     This assumes we won't be charging bulk storage with distribution power -- in that situation this constraint will
     break, as the direction of losses would need to be reversed.
     """
-    return (feeder_provide_power(model, geography, timepoint, feeder=0) +
+    return (feeder_provide_power(model, geography, timepoint, feeder='bulk') +
             model.Net_Transmit_Power_by_Geo[geography, timepoint] +
             model.bulk_gen[geography, timepoint] -
-            model.bulk_load[geography, timepoint] * model.t_and_d_losses[geography,0] -
-            feeder_charge(model, geography, timepoint, feeder=0) * model.t_and_d_losses[geography,0] -
+            model.bulk_load[geography, timepoint] * model.t_and_d_losses[geography,'bulk'] -
+            feeder_charge(model, geography, timepoint, feeder='bulk') * model.t_and_d_losses[geography,'bulk'] -
             model.Curtailment[geography, timepoint]) \
             == \
             sum(model.t_and_d_losses[geography,feeder] * 
@@ -46,7 +46,7 @@ def meet_load_rule(model, geography, timepoint):
             feeder_provide_power(model, geography, timepoint, feeder) +
             feeder_charge(model, geography, timepoint, feeder) +
             model.Flexible_Load[geography, timepoint,feeder])
-            for feeder in model.FEEDERS if feeder!=0) - \
+            for feeder in model.FEEDERS if feeder!='bulk') - \
             model.Unserved_Energy[geography, timepoint]
 
 def power_rule(model, technology, timepoint):
@@ -115,7 +115,7 @@ def large_storage_end_state_of_charge_rule(model, technology, timepoint):
         return Constraint.Skip
 
 def cumulative_flex_load_tracking_rule(model, geography, timepoint, feeder):
-    if feeder == 0:
+    if feeder == 'bulk':
         return Constraint.Skip
     return model.Cumulative_Flexible_Load[geography, timepoint, feeder] == model.Cumulative_Flexible_Load[geography, model.previous[timepoint], feeder] + model.Flexible_Load[geography, timepoint, feeder]
 
@@ -124,7 +124,7 @@ def cumulative_flexible_load_rule(model, geography, timepoint, feeder):
     The cumulative flexible load through each timepoint must be between the minimum and maximum cumulative flexible
     load for that timepoint.
     """
-    if feeder == 0:
+    if feeder == 'bulk':
         return Constraint.Skip
     
     if timepoint == model.last_timepoint.value:
@@ -136,7 +136,7 @@ def flex_load_capacity_rule(model, geography, timepoint, feeder):
     """
     Maximum flexible load that can be shifted to a given timepoint.
     """
-    if feeder == 0:
+    if feeder == 'bulk':
         return model.Flexible_Load[geography, timepoint, feeder] == 0
     else:
         return model.min_flex_load[geography, feeder] <= model.Flexible_Load[geography, timepoint, feeder] + model.native_flex[geography, timepoint, feeder] <= model.max_flex_load[geography, feeder]
@@ -170,7 +170,7 @@ def dist_system_capacity_need_rule(model, geography, timepoint, feeder):
     """
     Apply a penalty whenever distribution net load exceeds a pre-specified threshold
     """    
-    if feeder ==0:
+    if feeder =='bulk':
         return Constraint.Skip
     else:
         return (model.DistSysCapacityNeed[geography, feeder] +
@@ -211,7 +211,7 @@ def bulk_system_capacity_need_rule(model, geography, timepoint):
            feeder_provide_power(model, geography, timepoint, feeder) +
            feeder_charge(model, geography, timepoint, feeder) +
            model.Flexible_Load[geography, timepoint,feeder]) \
-           for feeder in model.FEEDERS if feeder!=0) - \
+           for feeder in model.FEEDERS if feeder!='bulk') - \
            model.Unserved_Energy[geography, timepoint] + \
            model.bulk_load[geography, timepoint] - \
            model.dispatched_bulk_load[geography, timepoint] * .5

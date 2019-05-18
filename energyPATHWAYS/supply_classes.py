@@ -72,8 +72,9 @@ class SupplySales(Abstract, DataMapFunctions):
                                             unit_to_den=model_time_step)
         else:
             # if sales is a capacity unit, the model must convert the unit type to an energy unit for conversion ()
-            self.values = UnitConverter.unit_convert(self.values, unit_from_num=cfg.ureg.Quantity(self.capacity_or_energy_unit)
-                                                                           * cfg.ureg.Quantity(model_time_step),
+            unit_from_num = self.capacity_or_energy_unit + "_" + model_time_step
+            self.values = UnitConverter.unit_convert(self.values,
+                                            unit_from_num=unit_from_num,
                                             unit_from_den=model_time_step,
                                             unit_to_num=model_energy_unit,
                                             unit_to_den=model_time_step)
@@ -210,11 +211,12 @@ class SupplySpecifiedStock(schema.SupplyStockMeasures, SpecifiedStock):
                                             unit_from_den=self.time_unit, unit_to_num=model_energy_unit,
                                             unit_to_den=model_time_step)
             else:
-               self.values = UnitConverter.unit_convert(self.values, unit_from_num=cfg.ureg.Quantity(self.capacity_or_energy_unit)
-                                                                           * cfg.ureg.Quantity(model_time_step),
-                                            unit_from_den = model_time_step,
-                                            unit_to_num=model_energy_unit,
-                                            unit_to_den=model_time_step)
+                unit_from_num = self.capacity_or_energy_unit + "_" + model_time_step
+                self.values = UnitConverter.unit_convert(self.values,
+                                                         unit_from_num=unit_from_num,
+                                                         unit_from_den = model_time_step,
+                                                         unit_to_num=model_energy_unit,
+                                                         unit_to_den=model_time_step)
 
 
 
@@ -253,8 +255,9 @@ class RioSpecifiedStock(DataMapFunctions):
                                                 unit_from_den=self.time_unit, unit_to_num=model_energy_unit,
                                                 unit_to_den=model_time_step)
             else:
-                self.values = UnitConverter.unit_convert(self.values/self.input_timestep, unit_from_num=cfg.ureg.Quantity(self.capacity_or_energy_unit)
-                                                                           * cfg.ureg.Quantity(model_time_step),
-                                                unit_from_den=model_time_step,
-                                                unit_to_num=model_energy_unit,
-                                                unit_to_den=model_time_step)
+                unit_from_num = self.capacity_or_energy_unit + "_" + model_time_step
+                self.values = UnitConverter.unit_convert(self.values/self.input_timestep,
+                                                         unit_from_num=unit_from_num,
+                                                         unit_from_den=model_time_step,
+                                                         unit_to_num=model_energy_unit,
+                                                         unit_to_den=model_time_step)

@@ -6,33 +6,21 @@ import copy
 import pandas as pd
 import math
 import config as cfg
-import os
-from pyomo.opt import SolverFactory, SolverStatus
-import csv
-import logging
-import matplotlib.pyplot as plt
-from energyPATHWAYS.outputs import Output
-import dispatch_formulation
-import pdb
-import shape
-import helper_multiprocess
-import cPickle as pickle
-import dispatch_generators
-import dispatch_maintenance
 from geomapper import GeoMapper
 from unit_converter import UnitConverter
+from .generated import schema
+import pdb
 
 class TransmissionSuper(Abstract):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
     def __init__(self):
-        if self.id is None:
+        if self.name is None:
             self._setup_zero_constraints()
         else:
             self._setup_and_validate()
 
 
     def _setup_and_validate(self):
-        Abstract.__init__(self, self.id, primary_key='id', data_id_key='parent_id')
         if self.raw_values is None:
             self._setup_zero_constraints()
             return
@@ -52,76 +40,79 @@ class TransmissionSuper(Abstract):
 
     def _validate_gaus(self):
         dispatch_geographies = set(GeoMapper.dispatch_geographies)
-        geography_from_ids = self.raw_values.index.get_level_values('geography_from')
-        if len(set(geography_from_ids) - dispatch_geographies):
-            raise ValueError("gau_from_ids {} are found in transmission constraint id {} "
-                             "but not found in the dispatch_geographies {}".format(list(set(geography_from_ids) - dispatch_geographies), self.id, GeoMapper.dispatch_geographies))
-        geography_to_ids = self.raw_values.index.get_level_values('geography_to')
-        if len(set(geography_to_ids) - dispatch_geographies):
-            raise ValueError("gau_to_ids {} are found in transmission constraint id {} "
-                             "but not found in the dispatch_geographies {}".format(list(set(geography_to_ids) - dispatch_geographies), self.id, GeoMapper.dispatch_geographies))
+        geography_from_names = self.raw_values.index.get_level_values('geography_from')
+        if len(set(geography_from_names) - dispatch_geographies):
+            raise ValueError("gau_from_names {} are found in transmission constraint name {} "
+                             "but not found in the dispatch_geographies {}".format(list(set(geography_from_names) - dispatch_geographies), self.name, GeoMapper.dispatch_geographies))
+        geography_to_names = self.raw_values.index.get_level_values('geography_to')
+        if len(set(geography_to_names) - dispatch_geographies):
+            raise ValueError("gau_to_names {} are found in transmission constraint name {} "
+                             "but not found in the dispatch_geographies {}".format(list(set(geography_to_names) - dispatch_geographies), self.name, GeoMapper.dispatch_geographies))
 
-        if any([name in self.raw_values.index.names for name in ('month', 'hour', 'day_type_id')]):
+        if any([name in self.raw_values.index.names for name in ('month', 'hour', 'day_type_name')]):
             print 'Time slices for transmission constraints are not implemented yet, average of all combinations will be used'
-            self.raw_values = util.remove_df_levels(self.raw_values,[name for name in ('month', 'hour', 'day_type_id')],agg_function='mean')
+            self.raw_values = util.remove_df_levels(self.raw_values,[name for name in ('month', 'hour', 'day_type_name')],agg_function='mean')
 
     def get_values_as_dict(self, year):
-       # capacity = self.values.loc[year].squeeze().to_dict()
-        capacity = self.values.loc[year,'value'].to_dict()
+        capacity = self.values.loc[year].squeeze().to_dict()
         for key in capacity.keys():
             if key[0]==key[1]:
                 del capacity[key]
         # tuple needs to be a string in the optimization
-        capacity = dict(zip([str((int(key[0]), int(key[1]))) for key in capacity.keys()],
-                            capacity.values()))
+        capacity = dict(zip([str((key[0], key[1])) for key in capacity.keys()], capacity.values()))
         return capacity
 
     def get_values(self, year):
         return self.values.loc[year]
 
-class DispatchTransmissionConstraint(TransmissionSuper):
+class DispatchTransmissionConstraint(schema.DispatchTransmissionConstraint, TransmissionSuper):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
-    def __init__(self, id, scenario):
-        self.id = id
-        self.scenario = scenario
-        self.sql_id_table = 'DispatchTransmissionConstraint'
-        self.sql_data_table = 'DispatchTransmissionConstraintData'
+    def __init__(self, name, scenario):
+        schema.DispatchTransmissionConstraint.__init__(self, name, scenario=scenario)
+        self.init_from_db(name, scenario)
         TransmissionSuper.__init__(self)
+        self.scenario = scenario
         self.convert_units()
 
     def convert_units(self):
-        if hasattr(self,'energy_unit'):
+        if self.name is not None:
             unit_factor = UnitConverter.unit_convert(1, unit_from_den=self.energy_unit, unit_to_den=cfg.calculation_energy_unit)
             self.values /= unit_factor
 
-class DispatchTransmissionHurdleRate(TransmissionSuper):
+class DispatchTransmissionHurdleRate(schema.DispatchTransmissionHurdleRate, TransmissionSuper):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
-    def __init__(self, id, scenario):
-        self.id = id
-        self.scenario = scenario
-        self.sql_id_table = 'DispatchTransmissionConstraint'
-        self.sql_data_table = 'DispatchTransmissionHurdleRate'
+    def __init__(self, name, scenario):
+        schema.DispatchTransmissionHurdleRate.__init__(self, name, scenario=scenario)
+        self.init_from_db(name, scenario)
+        self.name = self.parent
         TransmissionSuper.__init__(self)
+        self.scenario = scenario
         self.convert_units()
 
     def convert_units(self):
-        if hasattr(self,'energy_unit'):
+        if self.name is not None:
             unit_factor = UnitConverter.unit_convert(1, unit_from_den=self.energy_unit, unit_to_den=cfg.calculation_energy_unit)
             self.values *= unit_factor
 
-
-class DispatchTransmissionCost(TransmissionSuper):
+class DispatchTransmissionLosses(schema.DispatchTransmissionLosses, TransmissionSuper):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
-    def __init__(self, id, scenario):
-        self.id = id
-        self.scenario = scenario
-        self.sql_id_table = 'DispatchTransmissionCost'
-        self.sql_data_table = 'DispatchTransmissionCostData'
+    def __init__(self, name, scenario):
+        schema.DispatchTransmissionLosses.__init__(self, name, scenario=scenario)
+        self.init_from_db(name, scenario)
+        self.name = self.parent
         TransmissionSuper.__init__(self)
+        self.scenario = scenario
+
+class DispatchTransmissionCost(schema.DispatchTransmissionCost, TransmissionSuper):
+    """loads and cleans the data that allocates demand sectors to dispatch feeders"""
+    def __init__(self, name, scenario):
+        schema.DispatchTransmissionCost.__init__(self, name, scenario=scenario)
+        self.init_from_db(name, scenario)
+        TransmissionSuper.__init__(self)
+        self.scenario = scenario
         if self.values.sum().sum()>0:
             self.convert()
             self.levelize_costs()
-
 
     def convert(self):
         """
@@ -140,31 +131,19 @@ class DispatchTransmissionCost(TransmissionSuper):
             self.values = UnitConverter.unit_convert(self.values, unit_from_den=self.capacity_or_energy_unit+"_"+model_time_step,
                                                 unit_to_den=model_energy_unit)
 
-
     def levelize_costs(self):
         inflation = cfg.getParamAsFloat('inflation_rate')
         rate = self.cost_of_capital - inflation
         self.values_level = - np.pmt(rate, self.lifetime, 1, 0, 'end') * self.values
 
 
-
-
-class DispatchTransmissionLosses(TransmissionSuper):
-    """loads and cleans the data that allocates demand sectors to dispatch feeders"""
-    def __init__(self, id, scenario):
-        self.id = id
-        self.scenario = scenario
-        self.sql_id_table = 'DispatchTransmissionConstraint'
-        self.sql_data_table = 'DispatchTransmissionLosses'
-        TransmissionSuper.__init__(self)
-
 class DispatchTransmission():
-    def __init__(self, id, scenario):
-        self.id = id
-        self.constraints = DispatchTransmissionConstraint(id, scenario)
-        self.hurdles = DispatchTransmissionHurdleRate(id, scenario)
-        self.losses = DispatchTransmissionLosses(id, scenario)
-        self.cost = DispatchTransmissionCost(id,scenario)
+    def __init__(self, name, scenario):
+        self.name = name
+        self.constraints = DispatchTransmissionConstraint(name, scenario)
+        self.hurdles = DispatchTransmissionHurdleRate(name, scenario)
+        self.losses = DispatchTransmissionLosses(name, scenario)
+        self.cost = DispatchTransmissionCost(name,scenario)
         self.list_transmission_lines = self.get_transmission_lines()
 
     def get_transmission_lines(self):
@@ -173,5 +152,5 @@ class DispatchTransmission():
             for t_to in GeoMapper.dispatch_geographies:
                 if t_from==t_to:
                     continue
-                transmission_lines.append(str((int(t_from), int(t_to))))
+                transmission_lines.append(str((t_from, t_to)))
         return transmission_lines

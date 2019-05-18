@@ -222,10 +222,10 @@ class DataMapFunctions:
 
     def _add_missing_geographies(self, df, current_geography, current_data_type):
         current_number_of_geographies = len(util.get_elements_from_level(df, current_geography))
-        propper_number_of_geographies = len(GeoMapper.geographies_unfiltered[current_geography])
+        propper_number_of_geographies = len(GeoMapper.geography_to_gau_unfiltered[current_geography])
         if current_data_type == 'total' and current_number_of_geographies != propper_number_of_geographies:
             # we only want to do it when we have a total, otherwise we can't just fill with zero
-            df = util.reindex_df_level_with_new_elements(df, current_geography, GeoMapper.geographies_unfiltered[current_geography], fill_value=np.nan)
+            df = util.reindex_df_level_with_new_elements(df, current_geography, GeoMapper.geography_to_gau_unfiltered[current_geography], fill_value=np.nan)
         return df
 
     def _get_active_time_index(self, time_index, time_index_name):

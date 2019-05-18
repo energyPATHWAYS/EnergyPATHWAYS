@@ -33,7 +33,10 @@ class UnitConverter:
                  'jet_fuel_gallon = 125800 * Btu',
                  'pipeline_gas_cubic_meter = 9000 * kilocalorie',
                  'boe = 5,800,000 * Btu',
-                 'bee = 3,559,000 * Btu']
+                 'bee = 3,559,000 * Btu',
+                 'TW_hour = terawatt_hour',
+                 'MW_hour = megawatt_hour',
+                 'kW_hour = kilowatt_hour']
 
     @classmethod
     def get_instance(cls, database_path=None):
@@ -125,6 +128,13 @@ class UnitConverter:
         else:
             return df
 
+    @classmethod
+    def is_energy_unit(cls, unit):
+        uc = cls.get_instance()
+        if uc.ureg.Quantity(unit).dimensionality == uc.ureg.Quantity('kilowatt_hour').dimensionality:
+            return True
+        else:
+            return False
 
 
 if __name__ == "__main__":

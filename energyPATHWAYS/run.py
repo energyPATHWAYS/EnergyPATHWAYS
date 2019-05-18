@@ -164,7 +164,7 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\csv_migration'
+    workingdir = r'C:\github\EP_runs\csv_migration_testing'
     os.chdir(workingdir)
     config = 'config.INI'
     rio_scenario = [None]
@@ -172,7 +172,7 @@ if __name__ == "__main__":
 
     run(workingdir, config, scenario,
     load_demand   = True,
-    solve_demand  = False,
+    solve_demand  = True,
     load_supply   = False,
     solve_supply  = True,
     export_results= True,

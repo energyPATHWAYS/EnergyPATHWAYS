@@ -102,16 +102,16 @@ class PathwaysModel(object):
             else:
                 Output.pickle(self, file_name=str(self.scenario_id) + cfg.full_model_append_name, path=cfg.workingdir)
             # we don't need the demand side object any more, so we can remove it to save drive space
-            if not cfg.rio_supply_run:
-                if os.path.isfile(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name)):
-                    os.remove(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name))
+            # if not cfg.rio_supply_run:
+            #     if os.path.isfile(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name)):
+            #         os.remove(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name))
 
     def pass_supply_results_back_to_demand(self):
         # we need to geomap to the combined output geography
-        emissions_demand_link = GeoMapper.geo_map(self.supply.emissions_demand_link, GeoMapper.supply_primary_geography, cfg.combined_outputs_geography, 'intensity')
-        demand_emissions_rates = GeoMapper.geo_map(self.supply.demand_emissions_rates, GeoMapper.supply_primary_geography, cfg.combined_outputs_geography, 'intensity')
-        energy_demand_link = GeoMapper.geo_map(self.supply.energy_demand_link, GeoMapper.supply_primary_geography, cfg.combined_outputs_geography, 'intensity')
-        cost_demand_link = GeoMapper.geo_map(self.supply.cost_demand_link, GeoMapper.supply_primary_geography, cfg.combined_outputs_geography, 'intensity')
+        emissions_demand_link = GeoMapper.geo_map(self.supply.emissions_demand_link, GeoMapper.supply_primary_geography, GeoMapper.combined_outputs_geography, 'intensity')
+        demand_emissions_rates = GeoMapper.geo_map(self.supply.demand_emissions_rates, GeoMapper.supply_primary_geography, GeoMapper.combined_outputs_geography, 'intensity')
+        energy_demand_link = GeoMapper.geo_map(self.supply.energy_demand_link, GeoMapper.supply_primary_geography, GeoMapper.combined_outputs_geography, 'intensity')
+        cost_demand_link = GeoMapper.geo_map(self.supply.cost_demand_link, GeoMapper.supply_primary_geography, GeoMapper.combined_outputs_geography, 'intensity')
 
         logging.info("Calculating link to supply")
         self.demand.link_to_supply(emissions_demand_link, demand_emissions_rates, energy_demand_link, cost_demand_link)
@@ -303,7 +303,7 @@ class PathwaysModel(object):
         #calculate and format export costs
         if self.supply.export_costs is None:
             return None
-        export_costs = GeoMapper.geo_map(self.supply.export_costs.copy(), GeoMapper.supply_primary_geography, cfg.combined_outputs_geography, 'total')
+        export_costs = GeoMapper.geo_map(self.supply.export_costs.copy(), GeoMapper.supply_primary_geography, GeoMapper.combined_outputs_geography, 'total')
         export_costs = Output.clean_df(export_costs)
         util.replace_index_name(export_costs, 'FINAL_ENERGY', 'SUPPLY_NODE_EXPORT')
         export_costs = util.add_to_df_index(export_costs, names=['EXPORT/DOMESTIC', "SUPPLY/DEMAND"], keys=["EXPORT", "SUPPLY"])
@@ -323,7 +323,7 @@ class PathwaysModel(object):
         #calculte and format direct demand costs
         if self.demand.outputs.d_levelized_costs is None:
             return None
-        direct_costs = GeoMapper.geo_map(self.demand.outputs.d_levelized_costs.copy(), GeoMapper.demand_primary_geography, cfg.combined_outputs_geography, 'total')
+        direct_costs = GeoMapper.geo_map(self.demand.outputs.d_levelized_costs.copy(), GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total')
         levels_to_keep = [x for x in cfg.output_combined_levels if x in direct_costs.index.names]
         direct_costs = direct_costs.groupby(level=levels_to_keep).sum()
         direct_costs = Output.clean_df(direct_costs)
@@ -345,11 +345,15 @@ class PathwaysModel(object):
         #calculate and format export emissions
         if self.supply.export_emissions is None:
             return None
-        export_emissions = GeoMapper.geo_map(self.supply.export_emissions.copy(), GeoMapper.supply_primary_geography, cfg.combined_outputs_geography, 'total')
+        export_emissions = GeoMapper.geo_map(self.supply.export_emissions.copy(), GeoMapper.supply_primary_geography, GeoMapper.combined_outputs_geography, 'total')
         if 'supply_geography' not in cfg.output_combined_levels:
             util.remove_df_levels(export_emissions, GeoMapper.supply_primary_geography +'_supply')
         export_emissions = Output.clean_df(export_emissions)
         util.replace_index_name(export_emissions, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
+        index_names = export_emissions.index.names
+        export_emissions = export_emissions.reset_index()
+        export_emissions['FINAL_ENERGY'] = 'export ' + export_emissions['FINAL_ENERGY']
+        export_emissions = export_emissions.set_index(index_names).sort_index()
         export_emissions = util.add_to_df_index(export_emissions, names=['EXPORT/DOMESTIC', "SUPPLY/DEMAND"], keys=["EXPORT", "SUPPLY"])
         return export_emissions
 
@@ -363,9 +367,9 @@ class PathwaysModel(object):
         #calculte and format direct demand emissions
         direct_emissions = Output.clean_df(self.demand.outputs.demand_direct_emissions)
         direct_emissions = util.add_to_df_index(direct_emissions, names=['EXPORT/DOMESTIC', "SUPPLY/DEMAND"], keys=["DOMESTIC", "DEMAND"])
-        if cfg.combined_outputs_geography + '_supply' in cfg.output_combined_levels:
-             keys = direct_emissions.index.get_level_values(cfg.combined_outputs_geography.upper()).values
-             names = cfg.combined_outputs_geography.upper() + '_SUPPLY'
+        if GeoMapper.combined_outputs_geography + '_supply' in cfg.output_combined_levels:
+             keys = direct_emissions.index.get_level_values(GeoMapper.combined_outputs_geography.upper()).values
+             names = GeoMapper.combined_outputs_geography.upper() + '_SUPPLY'
              direct_emissions[names] = keys
              direct_emissions.set_index(names, append=True, inplace=True)
         return direct_emissions
@@ -377,16 +381,16 @@ class PathwaysModel(object):
         keys = ['EXPORTED', 'SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['EMISSIONS TYPE']
         self.outputs.c_emissions = util.df_list_concatenate([export_emissions, embodied_emissions, direct_emissions],keys=keys,new_names = names)
-        util.replace_index_name(self.outputs.c_emissions, cfg.combined_outputs_geography.upper() +'-EMITTED', cfg.combined_outputs_geography.upper() +'_SUPPLY')
-        util.replace_index_name(self.outputs.c_emissions, cfg.combined_outputs_geography.upper() +'-CONSUMED', cfg.combined_outputs_geography.upper())
-        self.outputs.c_emissions= self.outputs.c_emissions[self.outputs.c_emissions['VALUE']!=0]
+        util.replace_index_name(self.outputs.c_emissions, GeoMapper.combined_outputs_geography.upper() +'-EMITTED', GeoMapper.combined_outputs_geography.upper() +'_SUPPLY')
+        util.replace_index_name(self.outputs.c_emissions, GeoMapper.combined_outputs_geography.upper() +'-CONSUMED', GeoMapper.combined_outputs_geography.upper())
+        self.outputs.c_emissions = self.outputs.c_emissions[self.outputs.c_emissions['VALUE']>=1E-6]
         emissions_unit = cfg.getParam('mass_unit')
         self.outputs.c_emissions.columns = [emissions_unit.upper()]
 
     def calc_and_format_export_energy(self):
         if self.supply.export_energy is None:
             return None
-        export_energy = GeoMapper.geo_map(self.supply.export_energy.copy(), GeoMapper.supply_primary_geography, cfg.combined_outputs_geography, 'total')
+        export_energy = GeoMapper.geo_map(self.supply.export_energy.copy(), GeoMapper.supply_primary_geography, GeoMapper.combined_outputs_geography, 'total')
         export_energy = Output.clean_df(export_energy)
         util.replace_index_name(export_energy, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
         export_energy = util.add_to_df_index(export_energy, names=['EXPORT/DOMESTIC', "ENERGY ACCOUNTING"], keys=["EXPORT", "EMBODIED"])
@@ -399,7 +403,7 @@ class PathwaysModel(object):
         return embodied_energy
 
     def calc_and_format_direct_demand_energy(self):
-        demand_energy = GeoMapper.geo_map(self.demand.outputs.d_energy.copy(), GeoMapper.demand_primary_geography, cfg.combined_outputs_geography, 'total')
+        demand_energy = GeoMapper.geo_map(self.demand.outputs.d_energy.copy(), GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total')
         demand_energy = Output.clean_df(demand_energy)
         demand_energy = demand_energy[demand_energy.index.get_level_values('YEAR')>=cfg.getParamAsInt('current_year')]
         demand_energy = util.add_to_df_index(demand_energy, names=['EXPORT/DOMESTIC', "ENERGY ACCOUNTING"], keys=['DOMESTIC','FINAL'])

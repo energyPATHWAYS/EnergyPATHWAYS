@@ -66,9 +66,9 @@ class SupplyTechnology(schema.SupplyTechs, StockItem):
 
     def add_specified_stock_measures(self, scenario):
         self.specified_stocks = {}
-        measure_ids = scenario.get_measures('SupplyStockMeasures', self.supply_node_id, self.id)
-        for specified_stock in measure_ids:
-            self.specified_stocks[specified_stock] = SupplySpecifiedStock(name=specified_stock, supply_node=self.supply_node, scenario=scenario)
+        measure_names = scenario.get_measures('SupplyStockMeasures', self.supply_node, self.name)
+        for name in measure_names:
+            self.specified_stocks[name] = SupplySpecifiedStock(name, supply_node=self.supply_node, scenario=scenario)
 
     def add_rio_stock_measures(self,rio_inputs):
         self.specified_stocks = {}
@@ -180,7 +180,8 @@ class SupplyTechInvestmentCost(SupplyTechCost):
         self.scenario = scenario
         self.input_type = 'intensity'
         self.book_life = book_life
-        self.cost_of_capital = cost_of_capital
+        if self.cost_of_capital is None:
+            self.cost_of_capital = cost_of_capital
 
     def calculate(self, vintages, years):
         self.vintages = vintages
@@ -206,7 +207,10 @@ class SupplyTechInvestmentCost(SupplyTechCost):
     def levelize_costs(self):
         if hasattr(self, 'is_levelized'):
             inflation = cfg.getParamAsFloat('inflation_rate')
-            rate = self.cost_of_capital - inflation
+            try:
+                rate = self.cost_of_capital - inflation
+            except:
+                pdb.set_trace()
             if self.is_levelized == 0:
                 self.values_level = - np.pmt(rate, self.book_life, 1, 0, 'end') * self.values
                 util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values_level', attr_to='values_level', reverse=False)
@@ -223,17 +227,13 @@ class SupplyTechInvestmentCost(SupplyTechCost):
         """
         model_energy_unit = cfg.calculation_energy_unit
         model_time_step = cfg.getParam('time_step')
-        if hasattr(self,'time_unit') and self.time_unit is not None:
+        if hasattr(self, 'time_unit') and self.time_unit is not None:
             # if a cost has a time_unit, then the unit is energy and must be converted to capacity
-            self.values = UnitConverter.unit_convert(self.raw_values, unit_from_den=self.capacity_or_energy_unit,
-                                            unit_from_num=self.time_unit, unit_to_den=model_energy_unit,
-                                            unit_to_num=model_time_step)
+            self.values = UnitConverter.unit_convert(self.raw_values, unit_from_den=self.capacity_or_energy_unit, unit_from_num=self.time_unit, unit_to_den=model_energy_unit, unit_to_num=model_time_step)
         else:
             # if a cost is a capacity unit, the model must convert the unit type to an energy unit for conversion ()
-            self.values = UnitConverter.unit_convert(self.raw_values, unit_from_den =cfg.ureg.Quantity(self.capacity_or_energy_unit)* cfg.ureg.Quantity(model_time_step),
-                                        unit_from_num=model_time_step,
-                                        unit_to_den=model_energy_unit,
-                                        unit_to_num=model_time_step)
+            unit_from_den = self.capacity_or_energy_unit + "_" + model_time_step
+            self.values = UnitConverter.unit_convert(self.raw_values, unit_from_den=unit_from_den, unit_from_num=model_time_step, unit_to_den=model_energy_unit, unit_to_num=model_time_step)
         if self.definition == 'absolute':
             self.values = UnitConverter.currency_convert(self.values, self.currency, self.currency_year)
             self.absolute = True
@@ -241,25 +241,23 @@ class SupplyTechInvestmentCost(SupplyTechCost):
             self.absolute = False
 
 class SupplyTechsCapitalCapacityCostObj(schema.SupplyTechsCapitalCost, SupplyTechInvestmentCost):
-    def __init__(self, name, scenario, new_or_replacement, book_life=None, cost_of_capital=None):
-        schema.SupplyTechsCapitalCost.__init__(self, name, scenario=scenario)
+    def __init__(self, supply_tech, scenario, new_or_replacement, book_life=None, cost_of_capital=None):
+        schema.SupplyTechsCapitalCost.__init__(self, supply_tech, scenario=scenario)
+        self.init_from_db(supply_tech, scenario, new_or_replacement=new_or_replacement, capacity_or_energy='capacity')
         SupplyTechInvestmentCost.__init__(self, scenario, book_life, cost_of_capital)
-        self.init_from_db(name, scenario, new_or_replacement=new_or_replacement, capacity_or_energy='capacity')
-        self.name = name
 
 class SupplyTechsCapitalEnergyCostObj(schema.SupplyTechsCapitalCost, SupplyTechInvestmentCost):
-    def __init__(self, name, scenario, new_or_replacement, book_life=None, cost_of_capital=None):
-        schema.SupplyTechsCapitalCost.__init__(self, name, scenario=scenario)
+    def __init__(self, supply_tech, scenario, new_or_replacement, book_life=None, cost_of_capital=None):
+        schema.SupplyTechsCapitalCost.__init__(self, supply_tech, scenario=scenario)
+        self.init_from_db(supply_tech, scenario, new_or_replacement=new_or_replacement, capacity_or_energy='energy')
         SupplyTechInvestmentCost.__init__(self, scenario, book_life, cost_of_capital)
-        self.init_from_db(name, scenario, new_or_replacement=new_or_replacement, capacity_or_energy='energy')
-        self.name = name
 
     def convert(self):
         """
         convert raw_values to model currency and capacity (energy_unit/time_step)
         """
         model_energy_unit = cfg.calculation_energy_unit
-        self.values = UnitConverter.unit_convert(self.raw_values, unit_from_den=self.energy_unit,unit_to_den=model_energy_unit)
+        self.values = UnitConverter.unit_convert(self.raw_values, unit_from_den=self.capacity_or_energy_unit,unit_to_den=model_energy_unit)
         if self.definition == 'absolute':
             self.values = UnitConverter.currency_convert(self.values, self.currency, self.currency_year)
             self.absolute = True
@@ -267,17 +265,18 @@ class SupplyTechsCapitalEnergyCostObj(schema.SupplyTechsCapitalCost, SupplyTechI
             self.absolute = False
 
 class SupplyTechsInstallationCostObj(schema.SupplyTechsInstallationCost, SupplyTechInvestmentCost):
-    def __init__(self, name, scenario, new_or_replacement, book_life=None, cost_of_capital=None):
-        schema.SupplyTechsInstallationCost.__init__(self, name, scenario=scenario)
+    def __init__(self, supply_tech, scenario, new_or_replacement, book_life=None, cost_of_capital=None):
+        schema.SupplyTechsInstallationCost.__init__(self, supply_tech, scenario=scenario)
+        self.cost_of_capital = cost_of_capital # todo: add this to the csv
+        self.init_from_db(supply_tech, scenario, new_or_replacement=new_or_replacement)
         SupplyTechInvestmentCost.__init__(self, scenario, book_life, cost_of_capital)
-        self.init_from_db(name, scenario, new_or_replacement=new_or_replacement)
-        self.name = name
 
 class StorageTechDuration(schema.StorageTechsDuration):
     def __init__(self, name, scenario):
         schema.StorageTechsDuration.__init__(self, name, scenario=scenario)
         self.init_from_db(name, scenario)
         self.scenario = scenario
+        self.input_type = 'intensity'
         self.name = name
 
     def set_rio_duration(self,rio_inputs):
@@ -295,10 +294,7 @@ class StorageTechDuration(schema.StorageTechsDuration):
         self.vintages = vintages
         self.years = years
         if self._has_data and self.raw_values is not None:
-            try:
-                self.remap(time_index_name='year', converted_geography=GeoMapper.supply_primary_geography)
-            except:
-                pdb.set_trace()
+            self.remap(time_index_name='year', converted_geography=GeoMapper.supply_primary_geography)
             self.values.replace(0, 1, inplace=True)
 
 
@@ -323,11 +319,8 @@ class SupplyTechFixedOMCost(schema.SupplyTechsFixedMaintenanceCost, SupplyTechCo
                                             unit_to_num=model_time_step)
         else:
             # if a cost is a capacity unit, the model must convert the unit type to an energy unit for conversion ()
-            self.values = UnitConverter.unit_convert(self.raw_values, unit_from_den=cfg.ureg.Quantity(self.capacity_or_energy_unit)
-                                                                           * cfg.ureg.Quantity(model_time_step),
-                                            unit_from_num=model_time_step,
-                                            unit_to_den=model_energy_unit,
-                                            unit_to_num=model_time_step)
+            unit_from_den = self.capacity_or_energy_unit + "_" + model_time_step
+            self.values = UnitConverter.unit_convert(self.raw_values, unit_from_den=unit_from_den, unit_from_num=model_time_step, unit_to_den=model_energy_unit, unit_to_num=model_time_step)
         if self.definition == 'absolute':
             self.values = UnitConverter.currency_convert(self.values, self.currency, self.currency_year)
             self.absolute = True
@@ -359,6 +352,7 @@ class SupplyTechEfficiency(schema.SupplyTechsEfficiency):
     def __init__(self, name, scenario):
         schema.SupplyTechsEfficiency.__init__(self, name, scenario)
         self.init_from_db(name, scenario)
+        self.input_type = 'intensity'
         self.scenario = scenario
         self.name = name
 

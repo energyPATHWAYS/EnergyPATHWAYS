@@ -85,7 +85,6 @@ MappedCols = {
     "BlendNodeBlendMeasures" : ['other_index_1', 'extrapolation_method', 'supply_node', 'interpolation_method', 'geography', 'blend_node'],
     "BlendNodeBlendMeasuresData" : ['parent', 'demand_sector', 'gau'],
     "CO2PriceMeasuresData" : ['parent', 'gau'],
-    "GeographiesData" : ['geography'],
     "DemandSectors" : ['shape'],
     "DemandCO2CaptureMeasures" : ['other_index_1', 'stock_decay_function', 'extrapolation_method', 'input_type', 'subsector', 'interpolation_method', 'geography', 'other_index_2'],
     "StorageTechsDurationData" : ['oth_2', 'supply_tech', 'gau', 'oth_1'],

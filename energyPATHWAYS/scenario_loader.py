@@ -151,7 +151,7 @@ class Scenario():
             filters = {'sensitivity' : sensitivity, md.key_col : name}
             data = csv_read_table(table, **filters)
 
-            if len(data) == 0:
+            if data is None or len(data) == 0:
                 raise ValueError("Could not find sensitivity '{}' for {} {}.".format(sensitivity, table, name))
 
             self._sensitivities[table][name] = sensitivity

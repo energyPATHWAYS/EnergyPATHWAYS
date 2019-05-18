@@ -361,7 +361,7 @@ class Demand(object):
         return stack
 
     def link_to_supply(self, embodied_emissions_link, direct_emissions_link, energy_link, cost_link):
-        demand_df = GeoMapper.geo_map(self.outputs.d_energy, GeoMapper.demand_primary_geography, cfg.combined_outputs_geography, 'total')
+        demand_df = GeoMapper.geo_map(self.outputs.d_energy, GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total')
         logging.info("linking supply emissions to energy demand")
         setattr(self.outputs, 'demand_embodied_emissions', self.group_linked_output(demand_df, embodied_emissions_link))
         logging.info("calculating direct demand emissions")
@@ -372,12 +372,12 @@ class Demand(object):
         setattr(self.outputs, 'demand_embodied_energy', self.group_linked_output(demand_df, energy_link))
 
     def link_to_supply_tco(self, embodied_emissions_link, direct_emissions_link, cost_link):
-        demand_df = GeoMapper.geo_map(self.d_energy_tco, GeoMapper.demand_primary_geography, cfg.combined_outputs_geography, 'total')
+        demand_df = GeoMapper.geo_map(self.d_energy_tco, GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total')
         logging.info("linking supply costs to energy demand for tco calculations")
         setattr(self.outputs, 'demand_embodied_energy_costs_tco', self.group_linked_output_tco(demand_df, cost_link))
 
     def link_to_supply_payback(self, embodied_emissions_link, direct_emissions_link,cost_link):
-        demand_df = GeoMapper.geo_map(self.d_all_energy_demand_payback, GeoMapper.demand_primary_geography, cfg.combined_outputs_geography, 'total')
+        demand_df = GeoMapper.geo_map(self.d_all_energy_demand_payback, GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total')
         logging.info("linking supply costs to energy demand for payback calculations")
         setattr(self.outputs, 'demand_embodied_energy_costs_payback', self.group_linked_output_payback(demand_df, cost_link))
 
@@ -405,10 +405,10 @@ class Demand(object):
 
     def group_linked_output(self, input_df, supply_link, levels_to_keep=None):
         demand_df = input_df.copy()
-        if cfg.combined_outputs_geography + '_supply' in supply_link:
-            geo_label = cfg.combined_outputs_geography + '_supply'
+        if GeoMapper.combined_outputs_geography + '_supply' in supply_link:
+            geo_label = GeoMapper.combined_outputs_geography + '_supply'
         else:
-            geo_label = cfg.combined_outputs_geography
+            geo_label = GeoMapper.combined_outputs_geography
         levels_to_keep = cfg.output_combined_levels if levels_to_keep is None else levels_to_keep
         demand_levels_to_keep = [x for x in levels_to_keep if x in demand_df.index.names]
         demand_df = demand_df.groupby(level=demand_levels_to_keep).sum()
@@ -418,8 +418,8 @@ class Demand(object):
 
     def group_linked_output_tco(self, input_df, supply_link, levels_to_keep=None):
         demand_df = input_df.copy()
-        supply_link = supply_link.groupby(level=[cfg.combined_outputs_geography,'year', 'final_energy', 'sector']).sum()
-        geo_label = cfg.combined_outputs_geography
+        supply_link = supply_link.groupby(level=[GeoMapper.combined_outputs_geography,'year', 'final_energy', 'sector']).sum()
+        geo_label = GeoMapper.combined_outputs_geography
         demand_df = demand_df[demand_df.index.get_level_values('year') >= cfg.getParamAsInt('current_year')]
         geography_df_list = []
         for geography in GeoMapper.combined_geographies:
@@ -435,8 +435,8 @@ class Demand(object):
 
     def group_linked_output_payback(self, input_df, supply_link, levels_to_keep=None):
         demand_df = input_df.copy()
-        supply_link = supply_link.groupby(level=[cfg.combined_outputs_geography,'year', 'final_energy', 'sector']).sum()
-        geo_label = cfg.combined_outputs_geography
+        supply_link = supply_link.groupby(level=[GeoMapper.combined_outputs_geography,'year', 'final_energy', 'sector']).sum()
+        geo_label = GeoMapper.combined_outputs_geography
         demand_df = demand_df[demand_df.index.get_level_values('year') >= cfg.getParamAsInt('current_year')]
         geography_df_list = []
         for geography in GeoMapper.combined_geographies:

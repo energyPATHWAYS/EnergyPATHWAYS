@@ -5,6 +5,7 @@ import gzip
 import pandas as pd
 import psycopg2
 import re
+import pdb
 
 from energyPATHWAYS.error import *
 
@@ -156,6 +157,8 @@ Tables_to_load_on_demand = [
     'ShapesData',
 ]
 
+Tables_To_Patch = ['DemandFuelSwitchingMeasures',
+                   'SupplyCost']
 
 class ForeignKey(object):
     """"
@@ -346,14 +349,12 @@ class AbstractDatabase(object):
             if name == 'DemandServiceLink':
                 data['name'] = data.id.map(lambda id: 'dem_svc_link_{}'.format(id))
                 pass
+            elif name in Tables_To_Patch:
+                data['name'] = data['id'].astype(str) + " || " + data['name']
 
-            try:
-                df = data[[id_col, name_col]]
-                # coerce names to str since we use numeric ids in some cases
-                self.text_maps[name] = {id: str(name) for idx, (id, name) in df.iterrows()}
-            except:
-                import pdb
-                pdb.set_trace()
+            df = data[[id_col, name_col]]
+            # coerce names to str since we use numeric ids in some cases
+            self.text_maps[name] = {id: str(name) for idx, (id, name) in df.iterrows()}
 
         print('Loaded text mapping tables')
 
@@ -497,8 +498,8 @@ class PostgresTable(AbstractTable):
             {'currency_year_id': 'currency_year'},
 
         'DispatchTransmissionConstraint':
-            {'hurdle_currency_year_id': 'currency_year',
-             'hurdle_currency': 'currency'},
+            {'hurdle_currency_year_id': 'hurdle_currency_year',
+             'hurdle_currency': 'hurdle_currency'},
 
         'DispatchFeedersAllocationData':
             {'parent_id' : 'name'},
@@ -522,6 +523,10 @@ class PostgresTable(AbstractTable):
         data = self.data
         mapped = self.mapped_cols
 
+        # temp fix to make keys unique in these tables
+        if name in Tables_To_Patch:
+            data['name'] = data['id'].astype(str) + " || " + data['name']
+
         renames = self.col_renames.get(name)
 
         # since we map the originals (to maintain order) we don't include these again
@@ -541,38 +546,23 @@ class PostgresTable(AbstractTable):
             df = df.rename(columns=renames)
             self.renames = renames
 
-        # temp fix to make keys unique in these tables
-        tables_to_patch = {
-            'DemandFuelSwitchingMeasures' : '{name} - {subsector} - {final_energy_from} to {final_energy_to}',
-            'SupplyCost' : '{name} - {supply_node}',
-        }
-
-        if name in tables_to_patch:
-            if renames:
-                cols_to_save = [renames.get(col, col) for col in cols_to_save]  # use renamed column rather than original
-
-            key_col = find_key_col(name, cols_to_save)
-            template = tables_to_patch[name]
-
-            df = df.copy()
-            for idx, row in df.iterrows():
-                kwargs = {col: row[col] for col in cols_to_save}
-                df.loc[idx, key_col] = template.format(**kwargs)
-
         pat1 = re.compile('[\s\(\)-]')
         pat2 = re.compile('__+')
 
         def fix_shape_name(name):
+            if not isinstance(name, basestring):
+                return name
             name = re.sub(pat1, '_', name)  # convert symbols not usable in python identifiers to "_"
             name = re.sub(pat2, '_', name)  # convert sequences of "_" to a single "_"
             return name
 
-        orig_column_order = df.columns
         sort_order = ['name', 'sector', 'subsector', 'node', 'sensitivity', 'gau', 'oth_1', 'oth_2', 'final_energy', 'demand_technology', 'year', 'vintage', 'day_type', 'month', 'hour', 'weather_datetime']
         all_nulls = df.isnull().all()
         columns_that_exist = [col for col in sort_order if col in df.columns and not all_nulls[col]]
+        key_col = find_key_col(name, df.columns)
+        new_col_order = [key_col]+[col for col in df.columns if col!=key_col] # put the key column first
         if columns_that_exist:
-            df = df.set_index(columns_that_exist).sort_index().reset_index()[orig_column_order]
+            df = df.set_index(columns_that_exist).sort_index().reset_index()[new_col_order]
 
         # Handle special case for ShapesData. Split this 3.5 GB data file
         # into individual files for each Shape ID (translated to name)
@@ -600,10 +590,12 @@ class PostgresTable(AbstractTable):
         else:
             if name == 'Shapes':
                 df.name = df.name.map(fix_shape_name)
-
-            elif name.startswith('DemandTechs') and 'demand_technology' in df.columns:
-                pat = re.compile(r'(\d+)\"')  # to convert, e.g., '11" skillet' to '11 inch skillet'
-                df.demand_technology = df.demand_technology.map(lambda s: re.sub(pat, r'\1 inch', s))
+            if name in ('DemandTechs', 'DemandTechsAuxEfficiency', 'SupplyTechs', 'SupplyNodes', 'DemandSubsectors', 'DemandSectors', 'FinalEnergy'):
+                df['shape'] = df['shape'].map(fix_shape_name)
+            if name.startswith('DemandTechs') or 'demand_technology' in df.columns:
+                for col in ('demand_technology', 'name', 'linked', 'reference_tech', 'replaced_demand_tech'):
+                    if col in df.columns:
+                        df[col] = [st.replace('11"', '11 inch') if isinstance(st, basestring) else st for st in df[col].values]
 
             pathname = os.path.join(db_dir, name + '.csv')
             df.to_csv(pathname, index=None)

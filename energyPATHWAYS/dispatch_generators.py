@@ -254,7 +254,7 @@ def run_thermal_dispatch(params):
     # #TODO we are setting these to 1 because sometimes it is incorrectly not 1 upstream, and if it is not 1 it can cause issues
     # thermal_capacity_multiplier[:] = 1
     # grabs the technology from the label
-    gen_categories = [int(s.split(', ')[1].rstrip('L')) for s in thermal_dispatch_df.index.get_level_values('thermal_generators')]
+    gen_categories = [string.split("', ")[1].replace("'", "") for string in thermal_dispatch_df.index.get_level_values('thermal_generators')]
 
     if schedule_maintenance:
         # The capacity weights often come in with some really small numbers, which we shouldn't keep here
