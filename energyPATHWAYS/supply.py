@@ -2542,25 +2542,26 @@ class Supply(object):
         for output_node in self.nodes.values():
             if hasattr(output_node,'nodes'):
                 if oversupply_node in output_node.nodes:
-                  if output_node.name in self.blend_nodes:
-                     # if the output node is a blend node, this is where oversupply is reconciled
-#                     print oversupply_node, output_node.name, oversupply_factor
-                     indexer = util.level_specific_indexer(output_node.values,'supply_node', oversupply_node)
-                     output_node.values.loc[indexer, year] = DfOper.mult([output_node.values.loc[indexer, year].to_frame(),oversupply_factor]).values
-                     output_node.reconciled = True
-                     self.reconciled=True
-                  else:
-                      if output_node.is_curtailable or  output_node.name in self.thermal_nodes:
-                          #if the output node is curtailable, then the excess supply feed-loop ends and the excess is curtailed within this node. If the node is flexible, excess supply
-                          #will be reconciled in the dispatch loop
-                          pass
-                      elif output_node.is_exportable:
-                          #if the output node is exportable, then excess supply is added to the export demand in this node
-                          excess_supply = DfOper.subt([DfOper.mult([output_node.active_supply, oversupply_factor]), output_node.active_supply])
-                          output_node.export.active_values = DfOper.add([output_node.export.active_values, excess_supply])
-                      else:
-                          #otherwise, continue the feed-loop until the excess supply can be reconciled
-                          self.feed_oversupply(year, oversupply_node = output_node.name, oversupply_factor=oversupply_factor)
+                    if output_node.name in self.blend_nodes:
+                        # if the output node is a blend node, this is where oversupply is reconciled
+                        # print oversupply_node, output_node.name, oversupply_factor
+                        indexer = util.level_specific_indexer(output_node.values,'supply_node', oversupply_node)
+                        output_node.values.loc[indexer, year] = DfOper.mult([output_node.values.loc[indexer, year].to_frame(),oversupply_factor]).values
+                        output_node.reconciled = True
+                        self.reconciled = True
+                    else:
+                        if output_node.is_curtailable or  output_node.name in self.thermal_nodes:
+                            #if the output node is curtailable, then the excess supply feed-loop ends and the excess is curtailed within this node. If the node is flexible, excess supply
+                            #will be reconciled in the dispatch loop
+                            pass
+                        elif output_node.is_exportable:
+                            #if the output node is exportable, then excess supply is added to the export demand in this node
+                            excess_supply = DfOper.subt([DfOper.mult([output_node.active_supply, oversupply_factor]), output_node.active_supply])
+                            output_node.export.active_values = DfOper.add([output_node.export.active_values, excess_supply])
+                        else:
+                            #otherwise, continue the feed-loop until the excess supply can be reconciled
+                            self.feed_oversupply(year, oversupply_node=output_node.name, oversupply_factor=oversupply_factor)
+
 
 
     def update_io_df(self,year,loop):
