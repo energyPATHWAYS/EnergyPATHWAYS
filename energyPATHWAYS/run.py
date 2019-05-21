@@ -137,9 +137,14 @@ def load_model(load_demand, load_supply, load_error, scenario,rio_scenario):
             model = pickle.load(infile)
         logging.info('Loaded crashed EnergyPATHWAYS model from pickle')
     elif load_supply:
-        with open(os.path.join(cfg.workingdir, str(scenario) + cfg.full_model_append_name), 'rb') as infile:
-            model = pickle.load(infile)
-        logging.info('Loaded complete EnergyPATHWAYS model from pickle')
+        try:
+            with open(os.path.join(cfg.workingdir, str(scenario) + cfg.full_model_append_name), 'rb') as infile:
+                model = pickle.load(infile)
+            logging.info('Loaded complete EnergyPATHWAYS model from pickle')
+        except:
+            with open(os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.full_model_append_name), 'rb') as infile:
+                model = pickle.load(infile)
+            logging.info('Loaded complete EnergyPATHWAYS model from pickle')
     elif load_demand:
         demand_file = os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.demand_model_append_name)
         supply_file = os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.full_model_append_name)
@@ -164,20 +169,34 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\csv_migration_testing'
+    workingdir = r'C:\github\EP_runs\csv_migration'
     os.chdir(workingdir)
     config = 'config.INI'
     rio_scenario = [None]
     scenario = ['short']
 
     run(workingdir, config, scenario,
-    load_demand   = True,
+    load_demand   = False,
     solve_demand  = True,
-    load_supply   = False,
+    load_supply   = True,
     solve_supply  = True,
     export_results= True,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
     clear_results = True,
-    rio_scenario = rio_scenario)
+    rio_scenario=rio_scenario)
+
+    # run_str = "run('C:\Github\EnergyPATHWAYS_scenarios\SDG&E', 'config.INI', 'scoping_plan', \
+    # load_demand   = True,\
+    # solve_demand  = True,\
+    # load_supply   = False,\
+    # solve_supply  = True,\
+    # export_results= False,\
+    # load_error    = False,\
+    # pickle_shapes = True,\
+    # save_models   = True,\
+    # clear_results = False,\
+    # rio_scenario=None)"
+    #
+    # cProfile.run(run_str, filename='system.prof')

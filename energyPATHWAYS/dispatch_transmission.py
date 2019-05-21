@@ -23,7 +23,7 @@ class TransmissionSuper(Abstract):
     def _setup_and_validate(self):
         if self.raw_values is None:
             self._setup_zero_constraints()
-            return
+            return""
 
         self._validate_gaus()
         self.values = self.clean_timeseries(attr='raw_values', inplace=False, time_index=cfg.supply_years, time_index_name='year', interpolation_method=self.interpolation_method, extrapolation_method=self.extrapolation_method)

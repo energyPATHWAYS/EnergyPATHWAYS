@@ -326,8 +326,10 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     model.TRANSMISSION_LINES = Set(initialize=dispatch.transmission.list_transmission_lines)
     model.transmission_capacity = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission.constraints.get_values_as_dict(dispatch.year))
     model.transmission_hurdle = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission.hurdles.get_values_as_dict(dispatch.year))
-    model.transmission_losses = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission.losses.get_values_as_dict(dispatch.year))
-
+    try:
+        model.transmission_losses = Param(model.TRANSMISSION_LINES, initialize=dispatch.transmission.losses.get_values_as_dict(dispatch.year))
+    except:
+        pdb.set_trace()
     model.dist_net_load_threshold = Param(model.GEOGRAPHIES, model.FEEDERS, within=NonNegativeReals, initialize=dispatch.dist_net_load_thresholds)
     model.bulk_net_load_threshold = Param(model.GEOGRAPHIES, within=NonNegativeReals, initialize=dispatch.bulk_net_load_thresholds)
     model.t_and_d_losses = Param(model.GEOGRAPHIES, model.FEEDERS,within=NonNegativeReals, initialize=dispatch.t_and_d_losses)

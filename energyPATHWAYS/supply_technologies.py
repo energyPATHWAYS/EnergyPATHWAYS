@@ -294,8 +294,9 @@ class StorageTechDuration(schema.StorageTechsDuration):
         self.vintages = vintages
         self.years = years
         if self._has_data and self.raw_values is not None:
-            self.remap(time_index_name='year', converted_geography=GeoMapper.supply_primary_geography)
+            self.remap(time_index_name='year', converted_geography=GeoMapper.supply_primary_geography,missing_intensity_geos=True)
             self.values.replace(0, 1, inplace=True)
+            self.values.fillna(1)
 
 
 class SupplyTechFixedOMCost(schema.SupplyTechsFixedMaintenanceCost, SupplyTechCost):

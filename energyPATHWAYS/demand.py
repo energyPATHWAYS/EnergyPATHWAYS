@@ -2228,8 +2228,6 @@ class Subsector(schema.DemandSubsectors):
                            additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent),
                            current_data_type=current_data_type, projected=projected)
         self.stock.total = util.remove_df_levels(self.stock.total, ['demand_technology', 'final_energy']+cfg.removed_demand_levels)
-        if np.any(np.any(np.isinf(self.stock.total))):
-            pdb.set_trace()
         self.stock.total = self.stock.total.swaplevel('year',-1)
         if stock_dependent:
             self.stock.project(map_from=map_from, map_to='total_unfiltered', current_geography=current_geography, converted_geography=GeoMapper.demand_primary_geography,

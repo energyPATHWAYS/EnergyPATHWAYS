@@ -373,7 +373,7 @@ class Dispatch(object):
         for t in tx_dict.keys():
             for p in self.period_lengths.keys():
                 self.tx_energy_dict[(t,p)] = tx_dict[t] * self.period_lengths[p]
-
+        
 
     def convert_all_to_period(self):
       self.min_capacity = self.convert_to_period(self.min_capacity)

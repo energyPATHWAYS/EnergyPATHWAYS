@@ -37,7 +37,7 @@ from .generated import schema
 #def node_update_stock(node):
 #    if hasattr(node, 'stock'):
 #        node.update_stock(node.year,node.loop)
-#    return node 
+#    return node
            
 class Supply(object):
 
@@ -375,7 +375,7 @@ class Supply(object):
         """
         self.calculate_coefficients(year, loop)
         # we have just solved the dispatch, so coefficients need to be updated before updating the io
-        if loop == 3 and year in self.dispatch_years:
+        if loop == 3 and year in self.dispatch_years and not cfg.rio_supply_run:
             self.update_coefficients_from_dispatch(year)
         self.copy_io(year,loop)
         self.update_io_df(year,loop)
@@ -438,15 +438,13 @@ class Supply(object):
                     # each time, if reconciliation has occured, we have to recalculate coefficients and resolve the io
                     self.reconcile_trades(year, loop)
                     self._recalculate_after_reconciliation(year, loop, update_demand=True)
-                    if not cfg.rio_supply_run:
-                        for i in range(2):
-                            self.reconcile_oversupply(year, loop)
-                            self._recalculate_after_reconciliation(year, loop, update_demand=True)
-                    self.reconcile_constraints(year,loop)
-                    self._recalculate_after_reconciliation(year, loop, update_demand=True)
-                    if not cfg.rio_supply_run:
+                    for i in range(2):
                         self.reconcile_oversupply(year, loop)
                         self._recalculate_after_reconciliation(year, loop, update_demand=True)
+                    self.reconcile_constraints(year,loop)
+                    self._recalculate_after_reconciliation(year, loop, update_demand=True)
+                    self.reconcile_oversupply(year, loop)
+                    self._recalculate_after_reconciliation(year, loop, update_demand=True)
                 # dispatch loop
                 elif loop == 3 and year in self.dispatch_years and not cfg.getParamAsBoolean('rio_db_run', section='rio') and not cfg.getParamAsBoolean('rio_supply_run', section='rio'):
                     logging.info("   loop {}: electricity dispatch".format(loop))
@@ -469,7 +467,6 @@ class Supply(object):
                     self.prepare_dispatch_inputs(year, loop)
                     self.solve_electricity_dispatch_rio(year)
                     self._recalculate_stocks_and_io(year, loop)
-
             self.calculate_embodied_costs(year, loop=3)
             self.calculate_embodied_emissions(year)
             self.calculate_annual_costs(year)
@@ -1335,7 +1332,11 @@ class Supply(object):
             else:
                 # we are going to save them as we go along
                 result_df = self.outputs.clean_df(self.bulk_dispatch)
-                keys = [self.scenario.name.upper(), cfg.timestamp]
+                if cfg.rio_supply_run:
+                    scenario = self.rio_scenario.upper()
+                else:
+                    scenario = self.scenario.name.upper()
+                keys = [scenario, cfg.timestamp]
                 names = ['SCENARIO','TIMESTAMP']
                 for key, name in zip(keys, names):
                     result_df = pd.concat([result_df], keys=[key], names=[name])
@@ -1349,15 +1350,30 @@ class Supply(object):
         Args:
             year (int) = year of analysis
         """
-        # solves dispatched load and gen on the supply-side for nodes like hydro and H2 electrolysis
+        #solves dispatched load and gen on the supply-side for nodes like hydro and H2 electrolysis
         self.solve_heuristic_load_and_gen(year)
-        # solves electricity storage and flexible demand load optimizatio
+        #solves electricity storage and flexible demand load optimizatio
         self.solve_storage_and_flex_load_optimization(year)
-        # updates the grid capacity factors for distribution and transmission grid (i.e. load factors)
+        #updates the grid capacity factors for distribution and transmission grid (i.e. load factors)
         try:
             self.set_grid_capacity_factors(year)
         except:
             pdb.set_trace()
+        #solves dispatch (stack model) for thermal resource connected to thermal dispatch node
+        if year in self.dispatch_write_years and not self.api_run:
+            if cfg.filter_dispatch_less_than_x is not None:
+                self.bulk_dispatch = self.bulk_dispatch.groupby(level=['DISPATCH_OUTPUT']).filter(
+                    lambda x: x.max().max()>cfg.filter_dispatch_less_than_x or x.min().min()<-cfg.filter_dispatch_less_than_x)
+            if cfg.cfgfile.get('output_detail', 'keep_dispatch_outputs_in_model').lower() == 'true':
+                self.outputs.hourly_dispatch_results = pd.concat([self.outputs.hourly_dispatch_results, self.bulk_dispatch])
+            else:
+                # we are going to save them as we go along
+                result_df = self.outputs.clean_df(self.bulk_dispatch)
+                keys = [self.scenario.name.upper(), cfg.timestamp]
+                names = ['SCENARIO','TIMESTAMP']
+                for key, name in zip(keys, names):
+                    result_df = pd.concat([result_df], keys=[key], names=[name])
+                Output.write(result_df, 'hourly_dispatch_results.csv', os.path.join(cfg.workingdir, 'dispatch_outputs'))
 
 
 
@@ -2406,7 +2422,7 @@ class Supply(object):
             #loops through all nodes checking for excess supply from nodes that are not curtailable, flexible, or exportable
            oversupply_factor = node.calculate_oversupply(year,loop) if hasattr(node,'calculate_oversupply') else None 
            if oversupply_factor is not None:
-               if cfg.rio_supply_run:
+               if cfg.rio_supply_run and node.name not in cfg.rio_excluded_nodes:
                    continue
                elif node.is_exportable:
                    #if the node is exportable, excess supply is added to the node's exports
@@ -3206,7 +3222,7 @@ class Node(schema.SupplyNodes):
     def calculate_potential_constraints(self, year):
         """calculates the exceedance factor of a node if the node active supply exceeds the potential in the node. This adjustment factor
         is passed to other nodes in the reconcile step"""
-        if hasattr(self,'potential') and self.potential._has_data is True and self.enforce_potential_constraint == True:
+        if hasattr(self,'potential') and self.potential._has_data is True and self.enforce_potential_constraint == True and not cfg.rio_supply_run:
             #geomap potential to the tradable geography. Potential is not exceeded unless it is exceeded in a tradable geography region.
             active_geomapped_potential, active_geomapped_supply = self.potential.format_potential_and_supply_for_constraint_check(self.active_supply, self.tradable_geography, year)
             self.potential_exceedance = util.DfOper.divi([active_geomapped_potential,active_geomapped_supply], expandable = (False,False), collapsible = (True, True))
@@ -4293,7 +4309,7 @@ class SupplyNode(Node, StockItem):
                 if cost.capacity is True:
                     rev_req = util.DfOper.mult([tariff,stock],expandable=(False,False))[year].to_frame()
                     if cost.is_capital_cost:
-                        return util.DfOper.mult([rev_req,growth_mult]) * cost.throughput_correlation
+                        return rev_req * cost.throughput_correlation
                     else:
                         return rev_req* cost.throughput_correlation
                 else:
@@ -4307,7 +4323,7 @@ class SupplyNode(Node, StockItem):
                         rev_names = rev_req.index.names
                     rev_req = util.DfOper.mult([rev_req,financial_stock.groupby(level=rev_names).transform(lambda x: x/x.sum())]).replace([np.inf,-np.inf],0)
                     if cost.is_capital_cost:
-                        return util.DfOper.mult([rev_req,cap_factor_mult,growth_mult]) * cost.throughput_correlation
+                        return util.DfOper.mult([rev_req,cap_factor_mult]) * cost.throughput_correlation
                     else:
                         return util.DfOper.mult([rev_req,cap_factor_mult]) * cost.throughput_correlation
             elif cost.supply_cost_type == 'revenue requirement':
@@ -4318,7 +4334,7 @@ class SupplyNode(Node, StockItem):
                     stock_energy = self.stock.values_energy.groupby(level= limited_names).sum()[year].to_frame()
                     flow = self.active_supply.groupby(level= limited_names).sum()[year].to_frame()
                     cap_factor_mult = util.DfOper.divi([stock_energy,flow]).replace([np.nan,-np.inf,np.inf],1)
-                    return util.DfOper.mult([rev_req,cap_factor_mult,growth_mult]) * cost.throughput_correlation
+                    return util.DfOper.mult([rev_req,cap_factor_mult]) * cost.throughput_correlation
             else:
                 raise ValueError("investment cost types not implemented")
 
@@ -4709,8 +4725,7 @@ class SupplyStockNode(Node):
                     self.case_stock.technology= util.remove_df_levels(self.case_stock.technology,mismatched_levels)
                 #if there are still level mismatches, it means the reference stock has more levels, which returns an error
                 if np.any(util.difference_in_df_names(self.case_stock.technology, self.stock.technology,return_bool=True)):
-                    pdb.set_trace()
-                    raise ValueError("technology stock indices in node %s do not match input energy system stock data" %self.name)
+                    raise ValueError("technology stock indices in node %s do not match input energy system stock data" %self.id)
                 else:
                     #if the previous test is passed, we use the reference stock to fill in the Nans of the case stock
                     self.case_stock.technology = self.case_stock.technology.reorder_levels(names)
@@ -5709,6 +5724,9 @@ class SupplyStockNode(Node):
         if len(tech_dfs):
             first_tech_order = tech_dfs[0].index.names
             try:
+                for x, value in enumerate(tech_dfs):
+                    if 'resource_bin' in first_tech_order and 'resource_bin' not in value.index.names:
+                       tech_dfs[x] =  util.add_and_set_index(value,'resource_bin',[1])
                 tech_df = pd.concat([x.reorder_levels(first_tech_order) for x in tech_dfs])
             except:
                 pdb.set_trace()
@@ -6528,7 +6546,7 @@ class RioInputs(DataMapFunctions):
 
     def calc_stocks(self,scenario,capacity):
         df = util.df_slice(capacity, scenario, 'run name')
-        df = df[~df.index.get_level_values('output').isin(['blend storage','storage energy'])]
+        df = df[~df.index.get_level_values('output').isin(['blend storage','storage energy','flexible load'])]
         def clean_name(x,gen_regions):
             x = x.split("||")
             x = [x for x in x if x not in gen_regions and x not in ['existing']]
@@ -6542,7 +6560,7 @@ class RioInputs(DataMapFunctions):
         df = df.reset_index('resource')
         gen_regions = list(set(df.index.get_level_values('zone')))
         df['resource'] = df['resource'].apply(lambda x: clean_name(x,gen_regions))
-        df['technology'] = [self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_'))>3 else self.supply_technology_mapping[x.split('_')[0]]   for x in df['resource'].values]
+        df['technology'] = [self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_'))>3 else self.supply_technology_mapping[x.split('_')[0]] for x in df['resource'].values]
         df['resource_bin'] = [int(x.split('_')[2]) if len(x.split('_')) == 5 else int(x.split('_')[1]) if len(x.split('_')) == 3 else 'n/a' for x in df['resource'].values]
         df.pop('resource')
         df = df.set_index(['technology','resource_bin'],append=True)

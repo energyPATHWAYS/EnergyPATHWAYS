@@ -227,7 +227,7 @@ def table_dict(table_name, columns=['id', 'name'], append=False,
 
 def init_output_parameters():
     global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes, evolved_years,\
-    rio_supply_run, rio_geography, rio_feeder_geographies, rio_energy_unit, rio_time_unit, rio_timestep_multiplier, rio_zonal_blend_nodes, rio_excluded_technologies, rio_excluded_blends, rio_export_blends, rio_no_negative_blends
+    rio_supply_run, rio_geography, rio_feeder_geographies, rio_energy_unit, rio_time_unit, rio_timestep_multiplier, rio_zonal_blend_nodes, rio_excluded_technologies, rio_excluded_blends, rio_export_blends, rio_no_negative_blends, rio_excluded_nodes
 
     currency_name = getParam('currency_name')
     output_currency = getParam('currency_year') + ' ' + currency_name
@@ -244,6 +244,7 @@ def init_output_parameters():
     rio_excluded_technologies = [int(g) for g in _ConfigParser.get('rio', 'rio_excluded_technologies').split(',') if len(g)]
     rio_excluded_blends = [int(g) for g in _ConfigParser.get('rio', 'rio_excluded_blends').split(',') if len(g)]
     rio_export_blends = [int(g) for g in _ConfigParser.get('rio', 'rio_export_blends').split(',') if len(g)]
+    rio_excluded_nodes = [int(g) for g in _ConfigParser.get('rio', 'rio_excluded_nodes').split(',') if len(g)]
     rio_no_negative_blends = [int(g) for g in _ConfigParser.get('rio', 'rio_no_negative_blends').split(',') if len(g)]
     evolved_run = _ConfigParser.get('evolved','evolved_run').lower()
     evolved_years = [int(x) for x in ensure_iterable(_ConfigParser.get('evolved', 'evolved_years'))]
