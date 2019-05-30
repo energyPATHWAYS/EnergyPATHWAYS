@@ -171,11 +171,10 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\SDG&E'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\UCS'
     config = 'config.INI'
-    rio_scenario = ['4 Renewable Pipeline 80x50',\
-                   '5 High Electrification Net Zero','6 Renewable Pipeline Net Zero']
-    scenario = ['renewable_pipeline_8050','high_electrification_NetZero','renewable_pipeline_NetZero']
+    rio_scenario = None
+    scenario = ['UCS']
     #rio_scenario = None
     #scenario = [ 'nw_reference','nw_ddp_central','nw_ddp_limited_demand_transformation','nw_ddp_increased_gas_transport']
     #rio_scenario = ['5 ddp limited demand', '6 ddp constrained biomass', '7 ddp increased gas','8 ddp integration economic']
@@ -193,14 +192,14 @@ if __name__ == "__main__":
     # 8 ddp integration economic
 
     run(workingdir, config, scenario,
-    load_demand   = True,
-    solve_demand  = False,
+    load_demand   = False,
+    solve_demand  = True,
     load_supply   = False,
-    solve_supply  = True,
-    export_results= True,
+    solve_supply  = False,
+    export_results= False,
     load_error    = False,
     pickle_shapes = True,
-    save_models   = True,
+    save_models   = False,
     clear_results = False,
     rio_scenario=rio_scenario)
 

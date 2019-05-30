@@ -1884,8 +1884,11 @@ class Supply(object):
                         for geography in cfg.supply_geographies:
                             tech_indexer = util.level_specific_indexer(duration,['supply_technology',cfg.supply_primary_geography], [tech.id,geography])
                             year_indexer = util.level_specific_indexer(tech.duration.values,['year',cfg.supply_primary_geography],[year,geography])
-                            duration.loc[tech_indexer,:] = tech.duration.values.loc[year_indexer,:].values[0]
-                    efficiency = util.remove_df_levels(efficiency,'supply_node')    
+                            try:
+                                duration.loc[tech_indexer,:] = tech.duration.values.loc[year_indexer,:].values[0]
+                            except:
+                                pdb.set_trace()
+                    efficiency = util.remove_df_levels(efficiency,'supply_node')
                     if zone == self.distribution_node_id:
                         indexer = util.level_specific_indexer(self.dispatch_feeder_allocation.values_supply_geo, 'year', year)
                         capacity = util.DfOper.mult([capacity, self.dispatch_feeder_allocation.values_supply_geo.loc[indexer, ]])
@@ -3726,7 +3729,10 @@ class BlendNode(Node):
                 df = rio_inputs.zonal_fuel_outputs
             else:
                 df = rio_inputs.fuel_outputs
-            df = util.df_slice(df,self.id,'blend')
+            try:
+                df = util.df_slice(df,self.id,'blend')
+            except:
+                pdb.set_trace()
             input_nodes = list(set(df.index.get_level_values('supply_node')))
             self.blend_measures = dict()
             for id in input_nodes:
@@ -4950,7 +4956,10 @@ class SupplyStockNode(Node):
                         new_data_level = DfOper.mult([tech_data,
                                             getattr(ref_tech_class, 'values_level')])
                 else:
-                    new_data = copy.deepcopy(getattr(ref_tech_class, attr))
+                    try:
+                        new_data = copy.deepcopy(getattr(ref_tech_class, attr))
+                    except:
+                        pdb.set_trace()
                     if hasattr(ref_tech_class,'values_level'):
                         new_data_level = copy.deepcopy(getattr(ref_tech_class, 'values_level'))
                 tech_attributes = vars(getattr(self.technologies[ref_tech_id], class_name))
@@ -6291,13 +6300,13 @@ class RioInputs(DataMapFunctions):
         self.geography_mapping = {v.lower():k for k,v in cfg.geo.geography_names.iteritems()}
         self.supply_technology_mapping = {v.lower():k for k,v in cfg.outputs_id_map['supply_technology'].iteritems()}
         self.scenario = scenario
-        fuel_outputs = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\fuel_outputs.csv'),
-                                  usecols=[1, 2, 3,6, 7, 8, 10,11], index_col=[0, 1, 2, 3,4,5, 7])
-        period_weights = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\PERIOD_WEIGHTS.csv'),
-                                 usecols=[0,1], index_col=[0])
-        fuel_outputs = util.remove_df_levels(util.DfOper.mult([fuel_outputs, period_weights]), 'period')
-        indexer  = util.level_specific_indexer(fuel_outputs,'output','exogenous outflow')
-        fuel_outputs.loc[indexer,:] *=len(period_weights)/365.0
+        fuel_outputs = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\annual_fuel_outputs.csv'),
+                                  usecols=[1, 2, 3, 4, 5, 7,8], index_col=[0, 1, 2,3,4,6])
+        #period_weights = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\PERIOD_WEIGHTS.csv'),
+         #                        usecols=[0,1], index_col=[0])
+        #fuel_outputs = util.remove_df_levels(util.DfOper.mult([fuel_outputs, period_weights]), 'period')
+        #indexer  = util.level_specific_indexer(fuel_outputs,'output','exogenous outflow')
+        #fuel_outputs.loc[indexer,:] *=len(period_weights)/365.0
         self.zonal_fuel_outputs = self.calc_fuel_share(scenario,fuel_outputs,True)
         self.zonal_fuel_exports = self.calc_fuel_exports(scenario, fuel_outputs)
         self.fuel_outputs = self.calc_fuel_share(scenario,fuel_outputs,False)
@@ -6315,21 +6324,21 @@ class RioInputs(DataMapFunctions):
 
 
     def calc_capacity_factors(self,scenario):
-        gen_energy = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\daily_energy.csv'),
-                                 usecols=[4,6, 7, 8, 11, 12,13], index_col=[0, 1, 2, 3, 4, 6])
-        period_weights = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\PERIOD_WEIGHTS.csv'),
-                                 usecols=[0,1], index_col=[0])
-        gen_energy = util.remove_df_levels(util.DfOper.mult([gen_energy, period_weights]),'period')
+        gen_energy = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\annual_energy.csv'),
+                                 usecols=[1,2, 3, 4,7, 8,9], index_col=[0, 1, 2, 3, 4, 6])
+        #period_weights = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\PERIOD_WEIGHTS.csv'),
+                                 #usecols=[0,1], index_col=[0])
+        #gen_energy = util.remove_df_levels(util.DfOper.mult([gen_energy, period_weights]),'period')
 
         gen_annual_energy = self.calc_gen_annual_energy(gen_energy,scenario)
 
-        fuel_energy = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\fuel_outputs.csv'),
-                                  usecols=[1, 2, 3,6, 7, 8, 10,11], index_col=[0, 1, 2, 3,4,5, 7])
-        period_weights = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\PERIOD_WEIGHTS.csv'),
-                                 usecols=[0,1], index_col=[0])
-        fuel_energy = util.remove_df_levels(util.DfOper.mult([fuel_energy, period_weights]),'period')
-        indexer  = util.level_specific_indexer(fuel_energy,'output','exogenous outflow')
-        fuel_energy.loc[indexer,:] *=len(period_weights)/365.0
+        fuel_energy = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\annual_fuel_outputs.csv'),
+                                  usecols=[1, 2, 3,4, 5, 7, 8], index_col=[0, 1, 2, 3,4,6])
+        #period_weights = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\PERIOD_WEIGHTS.csv'),
+                                 #usecols=[0,1], index_col=[0])
+        #fuel_energy = util.remove_df_levels(util.DfOper.mult([fuel_energy, period_weights]),'period')
+        #indexer  = util.level_specific_indexer(fuel_energy,'output','exogenous outflow')
+        #fuel_energy.loc[indexer,:] *=len(period_weights)/365.0
 
         fuel_annual_energy = self.calc_fuel_annual_energy(fuel_energy,scenario)
         annual_energy = pd.concat([gen_annual_energy,fuel_annual_energy])
@@ -6423,11 +6432,11 @@ class RioInputs(DataMapFunctions):
         return df
 
     def calc_bulk_thermal_share(self,scenario):
-        gen_energy = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\daily_energy.csv'),
-                                 usecols=[4,6, 7, 8, 11, 12,13], index_col=[0, 1, 2, 3, 4, 6])
-        period_weights = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\PERIOD_WEIGHTS.csv'),
-                                 usecols=[0,1], index_col=[0])
-        gen_energy = util.remove_df_levels(util.DfOper.mult([gen_energy, period_weights]),'period')
+        gen_energy = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\annual_energy.csv'),
+                                 usecols=[1,2, 3, 4,7, 8,9], index_col=[0, 1, 2, 3, 4, 6])
+        #period_weights = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\PERIOD_WEIGHTS.csv'),
+         #                        usecols=[0,1], index_col=[0])
+        #gen_energy = util.remove_df_levels(util.DfOper.mult([gen_energy, period_weights]),'period')
         df = util.df_slice(gen_energy, scenario, 'run name')
         df_gen_all = df[df.index.get_level_values('output').isin(['hydro','fixed','thermal'])]*-1
         df_gen_thermal = util.remove_df_levels(df[df.index.get_level_values('output').isin(['thermal'])]*-1,'output')
@@ -6440,11 +6449,11 @@ class RioInputs(DataMapFunctions):
         return df
 
     def calc_bulk_share(self,scenario):
-        gen_energy = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\daily_energy.csv'),
-                                 usecols=[4,6, 7, 8, 11, 12,13], index_col=[0, 1, 2, 3, 4, 6])
-        period_weights = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\PERIOD_WEIGHTS.csv'),
-                                 usecols=[0,1], index_col=[0])
-        gen_energy = util.remove_df_levels(util.DfOper.mult([gen_energy, period_weights]),'period')
+        gen_energy = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\annual_energy.csv'),
+                                 usecols=[1,2, 3, 4,7, 8,9], index_col=[0, 1, 2, 3, 4, 6])
+        #period_weights = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\PERIOD_WEIGHTS.csv'),
+         #                        usecols=[0,1], index_col=[0])
+        #gen_energy = util.remove_df_levels(util.DfOper.mult([gen_energy, period_weights]),'period')
         df = util.df_slice(gen_energy, scenario, 'run name')
         df_gen_all = df[df.index.get_level_values('output').isin(['hydro','fixed','thermal'])]*-1
         df_gen_bulk = util.remove_df_levels(df[df.index.get_level_values('output').isin(['hydro','renewable curtailment', 'fixed'])]*-1,'output')
@@ -6477,11 +6486,11 @@ class RioInputs(DataMapFunctions):
 
 
     def calc_trades(self,scenario):
-        gen_energy = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\daily_energy.csv'),
-                                 usecols=[4,6, 7, 8, 11, 12,13], index_col=[0, 1, 2, 3, 4, 6])
-        period_weights = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\PERIOD_WEIGHTS.csv'),
-                                 usecols=[0,1], index_col=[0])
-        gen_energy = util.remove_df_levels(util.DfOper.mult([gen_energy, period_weights]),'period')
+        gen_energy = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\annual_energy.csv'),
+                                 usecols=[1,2, 3, 4,7, 8,9], index_col=[0, 1, 2, 3, 4, 6])
+        #period_weights = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\PERIOD_WEIGHTS.csv'),
+         #                        usecols=[0,1], index_col=[0])
+        #gen_energy = util.remove_df_levels(util.DfOper.mult([gen_energy, period_weights]),'period')
         df = util.df_slice(gen_energy, scenario, 'run name')
         df_load = df[~df.index.get_level_values('output').isin(['hydro','thermal','fixed'])]
         df_load = util.remove_df_levels(df_load, ['output', 'resource'])
@@ -6553,11 +6562,11 @@ class RioInputs(DataMapFunctions):
 
 
     def calc_thermal_share(self,scenario):
-        gen_energy = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\daily_energy.csv'),
-                                 usecols=[4,6, 7, 8, 11, 12,13], index_col=[0, 1, 2, 3, 4, 6])
-        period_weights = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\PERIOD_WEIGHTS.csv'),
-                                 usecols=[0,1], index_col=[0])
-        gen_energy = util.remove_df_levels(util.DfOper.mult([gen_energy, period_weights]),'period')
+        gen_energy = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\annual_energy.csv'),
+                                 usecols=[1,2, 3, 4,7, 8,9], index_col=[0, 1, 2, 3, 4, 6])
+        #period_weights = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\PERIOD_WEIGHTS.csv'),
+         #                        usecols=[0,1], index_col=[0])
+        #gen_energy = util.remove_df_levels(util.DfOper.mult([gen_energy, period_weights]),'period')
         df = util.df_slice(gen_energy, scenario, 'run name')
         df = df[df.index.get_level_values('output').isin(['thermal'])]
         df = df.groupby(level=df.index.names).sum()
@@ -6633,10 +6642,7 @@ class RioInputs(DataMapFunctions):
         df = df.reset_index('resource')
         gen_regions = list(set(df.index.get_level_values('zone')))
         df['resource'] = df['resource'].apply(lambda x: clean_name(x,gen_regions))
-        try:
-            df['technology'] = [self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_'))>3 else self.supply_technology_mapping[x.split('_')[0]]   for x in df['resource'].values]
-        except:
-            pdb.set_trace()
+        df['technology'] = [self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_'))>3 else self.supply_technology_mapping[x.split('_')[0]]   for x in df['resource'].values]
         df['resource_bin'] = [int(x.split('_')[2]) if len(x.split('_')) == 5 else int(x.split('_')[1]) if len(x.split('_')) == 3 else 'n/a' for x in df['resource'].values]
         df.pop('resource')
         df = df.set_index(['technology','resource_bin'],append=True)

@@ -221,6 +221,7 @@ class DataMapFunctions:
         return df, current_geography
 
     def _add_missing_geographies(self, df, current_geography, current_data_type,missing_intensity_geos):
+        df = df.reset_index().set_index(df.index.names)
         current_number_of_geographies = len(util.get_elements_from_level(df, current_geography))
         propper_number_of_geographies = len(cfg.geo.geographies_unfiltered[current_geography])
         if (current_data_type == 'total' or missing_intensity_geos) and current_number_of_geographies != propper_number_of_geographies:
