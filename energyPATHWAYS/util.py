@@ -795,10 +795,11 @@ class DfOper:
 
     @staticmethod
     def _operation_helper(df_iter, opr, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        if not len(df_iter):
+        if not len(df_iter) or all([df is None for df in df_iter]):
             return None
         expandable = DfOper.fill_default_char(expandable, len(df_iter))
         collapsible = DfOper.fill_default_char(collapsible, len(df_iter))
+        df_iter = DfOper.replace_none_in_first_position(df_iter, opr)
         return_df = None
         for i, df in enumerate(df_iter):
             if df is None:
@@ -809,6 +810,24 @@ class DfOper:
                                              b_can_collapse=collapsible[i], b_can_expand=expandable[i],
                                              non_expandable_levels=non_expandable_levels)
         return return_df
+
+    @staticmethod
+    def replace_none_in_first_position(df_iter, action):
+        if df_iter[0] is None:
+            first_df = df_iter[[df is not None for df in df_iter].index(True)]
+            if action == '*':
+                pass
+            elif action == '/':
+                raise ValueError('With DfOper "divide", the first argument cannot be None')
+            elif action == '+':
+                pass
+            elif action == '-':
+                df_iter[0] = pd.DataFrame(0, index=first_df.index, columns=first_df.columns)
+            elif action == None:
+                pass
+            elif action == 'replace':
+                raise ValueError('With DfOper "replace", the first argument cannot be None')
+        return df_iter
 
     @staticmethod
     def fill_default_char(char, num):
