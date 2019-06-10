@@ -174,7 +174,7 @@ if __name__ == "__main__":
     workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\UCS'
     config = 'config.INI'
     rio_scenario = None
-    scenario = ['UCS']
+    scenario = ['ref_moder_aeo','UCS']
     #rio_scenario = None
     #scenario = [ 'nw_reference','nw_ddp_central','nw_ddp_limited_demand_transformation','nw_ddp_increased_gas_transport']
     #rio_scenario = ['5 ddp limited demand', '6 ddp constrained biomass', '7 ddp increased gas','8 ddp integration economic']
@@ -194,7 +194,7 @@ if __name__ == "__main__":
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
-    load_supply   = False,
+    load_supply   = True,
     solve_supply  = False,
     export_results= False,
     load_error    = False,

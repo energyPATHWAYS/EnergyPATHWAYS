@@ -2408,6 +2408,6 @@ def load_model(load_demand, load_supply, load_error, scenario):
 if __name__ == "__main__":
     workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\UCS'
     config = 'config.INI'
-    scenario = ['UCS','reference']
+    scenario = ['UCS','ref_moder_aeo']
     export = run(workingdir, config, scenario)
     self = export
