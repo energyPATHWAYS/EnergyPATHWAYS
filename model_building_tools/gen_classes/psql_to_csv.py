@@ -31,7 +31,10 @@ Indicates whether to include database ids in the data, and thus, in the \
 generated class, which reads the CSV headers. This option exists to facilitate \
 integration, and will be removed for the final production run.''')
 
-def main(dbname, db_dir, host, user, password, limit, tables, ids):
+@click.option('--shapes/--no-shapes', default=True,
+              help='Whether to copy the ShapeData directory to the merged database. (Default is --shapes)')
+
+def main(dbname, db_dir, host, user, password, limit, tables, ids, shapes):
     db = PostgresDatabase(host=host, dbname=dbname, user=user, password=password, cache_data=False)
 
     db_dir = db_dir or dbname + '.db'
@@ -53,7 +56,7 @@ def main(dbname, db_dir, host, user, password, limit, tables, ids):
         df.drop(list(cols), axis=1, inplace=True)
 
     for tbl in table_objs:
-        if tbl.name == 'ShapesData':
+        if not shapes and tbl.name == 'ShapesData':
             continue
 
         tbl.load_all(limit=limit)
