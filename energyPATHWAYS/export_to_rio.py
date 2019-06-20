@@ -1795,38 +1795,41 @@ class RioExport(object):
                         # todo allow for resource bins
                     else:
                         for technology in self.supply.nodes[node].technologies.keys():
-                            eff_df = self.supply.nodes[node].technologies[technology].efficiency.values.groupby(
-                                level=[cfg.supply_primary_geography, 'supply_node', 'vintage']).sum()
-                            eff_df = eff_df.stack().to_frame()
-                            eff_df.columns = ['value']
-                            util.replace_index_name(eff_df, 'year')
-                            eff_df = eff_df[
-                                eff_df.index.get_level_values('vintage') == eff_df.index.get_level_values('year')]
-                            eff_df = util.remove_df_levels(eff_df, 'year')
-                            idx = pd.IndexSlice
-                            eff_blend_df = eff_df.loc[idx[:, self.supply.blend_nodes, :], :]
-                            if len(eff_blend_df) > 0:
-                                eff_blend_df = eff_blend_df.reorder_levels(
-                                    [cfg.supply_primary_geography, 'vintage', 'supply_node'])
-                                eff_blend_df['name'] = cfg.outputs_id_map['supply_node'][node] + "_" + \
-                                                       cfg.outputs_id_map['supply_technology'][technology] + "_" + self.blend_node_subset_lookup[blend]
-                                df_list.append(eff_blend_df)
-                            for delivery_node in set(eff_df.index.get_level_values('supply_node')):
-                                if self.supply.nodes[delivery_node].supply_type == 'Delivery':
-                                    temp_df = util.df_slice(eff_df, delivery_node, 'supply_node')
-                                    eff_del = self.supply.nodes[delivery_node].coefficients.values.groupby(
-                                        level=[cfg.supply_primary_geography, 'demand_sector',
-                                               'supply_node']).sum().groupby(
-                                        level=[cfg.supply_primary_geography, 'supply_node']).mean()
-                                    eff_del = eff_del.mean(axis=1).to_frame()
-                                    eff_del.columns = ['value']
-                                    eff_del = eff_del.loc[idx[:, self.supply.blend_nodes], :]
-                                    if len (eff_del)>0:
-                                        eff_del = util.DfOper.mult([temp_df, eff_del]).reorder_levels(
-                                                [cfg.supply_primary_geography, 'vintage', 'supply_node'])
-                                        eff_del['name'] = cfg.outputs_id_map['supply_node'][node] + "_" + \
-                                                      cfg.outputs_id_map['supply_technology'][technology]+ "_" + self.blend_node_subset_lookup[blend]
-                                        df_list.append(eff_del)
+                            try:
+                                eff_df = self.supply.nodes[node].technologies[technology].efficiency.values.groupby(
+                                    level=[cfg.supply_primary_geography, 'supply_node', 'vintage']).sum()
+                                eff_df = eff_df.stack().to_frame()
+                                eff_df.columns = ['value']
+                                util.replace_index_name(eff_df, 'year')
+                                eff_df = eff_df[
+                                    eff_df.index.get_level_values('vintage') == eff_df.index.get_level_values('year')]
+                                eff_df = util.remove_df_levels(eff_df, 'year')
+                                idx = pd.IndexSlice
+                                eff_blend_df = eff_df.loc[idx[:, self.supply.blend_nodes, :], :]
+                                if len(eff_blend_df) > 0:
+                                    eff_blend_df = eff_blend_df.reorder_levels(
+                                        [cfg.supply_primary_geography, 'vintage', 'supply_node'])
+                                    eff_blend_df['name'] = cfg.outputs_id_map['supply_node'][node] + "_" + \
+                                                           cfg.outputs_id_map['supply_technology'][technology] + "_" + self.blend_node_subset_lookup[blend]
+                                    df_list.append(eff_blend_df)
+                                for delivery_node in set(eff_df.index.get_level_values('supply_node')):
+                                    if self.supply.nodes[delivery_node].supply_type == 'Delivery':
+                                        temp_df = util.df_slice(eff_df, delivery_node, 'supply_node')
+                                        eff_del = self.supply.nodes[delivery_node].coefficients.values.groupby(
+                                            level=[cfg.supply_primary_geography, 'demand_sector',
+                                                   'supply_node']).sum().groupby(
+                                            level=[cfg.supply_primary_geography, 'supply_node']).mean()
+                                        eff_del = eff_del.mean(axis=1).to_frame()
+                                        eff_del.columns = ['value']
+                                        eff_del = eff_del.loc[idx[:, self.supply.blend_nodes], :]
+                                        if len (eff_del)>0:
+                                            eff_del = util.DfOper.mult([temp_df, eff_del]).reorder_levels(
+                                                    [cfg.supply_primary_geography, 'vintage', 'supply_node'])
+                                            eff_del['name'] = cfg.outputs_id_map['supply_node'][node] + "_" + \
+                                                          cfg.outputs_id_map['supply_technology'][technology]+ "_" + self.blend_node_subset_lookup[blend]
+                                            df_list.append(eff_del)
+                            except:
+                                pass
         df = pd.concat(df_list)
         df = Output.clean_rio_df(df)
         util.replace_column_name(df, 'gau', cfg.supply_primary_geography)
@@ -2406,8 +2409,8 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\UCS'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\Princeton'
     config = 'config.INI'
-    scenario = ['UCS','ref_moder_aeo']
+    scenario = ['PU_Reference','PU_BaseDDP']
     export = run(workingdir, config, scenario)
     self = export

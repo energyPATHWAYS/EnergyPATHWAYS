@@ -223,10 +223,16 @@ class SupplyTechInvestmentCost(SupplyTechCost):
             if self.is_levelized == 0:
                 self.values_level = - np.pmt(rate, self.book_life, 1, 0, 'end') * self.values
                 util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values_level', attr_to='values_level', reverse=False)
-            else:
+            elif self.is_levelized==1:
                 self.values_level = self.values.copy()
                 util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values_level', attr_to='values_level', reverse=False)
                 self.values = np.pv(rate, self.book_life, -1, 0, 'end') * self.values
+            elif self.definition_id ==2:
+                self.values_level = self.values.copy()
+                util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values_level', attr_to='values_level', reverse=False)
+            else:
+                raise ValueError("no specification of whether the technology cost is levelized")
+
         else:
             raise ValueError('Supply Technology id %s needs to indicate whether costs are levelized ' %self.id)
             

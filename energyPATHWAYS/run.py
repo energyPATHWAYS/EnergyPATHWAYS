@@ -171,10 +171,10 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\UCS'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\Rhodium_DAC_lowest_electrification'
     config = 'config.INI'
-    rio_scenario = None
-    scenario = ['ref_moder_aeo','UCS']
+    rio_scenario =['Baseline']
+    scenario = ['Baseline']
     #rio_scenario = None
     #scenario = [ 'nw_reference','nw_ddp_central','nw_ddp_limited_demand_transformation','nw_ddp_increased_gas_transport']
     #rio_scenario = ['5 ddp limited demand', '6 ddp constrained biomass', '7 ddp increased gas','8 ddp integration economic']
@@ -192,14 +192,14 @@ if __name__ == "__main__":
     # 8 ddp integration economic
 
     run(workingdir, config, scenario,
-    load_demand   = False,
+    load_demand   = True,
     solve_demand  = True,
-    load_supply   = True,
-    solve_supply  = False,
-    export_results= False,
+    load_supply   = False,
+    solve_supply  = True,
+    export_results= True,
     load_error    = False,
     pickle_shapes = True,
-    save_models   = False,
+    save_models   = True,
     clear_results = False,
     rio_scenario=rio_scenario)
 
