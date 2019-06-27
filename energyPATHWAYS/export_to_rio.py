@@ -38,7 +38,7 @@ class RioExport(object):
     def write_all(self):
         self.write_blend()
         self.flex_load_df = self.flatten_flex_load_dict()
-        if self.scenario_index == 0:
+        if self.scenario_index == 11:
             self.write_reference_tables()
             self.write_all_empty()
             self.write_shapes()
@@ -50,12 +50,12 @@ class RioExport(object):
                 self.write_flex_tech_main()
             self.write_capacity_zone_main()
             self.write_product_main()
-        self.write_conversion()
-        self.write_product()
-        self.write_topography()
-        self.write_potential_group()
-        self.write_new_gen()
-        self.write_transmission()
+        #self.write_conversion()
+        #self.write_product()
+        #self.write_topography()
+        #self.write_potential_group()
+        #self.write_new_gen()
+        #self.write_transmission()
         self.write_flex_load()
 
 
@@ -100,11 +100,11 @@ class RioExport(object):
 
     def write_flex_load(self):
         if self.flex_load_df is not None:
-            self.write_flex_tech_shapes()
-            self.write_flex_tech_p_max()
-            self.write_flex_tech_p_min()
-            self.write_flex_tech_energy()
-            #self.write_flex_tech_schedule()
+            #self.write_flex_tech_shapes()
+            #self.write_flex_tech_p_max()
+            #self.write_flex_tech_p_min()
+            #self.write_flex_tech_energy()
+            self.write_flex_tech_schedule()
         else:
             self.write_empty('FLEX_TECH_MAIN', '\\Technology Inputs\\Flex Load', ['name', 'capacity_zone', 'ancillary_service_eligible', 'shape'])
             self.write_empty('FLEX_TECH_PMAX', '\\Technology Inputs\\Flex Load',['name', 'source','notes','unit','geography','gau','geography_map_key','interpolation_method','extrapolation_method','vintage','value','sensitivity'])
@@ -228,6 +228,7 @@ class RioExport(object):
         df = pd.concat(df_list)
         df = Output.clean_rio_df(df)
         df = df[['name','geography','gau','geography_map_key','interpolation_method','extrapolation_method','year','value','sensitivity']]
+        pdb.set_trace()
         Output.write_rio(df, "FLEX_TECH_SCHEDULE" + '.csv', self.db_dir + "\\Technology Inputs\\Flex Load", index=False)
 
     def write_flex_tech_shapes(self):
@@ -640,7 +641,7 @@ class RioExport(object):
                         df_rows['energy_unit'] = 'megawatt_hour'
                         #we specify the lifetime as 1 and 'rebuild' the stock every year if it is specified.'
                         try:
-                            if self.supply.nodes[node].stock.extrapolation_method != 'none':
+                            if hasattr(self.supply.nodes[node].stock,'extrapolation_method') and self.supply.nodes[node].stock.extrapolation_method != 'none':
                                 df_rows['lifetime'] = 1
                             else:
                                 df_rows['lifetime'] = self.supply.nodes[node].technologies[tech_id].mean_lifetime
@@ -2402,8 +2403,8 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\Rhodium_DAC_lowest_electrification'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\SDG&E'
     config = 'config.INI'
-    scenario = ['oct_lowest_elect']
+    scenario = ['renewable_pipeline_NetZero']
     export = run(workingdir, config, scenario)
     self = export

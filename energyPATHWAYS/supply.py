@@ -4866,7 +4866,7 @@ class SupplyStockNode(Node):
         if self.stock.data or hasattr(self.case_stock,'data') and self.case_stock.data == True:
             self.stock.data = True
         self.max_total()
-        if cfg.rio_supply_run:
+        if cfg.rio_supply_run and self.id not in cfg.rio_excluded_nodes:
             self.stock.technology.loc[:, cfg.supply_years] = self.stock.technology.loc[:, cfg.supply_years].fillna(0)
         self.format_rollover_stocks()
 
@@ -5471,7 +5471,7 @@ class SupplyStockNode(Node):
         previous_year = max(min(self.years),year-1)
         if self.potential.data is False:
             if self.throughput is not None:
-                if cfg.rio_supply_run:
+                if cfg.rio_supply_run and self.id not in cfg.rio_excluded_nodes:
                     self.stock.requirement_energy.loc[:, year] = 0
                 else:
                     self.stock.requirement_energy.loc[:, year] = self.throughput
@@ -5499,7 +5499,7 @@ class SupplyStockNode(Node):
             bin_supply_curve[bin_supply_curve>total_residual] = total_residual
             try:
                 bin_supply_curve = bin_supply_curve.groupby(level=util.ix_excl(bin_supply_curve,'resource_bin')).diff().fillna(bin_supply_curve)
-                if cfg.rio_supply_run:
+                if cfg.rio_supply_run and self.id not in cfg.rio_excluded_nodes:
                     self.stock.requirement_energy.loc[:,year] = self.stock.act_total_energy
                     self.stock.requirement.loc[:,year] = util.DfOper.divi([self.stock.requirement_energy.loc[:,year].to_frame(),self.stock.act_energy_capacity_ratio])
                 else:
@@ -5711,7 +5711,7 @@ class SupplyStockNode(Node):
             self.stock.coefficients_rio = util.empty_df(index, columns=self.years, fill_value=0.)
             self.stock.coefficients.loc[:,year] = self.rollover_output(tech_class='efficiency',stock_att='values_normal_energy',year=year)
             self.stock.coefficients_rio.loc[:, year] = self.rollover_output(tech_class='efficiency', stock_att='ones', year=year)
-        if cfg.rio_supply_run:
+        if cfg.rio_supply_run and self.id not in cfg.rio_excluded_nodes:
             self.stock.coefficients.loc[:, year][(self.stock.coefficients.loc[:, year].to_frame().index.get_level_values('supply_node').isin(cfg.rio_no_negative_blends)) & (self.stock.coefficients.loc[:, year].to_frame().values<0).flatten()] = 0
         if 'supply_node' not in self.stock.coefficients.index.names:
             print ("no efficiency has been input for technologies in the %s supply node" %self.name)

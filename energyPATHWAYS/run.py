@@ -193,15 +193,15 @@ if __name__ == "__main__":
     # 8 ddp integration economic
 
     run(workingdir, config, scenario,
-    load_demand   = True,
-    solve_demand  = False,
+    load_demand   = False,
+    solve_demand  = True,
     load_supply   = False,
-    solve_supply  = True,
+    solve_supply  = False,
     export_results= True,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
-    clear_results = False,
+    clear_results = True,
     rio_scenario=rio_scenario)
 
     # run_str = "run('C:\Github\EnergyPATHWAYS_scenarios\SDG&E', 'config.INI', 'scoping_plan', \
