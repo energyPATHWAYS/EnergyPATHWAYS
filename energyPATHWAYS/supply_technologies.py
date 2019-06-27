@@ -99,7 +99,7 @@ class SupplyTechnology(StockItem):
         
         """
         self.capital_cost_new = SupplyTechInvestmentCost(self.id, 'SupplyTechsCapitalCost','SupplyTechsCapitalCostNewData', self.scenario, self.book_life, self.cost_of_capital)
-        self.capital_cost_replacement = SupplyTechInvestmentCost(self.id, 'StorageTechsCapacityCapitalCost', 'SupplyTechsCapitalCostReplacementData', self.scenario, self.book_life, self.cost_of_capital)
+        self.capital_cost_replacement = SupplyTechInvestmentCost(self.id, 'SupplyTechsCapitalCost', 'SupplyTechsCapitalCostReplacementData', self.scenario, self.book_life, self.cost_of_capital)
         self.installation_cost_new = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost', 'SupplyTechsInstallationCostNewData', self.scenario, self.book_life, self.cost_of_capital)
         self.installation_cost_replacement = SupplyTechInvestmentCost(self.id, 'SupplyTechsInstallationCost', 'SupplyTechsInstallationCostReplacementData', self.scenario, self.book_life, self.cost_of_capital)
         self.fixed_om = SupplyTechFixedOMCost(self.id, 'SupplyTechsFixedMaintenanceCost', 'SupplyTechsFixedMaintenanceCostData', self.scenario)
@@ -204,14 +204,11 @@ class SupplyTechInvestmentCost(SupplyTechCost):
         if self.data and self.raw_values is not None:
             if self.definition == 'absolute': 
                 self.convert()
-            else:
+            elif self.definition == 'relative':
                 self.values = copy.deepcopy(self.raw_values)
-            try:
-                self.remap(map_from='values', map_to='values', converted_geography=cfg.supply_primary_geography, time_index_name='vintage')
-            except:
-                print self.id
-                print self.values
-                raise
+            else:
+                raise ValueError("no cost definition is input (absolute or relative)")
+            self.remap(map_from='values', map_to='values', converted_geography=cfg.supply_primary_geography, time_index_name='vintage')
             self.levelize_costs()
         if self.data is False:
             self.absolute = False
@@ -299,11 +296,10 @@ class StorageTechDuration(Abstract):
         self.years = years
         if self.data and self.raw_values is not None:
             try:
-                self.remap(time_index_name='year', converted_geography=cfg.supply_primary_geography,missing_intensity_geos=True)
+                self.remap(time_index_name='year', converted_geography=cfg.supply_primary_geography,missing_intensity_geos=True,fill_value=1)
             except:
                 pdb.set_trace()
-            self.values.replace(0, 1, inplace=True)
-            self.values.fillna(1)
+            self.values = self.values.fillna(1)
 
 
 class SupplyTechFixedOMCost(SupplyTechCost):
@@ -369,7 +365,7 @@ class SupplyTechEfficiency(Abstract):
         self.years = years
         if self.data and self.raw_values is not None:
             self.convert()
-            self.remap(map_from='values', map_to='values', converted_geography=cfg.supply_primary_geography, time_index_name='vintage', lower=None)
+            self.remap(map_from='values', map_to='values', converted_geography=cfg.supply_primary_geography, time_index_name='vintage', lower=None,missing_intensity_geos=True,fill_value=1)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         if self.data is False:
             self.absolute = False

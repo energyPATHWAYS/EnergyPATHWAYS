@@ -2032,7 +2032,9 @@ class Subsector(DataMapFunctions):
         elif self.service_subset == 'demand_technology':
             # calculate share of service demand by demand_technology
             sd_subset_normal = sd_subset.groupby(level=util.ix_excl(sd_subset, ['demand_technology'])).transform(lambda x: x / x.sum())
+
             # calculate service demand modifier by dividing the share of service demand by the share of stock
+
             sd_modifier = DfOper.divi([sd_subset_normal, self.stock.tech_subset_normal])
             # expand the dataframe to put years as columns
             sd_modifier = self.vintage_year_array_expand(sd_modifier, df_for_indexing, sd_subset)
@@ -2215,7 +2217,7 @@ class Subsector(DataMapFunctions):
     def vintage_year_array_expand(self, df, df_for_indexing, sd_subset):
         """creates a dataframe with years as columns instead of an index"""
         level_values = sd_subset.index.get_level_values(level='year')
-        max_column = max(level_values)
+        max_column = min(max(level_values),int(cfg.cfgfile.get('case', 'current_year')))
         df = df.unstack(level='year')
         df.columns = df.columns.droplevel()
         df = df.loc[:, max_column].to_frame()
