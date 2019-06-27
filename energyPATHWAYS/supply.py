@@ -2311,10 +2311,10 @@ class Supply(object):
         for node_id in self.blend_nodes:
             node = self.nodes[node_id]
             if len(node.nodes)>1:
-                if cfg.rio_supply_run and node_id==self.bulk_id or node_id in cfg.rio_no_negative_blends:
-                    pass
-                else:
-                    node.update_residual(year)
+                #if cfg.rio_supply_run and node_id==self.bulk_id or node_id in cfg.rio_no_negative_blends:
+                #pass
+                #else:
+                node.update_residual(year)
         for node in self.nodes.values():
             if node.id!=self.thermal_dispatch_node_id:
                 node.calculate_active_coefficients(year, loop)
