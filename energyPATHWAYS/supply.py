@@ -2311,10 +2311,10 @@ class Supply(object):
         for node_id in self.blend_nodes:
             node = self.nodes[node_id]
             if len(node.nodes)>1:
-                #if cfg.rio_supply_run and node_id==self.bulk_id or node_id in cfg.rio_no_negative_blends:
-                #pass
-                #else:
-                node.update_residual(year)
+                if cfg.rio_supply_run and node_id==self.bulk_id or node_id in cfg.rio_no_negative_blends:
+                    node.set_to_min(year)
+                else:
+                    node.update_residual(year)
         for node in self.nodes.values():
             if node.id!=self.thermal_dispatch_node_id:
                 node.calculate_active_coefficients(year, loop)
@@ -3844,6 +3844,14 @@ class BlendNode(Node):
         # remove duplicates where a node is specified and is specified as residual node
         self.values.loc[:,year] = self.values.loc[:,year].groupby(level=self.values.index.names).sum()
         # set negative values to 0
+        self.values[self.values <= 0] = 1e-7
+
+    def set_to_min(self, year):
+        """calculates values for residual node in Blend Node dataframe
+         ex. if 10% of hydrogen blend is supplied by electrolysis and the rest is unspecified,
+         90% of hydrogen blend is allocated to residual node
+         """
+        # calculates sum of all supply_node
         self.values[self.values <= 0] = 1e-7
 
     def expand_blend(self):
