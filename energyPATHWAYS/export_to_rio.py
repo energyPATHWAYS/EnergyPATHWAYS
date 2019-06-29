@@ -202,7 +202,7 @@ class RioExport(object):
                 tech_df['source'] = None
                 tech_df['notes'] = None
                 tech_df['geography'] = cfg.supply_primary_geography
-                tech_df['gau'] = geography
+                #tech_df['gau'] = geography
                 tech_df['geography_map_key'] = None
                 tech_df['interpolation_method'] = 'linear_interpolation'
                 tech_df['extrapolation_method'] = 'nearest'
