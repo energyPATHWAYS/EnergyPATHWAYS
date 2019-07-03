@@ -216,7 +216,7 @@ class DataObject(CsvDataObject):
         # TODO: need to see which attrs are used, then to root out the getattr.
         df = getattr(self, attr).copy()
         if getParamAsBoolean('include_foreign_gaus'):
-            native_gaus, current_gaus, foreign_gaus = GeoMapper.get_native_current_foreign_gaus(df, current_geography)
+            native_gaus, current_gaus, foreign_gaus = GeoMapper.get_instance().get_native_current_foreign_gaus(df, current_geography)
 
             if foreign_gaus:
                 pdb.set_trace()

@@ -48,6 +48,9 @@ python psql_to_csv.py -d 190317_MX -D C:\github\EP_MX_db\MX.db
 python denormalize.py -d C:\github\EP_MX_db\MX.db -o C:\github\test\merged.db -m "" -c EnergyPathwaysDatabase --no-shapes
 
 python update_json.py C:\github\EP_runs\IADB_csv\high_tech-high_mode_switch.json -d 190317_MX --no-backup
+python update_json.py C:\github\EP_runs\IADB_csv\low_tech-high_mode_switch.json -d 190317_MX --no-backup
+python update_json.py C:\github\EP_runs\IADB_csv\high_tech-low_mode_switch.json -d 190317_MX --no-backup
+python update_json.py C:\github\EP_runs\IADB_csv\high_tech-high_mode_switch.json -d 190317_MX --no-backup
 
 python psql_to_csv.py -d 190220_SDGE -D C:\github\test\190220_SDGE.db
 python denormalize.py -d C:\github\test\190220_SDGE.db -o C:\github\test\merged.db -m "" -c EnergyPathwaysDatabase --no-shapes

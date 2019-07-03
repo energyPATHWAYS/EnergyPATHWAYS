@@ -4,11 +4,11 @@ import click
 import json
 import os
 import shutil
-
+import pdb
 from json_loader import Scenario, init_db, get_name_for_id, read_foreign_keys
 
-def strip_suffix(s, suffix):
-    return s[:-len(suffix)] if s.endswith(s) else s
+def strip_suffix(string, suffix):
+    return string[:-len(suffix)] if len(string)>len(suffix) and string[-len(suffix):]==suffix else string
 
 @click.command()
 @click.argument('json_file', type=click.Path(exists=True))      # Positional argument

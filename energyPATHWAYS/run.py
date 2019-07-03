@@ -169,17 +169,17 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\csv_migration'
+    workingdir = r'C:\github\EP_runs\IADB_csv'
     os.chdir(workingdir)
     config = 'config.INI'
-    rio_scenario = [None]
-    scenario = ['short']
+    rio_scenario = None
+    scenario = None
 
     run(workingdir, config, scenario,
     load_demand   = False,
     solve_demand  = True,
-    load_supply   = True,
-    solve_supply  = True,
+    load_supply   = False,
+    solve_supply  = False,
     export_results= True,
     load_error    = False,
     pickle_shapes = True,
