@@ -155,13 +155,13 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\run for ben\2020 end census'
+    workingdir = r'Z:\NREL\final\med_moder_aeo'
     config = 'config.INI'
-    scenario = ['high_moder_aeo']
+    scenario = ['med_moder_aeo']
 
     run(workingdir, config, scenario,
-    load_demand   = False,
-    solve_demand  = True,
+    load_demand   = True,
+    solve_demand  = False,
     load_supply   = False,
     solve_supply  = False,
     export_results= True,
