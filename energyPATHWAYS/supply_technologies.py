@@ -365,7 +365,7 @@ class SupplyTechEfficiency(Abstract):
         self.years = years
         if self.data and self.raw_values is not None:
             self.convert()
-            self.remap(map_from='values', map_to='values', converted_geography=cfg.supply_primary_geography, time_index_name='vintage', lower=None,missing_intensity_geos=True,fill_value=1)
+            self.remap(map_from='values', map_to='values', converted_geography=cfg.supply_primary_geography, time_index_name='vintage', lower=None,missing_intensity_geos=True)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         if self.data is False:
             self.absolute = False
