@@ -1563,8 +1563,7 @@ class Subsector(DataMapFunctions):
             for id in self.service_demand_measures:
                 measure = self.service_demand_measures[id]
                 measure.savings = DfOper.mult([measure.savings, impact_adjustment])
-        self.service_demand.values = DfOper.subt([self.service_demand.values,
-                                                    self.service_demand_savings])
+        self.service_demand.values = DfOper.subt([self.service_demand.values, self.service_demand_savings])
 
     def add_flexible_load_measures(self, scenario):
         """

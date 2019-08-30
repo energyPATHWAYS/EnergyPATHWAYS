@@ -2330,7 +2330,7 @@ class Supply(object):
             node = self.nodes[node_id]
             if len(node.nodes)>1:
                 if cfg.rio_supply_run and node_id==self.bulk_id or node_id in cfg.rio_no_negative_blends:
-                    pass
+                    node.set_to_min(year)
                 else:
                     node.update_residual(year)
         for node in self.nodes.values():
@@ -3859,6 +3859,14 @@ class BlendNode(Node):
         # set negative values to 0
         self.values[self.values <= 0] = 1e-7
 
+    def set_to_min(self, year):
+        """calculates values for residual node in Blend Node dataframe
+         ex. if 10% of hydrogen blend is supplied by electrolysis and the rest is unspecified,
+         90% of hydrogen blend is allocated to residual node
+         """
+        # calculates sum of all supply_node
+        self.values[self.values <= 0] = 1e-7
+
     def expand_blend(self):
         #needs a fill value because if a node is not demanding any energy from another node, it still may be supplied, and reconciliation happens via division (can't multiply by 0)
         self.values = util.reindex_df_level_with_new_elements(self.values,'supply_node', self.nodes, fill_value = 1e-7)
@@ -4879,7 +4887,7 @@ class SupplyStockNode(Node):
         if self.stock.data or hasattr(self.case_stock,'data') and self.case_stock.data == True:
             self.stock.data = True
         self.max_total()
-        if cfg.rio_supply_run:
+        if cfg.rio_supply_run and self.id not in cfg.rio_excluded_nodes:
             self.stock.technology.loc[:, cfg.supply_years] = self.stock.technology.loc[:, cfg.supply_years].fillna(0)
         self.format_rollover_stocks()
 
@@ -5481,7 +5489,7 @@ class SupplyStockNode(Node):
         previous_year = max(min(self.years),year-1)
         if self.potential.data is False:
             if self.throughput is not None:
-                if cfg.rio_supply_run:
+                if cfg.rio_supply_run and self.id not in cfg.rio_excluded_nodes:
                     self.stock.requirement_energy.loc[:, year] = 0
                 else:
                     self.stock.requirement_energy.loc[:, year] = self.throughput
@@ -5505,7 +5513,7 @@ class SupplyStockNode(Node):
             total_residual = util.expand_multi(total_residual,bins.index.levels,bins.index.names)
             bin_supply_curve[bin_supply_curve>total_residual] = total_residual
             bin_supply_curve = bin_supply_curve.groupby(level=util.ix_excl(bin_supply_curve,'resource_bin')).diff().fillna(bin_supply_curve)
-            if cfg.rio_supply_run:
+            if cfg.rio_supply_run and self.id not in cfg.rio_excluded_nodes:
                 self.stock.requirement_energy.loc[:,year] = self.stock.act_total_energy
                 self.stock.requirement.loc[:,year] = util.DfOper.divi([self.stock.requirement_energy.loc[:,year].to_frame(),self.stock.act_energy_capacity_ratio])
             else:
