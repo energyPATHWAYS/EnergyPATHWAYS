@@ -171,25 +171,10 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\Rhodium_DAC_lowest_electrification'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\UCS'
     config = 'config.INI'
-    rio_scenario =['Baseline']
-    scenario = ['Baseline']
-    #rio_scenario = None
-    #scenario = [ 'nw_reference','nw_ddp_central','nw_ddp_limited_demand_transformation','nw_ddp_increased_gas_transport']
-    #rio_scenario = ['5 ddp limited demand', '6 ddp constrained biomass', '7 ddp increased gas','8 ddp integration economic']
-    #scenario = ['nw_ddp_limited_demand_transformation','nw_ddp_central','nw_ddp_increased_gas_transport','nw_ddp_central']
-    #rio_scenario = ['Baseline']
-    #scenario = ['aeo_2017_reference']
-
-    # 1 reference
-    # 2 ddp central
-    # 3 ddp prohibit gas
-    # 4 ddp 100 percent clean
-    # 5 ddp limited demand
-    # 6 ddp constrained biomass
-    # 7 ddp increased gas
-    # 8 ddp integration economic
+    rio_scenario =['test']
+    scenario = ['PU_BaseDDP']
 
     run(workingdir, config, scenario,
     load_demand   = True,
@@ -200,7 +185,7 @@ if __name__ == "__main__":
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
-    clear_results = False,
+    clear_results = True,
     rio_scenario=rio_scenario)
 
     # run_str = "run('C:\Github\EnergyPATHWAYS_scenarios\SDG&E', 'config.INI', 'scoping_plan', \

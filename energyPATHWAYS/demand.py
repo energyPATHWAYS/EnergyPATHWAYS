@@ -2662,9 +2662,7 @@ class Subsector(DataMapFunctions):
             current_geography = cfg.demand_primary_geography
             current_data_type =  'total'
             projected =  True
-        self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography, converted_geography=cfg.demand_primary_geography,
-                                   additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent),
-                                   current_data_type=current_data_type, projected=projected)
+        self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography, converted_geography=cfg.demand_primary_geography,additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent),current_data_type=current_data_type, projected=projected)
         self.energy_demand.values = util.remove_df_levels(self.energy_demand.values,cfg.removed_demand_levels)                                                                    
 
     def calculate_sales_shares(self,reference_run=False):

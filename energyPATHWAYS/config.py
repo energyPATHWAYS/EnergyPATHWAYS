@@ -364,7 +364,8 @@ def init_outputs_id_map():
 
 def init_output_parameters():
     global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes, evolved_years, \
-        rio_supply_run, rio_geography, rio_feeder_geographies, rio_energy_unit, rio_time_unit,rio_timestep_multiplier,rio_zonal_blend_nodes,rio_excluded_technologies, rio_excluded_blends, rio_export_blends, rio_no_negative_blends, rio_excluded_nodes
+        rio_supply_run, rio_geography, rio_feeder_geographies, rio_energy_unit, rio_mass_unit, rio_distance_unit, rio_volume_unit, rio_time_unit,rio_timestep_multiplier,rio_zonal_blend_nodes,rio_excluded_technologies,\
+        rio_excluded_blends, rio_export_blends, rio_no_negative_blends, rio_excluded_nodes, rio_outflow_products, rio_standard_energy_unit,rio_standard_mass_unit, rio_standard_distance_unit, rio_standard_volume_unit
     currency_name = cfgfile.get('case', 'currency_name')
     output_currency = cfgfile.get('case', 'currency_year_id') + ' ' + currency_name
     output_tco = cfgfile.get('output_detail', 'output_tco').lower()
@@ -373,17 +374,25 @@ def init_output_parameters():
     rio_geography = cfgfile.get('rio','rio_geography')
     rio_feeder_geographies = [int(g) for g in cfgfile.get('rio', 'rio_feeder_geographies').split(',') if len(g)]
     rio_energy_unit = cfgfile.get('rio','rio_energy_unit')
+    rio_mass_unit = cfgfile.get('rio', 'rio_mass_unit')
+    rio_volume_unit = cfgfile.get('rio', 'rio_volume_unit')
+    rio_distance_unit = cfgfile.get('rio', 'rio_distance_unit')
     rio_time_unit = cfgfile.get('rio','rio_time_unit')
     rio_timestep_multiplier = int(cfgfile.get('rio','rio_timestep_multiplier'))
     rio_zonal_blend_nodes = [int(g) for g in cfgfile.get('rio', 'rio_zonal_blends').split(',') if len(g)]
     rio_excluded_technologies = [int(g) for g in cfgfile.get('rio', 'rio_excluded_technologies').split(',') if len(g)]
     rio_excluded_blends = [int(g) for g in cfgfile.get('rio', 'rio_excluded_blends').split(',') if len(g)]
     rio_export_blends = [int(g) for g in cfgfile.get('rio', 'rio_export_blends').split(',') if len(g)]
+    rio_outflow_products = [int(g) for g in cfgfile.get('rio', 'rio_outflow_products').split(',') if len(g)]
     rio_excluded_nodes = [int(g) for g in cfgfile.get('rio', 'rio_excluded_nodes').split(',') if len(g)]
     rio_no_negative_blends = [int(g) for g in cfgfile.get('rio', 'rio_no_negative_blends').split(',') if len(g)]
     evolved_run = cfgfile.get('evolved','evolved_run').lower()
     evolved_years = [int(x) for x in util.ensure_iterable_and_not_string(cfgfile.get('evolved','evolved_years'))]
     evolved_blend_nodes =  [int(g) for g in cfgfile.get('evolved','evolved_blend_nodes').split(',') if len(g)]
+    rio_standard_energy_unit = cfgfile.get('rio','rio_standard_energy_unit')
+    rio_standard_mass_unit = cfgfile.get('rio', 'rio_standard_mass_unit')
+    rio_standard_volume_unit = cfgfile.get('rio', 'rio_standard_volume_unit')
+    rio_standard_distance_unit = cfgfile.get('rio', 'rio_standard_distance_unit')
     init_removed_levels()
     init_output_levels()
     init_outputs_id_map()

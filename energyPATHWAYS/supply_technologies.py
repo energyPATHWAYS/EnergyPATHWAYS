@@ -369,9 +369,17 @@ class SupplyTechEfficiency(Abstract):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self.data and self.raw_values is not None:
+        if self.raw_values is not None and cfg.rio_supply_run and 'year' in self.raw_values.index.names:
+            self.remap(map_from='raw_values', map_to='values', current_geography = cfg.rio_geography,converted_geography=cfg.supply_primary_geography,
+                       time_index_name='year', lower=None, missing_intensity_geos=True)
+            self.values = self.values.unstack('year')
+            self.values.columns = self.values.columns.droplevel()
+            self.values = pd.concat([self.values] *len(self.vintages),keys=self.vintages,names=['vintage'])
+            self.values['efficiency_type'] = 2
+            self.values = self.values.set_index('efficiency_type',append=True)
+        elif self.data and self.raw_values is not None:
             self.convert()
-            self.remap(map_from='values', map_to='values', converted_geography=cfg.supply_primary_geography, time_index_name='vintage', lower=None,missing_intensity_geos=True,fill_value=1)
+            self.remap(map_from='values', map_to='values', converted_geography=cfg.supply_primary_geography, time_index_name='vintage', lower=None,missing_intensity_geos=True)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         if self.data is False:
             self.absolute = False

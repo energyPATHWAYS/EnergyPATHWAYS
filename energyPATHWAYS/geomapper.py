@@ -241,7 +241,7 @@ class GeoMapper:
         assert current_geography in df.index.names
         geography_map_key = geography_map_key or cfg.cfgfile.get('case', 'default_geography_map_key')
         propper_length = np.product([len(set(df.index.get_level_values(x))) for x in df.index.names])
-        if len(df) != propper_length and current_data_type == 'intensity':
+        if len(df) != propper_length and current_data_type == 'intensity' and len([name for name in df.index.names if name not in ['year', 'vintage', current_geography]])>0:
             # special case were if we don't have full geography coverage on all our index levels an implied fill value of zero causes issues
             # the solution is to groupby any extra levels and do a geomap for each group separately
             levels = [name for name in df.index.names if name not in ['year', 'vintage', current_geography]]
