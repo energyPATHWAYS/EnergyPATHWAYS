@@ -68,7 +68,7 @@ class DemandTechCost(Abstract):
             self.absolute = False
 
     def levelize_costs(self):
-        if hasattr(self, 'is_levelized'):
+        if hasattr(self, 'is_levelized') and (self.definition_id==1 or (self.definition_id==2 and self.reference_tech_operation=='add')):
             inflation = float(cfg.cfgfile.get('case', 'inflation_rate'))
             rate = self.cost_of_capital - inflation
             if self.is_levelized == 0:
