@@ -301,10 +301,7 @@ class StorageTechDuration(Abstract):
         self.vintages = vintages
         self.years = years
         if self.data and self.raw_values is not None:
-            try:
-                self.remap(time_index_name='year', converted_geography=cfg.supply_primary_geography,missing_intensity_geos=True,fill_value=1)
-            except:
-                pdb.set_trace()
+            self.remap(time_index_name='year', converted_geography=cfg.supply_primary_geography,missing_intensity_geos=True,fill_value=1)
             self.values = self.values.fillna(1)
 
 
@@ -438,10 +435,7 @@ class SupplyTechCapacityFactor(Abstract):
             self.values.replace(0,1,inplace=True)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         elif self.data and self.raw_values is not None and cfg.rio_supply_run==True:
-            try:
-                self.remap(time_index_name='year', converted_geography=cfg.supply_primary_geography, fill_value=np.nan)
-            except:
-                pdb.set_trace()
+            self.remap(time_index_name='year', converted_geography=cfg.supply_primary_geography, fill_value=np.nan)
             self.values.replace(0, 1, inplace=True)
             self.values = util.add_and_set_index(self.values,'vintage',self.vintages,index_location=-1)
             self.values = self.values.squeeze().unstack(level='year')

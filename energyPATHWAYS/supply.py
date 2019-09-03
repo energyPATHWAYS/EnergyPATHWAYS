@@ -357,6 +357,10 @@ class Supply(object):
                     node.add_rio_thermal_blend_measures(self.reformat_gen_share_measures(self.rio_inputs.thermal_share))
                 else:
                     node.add_blend_measures(scenario)
+                if node.id in self.rio_inputs.blend_levelized_costs.index.get_level_values('supply_node'):
+                    df = util.df_slice(self.rio_inputs.blend_levelized_costs,node.id,'supply_node').unstack('year')
+                    df.columns = df.columns.droplevel()
+                    node.levelized_costs = df
             elif isinstance(node, SupplyStockNode) or isinstance(node, StorageNode):
                 node.add_total_stock_measures(scenario)
                 for technology in node.technologies.values():
@@ -622,10 +626,7 @@ class Supply(object):
     def solve_flow_nodes(self,flow_nodes, zone):
         for flow_node in flow_nodes:
             self.electricity_nodes[zone].append(flow_node)
-            try:
-                flow_nodes = list(set([x for x in util.df_slice(self.nodes[flow_node].active_coefficients_untraded,2,'efficiency_type').index.get_level_values('supply_node') if self.nodes[x].supply_type in ['Delivery','Blend'] and x not in self.dispatch_zones and 'supply_node' in self.nodes[flow_node].active_coefficients_untraded.index.names]))
-            except:
-                pdb.set_trace()
+            flow_nodes = list(set([x for x in util.df_slice(self.nodes[flow_node].active_coefficients_untraded,2,'efficiency_type').index.get_level_values('supply_node') if self.nodes[x].supply_type in ['Delivery','Blend'] and x not in self.dispatch_zones and 'supply_node' in self.nodes[flow_node].active_coefficients_untraded.index.names]))
             if len(flow_nodes):
                 self.solve_flow_nodes(flow_nodes,zone)
 
@@ -2877,6 +2878,7 @@ class Supply(object):
                 demand_indexer = util.level_specific_indexer(self.demand_df, levels = ['sector', cfg.supply_primary_geography, 'final_energy'],elements=[demand_sector, geography, final_energy])
                 self.io_demand_df.loc[supply_indexer, self.years] = self.demand_df.loc[demand_indexer, self.years].values
             except:
+                'final energy found in demand not mappable to supply'
                 pass
 
                 
@@ -3726,7 +3728,23 @@ class BlendNode(Node):
             self.active_emissions_coefficients = pd.concat([self.active_coefficients]*len(keys), keys=keys, names=name)
             self.active_emissions_coefficients = self.active_emissions_coefficients.reorder_levels([cfg.supply_primary_geography, 'demand_sector', 'supply_node', 'efficiency_type', 'ghg'])
             self.active_emissions_coefficients.sort(inplace=True)
-            
+
+    def calculate_levelized_costs(self, year, loop):
+        "calculates total and per-unit costs in a subsector with technologies"
+        if hasattr(self,'levelized_costs'):
+            self.calculate_per_unit_costs(year)
+
+    def calculate_per_unit_costs(self, year):
+        total_costs = util.remove_df_levels(self.levelized_costs.loc[:, year].to_frame(),
+                                            ['vintage', 'supply_technology'])
+        active_supply = self.active_supply[self.active_supply.values >= 0]
+        embodied_cost = DfOper.divi([total_costs, active_supply], expandable=(False, False)).replace(
+            [np.inf, np.nan, -np.nan], [0, 0, 0])
+        self.active_embodied_cost = util.expand_multi(embodied_cost[year].to_frame(),
+                                                      levels_list=[cfg.geo.geographies[cfg.supply_primary_geography],
+                                                                   self.demand_sectors],
+                                                      levels_names=[cfg.supply_primary_geography, 'demand_sector'])
+
     def add_blend_measures(self, scenario):
             """
             add all blend measures in a selected scenario to a dictionary
@@ -6392,7 +6410,7 @@ class RioInputs(DataMapFunctions):
         df['supply_node'] = [self.supply_node_mapping[x] for x in df['resource_agg'].values]
         df = df[['supply_node',cfg.rio_geography,'year','value']]
         df = df.set_index([cfg.rio_geography,'year','supply_node'])
-        return df[df.values>=0]
+        return df.groupby(level='supply_node').filter(lambda x: x.sum()>0)
 
     def calc_dual_fuel_efficiency(self,scenario):
         try:
@@ -6528,15 +6546,18 @@ class RioInputs(DataMapFunctions):
         if getattr(self,attr) is None or len(getattr(self,attr))==0:
             print attr
             return None
-        try:
-            self.clean_timeseries(attr,extrapolation_method=None,interpolation_method='linear_interpolation')
-        except:
-            pdb.set_trace()
+        self.clean_timeseries(attr,extrapolation_method=None,interpolation_method='linear_interpolation')
+        df = getattr(self,attr)
+        df = df[df.index.get_level_values('year').isin([max(cfg.supply_years),min(cfg.supply_years)])].fillna(0)
+        setattr(self,attr,df)
+        self.clean_timeseries(attr, extrapolation_method='linear_interpolation', interpolation_method='linear_interpolation')
         setattr(self,attr,getattr(self,attr).fillna(0))
 
     def calc_trades(self,scenario,gen_energy):
         df = util.df_slice(gen_energy, scenario, 'run name')
         df_load = df[~df.index.get_level_values('output').isin(['hydro','thermal','fixed'])]
+        df_load = df_load.replace([np.inf,-np.inf],0)
+        df_load = util.remove_df_levels(df_load,'feeder')
         df_load = util.remove_df_levels(df_load, ['output', 'resource'])
         df_load = df_load.reset_index('zone')
         df_load['zone'] = [self.geography_mapping[x] for x in df_load['zone'].values]

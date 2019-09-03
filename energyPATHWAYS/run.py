@@ -185,7 +185,7 @@ if __name__ == "__main__":
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
-    clear_results = True,
+    clear_results = False,
     rio_scenario=rio_scenario)
 
     # run_str = "run('C:\Github\EnergyPATHWAYS_scenarios\SDG&E', 'config.INI', 'scoping_plan', \
