@@ -6546,10 +6546,8 @@ class RioInputs(DataMapFunctions):
         if getattr(self,attr) is None or len(getattr(self,attr))==0:
             print attr
             return None
-        self.clean_timeseries(attr,extrapolation_method=None,interpolation_method='linear_interpolation')
-        df = getattr(self,attr)
-        df = df[df.index.get_level_values('year').isin([max(cfg.supply_years),min(cfg.supply_years)])].fillna(0)
-        setattr(self,attr,df)
+        self.clean_timeseries(attr, time_index_name = 'year',time_index = list(set(getattr(self,attr).index.get_level_values('year'))),extrapolation_method=None,interpolation_method='linear_interpolation')
+        setattr(self, attr, getattr(self, attr).fillna(0))
         self.clean_timeseries(attr, extrapolation_method='linear_interpolation', interpolation_method='linear_interpolation')
         setattr(self,attr,getattr(self,attr).fillna(0))
 
