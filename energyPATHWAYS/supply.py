@@ -382,8 +382,8 @@ class Supply(object):
                         for technology in node.technologies.values():
                             if hasattr(technology,'capacity_factor'):
                                 technology.capacity_factor.set_rio_capacity_factor(self.rio_inputs)
-                    if isinstance(node, StorageNode):
-                        technology.duration.set_rio_duration(self.rio_inputs)
+                            if isinstance(node, StorageNode):
+                                technology.duration.set_rio_duration(self.rio_inputs)
 
     def _calculate_initial_loop(self):
         """
@@ -5903,10 +5903,10 @@ class StorageNode(SupplyStockNode):
         self.stock.values_financial_new_energy = copy.deepcopy(self.stock.values_financial_new.loc[:,year].to_frame())
         self.stock.values_financial_replacement_energy = copy.deepcopy(self.stock.values_financial_replacement.loc[:,year].to_frame()) 
         for tech in self.technologies.values():
-            tech_indexer = util.level_specific_indexer(self.stock.values_financial_new,'supply_technology', tech.id)
+            tech_indexer = util.level_specific_indexer(self.stock.values_financial_new,['supply_technology'], [tech.id])
             year_indexer = util.level_specific_indexer(tech.duration.values,'year', year)
-            self.stock.values_financial_new_energy.loc[tech_indexer,:] = util.DfOper.mult([self.stock.values_financial_new.loc[tech_indexer,year].to_frame(),tech.duration.values.loc[year_indexer,:]])
-            self.stock.values_financial_replacement_energy.loc[tech_indexer,:] = util.DfOper.mult([self.stock.values_financial_replacement.loc[tech_indexer,year].to_frame(), tech.duration.values.loc[year_indexer,:]])
+            self.stock.values_financial_new_energy.loc[tech_indexer,:] = util.DfOper.mult([self.stock.values_financial_new.loc[tech_indexer,year].to_frame(),util.remove_df_levels(tech.duration.values.loc[year_indexer,:],'year')])
+            self.stock.values_financial_replacement_energy.loc[tech_indexer,:] = util.DfOper.mult([self.stock.values_financial_replacement.loc[tech_indexer,year].to_frame(), util.remove_df_levels(tech.duration.values.loc[year_indexer,:],'year')])
         self.stock.capital_cost_new_energy.loc[:,year] = self.rollover_output(tech_class='capital_cost_new_energy',tech_att='values_level',
                                                                          stock_att='values_financial_new_energy',year=year)
         self.stock.capital_cost_replacement_energy.loc[:,year] = self.rollover_output(tech_class='capital_cost_replacement_energy',tech_att='values_level',
