@@ -44,8 +44,10 @@ To regenerate the schema and text mappings:
   python genClasses.py  -d 180728_US -D -o schema.py
 
 
-python psql_to_csv.py -d 190317_MX -D C:\github\EP_MX_db\MX.db
-python denormalize.py -d C:\github\EP_MX_db\MX.db -o C:\github\test\merged.db -m "" -c EnergyPathwaysDatabase --no-shapes
+python psql_to_csv.py -d 190905_US -D C:\github\US_db_export\norm.db --no-shapes
+python denormalize.py -d C:\github\US_db_export\norm.db -o C:\github\US_db_export\merged.db -m "" -c EnergyPathwaysDatabase --no-shapes
+
+python update_json.py C:\github\EP_runs\UCS\UCS.json -d 190905_US --no-backup
 
 python update_json.py C:\github\EP_runs\IADB_csv\high_tech-high_mode_switch.json -d 190317_MX --no-backup
 python update_json.py C:\github\EP_runs\IADB_csv\low_tech-high_mode_switch.json -d 190317_MX --no-backup

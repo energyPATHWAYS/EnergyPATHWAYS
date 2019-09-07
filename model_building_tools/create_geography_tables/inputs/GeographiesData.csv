@@ -3438,20 +3438,20 @@ id,name,geography_id
 5166,"uinta, wyoming",11
 5167,"washakie, wyoming",11
 5168,"weston, wyoming",11
-5169,AK_agg,17
-5170,AZNM_agg,17
-5171,CAMX_agg,17
-5172,ERCT_agg,17
-5173,FRCC_agg,17
-5174,HI_agg,17
-5175,MRO_agg,17
-5176,NEWE_agg,17
-5177,NWPP_agg,17
-5178,NY_agg,17
-5179,RFC_agg,17
-5180,RMPA_agg,17
-5181,SP_agg,17
-5182,SR_agg,17
+5169,Alaska agg.,17
+5170,Desert Southwest agg.,17
+5171,California agg.,17
+5172,Texas agg.,17
+5173,Florida agg.,17
+5174,Hawaii agg.,17
+5175,Upper Midwest agg.,17
+5176,New England agg.,17
+5177,Pacific Northwest agg.,17
+5178,New York agg.,17
+5179,Mid-Atlantic and Great Lakes agg.,17
+5180,Rocky Mountains agg.,17
+5181,Lower Midwest agg.,17
+5182,Southeast agg.,17
 5183,BCZ 1,18
 5184,BCZ 2,18
 5185,BCZ 3,18
@@ -3500,4 +3500,6 @@ id,name,geography_id
 5228,unspecified CA gas utility,20
 5229,unspecified CA electric utility,14
 5230,SDG&E (egrid with wecc detail),12
-5231,SRM_agg,17
+5231,Louisiana and the Ozarks agg.,17
+5232,High-Desert agg.,17
+5233,Lower Forty-eight,16

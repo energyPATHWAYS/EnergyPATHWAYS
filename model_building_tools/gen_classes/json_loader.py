@@ -5,6 +5,7 @@ import itertools
 from collections import defaultdict
 import psycopg2
 import pandas as pd
+import pdb
 
 # postgres stuff
 con = None
