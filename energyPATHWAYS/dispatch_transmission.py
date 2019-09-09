@@ -1,7 +1,6 @@
 
 import util
 import numpy as np
-from datamapfunctions import Abstract,DataMapFunctions
 import copy
 import pandas as pd
 import math
@@ -9,9 +8,10 @@ import config as cfg
 from geomapper import GeoMapper
 from unit_converter import UnitConverter
 from .generated import schema
+from data_object import DataObject
 import pdb
 
-class TransmissionSuper(Abstract):
+class TransmissionSuper(DataObject):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
     def __init__(self):
         if self.name is None:

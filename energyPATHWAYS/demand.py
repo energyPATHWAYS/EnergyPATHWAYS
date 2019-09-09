@@ -11,7 +11,7 @@ import copy
 from datetime import datetime
 from demand_subsector_classes import DemandStock, ServiceEfficiency, ServiceLink, ServiceDemand, EnergyDemand
 from shared_classes import AggregateStock, SalesShare
-from demand_measures import ServiceDemandMeasure, EnergyEfficiencyMeasure, FuelSwitchingMeasure, FlexibleLoadMeasure, FlexibleLoadMeasure2
+from demand_measures import ServiceDemandMeasure, EnergyEfficiencyMeasure, FuelSwitchingMeasure, FlexibleLoadMeasure
 from demand_technologies import DemandTechnology
 from rollover import Rollover
 from util import DfOper
@@ -136,20 +136,19 @@ class Demand(object):
             self.create_electricity_reconciliation()
         inflexible = [sector.aggregate_inflexible_electricity_shape(year) for sector in self.sectors.values()]
         no_shape = [self.shape_from_subsectors_with_no_shape(year)]
-        inflex_load = util.DfOper.add(no_shape+inflexible, expandable=False, collapsible=False)
+        inflex_load = util.DfOper.add(no_shape + inflexible, expandable=False, collapsible=False)
         inflex_load = util.DfOper.mult((inflex_load, self.electricity_reconciliation))
         inflex_load = pd.concat([inflex_load], keys=[0], names=['timeshift_type'])
         flex_load = util.DfOper.add([sector.aggregate_flexible_electricity_shape(year) for sector in self.sectors.values()], expandable=False, collapsible=False)
         agg_load = inflex_load if flex_load is None else util.DfOper.add((inflex_load, flex_load), expandable=False, collapsible=False)
 
         df = GeoMapper.geo_map(agg_load, GeoMapper.demand_primary_geography, GeoMapper.dispatch_geography, current_data_type='total') if geomap_to_dispatch_geography else agg_load
-        df = df.groupby(level=['timeshift_type', GeoMapper.dispatch_geography if geomap_to_dispatch_geography else GeoMapper.demand_primary_geography,
-                               'dispatch_feeder', 'weather_datetime']).sum()
-        # this line makes sure the energy is correct.. sometimes it is a bit off due to rounding
+        group_by_geo = GeoMapper.dispatch_geography if geomap_to_dispatch_geography else GeoMapper.demand_primary_geography
+        df = df.groupby(level=['timeshift_type', group_by_geo, 'dispatch_feeder', 'weather_datetime']).sum()
         numer = self.energy_demand.xs([cfg.electricity_energy_type, year], level=['final_energy', 'year']).sum().sum()
         denom = df.xs(0, level='timeshift_type').sum().sum()
         if not np.isclose(numer, denom, rtol=0.01, atol=0):
-            logging.warning("Electricity energy is {} and bottom up load shape sums to {}, the difference is unusually large".format(numer, denom))
+            logging.warning("Electricity energy is {} and bottom up load shape sums to {}".format(numer, denom))
         df *= numer / denom
         df = df.rename(columns={'value':year})
         return df
@@ -276,14 +275,14 @@ class Demand(object):
             print "aggregating %s" %output_name
             df = self.group_output(output_name, include_unit=include_unit)
             df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
-            setattr(self.outputs,"d_"+ output_name, df)
+            setattr(self.outputs,"d_"+ output_name, df.sortlevel())
         if cfg.output_tco == 'true':
             output_list = ['energy_tco', 'levelized_costs_tco', 'service_demand_tco']
             unit_flag = [False, False, False,True]
             for output_name, include_unit in zip(output_list,unit_flag):
                 df = self.group_output_tco(output_name, include_unit=include_unit)
                 df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
-                setattr(self,"d_"+ output_name, df)
+                setattr(self,"d_"+ output_name, df.sortlevel())
         if cfg.output_payback == 'true':
             output_list = ['annual_costs','all_energy_demand']
             unit_flag = [False,False]
@@ -294,7 +293,7 @@ class Demand(object):
                 levels_to_keep = list(set(levels_to_keep))
                 df = self.group_output(output_name, levels_to_keep=levels_to_keep, include_unit=include_unit)
                 df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
-                setattr(self,"d_"+ output_name+"_payback", df)
+                setattr(self,"d_"+ output_name+"_payback", df.sortlevel())
         self.aggregate_drivers()
 
         # this may be redundant with the above code
@@ -843,7 +842,7 @@ class Subsector(schema.DemandSubsectors):
                 remaining_shape = util.DfOper.mult((Shapes.get_values(active_shape), remaining_energy), collapsible=False)
                 remaining_shape = util.DfOper.add((remaining_shape, inflexible_tech_load), collapsible=False)
                 return_shape = self.return_shape_after_flex_load(remaining_shape, percent_flexible, active_hours['lag'], active_hours['lead'])
-            flex_native = return_shape.xs(2, level='timeshift_type')
+            flex_native = return_shape.xs('native', level='timeshift_type')
             # we add native flex load to level zero, total flexible load
             return_shape = util.DfOper.add((return_shape, pd.concat([flex_native], keys=[0], names=['timeshift_type'])))
 
@@ -1460,7 +1459,7 @@ class Subsector(schema.DemandSubsectors):
         add all energy efficiency measures for this subsector to a dictionary
         """
         measures = scenario.get_measures('DemandEnergyEfficiencyMeasures', self.name)
-        self.energy_efficiency_measures = {id: EnergyEfficiencyMeasure(id, self.cost_of_capital) for id in measures}
+        self.energy_efficiency_measures = {name: EnergyEfficiencyMeasure(name, self.cost_of_capital) for name in measures}
 
     def energy_efficiency_measure_savings(self):
         """
@@ -1506,7 +1505,7 @@ class Subsector(schema.DemandSubsectors):
         add all service demand measures for this subsector to a dictionary
         """
         measures = scenario.get_measures('DemandServiceDemandMeasures', self.name)
-        self.service_demand_measures = {id: ServiceDemandMeasure(id, self.cost_of_capital) for id in measures}
+        self.service_demand_measures = {name: ServiceDemandMeasure(name, self.cost_of_capital) for name in measures}
 
     def service_demand_measure_savings(self):
         """
@@ -1546,8 +1545,7 @@ class Subsector(schema.DemandSubsectors):
             for id in self.service_demand_measures:
                 measure = self.service_demand_measures[id]
                 measure.savings = DfOper.mult([measure.savings, impact_adjustment])
-        self.service_demand.values = DfOper.subt([self.service_demand.values,
-                                                    self.service_demand_savings])
+        self.service_demand.values = DfOper.subt([self.service_demand.values, self.service_demand_savings])
 
     def add_flexible_load_measures(self, scenario):
         """
@@ -1563,16 +1561,12 @@ class Subsector(schema.DemandSubsectors):
                 if techs_with_specific_flexible_load:
                     assert hasattr(self,'technologies'), "subsector {} cannot have a technology specific flexible load measure if it has no technologies".format(self.name)
 
-        if self.perturbation and self.perturbation.flexible_operation:
-            assert len(measures) == 0, 'perturbations in flexible load when a flexible load measure already exists is not supported yet'
-            self.flexible_load_measure = FlexibleLoadMeasure2(self.perturbation)
-
     def add_fuel_switching_measures(self, scenario):
         """
         add all fuel switching measures for this subsector to a dictionary
         """
         measures = scenario.get_measures('DemandFuelSwitchingMeasures', self.name)
-        self.fuel_switching_measures = {id: FuelSwitchingMeasure(id, self.cost_of_capital) for id in measures}
+        self.fuel_switching_measures = {name: FuelSwitchingMeasure(name, self.cost_of_capital) for name in measures}
 
     def fuel_switching_measure_impacts(self):
         """
@@ -1992,7 +1986,9 @@ class Subsector(schema.DemandSubsectors):
         elif self.service_subset == 'demand_technology':
             # calculate share of service demand by demand_technology
             sd_subset_normal = sd_subset.groupby(level=util.ix_excl(sd_subset, ['demand_technology'])).transform(lambda x: x / x.sum())
+
             # calculate service demand modifier by dividing the share of service demand by the share of stock
+
             sd_modifier = DfOper.divi([sd_subset_normal, self.stock.tech_subset_normal])
             # expand the dataframe to put years as columns
             sd_modifier = self.vintage_year_array_expand(sd_modifier, df_for_indexing, sd_subset)
@@ -2174,7 +2170,7 @@ class Subsector(schema.DemandSubsectors):
     def vintage_year_array_expand(self, df, df_for_indexing, sd_subset):
         """creates a dataframe with years as columns instead of an index"""
         level_values = sd_subset.index.get_level_values(level='year')
-        max_column = max(level_values)
+        max_column = min(max(level_values),cfg.getParamAsInt('current_year'))
         df = df.unstack(level='year')
         df.columns = df.columns.droplevel()
         df = df.loc[:, max_column].to_frame()
@@ -2388,7 +2384,7 @@ class Subsector(schema.DemandSubsectors):
         index = pd.MultiIndex.from_product(full_levels, names=full_names)
         stock.retirements = util.empty_df(index=index, columns=['value'])
         stock.sales = util.empty_df(index=index, columns=['value'])
-        if not any([x.cost.data for x in measures.values()]):
+        if not any([x.cost._has_data for x in measures.values()]):
             #no need to do stock rollover if there are no costs
             return
         for elements in rollover_groups.keys():
@@ -2622,10 +2618,8 @@ class Subsector(schema.DemandSubsectors):
             current_geography = GeoMapper.demand_primary_geography
             current_data_type =  'total'
             projected =  True
-        self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography, converted_geography=GeoMapper.demand_primary_geography,
-                                   additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent),
-                                   current_data_type=current_data_type, projected=projected)
-        self.energy_demand.values = util.remove_df_levels(self.energy_demand.values,cfg.removed_demand_levels)
+        self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography, converted_geography=GeoMapper.demand_primary_geography,additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent),current_data_type=current_data_type, projected=projected)
+        self.energy_demand.values = util.remove_df_levels(self.energy_demand.values,cfg.removed_demand_levels)                                                                    
 
     def calculate_sales_shares(self,reference_run=False):
         for tech in self.techs:

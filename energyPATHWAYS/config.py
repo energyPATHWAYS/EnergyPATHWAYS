@@ -227,8 +227,9 @@ def table_dict(table_name, columns=['id', 'name'], append=False,
 
 def init_output_parameters():
     global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes, evolved_years,\
-    rio_supply_run, rio_geography, rio_feeder_geographies, rio_energy_unit, rio_time_unit, rio_timestep_multiplier, rio_zonal_blend_nodes, rio_excluded_technologies, rio_excluded_blends, rio_export_blends, rio_no_negative_blends, rio_excluded_nodes
-
+    rio_supply_run, rio_geography, rio_feeder_geographies, rio_energy_unit, rio_time_unit, rio_timestep_multiplier, rio_zonal_blend_nodes, rio_excluded_technologies, \
+    rio_excluded_blends, rio_export_blends, rio_no_negative_blends, rio_excluded_nodes, rio_mass_unit, rio_distance_unit, rio_outflow_products, rio_standard_energy_unit, rio_volume_unit,\
+    rio_standard_mass_unit, rio_standard_distance_unit, rio_standard_volume_unit
     currency_name = getParam('currency_name')
     output_currency = getParam('currency_year') + ' ' + currency_name
     output_tco = getParamAsBoolean('output_tco', section='output_detail')
@@ -244,11 +245,19 @@ def init_output_parameters():
     rio_excluded_technologies = [int(g) for g in _ConfigParser.get('rio', 'rio_excluded_technologies').split(',') if len(g)]
     rio_excluded_blends = [int(g) for g in _ConfigParser.get('rio', 'rio_excluded_blends').split(',') if len(g)]
     rio_export_blends = [int(g) for g in _ConfigParser.get('rio', 'rio_export_blends').split(',') if len(g)]
+    rio_outflow_products = [int(g) for g in _ConfigParser.get('rio', 'rio_outflow_products').split(',') if len(g)]
     rio_excluded_nodes = [int(g) for g in _ConfigParser.get('rio', 'rio_excluded_nodes').split(',') if len(g)]
     rio_no_negative_blends = [int(g) for g in _ConfigParser.get('rio', 'rio_no_negative_blends').split(',') if len(g)]
     evolved_run = _ConfigParser.get('evolved','evolved_run').lower()
     evolved_years = [int(x) for x in ensure_iterable(_ConfigParser.get('evolved', 'evolved_years'))]
     evolved_blend_nodes = splitclean(_ConfigParser.get('evolved','evolved_blend_nodes'), as_type=int)
+    rio_mass_unit = getParam('rio_mass_unit', section='rio')
+    rio_volume_unit = getParam('rio_volume_unit', section='rio')
+    rio_distance_unit = getParam('rio_distance_unit', section='rio')
+    rio_standard_energy_unit = getParam('rio_standard_energy_unit', section='rio')
+    rio_standard_mass_unit = getParam('rio_standard_mass_unit', section='rio')
+    rio_standard_volume_unit = getParam('rio_standard_volume_unit', section='rio')
+    rio_standard_distance_unit = getParam('rio_standard_distance_unit', section='rio')
     init_removed_levels()
     init_output_levels()
     # init_outputs_id_map()

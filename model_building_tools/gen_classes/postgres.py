@@ -42,7 +42,6 @@ def find_key_col(table, cols):
     Find the key column.
     '''
     exceptions = {
-        'DemandFlexibleLoadMeasures': 'subsector', # has 'name' col that isn't the key
         'CurrenciesConversion' : 'currency',
         'InflationConversion': 'currency',
     }
@@ -157,8 +156,7 @@ Tables_to_load_on_demand = [
     'ShapesData',
 ]
 
-Tables_To_Patch = ['DemandFuelSwitchingMeasures',
-                   'SupplyCost']
+Tables_To_Patch = ['SupplyCost']
 
 class ForeignKey(object):
     """"

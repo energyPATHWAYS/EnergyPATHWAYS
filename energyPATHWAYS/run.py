@@ -169,22 +169,22 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\IADB_csv'
+    workingdir = r'C:\github\EP_runs\UCS'
     os.chdir(workingdir)
     config = 'config.INI'
     rio_scenario = None
-    scenario = "slow_tech-low_mode_switch"
+    scenario = ['UCS']
 
     run(workingdir, config, scenario,
-    load_demand   = False,
+    load_demand   = True,
     solve_demand  = True,
     load_supply   = False,
-    solve_supply  = False,
+    solve_supply  = True,
     export_results= True,
     load_error    = False,
     pickle_shapes = True,
     save_models   = True,
-    clear_results = False,
+    clear_results = True,
     rio_scenario=rio_scenario)
 
     # run_str = "run('C:\Github\EnergyPATHWAYS_scenarios\SDG&E', 'config.INI', 'scoping_plan', \

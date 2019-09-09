@@ -36,29 +36,6 @@ class DataObject(CsvDataObject):
         """
         super(DataObject, self).__init__(key, scenario)
 
-        # Deprecated
-        # self._child_data = None
-        # self.children_by_fk_col = {}
-
-        # # ivars set in create_index_levels:
-        # self.column_names = None
-        # self.index_levels = None
-        # self.df_index_names = None
-
-        # self.raw_values = None         # TODO: eliminate _child_data?
-
-        # added in effort to eliminate "if hasattr" tests
-        # self.driver_1 = self.driver_2 = None
-        # self.driver_denominator_1 = self.driver_denominator_2 = None
-        # self.drivers = {}              # TODO: this was initialized as a list, but accessed via .values() as if a dict.
-        # self.geography = None
-        # self.input_type = None
-
-        # # TODO: These were not defined but referenced. Are these appropriate defaults?
-        # self.interpolation_method = None # TODO: or 'missing'?
-        # self.extrapolation_method = None # ditto
-        # self.geography_map_key    = None
-
     # Added for compatibility with prior implementation
     @property
     def sql_data_table(self):
@@ -104,7 +81,7 @@ class DataObject(CsvDataObject):
         timeseries = timeseries.set_index(index_cols).sort_index()
         return timeseries
 
-    # TODO: this interim version operated on strings; we'll use a variant of it post conversion
+
     def create_index_levels_new(self):
         if self._child_data is None:
             return None
@@ -219,14 +196,9 @@ class DataObject(CsvDataObject):
             native_gaus, current_gaus, foreign_gaus = GeoMapper.get_instance().get_native_current_foreign_gaus(df, current_geography)
 
             if foreign_gaus:
-                pdb.set_trace()
-                name = '{} {}'.format(self.sql_id_table, self.name if hasattr(self, 'name') else 'id' + str(self.id))
-
-                logging.info('      Detected foreign gaus for {}: {}'.format(name, ', '.join(
-                    [GeoMapper.get_instance().gau_to_geography[f] for f in foreign_gaus])))
-
-                df, current_geography = GeoMapper.incorporate_foreign_gaus(df, current_geography, current_data_type,
-                                                                         geography_map_key)
+                name = '{} {}'.format(self._table_name, getattr(self, '_key_col'))
+                logging.info('      Detected foreign gaus for {}: {}'.format(name, ', '.join(foreign_gaus)))
+                df, current_geography = GeoMapper.get_instance().incorporate_foreign_gaus(df, current_geography, current_data_type, geography_map_key)
         else:
             df = GeoMapper.get_instance().filter_foreign_gaus(df, current_geography)
         return df, current_geography

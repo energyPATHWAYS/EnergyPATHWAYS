@@ -6,13 +6,13 @@ Created on Tue Nov 17 09:36:07 2015
 """
 
 from shared_classes import Stock, StockItem, SpecifiedStock
-from datamapfunctions import DataMapFunctions, Abstract
 import util
 import numpy as np    
 import config as cfg
 from geomapper import GeoMapper
 from unit_converter import UnitConverter
 from .generated import schema
+from data_object import DataObject
         
 # class SupplyStock(Stock, StockItem):
 #     def __init__(self, id, drivers, sql_id_table='SupplyStock', sql_data_table='SupplyStockData',
@@ -34,25 +34,12 @@ class SupplyStock(schema.SupplyStock, Stock):
         self.drivers = None
         self.scenario = scenario
 
-class SupplySales(Abstract, DataMapFunctions):
+class SupplySales(DataObject):
     def __init__(self):
         # self.id = id
         self.input_type = 'total'
         self.primary_geography = GeoMapper.supply_primary_geography
-        # self.supply_node_id = supply_node_id
-        # self.sql_id_table = sql_id_table
-        # self.sql_data_table = sql_data_table
-        # self.scenario = scenario
         self.mapped = False
-        # if reference:
-        #     for col, att in util.object_att_from_table(self.sql_id_table, self.supply_node_id, primary_key):
-        #         setattr(self, col, att)
-        #     DataMapFunctions.__init__(self, data_id_key)
-        #     self.read_timeseries_data(supply_node_id=self.supply_node_id)
-        #     self.raw_values = util.remove_df_levels(self.raw_values, 'supply_technology')
-        # else:
-        #     # measure specific sales does not require technology filtering
-        #     Abstract.__init__(self, self.id, primary_key=primary_key, data_id_key=data_id_key)
 
     def calculate(self, vintages, years, interpolation_method=None, extrapolation_method=None):
         self.vintages = vintages
@@ -220,7 +207,7 @@ class SupplySpecifiedStock(schema.SupplyStockMeasures, SpecifiedStock):
 
 
 
-class RioSpecifiedStock(DataMapFunctions):
+class RioSpecifiedStock(DataObject):
     def __init__(self, rio_data):
         self.raw_values = rio_data
         self.geography = cfg.rio_geography

@@ -6,7 +6,6 @@ Created on Wed Oct 28 16:06:06 2015
 """
 
 import inspect
-from datamapfunctions import Abstract
 import util
 import copy
 import numpy as np
@@ -112,7 +111,7 @@ class SupplyTechnology(schema.SupplyTechs, StockItem):
         if class_b is None:
             class_a_instance = getattr(self, class_a)
             if class_a_instance._has_data is False and hasattr(class_a_instance, 'reference_tech_id') is False and class_a is 'capital_cost_new':
-                logging.warning("Conversion technology %s has no capital cost data" % (self.id))
+                logging.warning("Conversion technology %s has no capital cost data" % (self.name))
                 raise ValueError
         else:
             class_a_instance = getattr(self, class_a)
@@ -189,14 +188,11 @@ class SupplyTechInvestmentCost(SupplyTechCost):
         if self._has_data and self.raw_values is not None:
             if self.definition == 'absolute':
                 self.convert()
-            else:
+            elif self.definition == 'relative':
                 self.values = copy.deepcopy(self.raw_values)
-            try:
-                self.remap(map_from='values', map_to='values', converted_geography=GeoMapper.supply_primary_geography, time_index_name='vintage')
-            except:
-                print self.id
-                print self.values
-                raise
+            else:
+                raise ValueError("no cost definition is input (absolute or relative)")
+            self.remap(map_from='values', map_to='values', converted_geography=GeoMapper.supply_primary_geography, time_index_name='vintage')
             self.levelize_costs()
         if not self._has_data:
             self.absolute = False
@@ -214,12 +210,18 @@ class SupplyTechInvestmentCost(SupplyTechCost):
             if self.is_levelized == 0:
                 self.values_level = - np.pmt(rate, self.book_life, 1, 0, 'end') * self.values
                 util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values_level', attr_to='values_level', reverse=False)
-            else:
+            elif self.is_levelized==1:
                 self.values_level = self.values.copy()
                 util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values_level', attr_to='values_level', reverse=False)
                 self.values = np.pv(rate, self.book_life, -1, 0, 'end') * self.values
+            elif self.definition == 'relative':
+                self.values_level = self.values.copy()
+                util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values_level', attr_to='values_level', reverse=False)
+            else:
+                raise ValueError("no specification of whether the technology cost is levelized")
+
         else:
-            raise ValueError('Supply Technology id %s needs to indicate whether costs are levelized ' %self.id)
+            raise ValueError('Supply Technology id %s needs to indicate whether costs are levelized ' %self.name)
 
     def convert(self):
         """
@@ -294,9 +296,8 @@ class StorageTechDuration(schema.StorageTechsDuration):
         self.vintages = vintages
         self.years = years
         if self._has_data and self.raw_values is not None:
-            self.remap(time_index_name='year', converted_geography=GeoMapper.supply_primary_geography,missing_intensity_geos=True)
-            self.values.replace(0, 1, inplace=True)
-            self.values.fillna(1)
+            self.remap(time_index_name='year', converted_geography=GeoMapper.supply_primary_geography,missing_intensity_geos=True,fill_value=1)
+            self.values = self.values.fillna(1)
 
 
 class SupplyTechFixedOMCost(schema.SupplyTechsFixedMaintenanceCost, SupplyTechCost):
@@ -360,9 +361,17 @@ class SupplyTechEfficiency(schema.SupplyTechsEfficiency):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self._has_data and self.raw_values is not None:
+        if self._has_data and self.raw_values is not None and cfg.rio_supply_run and 'year' in self.raw_values.index.names:
+            self.remap(map_from='raw_values', map_to='values', current_geography=GeoMapper.rio_geography,converted_geography=GeoMapper.supply_primary_geography,
+                       time_index_name='year', lower=None, missing_intensity_geos=True)
+            self.values = self.values.unstack('year')
+            self.values.columns = self.values.columns.droplevel()
+            self.values = pd.concat([self.values] *len(self.vintages),keys=self.vintages,names=['vintage'])
+            self.values['efficiency_type'] = 1
+            self.values = self.values.set_index('efficiency_type',append=True)
+        elif self._has_data and self.raw_values is not None:
             self.convert()
-            self.remap(map_from='values', map_to='values', converted_geography=GeoMapper.supply_primary_geography, time_index_name='vintage', lower=None)
+            self.remap(map_from='values', map_to='values', converted_geography=GeoMapper.supply_primary_geography, time_index_name='vintage', lower=None,missing_intensity_geos=True)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         if not self._has_data:
             self.absolute = False
@@ -418,10 +427,7 @@ class SupplyTechCapacityFactor(schema.SupplyTechsCapacityFactor):
             self.values.replace(0,1,inplace=True)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         elif self._has_data and self.raw_values is not None and cfg.rio_supply_run==True:
-            try:
-                self.remap(time_index_name='year', converted_geography=GeoMapper.supply_primary_geography, fill_value=np.nan)
-            except:
-                pdb.set_trace()
+            self.remap(time_index_name='year', converted_geography=GeoMapper.supply_primary_geography, fill_value=np.nan)
             self.values.replace(0, 1, inplace=True)
             self.values = util.add_and_set_index(self.values,'vintage',self.vintages,index_location=-1)
             self.values = self.values.squeeze().unstack(level='year')

@@ -234,10 +234,10 @@ class Dispatch(object):
     def _ensure_feasible_flexible_load(self, cum_df):
         # we have flexible load
         active_timeshift_types = tuple(sorted(set(cum_df.index.get_level_values('timeshift_type'))))
-        if active_timeshift_types == (1,2,3):
+        if active_timeshift_types == ('advanced','delayed','native'):
             unstacked = cum_df.unstack(level='timeshift_type')
-            unstacked[1] = unstacked[[1,2]].min(axis=1)
-            unstacked[3] = unstacked[[2,3]].max(axis=1)
+            unstacked['delayed'] = unstacked[['delayed','native']].min(axis=1)
+            unstacked['advanced'] = unstacked[['native','advanced']].max(axis=1)
             cum_df = unstacked.stack().reorder_levels(['timeshift_type', 'period', self.dispatch_geography, 'hour', 'dispatch_feeder'])
             return cum_df.sort_index()
         else:
@@ -260,10 +260,10 @@ class Dispatch(object):
             cum_distribution_load = distribution_flex_load.groupby(level=['timeshift_type', self.dispatch_geography, 'dispatch_feeder']).cumsum()
             cum_distribution_load = self._ensure_feasible_flexible_load(cum_distribution_load)
 
-            self.native_flex = self._timeseries_to_dict(distribution_flex_load.xs(2, level='timeshift_type'))
-            self.native_cumulative_flex = self._timeseries_to_dict(cum_distribution_load.xs(2, level='timeshift_type'))
-            self.min_cumulative_flex = self._timeseries_to_dict(cum_distribution_load.xs(1, level='timeshift_type'))
-            self.max_cumulative_flex = self._timeseries_to_dict(cum_distribution_load.xs(3, level='timeshift_type'))
+            self.native_flex = self._timeseries_to_dict(distribution_flex_load.xs('native', level='timeshift_type'))
+            self.native_cumulative_flex = self._timeseries_to_dict(cum_distribution_load.xs('native', level='timeshift_type'))
+            self.min_cumulative_flex = self._timeseries_to_dict(cum_distribution_load.xs('delayed', level='timeshift_type'))
+            self.max_cumulative_flex = self._timeseries_to_dict(cum_distribution_load.xs('advanced', level='timeshift_type'))
 
     def set_max_min_flex_loads(self, flex_pmin, flex_pmax):
         self.flex_load_penalty_short = UnitConverter.unit_convert(cfg.getParamAsFloat('flex_load_penalty_short', 'opt'), unit_from_den='megawatt_hour', unit_to_den=cfg.calculation_energy_unit)

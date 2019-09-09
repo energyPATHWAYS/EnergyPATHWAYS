@@ -7,7 +7,6 @@ Created on Tue Nov 17 08:46:24 2015
 import util 
 import numpy as np
 import pandas as pd
-from datamapfunctions import Abstract
 import config as cfg
 import pdb
 import logging

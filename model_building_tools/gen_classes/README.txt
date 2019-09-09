@@ -59,3 +59,5 @@ python denormalize.py -d C:\github\test\190220_SDGE.db -o C:\github\test\merged.
 genClasses -o schema.py -d C:\github\EP_US_db\180728_US.db -D energyPATHWAYS.generated.new_database.EnergyPathwaysDatabase -c energyPATHWAYS.data_object.DataObject
 genClasses -o schema.py -d C:\github\test\merged.db -D energyPATHWAYS.generated.new_database.EnergyPathwaysDatabase -c energyPATHWAYS.data_object.DataObject
 cp -p schema.py ../../energyPATHWAYS/generated/schema.py
+
+genClasses -o schema.py -d C:\github\US_db_export\merged.db -D energyPATHWAYS.generated.new_database.EnergyPathwaysDatabase -c energyPATHWAYS.data_object.DataObject

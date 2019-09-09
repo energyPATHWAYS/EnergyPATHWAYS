@@ -7,7 +7,6 @@ Created on Mon Sep 28 10:01:16 2015
 
 import config as cfg
 import util
-from datamapfunctions import Abstract
 import numpy as np
 import copy
 import inspect
@@ -64,7 +63,7 @@ class DemandTechCost():
             self.absolute = False
 
     def levelize_costs(self):
-        if self.definition == 'absolute' and hasattr(self, 'is_levelized'):
+        if hasattr(self, 'is_levelized') and (self.definition=='absolute' or (self.definition=='relative' and self.reference_tech_operation=='add')):
             inflation = cfg.getParamAsFloat('inflation_rate')
             rate = self.cost_of_capital - inflation
             if self.is_levelized == 0:

@@ -309,7 +309,7 @@ class Shape(DataObject):
     def add_timeshift_type(self):
         """Later these shapes will need a level called timeshift type, and it is faster to add it now if it doesn't already have it"""
         if 'timeshift_type' not in self.values.index.names:
-            self.values['timeshift_type'] = 2 # index two is the native demand shape
+            self.values['timeshift_type'] = 'native'
             self.values = self.values.set_index('timeshift_type', append=True).swaplevel('timeshift_type', 'weather_datetime').sort_index()
 
     def normalize(self, df):
@@ -458,42 +458,30 @@ class Shape(DataObject):
 
     @staticmethod
     def produce_flexible_load(shape_df, percent_flexible=None, hr_delay=None, hr_advance=None):
-        hr_delay = 0 if hr_delay is None else hr_delay
-        hr_advance = 0 if hr_advance is None else hr_advance
+        hr_delay = 0 if hr_delay is None else int(hr_delay)
+        hr_advance = 0 if hr_advance is None else int(hr_advance)
 
-        native_slice = util.df_slice(shape_df, elements=2, levels='timeshift_type')
-        native_slice_stacked = pd.concat([native_slice]*3, keys=[1,2,3], names=['timeshift_type'])
+        native_slice = shape_df.copy()
+        native_slice_stacked = pd.concat([native_slice]*3, keys=['delayed','native','advanced'], names=['timeshift_type'])
 
-        pflex_stacked = pd.concat([percent_flexible]*3, keys=[1,2,3], names=['timeshift_type'])
+        pflex_stacked = pd.concat([percent_flexible]*3, keys=['delayed','native','advanced'], names=['timeshift_type'])
 
-        timeshift_levels = sorted(list(util.get_elements_from_level(shape_df, 'timeshift_type')))
-        if timeshift_levels==[1, 2, 3]:
-            # here, we have flexible load profiles already specified by the user
-            names = shape_df.index.names
-            full_load = shape_df.squeeze().unstack('timeshift_type')
-            group_by_names = [n for n in full_load.index.names if n != 'weather_datetime']
-            full_load = full_load.groupby(level=group_by_names).apply(Shape.ensure_feasible_flexible_load)
-            full_load = full_load.stack('timeshift_type').reorder_levels(names).sort_index().to_frame()
-            full_load.columns = ['value']
-        elif timeshift_levels==[2]:
-            # positive hours is a shift forward, negative hours a shift back
-            shift = lambda df, hr: df.shift(hr).ffill().fillna(value=0)
+        # positive hours is a shift forward, negative hours a shift back
+        shift = lambda df, hr: df.shift(hr).ffill().fillna(value=0)
 
-            def fix_first_point(df, hr):
-                df.iloc[0] += native_slice.iloc[:hr].sum().sum()
-                return df
+        def fix_first_point(df, hr):
+            df.iloc[0] += native_slice.iloc[:hr].sum().sum()
+            return df
 
-            non_weather = [n for n in native_slice.index.names if n!='weather_datetime']
+        non_weather = [n for n in native_slice.index.names if n!='weather_datetime']
 
-            delay_load = native_slice.groupby(level=non_weather).apply(shift, hr=hr_delay)
-            advance_load = native_slice.groupby(level=non_weather).apply(shift, hr=-hr_advance)
-            advance_load = advance_load.groupby(level=non_weather).transform(fix_first_point, hr=hr_advance)
+        delay_load = native_slice.groupby(level=non_weather).apply(shift, hr=hr_delay)
+        advance_load = native_slice.groupby(level=non_weather).apply(shift, hr=-hr_advance)
+        advance_load = advance_load.groupby(level=non_weather).transform(fix_first_point, hr=hr_advance)
 
-            full_load = pd.concat([delay_load, native_slice, advance_load], keys=[1,2,3], names=['timeshift_type'])
-        else:
-            raise ValueError("elements in the level timeshift_type are not recognized")
+        full_load = pd.concat([advance_load, delay_load, native_slice], keys=['advanced','delayed','native'], names=['timeshift_type'])
 
         return util.DfOper.add((util.DfOper.mult((full_load, pflex_stacked), collapsible=False),
-                                util.DfOper.mult((native_slice_stacked, 1-pflex_stacked), collapsible=False)))
+                                util.DfOper.mult((native_slice_stacked, 1 - pflex_stacked), collapsible=False)))
 
 

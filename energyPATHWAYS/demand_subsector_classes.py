@@ -76,8 +76,8 @@ class DemandStock(schema.DemandStock, Stock):
 
 class ServiceEfficiency(schema.DemandServiceEfficiency):
     def __init__(self, name, service_demand_unit, scenario=None):
-        super(ServiceEfficiency, self).__init__(name=name, scenario=None)
-        self.init_from_db(name, scenario=None)
+        super(ServiceEfficiency, self).__init__(name, scenario)
+        self.init_from_db(name, scenario)
         self.service_demand_unit = service_demand_unit
         self.scenario = scenario
         self.input_type = 'intensity'

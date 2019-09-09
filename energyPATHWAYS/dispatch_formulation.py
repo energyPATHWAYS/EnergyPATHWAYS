@@ -257,11 +257,10 @@ def total_cost_rule(model):
     return total_cost
 
 def min_timepoints(model):
-    return model.TIMEPOINTS.value[0]
+    return model.TIMEPOINTS.first()
 
 def max_timepoints(model):
-    return model.TIMEPOINTS.value[-1]
-    return total_cost
+    return model.TIMEPOINTS.last()
 
 
 def create_dispatch_model(dispatch, period, model_type='abstract'):

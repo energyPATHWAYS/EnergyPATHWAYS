@@ -272,7 +272,7 @@ class GeoMapper:
         assert current_geography in df.index.names
         geography_map_key = geography_map_key or GeoMapper.default_geography_map_key
         propper_length = np.product([len(set(df.index.get_level_values(x))) for x in df.index.names])
-        if len(df) != propper_length and current_data_type == 'intensity':
+        if len(df) != propper_length and current_data_type == 'intensity' and len([name for name in df.index.names if name not in ['year', 'vintage', current_geography]])>0:
             # special case were if we don't have full geography coverage on all our index levels an implied fill value of zero causes issues
             # the solution is to groupby any extra levels and do a geomap for each group separately
             levels = [name for name in df.index.names if name not in ['year', 'vintage', current_geography]]
@@ -336,7 +336,7 @@ class GeoMapper:
         foreign_gau_slice_reduced_years = util.df_slice(foreign_gau_slice, foreign_gau_years, y_or_v, drop_level=False, reset_index=True)
 
         # do the allocation, take the ratio of foreign to native, do a clean timeseries, then reconstitute the foreign gau data over all years
-        allocation = self.map_df(foreign_geography, current_geography, map_key=map_key, primary_subset_id=[foreign_gau])
+        allocation = self.map_df(foreign_geography, current_geography, map_key=map_key, primary_subset=[foreign_gau])
         allocated_foreign_gau_slice = util.DfOper.mult((foreign_gau_slice_reduced_years, allocation), fill_value=np.nan)
         allocated_foreign_gau_slice = allocated_foreign_gau_slice.reorder_levels([-1]+range(df.index.nlevels))
         ratio_allocated_to_impacted = util.DfOper.divi((allocated_foreign_gau_slice, impacted_gaus_slice_reduced_years), fill_value=np.nan, non_expandable_levels=[])
@@ -406,7 +406,7 @@ class GeoMapper:
 
         y_or_v = GeoMapper._get_df_time_index_name(df)
 
-        index_with_nans = [df.index.names[i] for i in set(np.nonzero([np.isnan(row) for row in df.index.get_values()])[1])]
+        index_with_nans = [df.index.names[i] for i in set(np.nonzero([[ri is np.nan for ri in row] for row in df.index.get_values()])[1])]
         # if we have an index with nan, that typically indicates that one of the foreign gaus didn't have all the index levels
         # if this is the case, we have two options (1) ignore the foreign gau (2) get rid of the other index
         if index_with_nans and (keep_oth_index_over_oth_gau or data_type=='intensity'):
@@ -424,7 +424,7 @@ class GeoMapper:
         df_years = sorted(list(set(df_no_foreign_gaus.index.get_level_values(y_or_v).values)))
         df = util.reindex_df_level_with_new_elements(df, y_or_v, df_years)
 
-        base_gaus = np.array(self.data.index.get_level_values(current_geography), dtype=int)
+        base_gaus = np.array(self.data.index.get_level_values(current_geography))
         for foreign_gau in foreign_gaus:
             foreign_geography = self.gau_to_geography[foreign_gau]
             index = np.nonzero(self.data.index.get_level_values(self.gau_to_geography[foreign_gau])==foreign_gau)[0]
@@ -439,7 +439,7 @@ class GeoMapper:
             elif data_type == 'intensity':
                 logging.debug('Foreign GAUs with intensities is not yet implemented, totals will not be conserved')
 
-        assert not any([any(np.isnan(row)) for row in df.index.get_values()])
+        assert not any([any([ri is np.nan for ri in row]) for row in df.index.get_values()])
         new_geography_name = self.make_new_geography_name(current_geography, list(foreign_gaus))
         df.index = df.index.rename(new_geography_name, level=current_geography)
         if new_geography_name not in self.geography_to_gau:

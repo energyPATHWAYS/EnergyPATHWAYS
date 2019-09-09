@@ -19,6 +19,7 @@ from collections import OrderedDict, defaultdict
 import csv
 import time
 import shutil
+import pdb
 
 class PathwaysLookupError(KeyError):
     def __init__(self, val, table, col):
@@ -199,18 +200,21 @@ def _query_name_from_parent(id, data_table):
 def query_all_sensitivities():
     sensitivities = []
     for table in SENSITIVITIES:
-        side = SENSITIVITIES[table]['side']
-        primary_column = _get_parent_col(table)
-        parent_table = SENSITIVITIES[table]['parent_table']
-        parent_pri_col = _get_id_col_of_parent(parent_table)
-        cur.execute("""
-            SELECT DISTINCT "{table}".{pri_col}, "{parent}".name, sensitivity
-            FROM "{table}"
-            JOIN "{parent}" ON "{table}".{pri_col} = "{parent}".{parent_pri_col}
-            WHERE sensitivity IS NOT NULL;
-        """.format(table=table, pri_col=primary_column, parent=parent_table, parent_pri_col=parent_pri_col))
-        unique_sensitivities = cur.fetchall()
-        sensitivities += [[side, row[0], row[1], table, SENSITIVTY_LABEL, row[2]] for row in unique_sensitivities]
+        try:
+            side = SENSITIVITIES[table]['side']
+            primary_column = _get_parent_col(table)
+            parent_table = SENSITIVITIES[table]['parent_table']
+            parent_pri_col = _get_id_col_of_parent(parent_table)
+            cur.execute("""
+                SELECT DISTINCT "{table}".{pri_col}, "{parent}".name, sensitivity
+                FROM "{table}"
+                JOIN "{parent}" ON "{table}".{pri_col} = "{parent}".{parent_pri_col}
+                WHERE sensitivity IS NOT NULL;
+            """.format(table=table, pri_col=primary_column, parent=parent_table, parent_pri_col=parent_pri_col))
+            unique_sensitivities = cur.fetchall()
+            sensitivities += [[side, row[0], row[1], table, SENSITIVTY_LABEL, row[2]] for row in unique_sensitivities]
+        except:
+            pdb.set_trace()
     return pd.DataFrame(sensitivities,
                         columns=['side', 'sub-node id', 'sub-node name', 'measure type', 'measure id', 'measure name'])
 
@@ -1373,7 +1377,4 @@ def delete_measure():
 # This tricksiness enables us to debug from the command line, e.g. using ipdb
 if __name__ == '__main__':
     xw.Book('scenario_builder.xlsm').set_mock_caller()
-    import ipdb
-    with ipdb.launch_ipdb_on_exception():
-        # This is just an example; call whatever you're trying to debug here
-        refresh_scenario_list()
+    load_scenarios()

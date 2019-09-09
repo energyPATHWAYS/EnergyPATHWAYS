@@ -1,5 +1,5 @@
 MappedCols = {
-    "SupplyNodes" : ['stock_decay_function', 'tradable_geography', 'supply_type', 'geography_map_key', 'residual_supply_node', 'final_energy_link', 'shape'],
+    "SupplyNodes" : ['stock_decay_function', 'tradable_geography', 'supply_type', 'residual_supply_node', 'geography_map_key', 'final_energy_link', 'shape'],
     "DemandDriversData" : ['oth_2', 'parent', 'gau', 'oth_1'],
     "SupplyPotentialData" : ['demand_sector', 'gau', 'supply_node', 'oth_1'],
     "CO2PriceMeasuresData" : ['parent', 'gau'],

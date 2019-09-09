@@ -389,15 +389,15 @@ class DemandEnergyEfficiencyMeasuresCost(DataObject):
 class DemandFlexibleLoadMeasures(DataObject):
     _instances_by_key = {}
     _table_name = "DemandFlexibleLoadMeasures"
-    _key_col = "subsector"
+    _key_col = "name"
     _cols = ["extrapolation_growth", "extrapolation_method", "geography", "interpolation_method",
              "name", "notes", "other_index_1", "source", "subsector"]
     _df_cols = ["gau", "demand_technology", "value", "oth_1", "year"]
     _df_filters = []
     _data_table_name = None
 
-    def __init__(self, subsector, scenario):
-        DataObject.__init__(self, subsector, scenario)
+    def __init__(self, name, scenario):
+        DataObject.__init__(self, name, scenario)
 
         DemandFlexibleLoadMeasures._instances_by_key[self._key] = self
 
@@ -427,12 +427,61 @@ class DemandFlexibleLoadMeasures(DataObject):
         self.subsector = subsector
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (subsector, geography, other_index_1, interpolation_method, extrapolation_method,
-         extrapolation_growth, name, source, notes,) = tup
+        (name, subsector, geography, other_index_1, interpolation_method, extrapolation_method,
+         extrapolation_growth, source, notes,) = tup
 
         self.set_args(scenario, extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, interpolation_method=interpolation_method, name=name, notes=notes,
                   other_index_1=other_index_1, source=source, subsector=subsector)
+
+class DemandFuelSwitchingMeasures(DataObject):
+    _instances_by_key = {}
+    _table_name = "DemandFuelSwitchingMeasures"
+    _key_col = "name"
+    _cols = ["final_energy_from", "final_energy_to", "lifetime_variance", "max_lifetime",
+             "mean_lifetime", "min_lifetime", "name", "stock_decay_function", "subsector"]
+    _df_cols = []
+    _df_filters = []
+    _data_table_name = None
+
+    def __init__(self, name, scenario):
+        DataObject.__init__(self, name, scenario)
+
+        DemandFuelSwitchingMeasures._instances_by_key[self._key] = self
+
+        self.final_energy_from = None
+        self.final_energy_to = None
+        self.lifetime_variance = None
+        self.max_lifetime = None
+        self.mean_lifetime = None
+        self.min_lifetime = None
+        self.name = None
+        self.stock_decay_function = None
+        self.subsector = None
+
+    def set_args(self, scenario, final_energy_from=None, final_energy_to=None, lifetime_variance=None, max_lifetime=None,
+                 mean_lifetime=None, min_lifetime=None, name=None, stock_decay_function=None,
+                 subsector=None):
+        self.check_scenario(scenario)
+
+        self.final_energy_from = final_energy_from
+        self.final_energy_to = final_energy_to
+        self.lifetime_variance = lifetime_variance
+        self.max_lifetime = max_lifetime
+        self.mean_lifetime = mean_lifetime
+        self.min_lifetime = min_lifetime
+        self.name = name
+        self.stock_decay_function = stock_decay_function
+        self.subsector = subsector
+
+    def init_from_tuple(self, tup, scenario, **kwargs):    
+        (name, subsector, final_energy_from, final_energy_to, stock_decay_function, max_lifetime,
+         min_lifetime, mean_lifetime, lifetime_variance,) = tup
+
+        self.set_args(scenario, final_energy_from=final_energy_from, final_energy_to=final_energy_to,
+                  lifetime_variance=lifetime_variance, max_lifetime=max_lifetime,
+                  mean_lifetime=mean_lifetime, min_lifetime=min_lifetime, name=name,
+                  stock_decay_function=stock_decay_function, subsector=subsector)
 
 class DemandFuelSwitchingMeasuresCost(DataObject):
     _instances_by_key = {}

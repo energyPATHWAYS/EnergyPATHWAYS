@@ -8,12 +8,12 @@ Created on Tue Oct 27 15:36:21 2015
 import config as cfg
 import pandas as pd
 import util
-from datamapfunctions import DataMapFunctions
 import numpy as np
 from util import DfOper
 import pdb
 from geomapper import GeoMapper
 from .generated import schema
+from data_object import DataObject
 
 class SupplyMeasure(object):
     def __init__(self):
@@ -47,7 +47,7 @@ class BlendMeasure(schema.BlendNodeBlendMeasures):
         self.values = util.reindex_df_level_with_new_elements(self.values, primary_geography, GeoMapper.geography_to_gau[primary_geography],fill_value=0.0)
 
 
-class RioBlendMeasure(DataMapFunctions):
+class RioBlendMeasure(DataObject):
     def __init__(self, id,raw_values):
         self.id = id
         self.raw_values = raw_values
