@@ -169,7 +169,7 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\UCS'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\UCS'
     os.chdir(workingdir)
     config = 'config.INI'
     rio_scenario = None
@@ -186,17 +186,3 @@ if __name__ == "__main__":
     save_models   = True,
     clear_results = True,
     rio_scenario=rio_scenario)
-
-    # run_str = "run('C:\Github\EnergyPATHWAYS_scenarios\SDG&E', 'config.INI', 'scoping_plan', \
-    # load_demand   = True,\
-    # solve_demand  = True,\
-    # load_supply   = False,\
-    # solve_supply  = True,\
-    # export_results= False,\
-    # load_error    = False,\
-    # pickle_shapes = True,\
-    # save_models   = True,\
-    # clear_results = False,\
-    # rio_scenario=None)"
-    #
-    # cProfile.run(run_str, filename='system.prof')
