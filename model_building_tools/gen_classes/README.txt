@@ -49,6 +49,8 @@ python denormalize.py -d C:\github\US_db_export\norm.db -o C:\github\US_db_expor
 
 python update_json.py C:\github\EP_runs\UCS\UCS.json -d 190905_US --no-backup
 
+python update_json.py C:\Users\ryandrewjones\Downloads\jsons -d 190905_US
+
 python update_json.py C:\github\EP_runs\IADB_csv\high_tech-high_mode_switch.json -d 190317_MX --no-backup
 python update_json.py C:\github\EP_runs\IADB_csv\low_tech-high_mode_switch.json -d 190317_MX --no-backup
 python update_json.py C:\github\EP_runs\IADB_csv\high_tech-low_mode_switch.json -d 190317_MX --no-backup

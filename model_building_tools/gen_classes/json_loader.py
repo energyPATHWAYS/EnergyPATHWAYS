@@ -254,7 +254,8 @@ class Scenario():
             row_count = cur.fetchone()[0]
 
             if row_count == 0:
-                raise ValueError("Could not find sensitivity '{}' for {} {}.".format(sensitivity, table, parent_id))
+                print("Could not find sensitivity '{}' for {} {}.".format(sensitivity, table, parent_id))
+                continue
 
             self._sensitivities[table][parent_id] = sensitivity
 
@@ -275,7 +276,8 @@ class Scenario():
                     try:
                         bucket_id = self._bucket_lookup[key][measure]
                     except KeyError:
-                        raise ValueError("{} scenario wants to use {} {} but no such measure was found in the database.".format(self._id, key, measure))
+                        print("{} scenario wants to use {} {} but no such measure was found in the database.".format(self._id, key, measure))
+                        continue
                     if measure in self._measures[key][bucket_id]:
                         raise ValueError("Scenario uses {} {} more than once.".format(key, measure))
                     self._measures[key][bucket_id].append(measure)
