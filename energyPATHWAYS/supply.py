@@ -2734,6 +2734,7 @@ class Supply(object):
         self.io_active_supply_df = copy.deepcopy(self.empty_output_df)
         self.map_export_to_io(year, loop)
 
+
         self.io_total_active_demand_df = DfOper.add([self.io_demand_df.loc[:,year].to_frame(),self.io_export_df.loc[:,year].to_frame()])
 
 

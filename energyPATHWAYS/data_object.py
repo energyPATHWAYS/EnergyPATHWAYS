@@ -203,14 +203,25 @@ class DataObject(CsvDataObject):
             df = GeoMapper.get_instance().filter_foreign_gaus(df, current_geography)
         return df, current_geography
 
-    def _add_missing_geographies(self, df, current_geography, current_data_type, missing_intensity_geos,fill_value):
+    def _add_missing_geographies(self, df, current_geography, current_data_type, missing_intensity_geos,fill_value,filter_geo=False):
         current_number_of_geographies = len(get_elements_from_level(df, current_geography))
-        propper_number_of_geographies = len(GeoMapper.geography_to_gau_unfiltered[current_geography])
-        if (current_data_type == 'total' or missing_intensity_geos) and current_number_of_geographies != propper_number_of_geographies:
-            # we only want to do it when we have a total, otherwise we can't just fill with zero
-            df = reindex_df_level_with_new_elements(df, current_geography,
-                                                    GeoMapper.geography_to_gau_unfiltered[current_geography],
-                                                    fill_value=fill_value)
+        if not filter_geo:
+            propper_number_of_geographies = len(GeoMapper.geography_to_gau_unfiltered[current_geography])
+            if (
+                    current_data_type == 'total' or missing_intensity_geos) and current_number_of_geographies != propper_number_of_geographies:
+                # we only want to do it when we have a total, otherwise we can't just fill with zero
+                df = reindex_df_level_with_new_elements(df, current_geography,
+                                                        GeoMapper.geography_to_gau_unfiltered[current_geography],
+                                                        fill_value=fill_value)
+        else:
+            propper_number_of_geographies = len(GeoMapper.geography_to_gau[current_geography])
+            if (
+                    current_data_type == 'total' or missing_intensity_geos) and current_number_of_geographies != propper_number_of_geographies:
+                # we only want to do it when we have a total, otherwise we can't just fill with zero
+                df = reindex_df_level_with_new_elements(df, current_geography,
+                                                        GeoMapper.geography_to_gau[current_geography],
+                                                        fill_value=fill_value)
+
         return df
 
     def _get_active_time_index(self, time_index, time_index_name):
@@ -248,7 +259,7 @@ class DataObject(CsvDataObject):
         setattr(self, map_to, df)
 
         # This happens when we are on a geography level and some of the elements are missing. Such as no PR when we have all the other U.S. States.
-        setattr(self, map_to, self._add_missing_geographies(df, current_geography, current_data_type, missing_intensity_geos,fill_value=fill_value))
+        setattr(self, map_to, self._add_missing_geographies(df, current_geography, current_data_type, missing_intensity_geos,fill_value=fill_value,filter_geo=filter_geo))
 
         if drivers is None or len(drivers) == 0:
             # we have no drivers, just need to do a clean timeseries and a geomap
@@ -271,16 +282,14 @@ class DataObject(CsvDataObject):
                                       extrapolation_method='missing')
 
             # While not on primary geography, geography does have some information we would like to preserve.
-            if hasattr(self, 'drivers') and len(drivers) == len(self.drivers) and \
-                    set([x.input_type for x in self.drivers.values()]) == set(['intensity']) and \
-                    set([x.base_driver_id for x in self.drivers.values()]) == set([None]):
+            if hasattr(self, 'drivers') and len(drivers) == len(self.drivers) and set([x.input_type for x in self.drivers.values()]) == set(['intensity']) and set([x.base_driver_id for x in self.drivers.values()]) == set([None]):
                 driver_mapping_data_type = 'intensity'
             else:
                 driver_mapping_data_type = 'total'
             total_driver_current_geo = self.geo_map(current_geography, attr='total_driver', inplace=False,
                                                     current_geography=driver_geography,
                                                     current_data_type=driver_mapping_data_type,
-                                                    fill_value=fill_value, filter_geo=False)
+                                                    fill_value=fill_value, filter_geo=filter_geo)
             if current_data_type == 'total':
                 if fill_value is np.nan:
                     df_intensity = DfOper.divi((getattr(self, map_to), total_driver_current_geo),
@@ -300,6 +309,7 @@ class DataObject(CsvDataObject):
 
             #            self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='intensity', fill_value=fill_value, filter_geo=filter_geo)
             #            total_driver_converted_geo = self.geo_map(converted_geography, attr='total_driver', inplace=False, current_geography=driver_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=filter_geo)
+
             if current_data_type == 'total':
                 setattr(self, map_to,
                         DfOper.mult((getattr(self, map_to), total_driver_current_geo), fill_value=fill_value))

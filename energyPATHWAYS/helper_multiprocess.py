@@ -11,7 +11,7 @@ from multiprocessing import Pool
 from pyomo.opt import SolverFactory
 #import util
 #import numpy as np
-import dispatch_classes
+import energyPATHWAYS.dispatch_classes as dispatch_classes
 import traceback
 
 def process_shapes(shape):

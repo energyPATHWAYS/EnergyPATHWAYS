@@ -173,10 +173,10 @@ if __name__ == "__main__":
     os.chdir(workingdir)
     config = 'config.INI'
     rio_scenario = None
-    scenario = ['UCS']
+    scenario = ['rhodium_high_elect_high_EE']
 
     run(workingdir, config, scenario,
-    load_demand   = True,
+    load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
     solve_supply  = True,
