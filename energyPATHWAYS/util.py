@@ -9,7 +9,7 @@ Contains unclassified global functions
 """
 
 import config as cfg
-from .error import ColumnNotFound
+from energyPATHWAYS.error import ColumnNotFound
 import pandas as pd
 import os
 import numpy as np

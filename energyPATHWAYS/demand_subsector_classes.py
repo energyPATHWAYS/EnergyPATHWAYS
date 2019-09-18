@@ -6,13 +6,10 @@ Created on Mon Sep 28 10:03:57 2015
 """
 
 import config as cfg
-import util
 import pdb
 from collections import defaultdict
-# from datamapfunctions import DataMapFunctions, Abstract
 from shared_classes import Stock
-from data_object import DataObject
-from .generated import schema
+from energyPATHWAYS.generated import schema
 from geomapper import GeoMapper
 from unit_converter import UnitConverter
 

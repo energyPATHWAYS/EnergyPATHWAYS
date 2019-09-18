@@ -5,7 +5,7 @@ import itertools
 from collections import defaultdict
 import config as cfg
 import pdb
-from .util import csv_read_table
+from energyPATHWAYS.util import csv_read_table
 from csvdb.data_object import get_database
 
 
@@ -113,7 +113,7 @@ class Scenario():
         Returns a dictionary matching each measure_id to the combination of subsector/supply_node and technology
         that it applies to. If the measure does not apply to a technology, the second member of tuple is None.
         """
-        from .util import table_data
+        from energyPATHWAYS.util import table_data
 
         lookup = defaultdict(dict)
 

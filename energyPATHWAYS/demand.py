@@ -21,7 +21,7 @@ import energyPATHWAYS.helper_multiprocess as helper_multiprocess
 import pdb
 import logging
 import time
-from .generated import schema
+from energyPATHWAYS.generated import schema
 from geomapper import GeoMapper
 from unit_converter import UnitConverter
 

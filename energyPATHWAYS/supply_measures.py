@@ -12,7 +12,7 @@ import numpy as np
 from util import DfOper
 import pdb
 from geomapper import GeoMapper
-from .generated import schema
+from energyPATHWAYS.generated import schema
 from data_object import DataObject
 
 class SupplyMeasure(object):
