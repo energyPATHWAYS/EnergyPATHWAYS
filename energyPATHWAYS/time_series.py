@@ -222,6 +222,18 @@ class TimeSeries:
         return fill
 
     @staticmethod
+    def forward_fill(x, y, newindex):
+        df = pd.DataFrame(y, index=x).reindex(newindex)
+        df = df.ffill().bfill()
+        return df.values.flatten()
+
+    @staticmethod
+    def back_fill(x, y, newindex):
+        df = pd.DataFrame(y, index=x).reindex(newindex)
+        df = df.bfill().ffill()
+        return df.values.flatten()
+
+    @staticmethod
     def _run_cleaning_method(x, y, newindex, method, **kwargs):
         if method == 'linear_interpolation':
             return TimeSeries.spline_fill(x, y, newindex, k=1, s=0)
@@ -243,6 +255,10 @@ class TimeSeries:
             return TimeSeries.fill_with_average(x, y, newindex)
         elif method == 'decay_towards_linear_regression':
             return TimeSeries.decay_towards_linear_regression_fill(x, y, newindex)
+        elif method == 'forward_fill':
+            return TimeSeries.forward_fill(x, y, newindex)
+        elif method == 'back_fill':
+            return TimeSeries.back_fill(x, y, newindex)
         else:
             raise ValueError("{} is not a known cleaning method type".format(method))
 
