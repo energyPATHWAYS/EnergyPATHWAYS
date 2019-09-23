@@ -31,7 +31,7 @@ import dispatch_budget
 import dispatch_generators
 from unit_converter import UnitConverter
 from geomapper import GeoMapper
-from .generated import schema
+from energyPATHWAYS.generated import schema
 from data_object import DataObject
 
 #def node_update_stock(node):

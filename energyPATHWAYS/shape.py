@@ -8,10 +8,6 @@ Created on Mon Oct 05 14:45:48 2015
 import pandas as pd
 import pytz
 import datetime as DT
-# PyCharm complains about dateutil not being listed in the project requirements, but my understanding is that
-# it is bundled with matplotlib, so it is listed implicitly.
-from dateutil.relativedelta import relativedelta
-import time
 import numpy as np
 import cPickle as pickle
 import os
@@ -19,17 +15,12 @@ import logging
 import pdb
 import pathos
 import helper_multiprocess
-
 from csvdb import CsvDatabase
-from . import config as cfg
-from .geomapper import GeoMapper
-from .time_series import TimeSeries
-from . import util
+import config as cfg
+from energyPATHWAYS.geomapper import GeoMapper
+import util
+from energyPATHWAYS.data_object import DataObject
 
-from .data_object import DataObject
-
-# from RIO.riodb.data_mapper import DataMapper
-# from RIO import fileio
 
 #http://stackoverflow.com/questions/27491988/canonical-offset-from-utc-using-pytz
 

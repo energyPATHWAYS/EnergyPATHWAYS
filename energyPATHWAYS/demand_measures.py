@@ -13,7 +13,7 @@ from util import DfOper
 from shared_classes import StockItem
 import logging
 import pdb
-from .generated import schema
+from energyPATHWAYS.generated import schema
 from unit_converter import UnitConverter
 from geomapper import GeoMapper
 from data_object import DataObject

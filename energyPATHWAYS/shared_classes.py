@@ -9,9 +9,8 @@ import numpy as np
 import pandas as pd
 import config as cfg
 import pdb
-import logging
-from .generated import schema
-from .geomapper import GeoMapper
+from energyPATHWAYS.generated import schema
+from energyPATHWAYS.geomapper import GeoMapper
 
 class StockItem(object):
     def __init__(self):

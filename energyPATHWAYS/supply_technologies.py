@@ -18,7 +18,7 @@ import logging
 import pdb
 from unit_converter import UnitConverter
 from geomapper import GeoMapper
-from .generated import schema
+from energyPATHWAYS.generated import schema
 
 class SupplyTechnology(schema.SupplyTechs, StockItem):
     def __init__(self, name, cost_of_capital, scenario):

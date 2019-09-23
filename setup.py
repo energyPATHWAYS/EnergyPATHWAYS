@@ -20,18 +20,6 @@ setup(name='energyPATHWAYS',
                         'click'
                         ],
       extras_require={'documentation': ["Sphinx"],
-                      'api': ['flask',
-                              'flask_bcrypt',
-                              'flask_cors',
-                              'flask_httpauth',
-                              'flask_restful',
-                              'flask_sqlalchemy',
-                              'itsdangerous',
-                              'marshmallow',
-                              'mock',
-                              'python-daemon',
-                              'sqlalchemy'
-                              ]
                       },
       include_package_data=True,
       entry_points='''

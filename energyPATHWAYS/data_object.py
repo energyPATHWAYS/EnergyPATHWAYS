@@ -5,16 +5,15 @@ from collections import OrderedDict
 
 import numpy as np
 
-from . import config as cfg
-from .config import getParam, getParamAsBoolean
-from .time_series import TimeSeries
-from .util import (DfOper, put_in_list, remove_df_levels, get_elements_from_level,
-                   reindex_df_level_with_new_elements, splitclean)
-from .geomapper import GeoMapper
+import config as cfg
+from energyPATHWAYS.config import getParam, getParamAsBoolean
+from energyPATHWAYS.time_series import TimeSeries
+from energyPATHWAYS.util import (DfOper, put_in_list, get_elements_from_level,
+                   reindex_df_level_with_new_elements)
+from energyPATHWAYS.geomapper import GeoMapper
 
 from csvdb.data_object import DataObject as CsvDataObject, get_database
-from csvdb.error import CsvdbException
-from csvdb.utils import filter_query
+
 
 def _isListOfNoneOrNan(obj):
     if len(obj) != 1:

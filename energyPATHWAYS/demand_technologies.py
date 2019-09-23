@@ -14,7 +14,7 @@ from shared_classes import StockItem, DemandSalesShareMeasure, DemandSales, Dema
 import shape
 import logging
 import pdb
-from .generated import schema
+from energyPATHWAYS.generated import schema
 from unit_converter import UnitConverter
 from geomapper import GeoMapper
 from shape import Shapes

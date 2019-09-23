@@ -8,11 +8,10 @@ import util
 import numpy as np
 import copy
 import pandas as pd
-import math
 import config as cfg
 from config import getParam, getParamAsBoolean
 import os
-from pyomo.opt import SolverFactory, SolverStatus
+from pyomo.opt import SolverFactory
 import csv
 import logging
 import matplotlib.pyplot as plt
@@ -23,7 +22,6 @@ import shape
 import helper_multiprocess
 import cPickle as pickle
 import dispatch_generators
-import dispatch_maintenance
 import dispatch_transmission
 import dispatch_long_duration
 from pyomo.opt import TerminationCondition
@@ -31,7 +29,7 @@ from pyomo.environ import Constraint
 from unit_converter import UnitConverter
 
 from geomapper import GeoMapper
-from .generated import schema
+from energyPATHWAYS.generated import schema
 
 class DispatchFeederAllocation(schema.DispatchFeedersAllocation):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""

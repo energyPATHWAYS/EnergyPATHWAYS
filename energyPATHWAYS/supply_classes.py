@@ -11,7 +11,7 @@ import numpy as np
 import config as cfg
 from geomapper import GeoMapper
 from unit_converter import UnitConverter
-from .generated import schema
+from energyPATHWAYS.generated import schema
 from data_object import DataObject
         
 # class SupplyStock(Stock, StockItem):

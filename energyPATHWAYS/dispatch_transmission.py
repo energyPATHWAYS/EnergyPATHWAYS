@@ -7,7 +7,7 @@ import math
 import config as cfg
 from geomapper import GeoMapper
 from unit_converter import UnitConverter
-from .generated import schema
+from energyPATHWAYS.generated import schema
 from data_object import DataObject
 import pdb
 
