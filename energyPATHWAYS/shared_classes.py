@@ -260,7 +260,6 @@ class DemandSales(schema.DemandSales, SalesShare):
         self.primary_geography = GeoMapper.demand_primary_geography
         self.scenario = scenario
         self.mapped = False
-        self.replaced_demand_tech_id = None
         if self.raw_values is None:
             raise ValueError('error encountered in sales share measure ' + str(self.name))
 

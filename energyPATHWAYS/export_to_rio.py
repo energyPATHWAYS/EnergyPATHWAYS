@@ -14,56 +14,66 @@ import glob
 import cPickle as pickle
 from energyPATHWAYS.supply import StorageNode, BlendNode, SupplyStockNode, ImportNode, PrimaryNode
 import ast
-import shape as ep_shape
+from shape import Shapes, Shape
 from dateutil.relativedelta import relativedelta
-from geomapper import GeoMapper
+from energyPATHWAYS.geomapper import GeoMapper
 from unit_converter import UnitConverter
-
+import datetime as DT
 
 class RioExport(object):
     def __init__(self, model, scenario_index):
         self.supply = model.supply
-        #todo fix this hardcode
-        self.supply.bulk_electricity_node_name = 6
+        self.supply.bulk_electricity_node_name = 'Bulk Electricity Blend'
         self.db_dir = os.path.join(cfg.workingdir, 'rio_db_export')
         self.meta_dict = defaultdict(list)
         self.scenario_index = scenario_index
+        # self.shapes = Shapes.get_instance(cfg.getParam('database_path'))
 
 
     def write_all(self):
-        self.write_blend()
-        self.flex_load_df = self.flatten_flex_load_dict()
+        logging.info("writing blends")
+        #self.write_blend()
+        #logging.info("writing flex load df")
+        #self.flex_load_df = self.flatten_flex_load_dict()
         if self.scenario_index == 0:
-            self.write_reference_tables()
-            self.write_all_empty()
-            self.write_shapes()
-            self.write_blend_main()
-            self.write_new_tech_main()
-            self.write_existing_gen()
-            self.write_conversion_main()
-            if self.flex_load_df is not None:
-                self.write_flex_tech_main()
-            self.write_capacity_zone_main()
-            self.write_product_main()
-        self.write_conversion()
-        self.write_product()
+            #self.write_reference_tables()
+            #self.write_all_empty()
+            logging.info("writing shapes")
+            #self.write_shapes()
+            #self.write_blend_main()
+            #self.write_new_tech_main()
+            #logging.info("writing existing_tech_main")
+            #self.write_existing_gen()
+            #self.write_conversion_main()
+            logging.info("writing new flex techs")
+            #if self.flex_load_df is not None:
+               #self.write_flex_tech_main()
+            #self.write_capacity_zone_main()
+            #self.write_product_main()
+        #self.write_conversion()
+        #logging.info("writing products")
+        #self.write_product()
+        logging.info("writing topography")
         self.write_topography()
-        self.write_potential_group()
-        self.write_new_gen()
-        self.write_transmission()
-        self.write_flex_load()
+        #self.write_potential_group()
+        #self.write_new_gen()
+        #logging.info("writing transmission")
+        #self.write_transmission()
+        #logging.info("writing flex load")
+        #self.write_flex_load()
 
 
 
     def write_reference_tables(self):
-        self.write_geographies()
-        self.write_geography_map_keys()
-        self.write_geography_spatial_join()
-        self.write_currency_conversion()
-        self.write_inflation_conversion()
+        pass
+        #self.write_geographies()
+        #self.write_geography_map_keys()
+        #self.write_geography_spatial_join()
+        #self.write_currency_conversion()
+        #self.write_inflation_conversion()
 
     def write_geographies(self):
-        df = pd.DataFrame.from_dict(GeoMapper.geographies, orient='index').stack().to_frame()
+        df = pd.DataFrame.from_dict(GeoMapper.geography_to_gau, orient='index').stack().to_frame()
         df.index.names = ['geography','col_index']
         df.columns = ['gau']
         df = Output.clean_rio_df(df)
@@ -76,7 +86,7 @@ class RioExport(object):
         Output.write_rio(df, "GEOGRAPHIES_SPATIAL_JOIN" + ".csv", self.db_dir , index=False)
 
     def write_geography_map_keys(self):
-       df = pd.DataFrame(GeoMapper.values.columns,columns=['name'])
+       df = pd.DataFrame(GeoMapper.data.columns,columns=['name'])
        Output.write_rio(df, "GEOGRAPHY_MAP_KEYS" + ".csv", self.db_dir, index=False)
 
     def write_currency_conversion(self):
@@ -108,26 +118,35 @@ class RioExport(object):
             self.write_empty('FLEX_TECH_SCHEDULE', '\\Technology Inputs\\Flex Load', ['name','geography','gau','geography_map_key','interpolation_method','extrapolation_method','year','value','sensitivity'])
 
     def write_shapes(self):
+        def get_active_dates(years):
+            active_dates_index = []
+            for year in years:
+                start_date, end_date = DT.datetime(year, 1, 1), DT.datetime(year, 12, 31, 23)
+                # todo, change the frequency to change the timestep
+                active_dates_index.append(pd.date_range(start_date, end_date, freq='H'))
+            return reduce(pd.DatetimeIndex.append, active_dates_index)
+        weather_years = [int(y) for y in cfg.getParam('weather_years').split(',')]
+        self.active_dates_index = get_active_dates(weather_years)
         shapes = {}
         active_nodes = self.supply.nodes[self.supply.bulk_electricity_node_name].nodes + self.supply.nodes[
             self.supply.thermal_dispatch_node_name].nodes + self.supply.nodes[self.supply.distribution_node_name].nodes
         for node in active_nodes:
             if not isinstance(self.supply.nodes[node], BlendNode) and hasattr(self.supply.nodes[node],'technologies'):
                 for technology in self.supply.nodes[node].technologies.keys():
-                    if hasattr(self.supply.nodes[node].technologies[technology], 'shape'):
-                        shapes[self.supply.nodes[node].technologies[technology].shape.name] = self.supply.nodes[node].technologies[technology].shape
-                    elif hasattr(self.supply.nodes[node], 'shape') and self.supply.nodes[
+                    if self.supply.nodes[node].technologies[technology].shape is not None:
+                        shapes[self.supply.nodes[node].technologies[technology].shape] = Shapes.get_values(self.supply.nodes[node].technologies[technology].shape)
+                    elif self.supply.nodes[
                         node].shape is not None:
-                        shapes[self.supply.nodes[node].shape.name] = self.supply.nodes[node].shape
+                        shapes[self.supply.nodes[node].shape] = Shapes.get_values(self.supply.nodes[node].shape)
                     else:
                         if "flat" in shapes.keys():
                             continue
                         else:
-                            start_date = cfg.shape_start_date
-                            end_date = start_date + relativedelta(years=cfg.shape_years, hours=-1)
-                            active_dates_index = pd.date_range(start_date, end_date, freq='H')
-                            index = pd.MultiIndex.from_product([GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography],active_dates_index], names=[GeoMapper.supply_primary_geography,'weather_datetime'])
-                            shapes['flat'] = ep_shape.shapes.make_flat_load_shape(index,num_active_years = 1)
+                            index = pd.MultiIndex.from_product([GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography],self.active_dates_index], names=[GeoMapper.supply_primary_geography,'weather_datetime'])
+                            shapes['flat'] = Shape.make_flat_load_shape(index)
+
+
+
         for shape_name, shape in shapes.iteritems():
             self.meta_dict['name'].append(shape_name.lower())
             self.meta_dict['shape_type'].append( 'weather date')
@@ -138,11 +157,9 @@ class RioExport(object):
             self.meta_dict['geography_map_key'].append(None)
             self.meta_dict['interpolation_method'].append('linear_interpolation')
             self.meta_dict['extrapolation_method'].append('nearest')
-            shape_df =  shape if isinstance(shape,pd.DataFrame) else shape.values
-            shape_df = util.remove_df_levels(shape_df,['resource_bin','dispatch_feeder'],agg_function='mean')
-            #shape_df = shape_df.tz_localize(None, level='weather_datetime')
+            shape_df = util.remove_df_levels(shape,['resource_bin','dispatch_feeder'],agg_function='mean')
             shape_df = Output.clean_rio_df(shape_df,add_geography=False)
-            Output.write_rio(shape_df,shape_name.lower()+ ".csv",self.db_dir + "\\ShapeData",index=False)
+            Output.write_rio(shape_df,shape_name.lower() + "_" +self.supply.scenario.name + ".csv",self.db_dir + "\\ShapeData"+"\\"+shape_name.lower()+".csvd",index=False)
         self.meta_dict['name'].append('bulk')
         self.meta_dict['shape_type'].append('weather date')
         self.meta_dict['input_type'].append('intensity')
@@ -226,26 +243,27 @@ class RioExport(object):
 
     def write_flex_tech_shapes(self):
         df = copy.deepcopy(self.flex_load_df)
-        for geography in cfg.rio_feeder_geographies:
-            for feeder in self.supply.dispatch_feeders:
-                tech_df = util.df_slice(df,[feeder],['dispatch_feeder'])
-                tech_df = util.df_slice(tech_df,[geography],GeoMapper.supply_primary_geography,drop_level=False)
-                tech_df = util.DfOper.divi([tech_df, util.remove_df_levels(tech_df, ['weather_datetime',GeoMapper.supply_primary_geography], 'sum')])
-                #tech_df = tech_df.tz_localize(None, level='weather_datetime')
-                tech_df['sensitivity'] = self.supply.scenario.name
-                name = "flex_" + geography + "_"+ feeder.lower()
-                tech_df = Output.clean_rio_df(tech_df,add_geography=False)
-                Output.write_rio(tech_df, name + "_" + 'sensitivity' + ".csv",
-                                 self.db_dir + "\\ShapeData\\" + name + ".csvd" + "\\", index=False)
-                self.meta_dict['name'].append(name)
-                self.meta_dict['shape_type'].append( 'weather date')
-                self.meta_dict['input_type'].append( 'intensity')
-                self.meta_dict['shape_unit_type'].append('power')
-                self.meta_dict['time_zone'].append(cfg.getParam('dispatch_outputs_timezone'))
-                self.meta_dict['geography'].append(GeoMapper.dispatch_geography)
-                self.meta_dict['geography_map_key'].append(None)
-                self.meta_dict['interpolation_method'].append('linear_interpolation')
-                self.meta_dict['extrapolation_method'].append('nearest')
+        if len(cfg.rio_feeder_geographies)>0:
+            for geography in cfg.rio_feeder_geographies:
+                for feeder in self.supply.dispatch_feeders:
+                    tech_df = util.df_slice(df,[feeder],['dispatch_feeder'])
+                    tech_df = util.df_slice(tech_df,[geography],GeoMapper.supply_primary_geography,drop_level=False)
+                    tech_df = util.DfOper.divi([tech_df, util.remove_df_levels(tech_df, ['weather_datetime',GeoMapper.supply_primary_geography], 'sum')])
+                    #tech_df = tech_df.tz_localize(None, level='weather_datetime')
+                    tech_df['sensitivity'] = self.supply.scenario.name
+                    name = "flex_" + geography + "_"+ feeder.lower()
+                    tech_df = Output.clean_rio_df(tech_df,add_geography=False)
+                    Output.write_rio(tech_df, name + "_" + 'sensitivity' + ".csv",
+                                     self.db_dir + "\\ShapeData\\" + name + ".csvd" + "\\", index=False)
+                    self.meta_dict['name'].append(name)
+                    self.meta_dict['shape_type'].append( 'weather date')
+                    self.meta_dict['input_type'].append( 'intensity')
+                    self.meta_dict['shape_unit_type'].append('power')
+                    self.meta_dict['time_zone'].append(cfg.getParam('dispatch_outputs_timezone'))
+                    self.meta_dict['geography'].append(GeoMapper.dispatch_geography)
+                    self.meta_dict['geography_map_key'].append(None)
+                    self.meta_dict['interpolation_method'].append('linear_interpolation')
+                    self.meta_dict['extrapolation_method'].append('nearest')
         for feeder in self.supply.dispatch_feeders:
             tech_df = util.df_slice(df, feeder, 'dispatch_feeder')
             tech_df = util.DfOper.divi([tech_df, util.remove_df_levels(tech_df, 'weather_datetime', 'sum')])
@@ -253,7 +271,7 @@ class RioExport(object):
             tech_df['sensitivity'] = self.supply.scenario.name
             name = "flex_" + feeder.lower()
             tech_df = Output.clean_rio_df(tech_df, add_geography=False)
-            Output.write_rio(tech_df, name + "_"+'sensitivity'+".csv",
+            Output.write_rio(tech_df, name + "_"+ self.supply.scenario.name+".csv",
                              self.db_dir + "\\ShapeData\\"+name+".csvd"+"\\", index=False)
             self.meta_dict['name'].append(name)
             self.meta_dict['shape_type'].append('weather date')
@@ -268,7 +286,7 @@ class RioExport(object):
 
 
     def write_flex_tech_p_max(self):
-        df = util.remove_df_levels(util.df_slice(self.flex_load_df,2,'timeshift_type'),'weather_datetime')
+        df = util.remove_df_levels(util.df_slice(self.flex_load_df,'native','timeshift_type'),'weather_datetime')
         df_list = []
         for geography in cfg.rio_feeder_geographies:
             for feeder in self.supply.dispatch_feeders:
@@ -307,7 +325,7 @@ class RioExport(object):
         Output.write_rio(df, "FLEX_TECH_P_MAX" + '.csv', self.db_dir + "\\Technology Inputs\\Flex Load", index=False)
 
     def write_flex_tech_p_min(self):
-        df = util.remove_df_levels(util.df_slice(self.flex_load_df, 2, 'timeshift_type'), 'weather_datetime')
+        df = util.remove_df_levels(util.df_slice(self.flex_load_df, 'native', 'timeshift_type'), 'weather_datetime')
         #todo make mins work
         df_list = []
         for geography in cfg.rio_feeder_geographies:
@@ -394,14 +412,14 @@ class RioExport(object):
 
 
     def write_conversion(self):
-        self.write_conversion_capital_cost()
-        self.write_conversion_fixed_om()
-        self.write_conversion_variable_om()
-        self.write_conversion_efficiency()
+        #self.write_conversion_capital_cost()
+        #self.write_conversion_fixed_om()
+        #self.write_conversion_variable_om()
+        #self.write_conversion_efficiency()
         self.write_conversion_schedule()
 
     def write_product(self):
-       # self.write_product_main()
+        self.write_product_main()
         self.write_product_emissions()
         self.write_product_cost()
         self.write_product_potential()
@@ -409,12 +427,12 @@ class RioExport(object):
     def write_blend(self):
         self.determine_blends()
         self.write_blend_exo_demand()
-        self.write_blend_inputs()
+        #self.write_blend_inputs()
 
     def write_transmission(self):
         self.write_transmission_main()
         self.write_transmission_schedule()
-        self.write_transmission_potential()
+        #self.write_transmission_potential()
         self.write_transmission_hurdles()
         self.write_transmission_losses()
 
@@ -462,11 +480,21 @@ class RioExport(object):
         df_list = []
         if len(self.line_list):
             for line in self.line_list:
-                df = util.df_slice(self.supply.dispatch.transmission.constraints.values,line,['geography_from','geography_to'])
-                util.replace_index_name(df,'gau_to','geography_to')
-                util.replace_index_name(df, 'gau_from', 'geography_from')
+                try:
+                    df = util.df_slice(self.supply.dispatch.transmission.constraints.values,line,['gau_from','gau_to'])
+                except:
+                    logging.info("line %s not found in TX constraints" %str(line))
+                    continue
+                if len(df)==0:
+                    continue
+                util.replace_index_name(df,'gau_to','gau_to')
+                util.replace_index_name(df, 'gau_from', 'gau_from')
                 df['flow_value'] = df['value']
-                df['counterflow_value'] = util.df_slice(self.supply.dispatch.transmission.constraints.values,line,['geography_to','geography_from']).values
+                counterflow_df = util.df_slice(self.supply.dispatch.transmission.constraints.values,line,['gau_to','gau_from'])
+                if len(counterflow_df)>0:
+                 df['counterflow_value'] = counterflow_df.values
+                else:
+                    df['counterflow_value'] = df['value']
                 df['unit'] = cfg.calculation_energy_unit
                 df['time_unit'] = 'hour'
                 df['interpolation_method'] = 'linear_interpolation'
@@ -487,9 +515,9 @@ class RioExport(object):
         df_list = []
         if len(self.line_list):
             for line in self.line_list:
-                df = util.df_slice(self.supply.dispatch.transmission.constraints.values,line,['geography_from','geography_to']) * 0
-                util.replace_index_name(df,'gau_to','geography_to')
-                util.replace_index_name(df, 'gau_from', 'geography_from')
+                df = util.df_slice(self.supply.dispatch.transmission.constraints.values,line,['gau_from','gau_to']) * 0
+                util.replace_index_name(df,'gau_to','gau_to')
+                util.replace_index_name(df, 'gau_from', 'gau_from')
                 df['unit'] = cfg.calculation_energy_unit
                 df['time_unit'] = 'hour'
                 df['interpolation_method'] = 'linear_interpolation'
@@ -512,13 +540,23 @@ class RioExport(object):
         df_list = []
         if len(self.line_list):
             for line in self.line_list:
+                try:
+                    df = util.df_slice(self.supply.dispatch.transmission.hurdles.values,line,['gau_from','gau_to'])
+                except:
+                    logging.info("line %s not found in TX constraints" %str(line))
+                    continue
+                if len(df)==0:
+                    continue
                 df = util.df_slice(self.supply.dispatch.transmission.hurdles.values, line,
-                                   ['geography_from', 'geography_to'])
-                util.replace_index_name(df, 'gau_to', 'geography_to')
-                util.replace_index_name(df, 'gau_from', 'geography_from')
+                                   ['gau_from', 'gau_to'])
+                util.replace_index_name(df, 'gau_to', 'gau_to')
+                util.replace_index_name(df, 'gau_from', 'gau_from')
                 df['flow_value'] = df['value']
-                df['counterflow_value'] = util.df_slice(self.supply.dispatch.transmission.hurdles.values, line,
-                                                        ['geography_to', 'geography_from']).values
+                counterflow_df = util.df_slice(self.supply.dispatch.transmission.hurdles.values,line,['gau_to','gau_from'])
+                if len(counterflow_df)>0:
+                 df['counterflow_value'] = counterflow_df.values
+                else:
+                    df['counterflow_value'] = df['value']
                 df['source'] = None
                 df['notes'] = None
                 df['unit'] = cfg.calculation_energy_unit
@@ -544,9 +582,9 @@ class RioExport(object):
         if len(self.line_list):
             for line in self.line_list:
                 df = util.df_slice(self.supply.dispatch.transmission.hurdles.values, line,
-                                   ['geography_from', 'geography_to'])
-                util.replace_index_name(df, 'gau_to', 'geography_to')
-                util.replace_index_name(df, 'gau_from', 'geography_from')
+                                   ['gau_from', 'gau_to'])
+                util.replace_index_name(df, 'gau_to', 'gau_to')
+                util.replace_index_name(df, 'gau_from', 'gau_from')
                 df['source'] = None
                 df['notes'] = None
                 df['interpolation_method'] = 'linear_interpolation'
@@ -567,7 +605,7 @@ class RioExport(object):
     def write_existing_gen(self):
         include_dispatch_feeders = False
         df_list = []
-        active_nodes = self.supply.nodes[self.bulk_electricity_node_name].nodes + self.supply.nodes[self.thermal_dispatch_node_name].nodes + self.supply.nodes[self.supply.distribution_node_name].nodes
+        active_nodes = self.supply.nodes[self.supply.bulk_electricity_node_name].nodes + self.supply.nodes[self.supply.thermal_dispatch_node_name].nodes + self.supply.nodes[self.supply.distribution_node_name].nodes
         for node in active_nodes:
             if not isinstance(self.supply.nodes[node],BlendNode) and hasattr(self.supply.nodes[node],'technologies'):
                 if self.supply.nodes[node].stock.technology.sum().sum() > 0 or len(self.supply.nodes[node].technologies)==1:
@@ -638,22 +676,22 @@ class RioExport(object):
                                 df_rows['lifetime'] = self.supply.nodes[node].technologies[tech_name].mean_lifetime
                         except:
                             pdb.set_trace()
-                        df_rows['cost_of_capital'] = self.supply.nodes[node].technologies[tech_name].cost_of_capital -float(cfg.cfgfile.get('case', 'inflation_rate'))
+                        df_rows['cost_of_capital'] = self.supply.nodes[node].technologies[tech_name].cost_of_capital -float(cfg.getParam('inflation_rate'))
                         df_rows['retirement_type'] = 'simple' if self.supply.nodes[node].stock.extrapolation_method!='none' else 'complex'
                         df_rows['use_retirement_year'] = False
                         if len(plant) == 3:
-                            df_rows['potential_group_geo'] = tech_name  + "_" + str(plant[0])
+                            df_rows['cumulative_build_cap_zonal_group'] = tech_name  + "_" + str(plant[0])
                         else:
-                            df_rows['potential_group_geo'] = None
-                        df_rows['potential_group'] = None
+                            df_rows['cumulative_build_cap_zonal_group'] = None
+                        df_rows['cumulative_build_cap_global_group'] = None
                         df_rows['ancillary_service_eligible'] = True if gen_type=='hydro' or gen_type == 'thermal' else False
                         for node_row in df_rows['supply_node'].values:
                             df_rows['plant'] =  "_".join([str(x) for x in plant]) + "_" + str(node_row)
                         df_rows['capacity_zone'] = 'bulk'
-                        if hasattr(self.supply.nodes[node].technologies[tech_name],'shape'):
-                            df_rows['shape'] = self.supply.nodes[node].technologies[tech_name].shape.name
-                        elif hasattr(self.supply.nodes[node],'shape') and self.supply.nodes[node].shape is not None:
-                            df_rows['shape'] = self.supply.nodes[node].shape.name
+                        if self.supply.nodes[node].technologies[tech_name].shape is not None:
+                            df_rows['shape'] = self.supply.nodes[node].technologies[tech_name].shape
+                        elif self.supply.nodes[node].shape is not None:
+                            df_rows['shape'] = self.supply.nodes[node].shape
                         else:
                             df_rows['shape'] = 'flat'
                         df_rows['net_for_binning'] = True if gen_type == 'hydro' else False
@@ -665,6 +703,8 @@ class RioExport(object):
                             df_rows['must_run'] = False
                         df_rows['geography'] = GeoMapper.supply_primary_geography
                         df_rows['gau'] = gau
+                        df_rows['physical_gau'] = None
+                        df_rows['deliverable'] = None
                         df_rows['generation_p_min'] = 0
                         df_rows['generation_p_max'] = 1
                         df_rows['load_p_min'] = 0 if gen_type == 'storage' else np.nan
@@ -706,16 +746,19 @@ class RioExport(object):
                         df_rows['ptc_end_year'] = 2100
                         df_rows['ptc_unit'] = 'megawatt_hour'
                         df_rows['ptc'] = 0
+                        df_rows['dual_fuel'] = False
+                        df_rows['max_blend_cap'] = None
+                        df_rows ['min_capacity_factor'] = 0
                         df_list.append(df_rows)
         df = pd.concat(df_list)
         df['supply_node'] = [x if x not in [self.supply.bulk_electricity_node_name, self.supply.distribution_node_name] else 'electricity' for x in df['supply_node'].values]
         df = Output.clean_rio_df(df,add_geography=False,replace_gau=False)
         df['blend_in'] = df['supply_node']
-        df = df[['name','type','lifetime','cost_of_capital','retirement_type','use_retirement_year','potential_group','potential_group_geo', 'ancillary_service_eligible','plant', 'capacity_zone','shape',\
-                 'net_for_binning', 'must_run','allow_long_term_charging','geography','gau','capacity_unit','capacity','standard_unit_size','net_to_gross','energy_unit','energy',\
+        df = df[['name','type','lifetime','cost_of_capital','retirement_type','use_retirement_year','cumulative_build_cap_global_group','cumulative_build_cap_zonal_group', 'ancillary_service_eligible','plant', 'capacity_zone','shape',\
+                 'net_for_binning', 'must_run','allow_long_term_charging','geography','gau','physical_gau','deliverable','capacity_unit','standard_unit_size','capacity','net_to_gross','energy','energy_unit',\
                  'generation_p_min','generation_p_max',
-                            'load_p_min','load_p_max','ramp_rate', 'ramp_rate_time_unit','unit_in','unit_out','blend_in',\
-                            'output_numerator','min_gen_efficiency','max_gen_efficiency','capacity_factor','operating_year','retirement_year', 'currency','currency_year',
+                            'load_p_min','load_p_max','ramp_rate', 'ramp_rate_time_unit','unit_in','unit_out','dual_fuel','max_blend_cap','blend_in',\
+                            'output_numerator','min_gen_efficiency','max_gen_efficiency','min_capacity_factor','capacity_factor','operating_year','retirement_year', 'currency','currency_year',
                             'variable_om_unit','variable_om','shutdown_cost_unit','shutdown_cost', 'startup_cost_unit','startup_cost', 'fixed_om_unit','fixed_om', 'curtailment_cost_unit','curtailment_cost','ptc_end_year', 'ptc_unit','ptc']]
         Output.write_rio(df, "EXISTING_TECH_MAIN" + '.csv', self.db_dir + "\\Technology Inputs\\Generation\\Existing Generation", index=False)
 
@@ -823,7 +866,6 @@ class RioExport(object):
                         node_df = sales_df *0
                     node_df = node_df[node_df.index.get_level_values('vintage') >= min(cfg.supply_years)]
                     slice_index = [x for x in plant_index if x in node_df.index.names]
-                    pdb.set_trace()
                     if len(slice_index)>0:
                         df = util.df_slice(node_df,[plant[plant_index.index(x)] for x in slice_index],slice_index)
                     else:
@@ -841,10 +883,10 @@ class RioExport(object):
                     df['unit'] = cfg.calculation_energy_unit
                     df['time_unit'] = 'hour'
                     df['currency'] = cfg.currency_name
-                    df['currency_year'] = cfg.cfgfile.get('case', 'currency_year')
+                    df['currency_year'] = cfg.getParam('currency_year')
                     df['cost_type'] = 'capacity'
                     df['lifecycle'] = 'new'
-                    df['cost_of_capital'] = self.supply.nodes[node].technologies[tech_name].cost_of_capital -float(cfg.cfgfile.get('case', 'inflation_rate'))
+                    df['cost_of_capital'] = self.supply.nodes[node].technologies[tech_name].cost_of_capital -float(cfg.getParam('inflation_rate'))
                     df['levelized'] = False
                     df['geography_map_key'] = None
                     df['interpolation_method'] = 'linear_interpolation'
@@ -1113,11 +1155,10 @@ class RioExport(object):
             else:
                 dct['ancillary_service_eligible'] = [False]
             dct['net_for_binning'] = [False]
-            if hasattr(self.supply.nodes[node].technologies[tech_name], 'shape'):
-                dct['shape'] = self.supply.nodes[node].technologies[tech_name].shape.name
-            elif hasattr(self.supply.nodes[node], 'shape') and self.supply.nodes[
-                node].shape is not None:
-                dct['shape'] = [self.supply.nodes[node].shape.name]
+            if self.supply.nodes[node].technologies[tech_name].shape is not None:
+                dct['shape'] = self.supply.nodes[node].technologies[tech_name].shape
+            elif self.supply.nodes[node].shape is not None:
+                dct['shape'] = [self.supply.nodes[node].shape]
             else:
                 dct['shape'] = ['flat']
             df_list.append(pd.DataFrame(dct))
@@ -1161,13 +1202,12 @@ class RioExport(object):
             else:
                 dct['ancillary_service_eligible'] = [False]
             dct['net_for_binning'] = [False]
-            if hasattr(self.supply.nodes[node].technologies[tech_name], 'shape'):
-                dct['shape'] = self.supply.nodes[node].technologies[tech_name].shape.name
-            elif hasattr(self.supply.nodes[node], 'shape') and self.supply.nodes[
-                node].shape is not None:
-                dct['shape'] = [self.supply.nodes[node].shape.name]
+            if self.supply.nodes[node].technologies[tech_name].shape is not None:
+                dct['shape'] = self.supply.nodes[node].technologies[tech_name].shape
+            elif self.supply.nodes[node].shape is not None:
+                dct['shape'] = self.supply.nodes[node].shape
             else:
-                dct['shape'] = ['flat']
+                dct['shape'] = 'flat'
             df_list.append(pd.DataFrame(dct))
             for geography in cfg.rio_feeder_geographies:
                 plant = util.ensure_iterable(plant)
@@ -1205,13 +1245,13 @@ class RioExport(object):
                 else:
                     dct['ancillary_service_eligible'] = [False]
                 dct['net_for_binning'] = [False]
-                if hasattr(self.supply.nodes[node].technologies[tech_name], 'shape'):
-                    dct['shape'] = self.supply.nodes[node].technologies[tech_name].shape.name
-                elif hasattr(self.supply.nodes[node], 'shape') and self.supply.nodes[
+                if self.supply.nodes[node].technologies[tech_name].shape is not None:
+                    dct['shape'] = self.supply.nodes[node].technologies[tech_name].shape
+                elif self.supply.nodes[
                     node].shape is not None:
-                    dct['shape'] = [self.supply.nodes[node].shape.name]
+                    dct['shape'] = self.supply.nodes[node].shape
                 else:
-                    dct['shape'] = ['flat']
+                    dct['shape'] = 'flat'
                 df_list.append(pd.DataFrame(dct))
 
 
@@ -1429,7 +1469,7 @@ class RioExport(object):
         if self.supply.nodes[node].technologies[technology].efficiency.raw_values is not None and'resource_bin' in self.supply.nodes[node].technologies[technology].efficiency.raw_values.index.names:
             if gau not in self.supply.nodes[node].technologies[technology].efficiency.values.index.get_level_values(
                     GeoMapper.supply_primary_geography).values:
-                eff_df = util.remove_df_levels(util.df_slice(self.supply.nodes[node].technologies[technology].efficiency.raw_values,[resource_bin,vintage],['resource_bin','vintage']),GeoMapper.supply_primary_geography,agg_function='mean')
+                eff_df = util.remove_df_levels(util.df_slice(self.supply.nodes[node].technologies[technology].efficiency.values,[resource_bin,vintage],['resource_bin','vintage']),GeoMapper.supply_primary_geography,agg_function='mean')
             else:
                 eff_df = util.df_slice(self.supply.nodes[node].technologies[technology].efficiency.values,[resource_bin,vintage,gau],['resource_bin','vintage',GeoMapper.supply_primary_geography])
         elif self.supply.nodes[node].technologies[technology].efficiency.raw_values is not None:
@@ -1651,12 +1691,14 @@ class RioExport(object):
         df = self.supply.io_rio_supply_df.loc[idx[:, self.blend_node_subset], :]
         df = df.stack().to_frame()
         util.replace_index_name(df, 'year')
+        df = df[df.index.get_level_values('year').isin(self.supply.dispatch_years)]
         df.columns = ['value']
         #todo
         df[df.values<=0] = 0
+        df *= UnitConverter.unit_convert(unit_from_num=cfg.calculation_energy_unit,unit_to_num='TBTU')
         df = Output.clean_rio_df(df)
         util.replace_column_name(df, 'name', 'supply_node')
-        df['unit'] = cfg.calculation_energy_unit
+        df['unit'] = 'TBTU'
         df['interpolation_method'] = 'linear_interpolation'
         df['extrapolation_method'] = 'nearest'
         df['sensitivity'] = self.supply.scenario.name
@@ -1673,6 +1715,8 @@ class RioExport(object):
         fuel_list = []
         for blend in self.blend_node_subset:
             for node in self.supply.nodes[blend].nodes:
+                if node not in self.supply.nodes.keys():
+                    continue
                 if self.supply.nodes[node].supply_type == 'Primary' or self.supply.nodes[node].supply_type == 'Import':
                     if self.supply.nodes[node].potential.raw_values is not None:
                         for resource_bin in set(
@@ -1832,6 +1876,8 @@ class RioExport(object):
         df_list = []
         for blend in self.blend_node_subset:
             for node in self.supply.nodes[blend].nodes:
+                if node not in self.supply.nodes.keys():
+                    continue
                 if self.supply.nodes[node].supply_type == 'Conversion':
                     if self.supply.nodes[node].potential.raw_values is not None:
                         pass
@@ -1859,7 +1905,7 @@ class RioExport(object):
                                         eff_del.columns = ['value']
                                         eff_del = eff_del.loc[idx[:, self.supply.blend_nodes], :]
                                         eff_del = cfg.geo.geo_map(eff_del, self.supply.nodes[delivery_node].coefficients.geography,self.supply.nodes[node].technologies[technology].efficiency.geography,
-                                      'intensity',cfg.cfgfile.get('case', 'default_geography_map_key'), 1, False)
+                                      'intensity',cfg.getParam('default_geography_map_key'), 1, False)
                                         if len (eff_del)>0:
                                             eff_del = util.DfOper.mult([temp_df, eff_del]).reorder_levels(
                                                     [self.supply.nodes[node].technologies[technology].efficiency.geography, 'vintage', 'supply_node'])
@@ -1898,6 +1944,8 @@ class RioExport(object):
         df_list = []
         for blend in self.blend_node_subset:
             for node in self.supply.nodes[blend].nodes:
+                if node not in self.supply.nodes.keys():
+                    continue
                 if self.supply.nodes[node].supply_type == 'Conversion':
                     if self.supply.nodes[node].potential.raw_values is not None:
                         pass
@@ -1933,21 +1981,21 @@ class RioExport(object):
         df_list = []
         for blend in self.blend_node_subset:
             for node in self.supply.nodes[blend].nodes:
+                if node not in self.supply.nodes.keys():
+                    continue
                 if self.supply.nodes[node].supply_type == 'Conversion':
                     if self.supply.nodes[node].potential.raw_values is not None:
                         pass
                         # todo allow for resource bins
                     else:
                         for technology in self.supply.nodes[node].technologies.keys():
-                            df = self.supply.nodes[node].stock.values.loc[:, min(cfg.supply_years)].to_frame()
-                            df = util.df_slice(df, technology, 'supply_technology')
+                            df = util.df_slice(self.supply.nodes[node].stock.technology, technology, 'supply_technology')
+                            df = df.stack().to_frame()
                             df.columns = ['value']
-
-
                             util.replace_index_name(df, 'year')
                             df = df[np.isfinite(df.values)]
                             df['name'] = node + "_" + \
-                                         technology + "_" + self.blend_node_subset_lookup[blend]
+                                         technology+ "_" + self.blend_node_subset_lookup[blend]
                             df_list.append(df)
         df = pd.concat(df_list)
         df = Output.clean_rio_df(df)
@@ -1960,13 +2008,15 @@ class RioExport(object):
         df['geography_map_key'] = None
         df = df[['name', 'type', 'unit', 'time_unit',
                  'geography', 'gau', 'geography_map_key', 'interpolation_method', 'extrapolation_method', \
-                 'vintage', 'value', 'sensitivity']]
+                 'year', 'value', 'sensitivity']]
         Output.write_rio(df, "CONVERSION_SCHEDULE" + '.csv', self.db_dir + "\\Fuel Inputs\\Conversions", index=False)
 
     def write_conversion_variable_om(self):
         df_list = []
         for blend in self.blend_node_subset:
             for node in self.supply.nodes[blend].nodes:
+                if node not in self.supply.nodes.keys():
+                    continue
                 if self.supply.nodes[node].supply_type == 'Conversion':
                     if self.supply.nodes[node].potential.raw_values is not None:
                         pass
@@ -2008,20 +2058,39 @@ class RioExport(object):
         df_list = []
         for blend in self.blend_node_subset:
             for node in self.supply.nodes[blend].nodes:
+                if node not in self.supply.nodes.keys():
+                    continue
                 if self.supply.nodes[node].supply_type == 'Conversion':
                     if self.supply.nodes[node].potential.raw_values is not None:
                         pass
                         # todo allow for resource bins
                     else:
                         for technology in self.supply.nodes[node].technologies.keys():
-                            cost_df = self.supply.nodes[node].technologies[technology].capital_cost_new.raw_values.groupby(
-                                level=[self.supply.nodes[node].technologies[technology].capital_cost_new.geography, 'vintage']).sum()
-                            if hasattr(self.supply.nodes[node].technologies[technology].installation_cost_new,
-                                       'values'):
-                                cost_df = util.DfOper.add([cost_df, self.supply.nodes[node].technologies[
-                                    technology].installation_cost_new.raw_values.groupby(
-                                    level=[self.supply.nodes[node].technologies[
-                                    technology].installation_cost_new.geography, 'vintage']).sum()])
+                            if self.supply.nodes[node].technologies[technology].capital_cost_new.definition == 'absolute':
+                                if hasattr(self.supply.nodes[node].technologies[technology].capital_cost_new,
+                                           'raw_values'):
+                                    cost_df = self.supply.nodes[node].technologies[technology].capital_cost_new.raw_values.groupby(
+                                        level=[self.supply.nodes[node].technologies[technology].capital_cost_new.geography, 'vintage']).sum()
+                            else:
+                                if hasattr(self.supply.nodes[node].technologies[technology].capital_cost_new,
+                                           'values'):
+                                    cost_df = self.supply.nodes[node].technologies[technology].capital_cost_new.values.groupby(
+                                        level=[GeoMapper.supply_primary_geography, 'vintage']).sum()
+
+                            if self.supply.nodes[node].technologies[
+                                technology].installation_cost_new.definition == 'absolute':
+                                if hasattr(self.supply.nodes[node].technologies[technology].installation_cost_new,
+                                           'raw_values'):
+                                    cost_df = util.DfOper.add([cost_df, self.supply.nodes[node].technologies[
+                                        technology].installation_cost_new.raw_values.groupby(
+                                        level=[self.supply.nodes[node].technologies[
+                                        technology].installation_cost_new.geography, 'vintage']).sum()])
+                            else:
+                                if hasattr(self.supply.nodes[node].technologies[technology].installation_cost_new,
+                                           'values'):
+                                    cost_df = util.DfOper.add([cost_df, self.supply.nodes[node].technologies[
+                                        technology].installation_cost_new.raw_values.groupby(
+                                        level=[GeoMapper.supply_primary_geography, 'vintage']).sum()])
                             cost_df['name'] = node + "_" + \
                                               technology + "_" + self.blend_node_subset_lookup[blend]
                             cost_df['lifetime'] = self.supply.nodes[node].technologies[technology].mean_lifetime
@@ -2054,6 +2123,8 @@ class RioExport(object):
     def write_product_main(self):
         self.product_names = []
         for node in self.blend_node_inputs:
+            if node not in self.supply.nodes.keys():
+                continue
             if self.supply.nodes[node].supply_type == 'Primary' or self.supply.nodes[node].supply_type == 'Import':
                 if self.supply.nodes[node].potential.raw_values is not None:
                     for resource_bin in set(
@@ -2065,9 +2136,11 @@ class RioExport(object):
         Output.write_rio(df, "PRODUCT_MAIN" + '.csv', self.db_dir + "\\Fuel Inputs\\Products", index=False)
 
     def write_product_cost(self):
-        residual_nodes = [x.residual_supply_node_name for x in self.supply.nodes.values()]
+        residual_nodes = [x.residual_supply_node for x in self.supply.nodes.values()]
         df_list = []
         for node in self.blend_node_inputs:
+            if node not in self.supply.nodes.keys():
+                continue
             #necessary to bias against selection of residual nodes, so that products with the same cost are ordered. Ex. Domestic vs. International Oil
             mult = 1.005 if node in residual_nodes else 1
             if self.supply.nodes[node].supply_type == 'Primary' or self.supply.nodes[node].supply_type == 'Import':
@@ -2079,35 +2152,34 @@ class RioExport(object):
                                 df = util.df_slice(self.supply.nodes[node].cost.raw_values * mult, resource_bin, 'resource_bin')
                             else:
                                 df = copy.deepcopy(self.supply.nodes[node].cost.raw_values*mult)
-                            if len(df.index.names) > 1:
-                                df = df.groupby(level=[self.supply.nodes[node].cost.geography]).mean()
-                            df = df.stack().to_frame()
-                            df.columns = ['value']
-                            util.replace_index_name(df, 'year')
+                            if hasattr(self.supply.nodes[node],"conversion") and self.supply.nodes[node].conversion is not None:
+                                unit_converter = UnitConverter.unit_convert(unit_from_num=self.supply.nodes[node].potential.unit,unit_to_num=self.supply.nodes[node].conversion.resource_unit_denominator)
+                                df = df * unit_converter/self.supply.nodes[node].conversion.raw_values.sum().sum()
+                            if len(df.index.names) > 2:
+                                df = df.groupby(level=[self.supply.nodes[node].cost.geography,'year']).mean()
                             df['name'] = self.supply.nodes[node].name + "_" + str(resource_bin)
+                            df['unit'] = self.supply.nodes[node].cost.denominator_unit
+                            df['currency'] = self.supply.nodes[node].cost.currency
+                            df['currency_year'] = self.supply.nodes[node].cost.currency_year
+                            df['interpolation_method'] = self.supply.nodes[node].cost.interpolation_method
+                            df['extrapolation_method'] = self.supply.nodes[node].cost.extrapolation_method
+                            df['geography_map_key'] = None
+                            df = Output.clean_rio_df(df)
                             df_list.append(df)
                 else:
                     if self.supply.nodes[node].cost.raw_values is not None:
                         df = self.supply.nodes[node].cost.raw_values * mult
-                        if len(df.index.names) > 1:
-                            df = df.groupby(level=[self.supply.nodes[node].cost.geography]).mean()
-                        df = df.stack().to_frame()
-                        df.columns = ['value']
-                        util.replace_index_name(df, 'year')
+                        if len(df.index.names) > 2:
+                            df = df.groupby(level=[self.supply.nodes[node].cost.geography,'year']).mean()
                         df['name'] = self.supply.nodes[node].name
+                        df = Output.clean_rio_df(df)
                         df_list.append(df)
         df = pd.concat(df_list)
-        df = Output.clean_rio_df(df)
         df['source'] = None
         df['notes'] = None
-        df['interpolation_method'] = 'linear_interpolation'
-        df['extrapolation_method'] = 'nearest'
         df['exponential_growth_rate'] = None
-        df['unit'] = cfg.calculation_energy_unit
-        df['currency'] = cfg.currency_name
-        df['currency_year'] = cfg.getParam('currency_year')
         df['sensitivity'] = self.supply.scenario.name
-        df['geography_map_key'] = None
+
         df = df[['name', 'source', 'notes', 'currency', 'currency_year', 'unit', \
                  'geography', 'gau', 'geography_map_key', 'interpolation_method', 'extrapolation_method',
                  'exponential_growth_rate', \
@@ -2118,6 +2190,8 @@ class RioExport(object):
         df_list = []
         upstream_df = self.calc_upstream_emissions()
         for node in self.blend_node_inputs:
+            if node not in self.supply.nodes.keys():
+                continue
             if self.supply.nodes[node].supply_type == 'Primary' or self.supply.nodes[node].supply_type == 'Import':
                 if self.supply.nodes[node].potential.raw_values is not None:
                     for resource_bin in set(
@@ -2176,35 +2250,33 @@ class RioExport(object):
         df_list = []
         df_geo_nodes = []
         for node in self.blend_node_inputs:
+            if node not in self.supply.nodes.keys():
+                continue
             if self.supply.nodes[node].supply_type == 'Primary' or self.supply.nodes[node].supply_type == 'Import':
                 if self.supply.nodes[node].potential.raw_values is not None:
                     for resource_bin in set(
                             self.supply.nodes[node].potential.raw_values.index.get_level_values('resource_bin')):
                         if self.supply.nodes[node].potential.raw_values is not None:
-                            try:
-                                df = util.df_slice(self.supply.nodes[node].potential.raw_values, resource_bin, 'resource_bin')
-                            except:
-                                print "no potential in resource bin %s in node %s " %(resource_bin,node)
-                                continue
-                            if len(df.index.names)>1:
-                                df = df.groupby(level=[self.supply.nodes[node].potential.geography]).sum()
-                            df = df.stack().to_frame()
-                            df.columns = ['value']
-                            util.replace_index_name(df, 'year')
+                            df = util.df_slice(self.supply.nodes[node].potential.raw_values, resource_bin, 'resource_bin')
+                            unit = self.supply.nodes[node].potential.unit
+                            if hasattr(self.supply.nodes[node],"conversion") and self.supply.nodes[node].conversion is not None:
+                                unit_converter = UnitConverter.unit_convert(unit_from_num=self.supply.nodes[node].potential.unit,unit_to_num=self.supply.nodes[node].conversion.resource_unit_denominator)
+                                df *= self.supply.nodes[node].conversion.raw_values.sum().sum()*unit_converter
+                                unit =self.supply.nodes[node].conversion.energy_unit_numerator
+                            if len(df.index.names)>2:
+                                df = df.groupby(level=[self.supply.nodes[node].potential.geography,'year']).sum()
                             df['name']=self.supply.nodes[node].name + "_" + str(resource_bin)
-                            df_list.append(df)
+                            df['unit'] = unit
+                            df['interpolation_method'] = self.supply.nodes[node].potential.interpolation_method
+                            df['extrapolation_method'] = self.supply.nodes[node].potential.extrapolation_method
+                            df_list.append(Output.clean_rio_df(df))
                             if self.supply.nodes[node].tradable_geography == GeoMapper.supply_primary_geography:
                                 df_geo_nodes.append(self.supply.nodes[node].name + "_" + str(resource_bin))
         df = pd.concat(df_list)
-        df = Output.clean_rio_df(df)
         #util.replace_column_name(df, 'gau', self.supply.nodes[node].potential.geography)
         df['source'] = None
         df['notes'] = None
-        df['interpolation_method'] = 'linear_interpolation'
-        df['extrapolation_method'] = 'nearest'
         df['extrapolation_growth_rate'] = None
-        df['unit'] = cfg.calculation_energy_unit
-        df['geography'] = GeoMapper.supply_primary_geography
         df['sensitivity'] = self.supply.scenario.name
         df = df[['name', 'source', 'notes', 'unit',
                  'geography', 'gau', 'interpolation_method', 'extrapolation_method', 'extrapolation_growth_rate', \
@@ -2219,6 +2291,8 @@ class RioExport(object):
         active_product_list = []
         for blend in self.supply.blend_nodes:
             for node in self.supply.nodes[blend].nodes:
+                if node not in self.supply.nodes.keys():
+                    continue
                 if self.supply.nodes[node].supply_type == 'Primary' or self.supply.nodes[node].supply_type == 'Import':
                     active_node_list.append(node)
                     active_product_list.append(node)
@@ -2228,7 +2302,7 @@ class RioExport(object):
         omitted_node_list = [x for x in self.supply.nodes if x not in active_node_list]
         df_list = []
         for year in self.supply.years:
-            df = copy.deepcopy(self.supply.emissions_dict[year][1])
+            df = copy.deepcopy(self.supply.emissions_dict[year]['residential'])
             idx = pd.IndexSlice
             df = df.loc[idx[:, omitted_node_list], idx[:, active_product_list]].sum().to_frame()
             df.columns = ['value']
@@ -2239,6 +2313,8 @@ class RioExport(object):
     def write_conversion_main(self):
         self.conversion_names = []
         for node in self.blend_node_inputs:
+            if node not in self.supply.nodes.keys():
+                continue
             if self.supply.nodes[node].supply_type == 'Conversion':
                 for blend in self.blend_node_subset:
                     if node in self.supply.nodes[blend].nodes:
@@ -2294,7 +2370,7 @@ class RioExport(object):
     def write_capacity_zone_load(self):
         df_list = []
         dist_load, bulk_load = self.flatten_load_dicts()
-        if len(cfg.rio_feeder_geographies):
+        if len(cfg.rio_feeder_geographies)>0:
             for geography in cfg.rio_feeder_geographies:
                 for feeder in self.supply.dispatch_feeders:
                     df = util.df_slice(dist_load,feeder,'dispatch_feeder')
@@ -2304,16 +2380,17 @@ class RioExport(object):
                     load_shape_df = Output.clean_rio_df(load_shape_df,add_geography=False)
                     load_shape_df['sensitivity'] = self.supply.scenario.name
                     df = util.remove_df_levels(df,'weather_datetime')
+                    df *= UnitConverter.unit_convert(unit_from=cfg.calculation_energy_unit,unit_to='TWh')
                     df = Output.clean_rio_df(df)
                     df['interpolation_method'] = 'linear_interpolation'
                     df['extrapolation_method'] = 'nearest'
-                    df['unit'] = cfg.calculation_energy_unit
+                    df['unit'] = 'TWh'
                     df['sensitivity'] = self.supply.scenario.name
                     df['name'] = geography.lower() + "_" + feeder.lower()
                     df = df[['name', 'geography', 'gau', 'unit', 'interpolation_method', 'extrapolation_method', \
                          'year', 'value', 'sensitivity']]
                     df_list.append(copy.deepcopy(df))
-                    Output.write_rio(load_shape_df, geography.lower() + "_" + feeder.lower() + ".csv", self.db_dir + "\\ShapeData",                                                                                                                                       index=False)
+                    Output.write_rio(load_shape_df, geography.lower() + "_" + feeder.lower() +"_" + self.supply.scenario.name + ".csv", self.db_dir + "\\ShapeData\\"+geography.lower() + "_" + feeder.lower() + ".csvd",                                                                                                                                       index=False)
             df = pd.concat(df_list)
             Output.write_rio(df, "LOCAL_CAPACITY_ZONE_LOAD" + '.csv', self.db_dir + "\\Topography Inputs\Capacity Zones", index=False)
         df_list, load_shape_list = [], []
@@ -2333,10 +2410,11 @@ class RioExport(object):
             load_shape_df = Output.clean_rio_df(load_shape_df,add_geography=False)
             load_shape_df['sensitivity'] = self.supply.scenario.name
             df = util.remove_df_levels(df,'weather_datetime')
+            df *=  UnitConverter.unit_convert(unit_from_num=cfg.calculation_energy_unit, unit_to_num='TWh')
             df = Output.clean_rio_df(df)
             df['interpolation_method'] = 'linear_interpolation'
             df['extrapolation_method'] = 'nearest'
-            df['unit'] = cfg.calculation_energy_unit
+            df['unit'] = 'TWh'
             df['sensitivity'] = self.supply.scenario.name
             df['name'] = 'bulk'
             df = df[['name', 'geography', 'gau', 'unit', 'interpolation_method', 'extrapolation_method', \
@@ -2344,7 +2422,7 @@ class RioExport(object):
             df_list.append(df)
             load_shape_list.append(load_shape_df)
         load_shape = pd.concat(load_shape_list)
-        Output.write_rio(load_shape, "bulk" + ".csv", self.db_dir + "\\ShapeData", index=False)
+        Output.write_rio(load_shape, "bulk" + "_"+ self.supply.scenario.name +".csv", self.db_dir + "\\ShapeData\\bulk.csvd", index=False)
         df = pd.concat(df_list)
         Output.write_rio(df, "BULK_CAPACITY_ZONE_LOAD" + '.csv', self.db_dir + "\\Topography Inputs\Capacity Zones", index=False)
 
@@ -2389,8 +2467,10 @@ class RioExport(object):
 
 def run(path, config, scenarios):
     global model
-    path = os.getcwd() if path is None else path
-    cfg.initialize_config(path, config, None)
+    cfg.initialize_config()
+    GeoMapper.get_instance().log_geo()
+    Shapes.get_instance(cfg.getParam('database_path'))
+    
     if not scenarios:
         scenarios = [os.path.basename(p) for p in glob.glob(os.path.join(cfg.workingdir, '*.json'))]
         if not scenarios:
@@ -2409,7 +2489,7 @@ def run(path, config, scenarios):
                 os.remove(os.path.join(folder, f))
         for dir in os.listdir(folder):
             if os.path.isdir(os.path.join(folder,dir)) and dir != 'System Inputs':
-                shutil.rmtree(os.path.join(folder,dir))
+                 shutil.rmtree(os.path.join(folder,dir))
     for scenario_index, scenario in enumerate(scenarios):
         model = load_model(False, True, False, scenario)
         export = RioExport(model,scenario_index)
@@ -2448,6 +2528,7 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 if __name__ == "__main__":
     workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\US'
+    os.chdir(workingdir)
     config = 'config.INI'
     scenario = ['rhodium_high_elect_high_EE']
     export = run(workingdir, config, scenario)

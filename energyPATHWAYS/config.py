@@ -16,7 +16,6 @@ import platform
 from error import ConfigFileError, PathwaysException
 from energyPATHWAYS.generated.new_database import EnergyPathwaysDatabase
 import unit_converter
-
 # Don't print warnings
 warnings.simplefilter("ignore")
 
@@ -93,7 +92,7 @@ def initialize_config():
 
     init_db()
     init_units()
-    geomapper.GeoMapper()
+    geomapper.GeoMapper.get_instance()
     init_date_lookup()
     init_output_parameters()
     unit_converter.UnitConverter.get_instance()
@@ -138,7 +137,7 @@ def init_date_lookup():
 
     opt_period_length = getParamAsInt('period_length', 'opt')
     transmission_constraint = _ConfigParser.get('opt','transmission_constraint')
-    transmission_constraint = int(transmission_constraint) if transmission_constraint != "" else None
+    transmission_constraint = transmission_constraint if transmission_constraint != "" else None
     filter_dispatch_less_than_x = _ConfigParser.get('output_detail','filter_dispatch_less_than_x')
     filter_dispatch_less_than_x = float(filter_dispatch_less_than_x) if filter_dispatch_less_than_x != "" else None
 
@@ -176,48 +175,6 @@ def table_dict(table_name, columns=['id', 'name'], append=False,
     result = upper_dict(df, append=append)
     return result
 
-# def init_outputs_id_map():
-#     global outputs_id_map
-#
-#     demand_primary_geography = geo.get_demand_primary_geography_name()
-#     supply_primary_geography = geo.get_supply_primary_geography_name()
-#     dispatch_geography_name = geo.get_dispatch_geography_name()
-#
-#     geo_names = geo.geography_names.items()
-#
-#     outputs_id_map[demand_primary_geography] = upper_dict(geo_names)
-#     outputs_id_map[supply_primary_geography] = upper_dict(geo_names)
-#     outputs_id_map[supply_primary_geography + "_supply"] = upper_dict(geo_names)
-#     outputs_id_map[supply_primary_geography + "_input"]  = upper_dict(geo_names)
-#     outputs_id_map[supply_primary_geography + "_output"] = upper_dict(geo_names)
-#     outputs_id_map[demand_primary_geography + "_input"]  = upper_dict(geo_names)
-#     outputs_id_map[demand_primary_geography + "_output"] = upper_dict(geo_names)
-#     outputs_id_map[dispatch_geography_name] = upper_dict(geo_names)
-#
-#     outputs_id_map['demand_technology'] = table_dict('DemandTechs')
-#     outputs_id_map['supply_technology'] = table_dict('SupplyTechs')
-#     outputs_id_map['final_energy'] = table_dict('FinalEnergy')
-#     outputs_id_map['supply_node'] = table_dict('SupplyNodes')
-#     outputs_id_map['blend_node'] = table_dict('SupplyNodes')
-#     outputs_id_map['input_node'] = table_dict('SupplyNodes')
-#     outputs_id_map['supply_node_output'] = outputs_id_map['supply_node']
-#     outputs_id_map['supply_node_input'] = outputs_id_map['supply_node']
-#     outputs_id_map['supply_node_export'] = table_dict('SupplyNodes', append=True) # " EXPORT")  ? Why was this passed as a boolean parameter?
-#     outputs_id_map['subsector'] = table_dict('DemandSubsectors')
-#     outputs_id_map['demand_sector'] = table_dict('DemandSectors')
-#     outputs_id_map['sector'] = outputs_id_map['demand_sector']
-#     outputs_id_map['ghg'] = table_dict('GreenhouseGases')
-#     outputs_id_map['driver'] = table_dict('DemandDrivers')
-#     outputs_id_map['dispatch_feeder'] = table_dict('DispatchFeeders')
-#     outputs_id_map['dispatch_feeder'][0] = 'BULK'
-#     outputs_id_map['other_index_1'] = table_dict('OtherIndexesData')
-#     outputs_id_map['other_index_2'] = table_dict('OtherIndexesData')
-#     outputs_id_map['timeshift_type'] = table_dict('FlexibleLoadShiftTypes')
-#
-#     for id, name in csv_read_table('OtherIndexes', ('id', 'name'), return_iterable=True):
-#         if name in ('demand_technology', 'final_energy'):
-#             continue
-#         outputs_id_map[name] = table_dict('OtherIndexesData', other_index_id=id, return_unique=True)
 
 def init_output_parameters():
     global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes, evolved_years,\
@@ -230,20 +187,20 @@ def init_output_parameters():
     output_payback = getParamAsBoolean('output_payback', section='output_detail')
     rio_supply_run = getParamAsBoolean('rio_supply_run', section='rio')
     rio_geography = getParam('rio_geography', section='rio')
-    rio_feeder_geographies = [feeder_geo.strip() for feeder_geo in getParam('rio_feeder_geographies', section='rio').split(',')]
+    rio_feeder_geographies = [feeder_geo.strip() for feeder_geo in getParam('rio_feeder_geographies', section='rio').split(',') if len(feeder_geo)]
     rio_energy_unit = getParam('rio_energy_unit', section='rio')
     rio_time_unit = getParam('rio_time_unit', section='rio')
     rio_timestep_multiplier = getParamAsInt('rio_timestep_multiplier', section='rio')
     # todo: these aren't going to be integers
-    rio_zonal_blend_nodes = [int(g) for g in _ConfigParser.get('rio', 'rio_zonal_blends').split(',') if len(g)]
-    rio_excluded_technologies = [int(g) for g in _ConfigParser.get('rio', 'rio_excluded_technologies').split(',') if len(g)]
-    rio_excluded_blends = [int(g) for g in _ConfigParser.get('rio', 'rio_excluded_blends').split(',') if len(g)]
-    rio_export_blends = [int(g) for g in _ConfigParser.get('rio', 'rio_export_blends').split(',') if len(g)]
-    rio_outflow_products = [int(g) for g in _ConfigParser.get('rio', 'rio_outflow_products').split(',') if len(g)]
-    rio_excluded_nodes = [int(g) for g in _ConfigParser.get('rio', 'rio_excluded_nodes').split(',') if len(g)]
-    rio_no_negative_blends = [int(g) for g in _ConfigParser.get('rio', 'rio_no_negative_blends').split(',') if len(g)]
+    rio_zonal_blend_nodes = [g for g in _ConfigParser.get('rio', 'rio_zonal_blends').split(',') if len(g)]
+    rio_excluded_technologies = [g for g in _ConfigParser.get('rio', 'rio_excluded_technologies').split(',') if len(g)]
+    rio_excluded_blends = [g for g in _ConfigParser.get('rio', 'rio_excluded_blends').split(',') if len(g)]
+    rio_export_blends = [g for g in _ConfigParser.get('rio', 'rio_export_blends').split(',') if len(g)]
+    rio_outflow_products = [g for g in _ConfigParser.get('rio', 'rio_outflow_products').split(',') if len(g)]
+    rio_excluded_nodes = [g for g in _ConfigParser.get('rio', 'rio_excluded_nodes').split(',') if len(g)]
+    rio_no_negative_blends = [g for g in _ConfigParser.get('rio', 'rio_no_negative_blends').split(',') if len(g)]
     evolved_run = _ConfigParser.get('evolved','evolved_run').lower()
-    evolved_years = [int(x) for x in ensure_iterable(_ConfigParser.get('evolved', 'evolved_years'))]
+    evolved_years = [x for x in ensure_iterable(_ConfigParser.get('evolved', 'evolved_years'))]
     evolved_blend_nodes = splitclean(_ConfigParser.get('evolved','evolved_blend_nodes'), as_type=int)
     rio_mass_unit = getParam('rio_mass_unit', section='rio')
     rio_volume_unit = getParam('rio_volume_unit', section='rio')
@@ -254,7 +211,8 @@ def init_output_parameters():
     rio_standard_distance_unit = getParam('rio_standard_distance_unit', section='rio')
     init_removed_levels()
     init_output_levels()
-    # init_outputs_id_map()
+
+
 
 def find_solver():
     dispatch_solver = _ConfigParser.get('opt', 'dispatch_solver')
@@ -370,7 +328,6 @@ def getParam(name, section=None, raw=False, raiseError=True):
 
     except ConfigParser.NoSectionError:
         if raiseError:
-            pdb.set_trace()
             raise PathwaysException('getParam: unknown section "%s"' % section)
         else:
             return None

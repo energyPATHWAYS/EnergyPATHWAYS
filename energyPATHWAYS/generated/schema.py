@@ -2131,9 +2131,9 @@ class DispatchTransmissionCost(DataObject):
     _table_name = "DispatchTransmissionCost"
     _key_col = "name"
     _cols = ["capacity_or_energy_unit", "cost_incremental", "cost_of_capital", "currency",
-             "currency_year_id", "gau_from", "gau_to", "geography_map_key", "is_levelized",
-             "lifetime", "name", "notes", "sensitivity", "source", "time_unit", "value", "year"]
-    _df_cols = []
+             "currency_year", "extrapolation_method", "geography_map_key", "interpolation_method",
+             "is_levelized", "lifetime", "name", "time_unit"]
+    _df_cols = ["gau_to", "gau_from", "sensitivity", "value", "year"]
     _df_filters = []
     _data_table_name = None
 
@@ -2146,106 +2146,107 @@ class DispatchTransmissionCost(DataObject):
         self.cost_incremental = None
         self.cost_of_capital = None
         self.currency = None
-        self.currency_year_id = None
-        self.gau_from = None
-        self.gau_to = None
+        self.currency_year = None
+        self.extrapolation_method = None
         self.geography_map_key = None
+        self.interpolation_method = None
         self.is_levelized = None
         self.lifetime = None
         self.name = None
-        self.notes = None
-        self.sensitivity = None
-        self.source = None
         self.time_unit = None
-        self.value = None
-        self.year = None
 
     def set_args(self, scenario, capacity_or_energy_unit=None, cost_incremental=None, cost_of_capital=None, currency=None,
-                 currency_year_id=None, gau_from=None, gau_to=None, geography_map_key=None,
-                 is_levelized=None, lifetime=None, name=None, notes=None, sensitivity=None, source=None,
-                 time_unit=None, value=None, year=None):
+                 currency_year=None, extrapolation_method=None, geography_map_key=None,
+                 interpolation_method=None, is_levelized=None, lifetime=None, name=None, time_unit=None):
         self.check_scenario(scenario)
 
         self.capacity_or_energy_unit = capacity_or_energy_unit
         self.cost_incremental = cost_incremental
         self.cost_of_capital = cost_of_capital
         self.currency = currency
-        self.currency_year_id = currency_year_id
-        self.gau_from = gau_from
-        self.gau_to = gau_to
+        self.currency_year = currency_year
+        self.extrapolation_method = extrapolation_method
         self.geography_map_key = geography_map_key
+        self.interpolation_method = interpolation_method
         self.is_levelized = is_levelized
         self.lifetime = lifetime
         self.name = name
-        self.notes = notes
-        self.sensitivity = sensitivity
-        self.source = source
         self.time_unit = time_unit
-        self.value = value
-        self.year = year
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, currency, currency_year_id, capacity_or_energy_unit, time_unit, geography_map_key,
-         is_levelized, lifetime, cost_incremental, cost_of_capital, source, notes, gau_from,
-         gau_to, year, value, sensitivity,) = tup
+        (name, currency, currency_year, capacity_or_energy_unit, interpolation_method,
+         extrapolation_method, time_unit, geography_map_key, is_levelized, lifetime,
+         cost_incremental, cost_of_capital,) = tup
 
         self.set_args(scenario, capacity_or_energy_unit=capacity_or_energy_unit, cost_incremental=cost_incremental,
-                  cost_of_capital=cost_of_capital, currency=currency, currency_year_id=currency_year_id,
-                  gau_from=gau_from, gau_to=gau_to, geography_map_key=geography_map_key,
-                  is_levelized=is_levelized, lifetime=lifetime, name=name, notes=notes,
-                  sensitivity=sensitivity, source=source, time_unit=time_unit, value=value, year=year)
+                  cost_of_capital=cost_of_capital, currency=currency, currency_year=currency_year,
+                  extrapolation_method=extrapolation_method, geography_map_key=geography_map_key,
+                  interpolation_method=interpolation_method, is_levelized=is_levelized, lifetime=lifetime,
+                  name=name, time_unit=time_unit)
 
 class DispatchTransmissionHurdleRate(DataObject):
     _instances_by_key = {}
     _table_name = "DispatchTransmissionHurdleRate"
-    _key_col = "parent"
-    _cols = ["parent"]
+    _key_col = "name"
+    _cols = ["energy_unit", "extrapolation_method", "interpolation_method", "name"]
     _df_cols = ["gau_to", "gau_from", "hour", "sensitivity", "value", "month", "day_type", "year"]
     _df_filters = []
     _data_table_name = None
 
-    def __init__(self, parent, scenario):
-        DataObject.__init__(self, parent, scenario)
+    def __init__(self, name, scenario):
+        DataObject.__init__(self, name, scenario)
 
         DispatchTransmissionHurdleRate._instances_by_key[self._key] = self
 
-        self.parent = None
+        self.energy_unit = None
+        self.extrapolation_method = None
+        self.interpolation_method = None
+        self.name = None
 
-    def set_args(self, scenario, parent=None):
+    def set_args(self, scenario, energy_unit=None, extrapolation_method=None, interpolation_method=None, name=None):
         self.check_scenario(scenario)
 
-        self.parent = parent
+        self.energy_unit = energy_unit
+        self.extrapolation_method = extrapolation_method
+        self.interpolation_method = interpolation_method
+        self.name = name
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (parent,) = tup
+        (name, energy_unit, interpolation_method, extrapolation_method,) = tup
 
-        self.set_args(scenario, parent=parent)
+        self.set_args(scenario, energy_unit=energy_unit, extrapolation_method=extrapolation_method,
+                  interpolation_method=interpolation_method, name=name)
 
 class DispatchTransmissionLosses(DataObject):
     _instances_by_key = {}
     _table_name = "DispatchTransmissionLosses"
-    _key_col = "parent"
-    _cols = ["parent"]
+    _key_col = "name"
+    _cols = ["extrapolation_method", "interpolation_method", "name"]
     _df_cols = ["gau_to", "gau_from", "hour", "sensitivity", "value", "month", "day_type", "year"]
     _df_filters = []
     _data_table_name = None
 
-    def __init__(self, parent, scenario):
-        DataObject.__init__(self, parent, scenario)
+    def __init__(self, name, scenario):
+        DataObject.__init__(self, name, scenario)
 
         DispatchTransmissionLosses._instances_by_key[self._key] = self
 
-        self.parent = None
+        self.extrapolation_method = None
+        self.interpolation_method = None
+        self.name = None
 
-    def set_args(self, scenario, parent=None):
+    def set_args(self, scenario, extrapolation_method=None, interpolation_method=None, name=None):
         self.check_scenario(scenario)
 
-        self.parent = parent
+        self.extrapolation_method = extrapolation_method
+        self.interpolation_method = interpolation_method
+        self.name = name
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (parent,) = tup
+        (name, interpolation_method, extrapolation_method,) = tup
 
-        self.set_args(scenario, parent=parent)
+        self.set_args(scenario, extrapolation_method=extrapolation_method, interpolation_method=interpolation_method,
+                  name=name)
 
 class ImportCost(DataObject):
     _instances_by_key = {}

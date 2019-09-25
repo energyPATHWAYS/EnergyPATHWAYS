@@ -72,7 +72,7 @@ class Output(object):
             #         df[col_name] = [dct[col_name][x] if x in dct[col_name].keys() else x for x in df[col_name].values]
             #     except:
             #         pdb.set_trace()
-            if col_name in GeoMapper.geographies.keys():
+            if col_name in GeoMapper.geography_to_gau.keys():
                 if replace_gau:
                     util.replace_column_name(df,'gau',col_name)
                 if add_geography:

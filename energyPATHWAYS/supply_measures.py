@@ -48,8 +48,8 @@ class BlendMeasure(schema.BlendNodeBlendMeasures):
 
 
 class RioBlendMeasure(DataObject):
-    def __init__(self, id,raw_values):
-        self.id = id
+    def __init__(self, name,raw_values):
+        self.name = name
         self.raw_values = raw_values
         self.raw_values = self.raw_values.replace(np.inf,0)
         self.raw_values = self.raw_values.fillna(0)
@@ -58,16 +58,14 @@ class RioBlendMeasure(DataObject):
         self.interpolation_method = 'linear_interpolation'
         self.extrapolation_method = 'nearest'
         self.geography_map_key = None
+        self._cols = []
 
 
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        try:
-            self.remap(converted_geography=GeoMapper.supply_primary_geography)
-        except:
-            pdb.set_trace()
-        self.values['supply_node'] = self.id
+        self.remap(converted_geography=GeoMapper.supply_primary_geography)
+        self.values['supply_node'] = self.name
         self.values.set_index('supply_node', append=True, inplace=True)
         primary_geography = GeoMapper.supply_primary_geography
         self.values = util.reindex_df_level_with_new_elements(self.values, primary_geography,

@@ -217,6 +217,7 @@ class RioSpecifiedStock(DataObject):
         self.input_type = 'total'
         self.interpolation_method = 'linear_interpolation'
         self.extrapolation_method = 'nearest'
+        self._cols = []
 
     def calculate(self, vintages, years):
         self.vintages = vintages

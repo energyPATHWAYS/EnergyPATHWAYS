@@ -14,10 +14,7 @@ import pdb
 class TransmissionSuper(DataObject):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
     def __init__(self):
-        if self.name is None:
-            self._setup_zero_constraints()
-        else:
-            self._setup_and_validate()
+        self._setup_and_validate()
 
 
     def _setup_and_validate(self):
@@ -40,11 +37,11 @@ class TransmissionSuper(DataObject):
 
     def _validate_gaus(self):
         dispatch_geographies = set(GeoMapper.dispatch_geographies)
-        geography_from_names = self.raw_values.index.get_level_values('geography_from')
+        geography_from_names = self.raw_values.index.get_level_values('gau_from')
         if len(set(geography_from_names) - dispatch_geographies):
             raise ValueError("gau_from_names {} are found in transmission constraint name {} "
                              "but not found in the dispatch_geographies {}".format(list(set(geography_from_names) - dispatch_geographies), self.name, GeoMapper.dispatch_geographies))
-        geography_to_names = self.raw_values.index.get_level_values('geography_to')
+        geography_to_names = self.raw_values.index.get_level_values('gau_to')
         if len(set(geography_to_names) - dispatch_geographies):
             raise ValueError("gau_to_names {} are found in transmission constraint name {} "
                              "but not found in the dispatch_geographies {}".format(list(set(geography_to_names) - dispatch_geographies), self.name, GeoMapper.dispatch_geographies))
@@ -72,6 +69,11 @@ class DispatchTransmissionConstraint(schema.DispatchTransmissionConstraint, Tran
         self.init_from_db(name, scenario)
         TransmissionSuper.__init__(self)
         self.scenario = scenario
+        self.name = name
+        if self.name is None:
+            self._setup_zero_constraints()
+        else:
+            self._setup_and_validate()
         self.convert_units()
 
     def convert_units(self):
@@ -84,10 +86,11 @@ class DispatchTransmissionHurdleRate(schema.DispatchTransmissionHurdleRate, Tran
     def __init__(self, name, scenario):
         schema.DispatchTransmissionHurdleRate.__init__(self, name, scenario=scenario)
         self.init_from_db(name, scenario)
-        self.name = self.parent
+        self.name = name
         TransmissionSuper.__init__(self)
         self.scenario = scenario
         self.convert_units()
+
 
     def convert_units(self):
         if self.name is not None:
@@ -99,7 +102,7 @@ class DispatchTransmissionLosses(schema.DispatchTransmissionLosses, Transmission
     def __init__(self, name, scenario):
         schema.DispatchTransmissionLosses.__init__(self, name, scenario=scenario)
         self.init_from_db(name, scenario)
-        self.name = self.parent
+        self.name = name
         TransmissionSuper.__init__(self)
         self.scenario = scenario
 
@@ -108,8 +111,10 @@ class DispatchTransmissionCost(schema.DispatchTransmissionCost, TransmissionSupe
     def __init__(self, name, scenario):
         schema.DispatchTransmissionCost.__init__(self, name, scenario=scenario)
         self.init_from_db(name, scenario)
+        self.name = name
         TransmissionSuper.__init__(self)
         self.scenario = scenario
+
         if self.values.sum().sum()>0:
             self.convert()
             self.levelize_costs()

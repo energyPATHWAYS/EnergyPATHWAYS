@@ -2241,7 +2241,6 @@ class Subsector(schema.DemandSubsectors):
             current_geography = self.stock.geography
             current_data_type = self.stock.input_type
             projected = False
-
         if 'demand_technology' in getattr(self.stock, map_from).index.names:
             self.stock.project(map_from=map_from, map_to='technology', current_geography=current_geography, converted_geography=GeoMapper.demand_primary_geography,
                                additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent),
@@ -2848,7 +2847,7 @@ class Subsector(schema.DemandSubsectors):
         for i, row in self.perturbation.filtered_sales_share_changes(elements, levels).reset_index().iterrows():
             y_i = years_lookup[int(row['year'])]
             dt_i = tech_lookup[self.perturbation.new_techs[int(row['demand_technology'])]]
-            rdt_i = tech_lookup[int(row['replaced_demand_technology'])]
+            rdt_i = tech_lookup[row['replaced_demand_tech']]
             if dt_i == rdt_i:
                 # if the demand and replace technology are the same, we don't do anything
                 continue

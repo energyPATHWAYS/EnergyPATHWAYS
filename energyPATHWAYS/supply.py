@@ -81,8 +81,6 @@ class Supply(object):
         self.rio_bulk_load = dict()
         self.rio_flex_pmin = dict
         self.rio_flex_pmax = dict()
-        # self.currencies_conversion = util.sql_read_table('CurrenciesConversion', ['currency','currency_year','value'])
-        # self.inflation__conversion = util.sql_read_table('InflationConversion', ['currency_year','currency','value'])
         self.add_rio_inputs()
 
 
@@ -953,8 +951,8 @@ class Supply(object):
         exports = None
         if self.dispatch.transmission_flow_df is not None:
             flow_with_losses = util.DfOper.divi((self.dispatch.transmission_flow_df, 1 - self.dispatch.transmission.losses.get_values(year)))
-            imports = self.dispatch.transmission_flow_df.groupby(level=['geography_to', 'weather_datetime']).sum()
-            exports = flow_with_losses.groupby(level=['geography_from', 'weather_datetime']).sum()
+            imports = self.dispatch.transmission_flow_df.groupby(level=['gau_to', 'weather_datetime']).sum()
+            exports = flow_with_losses.groupby(level=['gau_from', 'weather_datetime']).sum()
             imports.index.names = [GeoMapper.dispatch_geography, 'weather_datetime']
             exports.index.names = [GeoMapper.dispatch_geography, 'weather_datetime']
 
@@ -972,19 +970,19 @@ class Supply(object):
         # MOVE
         if year in self.dispatch_write_years and self.dispatch.transmission_flow_df is not None:
             df_index_reset = self.dispatch.transmission_flow_df.reset_index()
-            # df_index_reset['geography_from'] = map(cfg.outputs_id_map[GeoMapper.dispatch_geography].get, df_index_reset['geography_from'].values)
-            # df_index_reset['geography_to'] = map(cfg.outputs_id_map[GeoMapper.dispatch_geography].get, df_index_reset['geography_to'].values)
+            # df_index_reset['gau_from'] = map(cfg.outputs_id_map[GeoMapper.dispatch_geography].get, df_index_reset['gau_from'].values)
+            # df_index_reset['gau_to'] = map(cfg.outputs_id_map[GeoMapper.dispatch_geography].get, df_index_reset['gau_to'].values)
 
             df_index_reset_with_losses = DfOper.divi((self.dispatch.transmission_flow_df, 1 - self.dispatch.transmission.losses.get_values(year))).reset_index()
-            # df_index_reset_with_losses['geography_from'] = map(cfg.outputs_id_map[GeoMapper.dispatch_geography].get, df_index_reset_with_losses['geography_from'].values)
-            # df_index_reset_with_losses['geography_to'] = map(cfg.outputs_id_map[GeoMapper.dispatch_geography].get, df_index_reset_with_losses['geography_to'].values)
+            # df_index_reset_with_losses['gau_from'] = map(cfg.outputs_id_map[GeoMapper.dispatch_geography].get, df_index_reset_with_losses['gau_from'].values)
+            # df_index_reset_with_losses['gau_to'] = map(cfg.outputs_id_map[GeoMapper.dispatch_geography].get, df_index_reset_with_losses['gau_to'].values)
 
-            imports = df_index_reset.rename(columns={'geography_to':GeoMapper.dispatch_geography})
-            exports = df_index_reset_with_losses.rename(columns={'geography_from':GeoMapper.dispatch_geography})
-            exports['geography_to'] = 'TRANSMISSION EXPORT TO ' + exports['geography_to']
-            imports['geography_from'] = 'TRANSMISSION IMPORT FROM ' + imports['geography_from']
-            imports = imports.rename(columns={'geography_from':'DISPATCH_OUTPUT'})
-            exports = exports.rename(columns={'geography_to':'DISPATCH_OUTPUT'})
+            imports = df_index_reset.rename(columns={'gau_to':GeoMapper.dispatch_geography})
+            exports = df_index_reset_with_losses.rename(columns={'gau_from':GeoMapper.dispatch_geography})
+            exports['gau_to'] = 'TRANSMISSION EXPORT TO ' + exports['gau_to']
+            imports['gau_from'] = 'TRANSMISSION IMPORT FROM ' + imports['gau_from']
+            imports = imports.rename(columns={'gau_from':'DISPATCH_OUTPUT'})
+            exports = exports.rename(columns={'gau_to':'DISPATCH_OUTPUT'})
             imports = imports.set_index([GeoMapper.dispatch_geography, 'DISPATCH_OUTPUT', 'weather_datetime'])
             exports = exports.set_index([GeoMapper.dispatch_geography, 'DISPATCH_OUTPUT', 'weather_datetime'])
             # drop any lines that don't have flows this is done to reduce the size of outputs
@@ -1263,7 +1261,7 @@ class Supply(object):
                 energy = self._help_prepare_non_flexible_load_or_gen(energy, year, node, zone)
                 self.non_flexible_load.append(energy) # important that the order of the columns be correct
         if len(self.non_flexible_load):
-            self.non_flexible_load = pd.concat(self.non_flexible_load).sort()
+            self.non_flexible_load = util.df_list_concatenate(self.non_flexible_load)
         else:
             self.non_flexible_load = None
 
@@ -2773,7 +2771,8 @@ class Supply(object):
 
     def calculate_rio_blend_demand(self):
         self.io_rio_supply_df = copy.deepcopy(self.io_supply_df)
-        for year in self.years:
+        for year in self.dispatch_years:
+            logging.info("calculating rio blend demand in year %s" %year)
             total_demand = self.io_demand_df.loc[:,year].to_frame()
             for sector in self.demand_sectors:
                 indexer = util.level_specific_indexer(self.io_total_active_demand_df,'demand_sector', sector)
@@ -2784,6 +2783,7 @@ class Supply(object):
                 temp[np.nonzero(rio_io.values.sum(axis=1) + active_demand.values.flatten()==0)[0]] = 0
                 self.io_rio_supply_df.loc[indexer,year] = temp
         self.io_rio_supply_df = util.remove_df_levels(self.io_rio_supply_df,'demand_sector')
+
     
     def add_initial_demand_dfs(self, year):
 
@@ -3592,8 +3592,8 @@ class SupplyExportMeasuresObj(schema.SupplyExportMeasures, Export):
         self.input_type = 'total'
 
 class RioExport(DataObject):
-    def __init__(self,id,raw_values):
-        self.id = id
+    def __init__(self,name,raw_values):
+        self.name = name
         self._has_data = True
         self.raw_values = raw_values.groupby(level=[GeoMapper.supply_primary_geography,'year']).sum()
         self.raw_values = self.raw_values.replace(np.inf,0)
@@ -3604,6 +3604,7 @@ class RioExport(DataObject):
         self.extrapolation_method = 'nearest'
         self.geography_map_key = None
         self.unit = cfg.rio_energy_unit
+        self._cols = []
 
 
     def calculate(self, years, demand_sectors):
@@ -3723,18 +3724,18 @@ class BlendNode(Node):
             df = util.df_slice(df,self.name,'blend')
             input_nodes = list(set(df.index.get_level_values('supply_node')))
             self.blend_measures = dict()
-            for id in input_nodes:
-                data =util.df_slice(df,id,'supply_node')
-                self.blend_measures[id] = RioBlendMeasure(id,data)
+            for node in input_nodes:
+                data =util.df_slice(df,node,'supply_node')
+                self.blend_measures[node] = RioBlendMeasure(node,data)
 
     def add_rio_bulk_blend_measures(self,df):
             """
             add all blend measures in a selected scenario to a dictionary
             """
             input_nodes = list(set(df.index.get_level_values('supply_node')))
-            for id in input_nodes:
-                data =util.df_slice(df,id,'supply_node')
-                self.blend_measures[id] = RioBlendMeasure(id,data)
+            for node in input_nodes:
+                data =util.df_slice(df,node,'supply_node')
+                self.blend_measures[node] = RioBlendMeasure(node,data)
 
 
     def add_rio_thermal_blend_measures(self, df):
@@ -3743,9 +3744,9 @@ class BlendNode(Node):
             """
             input_nodes = list(set(df.index.get_level_values('supply_node')))
             self.blend_measures = dict()
-            for id in input_nodes:
-                data =util.df_slice(df,id,'supply_node')
-                self.blend_measures[id] = RioBlendMeasure(id,data)
+            for node in input_nodes:
+                data =util.df_slice(df,node,'supply_node')
+                self.blend_measures[node] = RioBlendMeasure(node,data)
 
 
     def calculate(self,calculate_residual=True):
@@ -4324,8 +4325,8 @@ class SupplyNode(Node, StockItem):
                                              util.df_slice(dispatch_tx_constraints.values,min(dispatch_tx_constraints.values.index.get_level_values('year')),'year')])
             else:
                 capacity = util.df_slice(dispatch_tx_constraints.values,year,'year')
-            levelized_tx_costs = util.DfOper.mult([util.df_slice(dispatch_tx_costs.values_level,year,'year'),capacity]).groupby(level='geography_from').sum()
-            util.replace_index_name(levelized_tx_costs,GeoMapper.supply_primary_geography,'geography_from')
+            levelized_tx_costs = util.DfOper.mult([util.df_slice(dispatch_tx_costs.values_level,year,'year'),capacity]).groupby(level='gau_from').sum()
+            util.replace_index_name(levelized_tx_costs,GeoMapper.supply_primary_geography,'gau_from')
             embodied_tx_costs = util.DfOper.divi([levelized_tx_costs,self.throughput])
             self.embodied_cost.loc[:, year] += embodied_tx_costs.values.flatten()
         self.active_embodied_cost = util.expand_multi(self.embodied_cost[year].to_frame(), levels_list = [GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography], self.demand_sectors],levels_names=[GeoMapper.supply_primary_geography,'demand_sector'])
@@ -5000,7 +5001,10 @@ class SupplyStockNode(Node):
     def calculate_sales(self):
         for tech in self.tech_names:
             technology = self.technologies[tech]
-            technology.calculate_sales('reference_sales')
+            try:
+                technology.calculate_sales('reference_sales')
+            except:
+                pdb.set_trace()
             technology.calculate_sales('sales')
 
     def reconcile_sales(self):
@@ -6238,9 +6242,12 @@ class SupplyEnergyConversion(schema.SupplyPotentialConversion):
 
 class RioInputs(DataObject):
     def __init__(self,scenario, supply):
-        self.supply_node_mapping = {v.lower():k for k,v in cfg.outputs_id_map['supply_node'].iteritems()}
-        self.geography_mapping = {v.lower():k for k,v in GeoMapper.geography_names.iteritems()}
-        self.supply_technology_mapping = {v.lower():k for k,v in cfg.outputs_id_map['supply_technology'].iteritems()}
+        tech_list = util.csv_read_table('SupplyTechs','name',return_iterable=True)
+        self.supply_technology_mapping = dict(zip([x.lower() for x in tech_list], tech_list))
+        node_list = util.csv_read_table('SupplyNodes','name',return_iterable=True)
+        self.supply_node_mapping = dict(zip([x.lower() for x in node_list], node_list))
+        gau_list = util.csv_read_table('Geographies','gau',return_iterable=True)
+        self.geography_mapping = dict(zip([x.lower() for x in gau_list], gau_list))
         self.scenario = scenario
         self.supply = supply
         self.rio_standard_unit_dict = self.create_rio_standard_unit_dict()
@@ -6376,15 +6383,15 @@ class RioInputs(DataObject):
                                  usecols=['zone from','zone to','year','value','run name'],
                                   index_col=['zone from','zone to','year','run name'])
         tx_capacity = util.df_slice(tx_capacity,scenario,'run name')
-        tx_capacity.index.names = ['geography_from','geography_to','year']
-        tx_capacity = tx_capacity.reset_index('geography_from')
-        tx_capacity['geography_from'] = [self.geography_mapping[x] for x in tx_capacity['geography_from'].values]
-        tx_capacity = tx_capacity.reset_index('geography_to')
-        tx_capacity['geography_to'] = [self.geography_mapping[x] for x in tx_capacity['geography_to'].values]
-        tx_capacity = tx_capacity.set_index(['geography_from','geography_to'], append=True)
-        tx_capacity.index = tx_capacity.index.reorder_levels(['geography_from','geography_to','year'])
-        tx_capacity = util.reindex_df_level_with_new_elements(tx_capacity, 'geography_from', GeoMapper.dispatch_geographies)
-        tx_capacity = util.reindex_df_level_with_new_elements(tx_capacity, 'geography_to', GeoMapper.dispatch_geographies)
+        tx_capacity.index.names = ['gau_from','gau_to','year']
+        tx_capacity = tx_capacity.reset_index('gau_from')
+        tx_capacity['gau_from'] = [self.geography_mapping[x] for x in tx_capacity['gau_from'].values]
+        tx_capacity = tx_capacity.reset_index('gau_to')
+        tx_capacity['gau_to'] = [self.geography_mapping[x] for x in tx_capacity['gau_to'].values]
+        tx_capacity = tx_capacity.set_index(['gau_from','gau_to'], append=True)
+        tx_capacity.index = tx_capacity.index.reorder_levels(['gau_from','gau_to','year'])
+        tx_capacity = util.reindex_df_level_with_new_elements(tx_capacity, 'gau_from', GeoMapper.dispatch_geographies)
+        tx_capacity = util.reindex_df_level_with_new_elements(tx_capacity, 'gau_to', GeoMapper.dispatch_geographies)
         tx_capacity = UnitConverter.unit_convert(tx_capacity,unit_from_num = cfg.rio_energy_unit,unit_to_num=cfg.calculation_energy_unit)
         tx_capacity = tx_capacity.fillna(0)
         return tx_capacity
@@ -6421,6 +6428,7 @@ class RioInputs(DataObject):
         gen_regions = list(set(df.index.get_level_values('zone')))
         df['resource'] = df['resource'].apply(lambda x: self.clean_name(x,gen_regions))
         df['technology'] = [self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_'))>3 else self.supply_technology_mapping[x.split('_')[0]]   for x in df['resource'].values]
+        df['resource'] = [x.replace('all','1') for x in df['resource'].values]
         df['resource_bin'] = [int(x.split('_')[2]) if len(x.split('_')) == 5 else int(x.split('_')[1]) if len(x.split('_')) == 3 else 'n/a' for x in df['resource'].values]
         df.pop('resource')
         df = df.set_index(['technology','resource_bin'],append=True)
@@ -6461,6 +6469,7 @@ class RioInputs(DataObject):
         gen_regions = list(set(df.index.get_level_values('zone')))
         df['resource'] = df['resource'].apply(lambda x: self.clean_name(x,gen_regions))
         df['technology'] = [self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_'))>3 else self.supply_technology_mapping[x.split('_')[0]]   for x in df['resource'].values]
+        df['resource'] = [x.replace('all', '1') for x in df['resource'].values]
         df['resource_bin'] = [int(x.split('_')[2]) if len(x.split('_')) == 5 else int(x.split('_')[1]) if len(x.split('_')) == 3 else 'n/a' for x in df['resource'].values]
         df.pop('resource')
         df = df.set_index(['technology','resource_bin'],append=True)
@@ -6543,8 +6552,6 @@ class RioInputs(DataObject):
                         continue
                     trade_df.loc[(geography_from,year),geography_to] *= 1+losses_df.sum().sum()
         self.trade_df = trade_df
-        self.remap('trade_df','trade_df',converted_geography=GeoMapper.supply_primary_geography,
-                   current_geography=cfg.rio_geography,current_data_type='intensity', interpolation_method = 'linear_interpolation',extrapolation_method='nearest')
         return self.trade_df
 
 
@@ -6561,6 +6568,7 @@ class RioInputs(DataObject):
         gen_regions = list(set(df.index.get_level_values('zone')))
         df['resource'] = df['resource'].apply(lambda x: self.clean_name(x,gen_regions))
         df['technology'] = [self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_'))>3 else self.supply_technology_mapping[x.split('_')[0]]   for x in df['resource'].values]
+        df['resource'] = [x.replace('all', '1') for x in df['resource'].values]
         df['resource_bin'] = [int(x.split('_')[2]) if len(x.split('_')) == 5 else int(x.split('_')[1]) if len(x.split('_')) == 3 else 'n/a' for x in df['resource'].values]
         df.pop('resource')
         df = df.set_index(['technology','resource_bin'],append=True)
@@ -6581,6 +6589,7 @@ class RioInputs(DataObject):
         gen_regions = list(set(df.index.get_level_values('zone')))
         df['fuel'] = df['fuel'].apply(lambda x: self.clean_name(x,gen_regions))
         df['technology'] = [self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_'))>3 else self.supply_technology_mapping[x.split('_')[0]]   for x in df['fuel'].values]
+        df['fuel'] = [x.replace('all', '1') for x in df['fuel'].values]
         df['resource_bin'] = [int(x.split('_')[2]) if len(x.split('_')) == 5 else int(x.split('_')[1]) if len(x.split('_')) == 3 else 'n/a' for x in df['fuel'].values]
         df.pop('fuel')
         df = df.set_index(['technology','resource_bin'],append=True)
@@ -6595,12 +6604,13 @@ class RioInputs(DataObject):
     def calc_stocks(self,scenario,capacity):
         df = util.df_slice(capacity, scenario, 'run name')
         df = df[~df.index.get_level_values('output').isin(['blend storage','storage energy','flexible load'])]
-        df *= np.vstack(np.array([util.unit_conversion_factor(a,b) for a,b in zip(df.index.get_level_values('unit'),[self.rio_standard_unit_dict[x] for x in df.index.get_level_values('unit')])]))
-        df *= util.unit_conversion_factor(cfg.rio_standard_energy_unit,cfg.rio_energy_unit)
+        df *= np.vstack(np.array([ UnitConverter.unit_convert(1,a,b) for a,b in zip(df.index.get_level_values('unit'),[self.rio_standard_unit_dict[x] for x in df.index.get_level_values('unit')])]))
+        df *=  UnitConverter.unit_convert(1,cfg.rio_standard_energy_unit,cfg.rio_energy_unit)
         df = df.reset_index('resource')
         gen_regions = list(set(df.index.get_level_values('zone')))
         df['resource'] = df['resource'].apply(lambda x: self.clean_name(x,gen_regions))
         df['technology'] = [self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_'))>3 else self.supply_technology_mapping[x.split('_')[0]]   for x in df['resource'].values]
+        df['resource'] = [x.replace('all','1') for x in df['resource'].values]
         df['resource_bin'] = [int(x.split('_')[2]) if len(x.split('_')) == 5 else int(x.split('_')[1]) if len(x.split('_')) == 3 else 'n/a' for x in df['resource'].values]
         df.pop('resource')
         df = df.set_index(['technology','resource_bin'],append=True)
@@ -6649,8 +6659,8 @@ class RioInputs(DataObject):
         df = util.df_slice(fuel_outputs,scenario,'run name')
         df = df.groupby(level=['unit','blend','zone','year']).sum()
         df = df[df.values>0]
-        df *= np.vstack(np.array([util.unit_conversion_factor(a,b) for a,b in zip(df.index.get_level_values('unit'),[self.rio_standard_unit_dict[x] for x in df.index.get_level_values('unit')])]))
-        df *= util.unit_conversion_factor(cfg.rio_standard_energy_unit,cfg.rio_energy_unit)
+        df *= np.vstack(np.array([ UnitConverter.unit_convert(1,a,b) for a,b in zip(df.index.get_level_values('unit'),[self.rio_standard_unit_dict[x] for x in df.index.get_level_values('unit')])]))
+        df *= UnitConverter.unit_convert(1,cfg.rio_standard_energy_unit,cfg.rio_energy_unit)
         df['blend_new'] = [self.supply_node_mapping[x] for x in df.index.get_level_values('blend')]
         df = df.reset_index('blend')
         df['blend'] = df['blend_new']
@@ -6669,8 +6679,8 @@ class RioInputs(DataObject):
         df = df[df.values<0]*-1
         if len(df) == 0:
             return None
-        df *= np.vstack(np.array([util.unit_conversion_factor(a,b) for a,b in zip(df.index.get_level_values('unit'),[self.rio_standard_unit_dict[x] for x in df.index.get_level_values('unit')])]))
-        df *= util.unit_conversion_factor(cfg.rio_standard_energy_unit,cfg.rio_energy_unit)
+        df *= np.vstack(np.array([ UnitConverter.unit_convert(1,a,b) for a,b in zip(df.index.get_level_values('unit'),[self.rio_standard_unit_dict[x] for x in df.index.get_level_values('unit')])]))
+        df *=  UnitConverter.unit_convert(1,cfg.rio_standard_energy_unit,cfg.rio_energy_unit)
         supply_node_names = [x.split('_')[0] for x in [x.split('||')[0] for x in df.index.get_level_values('fuel')]]
         df= df.reset_index()
         df['supply_node'] = [self.supply_node_mapping[x] for x in supply_node_names]

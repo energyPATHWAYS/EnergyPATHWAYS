@@ -72,8 +72,8 @@ class SupplyTechnology(schema.SupplyTechs, StockItem):
     def add_rio_stock_measures(self,rio_inputs):
         self.specified_stocks = {}
         df = rio_inputs.stock
-        if self.id in set(df.index.get_level_values('technology')):
-            df = util.df_slice(df,[self.id],['technology'])
+        if self.name in set(df.index.get_level_values('technology')):
+            df = util.df_slice(df,[self.name],['technology'])
             if np.any([isinstance(x,int) for x in df.index.get_level_values('resource_bin').values]):
                 df = df[df.index.get_level_values('resource_bin')!='n/a']
                 df = df.groupby(level=df.index.names).sum()
@@ -110,7 +110,7 @@ class SupplyTechnology(schema.SupplyTechs, StockItem):
         # if no class_b is specified, there is no equivalent cost for class_a
         if class_b is None:
             class_a_instance = getattr(self, class_a)
-            if class_a_instance._has_data is False and hasattr(class_a_instance, 'reference_tech_id') is False and class_a is 'capital_cost_new':
+            if class_a_instance._has_data is False and hasattr(class_a_instance, 'reference_tech') is False and class_a is 'capital_cost_new':
                 logging.warning("Conversion technology %s has no capital cost data" % (self.name))
                 raise ValueError
         else:
@@ -119,8 +119,8 @@ class SupplyTechnology(schema.SupplyTechs, StockItem):
             if class_a_instance._has_data is True and class_a_instance.raw_values is not None and class_b_instance._has_data is True and class_b_instance.raw_values is not None:
                 pass
             elif class_a_instance._has_data is False and class_b_instance._has_data is False and \
-                            hasattr(class_a_instance, 'reference_tech_id') is False and \
-                            hasattr(class_b_instance, 'reference_tech_id') is False:
+                            hasattr(class_a_instance, 'reference_tech') is False and \
+                            hasattr(class_b_instance, 'reference_tech') is False:
                 pass
             elif class_a_instance._has_data is True and class_a_instance.raw_values is not None and (class_b_instance._has_data is False or (class_b_instance._has_data is True and class_b_instance.raw_values is None)):
                 setattr(self, class_b, copy.deepcopy(class_a_instance))
@@ -282,9 +282,9 @@ class StorageTechDuration(schema.StorageTechsDuration):
         self.name = name
 
     def set_rio_duration(self,rio_inputs):
-        if self.id in set(rio_inputs.duration.index.get_level_values('technology'))and self.id not in cfg.rio_excluded_technologies:
+        if self.name in set(rio_inputs.duration.index.get_level_values('technology'))and self.name not in cfg.rio_excluded_technologies:
             self._has_data = True
-            self.raw_values = util.df_slice(rio_inputs.duration,self.id,'technology')
+            self.raw_values = util.df_slice(rio_inputs.duration,self.name,'technology')
             self.geography = cfg.rio_geography
             self.capacity_or_energy_unit = cfg.rio_energy_unit
             self.time_unit = cfg.rio_time_unit
@@ -363,7 +363,7 @@ class SupplyTechEfficiency(schema.SupplyTechsEfficiency):
         self.years = years
         if self._has_data and self.raw_values is not None and cfg.rio_supply_run and 'year' in self.raw_values.index.names:
             self.remap(map_from='raw_values', map_to='values', current_geography=GeoMapper.rio_geography,converted_geography=GeoMapper.supply_primary_geography,
-                       time_index_name='year', lower=None, missing_intensity_geos=True)
+                       time_index_name='year', lower=None, missing_intensity_geos=False)
             self.values = self.values.unstack('year')
             self.values.columns = self.values.columns.droplevel()
             self.values = pd.concat([self.values] *len(self.vintages),keys=self.vintages,names=['vintage'])
@@ -371,7 +371,7 @@ class SupplyTechEfficiency(schema.SupplyTechsEfficiency):
             self.values = self.values.set_index('efficiency_type',append=True)
         elif self._has_data and self.raw_values is not None:
             self.convert()
-            self.remap(map_from='values', map_to='values', converted_geography=GeoMapper.supply_primary_geography, time_index_name='vintage', lower=None,missing_intensity_geos=True)
+            self.remap(map_from='values', map_to='values', converted_geography=GeoMapper.supply_primary_geography, time_index_name='vintage', lower=None,missing_intensity_geos=False)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         if not self._has_data:
             self.absolute = False
