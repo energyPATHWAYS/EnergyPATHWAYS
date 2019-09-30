@@ -81,6 +81,7 @@ class DispatchTransmissionConstraint(schema.DispatchTransmissionConstraint, Tran
             unit_factor = UnitConverter.unit_convert(1, unit_from_den=self.energy_unit, unit_to_den=cfg.calculation_energy_unit)
             self.values /= unit_factor
 
+
 class DispatchTransmissionHurdleRate(schema.DispatchTransmissionHurdleRate, TransmissionSuper):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
     def __init__(self, name, scenario):

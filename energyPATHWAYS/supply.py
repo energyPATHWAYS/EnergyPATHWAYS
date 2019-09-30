@@ -3647,7 +3647,7 @@ class RioExport(DataObject):
         else:
             # remap exports to active supply, which has information about sectoral throughput
             self.active_values = self.values.loc[:, year].to_frame()
-            active_supply[active_supply.values < 0] = 0
+            active_supply[active_supply.values <= 0] = .01
             self.remap(map_from='active_values', map_to='active_values', drivers=active_supply, fill_timeseries=False,
                        current_geography=GeoMapper.supply_primary_geography, converted_geography=GeoMapper.supply_primary_geography,
                        driver_geography=GeoMapper.supply_primary_geography)
@@ -4624,9 +4624,11 @@ class SupplyCoefficients(schema.SupplyEfficiency):
         self.input_type = 'intensity'
         self.scenario = scenario
 
+
     def calculate(self, years, demand_sectors):
         self.years = years
         self.demand_sectors = demand_sectors
+
         if self._has_data:
             self.convert()
             self.remap(map_from='values', lower=None, converted_geography=GeoMapper.supply_primary_geography)
@@ -6071,7 +6073,10 @@ class PrimaryNode(Node):
                     self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography], self.demand_sectors],levels_names=[GeoMapper.supply_primary_geography,'demand_sector'])
                 else:
                     raise ValueError("too many indexes in cost inputs of node %s" %self.name)
-            self.levelized_costs.loc[:,year] = DfOper.mult([self.active_embodied_cost,self.active_supply]).values
+            try:
+                self.levelized_costs.loc[:,year] = DfOper.mult([self.active_embodied_cost,self.active_supply]).values
+            except:
+                pdb.set_trace()
 
     def calculate_annual_costs(self,year):
         if hasattr(self,'active_embodied_cost'):
@@ -6091,6 +6096,7 @@ class PrimaryNode(Node):
         cost = util.DfOper.mult([supply_curve,self.cost.values.loc[:,year].to_frame()])
         levels = ['demand_sector',GeoMapper.supply_primary_geography]
         cost = cost.groupby(level = [x for x in levels if x in cost.index.names]).sum()
+        cost = cost[cost.index.get_level_values(GeoMapper.supply_primary_geography).isin(GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography])]
         return util.expand_multi(cost, levels_list = [GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography], self.demand_sectors], levels_names=[GeoMapper.supply_primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
 
 
@@ -6110,6 +6116,8 @@ class PrimaryNode(Node):
         traded_cost = util.DfOper.mult([cost,map_df])
         traded_cost = traded_cost.groupby(level=[x for x in tradable_levels if x in traded_cost.index.names]).transform(lambda x: x.max())
         cost = traded_cost.groupby(level = [x for x in levels if x in cost.index.names]).max()
+        cost = cost[cost.index.get_level_values(GeoMapper.supply_primary_geography).isin(
+            GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography])]
         return util.expand_multi(cost, levels_list = [GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography], self.demand_sectors], levels_names=[GeoMapper.supply_primary_geography,'demand_sector']).replace([np.nan,np.inf],0)
 
 class PrimaryCost(schema.PrimaryCost):
@@ -6165,6 +6173,7 @@ class SupplyEmissions(schema.SupplyEmissions):
         self.input_type = 'intensity'
         self.scenario = scenario
 
+
     def calculate(self, conversion, resource_unit):
         if self._has_data:
             self.conversion = conversion
@@ -6213,7 +6222,7 @@ class SupplyEmissions(schema.SupplyEmissions):
           physical_emissions_indexer = util.level_specific_indexer(self.values, 'ghg_type', 'physical')
           self.values_physical =  self.values.loc[physical_emissions_indexer,:]
           accounting_emissions_indexer = util.level_specific_indexer(self.values, 'ghg_type', 'accounting')
-          if 2 in self.values.index.get_level_values('ghg_type'):
+          if 'accounting' in self.values.index.get_level_values('ghg_type'):
               self.values_accounting =  self.values.loc[accounting_emissions_indexer,:]
           else:
               self.values_accounting = self.values_physical * 0
@@ -6552,6 +6561,11 @@ class RioInputs(DataObject):
                         continue
                     trade_df.loc[(geography_from,year),geography_to] *= 1+losses_df.sum().sum()
         self.trade_df = trade_df
+        self._cols = []
+        self.remap('trade_df', 'trade_df', converted_geography=GeoMapper.supply_primary_geography,
+                   current_geography=cfg.rio_geography, current_data_type='intensity',
+                   interpolation_method='linear_interpolation', extrapolation_method='nearest')
+
         return self.trade_df
 
 

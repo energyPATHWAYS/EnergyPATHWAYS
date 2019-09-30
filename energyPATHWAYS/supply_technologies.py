@@ -362,7 +362,7 @@ class SupplyTechEfficiency(schema.SupplyTechsEfficiency):
         self.vintages = vintages
         self.years = years
         if self._has_data and self.raw_values is not None and cfg.rio_supply_run and 'year' in self.raw_values.index.names:
-            self.remap(map_from='raw_values', map_to='values', current_geography=GeoMapper.rio_geography,converted_geography=GeoMapper.supply_primary_geography,
+            self.remap(map_from='raw_values', map_to='values', current_geography=cfg.rio_geography,converted_geography=GeoMapper.supply_primary_geography,
                        time_index_name='year', lower=None, missing_intensity_geos=False)
             self.values = self.values.unstack('year')
             self.values.columns = self.values.columns.droplevel()

@@ -362,6 +362,7 @@ class Demand(object):
     def link_to_supply(self, embodied_emissions_link, direct_emissions_link, energy_link, cost_link):
         demand_df = GeoMapper.geo_map(self.outputs.d_energy, GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total')
         logging.info("linking supply emissions to energy demand")
+        pdb.set_trace()
         setattr(self.outputs, 'demand_embodied_emissions', self.group_linked_output(demand_df, embodied_emissions_link))
         logging.info("calculating direct demand emissions")
         setattr(self.outputs, 'demand_direct_emissions', self.group_linked_output(demand_df, direct_emissions_link))
