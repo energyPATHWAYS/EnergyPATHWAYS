@@ -6357,7 +6357,10 @@ class RioInputs(DataMapFunctions):
     def clean_delivered_rio_gen(self):
         if self.delivered_gen is None:
             return None
-        df = util.df_slice(self.delivered_gen,self.scenario, 'run name')
+        try:
+            df = util.df_slice(self.delivered_gen,self.scenario, 'run name')
+        except:
+            return None
         df['technology'] = [self.supply_technology_mapping[x.split('||')[1]] if len(x.split('_')) > 3 else
                             self.supply_technology_mapping[x.split('||')[0]] for x in df.index.get_level_values('resource')]
         df = df.set_index(['technology'], append=True)
