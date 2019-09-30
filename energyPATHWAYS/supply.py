@@ -3714,7 +3714,7 @@ class BlendNode(Node):
                         df = util.df_slice(self.rio_trades,[geography_from,year],[cfg.supply_primary_geography,'year']).loc[:,geography_to]
                         idx = pd.IndexSlice
                         self.active_trade_adjustment_df.loc[idx[geography_from,:,:],idx[geography_to, :]] = df.sum()
-                        if self.delivered_gen is not None:
+                        if self.cleaned_delivered_gen is not None:
                             for group in self.delivered_gen.groupby(level=[cfg.supply_primary_geography+"_from",'supply_node']).groups.keys():
                                 self.active_trade_adjustment_df.loc[idx[:, :, group[1]], :] = 0
                                 self.active_trade_adjustment_df.loc[idx[group[0], :, group[1]], :] = 1
@@ -6520,7 +6520,7 @@ class RioInputs(DataMapFunctions):
         df = util.df_slice(gen_energy, scenario, 'run name')
         df_gen_all = df[df.index.get_level_values('output').isin(['hydro','fixed','thermal','curtailment'])]*-1
         df_gen_bulk = util.remove_df_levels(df[df.index.get_level_values('output').isin(['hydro','fixed','curtailment'])]*-1,'output')
-        if self.delivered_gen is not None:
+        if self.cleaned_delivered_gen is not None:
             delivered_gen_reduction = util.df_slice(self.delivered_gen,scenario,'run name').groupby(level=['zone from','resource','resource_agg','year']).sum()
             util.replace_index_name(delivered_gen_reduction,'zone','zone from')
             delivered_gen_addition = util.df_slice(self.delivered_gen, scenario, 'run name').groupby(
@@ -6566,7 +6566,7 @@ class RioInputs(DataMapFunctions):
         transmission_imports = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\annual_transmission_flow.csv'),
                                  usecols=['zone from','zone to','year','value','run name'], index_col=['zone from','zone to','year','run name'])
         tx_flows =util.df_slice(transmission_imports, scenario, 'run name')
-        if self.delivered_gen is not None:
+        if self.cleaned_delivered_gen is not None:
             tx_flows = util.DfOper.mult([util.DfOper.divi([util.remove_df_levels(util.DfOper.subt([tx_flows, util.df_slice(self.delivered_gen,scenario,'run name').groupby(level=['zone from','zone to','year']).sum()]),'zone from'),util.remove_df_levels(tx_flows,'zone from')]),tx_flows])
         tx_losses = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\TX_LOSSES.csv'),
                                  usecols=['name','from','to','year','value'], index_col=['name','from','to','year'])
