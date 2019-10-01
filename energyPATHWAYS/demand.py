@@ -362,7 +362,6 @@ class Demand(object):
     def link_to_supply(self, embodied_emissions_link, direct_emissions_link, energy_link, cost_link):
         demand_df = GeoMapper.geo_map(self.outputs.d_energy, GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total')
         logging.info("linking supply emissions to energy demand")
-        pdb.set_trace()
         setattr(self.outputs, 'demand_embodied_emissions', self.group_linked_output(demand_df, embodied_emissions_link))
         logging.info("calculating direct demand emissions")
         setattr(self.outputs, 'demand_direct_emissions', self.group_linked_output(demand_df, direct_emissions_link))
@@ -2890,19 +2889,12 @@ class Subsector(schema.DemandSubsectors):
 
             initial_stock = self.calculate_initial_stock(elements)
             sales_share = self.calculate_total_sales_share_new(elements, initial_stock, reference_run)
-            # # the perturbation object is used to create supply curves of demand technologies
-            # if self.perturbation is not None:
-            #     sales_share = self.sales_share_perturbation(elements, self.stock.rollover_group_names, sales_share)
 
             if self.stock.is_service_demand_dependent and self.stock.demand_stock_unit_type == 'equipment':
                 sales_share = self.calculate_service_modified_sales(elements,self.stock.rollover_group_names,sales_share)
 
             demand_technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names)
-            if cfg.evolved_run=='true':
-                sales_share[len(self.years) -len(cfg.supply_years):] = 1/float(len(self.techs))
             annual_stock_change = util.df_slice(self.stock.annual_stock_changes, elements, self.stock.rollover_group_names)
-            # if elements == (5177, 28, 63):
-            #     pdb.set_trace()
             self.rollover = Rollover(vintaged_markov_matrix=self.stock.vintaged_markov_matrix,
                                          initial_markov_matrix=self.stock.initial_markov_matrix,
                                          num_years=len(self.years), num_vintages=len(self.vintages),
