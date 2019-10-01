@@ -3714,7 +3714,7 @@ class BlendNode(Node):
                         df = util.df_slice(self.rio_trades,[geography_from,year],[cfg.supply_primary_geography,'year']).loc[:,geography_to]
                         idx = pd.IndexSlice
                         self.active_trade_adjustment_df.loc[idx[geography_from,:,:],idx[geography_to, :]] = df.sum()
-                        if self.cleaned_delivered_gen is not None:
+                        if self.delivered_gen is not None:
                             for group in self.delivered_gen.groupby(level=[cfg.supply_primary_geography+"_from",'supply_node']).groups.keys():
                                 self.active_trade_adjustment_df.loc[idx[:, :, group[1]], :] = 0
                                 self.active_trade_adjustment_df.loc[idx[group[0], :, group[1]], :] = 1
@@ -6362,7 +6362,7 @@ class RioInputs(DataMapFunctions):
         except:
             return None
         df['technology'] = [self.supply_technology_mapping[x.split('||')[1]] if len(x.split('_')) > 3 else
-                            self.supply_technology_mapping[x.split('||')[0]] for x in df.index.get_level_values('resource')]
+                            self.supply_technology_mapping[x.split('||')[0].lower()] for x in df.index.get_level_values('resource')]
         df = df.set_index(['technology'], append=True)
         df = df.groupby(level=['zone from', 'zone to',
                                'year', 'technology']).sum()
@@ -6697,7 +6697,7 @@ class RioInputs(DataMapFunctions):
             df_supply = df_supply[df_supply['blend'].isin(cfg.rio_zonal_blend_nodes)]
         else:
             df_supply = df_supply[~df_supply['blend'].isin(cfg.rio_zonal_blend_nodes)]
-        supply_node_names = [x.split('_')[0] for x in [x.split('||')[0] for x in df_supply.index.get_level_values('fuel')]]
+        supply_node_names = [x.split('_')[0] for x in [x.split('||')[0].lower() for x in df_supply.index.get_level_values('fuel')]]
         df_supply = df_supply.reset_index('fuel')
         df_supply['supply_node'] = [self.supply_node_mapping[x] for x in supply_node_names]
         df_supply.pop('fuel')
@@ -6743,7 +6743,7 @@ class RioInputs(DataMapFunctions):
             return None
         df *= np.vstack(np.array([util.unit_conversion_factor(a,b) for a,b in zip(df.index.get_level_values('unit'),[self.rio_standard_unit_dict[x] for x in df.index.get_level_values('unit')])]))
         df *= util.unit_conversion_factor(cfg.rio_standard_energy_unit,cfg.rio_energy_unit)
-        supply_node_names = [x.split('_')[0] for x in [x.split('||')[0] for x in df.index.get_level_values('fuel')]]
+        supply_node_names = [x.split('_')[0] for x in [x.split('||')[0].lower() for x in df.index.get_level_values('fuel')]]
         df= df.reset_index()
         df['supply_node'] = [self.supply_node_mapping[x] for x in supply_node_names]
         df = df[df['supply_node'].isin(cfg.rio_outflow_products)]
