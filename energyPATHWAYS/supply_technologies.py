@@ -367,7 +367,7 @@ class SupplyTechEfficiency(schema.SupplyTechsEfficiency):
             self.values = self.values.unstack('year')
             self.values.columns = self.values.columns.droplevel()
             self.values = pd.concat([self.values] *len(self.vintages),keys=self.vintages,names=['vintage'])
-            self.values['efficiency_type'] = 1
+            self.values['efficiency_type'] = 'consumed'
             self.values = self.values.set_index('efficiency_type',append=True)
         elif self._has_data and self.raw_values is not None:
             self.convert()
