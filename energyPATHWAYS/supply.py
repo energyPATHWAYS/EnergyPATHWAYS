@@ -6374,8 +6374,9 @@ class RioInputs(DataObject):
         df[cfg.rio_geography] = [self.geography_mapping[x] for x in df['zone'].values]
         df['supply_node'] = [self.supply_node_mapping[x] for x in df['blend'].values]
         df['supply_technology'] = [self.supply_technology_mapping[x] for x in df['resource_agg'].values]
-        df = df[['supply_technology',cfg.rio_geography,'supply_node','year','value']]
-        return df.set_index(['supply_technology',cfg.rio_geography,'supply_node','year'])
+        df['efficiency_type'] = 'consumed'
+        df = df[['supply_technology',cfg.rio_geography,'supply_node', 'efficiency_type','year','value']]
+        return df.set_index(['supply_technology',cfg.rio_geography, 'efficiency_type','supply_node','year'])
 
 
     def calc_capacity_factors(self,scenario,gen_energy,fuel_energy):
