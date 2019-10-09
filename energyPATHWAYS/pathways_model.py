@@ -43,14 +43,14 @@ class PathwaysModel(object):
             # self.demand.output_subsector_electricity_profiles()
             self.export_result_to_csv('demand_outputs')
 
-        if solve_supply and not load_supply:
+        if solve_supply:
             if load_demand:
                 # if we are loading the demand, we are changing the supply measures and want to reload our scenarios
                 self.scenario = Scenario(self.scenario_id)
             self.supply = Supply(self.scenario, demand_object=self.demand,rio_scenario=rio_scenario)
             self.calculate_supply(save_models)
 
-        if load_demand and solve_supply:
+        if load_demand and solve_supply and export_results:
             # we do this now because we delayed before
             self.export_result_to_csv('demand_outputs')
 
@@ -163,7 +163,7 @@ class PathwaysModel(object):
 
             result_df = getattr(res_obj, 'return_cleaned_output')(attribute)
             if cfg.rio_supply_run:
-                keys = [self.rio_scenario.upper(),cfg.timestamp]
+                keys = [self.supply.rio_scenario.upper(),cfg.timestamp]
             else:
                 keys = [self.scenario.name.upper(), cfg.timestamp]
             names = ['SCENARIO', 'TIMESTAMP']
@@ -383,7 +383,7 @@ class PathwaysModel(object):
         self.outputs.c_emissions = util.df_list_concatenate([export_emissions, embodied_emissions, direct_emissions],keys=keys,new_names = names)
         util.replace_index_name(self.outputs.c_emissions, GeoMapper.combined_outputs_geography.upper() +'-EMITTED', GeoMapper.combined_outputs_geography.upper() +'_SUPPLY')
         util.replace_index_name(self.outputs.c_emissions, GeoMapper.combined_outputs_geography.upper() +'-CONSUMED', GeoMapper.combined_outputs_geography.upper())
-        self.outputs.c_emissions = self.outputs.c_emissions[self.outputs.c_emissions['VALUE']>=1E-6]
+        self.outputs.c_emissions = self.outputs.c_emissions[self.outputs.c_emissions['VALUE']!=0]
         emissions_unit = cfg.getParam('mass_unit')
         self.outputs.c_emissions.columns = [emissions_unit.upper()]
 
