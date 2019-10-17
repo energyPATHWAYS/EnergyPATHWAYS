@@ -30,6 +30,9 @@ class Driver(schema.DemandDrivers):
     def __init__(self, name, scenario):
         super(Driver, self).__init__(name, scenario=scenario)
         self.init_from_db(name, scenario)
+        if self.unit_prefix is None:
+            self.unit_prefix = 1
+        self.raw_values *= self.unit_prefix
         self.scenario = scenario
         self.mapped = False
 
