@@ -2083,10 +2083,8 @@ class Subsector(schema.DemandSubsectors):
         """finds the maximum year to calibrate service demand input in energy terms
         back to service terms (i.e. without efficiency)
         """
-        current_year = datetime.now().year - 1
-        year_position = util.position_in_index(getattr(demand, 'raw_values'), 'year')
         year_position = getattr(demand, 'raw_values').index.names.index('year')
-        max_service_year = getattr(demand, 'raw_values').index.levels[year_position].max()
+        max_service_year = int(getattr(demand, 'raw_values').index.levels[year_position].max())
 #        return min(current_year, max_service_year)
         return max_service_year
 
@@ -2096,9 +2094,8 @@ class Subsector(schema.DemandSubsectors):
         back to service terms (i.e. without efficiency)
         """
         current_year = datetime.now().year - 1
-        year_position = util.position_in_index(getattr(demand, 'raw_values'), 'year')
         year_position = getattr(demand, 'raw_values').index.names.index('year')
-        min_service_year = getattr(demand, 'raw_values').index.levels[year_position].min()
+        min_service_year = int(getattr(demand, 'raw_values').index.levels[year_position].min())
         return min(current_year, min_service_year)
 
     @staticmethod

@@ -3308,14 +3308,13 @@ class Node(schema.SupplyNodes):
         used for nodes where the location of throughput is unrelated to the location of demand (ex. primary biomass supply)
         """
         if self.tradable_geography!= GeoMapper.supply_primary_geography and len(GeoMapper.supply_geographies)>1 :
-            if hasattr(self,'potential') and self.potential._has_data is True or (hasattr(self,'stock') and self.stock._has_data is True):
+            if hasattr(self,'potential') and self.potential._has_data is True or (hasattr(self,'stock') and (self.stock._has_data or self.stock.total.sum().sum()>0) is True):
                 #tradable supply is mapping of active supply to a tradable geography
                 try:
                     self.geo_step1 = GeoMapper.get_instance().map_df(GeoMapper.supply_primary_geography,self.tradable_geography, normalize_as='total', eliminate_zeros=False)
                 except:
                     logging.error('self.tradable_geography = {}, primary_geography = {}, name = {}'.format(self.tradable_geography, GeoMapper.supply_primary_geography, self.name))
                     raise
-
                 if hasattr(self,'potential') and self.potential._has_data is True:
                      df = util.remove_df_elements(self.potential.active_supply_curve, [x for x in GeoMapper.geography_to_gau_unfiltered[GeoMapper.supply_primary_geography]  if x not in GeoMapper.supply_geographies],GeoMapper.supply_primary_geography)
                      self.potential_geo = util.DfOper.mult([util.remove_df_levels(df,
@@ -4475,11 +4474,7 @@ class SupplyPotential(schema.SupplyPotential):
             # if a conversion is necessary, it means that original input values are in resource and not energy terms
             # this means that they must be copied to resource values and values are the result of
             # multiplying the original values by the conversion dataframe
-#            self.resource_values = UnitConverter.unit_convert(self.values,unit_from_den=self.time_unit, unit_to_den='year')
-#            self.resource_supply_curve = self.resource_values.groupby(level=[GeoMapper.supply_primary_geography]).cumsum()
             self.values = DfOper.mult([self.values, self.conversion.values],fill_value=self.conversion.values.mean().mean())
-#            self.supply_curve = util.remove_df_levels(self.values, [x for x in self.values.index.names if x not in [GeoMapper.supply_primary_geography,'resource_bin']])
-
             self.supply_curve = self.values
         else:
             if UnitConverter.is_energy_unit(self.unit):
@@ -4864,8 +4859,10 @@ class SupplyStockNode(Node):
         if hasattr(self.stock,'total'):
             self.stock.total[self.stock.total<tech_sum] = tech_sum
         else:
-#            self.stock.total = tech_sum
-            self.stock.total = pd.DataFrame(np.nan, tech_sum.index,tech_sum.columns)
+            if np.any(np.isnan(self.stock.technology.values)):
+                self.stock.total = pd.DataFrame(np.nan, tech_sum.index,tech_sum.columns)
+            else:
+                self.stock.total = tech_sum
 
     def format_rollover_stocks(self):
         #transposed technology stocks are used for entry in the stock rollover function

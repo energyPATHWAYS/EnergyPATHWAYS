@@ -137,17 +137,17 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\UCS'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\UCS'
     os.chdir(workingdir)
-    rio_scenario = None
-    scenario = ['UCS_ddp']
+    rio_scenario = 'ddp'
+    scenario = ['ddp']
     run(scenario,
-    load_demand   = False,
+    load_demand   = True,
     solve_demand  = True,
-    load_supply   = False,
+    load_supply   = True,
     solve_supply  = False,
-    export_results= True,
+    export_results= False,
     load_error    = False,
     save_models   = True,
-    clear_results = True,
+    clear_results = False,
     rio_scenario=rio_scenario)
