@@ -206,16 +206,14 @@ class DataObject(CsvDataObject):
         current_number_of_geographies = len(get_elements_from_level(df, current_geography))
         if not filter_geo:
             propper_number_of_geographies = len(GeoMapper.geography_to_gau_unfiltered[current_geography])
-            if (
-                    current_data_type == 'total' or missing_intensity_geos) and current_number_of_geographies != propper_number_of_geographies:
+            if (current_data_type == 'total' or missing_intensity_geos) and current_number_of_geographies != propper_number_of_geographies:
                 # we only want to do it when we have a total, otherwise we can't just fill with zero
                 df = reindex_df_level_with_new_elements(df, current_geography,
                                                         GeoMapper.geography_to_gau_unfiltered[current_geography],
                                                         fill_value=fill_value)
         else:
             propper_number_of_geographies = len(GeoMapper.geography_to_gau[current_geography])
-            if (
-                    current_data_type == 'total' or missing_intensity_geos) and current_number_of_geographies != propper_number_of_geographies:
+            if (current_data_type == 'total' or missing_intensity_geos) and current_number_of_geographies != propper_number_of_geographies:
                 # we only want to do it when we have a total, otherwise we can't just fill with zero
                 df = reindex_df_level_with_new_elements(df, current_geography,
                                                         GeoMapper.geography_to_gau[current_geography],

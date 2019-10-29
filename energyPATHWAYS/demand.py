@@ -2110,7 +2110,7 @@ class Subsector(schema.DemandSubsectors):
         if min_year == max_year:
             years = [min_year]
         else:
-            years = range(min_year, max_year+1)
+            years = range(int(min_year), int(max_year)+1)
         df = df.ix[:, years]
         df = pd.DataFrame(df.stack())
         util.replace_index_name(df, 'year')
