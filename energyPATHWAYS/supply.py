@@ -4855,14 +4855,14 @@ class SupplyStockNode(Node):
 
     def max_total(self):
         tech_sum = util.remove_df_levels(self.stock.technology,'supply_technology')
-#        self.stock.total = self.stock.total.fillna(tech_sum)
+
         if hasattr(self.stock,'total'):
-            self.stock.total[self.stock.total<tech_sum] = tech_sum
-        else:
-            if np.any(np.isnan(self.stock.technology.values)):
-                self.stock.total = pd.DataFrame(np.nan, tech_sum.index,tech_sum.columns)
+            if np.all(np.isnan(self.stock.total.values)) and not np.any(np.isnan(self.stock.technology)):
+                self.stock.total = self.stock.total.fillna(tech_sum)
             else:
-                self.stock.total = tech_sum
+                self.stock.total[self.stock.total.values<tech_sum.values] = tech_sum
+        else:
+            self.stock.total = pd.DataFrame(np.nan, tech_sum.index,tech_sum.columns)
 
     def format_rollover_stocks(self):
         #transposed technology stocks are used for entry in the stock rollover function
@@ -6448,7 +6448,7 @@ class RioInputs(DataObject):
 
     def calc_bulk_thermal_share(self,scenario,gen_energy):
         df = util.df_slice(gen_energy, scenario, 'run name')
-        df_gen_all = df[df.index.get_level_values('output').isin(['hydro','fixed','thermal','curtailment'])]*-1
+        df_gen_all = df[df.index.get_level_values('output').isin(['hydro','fixed','thermal','storage discharge','storage reliability gen'])]*-1
         df_gen_thermal = util.remove_df_levels(df[df.index.get_level_values('output').isin(['thermal'])]*-1,'output')
         df = util.DfOper.divi([df_gen_thermal, df_gen_all.groupby(level=['year', 'zone']).sum()]).groupby(level=['year','zone']).sum()
         df = df.reset_index('zone')
@@ -6460,8 +6460,10 @@ class RioInputs(DataObject):
 
     def calc_bulk_share(self,scenario,gen_energy):
         df = util.df_slice(gen_energy, scenario, 'run name')
-        df_gen_all = df[df.index.get_level_values('output').isin(['hydro','fixed','thermal','curtailment'])]*-1
-        df_gen_bulk = util.remove_df_levels(df[df.index.get_level_values('output').isin(['hydro','fixed','curtailment'])]*-1,'output')
+        df_gen_all = df[df.index.get_level_values('output').isin(['hydro','fixed','thermal','storage discharge','storage reliability gen'])]*-1
+        df_gen_bulk = util.remove_df_levels(df[df.index.get_level_values('output').isin(['hydro','fixed','curtailment','storage discharge','storage reliability gen'])]*-1,'output')
+
+
         if self.delivered_gen is not None:
             delivered_gen_reduction = util.df_slice(self.delivered_gen,scenario,'run name').groupby(level=['zone from','resource','resource_agg','year']).sum()
             util.replace_index_name(delivered_gen_reduction,'zone','zone from')

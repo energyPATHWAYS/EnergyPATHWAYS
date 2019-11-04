@@ -140,14 +140,14 @@ if __name__ == "__main__":
     workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\UCS'
     os.chdir(workingdir)
     rio_scenario = 'ddp'
-    scenario = ['ddp']
+    scenario = ['UCS_ddp']
     run(scenario,
     load_demand   = True,
     solve_demand  = True,
-    load_supply   = True,
+    load_supply   = False,
     solve_supply  = False,
-    export_results= False,
+    export_results= True,
     load_error    = False,
     save_models   = True,
-    clear_results = False,
+    clear_results = True,
     rio_scenario=rio_scenario)
