@@ -1956,8 +1956,8 @@ class Subsector(schema.DemandSubsectors):
             # Then use demand_technology efficiencies to convert to service demand
             self.energy_demand.int_values = self.energy_demand.raw_values.groupby(level=util.ix_excl(self.energy_demand.raw_values, ['final_energy'])).sum()
             self.convert_energy_to_service('demand_technology')
-            self.service_demand.int_values = DfOper.mult([self.service_demand.int_values,
-                                                          self.stock.tech_subset])
+            #self.service_demand.int_values = DfOper.mult([self.service_demand.int_values,
+              #                                            self.stock.tech_subset_normal])
             self.service_demand.map_from = 'int_values'
 
     def sd_modifier_full(self):

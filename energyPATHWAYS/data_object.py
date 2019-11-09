@@ -273,16 +273,16 @@ class DataObject(CsvDataObject):
             # becomes an attribute of self just because we may do a geomap on it
             driver_dfs = put_in_list(drivers)
             self.total_driver = DfOper.mult(driver_dfs)
-            self.total_driver_unitless = DfOper.add([x.groupby(level=[y for y in getattr(self,map_to).index.names if y in x.index.names]).apply(lambda x:x/x.sum()) for x in driver_dfs],expandable=False)
+            #self.total_driver_unitless = DfOper.add([x.groupby(level=[y for y in getattr(self,map_to).index.names if y in x.index.names]).apply(lambda x:x/x.sum()) for x in driver_dfs],expandable=False)
             # turns out we don't always have a year or vintage column for drivers. For instance when linked_demand_technology gets remapped
             if time_index_name in self.total_driver.index.names:
                 # sometimes when we have a linked service demand driver in a demand subsector it will come in on a fewer number of years than self.years, making this clean timeseries necesary
                 self.clean_timeseries(attr='total_driver', inplace=True, time_index_name=time_index_name,
                                       time_index=time_index, lower=None, upper=None, interpolation_method='missing',
                                       extrapolation_method='missing')
-                self.clean_timeseries(attr='total_driver_unitless', inplace=True, time_index_name=time_index_name,
-                                      time_index=time_index, lower=None, upper=None, interpolation_method='missing',
-                                      extrapolation_method='missing')
+                #self.clean_timeseries(attr='total_driver_unitless', inplace=True, time_index_name=time_index_name,
+                                      #time_index=time_index, lower=None, upper=None, interpolation_method='missing',
+                                      #extrapolation_method='missing')
 
             # While not on primary geography, geography does have some information we would like to preserve.
             if hasattr(self, 'drivers') and len(drivers) == len(self.drivers) and set([x.input_type for x in self.drivers.values()]) == set(['intensity']) and set([x.base_driver_id for x in self.drivers.values()]) == set([None]):
@@ -293,23 +293,25 @@ class DataObject(CsvDataObject):
                                                     current_geography=driver_geography,
                                                     current_data_type=driver_mapping_data_type,
                                                     fill_value=fill_value, filter_geo=filter_geo,remove_current_geography=False)
-            total_driver_current_geo_unitless = self.geo_map(current_geography, attr='total_driver_unitless', inplace=False,
-                                                    current_geography=driver_geography,
-                                                    current_data_type=driver_mapping_data_type,
-                                                    fill_value=0, filter_geo=filter_geo,remove_current_geography=False)
-            level_set = [x for x in set([x for x in getattr(self,map_to).index.names] + [current_geography,driver_geography]) if x in total_driver_current_geo_unitless.index.names]
+            #total_driver_current_geo_unitless = self.geo_map(current_geography, attr='total_driver_unitless', inplace=False,
+                                                    #current_geography=driver_geography,
+                                                    #current_data_type=driver_mapping_data_type,
+                                                    #fill_value=0, filter_geo=filter_geo,remove_current_geography=False)
+            level_set = [x for x in set([x for x in getattr(self,map_to).index.names] + [current_geography,driver_geography]) if x in total_driver_current_geo.index.names]
             if current_data_type == 'total':
                 if current_geography!=driver_geography:
                     levels = [x for x in level_set if x!=driver_geography]
                 else:
-                    levels = [x for x in total_driver_current_geo_unitless.index.names]
+                    levels = [x for x in level_set]
+                #if 'demand_technology' in getattr(self,map_to).index.names and 'Cordwood Stoves' in getattr(self,map_to).index.get_level_values('demand_technology'):
+                    #pdb.set_trace()
                 if fill_value is np.nan:
-                    df_intensity = DfOper.divi([DfOper.mult((getattr(self, map_to), total_driver_current_geo_unitless.groupby(level=levels).apply(lambda x: x/x.sum())),
+                    df_intensity = DfOper.divi([DfOper.mult((getattr(self, map_to), total_driver_current_geo.groupby(level=levels).apply(lambda x: x/x.sum())),
                                                expandable=(True, True), collapsible=(False, False),
                                                fill_value=fill_value),total_driver_current_geo],
                                                expandable=(False, True), collapsible=(False, True))
                 else:
-                    df_intensity = DfOper.divi([DfOper.mult((getattr(self, map_to), total_driver_current_geo_unitless.groupby(level=levels).apply(lambda x: x/x.sum())),
+                    df_intensity = DfOper.divi([DfOper.mult((getattr(self, map_to), total_driver_current_geo.groupby(level=levels).apply(lambda x: x/x.sum())),
                                                expandable=(True, True), collapsible=(False, False),
                                                fill_value=fill_value),total_driver_current_geo],
                                                expandable=(False, True), collapsible=(False, True)).replace([np.inf, np.nan, -np.nan], 0)
@@ -317,9 +319,12 @@ class DataObject(CsvDataObject):
 
             # Clean the timeseries as an intensity
             if fill_timeseries:
-                self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index,
-                                      interpolation_method=interpolation_method,
-                                      extrapolation_method=extrapolation_method)
+                try:
+                    self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index,
+                                          interpolation_method=interpolation_method,
+                                          extrapolation_method=extrapolation_method)
+                except:
+                    pdb.set_trace()
             if current_data_type == 'total':
                 setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo),fill_value=fill_value))
                 if len(set(getattr(self,map_to).index.get_level_values(current_geography)))>len(set(getattr(self,map_to).index.get_level_values(driver_geography))):
@@ -381,7 +386,7 @@ class DataObject(CsvDataObject):
             # the datatype is now total
             current_data_type = 'total'
 
-        driver_names = [self.driver_1, self.driver_2]
+        driver_names = [self.driver_1, self.driver_2,self.driver_3]
         try:
             driverDFs = [drivers_by_name[name].values for name in driver_names if name]
         except:

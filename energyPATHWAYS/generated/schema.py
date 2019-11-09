@@ -174,7 +174,7 @@ class DemandEnergyDemands(DataObject):
     _instances_by_key = {}
     _table_name = "DemandEnergyDemands"
     _key_col = "subsector"
-    _cols = ["demand_technology_index", "driver_1", "driver_2", "driver_denominator_1",
+    _cols = ["demand_technology_index", "driver_1", "driver_2", "driver_3", "driver_denominator_1",
              "driver_denominator_2", "extrapolation_growth", "extrapolation_method",
              "final_energy_index", "geography", "geography_map_key", "input_type",
              "interpolation_method", "is_stock_dependent", "notes", "other_index_1", "other_index_2",
@@ -192,6 +192,7 @@ class DemandEnergyDemands(DataObject):
         self.demand_technology_index = None
         self.driver_1 = None
         self.driver_2 = None
+        self.driver_3 = None
         self.driver_denominator_1 = None
         self.driver_denominator_2 = None
         self.extrapolation_growth = None
@@ -209,16 +210,18 @@ class DemandEnergyDemands(DataObject):
         self.subsector = None
         self.unit = None
 
-    def set_args(self, scenario, demand_technology_index=None, driver_1=None, driver_2=None, driver_denominator_1=None,
-                 driver_denominator_2=None, extrapolation_growth=None, extrapolation_method=None,
-                 final_energy_index=None, geography=None, geography_map_key=None, input_type=None,
-                 interpolation_method=None, is_stock_dependent=None, notes=None, other_index_1=None,
-                 other_index_2=None, source=None, subsector=None, unit=None):
+    def set_args(self, scenario, demand_technology_index=None, driver_1=None, driver_2=None, driver_3=None,
+                 driver_denominator_1=None, driver_denominator_2=None, extrapolation_growth=None,
+                 extrapolation_method=None, final_energy_index=None, geography=None,
+                 geography_map_key=None, input_type=None, interpolation_method=None,
+                 is_stock_dependent=None, notes=None, other_index_1=None, other_index_2=None, source=None,
+                 subsector=None, unit=None):
         self.check_scenario(scenario)
 
         self.demand_technology_index = demand_technology_index
         self.driver_1 = driver_1
         self.driver_2 = driver_2
+        self.driver_3 = driver_3
         self.driver_denominator_1 = driver_denominator_1
         self.driver_denominator_2 = driver_denominator_2
         self.extrapolation_growth = extrapolation_growth
@@ -238,15 +241,15 @@ class DemandEnergyDemands(DataObject):
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (subsector, is_stock_dependent, input_type, unit, driver_denominator_1,
-         driver_denominator_2, driver_1, driver_2, geography, final_energy_index,
+         driver_denominator_2, driver_1, driver_2, driver_3, geography, final_energy_index,
          demand_technology_index, other_index_1, other_index_2, interpolation_method,
          extrapolation_method, extrapolation_growth, geography_map_key, source, notes,) = tup
 
         self.set_args(scenario, demand_technology_index=demand_technology_index, driver_1=driver_1, driver_2=driver_2,
-                  driver_denominator_1=driver_denominator_1, driver_denominator_2=driver_denominator_2,
-                  extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
-                  final_energy_index=final_energy_index, geography=geography,
-                  geography_map_key=geography_map_key, input_type=input_type,
+                  driver_3=driver_3, driver_denominator_1=driver_denominator_1,
+                  driver_denominator_2=driver_denominator_2, extrapolation_growth=extrapolation_growth,
+                  extrapolation_method=extrapolation_method, final_energy_index=final_energy_index,
+                  geography=geography, geography_map_key=geography_map_key, input_type=input_type,
                   interpolation_method=interpolation_method, is_stock_dependent=is_stock_dependent,
                   notes=notes, other_index_1=other_index_1, other_index_2=other_index_2, source=source,
                   subsector=subsector, unit=unit)
@@ -936,7 +939,7 @@ class DemandServiceDemands(DataObject):
     _instances_by_key = {}
     _table_name = "DemandServiceDemands"
     _key_col = "subsector"
-    _cols = ["demand_technology_index", "driver_1", "driver_2", "driver_denominator_1",
+    _cols = ["demand_technology_index", "driver_1", "driver_2", "driver_3", "driver_denominator_1",
              "driver_denominator_2", "extrapolation_growth", "extrapolation_method",
              "final_energy_index", "geography", "geography_map_key", "input_type",
              "interpolation_method", "is_stock_dependent", "notes", "other_index_1", "other_index_2",
@@ -954,6 +957,7 @@ class DemandServiceDemands(DataObject):
         self.demand_technology_index = None
         self.driver_1 = None
         self.driver_2 = None
+        self.driver_3 = None
         self.driver_denominator_1 = None
         self.driver_denominator_2 = None
         self.extrapolation_growth = None
@@ -971,16 +975,18 @@ class DemandServiceDemands(DataObject):
         self.subsector = None
         self.unit = None
 
-    def set_args(self, scenario, demand_technology_index=None, driver_1=None, driver_2=None, driver_denominator_1=None,
-                 driver_denominator_2=None, extrapolation_growth=None, extrapolation_method=None,
-                 final_energy_index=None, geography=None, geography_map_key=None, input_type=None,
-                 interpolation_method=None, is_stock_dependent=None, notes=None, other_index_1=None,
-                 other_index_2=None, source=None, subsector=None, unit=None):
+    def set_args(self, scenario, demand_technology_index=None, driver_1=None, driver_2=None, driver_3=None,
+                 driver_denominator_1=None, driver_denominator_2=None, extrapolation_growth=None,
+                 extrapolation_method=None, final_energy_index=None, geography=None,
+                 geography_map_key=None, input_type=None, interpolation_method=None,
+                 is_stock_dependent=None, notes=None, other_index_1=None, other_index_2=None, source=None,
+                 subsector=None, unit=None):
         self.check_scenario(scenario)
 
         self.demand_technology_index = demand_technology_index
         self.driver_1 = driver_1
         self.driver_2 = driver_2
+        self.driver_3 = driver_3
         self.driver_denominator_1 = driver_denominator_1
         self.driver_denominator_2 = driver_denominator_2
         self.extrapolation_growth = extrapolation_growth
@@ -1000,15 +1006,15 @@ class DemandServiceDemands(DataObject):
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (subsector, is_stock_dependent, input_type, unit, driver_denominator_1,
-         driver_denominator_2, driver_1, driver_2, geography, final_energy_index,
+         driver_denominator_2, driver_1, driver_2, driver_3, geography, final_energy_index,
          demand_technology_index, other_index_1, other_index_2, interpolation_method,
          extrapolation_method, extrapolation_growth, geography_map_key, source, notes,) = tup
 
         self.set_args(scenario, demand_technology_index=demand_technology_index, driver_1=driver_1, driver_2=driver_2,
-                  driver_denominator_1=driver_denominator_1, driver_denominator_2=driver_denominator_2,
-                  extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
-                  final_energy_index=final_energy_index, geography=geography,
-                  geography_map_key=geography_map_key, input_type=input_type,
+                  driver_3=driver_3, driver_denominator_1=driver_denominator_1,
+                  driver_denominator_2=driver_denominator_2, extrapolation_growth=extrapolation_growth,
+                  extrapolation_method=extrapolation_method, final_energy_index=final_energy_index,
+                  geography=geography, geography_map_key=geography_map_key, input_type=input_type,
                   interpolation_method=interpolation_method, is_stock_dependent=is_stock_dependent,
                   notes=notes, other_index_1=other_index_1, other_index_2=other_index_2, source=source,
                   subsector=subsector, unit=unit)
@@ -1113,7 +1119,7 @@ class DemandStock(DataObject):
     _instances_by_key = {}
     _table_name = "DemandStock"
     _key_col = "subsector"
-    _cols = ["demand_stock_unit_type", "driver_1", "driver_2", "driver_denominator_1",
+    _cols = ["demand_stock_unit_type", "driver_1", "driver_2", "driver_3", "driver_denominator_1",
              "driver_denominator_2", "extrapolation_growth", "extrapolation_method", "geography",
              "geography_map_key", "input_type", "interpolation_method", "is_service_demand_dependent",
              "notes", "other_index_1", "other_index_2", "source", "specify_stocks_past_current_year",
@@ -1130,6 +1136,7 @@ class DemandStock(DataObject):
         self.demand_stock_unit_type = None
         self.driver_1 = None
         self.driver_2 = None
+        self.driver_3 = None
         self.driver_denominator_1 = None
         self.driver_denominator_2 = None
         self.extrapolation_growth = None
@@ -1148,17 +1155,18 @@ class DemandStock(DataObject):
         self.time_unit = None
         self.unit = None
 
-    def set_args(self, scenario, demand_stock_unit_type=None, driver_1=None, driver_2=None, driver_denominator_1=None,
-                 driver_denominator_2=None, extrapolation_growth=None, extrapolation_method=None,
-                 geography=None, geography_map_key=None, input_type=None, interpolation_method=None,
-                 is_service_demand_dependent=None, notes=None, other_index_1=None, other_index_2=None,
-                 source=None, specify_stocks_past_current_year=None, subsector=None, time_unit=None,
-                 unit=None):
+    def set_args(self, scenario, demand_stock_unit_type=None, driver_1=None, driver_2=None, driver_3=None,
+                 driver_denominator_1=None, driver_denominator_2=None, extrapolation_growth=None,
+                 extrapolation_method=None, geography=None, geography_map_key=None, input_type=None,
+                 interpolation_method=None, is_service_demand_dependent=None, notes=None,
+                 other_index_1=None, other_index_2=None, source=None,
+                 specify_stocks_past_current_year=None, subsector=None, time_unit=None, unit=None):
         self.check_scenario(scenario)
 
         self.demand_stock_unit_type = demand_stock_unit_type
         self.driver_1 = driver_1
         self.driver_2 = driver_2
+        self.driver_3 = driver_3
         self.driver_denominator_1 = driver_denominator_1
         self.driver_denominator_2 = driver_denominator_2
         self.extrapolation_growth = extrapolation_growth
@@ -1179,15 +1187,16 @@ class DemandStock(DataObject):
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (subsector, is_service_demand_dependent, driver_denominator_1, driver_denominator_2,
-         driver_1, driver_2, geography, other_index_1, other_index_2, geography_map_key,
+         driver_1, driver_2, driver_3, geography, other_index_1, other_index_2, geography_map_key,
          input_type, demand_stock_unit_type, unit, time_unit, interpolation_method,
          extrapolation_method, extrapolation_growth, specify_stocks_past_current_year, source,
          notes,) = tup
 
         self.set_args(scenario, demand_stock_unit_type=demand_stock_unit_type, driver_1=driver_1, driver_2=driver_2,
-                  driver_denominator_1=driver_denominator_1, driver_denominator_2=driver_denominator_2,
-                  extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
-                  geography=geography, geography_map_key=geography_map_key, input_type=input_type,
+                  driver_3=driver_3, driver_denominator_1=driver_denominator_1,
+                  driver_denominator_2=driver_denominator_2, extrapolation_growth=extrapolation_growth,
+                  extrapolation_method=extrapolation_method, geography=geography,
+                  geography_map_key=geography_map_key, input_type=input_type,
                   interpolation_method=interpolation_method,
                   is_service_demand_dependent=is_service_demand_dependent, notes=notes,
                   other_index_1=other_index_1, other_index_2=other_index_2, source=source,
