@@ -6420,7 +6420,7 @@ class RioInputs(DataObject):
                             self.supply_technology_mapping[x.split('_')[0]] for x in df['resource'].values]
         df.pop('resource')
         df = df.set_index(['technology'], append=True)
-        df = df.groupby(level=['zone', 'year', 'technology']).sum()
+        df = df.groupby(level=['zone', 'year', 'technology']).mean()
         df = df.reset_index('zone')
         df[cfg.rio_geography] = [self.geography_mapping[x] for x in df['zone'].values]
         df = df.set_index(cfg.rio_geography, append=True)
