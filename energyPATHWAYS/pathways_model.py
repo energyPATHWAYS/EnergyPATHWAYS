@@ -162,7 +162,7 @@ class PathwaysModel(object):
                 continue
 
             result_df = getattr(res_obj, 'return_cleaned_output')(attribute)
-            if cfg.rio_supply_run:
+            if cfg.rio_supply_run and self.supply is not None:
                 keys = [self.supply.rio_scenario.upper(),cfg.timestamp]
             else:
                 keys = [self.scenario.name.upper(), cfg.timestamp]

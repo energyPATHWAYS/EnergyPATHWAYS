@@ -9,7 +9,7 @@ import config as cfg
 from energyPATHWAYS.config import getParam, getParamAsBoolean
 from energyPATHWAYS.time_series import TimeSeries
 from energyPATHWAYS.util import (DfOper, put_in_list, get_elements_from_level,
-                   reindex_df_level_with_new_elements)
+                   reindex_df_level_with_new_elements,remove_df_levels)
 from energyPATHWAYS.geomapper import GeoMapper
 
 from csvdb.data_object import DataObject as CsvDataObject, get_database
@@ -132,7 +132,7 @@ class DataObject(CsvDataObject):
         else:
             return clean_data
 
-    def geo_map(self, converted_geography, attr='values', inplace=True, current_geography=None, current_data_type=None, fill_value=0.,filter_geo=True):
+    def geo_map(self, converted_geography, attr='values', inplace=True, current_geography=None, current_data_type=None, fill_value=0.,filter_geo=True,remove_current_geography=True):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table
         if input type is a total, then the subsection is the geography
         to convert to and the supersection is the initial geography.
@@ -161,7 +161,7 @@ class DataObject(CsvDataObject):
             pdb.set_trace()
 
         mapped_data = GeoMapper.geo_map(getattr(self, attr), current_geography, converted_geography,
-                                      current_data_type, geography_map_key, fill_value, filter_geo)
+                                      current_data_type, geography_map_key, fill_value, filter_geo,remove_current_geography=remove_current_geography)
 
         if inplace:
             setattr(self, attr, mapped_data.sort())
@@ -206,16 +206,14 @@ class DataObject(CsvDataObject):
         current_number_of_geographies = len(get_elements_from_level(df, current_geography))
         if not filter_geo:
             propper_number_of_geographies = len(GeoMapper.geography_to_gau_unfiltered[current_geography])
-            if (
-                    current_data_type == 'total' or missing_intensity_geos) and current_number_of_geographies != propper_number_of_geographies:
+            if (current_data_type == 'total' or missing_intensity_geos) and current_number_of_geographies != propper_number_of_geographies:
                 # we only want to do it when we have a total, otherwise we can't just fill with zero
                 df = reindex_df_level_with_new_elements(df, current_geography,
                                                         GeoMapper.geography_to_gau_unfiltered[current_geography],
                                                         fill_value=fill_value)
         else:
             propper_number_of_geographies = len(GeoMapper.geography_to_gau[current_geography])
-            if (
-                    current_data_type == 'total' or missing_intensity_geos) and current_number_of_geographies != propper_number_of_geographies:
+            if (current_data_type == 'total' or missing_intensity_geos) and current_number_of_geographies != propper_number_of_geographies:
                 # we only want to do it when we have a total, otherwise we can't just fill with zero
                 df = reindex_df_level_with_new_elements(df, current_geography,
                                                         GeoMapper.geography_to_gau[current_geography],
@@ -253,6 +251,7 @@ class DataObject(CsvDataObject):
         if current_geography not in index_names:
             raise ValueError('Current geography does not match the geography of the dataframe in remap')
 
+
         # deals with foreign gaus and updates the geography
         df, current_geography = self.account_for_foreign_gaus(map_from, current_data_type, current_geography)
         setattr(self, map_to, df)
@@ -272,13 +271,18 @@ class DataObject(CsvDataObject):
                              current_data_type=current_data_type, fill_value=fill_value, filter_geo=filter_geo)
         else:
             # becomes an attribute of self just because we may do a geomap on it
-            self.total_driver = DfOper.mult(put_in_list(drivers))
+            driver_dfs = put_in_list(drivers)
+            self.total_driver = DfOper.mult(driver_dfs)
+            #self.total_driver_unitless = DfOper.add([x.groupby(level=[y for y in getattr(self,map_to).index.names if y in x.index.names]).apply(lambda x:x/x.sum()) for x in driver_dfs],expandable=False)
             # turns out we don't always have a year or vintage column for drivers. For instance when linked_demand_technology gets remapped
             if time_index_name in self.total_driver.index.names:
                 # sometimes when we have a linked service demand driver in a demand subsector it will come in on a fewer number of years than self.years, making this clean timeseries necesary
                 self.clean_timeseries(attr='total_driver', inplace=True, time_index_name=time_index_name,
                                       time_index=time_index, lower=None, upper=None, interpolation_method='missing',
                                       extrapolation_method='missing')
+                #self.clean_timeseries(attr='total_driver_unitless', inplace=True, time_index_name=time_index_name,
+                                      #time_index=time_index, lower=None, upper=None, interpolation_method='missing',
+                                      #extrapolation_method='missing')
 
             # While not on primary geography, geography does have some information we would like to preserve.
             if hasattr(self, 'drivers') and len(drivers) == len(self.drivers) and set([x.input_type for x in self.drivers.values()]) == set(['intensity']) and set([x.base_driver_id for x in self.drivers.values()]) == set([None]):
@@ -288,30 +292,49 @@ class DataObject(CsvDataObject):
             total_driver_current_geo = self.geo_map(current_geography, attr='total_driver', inplace=False,
                                                     current_geography=driver_geography,
                                                     current_data_type=driver_mapping_data_type,
-                                                    fill_value=fill_value, filter_geo=filter_geo)
+                                                    fill_value=fill_value, filter_geo=filter_geo,remove_current_geography=False)
+            #total_driver_current_geo_unitless = self.geo_map(current_geography, attr='total_driver_unitless', inplace=False,
+                                                    #current_geography=driver_geography,
+                                                    #current_data_type=driver_mapping_data_type,
+                                                    #fill_value=0, filter_geo=filter_geo,remove_current_geography=False)
+            level_set = [x for x in set([x for x in getattr(self,map_to).index.names] + [current_geography,driver_geography]) if x in total_driver_current_geo.index.names]
             if current_data_type == 'total':
-                if fill_value is np.nan:
-                    df_intensity = DfOper.divi((getattr(self, map_to), total_driver_current_geo),
-                                               expandable=(False, True), collapsible=(False, True),
-                                               fill_value=fill_value).replace([np.inf], 0)
+                if current_geography!=driver_geography:
+                    levels = [x for x in level_set if x!=driver_geography]
                 else:
-                    df_intensity = DfOper.divi((getattr(self, map_to), total_driver_current_geo),
-                                               expandable=(False, True), collapsible=(False, True),
-                                               fill_value=fill_value).replace([np.inf, np.nan, -np.nan], 0)
+                    levels = [x for x in level_set]
+                #if 'demand_technology' in getattr(self,map_to).index.names and 'Cordwood Stoves' in getattr(self,map_to).index.get_level_values('demand_technology'):
+                    #pdb.set_trace()
+                if fill_value is np.nan:
+                    df_intensity = DfOper.divi([DfOper.mult((getattr(self, map_to), total_driver_current_geo.groupby(level=levels).apply(lambda x: x/x.sum())),
+                                               expandable=(True, True), collapsible=(False, False),
+                                               fill_value=fill_value),total_driver_current_geo],
+                                               expandable=(False, True), collapsible=(False, True))
+                else:
+                    df_intensity = DfOper.divi([DfOper.mult((getattr(self, map_to), total_driver_current_geo.groupby(level=levels).apply(lambda x: x/x.sum())),
+                                               expandable=(True, True), collapsible=(False, False),
+                                               fill_value=fill_value),total_driver_current_geo],
+                                               expandable=(False, True), collapsible=(False, True)).replace([np.inf, np.nan, -np.nan], 0)
                 setattr(self, map_to, df_intensity)
 
             # Clean the timeseries as an intensity
             if fill_timeseries:
-                self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index,
-                                      interpolation_method=interpolation_method,
-                                      extrapolation_method=extrapolation_method)
-
-            #            self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='intensity', fill_value=fill_value, filter_geo=filter_geo)
-            #            total_driver_converted_geo = self.geo_map(converted_geography, attr='total_driver', inplace=False, current_geography=driver_geography, current_data_type=driver_mapping_data_type, fill_value=fill_value, filter_geo=filter_geo)
-
+                try:
+                    self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index,
+                                          interpolation_method=interpolation_method,
+                                          extrapolation_method=extrapolation_method)
+                except:
+                    pdb.set_trace()
             if current_data_type == 'total':
-                setattr(self, map_to,
-                        DfOper.mult((getattr(self, map_to), total_driver_current_geo), fill_value=fill_value))
+                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo),fill_value=fill_value))
+                if len(set(getattr(self,map_to).index.get_level_values(current_geography)))>len(set(getattr(self,map_to).index.get_level_values(driver_geography))):
+                    setattr(self,map_to,remove_df_levels(getattr(self,map_to),driver_geography))
+                elif len(set(getattr(self, map_to).index.get_level_values(current_geography))) < len(
+                            set(getattr(self, map_to).index.get_level_values(driver_geography))):
+                    setattr(self, map_to, remove_df_levels(getattr(self, map_to), current_geography))
+                    current_geography = driver_geography
+                elif current_geography!=driver_geography:
+                    setattr(self, map_to, remove_df_levels(getattr(self, map_to), driver_geography))
             else:
                 setattr(self, map_to,
                         DfOper.mult((getattr(self, map_to), total_driver_current_geo), expandable=(True, False),
@@ -363,7 +386,7 @@ class DataObject(CsvDataObject):
             # the datatype is now total
             current_data_type = 'total'
 
-        driver_names = [self.driver_1, self.driver_2]
+        driver_names = [self.driver_1, self.driver_2,self.driver_3]
         try:
             driverDFs = [drivers_by_name[name].values for name in driver_names if name]
         except:
@@ -372,7 +395,6 @@ class DataObject(CsvDataObject):
 
         if additional_drivers is not None:
             driverDFs += put_in_list(additional_drivers)
-
         # both map_from and map_to are the same
         self.remap(map_from=map_to, map_to=map_to, drivers=driverDFs,
                    time_index_name=time_index_name, fill_timeseries=fill_timeseries,

@@ -30,6 +30,9 @@ class Driver(schema.DemandDrivers):
     def __init__(self, name, scenario):
         super(Driver, self).__init__(name, scenario=scenario)
         self.init_from_db(name, scenario)
+        if self.unit_prefix is None:
+            self.unit_prefix = 1
+        self.raw_values *= self.unit_prefix
         self.scenario = scenario
         self.mapped = False
 
@@ -1953,8 +1956,8 @@ class Subsector(schema.DemandSubsectors):
             # Then use demand_technology efficiencies to convert to service demand
             self.energy_demand.int_values = self.energy_demand.raw_values.groupby(level=util.ix_excl(self.energy_demand.raw_values, ['final_energy'])).sum()
             self.convert_energy_to_service('demand_technology')
-            self.service_demand.int_values = DfOper.mult([self.service_demand.int_values,
-                                                          self.stock.tech_subset])
+            #self.service_demand.int_values = DfOper.mult([self.service_demand.int_values,
+              #                                            self.stock.tech_subset_normal])
             self.service_demand.map_from = 'int_values'
 
     def sd_modifier_full(self):
@@ -2080,10 +2083,8 @@ class Subsector(schema.DemandSubsectors):
         """finds the maximum year to calibrate service demand input in energy terms
         back to service terms (i.e. without efficiency)
         """
-        current_year = datetime.now().year - 1
-        year_position = util.position_in_index(getattr(demand, 'raw_values'), 'year')
         year_position = getattr(demand, 'raw_values').index.names.index('year')
-        max_service_year = getattr(demand, 'raw_values').index.levels[year_position].max()
+        max_service_year = int(getattr(demand, 'raw_values').index.levels[year_position].max())
 #        return min(current_year, max_service_year)
         return max_service_year
 
@@ -2093,9 +2094,8 @@ class Subsector(schema.DemandSubsectors):
         back to service terms (i.e. without efficiency)
         """
         current_year = datetime.now().year - 1
-        year_position = util.position_in_index(getattr(demand, 'raw_values'), 'year')
         year_position = getattr(demand, 'raw_values').index.names.index('year')
-        min_service_year = getattr(demand, 'raw_values').index.levels[year_position].min()
+        min_service_year = int(getattr(demand, 'raw_values').index.levels[year_position].min())
         return min(current_year, min_service_year)
 
     @staticmethod
@@ -2110,7 +2110,7 @@ class Subsector(schema.DemandSubsectors):
         if min_year == max_year:
             years = [min_year]
         else:
-            years = range(min_year, max_year+1)
+            years = range(int(min_year), int(max_year)+1)
         df = df.ix[:, years]
         df = pd.DataFrame(df.stack())
         util.replace_index_name(df, 'year')
@@ -2243,7 +2243,7 @@ class Subsector(schema.DemandSubsectors):
             projected = False
         if 'demand_technology' in getattr(self.stock, map_from).index.names:
             self.stock.project(map_from=map_from, map_to='technology', current_geography=current_geography, converted_geography=GeoMapper.demand_primary_geography,
-                               additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent),
+                               additional_drivers=self.additional_drivers(stock_or_service='stock',service_dependent=service_dependent),
                                interpolation_method=None,extrapolation_method=None, fill_timeseries=True,fill_value=np.nan,current_data_type=current_data_type,projected=projected)
             self.stock.technology = self.stock.technology.swaplevel('year',-1)
             self.stock.technology = util.reindex_df_level_with_new_elements(self.stock.technology,'demand_technology',self.techs,fill_value=np.nan)
@@ -2934,26 +2934,29 @@ class Subsector(schema.DemandSubsectors):
 
     def calculate_initial_stock(self, elements, percent_spec_cut=0.95):
         # todo, we have an issue here if the total and technology come in on different years.. this is sometimes happening in industry
-        tech_slice = util.df_slice(self.stock.technology, elements, self.stock.rollover_group_names)
-        total_slice = util.df_slice(self.stock.total, elements, self.stock.rollover_group_names)
-        initial_total = total_slice.values[0][0]
-        ratio = util.DfOper.divi((tech_slice.sum(axis=1).to_frame(), total_slice))
-        good_years = ratio.where(((1/percent_spec_cut)>ratio) & (ratio>percent_spec_cut)).dropna().index
-        initial_sales_share = self.helper_calc_sales_share_reference_new(elements, initial_stock=None)[0]
-        #Best way is if we have all demand_technology stocks specified for some year before current year
-        if len(good_years) and min(good_years)<=cfg.getParamAsInt('current_year'):
-            chosen_year = min(good_years)
-            # gross up if it is just under 100% of the stock represente
-            initial_stock = self.stock.technology.loc[elements+(chosen_year,),:]
-            initial_stock = initial_stock/np.nansum(initial_stock) * initial_total
-        #Second best way is if we have an initial sales share
-        elif initial_sales_share.sum():
-            initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, transition_matrix=initial_sales_share, num_years=len(self.years))
-        elif initial_total == 0 or pd.isnull(initial_total):
-            initial_stock = np.zeros(len(self.techs))
-        else:
-            raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the demand_technology composition of the initial stock in subsector %s' %self.name)
-        return initial_stock
+        try:
+            tech_slice = util.df_slice(self.stock.technology, elements, self.stock.rollover_group_names)
+            total_slice = util.df_slice(self.stock.total, elements, self.stock.rollover_group_names)
+            initial_total = total_slice.values[0][0]
+            ratio = util.DfOper.divi((tech_slice.sum(axis=1).to_frame(), total_slice))
+            good_years = ratio.where(((1/percent_spec_cut)>ratio) & (ratio>percent_spec_cut)).dropna().index
+            initial_sales_share = self.helper_calc_sales_share_reference_new(elements, initial_stock=None)[0]
+            #Best way is if we have all demand_technology stocks specified for some year before current year
+            if len(good_years) and min(good_years)<=cfg.getParamAsInt('current_year'):
+                chosen_year = min(good_years)
+                # gross up if it is just under 100% of the stock represente
+                initial_stock = self.stock.technology.loc[elements+(chosen_year,),:]
+                initial_stock = initial_stock/np.nansum(initial_stock) * initial_total
+            #Second best way is if we have an initial sales share
+            elif initial_sales_share.sum():
+                initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, transition_matrix=initial_sales_share, num_years=len(self.years))
+            elif initial_total == 0 or pd.isnull(initial_total):
+                initial_stock = np.zeros(len(self.techs))
+            else:
+                raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the demand_technology composition of the initial stock in subsector %s' %self.name)
+            return initial_stock
+        except:
+            pdb.set_trace()
 
     def determine_need_for_aux_efficiency(self):
         """ determines whether auxiliary efficiency calculations are necessary. Used to avoid unneccessary calculations elsewhere """

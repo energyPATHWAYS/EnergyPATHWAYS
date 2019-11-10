@@ -31,23 +31,23 @@ class RioExport(object):
 
 
     def write_all(self):
-        logging.info("writing blends")
-        #self.write_blend()
+        # logging.info("writing blends")
+        self.write_blend()
         #logging.info("writing flex load df")
-        #self.flex_load_df = self.flatten_flex_load_dict()
+        self.flex_load_df = self.flatten_flex_load_dict()
         if self.scenario_index == 0:
             #self.write_reference_tables()
             #self.write_all_empty()
-            logging.info("writing shapes")
-            #self.write_shapes()
+            # logging.info("writing shapes")
+            # self.write_shapes()
             #self.write_blend_main()
             #self.write_new_tech_main()
             #logging.info("writing existing_tech_main")
             #self.write_existing_gen()
             #self.write_conversion_main()
             logging.info("writing new flex techs")
-            #if self.flex_load_df is not None:
-               #self.write_flex_tech_main()
+            if self.flex_load_df is not None:
+               self.write_flex_tech_main()
             #self.write_capacity_zone_main()
             #self.write_product_main()
         #self.write_conversion()
@@ -60,7 +60,7 @@ class RioExport(object):
         #logging.info("writing transmission")
         #self.write_transmission()
         #logging.info("writing flex load")
-        #self.write_flex_load()
+        self.write_flex_load()
 
 
 
@@ -2433,11 +2433,12 @@ class RioExport(object):
             dist_df = self.supply.rio_distribution_load[year]
             dist_df.columns = ['value']
             dist_list.append(dist_df)
-            bulk_df  = self.supply.rio_bulk_load[year]
+            bulk_df = self.supply.rio_bulk_load[year]
             bulk_df.columns = ['value']
             bulk_list.append(bulk_df)
-        return pd.concat(dist_list, keys=self.supply.rio_distribution_load.keys(), names=['year']), pd.concat(bulk_list, keys=self.supply.rio_distribution_load.keys(),
-                                                                                     names=['year'])
+        return pd.concat(dist_list, keys=self.supply.rio_distribution_load.keys(), names=['year']), \
+               pd.concat(bulk_list, keys=self.supply.rio_distribution_load.keys(), names=['year'])
+
     def flatten_flex_load_dict(self):
         df_list = []
         for year in self.supply.rio_flex_load.keys():
@@ -2527,9 +2528,9 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\US'
+    workingdir = r'C:\github\EP_runs\UCS'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['rhodium_high_elect_high_EE']
+    scenario = ['UCS_delay', 'UCS_ddp', 'UCS_Ref']
     export = run(workingdir, config, scenario)
     self = export

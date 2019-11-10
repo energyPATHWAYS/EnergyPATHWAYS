@@ -266,7 +266,7 @@ class GeoMapper:
         return mapped_data
 
     @classmethod
-    def geo_map(cls, df, current_geography, converted_geography, current_data_type, geography_map_key=None, fill_value=0.,filter_geo=True, non_expandable_levels=None,operation='mult'):
+    def geo_map(cls, df, current_geography, converted_geography, current_data_type, geography_map_key=None, fill_value=0.,filter_geo=True, remove_current_geography=True):
         if current_geography==converted_geography:
             return df
         assert current_geography in df.index.names
@@ -292,7 +292,8 @@ class GeoMapper:
                                  map_key=geography_map_key, filter_geo=filter_geo, active_gaus=active_gaus)
 
         mapped_data = util.DfOper.mult([df, map_df], fill_value=fill_value)
-        mapped_data = util.remove_df_levels(mapped_data, current_geography)
+        if remove_current_geography:
+            mapped_data = util.remove_df_levels(mapped_data, current_geography)
         if hasattr(mapped_data.index, 'swaplevel'):
             mapped_data = GeoMapper.reorder_df_geo_left_year_right(mapped_data, converted_geography)
         return mapped_data.sort_index()
@@ -372,9 +373,12 @@ class GeoMapper:
             raise ValueError('Year or vitages did not overlap between the foreign gaus and impacted gaus')
 
         # update native GAUs after netting out foreign gaus
-        impacted_gau_years = list(impacted_gaus_slice.index.get_level_values(y_or_v).values)
+        impacted_gau_years = [int(x) for x in impacted_gaus_slice.index.get_level_values(y_or_v).values]
         indexer = util.level_specific_indexer(df, [current_geography, y_or_v], [impacted_gaus, impacted_gau_years])
-        df.loc[indexer, :] = new_impacted_gaus.loc[indexer, :]
+        try:
+            df.loc[indexer, :] = new_impacted_gaus.loc[indexer, :]
+        except:
+            pdb.set_trace()
 
         return df
 

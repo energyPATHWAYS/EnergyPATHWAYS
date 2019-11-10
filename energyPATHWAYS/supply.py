@@ -302,6 +302,20 @@ class Supply(object):
         df = df.groupby(level=['year',cfg.rio_geography,'supply_node']).sum()
         return df
 
+    def reformat_fuel_share_measures(self,df):
+        df = copy.deepcopy(df)
+        def find_supply_node(y):
+            for node in self.nodes.values():
+                if hasattr(node,'technologies') and y.lower() in [x.lower() for x in node.technologies.keys()]:
+                    return node.name
+            return y
+        df['supply_node'] = [find_supply_node(x) for x in df.index.get_level_values('ep_fuel')]
+        df = df.set_index('supply_node',append=True)
+        df = df.groupby(level=['year', 'blend',cfg.rio_geography,'supply_node']).sum()
+        return df
+
+
+
     def reformat_delivered_gen(self,df):
         if df is not None:
             def find_supply_node(x):
@@ -328,6 +342,12 @@ class Supply(object):
         logging.info('Adding supply measures')
         scenario = self.scenario
         self.discover_bulk_name()
+        if cfg.rio_supply_run:
+            #reformats from technology/supply node to supply node for blend measures
+            self.rio_inputs.zonal_fuel_outputs = self.reformat_fuel_share_measures(self.rio_inputs.
+                                                                               zonal_fuel_outputs)
+            self.rio_inputs.fuel_outputs = self.reformat_fuel_share_measures(self.rio_inputs.
+                                                                         fuel_outputs)
         for node in self.nodes.values():
             #all nodes have export measures
             if cfg.rio_supply_run and node.name in cfg.rio_export_blends:
@@ -3308,14 +3328,13 @@ class Node(schema.SupplyNodes):
         used for nodes where the location of throughput is unrelated to the location of demand (ex. primary biomass supply)
         """
         if self.tradable_geography!= GeoMapper.supply_primary_geography and len(GeoMapper.supply_geographies)>1 :
-            if hasattr(self,'potential') and self.potential._has_data is True or (hasattr(self,'stock') and self.stock._has_data is True):
+            if hasattr(self,'potential') and self.potential._has_data is True or (hasattr(self,'stock') and (self.stock._has_data or self.stock.total.sum().sum()>0) is True):
                 #tradable supply is mapping of active supply to a tradable geography
                 try:
                     self.geo_step1 = GeoMapper.get_instance().map_df(GeoMapper.supply_primary_geography,self.tradable_geography, normalize_as='total', eliminate_zeros=False)
                 except:
                     logging.error('self.tradable_geography = {}, primary_geography = {}, name = {}'.format(self.tradable_geography, GeoMapper.supply_primary_geography, self.name))
                     raise
-
                 if hasattr(self,'potential') and self.potential._has_data is True:
                      df = util.remove_df_elements(self.potential.active_supply_curve, [x for x in GeoMapper.geography_to_gau_unfiltered[GeoMapper.supply_primary_geography]  if x not in GeoMapper.supply_geographies],GeoMapper.supply_primary_geography)
                      self.potential_geo = util.DfOper.mult([util.remove_df_levels(df,
@@ -3648,9 +3667,9 @@ class RioExport(DataObject):
             # remap exports to active supply, which has information about sectoral throughput
             self.active_values = self.values.loc[:, year].to_frame()
             active_supply[active_supply.values <= 0] = .01
-            self.remap(map_from='active_values', map_to='active_values', drivers=active_supply, fill_timeseries=False,
-                       current_geography=GeoMapper.supply_primary_geography, converted_geography=GeoMapper.supply_primary_geography,
-                       driver_geography=GeoMapper.supply_primary_geography)
+            self.active_values = util.DfOper.mult(
+                [active_supply.groupby(level=GeoMapper.supply_primary_geography).transform(lambda x: x / x.sum()),
+                 self.active_values])
         self.active_values.replace(np.nan, 0, inplace=True)
         self.active_values = self.active_values.reorder_levels([GeoMapper.supply_primary_geography, 'demand_sector'])
 
@@ -4475,11 +4494,7 @@ class SupplyPotential(schema.SupplyPotential):
             # if a conversion is necessary, it means that original input values are in resource and not energy terms
             # this means that they must be copied to resource values and values are the result of
             # multiplying the original values by the conversion dataframe
-#            self.resource_values = UnitConverter.unit_convert(self.values,unit_from_den=self.time_unit, unit_to_den='year')
-#            self.resource_supply_curve = self.resource_values.groupby(level=[GeoMapper.supply_primary_geography]).cumsum()
             self.values = DfOper.mult([self.values, self.conversion.values],fill_value=self.conversion.values.mean().mean())
-#            self.supply_curve = util.remove_df_levels(self.values, [x for x in self.values.index.names if x not in [GeoMapper.supply_primary_geography,'resource_bin']])
-
             self.supply_curve = self.values
         else:
             if UnitConverter.is_energy_unit(self.unit):
@@ -4860,11 +4875,13 @@ class SupplyStockNode(Node):
 
     def max_total(self):
         tech_sum = util.remove_df_levels(self.stock.technology,'supply_technology')
-#        self.stock.total = self.stock.total.fillna(tech_sum)
+
         if hasattr(self.stock,'total'):
-            self.stock.total[self.stock.total<tech_sum] = tech_sum
+            if np.all(np.isnan(self.stock.total.values)) and not np.any(np.isnan(self.stock.technology)):
+                self.stock.total = self.stock.total.fillna(tech_sum)
+            else:
+                self.stock.total[self.stock.total.values<tech_sum.values] = tech_sum
         else:
-#            self.stock.total = tech_sum
             self.stock.total = pd.DataFrame(np.nan, tech_sum.index,tech_sum.columns)
 
     def format_rollover_stocks(self):
@@ -6451,7 +6468,7 @@ class RioInputs(DataObject):
 
     def calc_bulk_thermal_share(self,scenario,gen_energy):
         df = util.df_slice(gen_energy, scenario, 'run name')
-        df_gen_all = df[df.index.get_level_values('output').isin(['hydro','fixed','thermal','curtailment'])]*-1
+        df_gen_all = df[df.index.get_level_values('output').isin(['hydro','fixed','thermal','storage discharge','storage reliability gen'])]*-1
         df_gen_thermal = util.remove_df_levels(df[df.index.get_level_values('output').isin(['thermal'])]*-1,'output')
         df = util.DfOper.divi([df_gen_thermal, df_gen_all.groupby(level=['year', 'zone']).sum()]).groupby(level=['year','zone']).sum()
         df = df.reset_index('zone')
@@ -6463,16 +6480,17 @@ class RioInputs(DataObject):
 
     def calc_bulk_share(self,scenario,gen_energy):
         df = util.df_slice(gen_energy, scenario, 'run name')
-        df_gen_all = df[df.index.get_level_values('output').isin(['hydro','fixed','thermal','curtailment'])]*-1
-        df_gen_bulk = util.remove_df_levels(df[df.index.get_level_values('output').isin(['hydro','fixed','curtailment'])]*-1,'output')
+        df_gen_all = df[df.index.get_level_values('output').isin(['hydro','fixed','thermal','storage discharge','storage reliability gen'])]*-1
+        df_gen_bulk = util.remove_df_levels(df[df.index.get_level_values('output').isin(['hydro','fixed','curtailment','storage discharge','storage reliability gen'])]*-1,'output')
+
+
         if self.delivered_gen is not None:
             delivered_gen_reduction = util.df_slice(self.delivered_gen,scenario,'run name').groupby(level=['zone from','resource','resource_agg','year']).sum()
             util.replace_index_name(delivered_gen_reduction,'zone','zone from')
             delivered_gen_addition = util.df_slice(self.delivered_gen, scenario, 'run name').groupby(
                 level=['zone to', 'resource', 'resource_agg', 'year']).sum()
             util.replace_index_name(delivered_gen_addition, 'zone', 'zone to')
-            df_gen_bulk = util.DfOper.subt(
-                [util.DfOper.add([df_gen_bulk, delivered_gen_addition]), delivered_gen_reduction])
+            df_gen_bulk = util.remove_df_levels(util.df_list_concatenate([df_gen_bulk,delivered_gen_addition,-delivered_gen_reduction],new_names='output',keys=['a','b','c']),'output')
         df = util.DfOper.divi([df_gen_bulk,df_gen_all.groupby(level=['year','zone']).sum()])
         df = df.reset_index('resource')
         gen_regions = list(set(df.index.get_level_values('zone')))
@@ -6649,17 +6667,17 @@ class RioInputs(DataObject):
             df_supply = df_supply[df_supply['blend'].isin(cfg.rio_zonal_blend_nodes)]
         else:
             df_supply = df_supply[~df_supply['blend'].isin(cfg.rio_zonal_blend_nodes)]
-        supply_node_names = [x.split('_')[0] for x in [x.split('||')[0] for x in df_supply.index.get_level_values('fuel')]]
+        supply_node_names = [x.split('_')[-2] if len(x.split('_'))>1 else x for x in [x.split('||')[0] for x in df_supply.index.get_level_values('fuel')]]
         df_supply = df_supply.reset_index('fuel')
-        df_supply['supply_node'] = [self.supply_node_mapping[x] for x in supply_node_names]
+        df_supply['ep_fuel'] = supply_node_names
         df_supply.pop('fuel')
         df_supply[cfg.rio_geography] = [self.geography_mapping[x] for x in df_supply.index.get_level_values('zone')]
         df_supply = df_supply.reset_index('zone')
         df_supply.pop('zone')
-        df_supply = df_supply.set_index(['blend','supply_node',cfg.rio_geography],append=True)
+        df_supply = df_supply.set_index(['blend','ep_fuel',cfg.rio_geography],append=True)
         df_supply[df_supply.values<0]=0
         df_supply = df_supply.fillna(0)
-        df_supply = df_supply.groupby(level=['blend','supply_node',cfg.rio_geography,'year']).sum()
+        df_supply = df_supply.groupby(level=['blend','ep_fuel',cfg.rio_geography,'year']).sum()
         if not zonal:
             df = util.remove_df_levels(df_supply, cfg.rio_geography).groupby(level=['blend','year']).transform(lambda x: x/x.sum())
             df = util.add_and_set_index(df, cfg.rio_geography, GeoMapper.geography_to_gau[cfg.rio_geography])
