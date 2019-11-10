@@ -6476,7 +6476,7 @@ class RioInputs(DataMapFunctions):
                             self.supply_technology_mapping[x.split('_')[0]] for x in df['resource'].values]
         df.pop('resource')
         df = df.set_index(['technology'], append=True)
-        df = df.groupby(level=['zone', 'year', 'technology']).sum()
+        df = df.groupby(level=['zone', 'year', 'technology']).mean()
         df = df.reset_index('zone')
         df[cfg.rio_geography] = [self.geography_mapping[x] for x in df['zone'].values]
         df = df.set_index(cfg.rio_geography, append=True)
@@ -6526,8 +6526,7 @@ class RioInputs(DataMapFunctions):
             delivered_gen_addition = util.df_slice(self.delivered_gen, scenario, 'run name').groupby(
                 level=['zone to', 'resource', 'resource_agg', 'year']).sum()
             util.replace_index_name(delivered_gen_addition, 'zone', 'zone to')
-            df_gen_bulk = util.DfOper.subt(
-                [util.DfOper.add([df_gen_bulk, delivered_gen_addition]), delivered_gen_reduction])
+            df_gen_bulk =  util.remove_df_levels(util.df_list_concatenate([df_gen_bulk,delivered_gen_addition,-delivered_gen_reduction],new_names='output', keys=['a','b','c']),'output')
         df = util.DfOper.divi([df_gen_bulk,df_gen_all.groupby(level=['year','zone']).sum()])
         df = df.reset_index('resource')
         gen_regions = list(set(df.index.get_level_values('zone')))
