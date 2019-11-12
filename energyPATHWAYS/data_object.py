@@ -322,7 +322,7 @@ class DataObject(CsvDataObject):
                 try:
                     self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index,
                                           interpolation_method=interpolation_method,
-                                          extrapolation_method=extrapolation_method)
+                                          extrapolation_method=extrapolation_method,lower=-np.inf)
                 except:
                     pdb.set_trace()
             if current_data_type == 'total':

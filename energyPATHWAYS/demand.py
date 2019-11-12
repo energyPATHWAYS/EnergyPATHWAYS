@@ -1305,6 +1305,7 @@ class Subsector(schema.DemandSubsectors):
                 util.replace_index_name(self.energy_forecast,"other_index_2",self.service_demand.other_index_2)
         elif self.sub_type == 'energy':
             # calculates the energy demand change from fuel swiching measures
+
             self.fuel_switching_impact_calc()
             # calculates the energy demand change from fuel swiching measures
             self.energy_efficiency_savings_calc()
@@ -1594,31 +1595,32 @@ class Subsector(schema.DemandSubsectors):
         sums and reconciles fuel switching impacts with total available energy to be saved
         """
         # create an empty df
-        self.fuel_switching_measure_impacts()
-        self.initial_fuel_switching_savings = util.empty_df(self.energy_forecast.index,
-                                                            self.energy_forecast.columns.values)
-        self.fuel_switching_additions = util.empty_df(self.energy_forecast.index, self.energy_forecast.columns.values)
-        # add up each measure's savings to return total savings
-        for measure in self.fuel_switching_measures.values():
-            self.initial_fuel_switching_savings = DfOper.add([self.initial_fuel_switching_savings,
-                                                              measure.impact.savings])
-            self.fuel_switching_additions = DfOper.add([self.fuel_switching_additions,
-                                                        measure.impact.additions])
-        # check for savings in excess of demand
-
-        fs_savings = DfOper.subt([self.energy_forecast, self.initial_fuel_switching_savings])
-        excess_savings = DfOper.add([self.fuel_switching_additions, fs_savings]) * -1
-        excess_savings[excess_savings < 0] = 0
-        # if any savings in excess of demand, adjust all measure savings down
-        if excess_savings.sum()['value'] == 0:
-            self.fuel_switching_savings = self.initial_fuel_switching_savings
-        else:
-            self.fuel_switching_savings = DfOper.subt([self.initial_fuel_switching_savings, excess_savings])
-            impact_adjustment = self.fuel_switching_savings / self.initial_fuel_switching_savings
+        if len(self.fuel_switching_measures.keys()):
+            self.fuel_switching_measure_impacts()
+            self.initial_fuel_switching_savings = util.empty_df(self.energy_forecast.index,
+                                                                self.energy_forecast.columns.values)
+            self.fuel_switching_additions = util.empty_df(self.energy_forecast.index, self.energy_forecast.columns.values)
+            # add up each measure's savings to return total savings
             for measure in self.fuel_switching_measures.values():
-                measure.impact.savings = DfOper.mult([measure.impact.savings, impact_adjustment])
-        self.energy_forecast = DfOper.subt([self.energy_forecast, self.fuel_switching_savings])
-        self.energy_forecast = DfOper.add([self.energy_forecast, self.fuel_switching_additions])
+                self.initial_fuel_switching_savings = DfOper.add([self.initial_fuel_switching_savings,
+                                                                  measure.impact.savings])
+                self.fuel_switching_additions = DfOper.add([self.fuel_switching_additions,
+                                                            measure.impact.additions])
+            # check for savings in excess of demand
+
+            fs_savings = DfOper.subt([self.energy_forecast, self.initial_fuel_switching_savings])
+            excess_savings = DfOper.add([self.fuel_switching_additions, fs_savings]) * -1
+            excess_savings[excess_savings < 0] = 0
+            # if any savings in excess of demand, adjust all measure savings down
+            if excess_savings.sum()['value'] == 0:
+                self.fuel_switching_savings = self.initial_fuel_switching_savings
+            else:
+                self.fuel_switching_savings = DfOper.subt([self.initial_fuel_switching_savings, excess_savings])
+                impact_adjustment = self.fuel_switching_savings / self.initial_fuel_switching_savings
+                for measure in self.fuel_switching_measures.values():
+                    measure.impact.savings = DfOper.mult([measure.impact.savings, impact_adjustment])
+            self.energy_forecast = DfOper.subt([self.energy_forecast, self.fuel_switching_savings])
+            self.energy_forecast = DfOper.add([self.energy_forecast, self.fuel_switching_additions])
 
     def add_service_links(self):
         """ loops through service demand links and adds service demand link instance to subsector"""
@@ -1901,8 +1903,7 @@ class Subsector(schema.DemandSubsectors):
                 raise ValueError(
                     "stock and service demands both specified as dependent on each other in subsector %s" % self.name)
             levels = [level for level in self.stock.rollover_group_names if level in self.service_demand.values.index.names] + ['year']
-            self.service_demand.values = self.service_demand.values.groupby(
-                level=levels).sum()
+            self.service_demand.values = self.service_demand.values.groupby(level=levels).sum()
 
 
 
@@ -2617,7 +2618,10 @@ class Subsector(schema.DemandSubsectors):
             current_geography = GeoMapper.demand_primary_geography
             current_data_type =  'total'
             projected =  True
-        self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography, converted_geography=GeoMapper.demand_primary_geography,additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent),current_data_type=current_data_type, projected=projected)
+        self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
+                                   converted_geography=GeoMapper.demand_primary_geography,
+                                   additional_drivers=self.additional_drivers(stock_or_service='service',
+                                                                              service_dependent=service_dependent),current_data_type=current_data_type, projected=projected)
         self.energy_demand.values = util.remove_df_levels(self.energy_demand.values,cfg.removed_demand_levels)                                                                    
 
     def calculate_sales_shares(self,reference_run=False):
@@ -3382,6 +3386,5 @@ class Subsector(schema.DemandSubsectors):
             util.replace_index_name(self.energy_forecast,"other_index_1",self.service_demand.other_index_1)
         if hasattr(self,'energy_demand') and hasattr(self.energy_demand,'other_index_2'):
             util.replace_index_name(self.energy_forecast,"other_index_2",self.service_demand.other_index_2)
-
 
 

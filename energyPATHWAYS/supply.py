@@ -1838,6 +1838,15 @@ class Supply(object):
          data.columns = data.columns.droplevel(-1)
          return data
 
+    def add_row_index(self, data):
+         names = ['demand_sector', GeoMapper.supply_primary_geography]
+         keys = [self.demand_sectors, GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography]]
+         data  = copy.deepcopy(data.transpose())
+         for key,name in zip(keys,names):
+             data  = pd.concat([data]*len(key), axis=0, keys=key, names=[name])
+         data.index = data.index.droplevel(-1)
+         return data
+
 #    def geo_map_thermal_coefficients(self,df,old_geography, new_geography, geography_map_key):
 #            if old_geography != new_geography:
 #                keys=GeoMapper.geography_to_gau[new_geography]
@@ -3232,6 +3241,15 @@ class Node(schema.SupplyNodes):
          data.columns = data.columns.droplevel(-1)
          return data
 
+    def add_row_index(self, data):
+         names = ['demand_sector', GeoMapper.supply_primary_geography]
+         keys = [self.demand_sectors, GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography]]
+         data  = copy.deepcopy(data.transpose())
+         for key,name in zip(keys,names):
+             data  = pd.concat([data]*len(key), axis=0, keys=key, names=[name])
+         data.index = data.index.droplevel(-1)
+         return data
+
     def add_exports(self, scenario):
         measures = scenario.get_measures('SupplyExportMeasures', self.name)
         if len(measures) > 1:
@@ -3685,8 +3703,12 @@ class BlendNode(Node):
             self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,'efficiency_type')
             self.active_coefficients_untraded = copy.deepcopy(self.active_coefficients)
             self.active_coefficients_untraded.sort(inplace=True,axis=0)
-            self.active_coefficients = self.add_column_index(self.active_coefficients_untraded).T.stack(['supply_node','efficiency_type'])
-            self.active_coefficients_total = self.add_column_index(self.active_coefficients_total_untraded).T.stack(['supply_node'])
+            if cfg.rio_supply_run and hasattr(self,'rio_trades'):
+                self.active_coefficients = self.add_column_index(self.active_coefficients_untraded)
+                self.active_coefficients_total = self.add_column_index(self.active_coefficients_total_untraded)
+            else:
+                self.active_coefficients = self.add_column_index(self.active_coefficients_untraded).T.stack(['supply_node','efficiency_type'])
+                self.active_coefficients_total = self.add_column_index(self.active_coefficients_total_untraded).T.stack(['supply_node'])
             self.active_coefficients_total_emissions_rate = copy.deepcopy(self.active_coefficients_total)
             if cfg.rio_supply_run and hasattr(self,'rio_trades'):
                 for geography_from in GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography]:
@@ -3698,6 +3720,7 @@ class BlendNode(Node):
                             for group in self.delivered_gen.groupby(level=[GeoMapper.supply_primary_geography+"_from",'supply_node']).groups.keys():
                                 self.active_trade_adjustment_df.loc[idx[:, :, group[1]], :] = 0
                                 self.active_trade_adjustment_df.loc[idx[group[0], :, group[1]], :] = 1
+                        self.active_trade_adjustment_df.loc[idx[geography_from, :, :], idx[geography_to, :]] = df.sum()
             keys = ['not consumed']
             name = ['efficiency_type']
             active_trade_adjustment_df = pd.concat([self.active_trade_adjustment_df]*len(keys), keys=keys, names=name)
