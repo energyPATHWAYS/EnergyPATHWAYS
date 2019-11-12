@@ -24,7 +24,21 @@ import time
 from energyPATHWAYS.generated import schema
 from geomapper import GeoMapper
 from unit_converter import UnitConverter
+import sys
 
+
+class ForkedPdb(pdb.Pdb):
+    """A Pdb subclass that may be used
+    from a forked multiprocessing child
+
+    """
+    def interaction(self, *args, **kwargs):
+        _stdin = sys.stdin
+        try:
+            sys.stdin = open('/dev/stdin')
+            pdb.Pdb.interaction(self, *args, **kwargs)
+        finally:
+            sys.stdin = _stdin
 
 class Driver(schema.DemandDrivers):
     def __init__(self, name, scenario):
@@ -1482,6 +1496,7 @@ class Subsector(schema.DemandSubsectors):
         sums and reconciles energy efficiency savings with total available energy to be saved
         """
         # create an empty df
+        #if len(self.energy_efficiency__measures.keys()):
         self.energy_efficiency_measure_savings()
         self.initial_energy_efficiency_savings = util.empty_df(self.energy_forecast.index,
                                                                self.energy_forecast.columns.values)
@@ -1492,6 +1507,7 @@ class Subsector(schema.DemandSubsectors):
                                                                  measure.savings])
         # check for savings in excess of demand
         excess_savings = DfOper.subt([self.energy_forecast, self.initial_energy_efficiency_savings]) * -1
+        excess_savings[self.energy_forecast.values<0]=0
         excess_savings[excess_savings < 0] = 0
         # if any savings in excess of demand, adjust all measure savings down
         if excess_savings.sum()['value'] == 0:
@@ -1610,6 +1626,7 @@ class Subsector(schema.DemandSubsectors):
 
             fs_savings = DfOper.subt([self.energy_forecast, self.initial_fuel_switching_savings])
             excess_savings = DfOper.add([self.fuel_switching_additions, fs_savings]) * -1
+            excess_savings[self.energy_forecast.values < 0] = 0
             excess_savings[excess_savings < 0] = 0
             # if any savings in excess of demand, adjust all measure savings down
             if excess_savings.sum()['value'] == 0:
