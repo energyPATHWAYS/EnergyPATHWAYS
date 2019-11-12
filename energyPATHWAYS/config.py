@@ -98,7 +98,7 @@ def initialize_config():
     unit_converter.UnitConverter.get_instance()
     # used when reading in raw_values from data tables
     index_levels = csv_read_table('IndexLevels', column_names=['index_level', 'data_column_name'])
-    solver_name = find_solver()
+    #solver_name = find_solver()
 
     available_cpus = getParamAsInt('num_cores')
     weibul_coeff_of_var = create_weibul_coefficient_of_variation()
