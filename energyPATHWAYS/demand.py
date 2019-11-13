@@ -1611,33 +1611,32 @@ class Subsector(schema.DemandSubsectors):
         sums and reconciles fuel switching impacts with total available energy to be saved
         """
         # create an empty df
-        if len(self.fuel_switching_measures.keys()):
-            self.fuel_switching_measure_impacts()
-            self.initial_fuel_switching_savings = util.empty_df(self.energy_forecast.index,
-                                                                self.energy_forecast.columns.values)
-            self.fuel_switching_additions = util.empty_df(self.energy_forecast.index, self.energy_forecast.columns.values)
-            # add up each measure's savings to return total savings
-            for measure in self.fuel_switching_measures.values():
-                self.initial_fuel_switching_savings = DfOper.add([self.initial_fuel_switching_savings,
-                                                                  measure.impact.savings])
-                self.fuel_switching_additions = DfOper.add([self.fuel_switching_additions,
-                                                            measure.impact.additions])
-            # check for savings in excess of demand
+        self.fuel_switching_measure_impacts()
+        self.initial_fuel_switching_savings = util.empty_df(self.energy_forecast.index,
+                                                            self.energy_forecast.columns.values)
+        self.fuel_switching_additions = util.empty_df(self.energy_forecast.index, self.energy_forecast.columns.values)
+        # add up each measure's savings to return total savings
+        for measure in self.fuel_switching_measures.values():
+            self.initial_fuel_switching_savings = DfOper.add([self.initial_fuel_switching_savings,
+                                                              measure.impact.savings])
+            self.fuel_switching_additions = DfOper.add([self.fuel_switching_additions,
+                                                        measure.impact.additions])
+        # check for savings in excess of demand
 
-            fs_savings = DfOper.subt([self.energy_forecast, self.initial_fuel_switching_savings])
-            excess_savings = DfOper.add([self.fuel_switching_additions, fs_savings]) * -1
-            excess_savings[self.energy_forecast.values < 0] = 0
-            excess_savings[excess_savings < 0] = 0
-            # if any savings in excess of demand, adjust all measure savings down
-            if excess_savings.sum()['value'] == 0:
-                self.fuel_switching_savings = self.initial_fuel_switching_savings
-            else:
-                self.fuel_switching_savings = DfOper.subt([self.initial_fuel_switching_savings, excess_savings])
-                impact_adjustment = self.fuel_switching_savings / self.initial_fuel_switching_savings
-                for measure in self.fuel_switching_measures.values():
-                    measure.impact.savings = DfOper.mult([measure.impact.savings, impact_adjustment])
-            self.energy_forecast = DfOper.subt([self.energy_forecast, self.fuel_switching_savings])
-            self.energy_forecast = DfOper.add([self.energy_forecast, self.fuel_switching_additions])
+        fs_savings = DfOper.subt([self.energy_forecast, self.initial_fuel_switching_savings])
+        excess_savings = DfOper.add([self.fuel_switching_additions, fs_savings]) * -1
+        excess_savings[self.energy_forecast.values < 0] = 0
+        excess_savings[excess_savings < 0] = 0
+        # if any savings in excess of demand, adjust all measure savings down
+        if excess_savings.sum()['value'] == 0:
+            self.fuel_switching_savings = self.initial_fuel_switching_savings
+        else:
+            self.fuel_switching_savings = DfOper.subt([self.initial_fuel_switching_savings, excess_savings])
+            impact_adjustment = self.fuel_switching_savings / self.initial_fuel_switching_savings
+            for measure in self.fuel_switching_measures.values():
+                measure.impact.savings = DfOper.mult([measure.impact.savings, impact_adjustment])
+        self.energy_forecast = DfOper.subt([self.energy_forecast, self.fuel_switching_savings])
+        self.energy_forecast = DfOper.add([self.energy_forecast, self.fuel_switching_additions])
 
     def add_service_links(self):
         """ loops through service demand links and adds service demand link instance to subsector"""
