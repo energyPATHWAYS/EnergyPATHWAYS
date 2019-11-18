@@ -123,8 +123,10 @@ def df_list_concatenate(df_list, keys=None, new_names=None, levels_to_keep=None)
         df.set_index(missing_names, append=True, inplace=True)
 
     #aggregate extra levels and order
-    df_list = [df.groupby(level=list(set(levels_to_keep)-set(new_names)), sort=False).sum() for df in df_list]
-
+    try:
+        df_list = [df.groupby(level=list(set(levels_to_keep)-set(new_names)), sort=False).sum() for df in df_list]
+    except:
+        pdb.set_trace()
     if len(df_list)==0:
         return None
     else:

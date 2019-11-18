@@ -292,7 +292,10 @@ class Demand(object):
             print "aggregating %s" %output_name
             df = self.group_output(output_name, include_unit=include_unit)
             df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
-            setattr(self.outputs,"d_"+ output_name, df.sortlevel())
+            if df is not None:
+                setattr(self.outputs,"d_"+ output_name, df.sortlevel())
+            else:
+                setattr(self.outputs, "d_" + output_name, None)
         if cfg.output_tco == 'true':
             output_list = ['energy_tco', 'levelized_costs_tco', 'service_demand_tco']
             unit_flag = [False, False, False,True]
@@ -1386,9 +1389,12 @@ class Subsector(schema.DemandSubsectors):
             self.min_year = min(cfg.getParamAsInt('current_year'), driver_min_year, service_min_year,
                                 energy_min_year)
         elif self.sub_type == 'energy':
-            energy_min_year = min(self.energy_demand.raw_values.index.levels[
-                util.position_in_index(self.energy_demand.raw_values, 'year')])
-            self.min_year = min(cfg.getParamAsInt('current_year'), driver_min_year, energy_min_year)
+            try:
+                energy_min_year = min(self.energy_demand.raw_values.index.levels[
+                    util.position_in_index(self.energy_demand.raw_values, 'year')])
+                self.min_year = min(cfg.getParamAsInt('current_year'), driver_min_year, energy_min_year)
+            except:
+                pdb.set_trace()
 
         elif self.sub_type == 'link':
             stock_min_year = min(
