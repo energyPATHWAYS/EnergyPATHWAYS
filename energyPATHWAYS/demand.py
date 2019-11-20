@@ -1631,6 +1631,8 @@ class Subsector(schema.DemandSubsectors):
 
         fs_savings = DfOper.subt([self.energy_forecast, self.initial_fuel_switching_savings])
         excess_savings = DfOper.add([self.fuel_switching_additions, fs_savings]) * -1
+        excess_savings = DfOper.none([excess_savings,self.energy_forecast])
+        self.energy_forecast =DfOper.none([self.energy_forecast,excess_savings])
         excess_savings[self.energy_forecast.values < 0] = 0
         excess_savings[excess_savings < 0] = 0
         # if any savings in excess of demand, adjust all measure savings down
