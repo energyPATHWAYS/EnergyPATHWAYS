@@ -29,8 +29,10 @@ class PathwaysModel(object):
         self.supply = None
         self.demand_solved, self.supply_solved = False, False
 
-    def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, export_results, save_models, append_results,rio_scenario):
+    def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, export_results, save_models, append_results, rio_scenario):
         #try:
+        self.scenario_id = scenario_id
+        self.scenario = Scenario(self.scenario_id)
         self.rio_scenario = rio_scenario
         if solve_demand and not (load_demand or load_supply):
             self.calculate_demand(save_models)
