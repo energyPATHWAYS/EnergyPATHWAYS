@@ -2930,11 +2930,7 @@ class Subsector(schema.DemandSubsectors):
                                          sales_share=sales_share, stock_changes=annual_stock_change.values,
                                          specified_stock=demand_technology_stock.values, specified_retirements=None,
                                          steps_per_year=self.stock.spy,lifetimes=np.array([self.technologies[tech].book_life for tech in self.techs]))
-
-            try:
-                self.rollover.run()
-            except:
-                pdb.set_trace()
+            self.rollover.run()
             stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
             self.stock.values.loc[elements], self.stock.values_new.loc[elements], self.stock.values_replacement.loc[elements] = stock, stock_new, stock_replacement
             self.stock.retirements.loc[elements, 'value'], self.stock.retirements_natural.loc[elements, 'value'], \
