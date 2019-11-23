@@ -146,8 +146,8 @@ if __name__ == "__main__":
     solve_demand  = True,
     load_supply   = False,
     solve_supply  = False,
-    export_results= True,
+    export_results= False,
     load_error    = False,
     save_models   = True,
-    clear_results = True,
+    clear_results = False,
     rio_scenario=rio_scenario)

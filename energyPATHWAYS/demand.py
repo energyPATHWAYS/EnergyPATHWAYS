@@ -1492,7 +1492,9 @@ class Subsector(schema.DemandSubsectors):
         """
         for measure in self.energy_efficiency_measures.values():
             if measure.input_type == 'intensity':
-                measure.savings = DfOper.mult([measure.values, self.energy_forecast])
+                energy = copy.deepcopy(self.energy_forecast)
+                energy[energy.values < 0] = 0
+                measure.savings = DfOper.mult([measure.values, energy])
             else:
                 measure.remap(map_from='values', map_to='savings', converted_geography=GeoMapper.demand_primary_geography,
                               drivers=self.energy_forecast, driver_geography=GeoMapper.demand_primary_geography)
@@ -1602,10 +1604,12 @@ class Subsector(schema.DemandSubsectors):
         as totals, the measure is remapped to the energy forecast.
         """
         for measure in self.fuel_switching_measures.values():
-            indexer = util.level_specific_indexer(self.energy_forecast, 'final_energy', measure.final_energy_from)
+            energy = copy.deepcopy(self.energy_forecast)
+            energy[energy.values < 0] = 0
+            indexer = util.level_specific_indexer(energy, 'final_energy', measure.final_energy_from)
             if measure.impact.input_type == 'intensity':
                 measure.impact.savings = DfOper.mult([measure.impact.values,
-                                                      self.energy_forecast.loc[indexer, :]])
+                                                      energy.loc[indexer, :]])
             else:
                 measure.impact.remap(map_from='values', map_to='savings', converted_geography=GeoMapper.demand_primary_geography,
                                      drivers=self.energy_forecast.loc[indexer, :], driver_geography=GeoMapper.demand_primary_geography)
