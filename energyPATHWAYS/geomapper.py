@@ -104,13 +104,15 @@ class GeoMapper:
         geographies_table = db.get_table("Geographies").data
         global_geographies = pd.DataFrame([[GeoMapper._global_geography, GeoMapper._global_gau]], columns=['geography', 'gau'])
         geographies_table = pd.concat((geographies_table, global_geographies))
-        assert len(geographies_table['gau']) == len(geographies_table['gau'].unique())
 
-        gau_to_geography = dict(zip(geographies_table['gau'].values, geographies_table['geography'].values))
-        geography_to_gau = {}
-        for k, v in gau_to_geography.iteritems():
-            geography_to_gau[v] = geography_to_gau.get(v, [])
-            geography_to_gau[v].append(k)
+        # this is a one to many relationship
+        gau_to_geography, geography_to_gau = {}, {}
+        for gau, geography in zip(geographies_table['gau'].values, geographies_table['geography'].values):
+            gau_to_geography[gau] = gau_to_geography.get(gau, [])
+            gau_to_geography[gau].append(geography)
+
+            geography_to_gau[geography] = geography_to_gau.get(geography, [])
+            geography_to_gau[geography].append(gau)
 
         data = db.get_table("GeographiesSpatialJoin").data
         data[GeoMapper._global_geography] = GeoMapper._global_gau
@@ -123,6 +125,19 @@ class GeoMapper:
         data_cols_not_in_map_keys = [mk for mk in data.columns if mk not in map_keys]
         if data_cols_not_in_map_keys:
             logging.warning('Extra spatial join table columns were found that are not in map keys: {}'.format(data_cols_not_in_map_keys))
+
+        # check to make sure that duplicate gaus in different geographies refer to the exact same geography slice
+        for gau, geography_list in gau_to_geography.iteritems():
+            # in this case it is unique and we can continue
+            if len(geography_list)==1:
+                continue
+            prior_geography = geography_list[0]
+            prior_gau_index = np.nonzero(data.index.get_level_values(prior_geography)==gau)[0]
+            for geography in geography_list[1:]:
+                gau_index = np.nonzero(data.index.get_level_values(geography)==gau)[0]
+                if len(prior_gau_index) != len(gau_index) or any(prior_gau_index!=gau_index):
+                    raise ValueError('Two identical gau names refer to different spacial slices. Error found for gau "{}" and geographies "{}" & "{}" \n \
+                                     If the same gau name is used within two geographies, they must reference the same geographical slice'.format(gau, prior_geography, geography))
 
         return data, map_keys, geography_to_gau, gau_to_geography
 
