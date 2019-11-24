@@ -105,7 +105,6 @@ class GeoMapper:
         global_geographies = pd.DataFrame([[GeoMapper._global_geography, GeoMapper._global_gau]], columns=['geography', 'gau'])
         geographies_table = pd.concat((geographies_table, global_geographies))
 
-        # this is a one to many relationship
         gau_to_geography, geography_to_gau = {}, {}
         for gau, geography in zip(geographies_table['gau'].values, geographies_table['geography'].values):
             gau_to_geography[gau] = gau_to_geography.get(gau, [])
@@ -131,13 +130,12 @@ class GeoMapper:
             # in this case it is unique and we can continue
             if len(geography_list)==1:
                 continue
-            prior_geography = geography_list[0]
-            prior_gau_index = np.nonzero(data.index.get_level_values(prior_geography)==gau)[0]
+            first_gau_index = np.nonzero(data.index.get_level_values(geography_list[0])==gau)[0]
             for geography in geography_list[1:]:
                 gau_index = np.nonzero(data.index.get_level_values(geography)==gau)[0]
-                if len(prior_gau_index) != len(gau_index) or any(prior_gau_index!=gau_index):
+                if len(first_gau_index) != len(gau_index) or any(first_gau_index != gau_index):
                     raise ValueError('Two identical gau names refer to different spacial slices. Error found for gau "{}" and geographies "{}" & "{}" \n \
-                                     If the same gau name is used within two geographies, they must reference the same geographical slice'.format(gau, prior_geography, geography))
+                                     If the same gau name is used within two geographies, they must reference the same geographical slice'.format(gau, geography_list[0], geography))
 
         return data, map_keys, geography_to_gau, gau_to_geography
 
@@ -151,12 +149,12 @@ class GeoMapper:
         if GeoMapper.primary_subset:
             logging.info('Geomap table will be filtered')
             for gau in GeoMapper.primary_subset:
-                logging.info(' analysis will include the {} {}'.format(self.gau_to_geography[gau], gau))
+                logging.info(' analysis will include the {} {}'.format(self.gau_to_geography[gau][0], gau))
 
         if GeoMapper.breakout_geography:
             logging.info('Breakout geographies will be used')
             for gau in GeoMapper.breakout_geography:
-                logging.info(' analysis will include the {} {}'.format(self.gau_to_geography[gau], gau))
+                logging.info(' analysis will include the {} {}'.format(self.gau_to_geography[gau][0], gau))
 
     def _get_iloc_geo_subset(self, df, primary_subset=None):
         """
@@ -164,7 +162,7 @@ class GeoMapper:
         """
         primary_subset = GeoMapper.cfg_gau_subset if primary_subset is None else primary_subset
         if primary_subset:
-            return list(set(np.concatenate([np.nonzero(df.index.get_level_values(self.gau_to_geography[id])==id)[0] for id in primary_subset if id in self.gau_to_geography])))
+            return list(set(np.concatenate([np.nonzero(df.index.get_level_values(self.gau_to_geography[id][0])==id)[0] for id in primary_subset if id in self.gau_to_geography])))
         else:
             return range(len(df))
 
@@ -186,7 +184,7 @@ class GeoMapper:
         base_gaus = np.array(self.data.index.get_level_values(base_geography))
         impacted_gaus = set()
         for gau in breakout_geography:
-            index = np.nonzero(self.data.index.get_level_values(self.gau_to_geography[gau]) == gau)[0]
+            index = np.nonzero(self.data.index.get_level_values(self.gau_to_geography[gau][0]) == gau)[0]
             impacted_gaus = impacted_gaus | set(base_gaus[index])
             base_gaus[index] = gau
 
@@ -445,8 +443,8 @@ class GeoMapper:
 
         base_gaus = np.array(self.data.index.get_level_values(current_geography))
         for foreign_gau in foreign_gaus:
-            foreign_geography = self.gau_to_geography[foreign_gau]
-            index = np.nonzero(self.data.index.get_level_values(self.gau_to_geography[foreign_gau])==foreign_gau)[0]
+            foreign_geography = self.gau_to_geography[foreign_gau][0]
+            index = np.nonzero(self.data.index.get_level_values(self.gau_to_geography[foreign_gau][0])==foreign_gau)[0]
             impacted_gaus = list(set(base_gaus[index]))
             base_gaus[index] = foreign_gau
             if any(impacted in foreign_gaus for impacted in impacted_gaus):
