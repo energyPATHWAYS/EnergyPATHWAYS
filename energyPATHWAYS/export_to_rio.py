@@ -201,6 +201,7 @@ class RioExport(object):
     def write_flex_tech_schedule(self):
         dist_losses, bulk_losses = self.flatten_loss_dicts()
         df = util.df_slice(self.flex_load_df,'native','timeshift_type')
+        df /= len(Shapes.get_instance().cfg_weather_years)
         df = UnitConverter.unit_convert(df.groupby(level=[x for x in df.index.names if x not in 'weather_datetime']).sum(),
                                unit_from_num=cfg.calculation_energy_unit,unit_to_num='megawatt_hour')
         df_list = []
@@ -2370,6 +2371,8 @@ class RioExport(object):
     def write_capacity_zone_load(self):
         df_list = []
         dist_load, bulk_load = self.flatten_load_dicts()
+        dist_load /= len(Shapes.get_instance().cfg_weather_years)
+        bulk_load /= len(Shapes.get_instance().cfg_weather_years)
         if len(cfg.rio_feeder_geographies)>0:
             for geography in cfg.rio_feeder_geographies:
                 for feeder in self.supply.dispatch_feeders:
@@ -2401,6 +2404,7 @@ class RioExport(object):
                 dist_load_grossed = util.DfOper.mult([dist_load, dist_losses]).groupby(
                         level=[GeoMapper.dispatch_geography, 'year','weather_datetime']).sum()
                 df = util.DfOper.add([dist_load_grossed, bulk_load])
+                df /= len(Shapes.get_instance().cfg_weather_years)
                 df = util.df_slice(df,geography,GeoMapper.supply_primary_geography, reset_index=True, drop_level=False)
             else:
                 df = bulk_load
