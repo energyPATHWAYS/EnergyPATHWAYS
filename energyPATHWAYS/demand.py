@@ -163,7 +163,7 @@ class Demand(object):
         group_by_geo = GeoMapper.dispatch_geography if geomap_to_dispatch_geography else GeoMapper.demand_primary_geography
         df = df.groupby(level=['timeshift_type', group_by_geo, 'dispatch_feeder', 'weather_datetime']).sum()
         numer = self.energy_demand.xs([cfg.electricity_energy_type, year], level=['final_energy', 'year']).sum().sum()
-        denom = df.xs(0, level='timeshift_type').sum().sum()
+        denom = df.xs(0, level='timeshift_type').sum().sum() / len(Shapes.get_instance().cfg_weather_years)
         if not np.isclose(numer, denom, rtol=0.01, atol=0):
             logging.warning("Electricity energy is {} and bottom up load shape sums to {}".format(numer, denom))
         df *= numer / denom
@@ -1492,7 +1492,9 @@ class Subsector(schema.DemandSubsectors):
         """
         for measure in self.energy_efficiency_measures.values():
             if measure.input_type == 'intensity':
-                measure.savings = DfOper.mult([measure.values, self.energy_forecast])
+                energy = copy.deepcopy(self.energy_forecast)
+                energy[energy.values < 0] = 0
+                measure.savings = DfOper.mult([measure.values, energy])
             else:
                 measure.remap(map_from='values', map_to='savings', converted_geography=GeoMapper.demand_primary_geography,
                               drivers=self.energy_forecast, driver_geography=GeoMapper.demand_primary_geography)
@@ -1513,6 +1515,8 @@ class Subsector(schema.DemandSubsectors):
                                                                  measure.savings])
         # check for savings in excess of demand
         excess_savings = DfOper.subt([self.energy_forecast, self.initial_energy_efficiency_savings]) * -1
+        excess_savings = DfOper.none([excess_savings,self.energy_forecast])
+        self.energy_forecast =DfOper.none([self.energy_forecast,excess_savings])
         excess_savings[self.energy_forecast.values<0]=0
         excess_savings[excess_savings < 0] = 0
         # if any savings in excess of demand, adjust all measure savings down
@@ -1600,10 +1604,12 @@ class Subsector(schema.DemandSubsectors):
         as totals, the measure is remapped to the energy forecast.
         """
         for measure in self.fuel_switching_measures.values():
-            indexer = util.level_specific_indexer(self.energy_forecast, 'final_energy', measure.final_energy_from)
+            energy = copy.deepcopy(self.energy_forecast)
+            energy[energy.values < 0] = 0
+            indexer = util.level_specific_indexer(energy, 'final_energy', measure.final_energy_from)
             if measure.impact.input_type == 'intensity':
                 measure.impact.savings = DfOper.mult([measure.impact.values,
-                                                      self.energy_forecast.loc[indexer, :]])
+                                                      energy.loc[indexer, :]])
             else:
                 measure.impact.remap(map_from='values', map_to='savings', converted_geography=GeoMapper.demand_primary_geography,
                                      drivers=self.energy_forecast.loc[indexer, :], driver_geography=GeoMapper.demand_primary_geography)
@@ -2930,11 +2936,7 @@ class Subsector(schema.DemandSubsectors):
                                          sales_share=sales_share, stock_changes=annual_stock_change.values,
                                          specified_stock=demand_technology_stock.values, specified_retirements=None,
                                          steps_per_year=self.stock.spy,lifetimes=np.array([self.technologies[tech].book_life for tech in self.techs]))
-
-            try:
-                self.rollover.run()
-            except:
-                pdb.set_trace()
+            self.rollover.run()
             stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover.return_formatted_outputs()
             self.stock.values.loc[elements], self.stock.values_new.loc[elements], self.stock.values_replacement.loc[elements] = stock, stock_new, stock_replacement
             self.stock.retirements.loc[elements, 'value'], self.stock.retirements_natural.loc[elements, 'value'], \
