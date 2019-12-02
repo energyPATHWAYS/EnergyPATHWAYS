@@ -137,10 +137,10 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\IADB_csv - updated'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\FL'
     os.chdir(workingdir)
     rio_scenario = None
-    scenario = ['ddp']
+    scenario = ['central']
     run(scenario,
     load_demand   = False,
     solve_demand  = True,
