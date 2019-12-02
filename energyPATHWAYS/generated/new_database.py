@@ -68,7 +68,7 @@ _Metadata = [
                 key_col='name'),
     CsvMetadata('DemandStock',
                 key_col='subsector',
-                df_cols=['gau', 'demand_technology', 'value', 'oth_2', 'oth_1', 'year']),
+                df_cols=['gau', 'demand_technology', 'value', 'oth_2', 'oth_1', 'year', 'sensitivity']),
     CsvMetadata('DemandStockMeasures',
                 key_col='name',
                 df_cols=['gau', 'oth_1', 'value', 'year']),
