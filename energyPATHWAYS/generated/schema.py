@@ -1124,7 +1124,7 @@ class DemandStock(DataObject):
              "geography_map_key", "input_type", "interpolation_method", "is_service_demand_dependent",
              "notes", "other_index_1", "other_index_2", "source", "specify_stocks_past_current_year",
              "subsector", "time_unit", "unit"]
-    _df_cols = ["gau", "demand_technology", "value", "oth_2", "oth_1", "year"]
+    _df_cols = ["gau", "demand_technology", "value", "oth_2", "oth_1", "year", "sensitivity"]
     _df_filters = []
     _data_table_name = None
 

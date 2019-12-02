@@ -182,14 +182,12 @@ class DataObject(CsvDataObject):
 
     def account_for_foreign_gaus(self, attr, current_data_type, current_geography):
         """
-        TODO: Ryan/Ben, please correct this if needed.
         Subtract data for "foreign" GAUs (e.g., states) from larger regions (e.g., census
         divisions) to produce a modified "rest of {larger region}" that sums with the
         foreign regions to the original values.
         """
         geography_map_key = self.get_geography_map_key()
 
-        # TODO: need to see which attrs are used, then to root out the getattr.
         df = getattr(self, attr).copy()
         if getParamAsBoolean('include_foreign_gaus'):
             native_gaus, current_gaus, foreign_gaus = GeoMapper.get_instance().get_native_current_foreign_gaus(df, current_geography)
@@ -272,6 +270,7 @@ class DataObject(CsvDataObject):
         else:
             # becomes an attribute of self just because we may do a geomap on it
             driver_dfs = put_in_list(drivers)
+            self.error_check_drivers(getattr(self, map_to), driver_dfs)
             self.total_driver = DfOper.mult(driver_dfs)
             #self.total_driver_unitless = DfOper.add([x.groupby(level=[y for y in getattr(self,map_to).index.names if y in x.index.names]).apply(lambda x:x/x.sum()) for x in driver_dfs],expandable=False)
             # turns out we don't always have a year or vintage column for drivers. For instance when linked_demand_technology gets remapped
@@ -375,7 +374,9 @@ class DataObject(CsvDataObject):
                 self.geo_map(converted_geography, current_geography=current_geography, attr=map_to, inplace=True)
                 current_geography = converted_geography
 
-            total_driver = DfOper.mult([drivers_by_name[name].values for name in denominator_drivers])
+            denom_drivers = [drivers_by_name[name].values for name in denominator_drivers]
+            self.error_check_drivers(getattr(self, map_to), denom_drivers)
+            total_driver = DfOper.mult(denom_drivers)
             self.geo_map(current_geography=current_geography, attr=map_to, converted_geography=GeoMapper.disagg_geography,
                          current_data_type='intensity')
 
@@ -387,10 +388,7 @@ class DataObject(CsvDataObject):
             current_data_type = 'total'
 
         driver_names = [self.driver_1, self.driver_2,self.driver_3]
-        try:
-            driverDFs = [drivers_by_name[name].values for name in driver_names if name]
-        except:
-            pdb.set_trace()
+        driverDFs = [drivers_by_name[name].values for name in driver_names if name]
         # drivers = [self.drivers[key].values for key in driver_names]
 
         if additional_drivers is not None:
@@ -402,3 +400,18 @@ class DataObject(CsvDataObject):
                    extrapolation_method=extrapolation_method,
                    converted_geography=converted_geography, current_geography=current_geography,
                    current_data_type=current_data_type, fill_value=fill_value, filter_geo=filter_geo)
+
+    def error_check_drivers(self, df, drivers):
+        # check to see that for each index in drivers that is in df, that all the elements are the same
+        df_levels = dict(zip(df.index.names, df.index.levels))
+        for driver in drivers:
+            for index_name in driver.index.names:
+                if index_name in df_levels:
+                    if index_name in ['year', 'vintage']:
+                        overlapping = set(df_levels[index_name]) & set(driver.index.get_level_values(index_name))
+                        if len(overlapping)==0:
+                            raise ValueError('Index elements in the data that are not found in the driver. \n data: {} \n The elements in the driver index "{}" include: {}'.format(df, index_name, set(driver.index.get_level_values(index_name))))
+                    else:
+                        missing_elements = set(df_levels[index_name]) - set(driver.index.get_level_values(index_name))
+                        if len(missing_elements):
+                            raise ValueError('Index elements in the data that are not found in the driver. \n data: {} \n The following elements are missing from driver index "{}": {}'.format(df, index_name, missing_elements))
