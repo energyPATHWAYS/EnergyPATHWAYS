@@ -62,7 +62,7 @@ class CO2PriceMeasures(DataObject):
     _table_name = "CO2PriceMeasures"
     _key_col = "name"
     _cols = ["extrapolation_growth", "extrapolation_method", "geography", "geography_map_key",
-             "interpolation_method", "name", "notes", "source", "supply_node"]
+             "interpolation_method", "name", "supply_node"]
     _df_cols = ["gau", "sensitivity", "value", "year"]
     _df_filters = []
     _data_table_name = None
@@ -78,13 +78,10 @@ class CO2PriceMeasures(DataObject):
         self.geography_map_key = None
         self.interpolation_method = None
         self.name = None
-        self.notes = None
-        self.source = None
         self.supply_node = None
 
     def set_args(self, scenario, extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 geography_map_key=None, interpolation_method=None, name=None, notes=None, source=None,
-                 supply_node=None):
+                 geography_map_key=None, interpolation_method=None, name=None, supply_node=None):
         self.check_scenario(scenario)
 
         self.extrapolation_growth = extrapolation_growth
@@ -93,26 +90,23 @@ class CO2PriceMeasures(DataObject):
         self.geography_map_key = geography_map_key
         self.interpolation_method = interpolation_method
         self.name = name
-        self.notes = notes
-        self.source = source
         self.supply_node = supply_node
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (name, geography, interpolation_method, extrapolation_method, extrapolation_growth,
-         geography_map_key, supply_node, source, notes,) = tup
+         geography_map_key, supply_node,) = tup
 
         self.set_args(scenario, extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, geography_map_key=geography_map_key,
-                  interpolation_method=interpolation_method, name=name, notes=notes, source=source,
-                  supply_node=supply_node)
+                  interpolation_method=interpolation_method, name=name, supply_node=supply_node)
 
 class DemandDrivers(DataObject):
     _instances_by_key = {}
     _table_name = "DemandDrivers"
     _key_col = "name"
     _cols = ["base_driver", "extrapolation_growth", "extrapolation_method", "geography",
-             "geography_map_key", "input_type", "interpolation_method", "name", "notes",
-             "other_index_1", "other_index_2", "source", "unit_base", "unit_prefix"]
+             "geography_map_key", "input_type", "interpolation_method", "name", "other_index_1",
+             "other_index_2", "unit_base", "unit_prefix"]
     _df_cols = ["gau", "value", "oth_2", "oth_1", "year", "sensitivity"]
     _df_filters = []
     _data_table_name = None
@@ -130,17 +124,14 @@ class DemandDrivers(DataObject):
         self.input_type = None
         self.interpolation_method = None
         self.name = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
-        self.source = None
         self.unit_base = None
         self.unit_prefix = None
 
     def set_args(self, scenario, base_driver=None, extrapolation_growth=None, extrapolation_method=None, geography=None,
                  geography_map_key=None, input_type=None, interpolation_method=None, name=None,
-                 notes=None, other_index_1=None, other_index_2=None, source=None, unit_base=None,
-                 unit_prefix=None):
+                 other_index_1=None, other_index_2=None, unit_base=None, unit_prefix=None):
         self.check_scenario(scenario)
 
         self.base_driver = base_driver
@@ -151,24 +142,21 @@ class DemandDrivers(DataObject):
         self.input_type = input_type
         self.interpolation_method = interpolation_method
         self.name = name
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
-        self.source = source
         self.unit_base = unit_base
         self.unit_prefix = unit_prefix
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (name, base_driver, input_type, unit_prefix, unit_base, geography, other_index_1,
          other_index_2, geography_map_key, interpolation_method, extrapolation_method,
-         extrapolation_growth, source, notes,) = tup
+         extrapolation_growth,) = tup
 
         self.set_args(scenario, base_driver=base_driver, extrapolation_growth=extrapolation_growth,
                   extrapolation_method=extrapolation_method, geography=geography,
                   geography_map_key=geography_map_key, input_type=input_type,
-                  interpolation_method=interpolation_method, name=name, notes=notes,
-                  other_index_1=other_index_1, other_index_2=other_index_2, source=source,
-                  unit_base=unit_base, unit_prefix=unit_prefix)
+                  interpolation_method=interpolation_method, name=name, other_index_1=other_index_1,
+                  other_index_2=other_index_2, unit_base=unit_base, unit_prefix=unit_prefix)
 
 class DemandEnergyDemands(DataObject):
     _instances_by_key = {}
@@ -177,8 +165,8 @@ class DemandEnergyDemands(DataObject):
     _cols = ["demand_technology_index", "driver_1", "driver_2", "driver_3", "driver_denominator_1",
              "driver_denominator_2", "extrapolation_growth", "extrapolation_method",
              "final_energy_index", "geography", "geography_map_key", "input_type",
-             "interpolation_method", "is_stock_dependent", "notes", "other_index_1", "other_index_2",
-             "source", "subsector", "unit"]
+             "interpolation_method", "is_stock_dependent", "other_index_1", "other_index_2",
+             "subsector", "unit"]
     _df_cols = ["gau", "demand_technology", "value", "oth_2", "oth_1", "year", "final_energy",
              "sensitivity"]
     _df_filters = []
@@ -203,10 +191,8 @@ class DemandEnergyDemands(DataObject):
         self.input_type = None
         self.interpolation_method = None
         self.is_stock_dependent = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
-        self.source = None
         self.subsector = None
         self.unit = None
 
@@ -214,8 +200,8 @@ class DemandEnergyDemands(DataObject):
                  driver_denominator_1=None, driver_denominator_2=None, extrapolation_growth=None,
                  extrapolation_method=None, final_energy_index=None, geography=None,
                  geography_map_key=None, input_type=None, interpolation_method=None,
-                 is_stock_dependent=None, notes=None, other_index_1=None, other_index_2=None, source=None,
-                 subsector=None, unit=None):
+                 is_stock_dependent=None, other_index_1=None, other_index_2=None, subsector=None,
+                 unit=None):
         self.check_scenario(scenario)
 
         self.demand_technology_index = demand_technology_index
@@ -232,10 +218,8 @@ class DemandEnergyDemands(DataObject):
         self.input_type = input_type
         self.interpolation_method = interpolation_method
         self.is_stock_dependent = is_stock_dependent
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
-        self.source = source
         self.subsector = subsector
         self.unit = unit
 
@@ -243,7 +227,7 @@ class DemandEnergyDemands(DataObject):
         (subsector, is_stock_dependent, input_type, unit, driver_denominator_1,
          driver_denominator_2, driver_1, driver_2, driver_3, geography, final_energy_index,
          demand_technology_index, other_index_1, other_index_2, interpolation_method,
-         extrapolation_method, extrapolation_growth, geography_map_key, source, notes,) = tup
+         extrapolation_method, extrapolation_growth, geography_map_key,) = tup
 
         self.set_args(scenario, demand_technology_index=demand_technology_index, driver_1=driver_1, driver_2=driver_2,
                   driver_3=driver_3, driver_denominator_1=driver_denominator_1,
@@ -251,8 +235,7 @@ class DemandEnergyDemands(DataObject):
                   extrapolation_method=extrapolation_method, final_energy_index=final_energy_index,
                   geography=geography, geography_map_key=geography_map_key, input_type=input_type,
                   interpolation_method=interpolation_method, is_stock_dependent=is_stock_dependent,
-                  notes=notes, other_index_1=other_index_1, other_index_2=other_index_2, source=source,
-                  subsector=subsector, unit=unit)
+                  other_index_1=other_index_1, other_index_2=other_index_2, subsector=subsector, unit=unit)
 
 class DemandEnergyEfficiencyMeasures(DataObject):
     _instances_by_key = {}
@@ -260,8 +243,8 @@ class DemandEnergyEfficiencyMeasures(DataObject):
     _key_col = "name"
     _cols = ["extrapolation_growth", "extrapolation_method", "geography", "input_type",
              "interpolation_method", "lifetime_variance", "max_lifetime", "mean_lifetime",
-             "min_lifetime", "name", "notes", "other_index_1", "other_index_2", "source",
-             "stock_decay_function", "subsector", "unit"]
+             "min_lifetime", "name", "other_index_1", "other_index_2", "stock_decay_function",
+             "subsector", "unit"]
     _df_cols = ["gau", "value", "oth_2", "oth_1", "year", "final_energy"]
     _df_filters = []
     _data_table_name = None
@@ -281,18 +264,16 @@ class DemandEnergyEfficiencyMeasures(DataObject):
         self.mean_lifetime = None
         self.min_lifetime = None
         self.name = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
-        self.source = None
         self.stock_decay_function = None
         self.subsector = None
         self.unit = None
 
     def set_args(self, scenario, extrapolation_growth=None, extrapolation_method=None, geography=None, input_type=None,
                  interpolation_method=None, lifetime_variance=None, max_lifetime=None, mean_lifetime=None,
-                 min_lifetime=None, name=None, notes=None, other_index_1=None, other_index_2=None,
-                 source=None, stock_decay_function=None, subsector=None, unit=None):
+                 min_lifetime=None, name=None, other_index_1=None, other_index_2=None,
+                 stock_decay_function=None, subsector=None, unit=None):
         self.check_scenario(scenario)
 
         self.extrapolation_growth = extrapolation_growth
@@ -305,10 +286,8 @@ class DemandEnergyEfficiencyMeasures(DataObject):
         self.mean_lifetime = mean_lifetime
         self.min_lifetime = min_lifetime
         self.name = name
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
-        self.source = source
         self.stock_decay_function = stock_decay_function
         self.subsector = subsector
         self.unit = unit
@@ -316,13 +295,13 @@ class DemandEnergyEfficiencyMeasures(DataObject):
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (name, subsector, input_type, unit, geography, other_index_1, other_index_2,
          interpolation_method, extrapolation_method, extrapolation_growth, stock_decay_function,
-         min_lifetime, max_lifetime, mean_lifetime, lifetime_variance, source, notes,) = tup
+         min_lifetime, max_lifetime, mean_lifetime, lifetime_variance,) = tup
 
         self.set_args(scenario, extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, input_type=input_type, interpolation_method=interpolation_method,
                   lifetime_variance=lifetime_variance, max_lifetime=max_lifetime,
-                  mean_lifetime=mean_lifetime, min_lifetime=min_lifetime, name=name, notes=notes,
-                  other_index_1=other_index_1, other_index_2=other_index_2, source=source,
+                  mean_lifetime=mean_lifetime, min_lifetime=min_lifetime, name=name,
+                  other_index_1=other_index_1, other_index_2=other_index_2,
                   stock_decay_function=stock_decay_function, subsector=subsector, unit=unit)
 
 class DemandEnergyEfficiencyMeasuresCost(DataObject):
@@ -331,7 +310,7 @@ class DemandEnergyEfficiencyMeasuresCost(DataObject):
     _key_col = "parent"
     _cols = ["cost_denominator_unit", "cost_of_capital", "currency", "currency_year",
              "extrapolation_growth", "extrapolation_method", "geography", "interpolation_method",
-             "is_levelized", "notes", "other_index_1", "other_index_2", "parent", "source"]
+             "is_levelized", "other_index_1", "other_index_2", "parent"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "final_energy"]
     _df_filters = []
     _data_table_name = None
@@ -350,16 +329,14 @@ class DemandEnergyEfficiencyMeasuresCost(DataObject):
         self.geography = None
         self.interpolation_method = None
         self.is_levelized = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
         self.parent = None
-        self.source = None
 
     def set_args(self, scenario, cost_denominator_unit=None, cost_of_capital=None, currency=None, currency_year=None,
                  extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 interpolation_method=None, is_levelized=None, notes=None, other_index_1=None,
-                 other_index_2=None, parent=None, source=None):
+                 interpolation_method=None, is_levelized=None, other_index_1=None, other_index_2=None,
+                 parent=None):
         self.check_scenario(scenario)
 
         self.cost_denominator_unit = cost_denominator_unit
@@ -371,30 +348,28 @@ class DemandEnergyEfficiencyMeasuresCost(DataObject):
         self.geography = geography
         self.interpolation_method = interpolation_method
         self.is_levelized = is_levelized
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.parent = parent
-        self.source = source
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (parent, currency, currency_year, cost_denominator_unit, cost_of_capital, is_levelized,
          geography, other_index_1, other_index_2, interpolation_method, extrapolation_method,
-         extrapolation_growth, source, notes,) = tup
+         extrapolation_growth,) = tup
 
         self.set_args(scenario, cost_denominator_unit=cost_denominator_unit, cost_of_capital=cost_of_capital,
                   currency=currency, currency_year=currency_year,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, interpolation_method=interpolation_method,
-                  is_levelized=is_levelized, notes=notes, other_index_1=other_index_1,
-                  other_index_2=other_index_2, parent=parent, source=source)
+                  is_levelized=is_levelized, other_index_1=other_index_1, other_index_2=other_index_2,
+                  parent=parent)
 
 class DemandFlexibleLoadMeasures(DataObject):
     _instances_by_key = {}
     _table_name = "DemandFlexibleLoadMeasures"
     _key_col = "name"
     _cols = ["extrapolation_growth", "extrapolation_method", "geography", "interpolation_method",
-             "name", "notes", "other_index_1", "source", "subsector"]
+             "name", "other_index_1", "subsector"]
     _df_cols = ["gau", "demand_technology", "value", "oth_1", "year"]
     _df_filters = []
     _data_table_name = None
@@ -409,14 +384,11 @@ class DemandFlexibleLoadMeasures(DataObject):
         self.geography = None
         self.interpolation_method = None
         self.name = None
-        self.notes = None
         self.other_index_1 = None
-        self.source = None
         self.subsector = None
 
     def set_args(self, scenario, extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 interpolation_method=None, name=None, notes=None, other_index_1=None, source=None,
-                 subsector=None):
+                 interpolation_method=None, name=None, other_index_1=None, subsector=None):
         self.check_scenario(scenario)
 
         self.extrapolation_growth = extrapolation_growth
@@ -424,18 +396,16 @@ class DemandFlexibleLoadMeasures(DataObject):
         self.geography = geography
         self.interpolation_method = interpolation_method
         self.name = name
-        self.notes = notes
         self.other_index_1 = other_index_1
-        self.source = source
         self.subsector = subsector
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (name, subsector, geography, other_index_1, interpolation_method, extrapolation_method,
-         extrapolation_growth, source, notes,) = tup
+         extrapolation_growth,) = tup
 
         self.set_args(scenario, extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
-                  geography=geography, interpolation_method=interpolation_method, name=name, notes=notes,
-                  other_index_1=other_index_1, source=source, subsector=subsector)
+                  geography=geography, interpolation_method=interpolation_method, name=name,
+                  other_index_1=other_index_1, subsector=subsector)
 
 class DemandFuelSwitchingMeasures(DataObject):
     _instances_by_key = {}
@@ -492,7 +462,7 @@ class DemandFuelSwitchingMeasuresCost(DataObject):
     _key_col = "parent"
     _cols = ["cost_denominator_unit", "cost_of_capital", "currency", "currency_year",
              "extrapolation_growth", "extrapolation_method", "geography", "interpolation_method",
-             "is_levelized", "notes", "other_index_1", "other_index_2", "parent", "source"]
+             "is_levelized", "other_index_1", "other_index_2", "parent"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1"]
     _df_filters = []
     _data_table_name = None
@@ -511,16 +481,14 @@ class DemandFuelSwitchingMeasuresCost(DataObject):
         self.geography = None
         self.interpolation_method = None
         self.is_levelized = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
         self.parent = None
-        self.source = None
 
     def set_args(self, scenario, cost_denominator_unit=None, cost_of_capital=None, currency=None, currency_year=None,
                  extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 interpolation_method=None, is_levelized=None, notes=None, other_index_1=None,
-                 other_index_2=None, parent=None, source=None):
+                 interpolation_method=None, is_levelized=None, other_index_1=None, other_index_2=None,
+                 parent=None):
         self.check_scenario(scenario)
 
         self.cost_denominator_unit = cost_denominator_unit
@@ -532,30 +500,28 @@ class DemandFuelSwitchingMeasuresCost(DataObject):
         self.geography = geography
         self.interpolation_method = interpolation_method
         self.is_levelized = is_levelized
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.parent = parent
-        self.source = source
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (parent, currency, currency_year, cost_denominator_unit, cost_of_capital, is_levelized,
          geography, other_index_1, other_index_2, interpolation_method, extrapolation_method,
-         extrapolation_growth, source, notes,) = tup
+         extrapolation_growth,) = tup
 
         self.set_args(scenario, cost_denominator_unit=cost_denominator_unit, cost_of_capital=cost_of_capital,
                   currency=currency, currency_year=currency_year,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, interpolation_method=interpolation_method,
-                  is_levelized=is_levelized, notes=notes, other_index_1=other_index_1,
-                  other_index_2=other_index_2, parent=parent, source=source)
+                  is_levelized=is_levelized, other_index_1=other_index_1, other_index_2=other_index_2,
+                  parent=parent)
 
 class DemandFuelSwitchingMeasuresEnergyIntensity(DataObject):
     _instances_by_key = {}
     _table_name = "DemandFuelSwitchingMeasuresEnergyIntensity"
     _key_col = "parent"
     _cols = ["extrapolation_growth", "extrapolation_method", "geography", "interpolation_method",
-             "notes", "other_index_1", "other_index_2", "parent", "source"]
+             "other_index_1", "other_index_2", "parent"]
     _df_cols = ["gau", "value", "oth_2", "oth_1", "year"]
     _df_filters = []
     _data_table_name = None
@@ -569,42 +535,36 @@ class DemandFuelSwitchingMeasuresEnergyIntensity(DataObject):
         self.extrapolation_method = None
         self.geography = None
         self.interpolation_method = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
         self.parent = None
-        self.source = None
 
     def set_args(self, scenario, extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 interpolation_method=None, notes=None, other_index_1=None, other_index_2=None,
-                 parent=None, source=None):
+                 interpolation_method=None, other_index_1=None, other_index_2=None, parent=None):
         self.check_scenario(scenario)
 
         self.extrapolation_growth = extrapolation_growth
         self.extrapolation_method = extrapolation_method
         self.geography = geography
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.parent = parent
-        self.source = source
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (parent, geography, other_index_1, other_index_2, interpolation_method,
-         extrapolation_method, extrapolation_growth, source, notes,) = tup
+         extrapolation_method, extrapolation_growth,) = tup
 
         self.set_args(scenario, extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
-                  geography=geography, interpolation_method=interpolation_method, notes=notes,
-                  other_index_1=other_index_1, other_index_2=other_index_2, parent=parent, source=source)
+                  geography=geography, interpolation_method=interpolation_method,
+                  other_index_1=other_index_1, other_index_2=other_index_2, parent=parent)
 
 class DemandFuelSwitchingMeasuresImpact(DataObject):
     _instances_by_key = {}
     _table_name = "DemandFuelSwitchingMeasuresImpact"
     _key_col = "parent"
     _cols = ["extrapolation_growth", "extrapolation_method", "geography", "input_type",
-             "interpolation_method", "notes", "other_index_1", "other_index_2", "parent", "source",
-             "unit"]
+             "interpolation_method", "other_index_1", "other_index_2", "parent", "unit"]
     _df_cols = ["gau", "value", "oth_2", "oth_1", "year"]
     _df_filters = []
     _data_table_name = None
@@ -619,16 +579,13 @@ class DemandFuelSwitchingMeasuresImpact(DataObject):
         self.geography = None
         self.input_type = None
         self.interpolation_method = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
         self.parent = None
-        self.source = None
         self.unit = None
 
     def set_args(self, scenario, extrapolation_growth=None, extrapolation_method=None, geography=None, input_type=None,
-                 interpolation_method=None, notes=None, other_index_1=None, other_index_2=None,
-                 parent=None, source=None, unit=None):
+                 interpolation_method=None, other_index_1=None, other_index_2=None, parent=None, unit=None):
         self.check_scenario(scenario)
 
         self.extrapolation_growth = extrapolation_growth
@@ -636,29 +593,25 @@ class DemandFuelSwitchingMeasuresImpact(DataObject):
         self.geography = geography
         self.input_type = input_type
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.parent = parent
-        self.source = source
         self.unit = unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (parent, input_type, unit, geography, other_index_1, other_index_2, interpolation_method,
-         extrapolation_method, extrapolation_growth, source, notes,) = tup
+         extrapolation_method, extrapolation_growth,) = tup
 
         self.set_args(scenario, extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, input_type=input_type, interpolation_method=interpolation_method,
-                  notes=notes, other_index_1=other_index_1, other_index_2=other_index_2, parent=parent,
-                  source=source, unit=unit)
+                  other_index_1=other_index_1, other_index_2=other_index_2, parent=parent, unit=unit)
 
 class DemandSales(DataObject):
     _instances_by_key = {}
     _table_name = "DemandSales"
     _key_col = "demand_technology"
     _cols = ["demand_technology", "extrapolation_growth", "extrapolation_method", "geography",
-             "input_type", "interpolation_method", "notes", "other_index_1", "other_index_2",
-             "source", "subsector"]
+             "input_type", "interpolation_method", "other_index_1", "other_index_2", "subsector"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1"]
     _df_filters = []
     _data_table_name = None
@@ -674,15 +627,13 @@ class DemandSales(DataObject):
         self.geography = None
         self.input_type = None
         self.interpolation_method = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
-        self.source = None
         self.subsector = None
 
     def set_args(self, scenario, demand_technology=None, extrapolation_growth=None, extrapolation_method=None,
-                 geography=None, input_type=None, interpolation_method=None, notes=None,
-                 other_index_1=None, other_index_2=None, source=None, subsector=None):
+                 geography=None, input_type=None, interpolation_method=None, other_index_1=None,
+                 other_index_2=None, subsector=None):
         self.check_scenario(scenario)
 
         self.demand_technology = demand_technology
@@ -691,28 +642,26 @@ class DemandSales(DataObject):
         self.geography = geography
         self.input_type = input_type
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
-        self.source = source
         self.subsector = subsector
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (subsector, geography, other_index_1, other_index_2, input_type, interpolation_method,
-         extrapolation_method, extrapolation_growth, source, notes, demand_technology,) = tup
+         extrapolation_method, extrapolation_growth, demand_technology,) = tup
 
         self.set_args(scenario, demand_technology=demand_technology, extrapolation_growth=extrapolation_growth,
                   extrapolation_method=extrapolation_method, geography=geography, input_type=input_type,
-                  interpolation_method=interpolation_method, notes=notes, other_index_1=other_index_1,
-                  other_index_2=other_index_2, source=source, subsector=subsector)
+                  interpolation_method=interpolation_method, other_index_1=other_index_1,
+                  other_index_2=other_index_2, subsector=subsector)
 
 class DemandSalesShareMeasures(DataObject):
     _instances_by_key = {}
     _table_name = "DemandSalesShareMeasures"
     _key_col = "name"
     _cols = ["demand_technology", "extrapolation_growth", "extrapolation_method", "geography",
-             "input_type", "interpolation_method", "name", "notes", "other_index_1",
-             "replaced_demand_tech", "source", "subsector"]
+             "input_type", "interpolation_method", "name", "other_index_1", "replaced_demand_tech",
+             "subsector"]
     _df_cols = ["vintage", "gau", "oth_1", "value"]
     _df_filters = []
     _data_table_name = None
@@ -729,15 +678,13 @@ class DemandSalesShareMeasures(DataObject):
         self.input_type = None
         self.interpolation_method = None
         self.name = None
-        self.notes = None
         self.other_index_1 = None
         self.replaced_demand_tech = None
-        self.source = None
         self.subsector = None
 
     def set_args(self, scenario, demand_technology=None, extrapolation_growth=None, extrapolation_method=None,
-                 geography=None, input_type=None, interpolation_method=None, name=None, notes=None,
-                 other_index_1=None, replaced_demand_tech=None, source=None, subsector=None):
+                 geography=None, input_type=None, interpolation_method=None, name=None,
+                 other_index_1=None, replaced_demand_tech=None, subsector=None):
         self.check_scenario(scenario)
 
         self.demand_technology = demand_technology
@@ -747,22 +694,18 @@ class DemandSalesShareMeasures(DataObject):
         self.input_type = input_type
         self.interpolation_method = interpolation_method
         self.name = name
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.replaced_demand_tech = replaced_demand_tech
-        self.source = source
         self.subsector = subsector
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (name, subsector, geography, other_index_1, demand_technology, replaced_demand_tech,
-         input_type, interpolation_method, extrapolation_method, extrapolation_growth, source,
-         notes,) = tup
+         input_type, interpolation_method, extrapolation_method, extrapolation_growth,) = tup
 
         self.set_args(scenario, demand_technology=demand_technology, extrapolation_growth=extrapolation_growth,
                   extrapolation_method=extrapolation_method, geography=geography, input_type=input_type,
-                  interpolation_method=interpolation_method, name=name, notes=notes,
-                  other_index_1=other_index_1, replaced_demand_tech=replaced_demand_tech, source=source,
-                  subsector=subsector)
+                  interpolation_method=interpolation_method, name=name, other_index_1=other_index_1,
+                  replaced_demand_tech=replaced_demand_tech, subsector=subsector)
 
 class DemandSectors(DataObject):
     _instances_by_key = {}
@@ -802,8 +745,8 @@ class DemandServiceDemandMeasures(DataObject):
     _key_col = "name"
     _cols = ["extrapolation_growth", "extrapolation_method", "geography", "geography_map_key",
              "input_type", "interpolation_method", "lifetime_variance", "max_lifetime",
-             "mean_lifetime", "min_lifetime", "name", "notes", "other_index_1", "other_index_2",
-             "source", "stock_decay_function", "subsector", "unit"]
+             "mean_lifetime", "min_lifetime", "name", "other_index_1", "other_index_2",
+             "stock_decay_function", "subsector", "unit"]
     _df_cols = ["gau", "value", "oth_2", "oth_1", "year"]
     _df_filters = []
     _data_table_name = None
@@ -824,10 +767,8 @@ class DemandServiceDemandMeasures(DataObject):
         self.mean_lifetime = None
         self.min_lifetime = None
         self.name = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
-        self.source = None
         self.stock_decay_function = None
         self.subsector = None
         self.unit = None
@@ -835,8 +776,8 @@ class DemandServiceDemandMeasures(DataObject):
     def set_args(self, scenario, extrapolation_growth=None, extrapolation_method=None, geography=None,
                  geography_map_key=None, input_type=None, interpolation_method=None,
                  lifetime_variance=None, max_lifetime=None, mean_lifetime=None, min_lifetime=None,
-                 name=None, notes=None, other_index_1=None, other_index_2=None, source=None,
-                 stock_decay_function=None, subsector=None, unit=None):
+                 name=None, other_index_1=None, other_index_2=None, stock_decay_function=None,
+                 subsector=None, unit=None):
         self.check_scenario(scenario)
 
         self.extrapolation_growth = extrapolation_growth
@@ -850,10 +791,8 @@ class DemandServiceDemandMeasures(DataObject):
         self.mean_lifetime = mean_lifetime
         self.min_lifetime = min_lifetime
         self.name = name
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
-        self.source = source
         self.stock_decay_function = stock_decay_function
         self.subsector = subsector
         self.unit = unit
@@ -861,15 +800,14 @@ class DemandServiceDemandMeasures(DataObject):
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (name, subsector, input_type, unit, geography, other_index_1, other_index_2,
          interpolation_method, extrapolation_method, extrapolation_growth, stock_decay_function,
-         min_lifetime, max_lifetime, mean_lifetime, lifetime_variance, geography_map_key, source,
-         notes,) = tup
+         min_lifetime, max_lifetime, mean_lifetime, lifetime_variance, geography_map_key,) = tup
 
         self.set_args(scenario, extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, geography_map_key=geography_map_key, input_type=input_type,
                   interpolation_method=interpolation_method, lifetime_variance=lifetime_variance,
                   max_lifetime=max_lifetime, mean_lifetime=mean_lifetime, min_lifetime=min_lifetime,
-                  name=name, notes=notes, other_index_1=other_index_1, other_index_2=other_index_2,
-                  source=source, stock_decay_function=stock_decay_function, subsector=subsector, unit=unit)
+                  name=name, other_index_1=other_index_1, other_index_2=other_index_2,
+                  stock_decay_function=stock_decay_function, subsector=subsector, unit=unit)
 
 class DemandServiceDemandMeasuresCost(DataObject):
     _instances_by_key = {}
@@ -877,7 +815,7 @@ class DemandServiceDemandMeasuresCost(DataObject):
     _key_col = "parent"
     _cols = ["cost_denominator_unit", "cost_of_capital", "currency", "currency_year",
              "extrapolation_growth", "extrapolation_method", "geography", "interpolation_method",
-             "is_levelized", "notes", "other_index_1", "other_index_2", "parent", "source"]
+             "is_levelized", "other_index_1", "other_index_2", "parent"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1"]
     _df_filters = []
     _data_table_name = None
@@ -896,16 +834,14 @@ class DemandServiceDemandMeasuresCost(DataObject):
         self.geography = None
         self.interpolation_method = None
         self.is_levelized = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
         self.parent = None
-        self.source = None
 
     def set_args(self, scenario, cost_denominator_unit=None, cost_of_capital=None, currency=None, currency_year=None,
                  extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 interpolation_method=None, is_levelized=None, notes=None, other_index_1=None,
-                 other_index_2=None, parent=None, source=None):
+                 interpolation_method=None, is_levelized=None, other_index_1=None, other_index_2=None,
+                 parent=None):
         self.check_scenario(scenario)
 
         self.cost_denominator_unit = cost_denominator_unit
@@ -917,23 +853,21 @@ class DemandServiceDemandMeasuresCost(DataObject):
         self.geography = geography
         self.interpolation_method = interpolation_method
         self.is_levelized = is_levelized
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.parent = parent
-        self.source = source
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (parent, currency, currency_year, cost_denominator_unit, cost_of_capital, is_levelized,
          geography, other_index_1, other_index_2, interpolation_method, extrapolation_method,
-         extrapolation_growth, source, notes,) = tup
+         extrapolation_growth,) = tup
 
         self.set_args(scenario, cost_denominator_unit=cost_denominator_unit, cost_of_capital=cost_of_capital,
                   currency=currency, currency_year=currency_year,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, interpolation_method=interpolation_method,
-                  is_levelized=is_levelized, notes=notes, other_index_1=other_index_1,
-                  other_index_2=other_index_2, parent=parent, source=source)
+                  is_levelized=is_levelized, other_index_1=other_index_1, other_index_2=other_index_2,
+                  parent=parent)
 
 class DemandServiceDemands(DataObject):
     _instances_by_key = {}
@@ -942,8 +876,8 @@ class DemandServiceDemands(DataObject):
     _cols = ["demand_technology_index", "driver_1", "driver_2", "driver_3", "driver_denominator_1",
              "driver_denominator_2", "extrapolation_growth", "extrapolation_method",
              "final_energy_index", "geography", "geography_map_key", "input_type",
-             "interpolation_method", "is_stock_dependent", "notes", "other_index_1", "other_index_2",
-             "source", "subsector", "unit"]
+             "interpolation_method", "is_stock_dependent", "other_index_1", "other_index_2",
+             "subsector", "unit"]
     _df_cols = ["gau", "demand_technology", "value", "oth_2", "oth_1", "year", "final_energy",
              "sensitivity"]
     _df_filters = []
@@ -968,10 +902,8 @@ class DemandServiceDemands(DataObject):
         self.input_type = None
         self.interpolation_method = None
         self.is_stock_dependent = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
-        self.source = None
         self.subsector = None
         self.unit = None
 
@@ -979,8 +911,8 @@ class DemandServiceDemands(DataObject):
                  driver_denominator_1=None, driver_denominator_2=None, extrapolation_growth=None,
                  extrapolation_method=None, final_energy_index=None, geography=None,
                  geography_map_key=None, input_type=None, interpolation_method=None,
-                 is_stock_dependent=None, notes=None, other_index_1=None, other_index_2=None, source=None,
-                 subsector=None, unit=None):
+                 is_stock_dependent=None, other_index_1=None, other_index_2=None, subsector=None,
+                 unit=None):
         self.check_scenario(scenario)
 
         self.demand_technology_index = demand_technology_index
@@ -997,10 +929,8 @@ class DemandServiceDemands(DataObject):
         self.input_type = input_type
         self.interpolation_method = interpolation_method
         self.is_stock_dependent = is_stock_dependent
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
-        self.source = source
         self.subsector = subsector
         self.unit = unit
 
@@ -1008,7 +938,7 @@ class DemandServiceDemands(DataObject):
         (subsector, is_stock_dependent, input_type, unit, driver_denominator_1,
          driver_denominator_2, driver_1, driver_2, driver_3, geography, final_energy_index,
          demand_technology_index, other_index_1, other_index_2, interpolation_method,
-         extrapolation_method, extrapolation_growth, geography_map_key, source, notes,) = tup
+         extrapolation_method, extrapolation_growth, geography_map_key,) = tup
 
         self.set_args(scenario, demand_technology_index=demand_technology_index, driver_1=driver_1, driver_2=driver_2,
                   driver_3=driver_3, driver_denominator_1=driver_denominator_1,
@@ -1016,16 +946,15 @@ class DemandServiceDemands(DataObject):
                   extrapolation_method=extrapolation_method, final_energy_index=final_energy_index,
                   geography=geography, geography_map_key=geography_map_key, input_type=input_type,
                   interpolation_method=interpolation_method, is_stock_dependent=is_stock_dependent,
-                  notes=notes, other_index_1=other_index_1, other_index_2=other_index_2, source=source,
-                  subsector=subsector, unit=unit)
+                  other_index_1=other_index_1, other_index_2=other_index_2, subsector=subsector, unit=unit)
 
 class DemandServiceEfficiency(DataObject):
     _instances_by_key = {}
     _table_name = "DemandServiceEfficiency"
     _key_col = "subsector"
     _cols = ["denominator_unit", "energy_unit", "extrapolation_growth", "extrapolation_method",
-             "geography", "geography_map_key", "interpolation_method", "notes", "other_index_1",
-             "other_index_2", "sensitivity", "source", "subsector"]
+             "geography", "geography_map_key", "interpolation_method", "other_index_1",
+             "other_index_2", "sensitivity", "subsector"]
     _df_cols = ["gau", "value", "oth_2", "oth_1", "year", "final_energy"]
     _df_filters = []
     _data_table_name = None
@@ -1042,17 +971,15 @@ class DemandServiceEfficiency(DataObject):
         self.geography = None
         self.geography_map_key = None
         self.interpolation_method = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
         self.sensitivity = None
-        self.source = None
         self.subsector = None
 
     def set_args(self, scenario, denominator_unit=None, energy_unit=None, extrapolation_growth=None,
                  extrapolation_method=None, geography=None, geography_map_key=None,
-                 interpolation_method=None, notes=None, other_index_1=None, other_index_2=None,
-                 sensitivity=None, source=None, subsector=None):
+                 interpolation_method=None, other_index_1=None, other_index_2=None, sensitivity=None,
+                 subsector=None):
         self.check_scenario(scenario)
 
         self.denominator_unit = denominator_unit
@@ -1062,23 +989,21 @@ class DemandServiceEfficiency(DataObject):
         self.geography = geography
         self.geography_map_key = geography_map_key
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.sensitivity = sensitivity
-        self.source = source
         self.subsector = subsector
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (subsector, energy_unit, denominator_unit, geography, other_index_1, other_index_2,
          interpolation_method, extrapolation_method, extrapolation_growth, geography_map_key,
-         source, notes, sensitivity,) = tup
+         sensitivity,) = tup
 
         self.set_args(scenario, denominator_unit=denominator_unit, energy_unit=energy_unit,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, geography_map_key=geography_map_key,
-                  interpolation_method=interpolation_method, notes=notes, other_index_1=other_index_1,
-                  other_index_2=other_index_2, sensitivity=sensitivity, source=source, subsector=subsector)
+                  interpolation_method=interpolation_method, other_index_1=other_index_1,
+                  other_index_2=other_index_2, sensitivity=sensitivity, subsector=subsector)
 
 class DemandServiceLink(DataObject):
     _instances_by_key = {}
@@ -1122,8 +1047,8 @@ class DemandStock(DataObject):
     _cols = ["demand_stock_unit_type", "driver_1", "driver_2", "driver_3", "driver_denominator_1",
              "driver_denominator_2", "extrapolation_growth", "extrapolation_method", "geography",
              "geography_map_key", "input_type", "interpolation_method", "is_service_demand_dependent",
-             "notes", "other_index_1", "other_index_2", "source", "specify_stocks_past_current_year",
-             "subsector", "time_unit", "unit"]
+             "other_index_1", "other_index_2", "specify_stocks_past_current_year", "subsector",
+             "time_unit", "unit"]
     _df_cols = ["gau", "demand_technology", "value", "oth_2", "oth_1", "year", "sensitivity"]
     _df_filters = []
     _data_table_name = None
@@ -1146,10 +1071,8 @@ class DemandStock(DataObject):
         self.input_type = None
         self.interpolation_method = None
         self.is_service_demand_dependent = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
-        self.source = None
         self.specify_stocks_past_current_year = None
         self.subsector = None
         self.time_unit = None
@@ -1158,9 +1081,9 @@ class DemandStock(DataObject):
     def set_args(self, scenario, demand_stock_unit_type=None, driver_1=None, driver_2=None, driver_3=None,
                  driver_denominator_1=None, driver_denominator_2=None, extrapolation_growth=None,
                  extrapolation_method=None, geography=None, geography_map_key=None, input_type=None,
-                 interpolation_method=None, is_service_demand_dependent=None, notes=None,
-                 other_index_1=None, other_index_2=None, source=None,
-                 specify_stocks_past_current_year=None, subsector=None, time_unit=None, unit=None):
+                 interpolation_method=None, is_service_demand_dependent=None, other_index_1=None,
+                 other_index_2=None, specify_stocks_past_current_year=None, subsector=None,
+                 time_unit=None, unit=None):
         self.check_scenario(scenario)
 
         self.demand_stock_unit_type = demand_stock_unit_type
@@ -1176,10 +1099,8 @@ class DemandStock(DataObject):
         self.input_type = input_type
         self.interpolation_method = interpolation_method
         self.is_service_demand_dependent = is_service_demand_dependent
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
-        self.source = source
         self.specify_stocks_past_current_year = specify_stocks_past_current_year
         self.subsector = subsector
         self.time_unit = time_unit
@@ -1189,8 +1110,7 @@ class DemandStock(DataObject):
         (subsector, is_service_demand_dependent, driver_denominator_1, driver_denominator_2,
          driver_1, driver_2, driver_3, geography, other_index_1, other_index_2, geography_map_key,
          input_type, demand_stock_unit_type, unit, time_unit, interpolation_method,
-         extrapolation_method, extrapolation_growth, specify_stocks_past_current_year, source,
-         notes,) = tup
+         extrapolation_method, extrapolation_growth, specify_stocks_past_current_year,) = tup
 
         self.set_args(scenario, demand_stock_unit_type=demand_stock_unit_type, driver_1=driver_1, driver_2=driver_2,
                   driver_3=driver_3, driver_denominator_1=driver_denominator_1,
@@ -1198,8 +1118,8 @@ class DemandStock(DataObject):
                   extrapolation_method=extrapolation_method, geography=geography,
                   geography_map_key=geography_map_key, input_type=input_type,
                   interpolation_method=interpolation_method,
-                  is_service_demand_dependent=is_service_demand_dependent, notes=notes,
-                  other_index_1=other_index_1, other_index_2=other_index_2, source=source,
+                  is_service_demand_dependent=is_service_demand_dependent, other_index_1=other_index_1,
+                  other_index_2=other_index_2,
                   specify_stocks_past_current_year=specify_stocks_past_current_year, subsector=subsector,
                   time_unit=time_unit, unit=unit)
 
@@ -1208,7 +1128,7 @@ class DemandStockMeasures(DataObject):
     _table_name = "DemandStockMeasures"
     _key_col = "name"
     _cols = ["demand_technology", "extrapolation_growth", "extrapolation_method", "geography",
-             "interpolation_method", "name", "notes", "other_index_1", "source", "subsector"]
+             "interpolation_method", "name", "other_index_1", "subsector"]
     _df_cols = ["gau", "oth_1", "value", "year"]
     _df_filters = []
     _data_table_name = None
@@ -1224,14 +1144,11 @@ class DemandStockMeasures(DataObject):
         self.geography = None
         self.interpolation_method = None
         self.name = None
-        self.notes = None
         self.other_index_1 = None
-        self.source = None
         self.subsector = None
 
     def set_args(self, scenario, demand_technology=None, extrapolation_growth=None, extrapolation_method=None,
-                 geography=None, interpolation_method=None, name=None, notes=None, other_index_1=None,
-                 source=None, subsector=None):
+                 geography=None, interpolation_method=None, name=None, other_index_1=None, subsector=None):
         self.check_scenario(scenario)
 
         self.demand_technology = demand_technology
@@ -1240,19 +1157,17 @@ class DemandStockMeasures(DataObject):
         self.geography = geography
         self.interpolation_method = interpolation_method
         self.name = name
-        self.notes = notes
         self.other_index_1 = other_index_1
-        self.source = source
         self.subsector = subsector
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (name, subsector, geography, other_index_1, demand_technology, interpolation_method,
-         extrapolation_method, extrapolation_growth, source, notes,) = tup
+         extrapolation_method, extrapolation_growth,) = tup
 
         self.set_args(scenario, demand_technology=demand_technology, extrapolation_growth=extrapolation_growth,
                   extrapolation_method=extrapolation_method, geography=geography,
-                  interpolation_method=interpolation_method, name=name, notes=notes,
-                  other_index_1=other_index_1, source=source, subsector=subsector)
+                  interpolation_method=interpolation_method, name=name, other_index_1=other_index_1,
+                  subsector=subsector)
 
 class DemandSubsectors(DataObject):
     _instances_by_key = {}
@@ -1377,8 +1292,8 @@ class DemandTechsAuxEfficiency(DataObject):
     _cols = ["age_growth_or_decay", "age_growth_or_decay_type", "definition",
              "demand_tech_efficiency_types", "demand_technology", "denominator_unit",
              "extrapolation_growth", "extrapolation_method", "final_energy", "geography",
-             "interpolation_method", "is_numerator_service", "notes", "numerator_unit",
-             "other_index_1", "other_index_2", "reference_tech", "shape", "source"]
+             "interpolation_method", "is_numerator_service", "numerator_unit", "other_index_1",
+             "other_index_2", "reference_tech", "shape"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "sensitivity"]
     _df_filters = []
     _data_table_name = None
@@ -1400,19 +1315,17 @@ class DemandTechsAuxEfficiency(DataObject):
         self.geography = None
         self.interpolation_method = None
         self.is_numerator_service = None
-        self.notes = None
         self.numerator_unit = None
         self.other_index_1 = None
         self.other_index_2 = None
         self.reference_tech = None
         self.shape = None
-        self.source = None
 
     def set_args(self, scenario, age_growth_or_decay=None, age_growth_or_decay_type=None, definition=None,
                  demand_tech_efficiency_types=None, demand_technology=None, denominator_unit=None,
                  extrapolation_growth=None, extrapolation_method=None, final_energy=None, geography=None,
-                 interpolation_method=None, is_numerator_service=None, notes=None, numerator_unit=None,
-                 other_index_1=None, other_index_2=None, reference_tech=None, shape=None, source=None):
+                 interpolation_method=None, is_numerator_service=None, numerator_unit=None,
+                 other_index_1=None, other_index_2=None, reference_tech=None, shape=None):
         self.check_scenario(scenario)
 
         self.age_growth_or_decay = age_growth_or_decay
@@ -1427,19 +1340,17 @@ class DemandTechsAuxEfficiency(DataObject):
         self.geography = geography
         self.interpolation_method = interpolation_method
         self.is_numerator_service = is_numerator_service
-        self.notes = notes
         self.numerator_unit = numerator_unit
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.reference_tech = reference_tech
         self.shape = shape
-        self.source = source
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (demand_technology, definition, reference_tech, geography, other_index_1, other_index_2,
          final_energy, demand_tech_efficiency_types, is_numerator_service, numerator_unit,
          denominator_unit, interpolation_method, extrapolation_method, extrapolation_growth,
-         age_growth_or_decay_type, age_growth_or_decay, shape, source, notes,) = tup
+         age_growth_or_decay_type, age_growth_or_decay, shape,) = tup
 
         self.set_args(scenario, age_growth_or_decay=age_growth_or_decay,
                   age_growth_or_decay_type=age_growth_or_decay_type, definition=definition,
@@ -1448,8 +1359,8 @@ class DemandTechsAuxEfficiency(DataObject):
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   final_energy=final_energy, geography=geography,
                   interpolation_method=interpolation_method, is_numerator_service=is_numerator_service,
-                  notes=notes, numerator_unit=numerator_unit, other_index_1=other_index_1,
-                  other_index_2=other_index_2, reference_tech=reference_tech, shape=shape, source=source)
+                  numerator_unit=numerator_unit, other_index_1=other_index_1, other_index_2=other_index_2,
+                  reference_tech=reference_tech, shape=shape)
 
 class DemandTechsCapitalCost(DataObject):
     _instances_by_key = {}
@@ -1457,8 +1368,8 @@ class DemandTechsCapitalCost(DataObject):
     _key_col = "demand_technology"
     _cols = ["currency", "currency_year", "definition", "demand_technology", "extrapolation_growth",
              "extrapolation_method", "geography", "interpolation_method", "is_levelized",
-             "new_or_replacement", "notes", "other_index_1", "other_index_2", "reference_tech",
-             "reference_tech_operation", "source"]
+             "new_or_replacement", "other_index_1", "other_index_2", "reference_tech",
+             "reference_tech_operation"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "sensitivity"]
     _df_filters = []
     _data_table_name = None
@@ -1478,18 +1389,16 @@ class DemandTechsCapitalCost(DataObject):
         self.interpolation_method = None
         self.is_levelized = None
         self.new_or_replacement = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
         self.reference_tech = None
         self.reference_tech_operation = None
-        self.source = None
 
     def set_args(self, scenario, currency=None, currency_year=None, definition=None, demand_technology=None,
                  extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 interpolation_method=None, is_levelized=None, new_or_replacement=None, notes=None,
+                 interpolation_method=None, is_levelized=None, new_or_replacement=None,
                  other_index_1=None, other_index_2=None, reference_tech=None,
-                 reference_tech_operation=None, source=None):
+                 reference_tech_operation=None):
         self.check_scenario(scenario)
 
         self.currency = currency
@@ -1502,25 +1411,23 @@ class DemandTechsCapitalCost(DataObject):
         self.interpolation_method = interpolation_method
         self.is_levelized = is_levelized
         self.new_or_replacement = new_or_replacement
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.reference_tech = reference_tech
         self.reference_tech_operation = reference_tech_operation
-        self.source = source
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (demand_technology, definition, reference_tech, geography, other_index_1, other_index_2,
          currency, currency_year, is_levelized, interpolation_method, extrapolation_method,
-         extrapolation_growth, reference_tech_operation, source, notes, new_or_replacement,) = tup
+         extrapolation_growth, reference_tech_operation, new_or_replacement,) = tup
 
         self.set_args(scenario, currency=currency, currency_year=currency_year, definition=definition,
                   demand_technology=demand_technology, extrapolation_growth=extrapolation_growth,
                   extrapolation_method=extrapolation_method, geography=geography,
                   interpolation_method=interpolation_method, is_levelized=is_levelized,
-                  new_or_replacement=new_or_replacement, notes=notes, other_index_1=other_index_1,
+                  new_or_replacement=new_or_replacement, other_index_1=other_index_1,
                   other_index_2=other_index_2, reference_tech=reference_tech,
-                  reference_tech_operation=reference_tech_operation, source=source)
+                  reference_tech_operation=reference_tech_operation)
 
 class DemandTechsFixedMaintenanceCost(DataObject):
     _instances_by_key = {}
@@ -1528,8 +1435,8 @@ class DemandTechsFixedMaintenanceCost(DataObject):
     _key_col = "demand_technology"
     _cols = ["additional_description", "age_growth_or_decay", "age_growth_or_decay_type", "currency",
              "currency_year", "definition", "demand_technology", "extrapolation_growth",
-             "extrapolation_method", "geography", "interpolation_method", "notes", "other_index_1",
-             "other_index_2", "reference_tech", "source"]
+             "extrapolation_method", "geography", "interpolation_method", "other_index_1",
+             "other_index_2", "reference_tech"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "sensitivity"]
     _df_filters = []
     _data_table_name = None
@@ -1550,17 +1457,14 @@ class DemandTechsFixedMaintenanceCost(DataObject):
         self.extrapolation_method = None
         self.geography = None
         self.interpolation_method = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
         self.reference_tech = None
-        self.source = None
 
     def set_args(self, scenario, additional_description=None, age_growth_or_decay=None, age_growth_or_decay_type=None,
                  currency=None, currency_year=None, definition=None, demand_technology=None,
                  extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 interpolation_method=None, notes=None, other_index_1=None, other_index_2=None,
-                 reference_tech=None, source=None):
+                 interpolation_method=None, other_index_1=None, other_index_2=None, reference_tech=None):
         self.check_scenario(scenario)
 
         self.additional_description = additional_description
@@ -1574,33 +1478,30 @@ class DemandTechsFixedMaintenanceCost(DataObject):
         self.extrapolation_method = extrapolation_method
         self.geography = geography
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.reference_tech = reference_tech
-        self.source = source
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (demand_technology, definition, reference_tech, geography, other_index_1, other_index_2,
          currency, currency_year, interpolation_method, extrapolation_method,
          extrapolation_growth, age_growth_or_decay_type, age_growth_or_decay,
-         additional_description, source, notes,) = tup
+         additional_description,) = tup
 
         self.set_args(scenario, additional_description=additional_description, age_growth_or_decay=age_growth_or_decay,
                   age_growth_or_decay_type=age_growth_or_decay_type, currency=currency,
                   currency_year=currency_year, definition=definition, demand_technology=demand_technology,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
-                  geography=geography, interpolation_method=interpolation_method, notes=notes,
-                  other_index_1=other_index_1, other_index_2=other_index_2, reference_tech=reference_tech,
-                  source=source)
+                  geography=geography, interpolation_method=interpolation_method,
+                  other_index_1=other_index_1, other_index_2=other_index_2, reference_tech=reference_tech)
 
 class DemandTechsFuelSwitchCost(DataObject):
     _instances_by_key = {}
     _table_name = "DemandTechsFuelSwitchCost"
     _key_col = "demand_technology"
     _cols = ["currency", "currency_year", "definition", "demand_technology", "extrapolation_growth",
-             "extrapolation_method", "geography", "interpolation_method", "is_levelized", "notes",
-             "other_index_1", "other_index_2", "reference_tech", "source"]
+             "extrapolation_method", "geography", "interpolation_method", "is_levelized",
+             "other_index_1", "other_index_2", "reference_tech"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "sensitivity"]
     _df_filters = []
     _data_table_name = None
@@ -1619,16 +1520,14 @@ class DemandTechsFuelSwitchCost(DataObject):
         self.geography = None
         self.interpolation_method = None
         self.is_levelized = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
         self.reference_tech = None
-        self.source = None
 
     def set_args(self, scenario, currency=None, currency_year=None, definition=None, demand_technology=None,
                  extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 interpolation_method=None, is_levelized=None, notes=None, other_index_1=None,
-                 other_index_2=None, reference_tech=None, source=None):
+                 interpolation_method=None, is_levelized=None, other_index_1=None, other_index_2=None,
+                 reference_tech=None):
         self.check_scenario(scenario)
 
         self.currency = currency
@@ -1640,23 +1539,20 @@ class DemandTechsFuelSwitchCost(DataObject):
         self.geography = geography
         self.interpolation_method = interpolation_method
         self.is_levelized = is_levelized
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.reference_tech = reference_tech
-        self.source = source
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (demand_technology, definition, reference_tech, geography, other_index_1, other_index_2,
          currency, currency_year, is_levelized, interpolation_method, extrapolation_method,
-         extrapolation_growth, source, notes,) = tup
+         extrapolation_growth,) = tup
 
         self.set_args(scenario, currency=currency, currency_year=currency_year, definition=definition,
                   demand_technology=demand_technology, extrapolation_growth=extrapolation_growth,
                   extrapolation_method=extrapolation_method, geography=geography,
-                  interpolation_method=interpolation_method, is_levelized=is_levelized, notes=notes,
-                  other_index_1=other_index_1, other_index_2=other_index_2, reference_tech=reference_tech,
-                  source=source)
+                  interpolation_method=interpolation_method, is_levelized=is_levelized,
+                  other_index_1=other_index_1, other_index_2=other_index_2, reference_tech=reference_tech)
 
 class DemandTechsInstallationCost(DataObject):
     _instances_by_key = {}
@@ -1664,8 +1560,7 @@ class DemandTechsInstallationCost(DataObject):
     _key_col = "demand_technology"
     _cols = ["currency", "currency_year", "definition", "demand_technology", "extrapolation_growth",
              "extrapolation_method", "geography", "interpolation_method", "is_levelized",
-             "new_or_replacement", "notes", "other_index_1", "other_index_2", "reference_tech",
-             "source"]
+             "new_or_replacement", "other_index_1", "other_index_2", "reference_tech"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "sensitivity"]
     _df_filters = []
     _data_table_name = None
@@ -1685,16 +1580,14 @@ class DemandTechsInstallationCost(DataObject):
         self.interpolation_method = None
         self.is_levelized = None
         self.new_or_replacement = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
         self.reference_tech = None
-        self.source = None
 
     def set_args(self, scenario, currency=None, currency_year=None, definition=None, demand_technology=None,
                  extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 interpolation_method=None, is_levelized=None, new_or_replacement=None, notes=None,
-                 other_index_1=None, other_index_2=None, reference_tech=None, source=None):
+                 interpolation_method=None, is_levelized=None, new_or_replacement=None,
+                 other_index_1=None, other_index_2=None, reference_tech=None):
         self.check_scenario(scenario)
 
         self.currency = currency
@@ -1707,23 +1600,21 @@ class DemandTechsInstallationCost(DataObject):
         self.interpolation_method = interpolation_method
         self.is_levelized = is_levelized
         self.new_or_replacement = new_or_replacement
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.reference_tech = reference_tech
-        self.source = source
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (demand_technology, definition, reference_tech, geography, other_index_1, other_index_2,
          currency, currency_year, is_levelized, interpolation_method, extrapolation_method,
-         extrapolation_growth, source, notes, new_or_replacement,) = tup
+         extrapolation_growth, new_or_replacement,) = tup
 
         self.set_args(scenario, currency=currency, currency_year=currency_year, definition=definition,
                   demand_technology=demand_technology, extrapolation_growth=extrapolation_growth,
                   extrapolation_method=extrapolation_method, geography=geography,
                   interpolation_method=interpolation_method, is_levelized=is_levelized,
-                  new_or_replacement=new_or_replacement, notes=notes, other_index_1=other_index_1,
-                  other_index_2=other_index_2, reference_tech=reference_tech, source=source)
+                  new_or_replacement=new_or_replacement, other_index_1=other_index_1,
+                  other_index_2=other_index_2, reference_tech=reference_tech)
 
 class DemandTechsMainEfficiency(DataObject):
     _instances_by_key = {}
@@ -1732,8 +1623,7 @@ class DemandTechsMainEfficiency(DataObject):
     _cols = ["age_growth_or_decay", "age_growth_or_decay_type", "definition", "demand_technology",
              "denominator_unit", "extrapolation_growth", "extrapolation_method", "final_energy",
              "geography", "geography_map_key", "interpolation_method", "is_numerator_service",
-             "notes", "numerator_unit", "other_index_1", "other_index_2", "reference_tech", "source",
-             "utility_factor"]
+             "numerator_unit", "other_index_1", "other_index_2", "reference_tech", "utility_factor"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "sensitivity"]
     _df_filters = []
     _data_table_name = None
@@ -1755,20 +1645,17 @@ class DemandTechsMainEfficiency(DataObject):
         self.geography_map_key = None
         self.interpolation_method = None
         self.is_numerator_service = None
-        self.notes = None
         self.numerator_unit = None
         self.other_index_1 = None
         self.other_index_2 = None
         self.reference_tech = None
-        self.source = None
         self.utility_factor = None
 
     def set_args(self, scenario, age_growth_or_decay=None, age_growth_or_decay_type=None, definition=None,
                  demand_technology=None, denominator_unit=None, extrapolation_growth=None,
                  extrapolation_method=None, final_energy=None, geography=None, geography_map_key=None,
-                 interpolation_method=None, is_numerator_service=None, notes=None, numerator_unit=None,
-                 other_index_1=None, other_index_2=None, reference_tech=None, source=None,
-                 utility_factor=None):
+                 interpolation_method=None, is_numerator_service=None, numerator_unit=None,
+                 other_index_1=None, other_index_2=None, reference_tech=None, utility_factor=None):
         self.check_scenario(scenario)
 
         self.age_growth_or_decay = age_growth_or_decay
@@ -1783,19 +1670,17 @@ class DemandTechsMainEfficiency(DataObject):
         self.geography_map_key = geography_map_key
         self.interpolation_method = interpolation_method
         self.is_numerator_service = is_numerator_service
-        self.notes = notes
         self.numerator_unit = numerator_unit
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.reference_tech = reference_tech
-        self.source = source
         self.utility_factor = utility_factor
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (demand_technology, definition, reference_tech, geography, other_index_1, other_index_2,
          final_energy, utility_factor, is_numerator_service, numerator_unit, denominator_unit,
          interpolation_method, extrapolation_method, extrapolation_growth,
-         age_growth_or_decay_type, age_growth_or_decay, geography_map_key, source, notes,) = tup
+         age_growth_or_decay_type, age_growth_or_decay, geography_map_key,) = tup
 
         self.set_args(scenario, age_growth_or_decay=age_growth_or_decay,
                   age_growth_or_decay_type=age_growth_or_decay_type, definition=definition,
@@ -1803,9 +1688,8 @@ class DemandTechsMainEfficiency(DataObject):
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   final_energy=final_energy, geography=geography, geography_map_key=geography_map_key,
                   interpolation_method=interpolation_method, is_numerator_service=is_numerator_service,
-                  notes=notes, numerator_unit=numerator_unit, other_index_1=other_index_1,
-                  other_index_2=other_index_2, reference_tech=reference_tech, source=source,
-                  utility_factor=utility_factor)
+                  numerator_unit=numerator_unit, other_index_1=other_index_1, other_index_2=other_index_2,
+                  reference_tech=reference_tech, utility_factor=utility_factor)
 
 class DemandTechsParasiticEnergy(DataObject):
     _instances_by_key = {}
@@ -1813,8 +1697,7 @@ class DemandTechsParasiticEnergy(DataObject):
     _key_col = "demand_technology"
     _cols = ["age_growth_or_decay", "age_growth_or_decay_type", "definition", "demand_technology",
              "energy_unit", "extrapolation_growth", "extrapolation_method", "geography",
-             "interpolation_method", "notes", "other_index_1", "other_index_2", "reference_tech",
-             "source", "time_unit"]
+             "interpolation_method", "other_index_1", "other_index_2", "reference_tech", "time_unit"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "final_energy", "sensitivity"]
     _df_filters = []
     _data_table_name = None
@@ -1833,17 +1716,15 @@ class DemandTechsParasiticEnergy(DataObject):
         self.extrapolation_method = None
         self.geography = None
         self.interpolation_method = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
         self.reference_tech = None
-        self.source = None
         self.time_unit = None
 
     def set_args(self, scenario, age_growth_or_decay=None, age_growth_or_decay_type=None, definition=None,
                  demand_technology=None, energy_unit=None, extrapolation_growth=None,
-                 extrapolation_method=None, geography=None, interpolation_method=None, notes=None,
-                 other_index_1=None, other_index_2=None, reference_tech=None, source=None, time_unit=None):
+                 extrapolation_method=None, geography=None, interpolation_method=None, other_index_1=None,
+                 other_index_2=None, reference_tech=None, time_unit=None):
         self.check_scenario(scenario)
 
         self.age_growth_or_decay = age_growth_or_decay
@@ -1855,25 +1736,23 @@ class DemandTechsParasiticEnergy(DataObject):
         self.extrapolation_method = extrapolation_method
         self.geography = geography
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.reference_tech = reference_tech
-        self.source = source
         self.time_unit = time_unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (demand_technology, definition, reference_tech, geography, other_index_1, other_index_2,
          energy_unit, time_unit, interpolation_method, extrapolation_method, extrapolation_growth,
-         age_growth_or_decay_type, age_growth_or_decay, source, notes,) = tup
+         age_growth_or_decay_type, age_growth_or_decay,) = tup
 
         self.set_args(scenario, age_growth_or_decay=age_growth_or_decay,
                   age_growth_or_decay_type=age_growth_or_decay_type, definition=definition,
                   demand_technology=demand_technology, energy_unit=energy_unit,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
-                  geography=geography, interpolation_method=interpolation_method, notes=notes,
+                  geography=geography, interpolation_method=interpolation_method,
                   other_index_1=other_index_1, other_index_2=other_index_2, reference_tech=reference_tech,
-                  source=source, time_unit=time_unit)
+                  time_unit=time_unit)
 
 class DemandTechsServiceDemandModifier(DataObject):
     _instances_by_key = {}
@@ -1881,7 +1760,7 @@ class DemandTechsServiceDemandModifier(DataObject):
     _key_col = "demand_technology"
     _cols = ["age_growth_or_decay", "age_growth_or_decay_type", "demand_technology",
              "extrapolation_growth", "extrapolation_method", "geography", "interpolation_method",
-             "notes", "other_index_1", "other_index_2", "source"]
+             "other_index_1", "other_index_2"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "sensitivity"]
     _df_filters = []
     _data_table_name = None
@@ -1898,15 +1777,12 @@ class DemandTechsServiceDemandModifier(DataObject):
         self.extrapolation_method = None
         self.geography = None
         self.interpolation_method = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
-        self.source = None
 
     def set_args(self, scenario, age_growth_or_decay=None, age_growth_or_decay_type=None, demand_technology=None,
                  extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 interpolation_method=None, notes=None, other_index_1=None, other_index_2=None,
-                 source=None):
+                 interpolation_method=None, other_index_1=None, other_index_2=None):
         self.check_scenario(scenario)
 
         self.age_growth_or_decay = age_growth_or_decay
@@ -1916,21 +1792,18 @@ class DemandTechsServiceDemandModifier(DataObject):
         self.extrapolation_method = extrapolation_method
         self.geography = geography
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
-        self.source = source
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (demand_technology, geography, other_index_1, other_index_2, interpolation_method,
-         extrapolation_method, extrapolation_growth, age_growth_or_decay_type,
-         age_growth_or_decay, source, notes,) = tup
+         extrapolation_method, extrapolation_growth, age_growth_or_decay_type, age_growth_or_decay,) = tup
 
         self.set_args(scenario, age_growth_or_decay=age_growth_or_decay,
                   age_growth_or_decay_type=age_growth_or_decay_type, demand_technology=demand_technology,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
-                  geography=geography, interpolation_method=interpolation_method, notes=notes,
-                  other_index_1=other_index_1, other_index_2=other_index_2, source=source)
+                  geography=geography, interpolation_method=interpolation_method,
+                  other_index_1=other_index_1, other_index_2=other_index_2)
 
 class DemandTechsServiceLink(DataObject):
     _instances_by_key = {}
@@ -1938,7 +1811,7 @@ class DemandTechsServiceLink(DataObject):
     _key_col = "name"
     _cols = ["age_growth_or_decay", "age_growth_or_decay_type", "definition", "demand_technology",
              "extrapolation_growth", "extrapolation_method", "geography", "interpolation_method",
-             "name", "notes", "other_index_1", "other_index_2", "reference", "service_link", "source"]
+             "name", "other_index_1", "other_index_2", "reference", "service_link"]
     _df_cols = ["vintage", "gau", "oth_1", "oth_2", "value"]
     _df_filters = []
     _data_table_name = None
@@ -1957,17 +1830,15 @@ class DemandTechsServiceLink(DataObject):
         self.geography = None
         self.interpolation_method = None
         self.name = None
-        self.notes = None
         self.other_index_1 = None
         self.other_index_2 = None
         self.reference = None
         self.service_link = None
-        self.source = None
 
     def set_args(self, scenario, age_growth_or_decay=None, age_growth_or_decay_type=None, definition=None,
                  demand_technology=None, extrapolation_growth=None, extrapolation_method=None,
-                 geography=None, interpolation_method=None, name=None, notes=None, other_index_1=None,
-                 other_index_2=None, reference=None, service_link=None, source=None):
+                 geography=None, interpolation_method=None, name=None, other_index_1=None,
+                 other_index_2=None, reference=None, service_link=None):
         self.check_scenario(scenario)
 
         self.age_growth_or_decay = age_growth_or_decay
@@ -1979,32 +1850,29 @@ class DemandTechsServiceLink(DataObject):
         self.geography = geography
         self.interpolation_method = interpolation_method
         self.name = name
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.reference = reference
         self.service_link = service_link
-        self.source = source
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (name, service_link, demand_technology, definition, reference, geography, other_index_1,
          other_index_2, interpolation_method, extrapolation_method, extrapolation_growth,
-         age_growth_or_decay_type, age_growth_or_decay, source, notes,) = tup
+         age_growth_or_decay_type, age_growth_or_decay,) = tup
 
         self.set_args(scenario, age_growth_or_decay=age_growth_or_decay,
                   age_growth_or_decay_type=age_growth_or_decay_type, definition=definition,
                   demand_technology=demand_technology, extrapolation_growth=extrapolation_growth,
                   extrapolation_method=extrapolation_method, geography=geography,
-                  interpolation_method=interpolation_method, name=name, notes=notes,
-                  other_index_1=other_index_1, other_index_2=other_index_2, reference=reference,
-                  service_link=service_link, source=source)
+                  interpolation_method=interpolation_method, name=name, other_index_1=other_index_1,
+                  other_index_2=other_index_2, reference=reference, service_link=service_link)
 
 class DispatchFeedersAllocation(DataObject):
     _instances_by_key = {}
     _table_name = "DispatchFeedersAllocation"
     _key_col = "name"
     _cols = ["extrapolation_method", "geography", "geography_map_key", "input_type",
-             "interpolation_method", "name", "notes", "source"]
+             "interpolation_method", "name"]
     _df_cols = ["gau", "year", "value", "dispatch_feeder", "demand_sector"]
     _df_filters = []
     _data_table_name = None
@@ -2020,11 +1888,9 @@ class DispatchFeedersAllocation(DataObject):
         self.input_type = None
         self.interpolation_method = None
         self.name = None
-        self.notes = None
-        self.source = None
 
     def set_args(self, scenario, extrapolation_method=None, geography=None, geography_map_key=None, input_type=None,
-                 interpolation_method=None, name=None, notes=None, source=None):
+                 interpolation_method=None, name=None):
         self.check_scenario(scenario)
 
         self.extrapolation_method = extrapolation_method
@@ -2033,16 +1899,13 @@ class DispatchFeedersAllocation(DataObject):
         self.input_type = input_type
         self.interpolation_method = interpolation_method
         self.name = name
-        self.notes = notes
-        self.source = source
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, geography, geography_map_key, input_type, interpolation_method,
-         extrapolation_method, source, notes,) = tup
+        (name, geography, geography_map_key, input_type, interpolation_method, extrapolation_method,) = tup
 
         self.set_args(scenario, extrapolation_method=extrapolation_method, geography=geography,
                   geography_map_key=geography_map_key, input_type=input_type,
-                  interpolation_method=interpolation_method, name=name, notes=notes, source=source)
+                  interpolation_method=interpolation_method, name=name)
 
 class DispatchNodeConfig(DataObject):
     _instances_by_key = {}
@@ -2085,8 +1948,7 @@ class DispatchTransmissionConstraint(DataObject):
     _table_name = "DispatchTransmissionConstraint"
     _key_col = "name"
     _cols = ["description", "energy_unit", "extrapolation_method", "geography_description",
-             "hurdle_currency", "hurdle_currency_year", "interpolation_method", "name", "notes",
-             "source", "time_zone"]
+             "hurdle_currency", "hurdle_currency_year", "interpolation_method", "name", "time_zone"]
     _df_cols = ["gau_to", "gau_from", "hour", "sensitivity", "value", "month", "day_type", "year"]
     _df_filters = []
     _data_table_name = None
@@ -2104,13 +1966,11 @@ class DispatchTransmissionConstraint(DataObject):
         self.hurdle_currency_year = None
         self.interpolation_method = None
         self.name = None
-        self.notes = None
-        self.source = None
         self.time_zone = None
 
     def set_args(self, scenario, description=None, energy_unit=None, extrapolation_method=None, geography_description=None,
                  hurdle_currency=None, hurdle_currency_year=None, interpolation_method=None, name=None,
-                 notes=None, source=None, time_zone=None):
+                 time_zone=None):
         self.check_scenario(scenario)
 
         self.description = description
@@ -2121,19 +1981,16 @@ class DispatchTransmissionConstraint(DataObject):
         self.hurdle_currency_year = hurdle_currency_year
         self.interpolation_method = interpolation_method
         self.name = name
-        self.notes = notes
-        self.source = source
         self.time_zone = time_zone
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (name, description, geography_description, time_zone, interpolation_method,
-         extrapolation_method, hurdle_currency, hurdle_currency_year, energy_unit, source, notes,) = tup
+         extrapolation_method, hurdle_currency, hurdle_currency_year, energy_unit,) = tup
 
         self.set_args(scenario, description=description, energy_unit=energy_unit,
                   extrapolation_method=extrapolation_method, geography_description=geography_description,
                   hurdle_currency=hurdle_currency, hurdle_currency_year=hurdle_currency_year,
-                  interpolation_method=interpolation_method, name=name, notes=notes, source=source,
-                  time_zone=time_zone)
+                  interpolation_method=interpolation_method, name=name, time_zone=time_zone)
 
 class DispatchTransmissionCost(DataObject):
     _instances_by_key = {}
@@ -2262,8 +2119,7 @@ class ImportCost(DataObject):
     _table_name = "ImportCost"
     _key_col = "import_node"
     _cols = ["cost_method", "currency", "currency_year", "denominator_unit", "extrapolation_growth",
-             "extrapolation_method", "geography", "import_node", "interpolation_method", "notes",
-             "source"]
+             "extrapolation_method", "geography", "import_node", "interpolation_method"]
     _df_cols = ["sensitivity", "demand_sector", "value", "resource_bin", "year", "gau"]
     _df_filters = []
     _data_table_name = None
@@ -2282,12 +2138,10 @@ class ImportCost(DataObject):
         self.geography = None
         self.import_node = None
         self.interpolation_method = None
-        self.notes = None
-        self.source = None
 
     def set_args(self, scenario, cost_method=None, currency=None, currency_year=None, denominator_unit=None,
                  extrapolation_growth=None, extrapolation_method=None, geography=None, import_node=None,
-                 interpolation_method=None, notes=None, source=None):
+                 interpolation_method=None):
         self.check_scenario(scenario)
 
         self.cost_method = cost_method
@@ -2299,25 +2153,23 @@ class ImportCost(DataObject):
         self.geography = geography
         self.import_node = import_node
         self.interpolation_method = interpolation_method
-        self.notes = notes
-        self.source = source
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (import_node, source, notes, geography, currency, currency_year, denominator_unit,
-         interpolation_method, extrapolation_method, extrapolation_growth, cost_method,) = tup
+        (import_node, geography, currency, currency_year, denominator_unit, interpolation_method,
+         extrapolation_method, extrapolation_growth, cost_method,) = tup
 
         self.set_args(scenario, cost_method=cost_method, currency=currency, currency_year=currency_year,
                   denominator_unit=denominator_unit, extrapolation_growth=extrapolation_growth,
                   extrapolation_method=extrapolation_method, geography=geography, import_node=import_node,
-                  interpolation_method=interpolation_method, notes=notes, source=source)
+                  interpolation_method=interpolation_method)
 
 class PrimaryCost(DataObject):
     _instances_by_key = {}
     _table_name = "PrimaryCost"
     _key_col = "primary_node"
     _cols = ["cost_method", "currency", "currency_year", "denominator_unit", "extrapolation_growth",
-             "extrapolation_method", "geography", "interpolation_method", "notes", "other_index_1",
-             "primary_node", "source"]
+             "extrapolation_method", "geography", "interpolation_method", "other_index_1",
+             "primary_node"]
     _df_cols = ["sensitivity", "year", "value", "resource_bin", "oth_1", "demand_sector", "gau"]
     _df_filters = []
     _data_table_name = None
@@ -2335,14 +2187,12 @@ class PrimaryCost(DataObject):
         self.extrapolation_method = None
         self.geography = None
         self.interpolation_method = None
-        self.notes = None
         self.other_index_1 = None
         self.primary_node = None
-        self.source = None
 
     def set_args(self, scenario, cost_method=None, currency=None, currency_year=None, denominator_unit=None,
                  extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 interpolation_method=None, notes=None, other_index_1=None, primary_node=None, source=None):
+                 interpolation_method=None, other_index_1=None, primary_node=None):
         self.check_scenario(scenario)
 
         self.cost_method = cost_method
@@ -2353,28 +2203,25 @@ class PrimaryCost(DataObject):
         self.extrapolation_method = extrapolation_method
         self.geography = geography
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.primary_node = primary_node
-        self.source = source
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (primary_node, geography, other_index_1, currency, currency_year, denominator_unit,
-         interpolation_method, extrapolation_method, extrapolation_growth, cost_method, source,
-         notes,) = tup
+         interpolation_method, extrapolation_method, extrapolation_growth, cost_method,) = tup
 
         self.set_args(scenario, cost_method=cost_method, currency=currency, currency_year=currency_year,
                   denominator_unit=denominator_unit, extrapolation_growth=extrapolation_growth,
                   extrapolation_method=extrapolation_method, geography=geography,
-                  interpolation_method=interpolation_method, notes=notes, other_index_1=other_index_1,
-                  primary_node=primary_node, source=source)
+                  interpolation_method=interpolation_method, other_index_1=other_index_1,
+                  primary_node=primary_node)
 
 class StorageTechsDuration(DataObject):
     _instances_by_key = {}
     _table_name = "StorageTechsDuration"
     _key_col = "supply_tech"
-    _cols = ["definition", "extrapolation_method", "geography", "interpolation_method", "notes",
-             "reference_tech", "source", "supply_tech", "time_unit"]
+    _cols = ["definition", "extrapolation_method", "geography", "interpolation_method",
+             "reference_tech", "supply_tech", "time_unit"]
     _df_cols = ["gau", "value", "oth_2", "oth_1", "year", "sensitivity"]
     _df_filters = []
     _data_table_name = None
@@ -2388,41 +2235,36 @@ class StorageTechsDuration(DataObject):
         self.extrapolation_method = None
         self.geography = None
         self.interpolation_method = None
-        self.notes = None
         self.reference_tech = None
-        self.source = None
         self.supply_tech = None
         self.time_unit = None
 
     def set_args(self, scenario, definition=None, extrapolation_method=None, geography=None, interpolation_method=None,
-                 notes=None, reference_tech=None, source=None, supply_tech=None, time_unit=None):
+                 reference_tech=None, supply_tech=None, time_unit=None):
         self.check_scenario(scenario)
 
         self.definition = definition
         self.extrapolation_method = extrapolation_method
         self.geography = geography
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.reference_tech = reference_tech
-        self.source = source
         self.supply_tech = supply_tech
         self.time_unit = time_unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_tech, definition, reference_tech, geography, interpolation_method,
-         extrapolation_method, time_unit, source, notes,) = tup
+         extrapolation_method, time_unit,) = tup
 
         self.set_args(scenario, definition=definition, extrapolation_method=extrapolation_method, geography=geography,
-                  interpolation_method=interpolation_method, notes=notes, reference_tech=reference_tech,
-                  source=source, supply_tech=supply_tech, time_unit=time_unit)
+                  interpolation_method=interpolation_method, reference_tech=reference_tech,
+                  supply_tech=supply_tech, time_unit=time_unit)
 
 class SupplyCapacityFactor(DataObject):
     _instances_by_key = {}
     _table_name = "SupplyCapacityFactor"
     _key_col = "supply_node"
     _cols = ["age_growth_or_decay", "age_growth_or_decay_type", "extrapolation_growth",
-             "extrapolation_method", "geography", "interpolation_method", "notes", "source",
-             "supply_node", "unit"]
+             "extrapolation_method", "geography", "interpolation_method", "supply_node", "unit"]
     _df_cols = ["gau", "demand_sector", "value", "resource_bin", "year"]
     _df_filters = []
     _data_table_name = None
@@ -2438,14 +2280,12 @@ class SupplyCapacityFactor(DataObject):
         self.extrapolation_method = None
         self.geography = None
         self.interpolation_method = None
-        self.notes = None
-        self.source = None
         self.supply_node = None
         self.unit = None
 
     def set_args(self, scenario, age_growth_or_decay=None, age_growth_or_decay_type=None, extrapolation_growth=None,
-                 extrapolation_method=None, geography=None, interpolation_method=None, notes=None,
-                 source=None, supply_node=None, unit=None):
+                 extrapolation_method=None, geography=None, interpolation_method=None, supply_node=None,
+                 unit=None):
         self.check_scenario(scenario)
 
         self.age_growth_or_decay = age_growth_or_decay
@@ -2454,20 +2294,18 @@ class SupplyCapacityFactor(DataObject):
         self.extrapolation_method = extrapolation_method
         self.geography = geography
         self.interpolation_method = interpolation_method
-        self.notes = notes
-        self.source = source
         self.supply_node = supply_node
         self.unit = unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_node, geography, unit, interpolation_method, extrapolation_method,
-         extrapolation_growth, age_growth_or_decay_type, age_growth_or_decay, source, notes,) = tup
+         extrapolation_growth, age_growth_or_decay_type, age_growth_or_decay,) = tup
 
         self.set_args(scenario, age_growth_or_decay=age_growth_or_decay,
                   age_growth_or_decay_type=age_growth_or_decay_type,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
-                  geography=geography, interpolation_method=interpolation_method, notes=notes,
-                  source=source, supply_node=supply_node, unit=unit)
+                  geography=geography, interpolation_method=interpolation_method, supply_node=supply_node,
+                  unit=unit)
 
 class SupplyCost(DataObject):
     _instances_by_key = {}
@@ -2475,8 +2313,8 @@ class SupplyCost(DataObject):
     _key_col = "name"
     _cols = ["additional_notes", "book_life", "cost_of_capital", "currency", "currency_year",
              "energy_or_capacity_unit", "extrapolation_growth", "extrapolation_method", "geography",
-             "interpolation_method", "is_capital_cost", "name", "notes", "source", "supply_cost_type",
-             "supply_node", "throughput_correlation", "time_unit"]
+             "interpolation_method", "is_capital_cost", "name", "supply_cost_type", "supply_node",
+             "throughput_correlation", "time_unit"]
     _df_cols = ["sensitivity", "demand_sector", "value", "resource_bin", "year", "gau"]
     _df_filters = []
     _data_table_name = None
@@ -2498,8 +2336,6 @@ class SupplyCost(DataObject):
         self.interpolation_method = None
         self.is_capital_cost = None
         self.name = None
-        self.notes = None
-        self.source = None
         self.supply_cost_type = None
         self.supply_node = None
         self.throughput_correlation = None
@@ -2508,8 +2344,8 @@ class SupplyCost(DataObject):
     def set_args(self, scenario, additional_notes=None, book_life=None, cost_of_capital=None, currency=None,
                  currency_year=None, energy_or_capacity_unit=None, extrapolation_growth=None,
                  extrapolation_method=None, geography=None, interpolation_method=None,
-                 is_capital_cost=None, name=None, notes=None, source=None, supply_cost_type=None,
-                 supply_node=None, throughput_correlation=None, time_unit=None):
+                 is_capital_cost=None, name=None, supply_cost_type=None, supply_node=None,
+                 throughput_correlation=None, time_unit=None):
         self.check_scenario(scenario)
 
         self.additional_notes = additional_notes
@@ -2524,34 +2360,31 @@ class SupplyCost(DataObject):
         self.interpolation_method = interpolation_method
         self.is_capital_cost = is_capital_cost
         self.name = name
-        self.notes = notes
-        self.source = source
         self.supply_cost_type = supply_cost_type
         self.supply_node = supply_node
         self.throughput_correlation = throughput_correlation
         self.time_unit = time_unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, source, additional_notes, supply_node, geography, supply_cost_type, currency,
-         currency_year, energy_or_capacity_unit, time_unit, is_capital_cost, cost_of_capital,
-         book_life, throughput_correlation, interpolation_method, extrapolation_method,
-         extrapolation_growth, notes,) = tup
+        (name, additional_notes, supply_node, geography, supply_cost_type, currency, currency_year,
+         energy_or_capacity_unit, time_unit, is_capital_cost, cost_of_capital, book_life,
+         throughput_correlation, interpolation_method, extrapolation_method, extrapolation_growth,) = tup
 
         self.set_args(scenario, additional_notes=additional_notes, book_life=book_life, cost_of_capital=cost_of_capital,
                   currency=currency, currency_year=currency_year,
                   energy_or_capacity_unit=energy_or_capacity_unit,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, interpolation_method=interpolation_method,
-                  is_capital_cost=is_capital_cost, name=name, notes=notes, source=source,
-                  supply_cost_type=supply_cost_type, supply_node=supply_node,
-                  throughput_correlation=throughput_correlation, time_unit=time_unit)
+                  is_capital_cost=is_capital_cost, name=name, supply_cost_type=supply_cost_type,
+                  supply_node=supply_node, throughput_correlation=throughput_correlation,
+                  time_unit=time_unit)
 
 class SupplyEfficiency(DataObject):
     _instances_by_key = {}
     _table_name = "SupplyEfficiency"
     _key_col = "name"
     _cols = ["extrapolation_growth", "extrapolation_method", "geography", "input_unit",
-             "interpolation_method", "name", "notes", "output_unit", "source"]
+             "interpolation_method", "name", "output_unit"]
     _df_cols = ["efficiency_type", "sensitivity", "demand_sector", "value", "resource_bin", "year",
              "supply_node", "gau"]
     _df_filters = []
@@ -2568,12 +2401,10 @@ class SupplyEfficiency(DataObject):
         self.input_unit = None
         self.interpolation_method = None
         self.name = None
-        self.notes = None
         self.output_unit = None
-        self.source = None
 
     def set_args(self, scenario, extrapolation_growth=None, extrapolation_method=None, geography=None, input_unit=None,
-                 interpolation_method=None, name=None, notes=None, output_unit=None, source=None):
+                 interpolation_method=None, name=None, output_unit=None):
         self.check_scenario(scenario)
 
         self.extrapolation_growth = extrapolation_growth
@@ -2582,24 +2413,22 @@ class SupplyEfficiency(DataObject):
         self.input_unit = input_unit
         self.interpolation_method = interpolation_method
         self.name = name
-        self.notes = notes
         self.output_unit = output_unit
-        self.source = source
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, geography, source, notes, input_unit, output_unit, interpolation_method,
-         extrapolation_method, extrapolation_growth,) = tup
+        (name, geography, input_unit, output_unit, interpolation_method, extrapolation_method,
+         extrapolation_growth,) = tup
 
         self.set_args(scenario, extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, input_unit=input_unit, interpolation_method=interpolation_method,
-                  name=name, notes=notes, output_unit=output_unit, source=source)
+                  name=name, output_unit=output_unit)
 
 class SupplyEmissions(DataObject):
     _instances_by_key = {}
     _table_name = "SupplyEmissions"
     _key_col = "supply_node"
     _cols = ["denominator_unit", "extrapolation_growth", "extrapolation_method", "geography",
-             "interpolation_method", "mass_unit", "notes", "other_index_1", "source", "supply_node"]
+             "interpolation_method", "mass_unit", "other_index_1", "supply_node"]
     _df_cols = ["gau", "demand_sector", "value", "ghg", "oth_1", "year", "sensitivity", "ghg_type"]
     _df_filters = []
     _data_table_name = None
@@ -2615,14 +2444,12 @@ class SupplyEmissions(DataObject):
         self.geography = None
         self.interpolation_method = None
         self.mass_unit = None
-        self.notes = None
         self.other_index_1 = None
-        self.source = None
         self.supply_node = None
 
     def set_args(self, scenario, denominator_unit=None, extrapolation_growth=None, extrapolation_method=None,
-                 geography=None, interpolation_method=None, mass_unit=None, notes=None,
-                 other_index_1=None, source=None, supply_node=None):
+                 geography=None, interpolation_method=None, mass_unit=None, other_index_1=None,
+                 supply_node=None):
         self.check_scenario(scenario)
 
         self.denominator_unit = denominator_unit
@@ -2631,27 +2458,24 @@ class SupplyEmissions(DataObject):
         self.geography = geography
         self.interpolation_method = interpolation_method
         self.mass_unit = mass_unit
-        self.notes = notes
         self.other_index_1 = other_index_1
-        self.source = source
         self.supply_node = supply_node
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_node, geography, other_index_1, mass_unit, denominator_unit, interpolation_method,
-         extrapolation_method, extrapolation_growth, source, notes,) = tup
+         extrapolation_method, extrapolation_growth,) = tup
 
         self.set_args(scenario, denominator_unit=denominator_unit, extrapolation_growth=extrapolation_growth,
                   extrapolation_method=extrapolation_method, geography=geography,
-                  interpolation_method=interpolation_method, mass_unit=mass_unit, notes=notes,
-                  other_index_1=other_index_1, source=source, supply_node=supply_node)
+                  interpolation_method=interpolation_method, mass_unit=mass_unit,
+                  other_index_1=other_index_1, supply_node=supply_node)
 
 class SupplyExport(DataObject):
     _instances_by_key = {}
     _table_name = "SupplyExport"
     _key_col = "supply_node"
     _cols = ["extrapolation_growth", "extrapolation_method", "geography", "geography_map_key",
-             "interpolation_method", "notes", "other_index_1", "sensitivity", "source", "supply_node",
-             "unit"]
+             "interpolation_method", "other_index_1", "sensitivity", "supply_node", "unit"]
     _df_cols = ["gau", "value", "resource_bin", "oth_1", "year"]
     _df_filters = []
     _data_table_name = None
@@ -2666,16 +2490,14 @@ class SupplyExport(DataObject):
         self.geography = None
         self.geography_map_key = None
         self.interpolation_method = None
-        self.notes = None
         self.other_index_1 = None
         self.sensitivity = None
-        self.source = None
         self.supply_node = None
         self.unit = None
 
     def set_args(self, scenario, extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 geography_map_key=None, interpolation_method=None, notes=None, other_index_1=None,
-                 sensitivity=None, source=None, supply_node=None, unit=None):
+                 geography_map_key=None, interpolation_method=None, other_index_1=None, sensitivity=None,
+                 supply_node=None, unit=None):
         self.check_scenario(scenario)
 
         self.extrapolation_growth = extrapolation_growth
@@ -2683,28 +2505,26 @@ class SupplyExport(DataObject):
         self.geography = geography
         self.geography_map_key = geography_map_key
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.sensitivity = sensitivity
-        self.source = source
         self.supply_node = supply_node
         self.unit = unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_node, geography, other_index_1, unit, interpolation_method, extrapolation_method,
-         extrapolation_growth, geography_map_key, source, notes, sensitivity,) = tup
+         extrapolation_growth, geography_map_key, sensitivity,) = tup
 
         self.set_args(scenario, extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, geography_map_key=geography_map_key,
-                  interpolation_method=interpolation_method, notes=notes, other_index_1=other_index_1,
-                  sensitivity=sensitivity, source=source, supply_node=supply_node, unit=unit)
+                  interpolation_method=interpolation_method, other_index_1=other_index_1,
+                  sensitivity=sensitivity, supply_node=supply_node, unit=unit)
 
 class SupplyExportMeasures(DataObject):
     _instances_by_key = {}
     _table_name = "SupplyExportMeasures"
     _key_col = "name"
-    _cols = ["extrapolation_method", "geography", "interpolation_method", "name", "notes",
-             "other_index_1", "source", "supply_node", "unit"]
+    _cols = ["extrapolation_method", "geography", "interpolation_method", "name", "other_index_1",
+             "supply_node", "unit"]
     _df_cols = ["gau", "oth_1", "value", "year"]
     _df_filters = []
     _data_table_name = None
@@ -2718,33 +2538,29 @@ class SupplyExportMeasures(DataObject):
         self.geography = None
         self.interpolation_method = None
         self.name = None
-        self.notes = None
         self.other_index_1 = None
-        self.source = None
         self.supply_node = None
         self.unit = None
 
     def set_args(self, scenario, extrapolation_method=None, geography=None, interpolation_method=None, name=None,
-                 notes=None, other_index_1=None, source=None, supply_node=None, unit=None):
+                 other_index_1=None, supply_node=None, unit=None):
         self.check_scenario(scenario)
 
         self.extrapolation_method = extrapolation_method
         self.geography = geography
         self.interpolation_method = interpolation_method
         self.name = name
-        self.notes = notes
         self.other_index_1 = other_index_1
-        self.source = source
         self.supply_node = supply_node
         self.unit = unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_node, name, geography, other_index_1, interpolation_method, extrapolation_method,
-         unit, source, notes,) = tup
+         unit,) = tup
 
         self.set_args(scenario, extrapolation_method=extrapolation_method, geography=geography,
-                  interpolation_method=interpolation_method, name=name, notes=notes,
-                  other_index_1=other_index_1, source=source, supply_node=supply_node, unit=unit)
+                  interpolation_method=interpolation_method, name=name, other_index_1=other_index_1,
+                  supply_node=supply_node, unit=unit)
 
 class SupplyNodes(DataObject):
     _instances_by_key = {}
@@ -2841,8 +2657,7 @@ class SupplyPotential(DataObject):
     _table_name = "SupplyPotential"
     _key_col = "supply_node"
     _cols = ["extrapolation_growth", "extrapolation_method", "geography", "geography_map_key",
-             "interpolation_method", "notes", "other_index_1", "source", "supply_node", "time_unit",
-             "unit"]
+             "interpolation_method", "other_index_1", "supply_node", "time_unit", "unit"]
     _df_cols = ["gau", "year", "value", "resource_bin", "oth_1", "demand_sector", "sensitivity"]
     _df_filters = []
     _data_table_name = None
@@ -2857,16 +2672,14 @@ class SupplyPotential(DataObject):
         self.geography = None
         self.geography_map_key = None
         self.interpolation_method = None
-        self.notes = None
         self.other_index_1 = None
-        self.source = None
         self.supply_node = None
         self.time_unit = None
         self.unit = None
 
     def set_args(self, scenario, extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 geography_map_key=None, interpolation_method=None, notes=None, other_index_1=None,
-                 source=None, supply_node=None, time_unit=None, unit=None):
+                 geography_map_key=None, interpolation_method=None, other_index_1=None, supply_node=None,
+                 time_unit=None, unit=None):
         self.check_scenario(scenario)
 
         self.extrapolation_growth = extrapolation_growth
@@ -2874,29 +2687,26 @@ class SupplyPotential(DataObject):
         self.geography = geography
         self.geography_map_key = geography_map_key
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.other_index_1 = other_index_1
-        self.source = source
         self.supply_node = supply_node
         self.time_unit = time_unit
         self.unit = unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_node, geography, other_index_1, unit, time_unit, interpolation_method,
-         extrapolation_growth, extrapolation_method, geography_map_key, source, notes,) = tup
+         extrapolation_growth, extrapolation_method, geography_map_key,) = tup
 
         self.set_args(scenario, extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, geography_map_key=geography_map_key,
-                  interpolation_method=interpolation_method, notes=notes, other_index_1=other_index_1,
-                  source=source, supply_node=supply_node, time_unit=time_unit, unit=unit)
+                  interpolation_method=interpolation_method, other_index_1=other_index_1,
+                  supply_node=supply_node, time_unit=time_unit, unit=unit)
 
 class SupplyPotentialConversion(DataObject):
     _instances_by_key = {}
     _table_name = "SupplyPotentialConversion"
     _key_col = "supply_node"
     _cols = ["energy_unit_numerator", "extrapolation_growth", "extrapolation_method", "geography",
-             "interpolation_method", "notes", "other_index_1", "resource_unit_denominator", "source",
-             "supply_node"]
+             "interpolation_method", "other_index_1", "resource_unit_denominator", "supply_node"]
     _df_cols = ["gau", "value", "resource_bin", "oth_1", "year"]
     _df_filters = []
     _data_table_name = None
@@ -2911,15 +2721,13 @@ class SupplyPotentialConversion(DataObject):
         self.extrapolation_method = None
         self.geography = None
         self.interpolation_method = None
-        self.notes = None
         self.other_index_1 = None
         self.resource_unit_denominator = None
-        self.source = None
         self.supply_node = None
 
     def set_args(self, scenario, energy_unit_numerator=None, extrapolation_growth=None, extrapolation_method=None,
-                 geography=None, interpolation_method=None, notes=None, other_index_1=None,
-                 resource_unit_denominator=None, source=None, supply_node=None):
+                 geography=None, interpolation_method=None, other_index_1=None,
+                 resource_unit_denominator=None, supply_node=None):
         self.check_scenario(scenario)
 
         self.energy_unit_numerator = energy_unit_numerator
@@ -2927,29 +2735,26 @@ class SupplyPotentialConversion(DataObject):
         self.extrapolation_method = extrapolation_method
         self.geography = geography
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.resource_unit_denominator = resource_unit_denominator
-        self.source = source
         self.supply_node = supply_node
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_node, geography, other_index_1, energy_unit_numerator, resource_unit_denominator,
-         interpolation_method, extrapolation_method, extrapolation_growth, source, notes,) = tup
+         interpolation_method, extrapolation_method, extrapolation_growth,) = tup
 
         self.set_args(scenario, energy_unit_numerator=energy_unit_numerator, extrapolation_growth=extrapolation_growth,
                   extrapolation_method=extrapolation_method, geography=geography,
-                  interpolation_method=interpolation_method, notes=notes, other_index_1=other_index_1,
-                  resource_unit_denominator=resource_unit_denominator, source=source,
-                  supply_node=supply_node)
+                  interpolation_method=interpolation_method, other_index_1=other_index_1,
+                  resource_unit_denominator=resource_unit_denominator, supply_node=supply_node)
 
 class SupplySales(DataObject):
     _instances_by_key = {}
     _table_name = "SupplySales"
     _key_col = "supply_technology"
     _cols = ["capacity_or_energy_unit", "extrapolation_growth", "extrapolation_method", "geography",
-             "geography_map_key", "interpolation_method", "notes", "source", "supply_node",
-             "supply_technology", "time_unit"]
+             "geography_map_key", "interpolation_method", "supply_node", "supply_technology",
+             "time_unit"]
     _df_cols = ["vintage", "gau", "value", "resource_bin", "demand_sector"]
     _df_filters = []
     _data_table_name = None
@@ -2965,15 +2770,13 @@ class SupplySales(DataObject):
         self.geography = None
         self.geography_map_key = None
         self.interpolation_method = None
-        self.notes = None
-        self.source = None
         self.supply_node = None
         self.supply_technology = None
         self.time_unit = None
 
     def set_args(self, scenario, capacity_or_energy_unit=None, extrapolation_growth=None, extrapolation_method=None,
-                 geography=None, geography_map_key=None, interpolation_method=None, notes=None,
-                 source=None, supply_node=None, supply_technology=None, time_unit=None):
+                 geography=None, geography_map_key=None, interpolation_method=None, supply_node=None,
+                 supply_technology=None, time_unit=None):
         self.check_scenario(scenario)
 
         self.capacity_or_energy_unit = capacity_or_energy_unit
@@ -2982,30 +2785,26 @@ class SupplySales(DataObject):
         self.geography = geography
         self.geography_map_key = geography_map_key
         self.interpolation_method = interpolation_method
-        self.notes = notes
-        self.source = source
         self.supply_node = supply_node
         self.supply_technology = supply_technology
         self.time_unit = time_unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_node, geography, capacity_or_energy_unit, time_unit, interpolation_method,
-         extrapolation_method, extrapolation_growth, geography_map_key, source, notes,
-         supply_technology,) = tup
+         extrapolation_method, extrapolation_growth, geography_map_key, supply_technology,) = tup
 
         self.set_args(scenario, capacity_or_energy_unit=capacity_or_energy_unit,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, geography_map_key=geography_map_key,
-                  interpolation_method=interpolation_method, notes=notes, source=source,
-                  supply_node=supply_node, supply_technology=supply_technology, time_unit=time_unit)
+                  interpolation_method=interpolation_method, supply_node=supply_node,
+                  supply_technology=supply_technology, time_unit=time_unit)
 
 class SupplySalesMeasures(DataObject):
     _instances_by_key = {}
     _table_name = "SupplySalesMeasures"
     _key_col = "name"
     _cols = ["extrapolation_growth", "extrapolation_method", "geography", "geography_map_key",
-             "interpolation_method", "name", "notes", "other_index_1", "source", "supply_node",
-             "supply_technology"]
+             "interpolation_method", "name", "other_index_1", "supply_node", "supply_technology"]
     _df_cols = ["vintage", "gau", "value", "resource_bin", "oth_1", "demand_sector"]
     _df_filters = []
     _data_table_name = None
@@ -3021,15 +2820,13 @@ class SupplySalesMeasures(DataObject):
         self.geography_map_key = None
         self.interpolation_method = None
         self.name = None
-        self.notes = None
         self.other_index_1 = None
-        self.source = None
         self.supply_node = None
         self.supply_technology = None
 
     def set_args(self, scenario, extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 geography_map_key=None, interpolation_method=None, name=None, notes=None,
-                 other_index_1=None, source=None, supply_node=None, supply_technology=None):
+                 geography_map_key=None, interpolation_method=None, name=None, other_index_1=None,
+                 supply_node=None, supply_technology=None):
         self.check_scenario(scenario)
 
         self.extrapolation_growth = extrapolation_growth
@@ -3038,28 +2835,25 @@ class SupplySalesMeasures(DataObject):
         self.geography_map_key = geography_map_key
         self.interpolation_method = interpolation_method
         self.name = name
-        self.notes = notes
         self.other_index_1 = other_index_1
-        self.source = source
         self.supply_node = supply_node
         self.supply_technology = supply_technology
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (name, supply_technology, supply_node, geography, other_index_1, interpolation_method,
-         extrapolation_method, extrapolation_growth, geography_map_key, source, notes,) = tup
+         extrapolation_method, extrapolation_growth, geography_map_key,) = tup
 
         self.set_args(scenario, extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, geography_map_key=geography_map_key,
-                  interpolation_method=interpolation_method, name=name, notes=notes,
-                  other_index_1=other_index_1, source=source, supply_node=supply_node,
-                  supply_technology=supply_technology)
+                  interpolation_method=interpolation_method, name=name, other_index_1=other_index_1,
+                  supply_node=supply_node, supply_technology=supply_technology)
 
 class SupplySalesShare(DataObject):
     _instances_by_key = {}
     _table_name = "SupplySalesShare"
     _key_col = "supply_technology"
     _cols = ["extrapolation_growth", "extrapolation_method", "geography", "interpolation_method",
-             "notes", "source", "supply_node", "supply_technology"]
+             "supply_node", "supply_technology"]
     _df_cols = ["vintage", "gau", "value", "demand_sector"]
     _df_filters = []
     _data_table_name = None
@@ -3073,40 +2867,35 @@ class SupplySalesShare(DataObject):
         self.extrapolation_method = None
         self.geography = None
         self.interpolation_method = None
-        self.notes = None
-        self.source = None
         self.supply_node = None
         self.supply_technology = None
 
     def set_args(self, scenario, extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 interpolation_method=None, notes=None, source=None, supply_node=None,
-                 supply_technology=None):
+                 interpolation_method=None, supply_node=None, supply_technology=None):
         self.check_scenario(scenario)
 
         self.extrapolation_growth = extrapolation_growth
         self.extrapolation_method = extrapolation_method
         self.geography = geography
         self.interpolation_method = interpolation_method
-        self.notes = notes
-        self.source = source
         self.supply_node = supply_node
         self.supply_technology = supply_technology
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_node, geography, interpolation_method, extrapolation_method, extrapolation_growth,
-         source, notes, supply_technology,) = tup
+         supply_technology,) = tup
 
         self.set_args(scenario, extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
-                  geography=geography, interpolation_method=interpolation_method, notes=notes,
-                  source=source, supply_node=supply_node, supply_technology=supply_technology)
+                  geography=geography, interpolation_method=interpolation_method, supply_node=supply_node,
+                  supply_technology=supply_technology)
 
 class SupplySalesShareMeasures(DataObject):
     _instances_by_key = {}
     _table_name = "SupplySalesShareMeasures"
     _key_col = "name"
     _cols = ["capacity_or_energy_unit", "extrapolation_growth", "extrapolation_method", "geography",
-             "interpolation_method", "name", "notes", "other_index_1", "replaced_supply_technology",
-             "source", "supply_node", "supply_technology", "time_unit"]
+             "interpolation_method", "name", "other_index_1", "replaced_supply_technology",
+             "supply_node", "supply_technology", "time_unit"]
     _df_cols = ["vintage", "gau", "value", "resource_bin", "oth_1", "demand_sector"]
     _df_filters = []
     _data_table_name = None
@@ -3122,18 +2911,15 @@ class SupplySalesShareMeasures(DataObject):
         self.geography = None
         self.interpolation_method = None
         self.name = None
-        self.notes = None
         self.other_index_1 = None
         self.replaced_supply_technology = None
-        self.source = None
         self.supply_node = None
         self.supply_technology = None
         self.time_unit = None
 
     def set_args(self, scenario, capacity_or_energy_unit=None, extrapolation_growth=None, extrapolation_method=None,
-                 geography=None, interpolation_method=None, name=None, notes=None, other_index_1=None,
-                 replaced_supply_technology=None, source=None, supply_node=None, supply_technology=None,
-                 time_unit=None):
+                 geography=None, interpolation_method=None, name=None, other_index_1=None,
+                 replaced_supply_technology=None, supply_node=None, supply_technology=None, time_unit=None):
         self.check_scenario(scenario)
 
         self.capacity_or_energy_unit = capacity_or_energy_unit
@@ -3142,10 +2928,8 @@ class SupplySalesShareMeasures(DataObject):
         self.geography = geography
         self.interpolation_method = interpolation_method
         self.name = name
-        self.notes = notes
         self.other_index_1 = other_index_1
         self.replaced_supply_technology = replaced_supply_technology
-        self.source = source
         self.supply_node = supply_node
         self.supply_technology = supply_technology
         self.time_unit = time_unit
@@ -3153,22 +2937,20 @@ class SupplySalesShareMeasures(DataObject):
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (name, supply_node, supply_technology, replaced_supply_technology, geography,
          capacity_or_energy_unit, time_unit, interpolation_method, extrapolation_method,
-         extrapolation_growth, other_index_1, source, notes,) = tup
+         extrapolation_growth, other_index_1,) = tup
 
         self.set_args(scenario, capacity_or_energy_unit=capacity_or_energy_unit,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
-                  geography=geography, interpolation_method=interpolation_method, name=name, notes=notes,
+                  geography=geography, interpolation_method=interpolation_method, name=name,
                   other_index_1=other_index_1, replaced_supply_technology=replaced_supply_technology,
-                  source=source, supply_node=supply_node, supply_technology=supply_technology,
-                  time_unit=time_unit)
+                  supply_node=supply_node, supply_technology=supply_technology, time_unit=time_unit)
 
 class SupplyStock(DataObject):
     _instances_by_key = {}
     _table_name = "SupplyStock"
     _key_col = "supply_node"
     _cols = ["capacity_or_energy_unit", "extrapolation_growth", "extrapolation_method", "geography",
-             "geography_map_key", "interpolation_method", "notes", "source", "supply_node",
-             "time_unit"]
+             "geography_map_key", "interpolation_method", "supply_node", "time_unit"]
     _df_cols = ["sensitivity", "demand_sector", "value", "resource_bin", "year", "supply_technology",
              "gau"]
     _df_filters = []
@@ -3185,14 +2967,12 @@ class SupplyStock(DataObject):
         self.geography = None
         self.geography_map_key = None
         self.interpolation_method = None
-        self.notes = None
-        self.source = None
         self.supply_node = None
         self.time_unit = None
 
     def set_args(self, scenario, capacity_or_energy_unit=None, extrapolation_growth=None, extrapolation_method=None,
-                 geography=None, geography_map_key=None, interpolation_method=None, notes=None,
-                 source=None, supply_node=None, time_unit=None):
+                 geography=None, geography_map_key=None, interpolation_method=None, supply_node=None,
+                 time_unit=None):
         self.check_scenario(scenario)
 
         self.capacity_or_energy_unit = capacity_or_energy_unit
@@ -3201,28 +2981,25 @@ class SupplyStock(DataObject):
         self.geography = geography
         self.geography_map_key = geography_map_key
         self.interpolation_method = interpolation_method
-        self.notes = notes
-        self.source = source
         self.supply_node = supply_node
         self.time_unit = time_unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_node, geography, capacity_or_energy_unit, time_unit, interpolation_method,
-         extrapolation_method, extrapolation_growth, geography_map_key, source, notes,) = tup
+         extrapolation_method, extrapolation_growth, geography_map_key,) = tup
 
         self.set_args(scenario, capacity_or_energy_unit=capacity_or_energy_unit,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, geography_map_key=geography_map_key,
-                  interpolation_method=interpolation_method, notes=notes, source=source,
-                  supply_node=supply_node, time_unit=time_unit)
+                  interpolation_method=interpolation_method, supply_node=supply_node, time_unit=time_unit)
 
 class SupplyStockMeasures(DataObject):
     _instances_by_key = {}
     _table_name = "SupplyStockMeasures"
     _key_col = "name"
     _cols = ["capacity_or_energy_unit", "extrapolation_growth", "extrapolation_method", "geography",
-             "geography_map_key", "interpolation_method", "name", "notes", "other_index_1", "source",
-             "supply_node", "supply_technology", "time_unit"]
+             "geography_map_key", "interpolation_method", "name", "other_index_1", "supply_node",
+             "supply_technology", "time_unit"]
     _df_cols = ["gau", "demand_sector", "value", "resource_bin", "oth_1", "year"]
     _df_filters = []
     _data_table_name = None
@@ -3239,16 +3016,14 @@ class SupplyStockMeasures(DataObject):
         self.geography_map_key = None
         self.interpolation_method = None
         self.name = None
-        self.notes = None
         self.other_index_1 = None
-        self.source = None
         self.supply_node = None
         self.supply_technology = None
         self.time_unit = None
 
     def set_args(self, scenario, capacity_or_energy_unit=None, extrapolation_growth=None, extrapolation_method=None,
-                 geography=None, geography_map_key=None, interpolation_method=None, name=None, notes=None,
-                 other_index_1=None, source=None, supply_node=None, supply_technology=None, time_unit=None):
+                 geography=None, geography_map_key=None, interpolation_method=None, name=None,
+                 other_index_1=None, supply_node=None, supply_technology=None, time_unit=None):
         self.check_scenario(scenario)
 
         self.capacity_or_energy_unit = capacity_or_energy_unit
@@ -3258,9 +3033,7 @@ class SupplyStockMeasures(DataObject):
         self.geography_map_key = geography_map_key
         self.interpolation_method = interpolation_method
         self.name = name
-        self.notes = notes
         self.other_index_1 = other_index_1
-        self.source = source
         self.supply_node = supply_node
         self.supply_technology = supply_technology
         self.time_unit = time_unit
@@ -3268,14 +3041,13 @@ class SupplyStockMeasures(DataObject):
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (name, supply_technology, supply_node, geography, other_index_1, capacity_or_energy_unit,
          time_unit, interpolation_method, extrapolation_method, extrapolation_growth,
-         geography_map_key, source, notes,) = tup
+         geography_map_key,) = tup
 
         self.set_args(scenario, capacity_or_energy_unit=capacity_or_energy_unit,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, geography_map_key=geography_map_key,
-                  interpolation_method=interpolation_method, name=name, notes=notes,
-                  other_index_1=other_index_1, source=source, supply_node=supply_node,
-                  supply_technology=supply_technology, time_unit=time_unit)
+                  interpolation_method=interpolation_method, name=name, other_index_1=other_index_1,
+                  supply_node=supply_node, supply_technology=supply_technology, time_unit=time_unit)
 
 class SupplyTechs(DataObject):
     _instances_by_key = {}
@@ -3353,8 +3125,8 @@ class SupplyTechsCO2Capture(DataObject):
     _table_name = "SupplyTechsCO2Capture"
     _key_col = "supply_tech"
     _cols = ["age_growth_or_decay", "age_growth_or_decay_type", "definition", "extrapolation_growth",
-             "extrapolation_method", "geography", "interpolation_method", "notes", "reference_tech",
-             "source", "supply_tech"]
+             "extrapolation_method", "geography", "interpolation_method", "reference_tech",
+             "supply_tech"]
     _df_cols = ["vintage", "gau", "resource_bin", "value"]
     _df_filters = []
     _data_table_name = None
@@ -3371,14 +3143,12 @@ class SupplyTechsCO2Capture(DataObject):
         self.extrapolation_method = None
         self.geography = None
         self.interpolation_method = None
-        self.notes = None
         self.reference_tech = None
-        self.source = None
         self.supply_tech = None
 
     def set_args(self, scenario, age_growth_or_decay=None, age_growth_or_decay_type=None, definition=None,
                  extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 interpolation_method=None, notes=None, reference_tech=None, source=None, supply_tech=None):
+                 interpolation_method=None, reference_tech=None, supply_tech=None):
         self.check_scenario(scenario)
 
         self.age_growth_or_decay = age_growth_or_decay
@@ -3388,29 +3158,26 @@ class SupplyTechsCO2Capture(DataObject):
         self.extrapolation_method = extrapolation_method
         self.geography = geography
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.reference_tech = reference_tech
-        self.source = source
         self.supply_tech = supply_tech
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_tech, definition, geography, reference_tech, interpolation_method,
-         extrapolation_method, extrapolation_growth, age_growth_or_decay_type,
-         age_growth_or_decay, source, notes,) = tup
+         extrapolation_method, extrapolation_growth, age_growth_or_decay_type, age_growth_or_decay,) = tup
 
         self.set_args(scenario, age_growth_or_decay=age_growth_or_decay,
                   age_growth_or_decay_type=age_growth_or_decay_type, definition=definition,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
-                  geography=geography, interpolation_method=interpolation_method, notes=notes,
-                  reference_tech=reference_tech, source=source, supply_tech=supply_tech)
+                  geography=geography, interpolation_method=interpolation_method,
+                  reference_tech=reference_tech, supply_tech=supply_tech)
 
 class SupplyTechsCapacityFactor(DataObject):
     _instances_by_key = {}
     _table_name = "SupplyTechsCapacityFactor"
     _key_col = "supply_tech"
     _cols = ["age_growth_or_decay", "age_growth_or_decay_type", "definition", "extrapolation_growth",
-             "extrapolation_method", "geography", "interpolation_method", "notes", "reference_tech",
-             "source", "supply_tech"]
+             "extrapolation_method", "geography", "interpolation_method", "reference_tech",
+             "supply_tech"]
     _df_cols = ["vintage", "sensitivity", "value", "resource_bin", "oth_1", "gau"]
     _df_filters = []
     _data_table_name = None
@@ -3427,14 +3194,12 @@ class SupplyTechsCapacityFactor(DataObject):
         self.extrapolation_method = None
         self.geography = None
         self.interpolation_method = None
-        self.notes = None
         self.reference_tech = None
-        self.source = None
         self.supply_tech = None
 
     def set_args(self, scenario, age_growth_or_decay=None, age_growth_or_decay_type=None, definition=None,
                  extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 interpolation_method=None, notes=None, reference_tech=None, source=None, supply_tech=None):
+                 interpolation_method=None, reference_tech=None, supply_tech=None):
         self.check_scenario(scenario)
 
         self.age_growth_or_decay = age_growth_or_decay
@@ -3444,21 +3209,18 @@ class SupplyTechsCapacityFactor(DataObject):
         self.extrapolation_method = extrapolation_method
         self.geography = geography
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.reference_tech = reference_tech
-        self.source = source
         self.supply_tech = supply_tech
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_tech, geography, reference_tech, definition, interpolation_method,
-         extrapolation_method, extrapolation_growth, age_growth_or_decay_type,
-         age_growth_or_decay, source, notes,) = tup
+         extrapolation_method, extrapolation_growth, age_growth_or_decay_type, age_growth_or_decay,) = tup
 
         self.set_args(scenario, age_growth_or_decay=age_growth_or_decay,
                   age_growth_or_decay_type=age_growth_or_decay_type, definition=definition,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
-                  geography=geography, interpolation_method=interpolation_method, notes=notes,
-                  reference_tech=reference_tech, source=source, supply_tech=supply_tech)
+                  geography=geography, interpolation_method=interpolation_method,
+                  reference_tech=reference_tech, supply_tech=supply_tech)
 
 class SupplyTechsCapitalCost(DataObject):
     _instances_by_key = {}
@@ -3467,7 +3229,7 @@ class SupplyTechsCapitalCost(DataObject):
     _cols = ["capacity_or_energy", "capacity_or_energy_unit", "cost_of_capital", "currency",
              "currency_year", "definition", "extrapolation_growth", "extrapolation_method",
              "geography", "geography_map_key", "interpolation_method", "is_levelized",
-             "new_or_replacement", "notes", "reference_tech", "source", "supply_tech", "time_unit"]
+             "new_or_replacement", "reference_tech", "supply_tech", "time_unit"]
     _df_cols = ["vintage", "sensitivity", "value", "resource_bin", "demand_sector", "gau"]
     _df_filters = []
     _data_table_name = None
@@ -3490,17 +3252,15 @@ class SupplyTechsCapitalCost(DataObject):
         self.interpolation_method = None
         self.is_levelized = None
         self.new_or_replacement = None
-        self.notes = None
         self.reference_tech = None
-        self.source = None
         self.supply_tech = None
         self.time_unit = None
 
     def set_args(self, scenario, capacity_or_energy=None, capacity_or_energy_unit=None, cost_of_capital=None,
                  currency=None, currency_year=None, definition=None, extrapolation_growth=None,
                  extrapolation_method=None, geography=None, geography_map_key=None,
-                 interpolation_method=None, is_levelized=None, new_or_replacement=None, notes=None,
-                 reference_tech=None, source=None, supply_tech=None, time_unit=None):
+                 interpolation_method=None, is_levelized=None, new_or_replacement=None,
+                 reference_tech=None, supply_tech=None, time_unit=None):
         self.check_scenario(scenario)
 
         self.capacity_or_energy = capacity_or_energy
@@ -3516,34 +3276,31 @@ class SupplyTechsCapitalCost(DataObject):
         self.interpolation_method = interpolation_method
         self.is_levelized = is_levelized
         self.new_or_replacement = new_or_replacement
-        self.notes = notes
         self.reference_tech = reference_tech
-        self.source = source
         self.supply_tech = supply_tech
         self.time_unit = time_unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_tech, capacity_or_energy, definition, reference_tech, geography, currency,
          currency_year, cost_of_capital, capacity_or_energy_unit, time_unit, is_levelized,
-         interpolation_method, extrapolation_method, extrapolation_growth, source, notes,
-         geography_map_key, new_or_replacement,) = tup
+         interpolation_method, extrapolation_method, extrapolation_growth, geography_map_key,
+         new_or_replacement,) = tup
 
         self.set_args(scenario, capacity_or_energy=capacity_or_energy, capacity_or_energy_unit=capacity_or_energy_unit,
                   cost_of_capital=cost_of_capital, currency=currency, currency_year=currency_year,
                   definition=definition, extrapolation_growth=extrapolation_growth,
                   extrapolation_method=extrapolation_method, geography=geography,
                   geography_map_key=geography_map_key, interpolation_method=interpolation_method,
-                  is_levelized=is_levelized, new_or_replacement=new_or_replacement, notes=notes,
-                  reference_tech=reference_tech, source=source, supply_tech=supply_tech,
-                  time_unit=time_unit)
+                  is_levelized=is_levelized, new_or_replacement=new_or_replacement,
+                  reference_tech=reference_tech, supply_tech=supply_tech, time_unit=time_unit)
 
 class SupplyTechsEfficiency(DataObject):
     _instances_by_key = {}
     _table_name = "SupplyTechsEfficiency"
     _key_col = "supply_tech"
     _cols = ["age_growth_or_decay", "age_growth_or_decay_type", "definition", "extrapolation_growth",
-             "extrapolation_method", "geography", "input_unit", "interpolation_method", "notes",
-             "output_unit", "reference_tech", "source", "supply_tech"]
+             "extrapolation_method", "geography", "input_unit", "interpolation_method", "output_unit",
+             "reference_tech", "supply_tech"]
     _df_cols = ["efficiency_type", "vintage", "sensitivity", "value", "resource_bin", "demand_sector",
              "supply_node", "gau"]
     _df_filters = []
@@ -3562,16 +3319,13 @@ class SupplyTechsEfficiency(DataObject):
         self.geography = None
         self.input_unit = None
         self.interpolation_method = None
-        self.notes = None
         self.output_unit = None
         self.reference_tech = None
-        self.source = None
         self.supply_tech = None
 
     def set_args(self, scenario, age_growth_or_decay=None, age_growth_or_decay_type=None, definition=None,
                  extrapolation_growth=None, extrapolation_method=None, geography=None, input_unit=None,
-                 interpolation_method=None, notes=None, output_unit=None, reference_tech=None,
-                 source=None, supply_tech=None):
+                 interpolation_method=None, output_unit=None, reference_tech=None, supply_tech=None):
         self.check_scenario(scenario)
 
         self.age_growth_or_decay = age_growth_or_decay
@@ -3582,23 +3336,20 @@ class SupplyTechsEfficiency(DataObject):
         self.geography = geography
         self.input_unit = input_unit
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.output_unit = output_unit
         self.reference_tech = reference_tech
-        self.source = source
         self.supply_tech = supply_tech
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_tech, geography, definition, reference_tech, input_unit, output_unit,
          interpolation_method, extrapolation_method, extrapolation_growth,
-         age_growth_or_decay_type, age_growth_or_decay, source, notes,) = tup
+         age_growth_or_decay_type, age_growth_or_decay,) = tup
 
         self.set_args(scenario, age_growth_or_decay=age_growth_or_decay,
                   age_growth_or_decay_type=age_growth_or_decay_type, definition=definition,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, input_unit=input_unit, interpolation_method=interpolation_method,
-                  notes=notes, output_unit=output_unit, reference_tech=reference_tech, source=source,
-                  supply_tech=supply_tech)
+                  output_unit=output_unit, reference_tech=reference_tech, supply_tech=supply_tech)
 
 class SupplyTechsFixedMaintenanceCost(DataObject):
     _instances_by_key = {}
@@ -3606,8 +3357,7 @@ class SupplyTechsFixedMaintenanceCost(DataObject):
     _key_col = "supply_tech"
     _cols = ["age_growth_or_decay", "age_growth_or_decay_type", "capacity_or_energy_unit", "currency",
              "currency_year", "definition", "extrapolation_growth", "extrapolation_method",
-             "geography", "interpolation_method", "notes", "reference_tech", "source", "supply_tech",
-             "time_unit"]
+             "geography", "interpolation_method", "reference_tech", "supply_tech", "time_unit"]
     _df_cols = ["vintage", "sensitivity", "value", "resource_bin", "demand_sector", "gau"]
     _df_filters = []
     _data_table_name = None
@@ -3627,16 +3377,14 @@ class SupplyTechsFixedMaintenanceCost(DataObject):
         self.extrapolation_method = None
         self.geography = None
         self.interpolation_method = None
-        self.notes = None
         self.reference_tech = None
-        self.source = None
         self.supply_tech = None
         self.time_unit = None
 
     def set_args(self, scenario, age_growth_or_decay=None, age_growth_or_decay_type=None, capacity_or_energy_unit=None,
                  currency=None, currency_year=None, definition=None, extrapolation_growth=None,
-                 extrapolation_method=None, geography=None, interpolation_method=None, notes=None,
-                 reference_tech=None, source=None, supply_tech=None, time_unit=None):
+                 extrapolation_method=None, geography=None, interpolation_method=None,
+                 reference_tech=None, supply_tech=None, time_unit=None):
         self.check_scenario(scenario)
 
         self.age_growth_or_decay = age_growth_or_decay
@@ -3649,25 +3397,22 @@ class SupplyTechsFixedMaintenanceCost(DataObject):
         self.extrapolation_method = extrapolation_method
         self.geography = geography
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.reference_tech = reference_tech
-        self.source = source
         self.supply_tech = supply_tech
         self.time_unit = time_unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_tech, definition, reference_tech, geography, currency, currency_year,
          capacity_or_energy_unit, time_unit, interpolation_method, extrapolation_method,
-         extrapolation_growth, age_growth_or_decay_type, age_growth_or_decay, source, notes,) = tup
+         extrapolation_growth, age_growth_or_decay_type, age_growth_or_decay,) = tup
 
         self.set_args(scenario, age_growth_or_decay=age_growth_or_decay,
                   age_growth_or_decay_type=age_growth_or_decay_type,
                   capacity_or_energy_unit=capacity_or_energy_unit, currency=currency,
                   currency_year=currency_year, definition=definition,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
-                  geography=geography, interpolation_method=interpolation_method, notes=notes,
-                  reference_tech=reference_tech, source=source, supply_tech=supply_tech,
-                  time_unit=time_unit)
+                  geography=geography, interpolation_method=interpolation_method,
+                  reference_tech=reference_tech, supply_tech=supply_tech, time_unit=time_unit)
 
 class SupplyTechsInstallationCost(DataObject):
     _instances_by_key = {}
@@ -3675,8 +3420,7 @@ class SupplyTechsInstallationCost(DataObject):
     _key_col = "supply_tech"
     _cols = ["capacity_or_energy_unit", "currency", "currency_year", "definition",
              "extrapolation_growth", "extrapolation_method", "geography", "interpolation_method",
-             "is_levelized", "new_or_replacement", "notes", "reference_tech", "source", "supply_tech",
-             "time_unit"]
+             "is_levelized", "new_or_replacement", "reference_tech", "supply_tech", "time_unit"]
     _df_cols = ["vintage", "sensitivity", "value", "resource_bin", "demand_sector", "gau"]
     _df_filters = []
     _data_table_name = None
@@ -3696,16 +3440,14 @@ class SupplyTechsInstallationCost(DataObject):
         self.interpolation_method = None
         self.is_levelized = None
         self.new_or_replacement = None
-        self.notes = None
         self.reference_tech = None
-        self.source = None
         self.supply_tech = None
         self.time_unit = None
 
     def set_args(self, scenario, capacity_or_energy_unit=None, currency=None, currency_year=None, definition=None,
                  extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 interpolation_method=None, is_levelized=None, new_or_replacement=None, notes=None,
-                 reference_tech=None, source=None, supply_tech=None, time_unit=None):
+                 interpolation_method=None, is_levelized=None, new_or_replacement=None,
+                 reference_tech=None, supply_tech=None, time_unit=None):
         self.check_scenario(scenario)
 
         self.capacity_or_energy_unit = capacity_or_energy_unit
@@ -3718,24 +3460,21 @@ class SupplyTechsInstallationCost(DataObject):
         self.interpolation_method = interpolation_method
         self.is_levelized = is_levelized
         self.new_or_replacement = new_or_replacement
-        self.notes = notes
         self.reference_tech = reference_tech
-        self.source = source
         self.supply_tech = supply_tech
         self.time_unit = time_unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_tech, definition, geography, reference_tech, currency, currency_year,
          capacity_or_energy_unit, time_unit, is_levelized, interpolation_method,
-         extrapolation_method, extrapolation_growth, source, notes, new_or_replacement,) = tup
+         extrapolation_method, extrapolation_growth, new_or_replacement,) = tup
 
         self.set_args(scenario, capacity_or_energy_unit=capacity_or_energy_unit, currency=currency,
                   currency_year=currency_year, definition=definition,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, interpolation_method=interpolation_method,
-                  is_levelized=is_levelized, new_or_replacement=new_or_replacement, notes=notes,
-                  reference_tech=reference_tech, source=source, supply_tech=supply_tech,
-                  time_unit=time_unit)
+                  is_levelized=is_levelized, new_or_replacement=new_or_replacement,
+                  reference_tech=reference_tech, supply_tech=supply_tech, time_unit=time_unit)
 
 class SupplyTechsVariableMaintenanceCost(DataObject):
     _instances_by_key = {}
@@ -3743,7 +3482,7 @@ class SupplyTechsVariableMaintenanceCost(DataObject):
     _key_col = "supply_tech"
     _cols = ["age_growth_or_decay", "age_growth_or_decay_type", "currency", "currency_year",
              "definition", "energy_unit", "extrapolation_growth", "extrapolation_method", "geography",
-             "interpolation_method", "notes", "reference_tech", "source", "supply_tech"]
+             "interpolation_method", "reference_tech", "supply_tech"]
     _df_cols = ["vintage", "sensitivity", "value", "resource_bin", "demand_sector", "gau"]
     _df_filters = []
     _data_table_name = None
@@ -3763,15 +3502,13 @@ class SupplyTechsVariableMaintenanceCost(DataObject):
         self.extrapolation_method = None
         self.geography = None
         self.interpolation_method = None
-        self.notes = None
         self.reference_tech = None
-        self.source = None
         self.supply_tech = None
 
     def set_args(self, scenario, age_growth_or_decay=None, age_growth_or_decay_type=None, currency=None,
                  currency_year=None, definition=None, energy_unit=None, extrapolation_growth=None,
-                 extrapolation_method=None, geography=None, interpolation_method=None, notes=None,
-                 reference_tech=None, source=None, supply_tech=None):
+                 extrapolation_method=None, geography=None, interpolation_method=None,
+                 reference_tech=None, supply_tech=None):
         self.check_scenario(scenario)
 
         self.age_growth_or_decay = age_growth_or_decay
@@ -3784,20 +3521,18 @@ class SupplyTechsVariableMaintenanceCost(DataObject):
         self.extrapolation_method = extrapolation_method
         self.geography = geography
         self.interpolation_method = interpolation_method
-        self.notes = notes
         self.reference_tech = reference_tech
-        self.source = source
         self.supply_tech = supply_tech
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (supply_tech, definition, reference_tech, currency, geography, currency_year, energy_unit,
          interpolation_method, extrapolation_method, extrapolation_growth,
-         age_growth_or_decay_type, age_growth_or_decay, source, notes,) = tup
+         age_growth_or_decay_type, age_growth_or_decay,) = tup
 
         self.set_args(scenario, age_growth_or_decay=age_growth_or_decay,
                   age_growth_or_decay_type=age_growth_or_decay_type, currency=currency,
                   currency_year=currency_year, definition=definition, energy_unit=energy_unit,
                   extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
-                  geography=geography, interpolation_method=interpolation_method, notes=notes,
-                  reference_tech=reference_tech, source=source, supply_tech=supply_tech)
+                  geography=geography, interpolation_method=interpolation_method,
+                  reference_tech=reference_tech, supply_tech=supply_tech)
 
