@@ -1,4 +1,4 @@
-table,column,foreign_table,foreign_column,on_del,nullable
+table_name,column_name,foreign_table,foreign_column,on_del,nullable
 BlendNodeBlendMeasuresData,gau_id,GeographiesData,id,NO ACTION,NO
 BlendNodeBlendMeasuresData,parent_id,BlendNodeBlendMeasures,id,CASCADE,NO
 BlendNodeBlendMeasures,blend_node_id,SupplyNodes,id,CASCADE,YES

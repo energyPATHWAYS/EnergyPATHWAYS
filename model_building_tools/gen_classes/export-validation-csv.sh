@@ -14,7 +14,7 @@
 DB=190905_US
 
 psql -d $DB -c "\
-\\copy (SELECT x.table_name as table, x.column_name as column, \
+\\copy (SELECT x.table_name as table_name, x.column_name as column_name, \
        y.table_name AS foreign_table, \
        y.column_name AS foreign_column,
        c.delete_rule AS on_del, \
@@ -32,3 +32,19 @@ psql -d $DB -c "\
        WHERE z.is_nullable = 'NO' OR c.delete_rule = 'CASCADE' \
        ORDER BY c.constraint_name, x.ordinal_position) \
 TO 'validation-metadata.csv' with csv header"
+echo "Wrote validation-metadata.csv"
+
+psql -d $DB -c "\
+\\copy (SELECT \
+        c.table_name, c.column_name,
+        pgd.description as comment \
+        FROM pg_catalog.pg_statio_all_tables AS st inner \
+        JOIN pg_catalog.pg_description pgd ON (pgd.objoid=st.relid) \
+        INNER JOIN information_schema.columns c ON \
+         (pgd.objsubid = c.ordinal_position \
+          AND c.table_schema = st.schemaname \
+          AND c.table_name = st.relname \
+          AND c.table_schema = 'public') \
+       ) \
+TO 'column-comments.csv' with csv header"
+echo "Wrote column-comments.csv"
