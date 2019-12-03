@@ -2528,9 +2528,9 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\EP_runs\UCS'
+    workingdir = r'C:\github\energyPATHWAYS_scenarios\FL'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['UCS_delay', 'UCS_ddp', 'UCS_Ref']
+    scenario = ['reference','central','low electrification']
     export = run(workingdir, config, scenario)
     self = export
