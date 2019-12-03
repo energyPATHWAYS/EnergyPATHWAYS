@@ -404,7 +404,7 @@ class DataObject(CsvDataObject):
     def error_check_drivers(self, df, drivers):
         # check to see that for each index in drivers that is in df, that all the elements are the same
         df = df.reset_index().set_index(df.index.names)
-        df_levels = dict(zip(df.index.names, df.index.levels))
+        df_levels = {df.index.name: df.index.values} if df.index.nlevels==1 else dict(zip(df.index.names, df.index.levels))
         for driver in drivers:
             for index_name in driver.index.names:
                 if index_name in df_levels:
