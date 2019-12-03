@@ -2602,7 +2602,14 @@ class Subsector(schema.DemandSubsectors):
                 additional_drivers.append(self.service_demand.geo_map(attr='values_unfiltered',current_geography=GeoMapper.demand_primary_geography,converted_geography=GeoMapper.disagg_geography, current_data_type='total', inplace=False))
             else:
                 additional_drivers = self.service_demand.geo_map(attr='values_unfiltered',current_geography=GeoMapper.demand_primary_geography,converted_geography=GeoMapper.disagg_geography, current_data_type='total', inplace=False)
-        if len(additional_drivers) == 0:
+        if isinstance(additional_drivers,list):
+            for x in additional_drivers:
+                if 'demand_technology' in x.index.names:
+                    x = x.groupby(level='demand_technology').filter(lambda x : x.sum()>0)
+        elif len(additional_drivers)!=0:
+            if 'demand_technology' in additional_drivers.index.names:
+                additional_drivers = additional_drivers.groupby(level='demand_technology').filter(lambda x: x.sum() > 0)
+        elif len(additional_drivers) == 0:
             additional_drivers = None
         return additional_drivers
 
@@ -2621,9 +2628,11 @@ class Subsector(schema.DemandSubsectors):
             current_geography = GeoMapper.demand_primary_geography
             current_data_type =  'total'
             projected =  True
+        if 'demand_technology' in getattr(self.service_demand,map_from).index.names:
+            setattr(self.service_demand, map_from, getattr(self.service_demand,map_from).groupby(level='demand_technology').filter(lambda x: x.sum()>0))
         self.service_demand.project(map_from=map_from, map_to='values', current_geography=current_geography, converted_geography=GeoMapper.demand_primary_geography,
-                                    additional_drivers=self.additional_drivers(stock_or_service='service', stock_dependent=stock_dependent),
-                                    current_data_type=current_data_type,projected=projected)
+                                additional_drivers=self.additional_drivers(stock_or_service='service', stock_dependent=stock_dependent),
+                                current_data_type=current_data_type,projected=projected)
         if service_dependent:
             self.service_demand.project(map_from=map_from, map_to='values_unfiltered', current_geography=current_geography, converted_geography=GeoMapper.demand_primary_geography,
                                     additional_drivers=self.additional_drivers(stock_or_service='service',stock_dependent=stock_dependent),
@@ -2648,6 +2657,8 @@ class Subsector(schema.DemandSubsectors):
             current_geography = GeoMapper.demand_primary_geography
             current_data_type =  'total'
             projected =  True
+        if 'demand_technology' in getattr(self.energy_demand,map_from).index.names:
+            setattr(self.energy_demand, map_from, getattr(self.energy_demand,map_from).groupby(level='demand_technology').filter(lambda x: x.sum()>0))
         self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
                                    converted_geography=GeoMapper.demand_primary_geography,
                                    additional_drivers=self.additional_drivers(stock_or_service='service',
