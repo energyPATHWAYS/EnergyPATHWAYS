@@ -1,6 +1,6 @@
 table_name,column_name,not_null,linked_column,dtype,folder,referenced_table,referenced_field,cascade_delete,additional_valid_inputs,_c_10,_c_11,_c_12,_c_13,_c_14,_c_15,_c_16,_c_17,_c_18,_c_19
-,currency,,,,,CURRENCY_CONVERSION,currency,,,,,,,,,,,,
-,currency_year,TRUE,,,,CURRENCY_CONVERSION,year,,,,,,,,,,,,
+,currency,,,,,CurrenciesConversion,currency,,,,,,,,,,,,
+,currency_year,TRUE,,,,CurrenciesConversion,year,,,,,,,,,,,,
 ,extrapolation_method,,,,,,,,linear_interpolation,linear_regression,logistic,nearest,quadratic,cubic,none,decay_towards_linear_regression,average,exponential_regression,exponential_interpolation
 ,gau,TRUE,,,,Geographies,gau,True,all,,,,,,,,,,
 ,geography,True,,,,Geographies,geography,False,global,,,,,,,,,,
