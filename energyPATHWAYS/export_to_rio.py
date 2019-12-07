@@ -59,7 +59,7 @@ class RioExport(object):
         #self.write_new_gen()
         #logging.info("writing transmission")
         #self.write_transmission()
-        #logging.info("writing flex load")
+        logging.info("writing flex load")
         self.write_flex_load()
 
 
@@ -201,9 +201,9 @@ class RioExport(object):
     def write_flex_tech_schedule(self):
         dist_losses, bulk_losses = self.flatten_loss_dicts()
         df = util.df_slice(self.flex_load_df,'native','timeshift_type')
-        df /= len(Shapes.get_instance().cfg_weather_years)
         df = UnitConverter.unit_convert(df.groupby(level=[x for x in df.index.names if x not in 'weather_datetime']).sum(),
                                unit_from_num=cfg.calculation_energy_unit,unit_to_num='megawatt_hour')
+        df /= len(Shapes.get_instance().cfg_weather_years)
         df_list = []
         for geography in cfg.rio_feeder_geographies:
             for feeder in self.supply.dispatch_feeders:
@@ -254,8 +254,9 @@ class RioExport(object):
                     tech_df['sensitivity'] = self.supply.scenario.name
                     name = "flex_" + geography + "_"+ feeder.lower()
                     tech_df = Output.clean_rio_df(tech_df,add_geography=False)
-                    Output.write_rio(tech_df, name + "_" + 'sensitivity' + ".csv",
-                                     self.db_dir + "\\ShapeData\\" + name + ".csvd" + "\\", index=False)
+                    for year in self.supply.dispatch_years:
+                        Output.write_rio(tech_df[tech_df['year']==year], name + "_"+ str(year) + "_" + 'sensitivity' + ".csv",
+                                     self.db_dir + "\\ShapeData\\" + name + ".csvd" + "\\", index=False,compression='gzip')
                     self.meta_dict['name'].append(name)
                     self.meta_dict['shape_type'].append( 'weather date')
                     self.meta_dict['input_type'].append( 'intensity')
@@ -272,8 +273,9 @@ class RioExport(object):
             tech_df['sensitivity'] = self.supply.scenario.name
             name = "flex_" + feeder.lower()
             tech_df = Output.clean_rio_df(tech_df, add_geography=False)
-            Output.write_rio(tech_df, name + "_"+ self.supply.scenario.name+".csv",
-                             self.db_dir + "\\ShapeData\\"+name+".csvd"+"\\", index=False)
+            for year in self.supply.dispatch_years:
+                Output.write_rio(tech_df[tech_df['year']==year], name + "_"+ str(year) + "_" +  self.supply.scenario.name+".csv",
+                                 self.db_dir + "\\ShapeData\\"+name+".csvd"+"\\", index=False,compression='gzip')
             self.meta_dict['name'].append(name)
             self.meta_dict['shape_type'].append('weather date')
             self.meta_dict['input_type'].append('intensity')
@@ -1692,10 +1694,13 @@ class RioExport(object):
         df = self.supply.io_rio_supply_df.loc[idx[:, self.blend_node_subset], :]
         df = df.stack().to_frame()
         util.replace_index_name(df, 'year')
+        df[df.index.get_level_values('supply_node') == 'co2 utilization blend'] = df[df.index.get_level_values('supply_node')== 'Captured CO2 Blend'].values*-1
+        df = df[df.index.get_level_values('supply_node') != 'Captured CO2 Blend']
         df = df[df.index.get_level_values('year').isin(self.supply.dispatch_years)]
         df.columns = ['value']
         #todo
-        df[df.values<=0] = 0
+        #df[(df.index.get_level_values('supply_node') != 'co2 utilization blend') &(df.values<=0)]=0
+        #df[df.values<=0] = 0
         df *= UnitConverter.unit_convert(unit_from_num=cfg.calculation_energy_unit,unit_to_num='TBTU')
         df = Output.clean_rio_df(df)
         util.replace_column_name(df, 'name', 'supply_node')
@@ -2371,8 +2376,6 @@ class RioExport(object):
     def write_capacity_zone_load(self):
         df_list = []
         dist_load, bulk_load = self.flatten_load_dicts()
-        dist_load /= len(Shapes.get_instance().cfg_weather_years)
-        bulk_load /= len(Shapes.get_instance().cfg_weather_years)
         if len(cfg.rio_feeder_geographies)>0:
             for geography in cfg.rio_feeder_geographies:
                 for feeder in self.supply.dispatch_feeders:
@@ -2383,6 +2386,7 @@ class RioExport(object):
                     load_shape_df = Output.clean_rio_df(load_shape_df,add_geography=False)
                     load_shape_df['sensitivity'] = self.supply.scenario.name
                     df = util.remove_df_levels(df,'weather_datetime')
+                    df /= len(Shapes.get_instance().cfg_weather_years)
                     df *= UnitConverter.unit_convert(unit_from=cfg.calculation_energy_unit,unit_to='TWh')
                     df = Output.clean_rio_df(df)
                     df['interpolation_method'] = 'linear_interpolation'
@@ -2393,7 +2397,8 @@ class RioExport(object):
                     df = df[['name', 'geography', 'gau', 'unit', 'interpolation_method', 'extrapolation_method', \
                          'year', 'value', 'sensitivity']]
                     df_list.append(copy.deepcopy(df))
-                    Output.write_rio(load_shape_df, geography.lower() + "_" + feeder.lower() +"_" + self.supply.scenario.name + ".csv", self.db_dir + "\\ShapeData\\"+geography.lower() + "_" + feeder.lower() + ".csvd",                                                                                                                                       index=False)
+                    for year in self.supply.years:
+                        Output.write_rio(load_shape_df['year']==year, geography.lower() + "_" + feeder.lower() +"_" + str(year)+"_"+ self.supply.scenario.name + ".csv", self.db_dir + "\\ShapeData\\"+geography.lower() + "_" + feeder.lower() + ".csvd", index=False, compression='gzip')
             df = pd.concat(df_list)
             Output.write_rio(df, "LOCAL_CAPACITY_ZONE_LOAD" + '.csv', self.db_dir + "\\Topography Inputs\Capacity Zones", index=False)
         df_list, load_shape_list = [], []
@@ -2404,7 +2409,6 @@ class RioExport(object):
                 dist_load_grossed = util.DfOper.mult([dist_load, dist_losses]).groupby(
                         level=[GeoMapper.dispatch_geography, 'year','weather_datetime']).sum()
                 df = util.DfOper.add([dist_load_grossed, bulk_load])
-                df /= len(Shapes.get_instance().cfg_weather_years)
                 df = util.df_slice(df,geography,GeoMapper.supply_primary_geography, reset_index=True, drop_level=False)
             else:
                 df = bulk_load
@@ -2415,6 +2419,7 @@ class RioExport(object):
             load_shape_df['sensitivity'] = self.supply.scenario.name
             df = util.remove_df_levels(df,'weather_datetime')
             df *=  UnitConverter.unit_convert(unit_from_num=cfg.calculation_energy_unit, unit_to_num='TWh')
+            df/=len(Shapes.get_instance().cfg_weather_years)
             df = Output.clean_rio_df(df)
             df['interpolation_method'] = 'linear_interpolation'
             df['extrapolation_method'] = 'nearest'
@@ -2426,7 +2431,8 @@ class RioExport(object):
             df_list.append(df)
             load_shape_list.append(load_shape_df)
         load_shape = pd.concat(load_shape_list)
-        Output.write_rio(load_shape, "bulk" + "_"+ self.supply.scenario.name +".csv", self.db_dir + "\\ShapeData\\bulk.csvd", index=False)
+        for year in self.supply.dispatch_years:
+            Output.write_rio(load_shape[load_shape['year']==year], "bulk" + "_"+ str(year)+ "_"+ self.supply.scenario.name +".csv", self.db_dir + "\\ShapeData\\bulk.csvd", index=False, compression='gzip')
         df = pd.concat(df_list)
         Output.write_rio(df, "BULK_CAPACITY_ZONE_LOAD" + '.csv', self.db_dir + "\\Topography Inputs\Capacity Zones", index=False)
 

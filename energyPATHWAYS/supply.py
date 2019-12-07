@@ -2801,6 +2801,7 @@ class Supply(object):
     def calculate_rio_blend_demand(self):
         self.io_rio_supply_df = copy.deepcopy(self.io_supply_df)
         for year in self.dispatch_years:
+        #for year in [2050]:
             logging.info("calculating rio blend demand in year %s" %year)
             total_demand = self.io_demand_df.loc[:,year].to_frame()
             for sector in self.demand_sectors:
