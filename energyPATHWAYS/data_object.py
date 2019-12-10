@@ -201,6 +201,7 @@ class DataObject(CsvDataObject):
         return df, current_geography
 
     def _add_missing_geographies(self, df, current_geography, current_data_type, missing_intensity_geos,fill_value,filter_geo=False):
+        df = df.reset_index().set_index(df.index.names)
         current_number_of_geographies = len(get_elements_from_level(df, current_geography))
         if not filter_geo:
             propper_number_of_geographies = len(GeoMapper.geography_to_gau_unfiltered[current_geography])
