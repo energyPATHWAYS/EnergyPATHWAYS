@@ -4901,7 +4901,7 @@ class SupplyStockNode(Node):
         tech_sum = util.remove_df_levels(self.stock.technology,'supply_technology')
 
         if hasattr(self.stock,'total'):
-            if np.all(np.isnan(self.stock.total.values)) and not np.any(np.isnan(self.stock.technology)):
+            if np.isnan(self.stock.total.values).all().all() and not np.isnan(self.stock.technology).any().any():
                 self.stock.total = self.stock.total.fillna(tech_sum)
             else:
                 self.stock.total[self.stock.total.values<tech_sum.values] = tech_sum
