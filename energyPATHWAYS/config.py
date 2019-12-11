@@ -3,7 +3,7 @@ __author__ = 'Ben Haley & Ryan Jones'
 import errno
 import ConfigParser
 import geomapper
-from energyPATHWAYS.util import splitclean, csv_read_table, create_weibul_coefficient_of_variation, upper_dict, ensure_iterable
+from energyPATHWAYS.util import splitclean, csv_read_table, upper_dict, ensure_iterable
 import warnings
 from collections import defaultdict
 import datetime
@@ -21,7 +21,6 @@ warnings.simplefilter("ignore")
 
 # core inputs
 workingdir = None
-weibul_coeff_of_var = None
 
 # pickle names
 full_model_append_name = '_full_model.p'
@@ -75,7 +74,7 @@ available_cpus = None
 log_name = None
 
 def initialize_config():
-    global weibul_coeff_of_var, available_cpus, cfgfile_name, log_name, log_initialized, index_levels, solver_name, timestamp
+    global available_cpus, cfgfile_name, log_name, log_initialized, index_levels, solver_name, timestamp
     global years, supply_years, workingdir
     workingdir = os.getcwd()
 
@@ -101,7 +100,6 @@ def initialize_config():
     #solver_name = find_solver()
 
     available_cpus = getParamAsInt('num_cores')
-    weibul_coeff_of_var = create_weibul_coefficient_of_variation()
     timestamp = str(datetime.datetime.now().replace(second=0,microsecond=0))
 
 def setuplogging():
