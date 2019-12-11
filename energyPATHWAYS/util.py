@@ -8,12 +8,10 @@ Contains unclassified global functions
 
 """
 
-import config as cfg
 from energyPATHWAYS.error import ColumnNotFound
 import pandas as pd
 import os
 import numpy as np
-from time_series import TimeSeries
 from collections import defaultdict, MutableSet
 import time
 import scipy.special
@@ -690,6 +688,7 @@ def create_weibul_coefficient_of_variation(smallest_beta=.02, largest_beta=250, 
     weibul_coeff_of_var['median/std'] = median / std
     return weibul_coeff_of_var
 
+weibul_coeff_of_var = create_weibul_coefficient_of_variation()
 
 def nearest_index(array, value):
     return (np.abs(array - value)).argmin()
@@ -1118,10 +1117,10 @@ def reindex_df_level_with_new_elements(df, level_name, new_elements, fill_value=
 def find_weibul_beta(mean_lifetime, lifetime_variance):
     """http://interstat.statjournals.net/YEAR/2000/articles/0010001.pdf"""
     if lifetime_variance == 0:
-        return cfg.weibul_coeff_of_var['beta'][-1]
+        return weibul_coeff_of_var['beta'][-1]
     else:
         mean_to_std = mean_lifetime / (lifetime_variance ** .5)
-        return cfg.weibul_coeff_of_var['beta'][nearest_index(cfg.weibul_coeff_of_var['mean/std'], mean_to_std)]
+        return weibul_coeff_of_var['beta'][nearest_index(weibul_coeff_of_var['mean/std'], mean_to_std)]
 
 
 def add_and_set_index(df, name, elements, index_location=None):

@@ -5,7 +5,6 @@ import numpy as np
 from scipy import optimize, interpolate, stats
 import util
 import logging
-import pylab
 import pdb
 
 pd.options.mode.chained_assignment = None
@@ -510,14 +509,6 @@ class TimeSeries:
 # pylab.plot(newindex, filled.values.flatten(), '-.')
 # pylab.plot(x, y, '*')
 #
-#'linear_interpolation'
-#'linear_regression'
-#'logistic'
-#'nearest'
-#'quadratic'
-#'cubic'
-#'exponential'
-
 #B = .5
 
 #M2 = approx_M(A, K, B, x[1], y[1])
@@ -589,3 +580,10 @@ class TimeSeries:
 #data['b'] = pd.DataFrame(y, index=x)
 #
 #newdata = TimeSeries.clean_dict(data, newindex=newindex)
+
+# newindex = np.arange(2015, 2051) * 1000
+# data = pd.read_csv(r'C:\github\delete_me.csv')
+# data = data.set_index([col for col in data.columns if col != "Difference"]).sort()
+# interpolation_method = 'linear_interpolation'
+# extrapolation_method = 'linear_interpolation'
+# filled = TimeSeries.clean(data, newindex, interpolation_method, extrapolation_method, time_index_name='Year')
