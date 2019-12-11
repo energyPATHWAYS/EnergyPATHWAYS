@@ -490,17 +490,17 @@ class Dispatch(object):
         return df
 
     def parse_transmission_flows(self, lists, period):
-        transmission_columns = ['geography_from', 'geography_to', 'hour', self.year]
+        transmission_columns = ['gau_from', 'gau_to', 'hour', self.year]
         df = pd.DataFrame(lists, columns=transmission_columns)
-        df = df.set_index(['geography_from', 'geography_to', 'hour']).sort_index()
+        df = df.set_index(['gau_from', 'gau_to', 'hour']).sort_index()
         if df.sum().isnull().any():
             self.pickle_for_debugging()
             raise ValueError('NaNs in flexible load outputs in dispatch period {}'.format(period))
         return df
 
     def parse_net_transmission_flows(self, transmission_flow_df):
-        imports = transmission_flow_df.groupby(level=['geography_to', 'weather_datetime']).sum()
-        exports = transmission_flow_df.groupby(level=['geography_from', 'weather_datetime']).sum()
+        imports = transmission_flow_df.groupby(level=['gau_to', 'weather_datetime']).sum()
+        exports = transmission_flow_df.groupby(level=['gau_from', 'weather_datetime']).sum()
         net_flow = pd.concat([imports, exports], keys=['import flows','export flows'], names=['dispatch_output'])
         net_flow.index.names = [GeoMapper.dispatch_geography, 'weather_datetime']
         return net_flow

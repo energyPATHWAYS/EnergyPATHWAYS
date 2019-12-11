@@ -4,6 +4,8 @@ Formulation of the dispatch optimization.
 
 from pyomo.environ import *
 import pdb
+import logging
+logging.getLogger('pyomo.core').setLevel(logging.ERROR)
 
 def large_storage_tech_init(model):
     large_storage_techs = list()

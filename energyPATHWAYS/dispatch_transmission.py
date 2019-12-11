@@ -24,15 +24,14 @@ class TransmissionSuper(DataObject):
 
         self._validate_gaus()
         self.values = self.clean_timeseries(attr='raw_values', inplace=False, time_index=cfg.supply_years, time_index_name='year', interpolation_method=self.interpolation_method, extrapolation_method=self.extrapolation_method)
-
         # fill in any missing combinations of geographies
-        self.values = util.reindex_df_level_with_new_elements(self.values, 'geography_from', GeoMapper.dispatch_geographies)
-        self.values = util.reindex_df_level_with_new_elements(self.values, 'geography_to', GeoMapper.dispatch_geographies)
+        self.values = util.reindex_df_level_with_new_elements(self.values, 'gau_from', GeoMapper.dispatch_geographies)
+        self.values = util.reindex_df_level_with_new_elements(self.values, 'gau_to', GeoMapper.dispatch_geographies)
         self.values = self.values.fillna(0)
         self.values = self.values.sort()
 
     def _setup_zero_constraints(self):
-        index = pd.MultiIndex.from_product([cfg.supply_years,GeoMapper.dispatch_geographies, GeoMapper.dispatch_geographies], names=['year', 'geography_from', 'geography_to'])
+        index = pd.MultiIndex.from_product([cfg.supply_years,GeoMapper.dispatch_geographies, GeoMapper.dispatch_geographies], names=['year', 'gau_from', 'gau_to'])
         self.values = pd.DataFrame(0, index=index, columns=['value'])
 
     def _validate_gaus(self):
@@ -51,7 +50,7 @@ class TransmissionSuper(DataObject):
             self.raw_values = util.remove_df_levels(self.raw_values,[name for name in ('month', 'hour', 'day_type_name')],agg_function='mean')
 
     def get_values_as_dict(self, year):
-        capacity = self.values.loc[year].squeeze().to_dict()
+        capacity = util.df_slice(self.values,year,'year').squeeze().to_dict()
         for key in capacity.keys():
             if key[0]==key[1]:
                 del capacity[key]
@@ -60,7 +59,7 @@ class TransmissionSuper(DataObject):
         return capacity
 
     def get_values(self, year):
-        return self.values.loc[year]
+        return util.df_slice(self.values,year,'year')
 
 class DispatchTransmissionConstraint(schema.DispatchTransmissionConstraint, TransmissionSuper):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""

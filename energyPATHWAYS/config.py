@@ -54,6 +54,7 @@ opt_period_length = None
 solver_name = None
 transmission_constraint = None
 filter_dispatch_less_than_x = None
+keep_dispatch_outputs_in_model=None
 
 # outputs
 output_levels = None
@@ -97,7 +98,7 @@ def initialize_config():
     unit_converter.UnitConverter.get_instance()
     # used when reading in raw_values from data tables
     index_levels = csv_read_table('IndexLevels', column_names=['index_level', 'data_column_name'])
-    #solver_name = find_solver()
+    solver_name = find_solver()
 
     available_cpus = getParamAsInt('num_cores')
     timestamp = str(datetime.datetime.now().replace(second=0,microsecond=0))
@@ -126,7 +127,7 @@ def init_units():
 
 
 def init_date_lookup():
-    global date_lookup, time_slice_col, electricity_energy_type, electricity_energy_type_shape, opt_period_length, transmission_constraint, filter_dispatch_less_than_x, elect_default_shape_key
+    global date_lookup, time_slice_col, electricity_energy_type, electricity_energy_type_shape, opt_period_length, transmission_constraint, filter_dispatch_less_than_x, keep_dispatch_outputs_in_model, elect_default_shape_key
     time_slice_col = ['year', 'month', 'week', 'hour', 'day_type']
 
     # electricity_energy_type_shape = csv_read_table('FinalEnergy', column_names=['shape'], name='electricity')
@@ -137,6 +138,7 @@ def init_date_lookup():
     transmission_constraint = _ConfigParser.get('opt','transmission_constraint')
     transmission_constraint = transmission_constraint if transmission_constraint != "" else None
     filter_dispatch_less_than_x = _ConfigParser.get('output_detail','filter_dispatch_less_than_x')
+    keep_dispatch_outputs_in_model = _ConfigParser.get('output_detail', 'keep_dispatch_outputs_in_model')
     filter_dispatch_less_than_x = float(filter_dispatch_less_than_x) if filter_dispatch_less_than_x != "" else None
 
 def init_removed_levels():

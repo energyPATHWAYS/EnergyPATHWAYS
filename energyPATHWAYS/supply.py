@@ -970,13 +970,22 @@ class Supply(object):
         imports = None
         exports = None
         if self.dispatch.transmission_flow_df is not None:
-            flow_with_losses = util.DfOper.divi((self.dispatch.transmission_flow_df, 1 - self.dispatch.transmission.losses.get_values(year)))
+            try:
+                flow_with_losses = util.DfOper.divi((self.dispatch.transmission_flow_df, 1 - self.dispatch.transmission.losses.get_values(year)))
+            except:
+                pdb.set_trace()
             imports = self.dispatch.transmission_flow_df.groupby(level=['gau_to', 'weather_datetime']).sum()
             exports = flow_with_losses.groupby(level=['gau_from', 'weather_datetime']).sum()
             imports.index.names = [GeoMapper.dispatch_geography, 'weather_datetime']
             exports.index.names = [GeoMapper.dispatch_geography, 'weather_datetime']
-
-        self.bulk_load = util.DfOper.add((self.bulk_load, storage_charge.xs('bulk', level='dispatch_feeder'), util.DfOper.divi([util.df_slice(ld_load, 'bulk', 'dispatch_feeder',return_none=True),self.transmission_losses]),util.DfOper.divi([exports,self.transmission_losses])))
+        try:
+            if ld_load is not None:
+                new_ld_load = util.DfOper.divi([util.df_slice(ld_load, 'bulk', 'dispatch_feeder',return_none=True),self.transmission_losses])
+            else:
+                new_ld_load = None
+            self.bulk_load = util.DfOper.add((self.bulk_load, storage_charge.xs('bulk', level='dispatch_feeder'), new_ld_load,util.DfOper.divi([exports,self.transmission_losses])))
+        except:
+            pdb.set_trace()
         self.bulk_gen = util.DfOper.add((self.bulk_gen, storage_discharge.xs('bulk', level='dispatch_feeder'), util.df_slice(ld_gen, 'bulk', 'dispatch_feeder',return_none=True),imports))
         self.opt_bulk_net_load = copy.deepcopy(self.bulk_net_load)
         self.update_net_load_signal()
@@ -1407,7 +1416,7 @@ class Supply(object):
             if cfg.filter_dispatch_less_than_x is not None:
                 self.bulk_dispatch = self.bulk_dispatch.groupby(level=['DISPATCH_OUTPUT']).filter(
                     lambda x: x.max().max()>cfg.filter_dispatch_less_than_x or x.min().min()<-cfg.filter_dispatch_less_than_x)
-            if cfg.cfgfile.get('output_detail', 'keep_dispatch_outputs_in_model').lower() == 'true':
+            if cfg.keep_dispatch_outputs_in_model.lower() == 'true':
                 self.outputs.hourly_dispatch_results = pd.concat([self.outputs.hourly_dispatch_results, self.bulk_dispatch])
             else:
                 # we are going to save them as we go along
@@ -2801,6 +2810,7 @@ class Supply(object):
     def calculate_rio_blend_demand(self):
         self.io_rio_supply_df = copy.deepcopy(self.io_supply_df)
         for year in self.dispatch_years:
+        #for year in [2050]:
             logging.info("calculating rio blend demand in year %s" %year)
             total_demand = self.io_demand_df.loc[:,year].to_frame()
             for sector in self.demand_sectors:
