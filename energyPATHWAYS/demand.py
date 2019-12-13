@@ -56,13 +56,6 @@ class Demand(object):
         self.drivers = {}
         self.sectors = {}
         self.outputs = Output()
-
-        # This seems to be a misnomer since DispatchFeederAllocation(1) returns an instance, not a class
-        self.feeder_allocation_class = dispatch_classes.DispatchFeederAllocation('1')
-
-        vals_dem_geo = self.feeder_allocation_class.values_demand_geo
-        vals_dem_geo.index = vals_dem_geo.index.rename('sector', 'demand_sector')   # TBD: why not use inplace=True?
-
         self.electricity_reconciliation = None
         self.scenario = scenario
 
@@ -170,6 +163,29 @@ class Demand(object):
         df = df.rename(columns={'value':year})
         return df
 
+    def get_weighted_feeder_allocation_by_sector(self):
+        electricity = self.outputs.d_energy.xs(cfg.electricity_energy_type, level='final_energy').groupby(level=('year', 'sector', 'subsector', GeoMapper.demand_primary_geography)).sum()
+        subsectors_with_electricity = electricity.index.get_level_values('subsector').unique()
+
+        feeder_allocation = []
+        subsector_order = []
+        for sector in self.sectors.values():
+            for subsector in sector.subsectors.values():
+                if subsector.name not in subsectors_with_electricity:
+                    continue
+                feeder_allocation.append(subsector.feeder_allocation_class.values)
+                subsector_order.append(subsector.name)
+
+        feeder_allocation = pd.concat(feeder_allocation, keys=subsector_order, names=['subsector'])
+        allocated_energy = util.DfOper.mult((feeder_allocation, electricity))
+        # remove subsector as a level
+        allocated_energy = allocated_energy.groupby(level=[GeoMapper.demand_primary_geography, 'sector', 'dispatch_feeder', 'year']).sum()
+        geo_mapped_energy = GeoMapper.geo_map(allocated_energy, GeoMapper.demand_primary_geography, GeoMapper.supply_primary_geography, current_data_type='total')
+        feeder_allocation_by_sector = geo_mapped_energy.groupby(level=[GeoMapper.supply_primary_geography, 'sector', 'year']).transform(lambda x: x / x.sum())
+        # rename sector to demand_sector, which is how it is used on the supply side
+        feeder_allocation_by_sector.index = feeder_allocation_by_sector.index.rename('demand_sector', level='sector')
+        return feeder_allocation_by_sector.sort()
+
     def aggregate_flexible_load_pmin_pmax(self, year, geomap_to_dispatch_geography=True):
         pmins, pmaxs = zip(*[sector.aggregate_flexible_load_pmin_pmax(year) for sector in self.sectors.values()])
         pmin = util.DfOper.add(pmins, expandable=False, collapsible=False)
@@ -181,31 +197,28 @@ class Demand(object):
         # this will return None if we don't have any flexible load
         return pmin, pmax
 
-    def electricity_energy_slice(self, year, subsector_slice):
-        if len(subsector_slice):
-            if not hasattr(self, 'ele_energy_helper'):
-                indexer = util.level_specific_indexer(self.outputs.d_energy, levels=['year', 'final_energy'], elements=[[year], [cfg.electricity_energy_type]])
-                self.ele_energy_helper = self.outputs.d_energy.loc[indexer].groupby(level=('subsector', 'sector', GeoMapper.demand_primary_geography)).sum()
-            feeder_allocation = self.feeder_allocation_class.values_demand_geo.xs(year, level='year')
-            return util.remove_df_levels(util.DfOper.mult((feeder_allocation,
-                                                           self.ele_energy_helper.loc[subsector_slice].groupby(level=('sector', GeoMapper.demand_primary_geography)).sum())), 'sector')
-        else:
-            dispatch_feeders = self.feeder_allocation_class.values_demand_geo.index.get_level_values('dispatch_feeder').unique()
-            return pd.DataFrame(0, columns=['value'], index=pd.MultiIndex.from_product((GeoMapper.demand_geographies, dispatch_feeders),names=(GeoMapper.demand_primary_geography, 'dispatch_feeder')))
-
     def shape_from_subsectors_with_no_shape(self, year):
         """ Final levels that will always return from this function
         ['gau', 'dispatch_feeder', 'weather_datetime']
         """
-        subsectors_map = util.defaultdict(list)
-        shapes_map = {}
-        shapes_map[None] = Shapes.get_values(cfg.elect_default_shape_key)
+        indexer = util.level_specific_indexer(self.outputs.d_energy, levels=['year', 'final_energy'], elements=[[year], [cfg.electricity_energy_type]])
+        ele_energy_helper = self.outputs.d_energy.loc[indexer].groupby(level=('subsector', GeoMapper.demand_primary_geography)).sum()
+
+        df_list = []
         for sector in self.sectors.values():
-            subsectors_map[sector.name if sector.shape else None] += sector.get_subsectors_with_no_shape(year)
-            shapes_map[sector.name] = Shapes.get_values(sector.shape) if sector.shape else None
-        df = util.DfOper.add([util.DfOper.mult((self.electricity_energy_slice(year, subsectors_map[id]), shapes_map[id])) for id in subsectors_map])
-        if hasattr(self, 'ele_energy_helper'):
-            del self.ele_energy_helper
+            subsectors_with_no_shape = sector.get_subsectors_with_no_shape(year)
+            if len(subsectors_with_no_shape) == 0:
+                continue
+            feeder_allocation = sector.get_subsectors_feeder_allocation(year, subsectors_with_no_shape)
+            feeder_allocation = pd.concat(feeder_allocation, keys=subsectors_with_no_shape, names=['subsector'])
+            energy = ele_energy_helper.loc[subsectors_with_no_shape].reset_index().set_index(ele_energy_helper.index.names)
+            allocated_energy = util.DfOper.mult((feeder_allocation, energy))
+            allocated_energy = allocated_energy.groupby(level=[GeoMapper.demand_primary_geography, 'dispatch_feeder']).sum()
+            shape_name = sector.shape if sector.shape else cfg.elect_default_shape_key
+            result = util.DfOper.mult((allocated_energy, Shapes.get_values(shape_name)))
+            df_list.append(result)
+
+        df = util.DfOper.add(df_list)
         return df
 
     def create_electricity_reconciliation(self):
@@ -354,7 +367,6 @@ class Demand(object):
             index_levels = ['year', GeoMapper.demand_primary_geography, 'dispatch_feeder', 'sector', 'subsector', 'weather_datetime']
             # index_levels = ['year', GeoMapper.demand_primary_geography, 'dispatch_feeder', 'sector', 'subsector', 'timeshift_type', 'weather_datetime']
         for sector in self.sectors.values():
-            feeder_allocation = self.feeder_allocation_class.values_demand_geo.xs(year, level='year').xs(sector.name, level='sector')
             sector_stack = []
             for subsector in sector.subsectors.values():
                 df = subsector.aggregate_electricity_shapes(year, for_direct_use=True)
@@ -369,7 +381,6 @@ class Demand(object):
                 else:
                     df['subsector'] = subsector.name
                     df = df.set_index(['sector', 'subsector', 'year'], append=True).sort()
-                df = util.DfOper.mult((df, feeder_allocation))
                 df = df.reorder_levels(index_levels).sort()
                 sector_stack.append(df)
             if aggregate_subsector_profiles_to_sector:
@@ -490,9 +501,6 @@ class Sector(schema.DemandSectors):
         self.service_demand_subsector_names = util.csv_read_table('DemandServiceDemands', 'subsector', return_unique=True, return_iterable=True)
         self.energy_demand_subsector_names = util.csv_read_table('DemandEnergyDemands', 'subsector', return_unique=True, return_iterable=True)
         self.service_efficiency_names = util.csv_read_table('DemandServiceEfficiency', 'subsector', return_unique=True, return_iterable=True)
-        feeder_allocation_class = dispatch_classes.DispatchFeederAllocation('1')
-        # FIXME: This next line will fail if we don't have a feeder allocation for each demand_sector
-        self.feeder_allocation = util.df_slice(feeder_allocation_class.values_demand_geo, name, 'demand_sector')
         self.electricity_reconciliation = None
         self.service_precursors = defaultdict(dict)
         self.stock_precursors = defaultdict(dict)
@@ -653,6 +661,12 @@ class Sector(schema.DemandSectors):
         """
         return [sub.name for sub in self.subsectors.values() if (sub.has_electricity_consumption(year) and not sub.has_shape() and not sub.has_flexible_load(year))]
 
+    def get_subsectors_feeder_allocation(self, year, subsectors):
+        if year=='all':
+            return [sub.feeder_allocation_class.values for sub in self.subsectors.values() if sub.name in subsectors]
+        else:
+            return [sub.feeder_allocation_class.values.xs(year, level='year') for sub in self.subsectors.values() if sub.name in subsectors]
+
     def aggregate_flexible_load_pmin_pmax(self, year):
         subsectors_with_flex = [sub.name for sub in self.subsectors.values() if (sub.has_electricity_consumption(year) and sub.has_flexible_load(year))]
         if not len(subsectors_with_flex):
@@ -683,8 +697,7 @@ class Sector(schema.DemandSectors):
 
     def aggregate_electricity_shape(self, year, ids=None):
         # we make this expandable because sometimes it has dispatch feeder
-        agg_shape = util.DfOper.add([self.subsectors[id].aggregate_electricity_shapes(year) for id in (self.subsectors.keys() if ids is None else ids)], expandable=True, collapsible=False)
-        return util.DfOper.mult((self.feeder_allocation.xs(year, level='year'), agg_shape))
+        return util.DfOper.add([self.subsectors[id].aggregate_electricity_shapes(year) for id in (self.subsectors.keys() if ids is None else ids)], expandable=True, collapsible=False)
 
     def set_default_shape(self, default_shape):
         if self.shape is None:
@@ -719,8 +732,8 @@ class Subsector(schema.DemandSubsectors):
         self.flexible_load_pmin = {}
         self.linked_service_demand_drivers = {}
         self.linked_stock = {}
-        self.perturbation = None
         self.energy_system_data_has_been_added = False
+        self.feeder_allocation_class = dispatch_classes.DispatchFeederAllocation(name, scenario)
 
     def set_electricity_reconciliation(self, electricity_reconciliation):
         self.electricity_reconciliation = electricity_reconciliation
@@ -879,15 +892,14 @@ class Subsector(schema.DemandSubsectors):
                 return_shape = util.DfOper.mult((return_shape, self.electricity_reconciliation), collapsible=False)
                 return_shape = pd.concat([return_shape], keys=[0], names=['timeshift_type'])
 
+        # allocate to dispatch feeders
+        return_shape = util.DfOper.mult((self.feeder_allocation_class.values.xs(year, level='year'), return_shape))
+
         if for_direct_use:
             # doing this will make the energy for the subsector match, but it won't exactly match the system shape used in the dispatch
             native = return_shape.xs(0, level='timeshift_type').groupby(level=GeoMapper.demand_primary_geography).sum()
             correction_factors = util.remove_df_levels(energy_slice, 'demand_technology') / native
             return_shape = util.DfOper.mult((return_shape, correction_factors))
-
-            # we multiply by feeder allocation after, which will normalize this back down
-            if 'dispatch_feeder' in return_shape.index.names:
-                return_shape *= len(return_shape.index.get_level_values('dispatch_feeder').unique())
 
         return return_shape
 
@@ -1448,8 +1460,6 @@ class Subsector(schema.DemandSubsectors):
                     tests[tech].append(False)
                 if self.technologies[tech].reference_sales_shares.has_key(1):
                     tests[tech].append(self.technologies[tech].reference_sales_shares[1].raw_values.sum().sum() == 0)
-                if self.perturbation is not None and self.perturbation.involves_tech(tech):
-                    tests[tech].append(False)
                 tests[tech].append(len(self.technologies[tech].sales_shares) == 0)
                 tests[tech].append(len(self.technologies[tech].specified_stocks) == 0)
                 # Do we have a specified stock in the inputs for this tech?
@@ -2880,28 +2890,6 @@ class Subsector(schema.DemandSubsectors):
             total_stock_adjust = util.DfOper.subt([util.remove_df_levels(spec_tech_stock,'demand_technology'),util.remove_df_levels(service_adj_tech_stock,'demand_technology')]).replace(np.nan,0)
             self.stock.total = util.DfOper.add([self.stock.total, total_stock_adjust])
             self.stock.total[self.stock.total<util.remove_df_levels(spec_tech_stock,'demand_technology')] = util.remove_df_levels(spec_tech_stock,'demand_technology')
-
-    def sales_share_perturbation(self, elements, levels, sales_share):
-        # we don't always have a perturbation object because this is introduced only when we are making a supply curve
-        if self.perturbation is None:
-            return sales_share
-        num_techs = len(self.techs)
-        tech_lookup = dict(zip(self.techs, range(num_techs)))
-        num_years = len(self.years)
-        years_lookup = dict(zip(self.years, range(num_years)))
-        for i, row in self.perturbation.filtered_sales_share_changes(elements, levels).reset_index().iterrows():
-            y_i = years_lookup[int(row['year'])]
-            dt_i = tech_lookup[self.perturbation.new_techs[int(row['demand_technology'])]]
-            rdt_i = tech_lookup[row['replaced_demand_tech']]
-            if dt_i == rdt_i:
-                # if the demand and replace technology are the same, we don't do anything
-                continue
-            sales_share[y_i, dt_i, :] += sales_share[y_i, rdt_i, :] * row['adoption_achieved']
-            sales_share[y_i, rdt_i, :] *= 1-row['adoption_achieved']
-            # for all future years, we return our tech back to the original replaced tech
-            sales_share[y_i+1:, rdt_i, dt_i] = 1
-            sales_share[y_i+1:, dt_i, dt_i] = 0
-        return sales_share
 
     def set_up_empty_stock_rollover_output_dataframes(self):
         full_levels = self.stock.rollover_group_levels + [self.technologies.keys()] + [[self.vintages[0] - 1] + self.vintages]
