@@ -113,6 +113,9 @@ class GeoMapper:
             geography_to_gau[geography] = geography_to_gau.get(geography, [])
             geography_to_gau[geography].append(gau)
 
+        for key in geography_to_gau:
+            geography_to_gau[key] = sorted(geography_to_gau[key])
+
         data = db.get_table("GeographiesSpatialJoin").data
         data[GeoMapper._global_geography] = GeoMapper._global_gau
         data = data.set_index(list(geographies_table['geography'].unique())).sort_index()

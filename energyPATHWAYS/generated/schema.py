@@ -1870,15 +1870,15 @@ class DemandTechsServiceLink(DataObject):
 class DispatchFeedersAllocation(DataObject):
     _instances_by_key = {}
     _table_name = "DispatchFeedersAllocation"
-    _key_col = "name"
+    _key_col = "subsector"
     _cols = ["extrapolation_method", "geography", "geography_map_key", "input_type",
-             "interpolation_method", "name"]
-    _df_cols = ["gau", "year", "value", "dispatch_feeder", "demand_sector"]
+             "interpolation_method", "subsector"]
+    _df_cols = ["gau", "year", "value", "dispatch_feeder", "sensitivity"]
     _df_filters = []
     _data_table_name = None
 
-    def __init__(self, name, scenario):
-        DataObject.__init__(self, name, scenario)
+    def __init__(self, subsector, scenario):
+        DataObject.__init__(self, subsector, scenario)
 
         DispatchFeedersAllocation._instances_by_key[self._key] = self
 
@@ -1887,10 +1887,10 @@ class DispatchFeedersAllocation(DataObject):
         self.geography_map_key = None
         self.input_type = None
         self.interpolation_method = None
-        self.name = None
+        self.subsector = None
 
     def set_args(self, scenario, extrapolation_method=None, geography=None, geography_map_key=None, input_type=None,
-                 interpolation_method=None, name=None):
+                 interpolation_method=None, subsector=None):
         self.check_scenario(scenario)
 
         self.extrapolation_method = extrapolation_method
@@ -1898,14 +1898,15 @@ class DispatchFeedersAllocation(DataObject):
         self.geography_map_key = geography_map_key
         self.input_type = input_type
         self.interpolation_method = interpolation_method
-        self.name = name
+        self.subsector = subsector
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, geography, geography_map_key, input_type, interpolation_method, extrapolation_method,) = tup
+        (subsector, geography, geography_map_key, input_type, interpolation_method,
+         extrapolation_method,) = tup
 
         self.set_args(scenario, extrapolation_method=extrapolation_method, geography=geography,
                   geography_map_key=geography_map_key, input_type=input_type,
-                  interpolation_method=interpolation_method, name=name)
+                  interpolation_method=interpolation_method, subsector=subsector)
 
 class DispatchNodeConfig(DataObject):
     _instances_by_key = {}

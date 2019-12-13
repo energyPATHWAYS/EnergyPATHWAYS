@@ -33,14 +33,14 @@ from energyPATHWAYS.generated import schema
 
 class DispatchFeederAllocation(schema.DispatchFeedersAllocation):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
-    def __init__(self, name, scenario=None, **kwargs):
+    def __init__(self, name, scenario=None):
         super(DispatchFeederAllocation, self).__init__(name, scenario=scenario)
         self.init_from_db(name, scenario)
 
-        self.remap(map_from='raw_values', map_to='values_demand_geo', converted_geography=getParam('demand_primary_geography'))
-        self.remap(map_from='raw_values', map_to='values_supply_geo', converted_geography=getParam('supply_primary_geography'))
-        self.values_demand_geo.sort_index(inplace=True)
-        self.values_supply_geo.sort_index(inplace=True)
+        if self.raw_values is not None:
+            assert (self.raw_values.groupby(level=['year', self.geography]).sum() == 1).all().all()
+            self.remap(map_from='raw_values', map_to='values', converted_geography=getParam('demand_primary_geography'))
+            self.values.sort_index(inplace=True)
 
 class DispatchNodeConfig(schema.DispatchNodeConfig):
     def __init__(self, name, scenario=None):
