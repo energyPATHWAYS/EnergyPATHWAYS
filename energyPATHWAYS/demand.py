@@ -671,12 +671,10 @@ class Sector(schema.DemandSectors):
         subsectors_with_flex = [sub.name for sub in self.subsectors.values() if (sub.has_electricity_consumption(year) and sub.has_flexible_load(year))]
         if not len(subsectors_with_flex):
             return None, None
-        pmax = util.DfOper.add([self.subsectors[id].flexible_load_pmax[year] for id in subsectors_with_flex], expandable=False, collapsible=False)
-        pmin = util.DfOper.add([self.subsectors[id].flexible_load_pmin[year] for id in subsectors_with_flex], expandable=False, collapsible=False)
-        pmax = util.DfOper.mult((self.feeder_allocation.xs(year, level='year'), pmax))
-        pmin = util.DfOper.mult((self.feeder_allocation.xs(year, level='year'), pmin))
+        feeder_allocations = [self.subsectors[id].feeder_allocation_class.values.xs(year, level='year') for id in subsectors_with_flex]
+        pmax = util.DfOper.add([util.DfOper.mult((allo, self.subsectors[id].flexible_load_pmax[year])) for id, allo in zip(subsectors_with_flex, feeder_allocations)], expandable=False, collapsible=False)
+        pmin = util.DfOper.add([util.DfOper.mult((allo, self.subsectors[id].flexible_load_pmin[year])) for id, allo in zip(subsectors_with_flex, feeder_allocations)], expandable=False, collapsible=False)
         return pmin, pmax
-
 
     def aggregate_inflexible_electricity_shape(self, year):
         """ Final levels that will always return from this function
