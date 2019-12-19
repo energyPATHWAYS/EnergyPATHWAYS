@@ -137,15 +137,15 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\FL'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\SP'
     os.chdir(workingdir)
-    rio_scenario = None
+    rio_scenario = ['central']
     scenario = ['central']
     run(scenario,
-    load_demand   = False,
+    load_demand   = True,
     solve_demand  = True,
-    load_supply   = False,
-    solve_supply  = False,
+    load_supply   = True,
+    solve_supply  = True,
     export_results= False,
     load_error    = False,
     save_models   = True,
