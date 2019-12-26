@@ -470,12 +470,12 @@ class TimeSeries:
 # pylab.plot(newindex, filled.values.flatten(), '.')
 # pylab.plot(x, y, '*')
 
-# newindex = np.arange(2000, 2051)
-# x = np.array([2015, 2020, 2025, 2030, 2040])
-# y = np.array([.2, -0.03, .1, 6, 4])
+# newindex = np.arange(2017, 2051)
+# x = np.array([2015, 2030])
+# y = np.array([0, .06])
 # start = pd.DataFrame(y, index=x)
-# interpolation_method = 'linear_regression'
-# extrapolation_method = 'decay_towards_linear_regression'
+# interpolation_method = 'logistic'
+# extrapolation_method = 'nearest'
 # filled = TimeSeries.clean(start, newindex, interpolation_method, extrapolation_method)
 #
 # pylab.plot(newindex, filled.values.flatten(), '.')

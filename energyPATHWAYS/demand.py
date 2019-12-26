@@ -18,6 +18,7 @@ from util import DfOper
 from outputs import Output
 import dispatch_classes
 import energyPATHWAYS.helper_multiprocess as helper_multiprocess
+import time_series
 import pdb
 import logging
 import time
@@ -224,7 +225,7 @@ class Demand(object):
     def create_electricity_reconciliation(self):
         logging.info('Creating electricity shape reconciliation')
         # weather_year is the year for which we have top down load data
-        weather_year = int(np.round(np.mean(Shapes.get_active_dates_index().year)))
+        weather_year = max(int(np.round(np.mean(Shapes.get_active_dates_index().year))), cfg.getParamAsInt('demand_start_year'))
 
         # the next four lines create the top down load shape in the weather_year
         levels_to_keep = [GeoMapper.demand_primary_geography, 'year', 'final_energy']
@@ -1361,86 +1362,54 @@ class Subsector(schema.DemandSubsectors):
         """determines the analysis period within the subsector based on the minimum year
         of all inputs
         """
-#        self.calculate_driver_min_year()
-        driver_min_year = 9999
         if self.sub_type == 'stock and energy':
-            stock_min_year = min(
-                self.stock.raw_values.index.levels[util.position_in_index(self.stock.raw_values, 'year')])
+            stock_min_year = min(self.stock.raw_values.index.levels[util.position_in_index(self.stock.raw_values, 'year')])
             sales_share_vintages = util.csv_read_table('DemandSales', 'vintage', return_iterable=True, subsector=self.name)
             if len(sales_share_vintages):
                 sales_share_min_year = min(sales_share_vintages)
             else:
                 sales_share_min_year = 9999
-            energy_min_year = min(self.energy_demand.raw_values.index.levels[
-                util.position_in_index(self.energy_demand.raw_values, 'year')])
-            self.min_year = min(cfg.getParamAsInt('current_year'), driver_min_year, stock_min_year, sales_share_min_year, energy_min_year)
+            energy_min_year = min(self.energy_demand.raw_values.index.levels[util.position_in_index(self.energy_demand.raw_values, 'year')])
+            min_year = min(cfg.getParamAsInt('current_year'), stock_min_year, sales_share_min_year, energy_min_year)
         elif self.sub_type == 'stock and service':
-            stock_min_year = min(
-                self.stock.raw_values.index.levels[util.position_in_index(self.stock.raw_values, 'year')])
+            stock_min_year = min(self.stock.raw_values.index.levels[util.position_in_index(self.stock.raw_values, 'year')])
             sales_share_vintages = util.csv_read_table('DemandSales', 'vintage', return_iterable=True, subsector=self.name)
             if len(sales_share_vintages):
                 sales_share_min_year = min(sales_share_vintages)
             else:
                 sales_share_min_year = 9999
-            service_min_year = min(self.service_demand.raw_values.index.levels[
-                util.position_in_index(self.service_demand.raw_values, 'year')])
-            self.min_year = min(cfg.getParamAsInt('current_year'), driver_min_year, stock_min_year, sales_share_min_year, service_min_year)
+            service_min_year = min(self.service_demand.raw_values.index.levels[util.position_in_index(self.service_demand.raw_values, 'year')])
+            min_year = min(cfg.getParamAsInt('current_year'), stock_min_year, sales_share_min_year, service_min_year)
         elif self.sub_type == 'service and efficiency':
             service_min_year = min(self.service_demand.raw_values.index.levels[
                 util.position_in_index(self.service_demand.raw_values, 'year')])
             service_efficiency_min_year = min(self.service_demand.raw_values.index.levels[
                 util.position_in_index(self.service_demand.raw_values, 'year')])
-            self.min_year = min(cfg.getParamAsInt('current_year'), driver_min_year, service_min_year, service_efficiency_min_year)
+            min_year = min(cfg.getParamAsInt('current_year'), service_min_year, service_efficiency_min_year)
         elif self.sub_type == 'service and energy':
             service_min_year = min(self.service_demand.raw_values.index.levels[
                 util.position_in_index(self.service_demand.raw_values, 'year')])
             energy_min_year = min(self.energy_demand.raw_values.index.levels[
                 util.position_in_index(self.energy_demand.raw_values, 'year')])
-            self.min_year = min(cfg.getParamAsInt('current_year'), driver_min_year, service_min_year,
+            min_year = min(cfg.getParamAsInt('current_year'), service_min_year,
                                 energy_min_year)
         elif self.sub_type == 'energy':
-            try:
-                energy_min_year = min(self.energy_demand.raw_values.index.levels[
-                    util.position_in_index(self.energy_demand.raw_values, 'year')])
-                self.min_year = min(cfg.getParamAsInt('current_year'), driver_min_year, energy_min_year)
-            except:
-                pdb.set_trace()
+            energy_min_year = min(self.energy_demand.raw_values.index.levels[
+                util.position_in_index(self.energy_demand.raw_values, 'year')])
+            min_year = min(cfg.getParamAsInt('current_year'), energy_min_year)
 
         elif self.sub_type == 'link':
-            stock_min_year = min(
-                self.stock.raw_values.index.levels[util.position_in_index(self.stock.raw_values, 'year')])
+            stock_min_year = min(self.stock.raw_values.index.levels[util.position_in_index(self.stock.raw_values, 'year')])
             sales_share_vintages = util.csv_read_table('DemandSales', 'vintage', return_iterable=True, subsector=self.name)
             if len(sales_share_vintages):
                 sales_share_min_year = min(sales_share_vintages)
             else:
                 sales_share_min_year = 9999
-            self.min_year = min(cfg.getParamAsInt('current_year'), driver_min_year,
-                                    stock_min_year, sales_share_min_year)
-        self.min_year = max(self.min_year, cfg.getParamAsInt('demand_start_year'))
-        self.min_year = min(self.shapes_weather_year, self.min_year)
-        self.min_year = int(cfg.getParamAsInt('year_step') * round(float(self.min_year)/cfg.getParamAsInt('year_step')))
-        self.years = range(self.min_year, cfg.getParamAsInt('end_year') + 1, cfg.getParamAsInt('year_step'))
+            min_year = min(cfg.getParamAsInt('current_year'), stock_min_year, sales_share_min_year)
+        min_year = max(min_year, cfg.getParamAsInt('demand_start_year'))
+        min_year = int(cfg.getParamAsInt('year_step') * round(float(min_year)/cfg.getParamAsInt('year_step')))
+        self.years = range(min_year, cfg.getParamAsInt('end_year') + 1, cfg.getParamAsInt('year_step'))
         self.vintages = self.years
-
-
-    def calculate_driver_min_year(self):
-        """
-        calculates the minimum input years of all subsector drivers
-        """
-        min_years = []
-        if self.has_stock:
-            for driver in self.stock.drivers.values():
-                min_years.append(min(driver.raw_values.index.levels[util.position_in_index(driver.raw_values, 'year')]))
-        if self.has_energy_demand:
-            for driver in self.energy_demand.drivers.values():
-                min_years.append(min(driver.raw_values.index.levels[util.position_in_index(driver.raw_values, 'year')]))
-        if self.has_service_demand:
-            for driver in self.service_demand.drivers.values():
-                min_years.append(min(driver.raw_values.index.levels[util.position_in_index(driver.raw_values, 'year')]))
-        if len(min_years):
-            self.driver_min_year = min(min_years)
-        else:
-            self.driver_min_year = 9999
 
 
     def calculate_technologies(self):
@@ -2343,10 +2312,7 @@ class Subsector(schema.DemandSubsectors):
     def max_total(self):
         tech_sum = util.remove_df_levels(self.stock.technology,'demand_technology')
         self.stock.total.sort(inplace=True)
-        try:
-            self.stock.total[self.stock.total<tech_sum] = tech_sum
-        except:
-            pdb.set_trace()
+        self.stock.total[self.stock.total<tech_sum] = tech_sum
 
     def project_ee_measure_stock(self):
         """
@@ -2585,10 +2551,7 @@ class Subsector(schema.DemandSubsectors):
                              current_geography=GeoMapper.demand_primary_geography, converted_geography=GeoMapper.demand_primary_geography, current_data_type='total',
                              time_index=self.years, driver_geography=GeoMapper.demand_primary_geography, interpolation_method=None, extrapolation_method=None)
             self.stock.linked_demand_technology[self.stock.linked_demand_technology==0]=np.nan
-            try:
-                self.stock.linked_demand_technology = self.stock.linked_demand_technology[self.stock.linked_demand_technology.index.get_level_values(GeoMapper.demand_primary_geography).isin(GeoMapper.geography_to_gau[GeoMapper.demand_primary_geography])]
-            except:
-                pdb.set_trace()
+            self.stock.linked_demand_technology = self.stock.linked_demand_technology[self.stock.linked_demand_technology.index.get_level_values(GeoMapper.demand_primary_geography).isin(GeoMapper.geography_to_gau[GeoMapper.demand_primary_geography])]
             self.stock.has_linked_demand_technology = True
         else:
             self.stock.has_linked_demand_technology = False
@@ -2961,29 +2924,27 @@ class Subsector(schema.DemandSubsectors):
 
     def calculate_initial_stock(self, elements, percent_spec_cut=0.95):
         # todo, we have an issue here if the total and technology come in on different years.. this is sometimes happening in industry
-        try:
-            tech_slice = util.df_slice(self.stock.technology, elements, self.stock.rollover_group_names)
-            total_slice = util.df_slice(self.stock.total, elements, self.stock.rollover_group_names)
-            initial_total = total_slice.values[0][0]
-            ratio = util.DfOper.divi((tech_slice.sum(axis=1).to_frame(), total_slice))
-            good_years = ratio.where(((1/percent_spec_cut)>ratio) & (ratio>percent_spec_cut)).dropna().index
-            initial_sales_share = self.helper_calc_sales_share_reference_new(elements, initial_stock=None)[0]
-            #Best way is if we have all demand_technology stocks specified for some year before current year
-            if len(good_years) and min(good_years)<=cfg.getParamAsInt('current_year'):
-                chosen_year = min(good_years)
-                # gross up if it is just under 100% of the stock represente
-                initial_stock = self.stock.technology.loc[elements+(chosen_year,),:]
-                initial_stock = initial_stock/np.nansum(initial_stock) * initial_total
-            #Second best way is if we have an initial sales share
-            elif initial_sales_share.sum():
-                initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, transition_matrix=initial_sales_share, num_years=len(self.years))
-            elif initial_total == 0 or pd.isnull(initial_total):
-                initial_stock = np.zeros(len(self.techs))
-            else:
-                raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the demand_technology composition of the initial stock in subsector %s' %self.name)
-            return initial_stock
-        except:
-            pdb.set_trace()
+        tech_slice = util.df_slice(self.stock.technology, elements, self.stock.rollover_group_names)
+        total_slice = util.df_slice(self.stock.total, elements, self.stock.rollover_group_names)
+        initial_total = total_slice.values[0][0]
+        ratio = util.DfOper.divi((tech_slice.sum(axis=1).to_frame(), total_slice))
+        good_years = ratio.where(((1/percent_spec_cut)>ratio) & (ratio>percent_spec_cut)).dropna().index
+        initial_sales_share = self.helper_calc_sales_share_reference_new(elements, initial_stock=None)[0]
+        #Best way is if we have all demand_technology stocks specified for some year before current year
+
+        if len(good_years) and min(good_years)<=cfg.getParamAsInt('current_year'):
+            chosen_year = min(good_years)
+            # gross up if it is just under 100% of the stock represente
+            initial_stock = self.stock.technology.loc[elements+(chosen_year,),:]
+            initial_stock = initial_stock/np.nansum(initial_stock) * initial_total
+        #Second best way is if we have an initial sales share
+        elif initial_sales_share.sum():
+            initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, transition_matrix=initial_sales_share, num_years=len(self.years))
+        elif initial_total == 0 or pd.isnull(initial_total):
+            initial_stock = np.zeros(len(self.techs))
+        else:
+            raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the demand_technology composition of the initial stock in subsector %s' %self.name)
+        return initial_stock
 
     def determine_need_for_aux_efficiency(self):
         """ determines whether auxiliary efficiency calculations are necessary. Used to avoid unneccessary calculations elsewhere """
@@ -3224,10 +3185,7 @@ class Subsector(schema.DemandSubsectors):
                 indexer = util.level_specific_indexer(stock, 'demand_technology', demand_technology.name)
                 tech_values = pd.DataFrame(stock.loc[indexer, :], columns=['value'])
                 util.replace_index_label(tech_values, {demand_technology.name: demand_technology.linked}, 'demand_technology')
-                try:
-                    self.output_demand_technology_stocks[demand_technology.linked] = tech_values * demand_technology.stock_link_ratio
-                except:
-                    pdb.set_trace()
+                self.output_demand_technology_stocks[demand_technology.linked] = tech_values * demand_technology.stock_link_ratio
 
     def calculate_service_impact(self):
         """

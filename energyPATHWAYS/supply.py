@@ -4383,7 +4383,6 @@ class SupplyNode(Node, StockItem):
             levelized_tx_costs = util.DfOper.mult([util.df_slice(dispatch_tx_costs.values_level,year,'year'),capacity]).groupby(level='gau_from').sum()
             util.replace_index_name(levelized_tx_costs,GeoMapper.supply_primary_geography,'gau_from')
             embodied_tx_costs = util.DfOper.divi([levelized_tx_costs,self.throughput])
-            pdb.set_trace()
             try:
                 self.embodied_cost.loc[:, year] += embodied_tx_costs.values.flatten()
             except:

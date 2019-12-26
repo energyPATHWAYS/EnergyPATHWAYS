@@ -137,17 +137,19 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\SP'
+    workingdir = r'Z:\SP\SP_final_1wy_RIO2EP'
     os.chdir(workingdir)
-    rio_scenario = ['central']
-    scenario = ['central']
+    rio_scenario = ['delayed electrification']
+    scenario = ['delayed electrification']
     run(scenario,
     load_demand   = True,
-    solve_demand  = True,
-    load_supply   = True,
-    solve_supply  = True,
+    solve_demand  = False,
+    load_supply   = False,
+    solve_supply  = False,
     export_results= False,
     load_error    = False,
-    save_models   = True,
+    save_models   = False,
     clear_results = False,
     rio_scenario=rio_scenario)
+
+    model.demand.aggregate_electricity_shapes(2020)
