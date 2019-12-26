@@ -75,11 +75,11 @@ def loop_geo_multiply(df1, df2, geo_label, geographies, levels_to_keep=None):
             supply_df = supply_df[supply_df.values != 0]
             geography_df = DfOper.mult([demand_df,supply_df])
             geography_df_list.append(geography_df)
-    df = pd.concat(geography_df_list)
-    if levels_to_keep:
-        filtered_ltk = [x for x in levels_to_keep if x in df.index.names]
-        df = df.groupby(level=filtered_ltk).sum()
-    return df
+    #df = pd.concat(geography_df_list)
+    #if levels_to_keep:
+        #filtered_ltk = [x for x in levels_to_keep if x in df.index.names]
+        #df = df.groupby(level=filtered_ltk).sum()
+    return geography_df_list
 
 def add_to_df_index(df, names, keys):
     for key, name in zip(keys, names):
