@@ -33,14 +33,14 @@ from energyPATHWAYS.generated import schema
 
 class DispatchFeederAllocation(schema.DispatchFeedersAllocation):
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
-    def __init__(self, name, scenario=None, **kwargs):
+    def __init__(self, name, scenario=None):
         super(DispatchFeederAllocation, self).__init__(name, scenario=scenario)
         self.init_from_db(name, scenario)
 
-        self.remap(map_from='raw_values', map_to='values_demand_geo', converted_geography=getParam('demand_primary_geography'))
-        self.remap(map_from='raw_values', map_to='values_supply_geo', converted_geography=getParam('supply_primary_geography'))
-        self.values_demand_geo.sort_index(inplace=True)
-        self.values_supply_geo.sort_index(inplace=True)
+        if self.raw_values is not None:
+            assert (self.raw_values.groupby(level=['year', self.geography]).sum() == 1).all().all()
+            self.remap(map_from='raw_values', map_to='values', converted_geography=getParam('demand_primary_geography'))
+            self.values.sort_index(inplace=True)
 
 class DispatchNodeConfig(schema.DispatchNodeConfig):
     def __init__(self, name, scenario=None):
@@ -490,17 +490,17 @@ class Dispatch(object):
         return df
 
     def parse_transmission_flows(self, lists, period):
-        transmission_columns = ['geography_from', 'geography_to', 'hour', self.year]
+        transmission_columns = ['gau_from', 'gau_to', 'hour', self.year]
         df = pd.DataFrame(lists, columns=transmission_columns)
-        df = df.set_index(['geography_from', 'geography_to', 'hour']).sort_index()
+        df = df.set_index(['gau_from', 'gau_to', 'hour']).sort_index()
         if df.sum().isnull().any():
             self.pickle_for_debugging()
             raise ValueError('NaNs in flexible load outputs in dispatch period {}'.format(period))
         return df
 
     def parse_net_transmission_flows(self, transmission_flow_df):
-        imports = transmission_flow_df.groupby(level=['geography_to', 'weather_datetime']).sum()
-        exports = transmission_flow_df.groupby(level=['geography_from', 'weather_datetime']).sum()
+        imports = transmission_flow_df.groupby(level=['gau_to', 'weather_datetime']).sum()
+        exports = transmission_flow_df.groupby(level=['gau_from', 'weather_datetime']).sum()
         net_flow = pd.concat([imports, exports], keys=['import flows','export flows'], names=['dispatch_output'])
         net_flow.index.names = [GeoMapper.dispatch_geography, 'weather_datetime']
         return net_flow

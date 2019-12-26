@@ -1,0 +1,217 @@
+table_name,column_name,foreign_table,foreign_column,on_del,nullable
+BlendNodeBlendMeasuresData,gau_id,GeographiesData,id,NO ACTION,NO
+BlendNodeBlendMeasuresData,parent_id,BlendNodeBlendMeasures,id,CASCADE,NO
+BlendNodeBlendMeasures,blend_node_id,SupplyNodes,id,CASCADE,YES
+BlendNodeInputsData,blend_node_id,SupplyNodes,id,CASCADE,NO
+BlendNodeInputsData,supply_node_id,SupplyNodes,id,NO ACTION,NO
+CO2PriceMeasuresData,gau_id,GeographiesData,id,NO ACTION,NO
+CO2PriceMeasuresData,parent_id,CO2PriceMeasures,id,CASCADE,NO
+CO2PriceMeasures,extrapolation_method_id,CleaningMethods,id,CASCADE,YES
+CO2PriceMeasures,geography_id,Geographies,id,CASCADE,YES
+CO2PriceMeasures,geography_map_key_id,GeographyMapKeys,id,CASCADE,YES
+CO2PriceMeasures,interpolation_method_id,CleaningMethods,id,CASCADE,YES
+CurrenciesConversion,currency_id,Currencies,id,CASCADE,YES
+DemandCO2CaptureMeasures,subsector_id,DemandSubsectors,id,CASCADE,YES
+DemandDriversData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandDriversData,parent_id,DemandDrivers,id,CASCADE,NO
+DemandEnergyDemandsData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandEnergyDemandsData,subsector_id,DemandSubsectors,id,CASCADE,NO
+DemandEnergyDemands,subsector_id,DemandSubsectors,id,CASCADE,NO
+DemandEnergyEfficiencyMeasuresCostData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandEnergyEfficiencyMeasuresCostData,parent_id,DemandEnergyEfficiencyMeasures,id,CASCADE,NO
+DemandEnergyEfficiencyMeasuresCost,parent_id,DemandEnergyEfficiencyMeasures,id,CASCADE,NO
+DemandEnergyEfficiencyMeasuresData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandEnergyEfficiencyMeasuresData,parent_id,DemandEnergyEfficiencyMeasures,id,CASCADE,NO
+DemandEnergyEfficiencyMeasures,subsector_id,DemandSubsectors,id,CASCADE,YES
+DemandFlexibleLoadMeasuresData,demand_technology_id,DemandTechs,id,CASCADE,YES
+DemandFlexibleLoadMeasuresData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandFlexibleLoadMeasuresData,parent_id,DemandFlexibleLoadMeasures,id,CASCADE,NO
+DemandFlexibleLoadMeasures,subsector_id,DemandSubsectors,id,CASCADE,YES
+DemandFuelSwitchingMeasuresCostData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandFuelSwitchingMeasuresCostData,parent_id,DemandFuelSwitchingMeasures,id,CASCADE,NO
+DemandFuelSwitchingMeasuresCost,parent_id,DemandFuelSwitchingMeasures,id,CASCADE,NO
+DemandFuelSwitchingMeasuresEnergyIntensityData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandFuelSwitchingMeasuresEnergyIntensityData,parent_id,DemandFuelSwitchingMeasures,id,CASCADE,NO
+DemandFuelSwitchingMeasuresEnergyIntensity,parent_id,DemandFuelSwitchingMeasures,id,CASCADE,NO
+DemandFuelSwitchingMeasuresImpactData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandFuelSwitchingMeasuresImpactData,parent_id,DemandFuelSwitchingMeasures,id,CASCADE,NO
+DemandFuelSwitchingMeasuresImpact,parent_id,DemandFuelSwitchingMeasures,id,CASCADE,NO
+DemandFuelSwitchingMeasures,subsector_id,DemandSubsectors,id,CASCADE,YES
+DemandSalesData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandSalesData,subsector_id,DemandSubsectors,id,NO ACTION,NO
+DemandSalesShareMeasuresData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandSalesShareMeasuresData,parent_id,DemandSalesShareMeasures,id,CASCADE,NO
+DemandSalesShareMeasures,demand_technology_id,DemandTechs,id,CASCADE,YES
+DemandSalesShareMeasures,subsector_id,DemandSubsectors,id,CASCADE,YES
+DemandSales,subsector_id,DemandSubsectors,id,CASCADE,NO
+DemandServiceDemandMeasuresCostData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandServiceDemandMeasuresCostData,parent_id,DemandServiceDemandMeasures,id,CASCADE,NO
+DemandServiceDemandMeasuresCost,parent_id,DemandServiceDemandMeasures,id,CASCADE,NO
+DemandServiceDemandMeasuresData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandServiceDemandMeasuresData,parent_id,DemandServiceDemandMeasures,id,CASCADE,NO
+DemandServiceDemandMeasures,subsector_id,DemandSubsectors,id,CASCADE,YES
+DemandServiceDemandsData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandServiceDemandsData,subsector_id,DemandSubsectors,id,NO ACTION,NO
+DemandServiceDemands,subsector_id,DemandSubsectors,id,CASCADE,NO
+DemandServiceEfficiencyData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandServiceEfficiencyData,subsector_id,DemandSubsectors,id,CASCADE,NO
+DemandServiceEfficiency,subsector_id,DemandSubsectors,id,CASCADE,NO
+DemandServiceLink,subsector_id,DemandSubsectors,id,CASCADE,YES
+DemandStockData,demand_technology_id,DemandTechs,id,CASCADE,YES
+DemandStockData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandStockData,subsector_id,DemandSubsectors,id,NO ACTION,NO
+DemandStockMeasuresData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandStockMeasuresData,parent_id,DemandStockMeasures,id,CASCADE,NO
+DemandStockMeasures,subsector_id,DemandSubsectors,id,CASCADE,YES
+DemandStock,subsector_id,DemandSubsectors,id,CASCADE,NO
+DemandTechsAuxEfficiencyData,demand_technology_id,DemandTechs,id,NO ACTION,NO
+DemandTechsAuxEfficiencyData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandTechsAuxEfficiency,demand_technology_id,DemandTechs,id,CASCADE,NO
+DemandTechsCapitalCostNewData,demand_technology_id,DemandTechs,id,NO ACTION,NO
+DemandTechsCapitalCostNewData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandTechsCapitalCostReplacementData,demand_technology_id,DemandTechs,id,NO ACTION,NO
+DemandTechsCapitalCostReplacementData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandTechsCapitalCost,demand_technology_id,DemandTechs,id,CASCADE,NO
+DemandTechsCapitalCost,extrapolation_method_id,CleaningMethods,id,NO ACTION,NO
+DemandTechsCapitalCost,interpolation_method_id,CleaningMethods,id,NO ACTION,NO
+DemandTechsFixedMaintenanceCostData,demand_technology_id,DemandTechs,id,NO ACTION,NO
+DemandTechsFixedMaintenanceCostData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandTechsFixedMaintenanceCost,demand_technology_id,DemandTechs,id,CASCADE,NO
+DemandTechsFuelSwitchCostData,demand_technology_id,DemandTechs,id,NO ACTION,NO
+DemandTechsFuelSwitchCostData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandTechsFuelSwitchCost,demand_technology_id,DemandTechs,id,CASCADE,NO
+DemandTechsInstallationCostNewData,demand_technology_id,DemandTechs,id,NO ACTION,NO
+DemandTechsInstallationCostNewData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandTechsInstallationCostReplacementData,demand_technology_id,DemandTechsInstallationCost,demand_technology_id,CASCADE,NO
+DemandTechsInstallationCostReplacementData,demand_technology_id,DemandTechs,id,NO ACTION,NO
+DemandTechsInstallationCostReplacementData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandTechsInstallationCost,demand_technology_id,DemandTechs,id,CASCADE,NO
+DemandTechsMainEfficiencyData,demand_technology_id,DemandTechs,id,NO ACTION,NO
+DemandTechsMainEfficiencyData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandTechsMainEfficiency,demand_technology_id,DemandTechs,id,CASCADE,NO
+DemandTechsParasiticEnergyData,demand_technology_id,DemandTechs,id,NO ACTION,NO
+DemandTechsParasiticEnergyData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandTechsParasiticEnergy,demand_technology_id,DemandTechs,id,CASCADE,NO
+DemandTechsServiceDemandModifierData,demand_technology_id,DemandTechs,id,NO ACTION,NO
+DemandTechsServiceDemandModifierData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandTechsServiceDemandModifier,demand_technology_id,DemandTechs,id,CASCADE,NO
+DemandTechsServiceLinkData,gau_id,GeographiesData,id,NO ACTION,NO
+DemandTechsServiceLinkData,parent_id,DemandTechsServiceLink,id,CASCADE,NO
+DemandTechsServiceLink,demand_technology_id,DemandTechs,id,CASCADE,YES
+DispatchFeedersAllocationData,dispatch_feeder_id,DispatchFeeders,id,NO ACTION,NO
+DispatchFeedersAllocationData,gau_id,GeographiesData,id,NO ACTION,NO
+DispatchFeedersAllocationData,parent_id,DispatchFeedersAllocation,id,NO ACTION,NO
+DispatchNodeConfig,supply_node_id,SupplyNodes,id,NO ACTION,NO
+DispatchTransmissionCostData,parent_id,DispatchTransmissionConstraint,id,CASCADE,YES
+DispatchTransmissionCost,extrapolation_method,CleaningMethods,id,NO ACTION,NO
+DispatchTransmissionCost,interpolation_method,CleaningMethods,id,NO ACTION,NO
+DispatchTransmissionConstraintData,parent_id,DispatchTransmissionConstraint,id,CASCADE,YES
+DispatchTransmissionCost,currency_id,Currencies,id,NO ACTION,NO
+DispatchTransmissionCost,currency_year_id,CurrencyYears,id,NO ACTION,NO
+DispatchTransmissionCost,id,DispatchTransmissionConstraint,id,CASCADE,NO
+DispatchTransmissionHurdleRate,parent_id,DispatchTransmissionConstraint,id,CASCADE,YES
+DispatchTransmissionLosses,parent_id,DispatchTransmissionConstraint,id,CASCADE,YES
+GeographiesData,geography_id,Geographies,id,CASCADE,NO
+GeographyIntersectionData,gau_id,GeographiesData,id,NO ACTION,NO
+GeographyIntersectionData,intersection_id,GeographyIntersection,id,CASCADE,NO
+GeographyMap,geography_map_key_id,GeographyMapKeys,id,NO ACTION,NO
+GeographyMap,intersection_id,GeographyIntersection,id,NO ACTION,NO
+ImportCostData,gau_id,GeographiesData,id,NO ACTION,NO
+ImportCostData,import_node_id,SupplyNodes,id,NO ACTION,NO
+ImportCost,cost_method_id,ImportPrimaryCostMethod,id,NO ACTION,NO
+ImportCost,import_node_id,SupplyNodes,id,CASCADE,NO
+OtherIndexesData,other_index_id,OtherIndexes,id,CASCADE,NO
+PrimaryCostData,gau_id,GeographiesData,id,NO ACTION,NO
+PrimaryCostData,primary_node_id,SupplyNodes,id,NO ACTION,NO
+PrimaryCost,cost_method_id,ImportPrimaryCostMethod,id,NO ACTION,NO
+PrimaryCost,primary_node_id,SupplyNodes,id,CASCADE,NO
+ShapesData,gau_id,GeographiesData,id,NO ACTION,NO
+ShapesData,parent_id,Shapes,id,CASCADE,NO
+StorageTechsDurationData,gau_id,GeographiesData,id,NO ACTION,NO
+StorageTechsDurationData,supply_tech_id,SupplyTechs,id,NO ACTION,NO
+StorageTechsCapacityCapitalCostNewData,gau_id,GeographiesData,id,NO ACTION,NO
+StorageTechsCapacityCapitalCostNewData,supply_tech_id,SupplyTechs,id,NO ACTION,NO
+StorageTechsCapacityCapitalCostReplacementData,supply_tech_id,StorageTechsCapacityCapitalCost,supply_tech_id,CASCADE,NO
+StorageTechsCapacityCapitalCostReplacementData,gau_id,GeographiesData,id,NO ACTION,NO
+StorageTechsCapacityCapitalCostReplacementData,supply_tech_id,SupplyTechs,id,NO ACTION,NO
+StorageTechsDuration,supply_tech_id,SupplyTechs,id,CASCADE,NO
+StorageTechsCapacityCapitalCost,supply_tech_id,SupplyTechs,id,CASCADE,NO
+StorageTechsEnergyCapitalCostNewData,gau_id,GeographiesData,id,NO ACTION,NO
+StorageTechsEnergyCapitalCostNewData,supply_tech_id,SupplyTechs,id,NO ACTION,NO
+StorageTechsEnergyCapitalCostReplacementData,supply_tech_id,StorageTechsEnergyCapitalCost,supply_tech_id,CASCADE,NO
+StorageTechsEnergyCapitalCostReplacementData,gau_id,GeographiesData,id,NO ACTION,NO
+StorageTechsEnergyCapitalCostReplacementData,supply_tech_id,SupplyTechs,id,NO ACTION,NO
+StorageTechsEnergyCapitalCost,supply_tech_id,SupplyTechs,id,CASCADE,NO
+SupplyCapacityFactorData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyCapacityFactorData,supply_node_id,SupplyNodes,id,NO ACTION,NO
+SupplyCapacityFactor,supply_node_id,SupplyNodes,id,CASCADE,NO
+SupplyCostData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyCostData,parent_id,SupplyCost,id,CASCADE,NO
+SupplyCost,supply_node_id,SupplyNodes,id,CASCADE,YES
+SupplyEfficiencyData,efficiency_type_id,EfficiencyTypes,id,NO ACTION,NO
+SupplyEfficiencyData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyEfficiencyData,parent_id,SupplyNodes,id,NO ACTION,NO
+SupplyEfficiencyData,supply_node_id,SupplyNodes,id,NO ACTION,NO
+SupplyEfficiency,id,SupplyNodes,id,CASCADE,NO
+SupplyEmissionsData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyEmissionsData,ghg_id,GreenhouseGases,id,NO ACTION,NO
+SupplyEmissionsData,ghg_type_id,GreenhouseGasEmissionsType,id,NO ACTION,NO
+SupplyEmissionsData,supply_node_id,SupplyNodes,id,NO ACTION,NO
+SupplyEmissions,supply_node_id,SupplyNodes,id,CASCADE,NO
+SupplyExportData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyExportData,supply_node_id,SupplyNodes,id,NO ACTION,NO
+SupplyExportMeasuresData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyExportMeasuresData,parent_id,SupplyExportMeasures,id,CASCADE,NO
+SupplyExportMeasures,supply_node_id,SupplyNodes,id,CASCADE,YES
+SupplyExport,supply_node_id,SupplyNodes,id,CASCADE,NO
+SupplyPotentialConversionData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyPotentialConversionData,supply_node_id,SupplyNodes,id,NO ACTION,NO
+SupplyPotentialConversion,supply_node_id,SupplyNodes,id,CASCADE,NO
+SupplyPotentialData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyPotentialData,supply_node_id,SupplyNodes,id,NO ACTION,NO
+SupplyPotential,supply_node_id,SupplyNodes,id,CASCADE,NO
+SupplySalesData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplySalesData,supply_node_id,SupplyNodes,id,NO ACTION,NO
+SupplySalesMeasuresData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplySalesMeasuresData,parent_id,SupplySalesMeasures,id,CASCADE,NO
+SupplySalesMeasures,supply_node_id,SupplyNodes,id,CASCADE,YES
+SupplySalesShareData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplySalesShareData,supply_node_id,SupplyNodes,id,NO ACTION,NO
+SupplySalesShareMeasuresData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplySalesShareMeasuresData,parent_id,SupplySalesShareMeasures,id,CASCADE,NO
+SupplySalesShareMeasures,supply_node_id,SupplyNodes,id,CASCADE,YES
+SupplySalesShare,supply_node_id,SupplyNodes,id,CASCADE,NO
+SupplySales,supply_node_id,SupplyNodes,id,CASCADE,NO
+SupplyStockData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyStockData,supply_node_id,SupplyNodes,id,NO ACTION,NO
+SupplyStockMeasuresData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyStockMeasuresData,parent_id,SupplyStockMeasures,id,CASCADE,NO
+SupplyStockMeasures,supply_node_id,SupplyNodes,id,CASCADE,YES
+SupplyStock,supply_node_id,SupplyNodes,id,CASCADE,NO
+SupplyTechsCO2CaptureData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyTechsCO2CaptureData,supply_tech_id,SupplyTechs,id,NO ACTION,NO
+SupplyTechsCO2Capture,supply_tech_id,SupplyTechs,id,CASCADE,NO
+SupplyTechsCapacityFactorData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyTechsCapacityFactorData,supply_tech_id,SupplyTechs,id,NO ACTION,NO
+SupplyTechsCapacityFactor,supply_tech_id,SupplyTechs,id,CASCADE,NO
+SupplyTechsCapitalCostNewData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyTechsCapitalCostNewData,supply_tech_id,SupplyTechs,id,NO ACTION,NO
+SupplyTechsCapitalCostReplacementData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyTechsCapitalCostReplacementData,supply_tech_id,SupplyTechs,id,NO ACTION,NO
+SupplyTechsCapitalCost,supply_tech_id,SupplyTechs,id,CASCADE,NO
+SupplyTechsEfficiencyData,efficiency_type_id,EfficiencyTypes,id,NO ACTION,NO
+SupplyTechsEfficiencyData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyTechsEfficiencyData,supply_node_id,SupplyNodes,id,NO ACTION,NO
+SupplyTechsEfficiencyData,supply_tech_id,SupplyTechs,id,NO ACTION,NO
+SupplyTechsEfficiency,supply_tech_id,SupplyTechs,id,CASCADE,NO
+SupplyTechsFixedMaintenanceCostData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyTechsFixedMaintenanceCostData,supply_tech_id,SupplyTechs,id,NO ACTION,NO
+SupplyTechsFixedMaintenanceCost,supply_tech_id,SupplyTechs,id,CASCADE,NO
+SupplyTechsInstallationCostNewData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyTechsInstallationCostNewData,supply_tech_id,SupplyTechs,id,NO ACTION,NO
+SupplyTechsInstallationCostReplacementData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyTechsInstallationCostReplacementData,supply_tech_id,SupplyTechs,id,NO ACTION,NO
+SupplyTechsInstallationCost,supply_tech_id,SupplyTechs,id,CASCADE,NO
+SupplyTechsVariableMaintenanceCostData,gau_id,GeographiesData,id,NO ACTION,NO
+SupplyTechsVariableMaintenanceCostData,supply_tech_id,SupplyTechs,id,NO ACTION,NO
+SupplyTechsVariableMaintenanceCost,supply_tech_id,SupplyTechs,id,CASCADE,NO

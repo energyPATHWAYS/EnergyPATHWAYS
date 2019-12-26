@@ -11,7 +11,7 @@ import textwrap
 import logging
 import pdb
 from csvdb.data_object import get_database
-from time_series import TimeSeries
+import time_series
 
 class GeoMapper:
     _instance = None
@@ -112,6 +112,9 @@ class GeoMapper:
 
             geography_to_gau[geography] = geography_to_gau.get(geography, [])
             geography_to_gau[geography].append(gau)
+
+        for key in geography_to_gau:
+            geography_to_gau[key] = sorted(geography_to_gau[key])
 
         data = db.get_table("GeographiesSpatialJoin").data
         data[GeoMapper._global_geography] = GeoMapper._global_gau
@@ -357,7 +360,7 @@ class GeoMapper:
         ratio_allocated_to_impacted.iloc[np.nonzero(impacted_gaus_slice_reduced_years.values==0)] = 0
         ratio_allocated_to_impacted = ratio_allocated_to_impacted.dropna().reset_index().set_index(ratio_allocated_to_impacted.index.names)
 
-        clean_ratio = TimeSeries.clean(data=ratio_allocated_to_impacted, newindex=all_years, time_index_name=y_or_v, interpolation_method='linear_interpolation', extrapolation_method='nearest')
+        clean_ratio = time_series.TimeSeries.clean(data=ratio_allocated_to_impacted, newindex=all_years, time_index_name=y_or_v, interpolation_method='linear_interpolation', extrapolation_method='nearest')
 
         allocated_foreign_gau_slice_all_years = util.DfOper.mult((clean_ratio, impacted_gaus_slice), fill_value=np.nan, non_expandable_levels=[])
         allocated_foreign_gau_slice_new_geo = util.remove_df_levels(allocated_foreign_gau_slice_all_years, foreign_geography)

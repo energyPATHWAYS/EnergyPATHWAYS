@@ -201,6 +201,7 @@ class DataObject(CsvDataObject):
         return df, current_geography
 
     def _add_missing_geographies(self, df, current_geography, current_data_type, missing_intensity_geos,fill_value,filter_geo=False):
+        df = df.reset_index().set_index(df.index.names)
         current_number_of_geographies = len(get_elements_from_level(df, current_geography))
         if not filter_geo:
             propper_number_of_geographies = len(GeoMapper.geography_to_gau_unfiltered[current_geography])
@@ -404,7 +405,7 @@ class DataObject(CsvDataObject):
     def error_check_drivers(self, df, drivers):
         # check to see that for each index in drivers that is in df, that all the elements are the same
         df = df.reset_index().set_index(df.index.names)
-        df_levels = dict(zip(df.index.names, df.index.levels))
+        df_levels = {df.index.name: df.index.values} if df.index.nlevels==1 else dict(zip(df.index.names, df.index.levels))
         for driver in drivers:
             for index_name in driver.index.names:
                 if index_name in df_levels:

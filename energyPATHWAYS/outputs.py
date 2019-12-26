@@ -133,6 +133,10 @@ class Output(object):
 
         if compression == 'gzip':
             file_name += '.gz'
+        elif compression == None:
+            pass
+        else:
+            raise ValueError("unknown compression type input")
 
         for col in df.columns:
             if df[col].dtype == np.object:
@@ -156,7 +160,7 @@ class Output(object):
                         raise
                     tries += 1
         else:
-            df.to_csv(os.path.join(path, file_name), header=True, mode='w', index=index)
+            df.to_csv(os.path.join(path, file_name), header=True, mode='w', compression=compression, index=index)
 
     @staticmethod
     def writeobj(obj, write_directory=None, name=None, clean=False):
