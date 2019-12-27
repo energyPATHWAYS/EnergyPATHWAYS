@@ -1,0 +1,11 @@
+table_name,column_name,not_null,linked_column,dtype,folder,referenced_table,referenced_field,cascade_delete,additional_valid_inputs,,,,,,,,,,
+,currency,,,,,CurrenciesConversion,currency,,,,,,,,,,,,
+,currency_year,,,,,CurrenciesConversion,year,,,,,,,,,,,,
+,extrapolation_method,,,,,,,,linear_interpolation,linear_regression,logistic,nearest,quadratic,cubic,none,decay_towards_linear_regression,average,exponential_regression,exponential_interpolation
+,gau,,,,,Geographies,gau,TRUE,all,,,,,,,,,,
+,geography,TRUE,,,,Geographies,geography,FALSE,global,,,,,,,,,,
+,interpolation_method,TRUE,,,,,,,linear_interpolation,linear_regression,logistic,nearest,quadratic,cubic,none,decay_towards_linear_regression,average,exponential_regression,exponential_interpolation
+,value,TRUE,,float,,,,,,,,,,,,,,,
+,vintage,,,int,,,,,,,,,,,,,,,
+,year,,,int,,,,,,,,,,,,,,,
+SHAPE_META,name,,,,ShapeData,,,,,,,,,,,,,,

@@ -308,6 +308,8 @@ class Supply(object):
             for node in self.nodes.values():
                 if hasattr(node,'technologies') and y.lower() in [x.lower() for x in node.technologies.keys()]:
                     return node.name
+                elif not hasattr(node,'technologies') and y.lower()==node.name.lower():
+                    return node.name
             return y
         df['supply_node'] = [find_supply_node(x) for x in df.index.get_level_values('ep_fuel')]
         df = df.set_index('supply_node',append=True)
@@ -486,13 +488,14 @@ class Supply(object):
                     # each time, if reconciliation has occured, we have to recalculate coefficients and resolve the io
                     self.reconcile_trades(year, loop)
                     self._recalculate_after_reconciliation(year, loop, update_demand=True)
-                    for i in range(2):
+                    if not cfg.rio_supply_run:
+                        for i in range(2):
+                            self.reconcile_oversupply(year, loop)
+                            self._recalculate_after_reconciliation(year, loop, update_demand=True)
+                        self.reconcile_constraints(year,loop)
+                        self._recalculate_after_reconciliation(year, loop, update_demand=True)
                         self.reconcile_oversupply(year, loop)
                         self._recalculate_after_reconciliation(year, loop, update_demand=True)
-                    self.reconcile_constraints(year,loop)
-                    self._recalculate_after_reconciliation(year, loop, update_demand=True)
-                    self.reconcile_oversupply(year, loop)
-                    self._recalculate_after_reconciliation(year, loop, update_demand=True)
                 # dispatch loop
                 elif loop == 3 and year in self.dispatch_years and not cfg.getParamAsBoolean('rio_db_run', section='rio') and not cfg.getParamAsBoolean('rio_supply_run', section='rio'):
                     logging.info("   loop {}: electricity dispatch".format(loop))
@@ -1801,7 +1804,7 @@ class Supply(object):
                     row_indexer = util.level_specific_indexer(df,GeoMapper.supply_primary_geography,row_geo)
                     col_indexer = util.level_specific_indexer(df,GeoMapper.supply_primary_geography,col_geo, axis=1)
                     sliced = df.loc[row_indexer,col_indexer]
-                    sliced = sliced.clip(lower=1E-7)
+                    sliced = sliced.clip(lower=1E-10)
                     df.loc[row_indexer,col_indexer] = sliced
         self.nodes[self.thermal_dispatch_node_name].active_coefficients_total = df
         indexer = util.level_specific_indexer(self.nodes[self.bulk_electricity_node_name].values,'supply_node',self.thermal_dispatch_node_name)
@@ -2373,7 +2376,7 @@ class Supply(object):
                 #thermal dispatch node is updated through the dispatch. In the first year we assume equal shares
                 #TODO make capacity weighted for better approximation
                 node.calculate_active_coefficients(year, loop)
-                node.active_coefficients_total[node.active_coefficients_total>0] = 1E-7
+                node.active_coefficients_total[node.active_coefficients_total>0] = 1E-10
                 node.active_coefficients_total = node.active_coefficients_total.groupby(level=['demand_sector',GeoMapper.supply_primary_geography]).transform(lambda x: x/x.sum())
                 node.active_coefficients_total.replace(to_replace=np.nan,value=0,inplace=True)
 
@@ -2656,7 +2659,7 @@ class Supply(object):
                         else:
                             col_indexer = util.level_specific_indexer(col_node.active_coefficients_total,GeoMapper.supply_primary_geography,geography,axis=1)
                             normalized = col_node.active_coefficients_total.loc[:,col_indexer].groupby(level=['demand_sector']).transform(lambda x: x/x.sum())
-                            normalized = normalized.replace([np.nan,np.inf],1E-7)
+                            normalized = normalized.replace([np.nan,np.inf],1E-10)
                             col_node.active_coefficients_total.loc[:,col_indexer] = normalized
 
         for col_node in self.nodes.values():
@@ -3843,7 +3846,7 @@ class BlendNode(Node):
          # remove duplicates where a node is specified and is specified as residual node
          self.values = self.values.groupby(level=self.values.index.names).sum()
          # set negative values to 0
-         self.values.loc[self.values['value'] <= 0, 'value'] = 1e-7
+         self.values.loc[self.values['value'] <= 0, 'value'] = 1e-10
          self.expand_blend()
          self.values = self.values.unstack(level='year')
          self.values.columns = self.values.columns.droplevel()
@@ -3860,7 +3863,7 @@ class BlendNode(Node):
             self.values = util.reindex_df_level_with_new_elements(self.values, 'demand_sector', self.demand_sectors, 0)
         self.values = self.values.groupby(level=self.values.index.names).sum()
         # set negative values to 0
-        self.values.loc[self.values['value'] <= 0, 'value'] = 1e-7
+        self.values.loc[self.values['value'] <= 0, 'value'] = 1e-10
         self.expand_blend()
         self.values = self.values.unstack(level='year')
         self.values.columns = self.values.columns.droplevel()
@@ -3885,7 +3888,7 @@ class BlendNode(Node):
         # remove duplicates where a node is specified and is specified as residual node
         self.values.loc[:,year] = self.values.loc[:,year].groupby(level=self.values.index.names).sum()
         # set negative values to 0
-        self.values[self.values <= 0] = 1e-7
+        self.values[self.values <= 0] = 1e-10
 
     def set_to_min(self, year):
         """calculates values for residual node in Blend Node dataframe
@@ -3893,11 +3896,11 @@ class BlendNode(Node):
          90% of hydrogen blend is allocated to residual node
          """
         # calculates sum of all supply_node
-        self.values[self.values <= 0] = 1e-7
+        self.values[self.values <= 0] = 1e-10
 
     def expand_blend(self):
         #needs a fill value because if a node is not demanding any energy from another node, it still may be supplied, and reconciliation happens via division (can't multiply by 0)
-        self.values = util.reindex_df_level_with_new_elements(self.values,'supply_node', self.nodes, fill_value = 1e-7)
+        self.values = util.reindex_df_level_with_new_elements(self.values,'supply_node', self.nodes, fill_value = 1e-10)
         if 'demand_sector' not in self.values.index.names:
             self.values = util.expand_multi(self.values, self.demand_sectors, ['demand_sector'], incremental=True)
         self.values['efficiency_type'] = 'not consumed'
@@ -3908,7 +3911,7 @@ class BlendNode(Node):
     def set_residual(self):
         """creats an empty df with the value for the residual node of 1. For nodes with no blend measures specified"""
         df_index = pd.MultiIndex.from_product([GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography], self.demand_sectors, self.nodes, self.years, ['not consumed']], names=[GeoMapper.supply_primary_geography, 'demand_sector','supply_node','year','efficiency_type' ])
-        self.raw_values = util.empty_df(index=df_index,columns=['value'],fill_value=1e-7)
+        self.raw_values = util.empty_df(index=df_index,columns=['value'],fill_value=1e-10)
         indexer = util.level_specific_indexer(self.raw_values, 'supply_node', self.residual_supply_node)
         self.raw_values.loc[indexer, 'value'] = 1
         self.raw_values = self.raw_values.unstack(level='year')
@@ -4380,7 +4383,10 @@ class SupplyNode(Node, StockItem):
             levelized_tx_costs = util.DfOper.mult([util.df_slice(dispatch_tx_costs.values_level,year,'year'),capacity]).groupby(level='gau_from').sum()
             util.replace_index_name(levelized_tx_costs,GeoMapper.supply_primary_geography,'gau_from')
             embodied_tx_costs = util.DfOper.divi([levelized_tx_costs,self.throughput])
-            self.embodied_cost.loc[:, year] += embodied_tx_costs.values.flatten()
+            try:
+                self.embodied_cost.loc[:, year] += embodied_tx_costs.values.flatten()
+            except:
+                pdb.set_trace()
         self.active_embodied_cost = util.expand_multi(self.embodied_cost[year].to_frame(), levels_list = [GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography], self.demand_sectors],levels_names=[GeoMapper.supply_primary_geography,'demand_sector'])
 
 
@@ -5875,7 +5881,7 @@ class StorageNode(SupplyStockNode):
         if self.throughput is not None:
             remove_levels = [x for x in self.throughput.index.names if x not in self.stock.requirement_energy.index.names]
             self.throughput = util.remove_df_levels(self.throughput,remove_levels)
-        self.throughput[self.throughput>=0] = 1E-7
+        self.throughput[self.throughput>=0] = 1E-10
 
 
     def calculate_levelized_costs(self,year, loop):

@@ -2538,9 +2538,9 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'Z:\SP'
+    workingdir = r'Z:\SP_final'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['central', 'delayed electrification', 'low demand no fuel switch', 'low demand', 'reference']
+    scenario = ['central', 'delayed electrification', 'low demand', 'reference']
     export = run(workingdir, config, scenario)
     self = export

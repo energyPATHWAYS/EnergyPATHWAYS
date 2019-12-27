@@ -1,0 +1,169 @@
+table_name,column_name,comment
+CO2PriceMeasuresData,year,Input year
+CO2PriceMeasuresData,parent_id,id in parent table
+CO2PriceMeasuresData,gau_id,"This is the id for geographical analysis unit (GAU). If U.S. states was the geography, California would be a GAU."
+CO2PriceMeasuresData,value,Actual data
+CO2PriceMeasuresData,id,Unique id
+CleaningMethods,name,"name for the cleaning method, checked for in code time_series.py "
+DemandDrivers,extrapolation_growth,"If extrapolation method exponential is used, what is the year over year growth rate."
+DemandDrivers,interpolation_method_id,Cleaning method used to interpolate between missing years when data is entered. 
+DemandDrivers,geography_map_key_id,"Basis for mapping between geographies. For example, if my input data is for the entire country and I want to allocate the data to each state, do it based on the proportional share of households in each state. In this case, number of households would be the geography map key. For more information, see: https://docs.google.com/document/d/19cspAg2El5d1dvQggi7Vx8XJ1al-11IDf6DgRbpk-FU/edit#heading=h.n712kivlou9l"
+DemandDrivers,extrapolation_method_id,Cleaning method used to extrapolate to missing years when data is entered. 
+DemandDrivers,other_index_2_id,Second sub category for the input data (e.g. housing type)
+DemandDrivers,other_index_1_id,First sub category for the input data (e.g. housing type)
+DemandDrivers,geography_id,Input geography for the data (e.g. state). Each DemandDriversData record will identify which state.
+DemandDrivers,unit_base,Demand driver units units
+DemandDrivers,unit_prefix,"This acts as a multiplier on the input data (e.g. 1,000,000s of people)"
+DemandDrivers,input_type_id,Input data is either a total or an intensity.
+DemandDrivers,base_driver_id,"A base driver means that this driver is actually linked to prior drivers. For example, residential square footage depends on the number of households, which depends on population. In this case, number of households is a base driver for residential square footage and population is a base driver for number of households."
+DemandDriversData,oth_2_id,"Member of the second sub category. For example, if housing type was an other index, one member might be single-family homes."
+DemandDriversData,oth_1_id,"Member of the first sub category. For example, if housing type was an other index, one member might be single-family homes."
+DemandDriversData,gau_id,"This is the id for geographical analysis unit (GAU). If U.S. states was the geography, California would be a GAU."
+DemandDriversData,parent_id,id in parent table
+DemandDriversData,year,Input year
+DemandDriversData,value,Actual data
+DemandDriversData,id,Unique id
+DemandEnergyDemands,is_stock_dependent,This is a boolean indicating whether the energy demand depends on the size of the stock (e.g. HVAC energy demand depends on the total number of HVAC units).
+DemandEnergyDemands,subsector_id,id for the demand subsector
+DemandEnergyDemands,driver_1_id,Energy demand grows or shrinks in proportion to this driver.
+DemandEnergyDemands,driver_denominator_2_id,Accommodates a second driver in the denominator of the inputs.
+DemandEnergyDemands,driver_denominator_1_id,"If the data is an intensity, what driver is in the denominator? For example, if the subsector is commercial water heating, and the data is input in kBtu per commercial square foot, kBtu will be the unit and commercial square foot will be the driver in the denominator."
+DemandEnergyDemands,unit,Energy unit for the given inputs.
+DemandEnergyDemands,extrapolation_growth,"If extrapolation method exponential is used, what is the year over year growth rate?"
+DemandEnergyDemands,geography_map_key_id,"Basis for mapping between geographies. For example, if my input data is for the entire country and I want to allocate the data to each state, do it based on the proportional share of households in each state. For more information, see: https://docs.google.com/document/d/19cspAg2El5d1dvQggi7Vx8XJ1al-11IDf6DgRbpk-FU/edit#heading=h.n712kivlou9l"
+DemandEnergyDemands,input_type_id,Input data is either a total or an intensity.
+DemandEnergyDemands,other_index_2_id,Second sub category for the input data (e.g. housing type)
+DemandEnergyDemands,extrapolation_method_id,Cleaning method used to extrapolate to missing years when data is entered.
+DemandEnergyDemands,interpolation_method_id,Cleaning method used to interpolate between missing years when data is entered.
+DemandEnergyDemands,other_index_1_id,First sub category for the input data (e.g. housing type)
+DemandEnergyDemands,geography_id,Input geography for the data (e.g. state)
+DemandEnergyDemands,driver_2_id,Energy demand grows or shrinks in proportion to this driver.
+DemandEnergyDemandsData,year,Input year
+DemandEnergyDemandsData,value,Actual energy demand value
+DemandEnergyDemandsData,id,Unique id
+DemandEnergyDemandsData,gau_id,"This is the id for geographical analysis unit (GAU). If U.S. states was the geography, California would be a GAU."
+DemandEnergyDemandsData,oth_2_id,"Member of the second sub category. For example, if housing type was an other index, one member might be single-family homes."
+DemandEnergyDemandsData,oth_1_id,"Member of the first sub category. For example, if housing type was an other index, one member might be single-family homes."
+DemandSales,extrapolation_growth,"If extrapolation method exponential is used, what is the year over year growth rate?"
+DemandSales,geography_id,Input geography for the data (e.g. state)
+DemandSales,other_index_1_id,First sub category for the input data (e.g. housing type)
+DemandSales,other_index_2_id,Second sub category for the input data (e.g. housing type)
+DemandSales,input_type_id,Input data is either a total or an intensity.
+DemandSales,interpolation_method_id,Cleaning method used to interpolate between missing years when data is entered.
+DemandSales,extrapolation_method_id,Cleaning method used to extrapolate to missing years when data is entered.
+DemandSalesData,gau_id,"This is the id for geographical analysis unit (GAU). If U.S. states was the geography, California would be a GAU."
+DemandSalesData,oth_1_id,"Member of the first sub category. For example, if housing type was an other index, one member might be single-family homes."
+DemandSalesData,oth_2_id,"Member of the second sub category. For example, if housing type was an other index, one member might be single-family homes."
+DemandSalesData,demand_technology_id,Demand technology id
+DemandSalesData,vintage,Year of sale
+DemandSalesData,value,Input value
+DemandSalesData,id,Unique id
+DemandSectors,max_lag_hours,"Max lag hours refer to the number of hours that electricity service demand can be delayed in time. At the sector level, this acts as a default value that trickles down to all member subsectors. Note that this flexible load is further moderated by a demand flexible load package that control what percent of total subsector load is flexible year-by-year."
+DemandSectors,shape_id,Default electricity shape for the sector
+DemandSectors,max_lead_hours,"Max lead hours refer to the number of hours that electricity service demand can be advanced in time. At the sector level, this acts as a default value that trickles down to all member subsectors. Note that this flexible load is further moderated by a demand flexible load package that control what percent of total subsector load is flexible year-by-year."
+DemandServiceDemands,geography_id,Input geography for the data (e.g. state). Each DemandServiceDemandsData record will identify which state.
+DemandServiceDemands,driver_2_id,Ability to add a second driver.
+DemandServiceDemands,driver_1_id,Service demand in the model will increase or decrease proportionally with this driver.
+DemandServiceDemands,driver_denominator_2_id,Accommodates a second driver in the denominator of the inputs.
+DemandServiceDemands,driver_denominator_1_id,"If the data is an intensity, what driver is in the denominator? For example, if the subsector is light duty autos, and the data is input is vehicle miles traveled per capita, vehicle miles traveled will be the unit and population will be the driver in the denominator."
+DemandServiceDemands,other_index_1_id,First sub category for the input data (e.g. housing type)
+DemandServiceDemands,other_index_2_id,Second sub category for the input data (e.g. housing type)
+DemandServiceDemands,interpolation_method_id,Cleaning method used to interpolate between missing years when data is entered.
+DemandServiceDemands,extrapolation_method_id,Cleaning method used to extrapolate to missing years when data is entered.
+DemandServiceDemands,extrapolation_growth,"If extrapolation method exponential is used, what is the year over year growth rate?"
+DemandServiceDemands,unit,Service demand units (e.g. vehicle miles traveled or tons of cooling)
+DemandServiceDemands,geography_map_key_id,"Basis for mapping between geographies. For example, if my input data is for the entire country and I want to allocate the data to each state, do it based on the proportional share of households in each state. For more information, see: https://docs.google.com/document/d/19cspAg2El5d1dvQggi7Vx8XJ1al-11IDf6DgRbpk-FU/edit#heading=h.n712kivlou9l"
+DemandServiceDemands,subsector_id,Parent subsector id
+DemandServiceDemands,is_stock_dependent,"If service demand is stock dependent it means that it is proportional to the amount of stock in the market. In this case, total stock is solved first and becomes a driver of service demand. More about demand drivers here: https://docs.google.com/document/d/19cspAg2El5d1dvQggi7Vx8XJ1al-11IDf6DgRbpk-FU/edit#heading=h.94rqs9slq4zx"
+DemandServiceDemands,input_type_id,Input data is either a total or an intensity.
+DemandServiceDemandsData,id,Unique id
+DemandServiceDemandsData,value,Input data
+DemandServiceDemandsData,year,Data input year
+DemandServiceDemandsData,oth_2_id,"Member of the second sub category. For example, if housing type was an other index, one member might be single-family homes."
+DemandServiceDemandsData,oth_1_id,"Member of the first sub category. For example, if housing type was an other index, one member might be single-family homes."
+DemandServiceDemandsData,gau_id,"This is the id for geographical analysis unit (GAU). If U.S. states was the geography, California would be a GAU. "
+DemandServiceDemandsData,subsector_id,Parent subsector id
+DemandServiceEfficiency,other_index_2_id,Second sub category for the input data (e.g. housing type)
+DemandServiceEfficiency,interpolation_method_id,Cleaning method used to interpolate between missing years when data is entered.
+DemandServiceEfficiency,extrapolation_method_id,Cleaning method used to extrapolate to missing years when data is entered.
+DemandServiceEfficiency,extrapolation_growth,"If extrapolation method exponential is used, what is the year over year growth rate?"
+DemandServiceEfficiency,geography_map_key_id,"Basis for mapping between geographies. For example, if my input data is for the entire country and I want to allocate the data to each state, do it based on the proportional share of households in each state. For more information, see: https://docs.google.com/document/d/19cspAg2El5d1dvQggi7Vx8XJ1al-11IDf6DgRbpk-FU/edit#heading=h.n712kivlou9l "
+DemandServiceEfficiency,other_index_1_id,First sub category for the input data (e.g. housing type)
+DemandServiceEfficiency,geography_id,Input geography for the data (e.g. state)
+DemandServiceEfficiency,denominator_unit,Service demand unit
+DemandServiceEfficiency,energy_unit,Input energy unit
+DemandServiceEfficiency,subsector_id,Parent subsector.
+DemandServiceEfficiencyData,year,Data input year.
+DemandServiceEfficiencyData,id,Unique id.
+DemandServiceEfficiencyData,value,Data value.
+DemandServiceEfficiencyData,oth_2_id,"Member of the second sub category. For example, if housing type was an other index, one member might be single-family homes."
+DemandServiceEfficiencyData,oth_1_id,"Member of the first sub category. For example, if housing type was an other index, one member might be single-family homes."
+DemandServiceEfficiencyData,gau_id,"This is the id for geographical analysis unit (GAU). If U.S. states was the geography, California would be a GAU. "
+DemandServiceEfficiencyData,final_energy_id,Final energy type
+DemandServiceEfficiencyData,subsector_id,Parent subsector id.
+DemandServiceLink,id,Unique id.
+DemandServiceLink,subsector_id,"Independent subsector in the link. In our example, this would be dishwashing."
+DemandServiceLink,year,Basis year for the service demand share.
+DemandServiceLink,service_demand_share,"What share of the linked_subsector_id service demand comes from the subsector_id? For example, dishwashing might be responsible for 10% of hot water demand. Thus, if dishwashers doubled in efficiency, the demand for hot water would drop 5%."
+DemandServiceLink,linked_subsector_id,"Dependent subsector. In our example, this would be hot water heating."
+DemandStock,geography_id,Input geography for the data (e.g. state)
+DemandStock,driver_2_id,Second stock driver.
+DemandStock,driver_1_id,Total stock in the model will increase or decrease proportionally with this driver.
+DemandStock,driver_denominator_2_id,Accommodates a second driver in the denominator of the inputs.
+DemandStock,demand_stock_unit_type_id,"Equipment, service demand, or capacity factor"
+DemandStock,input_type_id,Total or intensity.
+DemandStock,geography_map_key_id,"Basis for mapping between geographies. For example, if my input data is for the entire country and I want to allocate the data to each state, do it based on the proportional share of households in each state. For more information, see: https://docs.google.com/document/d/19cspAg2El5d1dvQggi7Vx8XJ1al-11IDf6DgRbpk-FU/edit#heading=h.n712kivlou9l"
+DemandStock,other_index_2_id,Second sub category for the input data (e.g. housing type)
+DemandStock,other_index_1_id,First sub category for the input data (e.g. housing type)
+DemandStock,subsector_id,Parent subsector.
+DemandStock,driver_denominator_1_id,"If the data is an intensity, what driver is in the denominator? For example, if the subsector is light duty autos, and the data is input is number of vehicles per capita, population will be the driver in the denominator."
+DemandStock,extrapolation_growth,"If extrapolation method exponential is used, what is the year over year growth rate?"
+DemandStock,extrapolation_method_id,Cleaning method used to extrapolate to missing years when data is entered.
+DemandStock,interpolation_method_id,Cleaning method used to interpolate between missing years when data is entered.
+DemandStock,time_unit,"Time unit associated with an input in capacity terms. For example, heating stock may be given in kiloBtu per hour. Hour would be the time unit."
+DemandStock,unit,Input unit
+DemandStock,is_service_demand_dependent,"If stock is service demand dependent it means that total stock it is proportional to total service demand. In this case, service demand is solved first and becomes a driver of stock. More about demand drivers here: https://docs.google.com/document/d/19cspAg2El5d1dvQggi7Vx8XJ1al-11IDf6DgRbpk-FU/edit#heading=h.94rqs9slq4zx "
+DemandStockData,oth_1_id,"Member of the first sub category. For example, if housing type was an other index, one member might be single-family homes."
+DemandStockData,gau_id,"This is the id for geographical analysis unit (GAU). If U.S. states was the geography, California would be a GAU. "
+DemandStockData,subsector_id,Parent subsector id.
+DemandStockData,oth_2_id,"Member of the second sub category. For example, if housing type was an other index, one member might be single-family homes."
+DemandStockData,demand_technology_id,Technology id for the stock inputs.
+DemandStockData,year,Input year for the data.
+DemandStockData,value,Input data.
+DemandStockData,id,Unique id.
+DemandSubsectors,sector_id,Parent sector id.
+DemandSubsectors,max_lag_hours,"Max lag hours refer to the number of hours that electricity service demand can be delayed in time. At the sector level, this acts as a default value that trickles down to all member subsectors. Note that this flexible load is further moderated by a demand flexible load package that control what percent of total subsector load is flexible year-by-year."
+DemandSubsectors,max_lead_hours,"Max lead hours refer to the number of hours that electricity service demand can be advanced in time. At the sector level, this acts as a default value that trickles down to all member subsectors. Note that this flexible load is further moderated by a demand flexible load package that control what percent of total subsector load is flexible year-by-year."
+DemandSubsectors,shape_id,"Electricity shape for subsector load used to create aggregate load shapes, bottom up. It is possible to separately specify shapes by technology within a subsector."
+DemandSubsectors,is_active,Boolean indicating whether to include a subsector in the analysis. Useful for testing.
+DemandSubsectors,cost_of_capital,Cost of capital in the subsector.
+DemandTechs,unit,"E.g. one light bulb, or for a commercial electric boiler two kiloBtu per hour."
+DemandTechs,time_unit,"If the unit is in energy terms, over what time period is that energy delivered."
+DemandTechs,cost_of_capital,Separate cost of capital for the technology.
+DemandTechs,stock_decay_function_id,"What is the shape of stock decay? Options include weibull, linear, or lump (i.e. step function)."
+DemandTechs,mean_lifetime,Mean technology lifetime parameter. The user should either provide the min and max lifetime OR provide the mean and variance lifetime. These parameters are used to create the stock decay functions used in the stock rollover.
+DemandTechs,lifetime_variance,Lifetime variance technology parameter. The user should either provide the min and max lifetime OR provide the mean and variance lifetime. These parameters are used to create the stock decay functions used in the stock rollover.
+DemandTechs,shape_id,"Electricity consumption shape for the technology. This is used when building an aggregate load shape, bottom up."
+DemandTechs,max_lead_hours,"Max lead hours refer to the number of hours that electricity service demand can be advanced in time. At the sector level, this acts as a default value that trickles down to all member subsectors. Note that this flexible load is further moderated by a demand flexible load package that control what percent of total subsector load is flexible year-by-year."
+DemandTechs,max_lag_hours,"Max lag hours refer to the number of hours that electricity service demand can be delayed in time. At the sector level, this acts as a default value that trickles down to all member subsectors. Note that this flexible load is further moderated by a demand flexible load package that control what percent of total subsector load is flexible year-by-year."
+DemandTechs,linked_id,"When a single technology meets two different service demands across two different subsectors, it is possible to link the stock. One example would be air source heat pumps, which can be both used for heating and for cooling. Installing an air source heat pump gives you an air conditioning unit as a bonus, and we don’t want to two deployed independently. The technology in linked_id will have the total quantity of its stock fixed based on the deployment of the base technology."
+DemandTechs,stock_link_ratio,Moderates the degree to which two technologies are linked.
+DemandTechs,subsector_id,Subsector where the technology is deployed.
+DemandTechs,name,Technology name.
+DemandTechs,min_lifetime,Minimum technology lifetime parameter. The user should either provide the min and max lifetime OR provide the mean and variance lifetime. These parameters are used to create the stock decay functions used in the stock rollover.
+DemandTechs,max_lifetime,Maximum technology lifetime parameter. The user should either provide the min and max lifetime OR provide the mean and variance lifetime. These parameters are used to create the stock decay functions used in the stock rollover.
+DemandTechs,additional_description,Further information.
+DemandTechs,source,Source for the technology data.
+DemandTechs,demand_tech_unit_type_id,Equipment or service demand.
+DemandTechsCapitalCost,reference_tech_id,"If the input is relative, what technology is used as the reference?"
+DemandTechsCapitalCost,definition_id,"Either absolute or relative. If relative, a reference_tech_id must be given. In this case, the cost is assumed to be some multiple of a separate technology. For instance, the capital cost for technology X is always 10% higher than reference technology Y."
+DemandTechsCapitalCost,demand_technology_id,Parent demand tech.
+DemandTechsCapitalCost,other_index_2_id,Second sub category for the input data (e.g. housing type)
+DemandTechsCapitalCost,interpolation_method_id,Cleaning method used to interpolate between missing years when data is entered.
+DemandTechsCapitalCost,extrapolation_method_id,Cleaning method used to extrapolate to missing years when data is entered.
+DemandTechsCapitalCost,extrapolation_growth,"If extrapolation method exponential is used, what is the year over year growth rate?"
+DemandTechsCapitalCost,currency_id,Input currency.
+DemandTechsCapitalCost,currency_year_id,Input currency year.
+DemandTechsCapitalCost,is_levelized,Is the given capital cost in levelized terms?
+DemandTechsCapitalCost,other_index_1_id,First sub category for the input data (e.g. housing type)
+DemandTechsCapitalCost,geography_id,Input geography for the data (e.g. state)
