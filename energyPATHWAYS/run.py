@@ -137,7 +137,7 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'Z:\SP\SP_final_1wy_RIO2EP'
+    workingdir = r'Z:\SP\SP_final_1wy_EP2RIO'
     os.chdir(workingdir)
     rio_scenario = ['delayed electrification']
     scenario = ['delayed electrification']
