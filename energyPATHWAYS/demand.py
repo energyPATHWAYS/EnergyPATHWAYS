@@ -225,7 +225,7 @@ class Demand(object):
     def create_electricity_reconciliation(self):
         logging.info('Creating electricity shape reconciliation')
         # weather_year is the year for which we have top down load data
-        weather_year = max(int(np.round(np.mean(Shapes.get_active_dates_index().year))), cfg.getParamAsInt('demand_start_year'))
+        weather_year = max(int(np.round(np.mean(Shapes.get_active_dates_index().year))), cfg.getParamAsInt('current_year'))
 
         # the next four lines create the top down load shape in the weather_year
         levels_to_keep = [GeoMapper.demand_primary_geography, 'year', 'final_energy']
