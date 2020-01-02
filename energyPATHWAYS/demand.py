@@ -304,6 +304,7 @@ class Demand(object):
         for output_name, include_unit in zip(output_list,unit_flag):
             print "aggregating %s" %output_name
             df = self.group_output(output_name, include_unit=include_unit)
+            df[df.index.get_level_values('year').isin(cfg.combined_years_subset)]
             df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
             if df is not None:
                 setattr(self.outputs,"d_"+ output_name, df.sortlevel())
@@ -442,7 +443,7 @@ class Demand(object):
         levels_to_keep = cfg.output_combined_levels if levels_to_keep is None else levels_to_keep
         demand_levels_to_keep = [x for x in levels_to_keep if x in demand_df.index.names]
         demand_df = demand_df.groupby(level=demand_levels_to_keep).sum()
-        demand_df = demand_df[demand_df.index.get_level_values('year') >= cfg.getParamAsInt('current_year')]
+        demand_df = demand_df[demand_df.index.get_level_values('year').isin(cfg.combined_years_subset)]
         df_list = util.loop_geo_multiply(demand_df, supply_link, geo_label, GeoMapper.combined_geographies, levels_to_keep)
         return df_list
 

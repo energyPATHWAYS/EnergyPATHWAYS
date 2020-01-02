@@ -184,12 +184,13 @@ class PathwaysModel(object):
             if isinstance(getattr(res_obj, attribute), list):
                 for df in getattr(res_obj, attribute):
                     result_df = getattr(res_obj, 'clean_df')(df)
-                    clean_and_write(df,attribute)
+                    clean_and_write(result_df,attribute)
             elif isinstance(getattr(res_obj, attribute), pd.DataFrame):
-                result_df = getattr(res_obj, 'clean_df')(df)
-                clean_and_write(df, attribute)
+                result_df = getattr(res_obj, 'clean_df')(getattr(res_obj, attribute))
+                clean_and_write(result_df, attribute)
             else:
                 continue
+
     def calculate_tco(self):
         cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
         initial_vintage = min(cfg.supply_years)
@@ -329,8 +330,7 @@ class PathwaysModel(object):
         #calculate and format embodied supply costs
         embodied_costs_list = [Output.clean_df(x) for x in self.demand.outputs.demand_embodied_energy_costs]
         cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
-        for embodied_costs in embodied_costs_list:
-            embodied_costs.columns = [cost_unit.upper()]
+        for embodied_costs in embodied_costs_list: embodied_costs.columns = [cost_unit.upper()]
         embodied_costs_list = [util.add_to_df_index(x, names=['EXPORT/DOMESTIC', "SUPPLY/DEMAND"], keys=["DOMESTIC","SUPPLY"]) for x in embodied_costs_list]
         return embodied_costs_list
 
@@ -339,6 +339,7 @@ class PathwaysModel(object):
         if self.demand.outputs.d_levelized_costs is None:
             return None
         direct_costs = GeoMapper.geo_map(self.demand.outputs.d_levelized_costs.copy(), GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total')
+        direct_costs = direct_costs[direct_costs.index.get_level_values('year').isin(cfg.combined_years_subset)]
         levels_to_keep = [x for x in cfg.output_combined_levels if x in direct_costs.index.names]
         direct_costs = direct_costs.groupby(level=levels_to_keep).sum()
         direct_costs = Output.clean_df(direct_costs)
@@ -350,13 +351,23 @@ class PathwaysModel(object):
         export_costs = self.calc_and_format_export_costs()
         embodied_costs_list = self.calc_and_format_embodied_costs()
         direct_costs = self.calc_and_format_direct_demand_costs()
-        export_costs['COST_TYPE'] = 'EXPORTED'
-        for x in embodied_costs_list:
-            x['COST_TYPE'] = 'SUPPLY-SIDE'
-        direct_costs['COST_TYPE'] = 'DEMAND-SIDE'
-        self.outputs.c_costs = [export_costs] + embodied_costs_list + [direct_costs]
-        self.outputs.c_costs[self.outputs.c_costs<0]=0
-        self.outputs.c_costs= self.outputs.c_costs[self.outputs.c_costs[cost_unit.upper()]!=0]
+        export_costs = util.add_and_set_index(export_costs,['COST_TYPE'],['EXPORTED'])
+        embodied_costs_list = [util.add_and_set_index(x,['COST_TYPE'],['SUPPLY-SIDE']) for x in embodied_costs_list]
+        direct_costs = util.add_and_set_index(direct_costs,['COST_TYPE'],['DEMAND-SIDE'])
+        if export_costs is not None:
+            for name in [x for x in embodied_costs_list[0].index.names if x not in export_costs.index.names]:
+                export_costs[name] = "N/A"
+                export_costs.set_index(name,append=True,inplace=True)
+            export_costs = export_costs.groupby(level=embodied_costs_list[0].index.names).sum()
+        if direct_costs is not None:
+            for name in [x for x in embodied_costs_list[0].index.names if x not in direct_costs.index.names]:
+                direct_costs[name] = "N/A"
+                direct_costs.set_index(name, append=True, inplace=True)
+            direct_costs = direct_costs.groupby(level=embodied_costs_list[0].index.names).sum()
+        self.outputs.c_costs = embodied_costs_list + [direct_costs] + [export_costs]
+        self.outputs.c_costs= [x[x.values!=0] for x in self.outputs.c_costs]
+        for x in self.outputs.c_costs: x.index = x.index.reorder_levels(embodied_costs_list[0].index.names)
+
 
     def calc_and_format_export_emissions(self):
         #calculate and format export emissions
@@ -397,19 +408,27 @@ class PathwaysModel(object):
         export_emissions = self.calc_and_format_export_emissions()
         embodied_emissions_list = self.calc_and_format_embodied_supply_emissions()
         direct_emissions_list = self.calc_and_format_direct_demand_emissions()
-        export_emissions['EMISSIONS_TYPE'] = 'EXPORTED'
-        for x in embodied_emissions_list:
-            x['EMISSIONS_TYPE'] = 'SUPPLY_SIDE'
-        for x in direct_emissions_list:
-            x['EMISSIONS_TYPE'] = 'DEMAND_SIDE'
+        export_emissions = util.add_and_set_index(export_emissions,['EMISSIONS_TYPE'],['EXPORTED'])
+        embodied_emissions_list = [util.add_and_set_index(x, ['EMISSIONS_TYPE'], ['SUPPLY_SIDE']) for x in embodied_emissions_list]
+        direct_emissions_list = [util.add_and_set_index(x,['EMISSIONS_TYPE'],['DEMAND_SIDE']) for x in direct_emissions_list]
+        if export_emissions is not None:
+            for name in [x for x in embodied_emissions_list[0].index.names if x not in export_emissions.index.names]:
+                export_emissions[name] = "N/A"
+                export_emissions.set_index(name,append=True,inplace=True)
+            export_emissions = export_emissions.groupby(level=embodied_emissions_list[0].index.names).sum()
+        if direct_emissions_list is not None:
+            for df in direct_emissions_list:
+                for name in [x for x in embodied_emissions_list[0].index.names if x not in df.index.names]:
+                    df[name] = "N/A"
+                    df.set_index(name,append=True,inplace=True)
         self.outputs.c_emissions = [export_emissions] + embodied_emissions_list + direct_emissions_list
-        self.outputs.c_emissions = [util.replace_index_name(x, GeoMapper.combined_outputs_geography.upper() +'-EMITTED', GeoMapper.combined_outputs_geography.upper() +'_SUPPLY') for x in self.outputs.c_emissions]
-        self.outputs.c_emissions = [util.replace_index_name(x, GeoMapper.combined_outputs_geography.upper() +'-CONSUMED', GeoMapper.combined_outputs_geography.upper()) for x in self.outputs.c_emissions]
+        self.outputs.c_emissions = [util.replace_index_name(x, GeoMapper.combined_outputs_geography.upper() +'-EMITTED', GeoMapper.combined_outputs_geography.upper() +'_SUPPLY',inplace=True) for x in self.outputs.c_emissions]
+        self.outputs.c_emissions = [util.replace_index_name(x, GeoMapper.combined_outputs_geography.upper() +'-CONSUMED', GeoMapper.combined_outputs_geography.upper(),inplace=True) for x in self.outputs.c_emissions]
         self.outputs.c_emissions = [x[x['VALUE']!=0] for x in  self.outputs.c_emissions]
         emissions_unit = cfg.getParam('mass_unit')
         for x in self.outputs.c_emissions:
             x.columns = [emissions_unit.upper()]
-
+        for x in self.outputs.c_emissions: x.index = x.index.reorder_levels([l for l in embodied_emissions_list[0].index.names if l in x.index.names])
     def calc_and_format_export_energy(self):
         if self.supply.export_energy is None:
             return None
@@ -417,6 +436,9 @@ class PathwaysModel(object):
         export_energy = Output.clean_df(export_energy)
         util.replace_index_name(export_energy, 'FINAL_ENERGY','SUPPLY_NODE_EXPORT')
         export_energy = util.add_to_df_index(export_energy, names=['EXPORT/DOMESTIC', "ENERGY ACCOUNTING"], keys=["EXPORT", "EMBODIED"])
+        for x in cfg.output_combined_levels:
+            if x not in export_energy.index.names:
+                export_energy = util.add_and_set_index(export_energy,[x],["N/A"])
         return export_energy
 
     def calc_and_format_embodied_supply_energy(self):
@@ -448,10 +470,10 @@ class PathwaysModel(object):
             export_energy = export_energy.groupby(level=embodied_energy_list[0].index.names).sum()
 
         self.outputs.c_energy = embodied_energy_list + [demand_energy] + [export_energy]
-        self.outputs.c_energy = [x['VALUE']!=0 for x in self.outputs.c_energy]
+        self.outputs.c_energy = [x[x['VALUE']!=0] for x in self.outputs.c_energy]
         energy_unit = cfg.calculation_energy_unit
-        for x in self.outputs.c_energy:
-            x.columns = [energy_unit.upper()]
+        for x in self.outputs.c_energy: x.columns = [energy_unit.upper()]
+        for x in self.outputs.c_energy: x.index = x.index.reorder_levels(embodied_energy_list[0].index.names)
 
     def export_io(self):
         io_table_write_step = cfg.getParamAsInt('io_table_write_step', 'output_detail')

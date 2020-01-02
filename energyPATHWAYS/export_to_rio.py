@@ -2538,9 +2538,9 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\energyPATHWAYS_scenarios\FL'
+    workingdir = r'C:\Github\EnergyPATHWAYS_scenarios\CATF - EAST'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['reference','central','low electrification']
+    scenario = ['reference','central']
     export = run(workingdir, config, scenario)
     self = export
