@@ -167,6 +167,7 @@ class Supply(object):
             node.years = range(node.min_year, cfg.getParamAsInt('end_year') + cfg.getParamAsInt('year_step'), cfg.getParamAsInt('year_step'))
             node.vintages = copy.deepcopy(node.years)
         self.years = cfg.supply_years
+        self.years_subset = cfg.combined_years_subset
 
     def initial_calculate(self):
         """Calculates all nodes in years before IO loop"""
@@ -241,6 +242,7 @@ class Supply(object):
                 self.all_nodes.append(name)
                 logging.info('    {} node {}'.format(supply_type, name))
                 self.add_node(name, supply_type, self.scenario)
+
 
         # this ideally should be moved to the init statements for each of the nodes
         for node in self.nodes.values():
@@ -538,6 +540,7 @@ class Supply(object):
                 node.thermal_dispatch_node = False
 
     def calculate_supply_outputs(self):
+        self.years_subset = cfg.combined_years_subset
         self.map_dict = dict(util.csv_read_table('SupplyNodes', ['final_energy_link', 'name']))
         if self.map_dict.has_key(None):
             del self.map_dict[None]
@@ -2154,7 +2157,7 @@ class Supply(object):
         remap_order = np.array([sorted_map_dict_values.index(self.map_dict[key]) for key in sorted(self.map_dict.keys())])
         remap_order = np.hstack([len(self.map_dict) * i + remap_order for i in range(len(GeoMapper.supply_geographies))])
         df_list = []
-        for year in self.years:
+        for year in self.years_subset:
             sector_df_list = []
             keys = self.demand_sectors
             name = ['sector']
@@ -2169,7 +2172,7 @@ class Supply(object):
             df_list.append(year_df)
         self.sector_df_list  = sector_df_list
         self.df_list = df_list
-        keys = self.years
+        keys = self.years_subset
         name = ['year']
         df = pd.concat(df_list,keys=keys,names=name)
         df.columns = ['value']
@@ -2272,7 +2275,7 @@ class Supply(object):
         supply_nodes = list(set(export_df.index.get_level_values('supply_node')))
         df_list = []
         idx = pd.IndexSlice
-        for year in self.years:
+        for year in self.years_subset:
             sector_df_list = []
             keys = self.demand_sectors
             name = ['sector']
@@ -2290,7 +2293,7 @@ class Supply(object):
                sector_df_list.append(df)
             year_df = pd.concat(sector_df_list, keys=keys,names=name)
             df_list.append(year_df)
-        keys = self.years
+        keys = self.years_subset
         name = ['year']
         df = pd.concat(df_list,keys=keys,names=name)
         df.columns = ['value']
@@ -2715,7 +2718,7 @@ class Supply(object):
                       #this pass_through has been solved. They must all be solved before the emissions rate of the output node can be fed to
                       output_node.pass_through_dict[emissions_node] = True
                       # feeds passed-through emissions rates until it reaches a node where it is completely consumed
-                      if isinstance(output_node,ImportNode) and output_node.emissions._has_data is True:
+                      if isinstance(output_node,ImportNode) or isinstance(output_node,BlendNode) and output_node.emissions._has_data is True:
                          #if the node is an import node, and the emissions intensity is not incremental, the loop stops because the input emissions intensity
                          #overrides the passed through emissions intensity
                           pass
