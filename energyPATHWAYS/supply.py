@@ -2718,7 +2718,7 @@ class Supply(object):
                       #this pass_through has been solved. They must all be solved before the emissions rate of the output node can be fed to
                       output_node.pass_through_dict[emissions_node] = True
                       # feeds passed-through emissions rates until it reaches a node where it is completely consumed
-                      if isinstance(output_node,ImportNode) or isinstance(output_node,BlendNode) and output_node.emissions._has_data is True:
+                      if (isinstance(output_node,ImportNode) or isinstance(output_node,BlendNode)) and output_node.emissions._has_data is True:
                          #if the node is an import node, and the emissions intensity is not incremental, the loop stops because the input emissions intensity
                          #overrides the passed through emissions intensity
                           pass
