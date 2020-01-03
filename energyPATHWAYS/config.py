@@ -164,18 +164,11 @@ def init_output_levels():
                 x = geomapper.GeoMapper.combined_outputs_geography + "_supply"
             if x in output_combined_levels:
                 output_combined_levels.remove(x)
-    if len(_ConfigParser.get('combined_output_detail', 'years_subset')):
-        combined_years_subset = [int(y) for y in _ConfigParser.get('combined_output_detail', 'years_subset').split(',')]
+    years_subset = _ConfigParser.get('combined_output_detail', 'years_subset')
+    if years_subset != 'None' and len(years_subset):
+        combined_years_subset = [int(y) for y in years_subset.split(',') if int(y) in supply_years]
     else:
-        combined_years_subset = None
-    if combined_years_subset is None:
-        combined_years_subset =  range(getParamAsInt( 'current_year'),
-                          getParamAsInt( 'end_year') + 1,
-                          getParamAsInt( 'year_step'))
-    else:
-        combined_years_subset = [x for x in combined_years_subset if x in range(getParamAsInt( 'current_year'),
-                          getParamAsInt( 'end_year') + 1,
-                          getParamAsInt( 'year_step'))]
+        combined_years_subset = supply_years
 def table_dict(table_name, columns=['id', 'name'], append=False,
                other_index_id=id, return_iterable=False, return_unique=True):
     df = csv_read_table(table_name, columns,
