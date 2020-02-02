@@ -922,9 +922,7 @@ class Supply(object):
         if hasattr(self, 'dispatched_bulk_load'):
             bulk_flow = util.DfOper.subt([util.DfOper.add([self.bulk_load,util.remove_df_levels(self.dist_only_net_load,'dispatch_feeder')]),self.dispatched_bulk_load * .5])
         else:
-            bulk_flow = util.DfOper.subt(
-                [util.DfOper.add([self.bulk_load, util.remove_df_levels(self.dist_only_net_load, 'dispatch_feeder')]),
-                 ])
+            bulk_flow = util.DfOper.subt([util.DfOper.add([self.bulk_load, util.remove_df_levels(self.dist_only_net_load, 'dispatch_feeder')]),])
         bulk_cap_factor = util.DfOper.divi([bulk_flow.groupby(level=GeoMapper.dispatch_geography).mean(),bulk_flow.groupby(level=GeoMapper.dispatch_geography).max()])
         transmission_grid_node = self.nodes[self.transmission_node_name]
         geography_map_key = transmission_grid_node.geography_map_key if hasattr(transmission_grid_node, 'geography_map_key') and transmission_grid_node.geography_map_key is not None else GeoMapper.default_geography_map_key
