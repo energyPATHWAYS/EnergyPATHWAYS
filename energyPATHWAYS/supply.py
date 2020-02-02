@@ -4383,7 +4383,6 @@ class SupplyNode(Node, StockItem):
             levelized_tx_costs = util.DfOper.mult([util.df_slice(dispatch_tx_costs.values_level,year,'year'),capacity]).groupby(level='gau_from').sum()
             util.replace_index_name(levelized_tx_costs,GeoMapper.supply_primary_geography,'gau_from')
             embodied_tx_costs = util.DfOper.divi([levelized_tx_costs,self.throughput])
-            pdb.set_trace()
             try:
                 self.embodied_cost.loc[:, year] += embodied_tx_costs.values.flatten()
             except:
@@ -4917,7 +4916,7 @@ class SupplyStockNode(Node):
         tech_sum = util.remove_df_levels(self.stock.technology,'supply_technology')
 
         if hasattr(self.stock,'total'):
-            if np.all(np.isnan(self.stock.total.values)) and not np.any(np.isnan(self.stock.technology)):
+            if np.all(np.isnan(self.stock.total.values)) and not np.any(np.isnan(self.stock.technology.values)):
                 self.stock.total = self.stock.total.fillna(tech_sum)
             else:
                 self.stock.total[self.stock.total.values<tech_sum.values] = tech_sum
