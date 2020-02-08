@@ -60,24 +60,19 @@ def splitclean(s, delim=',', allow_empties=False, as_type=None):
 
 
 def loop_geo_multiply(df1, df2, geo_label, geographies, levels_to_keep=None):
-    geography_df_list = []
-    for geography in geographies:
-        if geography in df2.index.get_level_values(geo_label):
-            supply_indexer = level_specific_indexer(df2, [geo_label], [geography])
-            demand_indexer = level_specific_indexer(df1, [geo_label], [geography])
-            demand_df = df1.loc[demand_indexer, :]
-            demand_df = demand_df.round(12)
-            demand_df = demand_df[demand_df.values!=0]
-            supply_df =  df2.loc[supply_indexer, :]
-            supply_df = supply_df.round(12)
-            supply_df = supply_df[supply_df.values != 0]
-            geography_df = DfOper.mult([demand_df,supply_df])
-            geography_df_list.append(geography_df)
-    df = pd.concat(geography_df_list)
-    if levels_to_keep:
-        filtered_ltk = [x for x in levels_to_keep if x in df.index.names]
-        df = df.groupby(level=filtered_ltk).sum()
-    return df
+    #geography_df_list = []
+    df1 = df1.round(12)
+    df1 =df1[df1.values!=0]
+    df2 =df2.round(12)
+    df2 = df2[df2.values != 0]
+    df3 = DfOper.mult([df1,df2])
+    df3 = df3[df3.values!=0]
+    geography_df_list = [df3]
+    #df = pd.concat(geography_df_list)
+    #if levels_to_keep:
+        #filtered_ltk = [x for x in levels_to_keep if x in df.index.names]
+        #df = df.groupby(level=filtered_ltk).sum()
+    return geography_df_list
 
 def add_to_df_index(df, names, keys):
     for key, name in zip(keys, names):
@@ -455,10 +450,11 @@ def position_in_index(df, level_name):
 def elements_in_index_level(df, level_name):
     return df.index.levels[position_in_index(df, level_name)]
 
-def replace_index_name(df, replace_label, label=None):
+def replace_index_name(df, replace_label, label=None, inplace=False):
     " Use replace_label to replace specified index label"
     df.index.names = [replace_label if x == label else x for x in df.index.names]
-
+    if inplace:
+        return df
 
 def ix_excl(df, exclude=None,axis=0):
     exclude = ensure_iterable(exclude)

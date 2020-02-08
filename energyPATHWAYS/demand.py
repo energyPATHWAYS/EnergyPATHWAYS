@@ -305,6 +305,7 @@ class Demand(object):
         for output_name, include_unit in zip(output_list,unit_flag):
             print "aggregating %s" %output_name
             df = self.group_output(output_name, include_unit=include_unit)
+            df[df.index.get_level_values('year').isin(cfg.combined_years_subset)]
             df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
             if df is not None:
                 setattr(self.outputs,"d_"+ output_name, df.sortlevel())
@@ -443,9 +444,9 @@ class Demand(object):
         levels_to_keep = cfg.output_combined_levels if levels_to_keep is None else levels_to_keep
         demand_levels_to_keep = [x for x in levels_to_keep if x in demand_df.index.names]
         demand_df = demand_df.groupby(level=demand_levels_to_keep).sum()
-        demand_df = demand_df[demand_df.index.get_level_values('year') >= cfg.getParamAsInt('current_year')]
-        df = util.loop_geo_multiply(demand_df, supply_link, geo_label, GeoMapper.combined_geographies, levels_to_keep)
-        return df
+        demand_df = demand_df[demand_df.index.get_level_values('year').isin(cfg.combined_years_subset)]
+        df_list = util.loop_geo_multiply(demand_df, supply_link, geo_label, GeoMapper.combined_geographies, levels_to_keep)
+        return df_list
 
     def group_linked_output_tco(self, input_df, supply_link, levels_to_keep=None):
         demand_df = input_df.copy()
@@ -1254,6 +1255,25 @@ class Subsector(schema.DemandSubsectors):
             return util.remove_df_levels(util.DfOper.mult([df,npv]),'year')
 
     def format_output_costs(self,att,override_levels_to_keep=None):
+        stock_costs = self.format_output_stock_costs(att, override_levels_to_keep)
+        measure_costs = self.format_output_measure_costs(att, override_levels_to_keep)
+        cost_list = [c for c in [stock_costs, measure_costs] if c is not None]
+        if len(cost_list) == 0:
+            return None
+        elif len(cost_list) == 1 and stock_costs is not None:
+            df =  cost_list[0]
+            df['cost_category'] = 'stock'
+            df.set_index('cost_category', append=True, inplace=True)
+            return df
+        elif len(cost_list) == 1 and measure_costs is not None:
+            df =  cost_list[0]
+            df['cost_category'] = 'measure'
+            df.set_index('cost_category', append=True, inplace=True)
+            return df
+        else:
+            return util.df_list_concatenate(cost_list,keys=['stock', 'measure'],new_names=['cost_category'])
+
+    def format_output_technology_costs(self,att,override_levels_to_keep=None):
         stock_costs = self.format_output_stock_costs(att, override_levels_to_keep)
         measure_costs = self.format_output_measure_costs(att, override_levels_to_keep)
         cost_list = [c for c in [stock_costs, measure_costs] if c is not None]
@@ -3069,6 +3089,9 @@ class Subsector(schema.DemandSubsectors):
         if self.sub_type != 'link':
             self.stock.annual_costs['fuel_switching']['new'] = util.DfOper.mult([self.rollover_output(tech_class='fuel_switch_cost', tech_att='values', stock_att='sales_fuel_switch'),year_df])
             self.stock.annual_costs['fuel_switching']['replacement'] = self.stock.annual_costs['fuel_switching']['new']  * 0
+
+
+
 
     def remove_extra_subsector_attributes(self):
         if hasattr(self, 'stock'):
