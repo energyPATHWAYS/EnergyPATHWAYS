@@ -490,6 +490,10 @@ class Supply(object):
                     # each time, if reconciliation has occured, we have to recalculate coefficients and resolve the io
                     self.reconcile_trades(year, loop)
                     self._recalculate_after_reconciliation(year, loop, update_demand=True)
+                    if cfg.rio_supply_run:
+                        for i in range(1):
+                            self.reconcile_oversupply(year, loop)
+                            self._recalculate_after_reconciliation(year, loop, update_demand=True)
                     if not cfg.rio_supply_run:
                         for i in range(2):
                             self.reconcile_oversupply(year, loop)
@@ -2486,11 +2490,15 @@ class Supply(object):
 
         for node in self.nodes.values():
             #loops through all nodes checking for excess supply from nodes that are not curtailable, flexible, or exportable
-           oversupply_factor = node.calculate_oversupply(year,loop) if hasattr(node,'calculate_oversupply') else None 
-           if oversupply_factor is not None:
-               if cfg.rio_supply_run and node.name not in cfg.rio_excluded_nodes:
-                   continue
-               elif node.is_exportable:
+            if cfg.rio_supply_run and node.name in cfg.rio_excluded_nodes:
+                oversupply_factor = node.calculate_oversupply(year, loop) if hasattr(node,
+                                                                 'calculate_oversupply') else None
+            elif not cfg.rio_supply_run:
+                oversupply_factor = node.calculate_oversupply(year,loop) if hasattr(node,'calculate_oversupply') else None
+            else:
+                oversupply_factor = None
+            if oversupply_factor is not None:
+               if node.is_exportable:
                    #if the node is exportable, excess supply is added to the node's exports
                    excess_supply = DfOper.subt([DfOper.mult([node.active_supply, oversupply_factor]), node.active_supply])
                    node.export.active_values = DfOper.add([node.export.active_values, excess_supply])
