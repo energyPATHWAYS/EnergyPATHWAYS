@@ -152,7 +152,6 @@ class Demand(object):
         inflex_load = pd.concat([inflex_load], keys=[0], names=['timeshift_type'])
         flex_load = util.DfOper.add([sector.aggregate_flexible_electricity_shape(year) for sector in self.sectors.values()], expandable=False, collapsible=False)
         agg_load = inflex_load if flex_load is None else util.DfOper.add((inflex_load, flex_load), expandable=False, collapsible=False)
-
         df = GeoMapper.geo_map(agg_load, GeoMapper.demand_primary_geography, GeoMapper.dispatch_geography, current_data_type='total') if geomap_to_dispatch_geography else agg_load
         group_by_geo = GeoMapper.dispatch_geography if geomap_to_dispatch_geography else GeoMapper.demand_primary_geography
         df = df.groupby(level=['timeshift_type', group_by_geo, 'dispatch_feeder', 'weather_datetime']).sum()
@@ -300,13 +299,14 @@ class Demand(object):
                 return None
             levels_with_na_only = [name for level, name in zip(df.index.levels, df.index.names) if list(level)==[u'N/A']]
             return util.remove_df_levels(df, levels_with_na_only).sort_index()
-        output_list = ['energy', 'stock', 'sales','annual_costs', 'levelized_costs', 'service_demand']
-        unit_flag = [False, True, False, False, True, True]
+        output_list = ['energy', 'stock', 'sales','annual_costs', 'levelized_costs', 'service_demand','air_pollution']
+        unit_flag = [False, True, False, False, True, True,True]
         for output_name, include_unit in zip(output_list,unit_flag):
             print "aggregating %s" %output_name
             df = self.group_output(output_name, include_unit=include_unit)
-            df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
             if df is not None:
+                df.dropna(inplace=True)
+                df = remove_na_levels(df)  # if a level only as N/A values, we should remove it from the final outputs
                 setattr(self.outputs,"d_"+ output_name, df.sortlevel())
             else:
                 setattr(self.outputs, "d_" + output_name, None)
@@ -418,6 +418,7 @@ class Demand(object):
         dfs = [sector.group_output(output_type, levels_to_keep, include_unit, specific_years) for sector in self.sectors.values()]
         if all([df is None for df in dfs]) or not len(dfs):
             return None
+
         dfs, keys = zip(*[(df, key) for df, key in zip(dfs, self.sectors.keys()) if df is not None])
         new_names = 'sector'
         return util.df_list_concatenate(dfs, keys, new_names, levels_to_keep)
@@ -513,12 +514,12 @@ class Sector(schema.DemandSectors):
             self.add_subsector(name)
 
         # # populate_subsector_data, this is a separate step so we can use multiprocessing
-        if cfg.getParamAsBoolean('parallel_process'):
-            subsectors = helper_multiprocess.safe_pool(helper_multiprocess.subsector_populate, self.subsectors.values())
-            self.subsectors = dict(zip(self.subsectors.keys(), subsectors))
-        else:
-            for name in self.subsector_names:
-                self.subsectors[name].add_energy_system_data()
+        #if cfg.getParamAsBoolean('parallel_process'):
+         #   subsectors = helper_multiprocess.safe_pool(helper_multiprocess.subsector_populate, self.subsectors.values())
+          #  self.subsectors = dict(zip(self.subsectors.keys(), subsectors))
+        #else:
+        for name in self.subsector_names:
+            self.subsectors[name].add_energy_system_data()
 
         self.make_precursor_dict()
         self.make_precursors_reversed_dict()
@@ -1030,6 +1031,13 @@ class Subsector(schema.DemandSubsectors):
                 return_array = self.format_output_energy_demand_payback()
             else:
                 return None
+        elif output_type == 'air_pollution':
+            if self.sub_type != 'link':
+                return_array = self.format_output_air_pollution()
+            else:
+                return None
+
+
         if return_array is not None:
             return  util.df_slice(return_array, specific_years, 'year', drop_level=False) if specific_years else return_array
         else:
@@ -1074,6 +1082,12 @@ class Subsector(schema.DemandSubsectors):
     def format_output_energy_demand_payback(self):
         if hasattr(self,'energy_forecast_no_modifier'):
             return self.energy_forecast_no_modifier
+        else:
+            return None
+
+    def format_output_air_pollution(self):
+        if hasattr(self,'air_pollution_forecast'):
+            return self.air_pollution_forecast
         else:
             return None
 
@@ -1419,7 +1433,7 @@ class Subsector(schema.DemandSubsectors):
         if hasattr(self, 'technologies'):
             tech_classes = ['capital_cost_new', 'capital_cost_replacement', 'installation_cost_new',
                             'installation_cost_replacement', 'fixed_om', 'fuel_switch_cost', 'efficiency_main',
-                            'efficiency_aux']
+                            'efficiency_aux','air_pollution','service_demand_modifier']
             # if all the tests are True, it gets deleted
             tests = defaultdict(list)
             for tech in self.technologies.keys():
@@ -2860,6 +2874,7 @@ class Subsector(schema.DemandSubsectors):
         self.stock.values = util.empty_df(index=index, columns=pd.Index(columns, dtype='object'))
         self.stock.values_new = copy.deepcopy(self.stock.values)
         self.stock.values_replacement = copy.deepcopy(self.stock.values)
+        self.stock.ones = util.empty_df(index=index, columns=pd.Index(columns, dtype='object'), fill_value=1.0)
         full_levels = self.stock.rollover_group_levels + [self.technologies.keys()] + [self.vintages]
         index = pd.MultiIndex.from_product(full_levels, names=full_names)
         self.stock.retirements = util.empty_df(index=index, columns=['value'])
@@ -3343,7 +3358,18 @@ class Subsector(schema.DemandSubsectors):
         else:
             all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'],self.service_demand.modifier, self.service_demand.values])
         self.energy_forecast = util.DfOper.add([all_energy, self.parasitic_energy])
+        self.stock.values_normal_energy_ones = copy.deepcopy(self.stock.values_efficiency_normal)
+        self.stock.values_normal_energy_ones[self.stock.values_normal_energy_ones.values>0] =1
+        dfs = [x.air_pollution.values for x in self.technologies.values() if hasattr(x.air_pollution,'values')]
+        if len(dfs):
+            df =pd.concat(dfs,keys=[x.name for x in self.technologies.values() if hasattr(x.air_pollution,'values')],names=['demand_technology'])
+            if df.sum().sum()!=0:
+                self.air_pollution_forecast = util.DfOper.mult([df,self.energy_forecast],non_expandable_levels=['final_energy'])
+                self.air_pollution_forecast = pd.DataFrame(self.air_pollution_forecast.stack())
+                util.replace_index_name(self.air_pollution_forecast, 'year')
+                util.replace_column(self.air_pollution_forecast, 'value')
         self.energy_forecast = pd.DataFrame(self.energy_forecast.stack())
+
         if len([x for x in self.stock.rollover_group_names if x not in self.service_demand.values.index.names]):
             multiplier = self.stock.values.groupby(level=[x for x in self.stock.rollover_group_names if x not in self.service_demand.values.index.names]).sum()/self.stock.values.sum()
             all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'], self.service_demand.values,multiplier])
@@ -3356,7 +3382,11 @@ class Subsector(schema.DemandSubsectors):
         util.replace_index_name(self.energy_forecast_no_modifier, 'year')
         util.replace_column(self.energy_forecast_no_modifier, 'value')
         self.energy_forecast = util.remove_df_elements(self.energy_forecast, 9999, 'final_energy')
+        self.energy_forecast = self.energy_forecast.replace([np.inf, -np.inf], np.nan)
+        self.energy_forecast.dropna(inplace=True)
         self.energy_forecast_no_modifier = util.remove_df_elements(self.energy_forecast_no_modifier, 9999, 'final_energy')
+        self.energy_forecast_no_modifier = self.energy_forecast_no_modifier.replace([np.inf, -np.inf], np.nan)
+        self.energy_forecast_no_modifier.dropna(inplace=True)
         if not cfg.getParamAsBoolean('use_service_demand_modifiers'):
             self.energy_forecast = self.energy_forecast_no_modifier
         if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_1') :

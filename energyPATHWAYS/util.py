@@ -18,6 +18,7 @@ import scipy.special
 from csvdb.data_object import get_database
 from csvdb.utils import filter_query
 import pdb
+import copy
 
 def makedirs_if_needed(path):
     '''Checks to see if a directory exists, and creates it if not
@@ -107,7 +108,7 @@ def upper_dict(query, append=None):
 def df_list_concatenate(df_list, keys=None, new_names=None, levels_to_keep=None):
     new_names = put_in_list(new_names)
     #remove any elements in the list that are not pandas df
-    df_list = [df for df in df_list if type(df) is pd.core.frame.DataFrame]
+    df_list = [copy.deepcopy(df) for df in df_list if type(df) is pd.core.frame.DataFrame]
 
     df_names_set = set(flatten_list([df.index.names if df.index.nlevels>1 else [df.index.name] for df in df_list]))
     levels_to_keep = levels_to_keep if levels_to_keep is not None else list(df_names_set)

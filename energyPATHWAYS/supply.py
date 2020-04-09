@@ -2050,6 +2050,8 @@ class Supply(object):
 
     def set_initial_net_load_signals(self,year):
         final_demand = self.demand_object.aggregate_electricity_shapes(year)
+        if np.any(np.isnan(final_demand.values)):
+            pdb.set_trace()
         distribution_native_load = final_demand.xs(0, level='timeshift_type')
         if tuple(final_demand.index.get_level_values('timeshift_type').unique()) == (0,):
             self.distribution_flex_load = None

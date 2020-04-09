@@ -50,7 +50,7 @@ class RioExport(object):
                self.write_flex_tech_main()
             #self.write_capacity_zone_main()
             #self.write_product_main()
-        #self.write_conversion()
+        self.write_conversion()
         #logging.info("writing products")
         #self.write_product()
         logging.info("writing topography")
@@ -2538,9 +2538,9 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'Z:\SP_final'
+    workingdir = r'C:\GitHub\EP_runs\WEST'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['central', 'delayed electrification', 'low demand', 'reference']
+    scenario = ['central',  'reference']
     export = run(workingdir, config, scenario)
     self = export

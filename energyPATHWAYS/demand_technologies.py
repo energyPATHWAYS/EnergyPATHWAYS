@@ -254,8 +254,19 @@ class ServiceDemandModifier(schema.DemandTechsServiceDemandModifier):
         self.vintages = vintages
         self.years = years
         if self._has_data and self.raw_values is not None:
-            self.remap(map_from='raw_values', map_to='values', time_index_name='vintage', converted_geography=GeoMapper.demand_primary_geography)
-            util.convert_age(self, attr_from='values', attr_to='values', reverse=False, vintages=self.vintages, years=self.years)
+            self.values = copy.deepcopy(self.raw_values)
+            self.values['age'] = self.values.index.get_level_values('year') - self.values.index.get_level_values('vintage')
+            self.values = self.values.set_index('age',append=True)
+            self.values = util.remove_df_levels(self.values,'year')
+            self.remap(map_from='values', map_to='values', time_index_name='vintage', converted_geography=GeoMapper.demand_primary_geography)
+            self.values['year'] = self.values.index.get_level_values('vintage') + self.values.index.get_level_values('age')
+            self.values = self.values.set_index('year',append=True)
+            self.values = util.remove_df_levels(self.values,'age')
+            self.remap(map_from='values', map_to='values', time_index_name='year', current_geography=GeoMapper.demand_primary_geography,
+                       converted_geography=GeoMapper.demand_primary_geography)
+            self.values = self.values.unstack('year')
+            self.values.columns = self.values.columns.droplevel()
+            #util.convert_age(self, attr_from='values', attr_to='values', reverse=False, vintages=self.vintages, years=self.years)
             self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
         if not self._has_data:
             self.absolute = False
@@ -263,6 +274,47 @@ class ServiceDemandModifier(schema.DemandTechsServiceDemandModifier):
             # if the class is empty, then there is no data for conversion, so the class is considered converted
             self.absolute = True
 
+
+class AirPollution(schema.DemandTechsAirPollution):
+    """ technology specified service demand modifier. Replaces calculated modifiers
+    based on stock and service/energy demand inputs."""
+
+    def __init__(self, tech, scenario=None):
+        super(AirPollution, self).__init__(demand_technology=tech.name, scenario=scenario)
+        self.init_from_db(tech.name, scenario)
+        self.scenario = scenario
+        self.input_type = 'intensity'
+
+    def calculate(self, vintages, years):
+        self.vintages = vintages
+        self.years = years
+        if self._has_data and self.raw_values is not None:
+            self.convert()
+            self.remap(map_from='values', map_to='values', time_index_name='year', converted_geography=GeoMapper.demand_primary_geography)
+            self.remap(map_from='values', map_to='values', time_index_name='vintage', current_geography=GeoMapper.demand_primary_geography, converted_geography=GeoMapper.demand_primary_geography)
+            #self.remap(map_from='values', map_to='values', time_index_name='year',current_geography=GeoMapper.demand_primary_geography,converted_geography=GeoMapper.demand_primary_geography)
+            self.values = self.values.unstack('year')
+            self.values.columns = self.values.columns.droplevel()
+        if not self._has_data:
+            self.absolute = False
+        if self.raw_values is None:
+            # if the class is empty, then there is no data for conversion, so the class is considered converted
+            self.absolute = True
+
+
+    def convert(self):
+        """
+        return values from raw_values that are converted to units consistent with output units - energy and annual
+        """
+        if self.definition == 'absolute':
+            self.values = UnitConverter.unit_convert(self.raw_values, unit_from_den=self.energy_unit,
+                                            unit_from_num=self.mass_unit,
+                                                     unit_to_den=cfg.calculation_energy_unit,
+                                            unit_to_num=cfg.getParam('mass_unit'))
+            self.absolute = True
+        else:
+            self.values = self.raw_values.copy()
+            self.absolute = False
 
 class DemandTechnology(schema.DemandTechs, StockItem):
     def __init__(self, name, service_demand_unit, stock_time_unit, cost_of_capital, scenario=None):
@@ -381,6 +433,7 @@ class DemandTechnology(schema.DemandTechs, StockItem):
             self.efficiency_aux.utility_factor = 1 - self.efficiency_main.utility_factor
         self.service_demand_modifier = ServiceDemandModifier(self, scenario=self.scenario)
         self.parasitic_energy = ParasiticEnergy(self, scenario=self.scenario)
+        self.air_pollution = AirPollution(self,scenario=self.scenario)
         # add service links to service links dictionary
         self.add_service_links()
         self.replace_class('capital_cost_new', 'capital_cost_replacement')
