@@ -22,13 +22,13 @@ class TransmissionSuper(DataObject):
             self._setup_zero_constraints()
             return""
 
-        self._validate_gaus()
+        # self._validate_gaus()
         self.values = self.clean_timeseries(attr='raw_values', inplace=False, time_index=cfg.supply_years, time_index_name='year', interpolation_method=self.interpolation_method, extrapolation_method=self.extrapolation_method)
         # fill in any missing combinations of geographies
         self.values = util.reindex_df_level_with_new_elements(self.values, 'gau_from', GeoMapper.dispatch_geographies)
         self.values = util.reindex_df_level_with_new_elements(self.values, 'gau_to', GeoMapper.dispatch_geographies)
         self.values = self.values.fillna(0)
-        self.values = self.values.sort()
+        self.values = self.values.sort_index()
 
     def _setup_zero_constraints(self):
         index = pd.MultiIndex.from_product([cfg.supply_years,GeoMapper.dispatch_geographies, GeoMapper.dispatch_geographies], names=['year', 'gau_from', 'gau_to'])

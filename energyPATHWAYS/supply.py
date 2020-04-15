@@ -915,7 +915,7 @@ class Supply(object):
             map_df = GeoMapper.get_instance().map_df(GeoMapper.dispatch_geography,GeoMapper.supply_primary_geography, normalize_as='intensity', map_key=geography_map_key, eliminate_zeros=False)
             dist_cap_factor = util.remove_df_levels(util.DfOper.mult([dist_cap_factor,map_df]),GeoMapper.dispatch_geography)
         dist_cap_factor = util.remove_df_levels(util.DfOper.mult([dist_cap_factor, util.df_slice(self.dispatch_feeder_allocation, year, 'year')]),'dispatch_feeder')
-        dist_cap_factor = dist_cap_factor.reorder_levels([GeoMapper.supply_primary_geography,'demand_sector']).sort()
+        dist_cap_factor = dist_cap_factor.reorder_levels([GeoMapper.supply_primary_geography,'demand_sector']).sort_index()
         distribution_grid_node.capacity_factor.values.loc[:,year] = dist_cap_factor.values
         for i in range(0,cfg.getParamAsInt('dispatch_step')+1):
             distribution_grid_node.capacity_factor.values.loc[:,min(year+i,max_year)] = dist_cap_factor.values
@@ -1623,7 +1623,7 @@ class Supply(object):
                 dispatch_results.append(dispatch_generators.run_thermal_dispatch(params))
 
         thermal_dispatch_df, detailed_results = zip(*dispatch_results) #both of these are lists by geography
-        thermal_dispatch_df = pd.concat(thermal_dispatch_df).sort()
+        thermal_dispatch_df = pd.concat(thermal_dispatch_df).sort_index()
         self.active_thermal_dispatch_df = thermal_dispatch_df
 
         if year in self.dispatch_write_years:
@@ -1937,7 +1937,7 @@ class Supply(object):
                         capacity = util.remove_df_levels(capacity, GeoMapper.supply_primary_geography)
                     # creates an empty database to fill with duration values, which are a technology parameter
                     duration = copy.deepcopy(capacity) * 0
-                    duration = duration.sort()
+                    duration = duration.sort_index()
                     for tech in node.technologies.values():
                         for geography in GeoMapper.supply_geographies:
                             tech_indexer = util.level_specific_indexer(duration,['supply_technology',GeoMapper.supply_primary_geography], [tech.name,geography])
@@ -2936,7 +2936,7 @@ class Supply(object):
             supply_indexer = util.level_specific_indexer(self.io_export_df, 'supply_node', node.name)
             if loop == 'initial' or loop==1:
                 node.export.allocate(node.active_supply, self.demand_sectors, self.years, year, loop)
-            self.io_export_df.loc[supply_indexer, year] = node.export.active_values.sort().values
+            self.io_export_df.loc[supply_indexer, year] = node.export.active_values.sort_index().values
 
 
 class Node(schema.SupplyNodes):
@@ -2993,7 +2993,7 @@ class Node(schema.SupplyNodes):
             return None
         levels_to_keep = cfg.output_supply_levels if override_levels_to_keep is None else override_levels_to_keep
         levels_to_eliminate = [l for l in self.stock.values.index.names if l not in levels_to_keep]
-        df = util.remove_df_levels(self.stock.values, levels_to_eliminate).sort()
+        df = util.remove_df_levels(self.stock.values, levels_to_eliminate).sort_index()
         # stock starts with vintage as an index and year as a column, but we need to stack it for export
         df = df.stack().to_frame()
         util.replace_index_name(df, 'year')
@@ -3006,7 +3006,7 @@ class Node(schema.SupplyNodes):
             return None
 #        levels_to_keep = cfg.output_supply_levels if override_levels_to_keep is None else override_levels_to_keep
 #        levels_to_eliminate = [l for l in self.capacity_utilization.index.names if l not in levels_to_keep]
-#        df = util.remove_df_levels(self.capacity_utilization, levels_to_eliminate).sort()
+#        df = util.remove_df_levels(self.capacity_utilization, levels_to_eliminate).sort_index()
         # stock starts with vintage as an index and year as a column, but we need to stack it for export
         df = self.capacity_utilization
         df = df.stack().to_frame()
@@ -3025,7 +3025,7 @@ class Node(schema.SupplyNodes):
         else:
             df = self.final_annual_costs.stack().to_frame()
             util.replace_index_name(df,'year')
-        df = util.remove_df_levels(df, levels_to_eliminate).sort()
+        df = util.remove_df_levels(df, levels_to_eliminate).sort_index()
         cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
         df.columns = [cost_unit.upper()]
         return df
@@ -3035,7 +3035,7 @@ class Node(schema.SupplyNodes):
             return None
         levels_to_keep = cfg.output_supply_levels if override_levels_to_keep is None else override_levels_to_keep
         levels_to_eliminate = [l for l in self.final_levelized_costs.index.names if l not in levels_to_keep]
-        df = util.remove_df_levels(self.final_levelized_costs, levels_to_eliminate).sort()
+        df = util.remove_df_levels(self.final_levelized_costs, levels_to_eliminate).sort_index()
         # stock starts with vintage as an index and year as a column, but we need to stack it for export
         df = df.stack().to_frame()
         util.replace_index_name(df, 'year')
@@ -3584,7 +3584,7 @@ class Node(schema.SupplyNodes):
 
     def set_pass_through_dict(self, node_dict):
         if self.active_coefficients is not None:
-            self.active_coefficients = self.active_coefficients.sort()
+            self.active_coefficients = self.active_coefficients.sort_index()
             if 'not consumed' in set(self.active_coefficients.index.get_level_values('efficiency_type')):
                 indexer = util.level_specific_indexer(self.active_coefficients,'efficiency_type', 'not consumed')
                 pass_through_subsectors = self.active_coefficients.loc[indexer,:].index.get_level_values('supply_node')
@@ -3840,7 +3840,7 @@ class BlendNode(Node):
          """
          # calculates sum of all supply_nodes
          # residual equals 1-sum of all other specified nodes
-         self.values = self.raw_values.sort()
+         self.values = self.raw_values.sort_index()
          if 'demand_sector' in self.values.index.names:
             self.values = util.reindex_df_level_with_new_elements(self.values,'demand_sector',self.demand_sectors,0)
          if self.residual_supply_node in self.values.index.get_level_values('supply_node'):
@@ -3868,7 +3868,7 @@ class BlendNode(Node):
         """
         # calculates sum of all supply_nodes
         # residual equals 1-sum of all other specified nodes
-        self.values = self.raw_values.sort()
+        self.values = self.raw_values.sort_index()
         if 'demand_sector' in self.values.index.names:
             self.values = util.reindex_df_level_with_new_elements(self.values, 'demand_sector', self.demand_sectors, 0)
         self.values = self.values.groupby(level=self.values.index.names).sum()
@@ -3916,7 +3916,7 @@ class BlendNode(Node):
         self.values['efficiency_type'] = 'not consumed'
         self.values.set_index('efficiency_type', append=True, inplace=True)
         self.values = self.values.reorder_levels([GeoMapper.supply_primary_geography,'demand_sector','supply_node','efficiency_type','year'])
-        self.values = self.values.sort()
+        self.values = self.values.sort_index()
 
     def set_residual(self):
         """creats an empty df with the value for the residual node of 1. For nodes with no blend measures specified"""
@@ -3926,7 +3926,7 @@ class BlendNode(Node):
         self.raw_values.loc[indexer, 'value'] = 1
         self.raw_values = self.raw_values.unstack(level='year')
         self.raw_values.columns = self.raw_values.columns.droplevel()
-        self.raw_values = self.raw_values.sort()
+        self.raw_values = self.raw_values.sort_index()
         self.values = copy.deepcopy(self.raw_values)
 
 
@@ -4240,7 +4240,7 @@ class SupplyNode(Node, StockItem):
             df_list = []
             for node in nodes:
                 trade_indexer = util.level_specific_indexer(self.active_trade_adjustment_df, 'supply_node', node)
-              #  coefficient_indexer = util.level_specific_indexer(self.active_coefficients_untraded.sort(), 'supply_node', node)
+              #  coefficient_indexer = util.level_specific_indexer(self.active_coefficients_untraded.sort_index(), 'supply_node', node)
                 efficiency_types = list(set(util.df_slice(self.active_coefficients_untraded, node, 'supply_node').index.get_level_values('efficiency_type')))
                 keys = efficiency_types
                 name = ['efficiency_type']
@@ -4558,7 +4558,7 @@ class SupplyPotential(schema.SupplyPotential):
         primary_geography = GeoMapper.supply_primary_geography
         self.active_throughput = active_throughput
         #self.active_throughput[self.active_throughput<=0] = 1E-25
-        original_supply_curve = util.remove_df_levels(self.supply_curve.loc[:,year].to_frame().sort(),[x for x in self.supply_curve.loc[:,year].index.names if x not in [primary_geography, 'resource_bin', 'demand_sector']])
+        original_supply_curve = util.remove_df_levels(self.supply_curve.loc[:,year].to_frame().sort_index(),[x for x in self.supply_curve.loc[:,year].index.names if x not in [primary_geography, 'resource_bin', 'demand_sector']])
         self.active_supply_curve = util.remove_df_levels(original_supply_curve,[x for x in self.supply_curve.loc[:,year].index.names if x not in [primary_geography, 'resource_bin', 'demand_sector']])
         if tradable_geography is not None and tradable_geography!=primary_geography:
                 map_df = GeoMapper.get_instance().map_df(primary_geography,tradable_geography,normalize_as='total',eliminate_zeros=False,filter_geo=False)
@@ -4704,7 +4704,7 @@ class SupplyCoefficients(schema.SupplyEfficiency):
                 names = ['demand_sector']
                 self.values = pd.concat([self.values]*len(keys),keys=keys,names=names)
             self.values = self.values.reorder_levels([x for x in [GeoMapper.supply_primary_geography,'demand_sector', 'efficiency_type', 'supply_node','resource_bin'] if x in self.values.index.names])
-            self.values = self.values.sort()
+            self.values = self.values.sort_index()
 
     def convert(self):
         """
@@ -5235,7 +5235,10 @@ class SupplyStockNode(Node):
                 raise ValueError('Sales share has NaN values in node ' + str(self.name))
             sales = self.calculate_total_sales(elements, self.stock.rollover_group_names)
             initial_total = util.df_slice(self.stock.total_rollover, elements, self.stock.rollover_group_names).values[0]
-            initial_stock, rerun_sales_shares = self.calculate_initial_stock(elements, initial_total, sales_share,initial_sales_share)
+            try:
+                initial_stock, rerun_sales_shares = self.calculate_initial_stock(elements, initial_total, sales_share,initial_sales_share)
+            except:
+                pdb.set_trace()
             if rerun_sales_shares:
                  sales_share = self.calculate_total_sales_share_after_initial(elements,self.stock.rollover_group_names)
             technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names,'technology_rollover').values
@@ -5762,12 +5765,12 @@ class SupplyStockNode(Node):
             self.active_coefficients = util.remove_df_levels(pd.concat([self.stock.coefficients.loc[:,year].to_frame()]*len(keys), keys=keys,names=name).fillna(0),['supply_technology', 'vintage','resource_bin'])
             self.active_coefficients_untraded = copy.deepcopy(self.active_coefficients)
             self.active_coefficients_untraded.sort(inplace=True,axis=0)
-            self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([GeoMapper.supply_primary_geography,'demand_sector', 'supply_node']).sort().fillna(0)
+            self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([GeoMapper.supply_primary_geography,'demand_sector', 'supply_node']).sort_index().fillna(0)
         else:
             self.active_coefficients = util.remove_df_levels(self.stock.coefficients.loc[:,year].to_frame().fillna(0),['supply_technology', 'vintage','resource_bin'])
             self.active_coefficients_untraded = copy.deepcopy(self.active_coefficients)
             self.active_coefficients_untraded.sort(inplace=True,axis=0)
-            self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([GeoMapper.supply_primary_geography,'demand_sector', 'supply_node']).sort().fillna(0)
+            self.active_coefficients_total_untraded = util.remove_df_levels(self.active_coefficients,['efficiency_type']).reorder_levels([GeoMapper.supply_primary_geography,'demand_sector', 'supply_node']).sort_index().fillna(0)
         self.active_coefficients_total = DfOper.mult([self.add_column_index(self.active_coefficients_total_untraded),self.active_trade_adjustment_df]).fillna(0)
         nodes = list(set(self.active_trade_adjustment_df.index.get_level_values('supply_node')))
         if len(nodes):
@@ -5814,7 +5817,7 @@ class SupplyStockNode(Node):
         """ Produces rollover outputs for a node stock based on the tech_att class, att of the class, and the attribute of the stock
         """
         stock_df = getattr(self.stock, stock_att)
-        stock_df = stock_df.sort()
+        stock_df = stock_df.sort_index()
         tech_classes = util.put_in_list(tech_class)
         tech_dfs = []
         for tech_class in tech_classes:
@@ -5827,7 +5830,7 @@ class SupplyStockNode(Node):
                    tech_dfs[x] =  util.add_and_set_index(value,'resource_bin',[1])
             tech_df = pd.concat([x.reorder_levels(first_tech_order) for x in tech_dfs])
             tech_df = tech_df.reorder_levels([x for x in stock_df.index.names if x in tech_df.index.names]+ [x for x in tech_df.index.names if x not in stock_df.index.names])
-            tech_df = tech_df.sort()
+            tech_df = tech_df.sort_index()
             if year in stock_df.columns.values:
                 result_df = util.DfOper.mult((stock_df.loc[:,year].to_frame(),tech_df), expandable=(True, True), collapsible=(True, False),non_expandable_levels=non_expandable_levels,fill_value=fill_value)
             else:
@@ -6281,7 +6284,7 @@ class SupplyEmissions(schema.SupplyEmissions):
                                             unit_to_num=cfg.getParam('mass_unit'),
                                             unit_to_den=cfg.calculation_energy_unit)
         self.ghgs = util.csv_read_table('GreenhouseGases', 'name', return_iterable=True)
-        self.values = util.reindex_df_level_with_new_elements(self.values,'ghg',self.ghgs,fill_value=0.).sort()
+        self.values = util.reindex_df_level_with_new_elements(self.values,'ghg',self.ghgs,fill_value=0.).sort_index()
 
     def calculate_physical_and_accounting(self):
           """converts emissions intensities for use in physical and accounting emissions calculations"""

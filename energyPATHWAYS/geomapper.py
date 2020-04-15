@@ -369,7 +369,7 @@ class GeoMapper:
 
         # update foreign GAUs after clean timeseries
         allocated_gau_years = list(allocated_foreign_gau_slice_foreign_geo.index.get_level_values(y_or_v).values)
-        allocated_foreign_gau_slice_foreign_geo = allocated_foreign_gau_slice_foreign_geo.reorder_levels(df.index.names).sort()
+        allocated_foreign_gau_slice_foreign_geo = allocated_foreign_gau_slice_foreign_geo.reorder_levels(df.index.names).sort_index()
         afgsfg = allocated_foreign_gau_slice_foreign_geo # to give it a shorter name
         afgsfg = afgsfg.reindex(index=pd.MultiIndex.from_product(afgsfg.index.levels, names=afgsfg.index.names), fill_value=np.nan)
         indexer = util.level_specific_indexer(afgsfg, [current_geography, y_or_v], [foreign_gau, allocated_gau_years])
@@ -377,7 +377,7 @@ class GeoMapper:
         df.loc[indexer, :] = afgsfg.loc[indexer, :]
 
         new_impacted_gaus = util.DfOper.subt((impacted_gaus_slice, allocated_foreign_gau_slice_new_geo), fill_value=np.nan, non_expandable_levels=[])
-        new_impacted_gaus = new_impacted_gaus.reorder_levels(df.index.names).sort()
+        new_impacted_gaus = new_impacted_gaus.reorder_levels(df.index.names).sort_index()
         if new_impacted_gaus.min().min() < 0:
             if not zero_out_negatives:
                 raise ValueError(
@@ -415,7 +415,7 @@ class GeoMapper:
                 continue
             needed_elements = list(set(df.index.get_level_values(index_name)))
             df = util.reindex_df_level_with_new_elements(df, index_name, needed_elements)
-        df = df.fillna(0).sort()
+        df = df.fillna(0).sort_index()
         return df
 
     def incorporate_foreign_gaus(self, df, current_geography, data_type, map_key, keep_oth_index_over_oth_gau=False, zero_out_negatives=True):
