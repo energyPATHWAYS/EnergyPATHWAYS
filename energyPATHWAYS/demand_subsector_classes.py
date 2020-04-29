@@ -68,8 +68,10 @@ class DemandStock(schema.DemandStock, Stock):
         self.projected = False
         self.efficiency_calculated = False
         self.efficiency = defaultdict(dict)
+        self.efficiency_documentation = defaultdict(dict)
         self.levelized_costs = defaultdict(dict)
         self.annual_costs = defaultdict(dict)
+        self.annual_costs_documentation = defaultdict(dict)
 
 class ServiceEfficiency(schema.DemandServiceEfficiency):
     def __init__(self, name, service_demand_unit, scenario=None):

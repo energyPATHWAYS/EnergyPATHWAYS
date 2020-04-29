@@ -253,6 +253,7 @@ class DataObject(CsvDataObject):
 
         # deals with foreign gaus and updates the geography
         df, current_geography = self.account_for_foreign_gaus(map_from, current_data_type, current_geography)
+
         setattr(self, map_to, df)
 
         # This happens when we are on a geography level and some of the elements are missing. Such as no PR when we have all the other U.S. States.

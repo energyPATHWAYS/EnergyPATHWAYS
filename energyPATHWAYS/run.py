@@ -142,14 +142,14 @@ if __name__ == "__main__":
     rio_scenario = ['central']
     scenario = ['central']
     run(scenario,
-    load_demand   = True,
-    solve_demand  = False,
+    load_demand   = False,
+    solve_demand  = True,
     load_supply   = False,
     solve_supply  = False,
-    export_results= False,
+    export_results= True,
     load_error    = False,
     save_models   = False,
-    clear_results = False,
+    clear_results = True,
     rio_scenario=rio_scenario)
     #
     # test = model.demand.aggregate_electricity_shapes(2017)

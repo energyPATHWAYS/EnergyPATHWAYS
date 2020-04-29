@@ -6335,7 +6335,7 @@ class RioInputs(DataObject):
             self.delivered_gen = None
         self.cleaned_delivered_gen = self.clean_delivered_rio_gen()
         self.blend_levelized_costs = self.calc_blend_levelized_costs(self.scenario)
-        self.dual_fuel_efficiency = self.calc_dual_fuel_efficiency(self.scenario)
+        self.dual_fuel_efficiency = self.calc_dual_fuel_efficiency(self.scenario,gen_energy)
         self.zonal_fuel_outputs = self.calc_fuel_share(scenario,fuel_energy,True)
         self.zonal_fuel_exports = self.calc_blend_exports(scenario, fuel_energy)
         self.product_exports = self.calc_product_exports(scenario, fuel_energy)

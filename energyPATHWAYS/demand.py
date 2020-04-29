@@ -299,8 +299,8 @@ class Demand(object):
                 return None
             levels_with_na_only = [name for level, name in zip(df.index.levels, df.index.names) if list(level)==[u'N/A']]
             return util.remove_df_levels(df, levels_with_na_only).sort_index()
-        output_list = ['energy', 'stock', 'sales','annual_costs', 'levelized_costs', 'service_demand','air_pollution']
-        unit_flag = [False, True, False, False, True, True,True]
+        output_list = ['energy', 'stock', 'sales','annual_costs','annual_costs_documentation', 'levelized_costs', 'service_demand','air_pollution']
+        unit_flag = [False, True, False, False, True, True, True,True]
         for output_name, include_unit in zip(output_list,unit_flag):
             print "aggregating %s" %output_name
             df = self.group_output(output_name, include_unit=include_unit)
@@ -415,6 +415,8 @@ class Demand(object):
     def group_output(self, output_type, levels_to_keep=None, include_unit=False, specific_years=None):
         levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep
         levels_to_keep = list(set(levels_to_keep + ['unit'])) if include_unit else levels_to_keep
+        if 'documentation' in output_type:
+            levels_to_keep = None
         dfs = [sector.group_output(output_type, levels_to_keep, include_unit, specific_years) for sector in self.sectors.values()]
         if all([df is None for df in dfs]) or not len(dfs):
             return None
@@ -643,11 +645,14 @@ class Sector(schema.DemandSectors):
     def group_output(self, output_type, levels_to_keep=None, include_unit=False, specific_years=None):
         levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep
         levels_to_keep = list(set(levels_to_keep + ['unit'])) if include_unit else levels_to_keep
+        if 'documentation' in output_type:
+            levels_to_keep = None
         dfs = [subsector.group_output(output_type, levels_to_keep, specific_years) for subsector in self.subsectors.values()]
         if all([df is None for df in dfs]) or not len(dfs):
             return None
         dfs, keys = zip(*[(df, key) for df, key in zip(dfs, self.subsectors.keys()) if df is not None])
         new_names = 'subsector'
+
         return util.df_list_concatenate(dfs, keys, new_names, levels_to_keep)
 
     def group_output_tco(self, output_type, levels_to_keep=None, include_unit=False, specific_years=None):
@@ -1018,6 +1023,8 @@ class Subsector(schema.DemandSubsectors):
             return_array = self.format_output_sales(levels_to_keep)
         elif output_type=='annual_costs':
             return_array =  self.format_output_costs('annual_costs', levels_to_keep)
+        elif output_type=='annual_costs_documentation':
+            return_array =  self.format_output_costs('annual_costs_documentation', None,measure_costs=False)
         elif output_type=='levelized_costs':
             return_array = self.format_output_costs('levelized_costs', levels_to_keep)
         elif output_type=='service_demand':
@@ -1267,9 +1274,12 @@ class Subsector(schema.DemandSubsectors):
             df = util.df_list_concatenate(cost_list,keys=keys,new_names=names)
             return util.remove_df_levels(util.DfOper.mult([df,npv]),'year')
 
-    def format_output_costs(self,att,override_levels_to_keep=None):
+    def format_output_costs(self,att,override_levels_to_keep=None,measure_costs=True):
         stock_costs = self.format_output_stock_costs(att, override_levels_to_keep)
-        measure_costs = self.format_output_measure_costs(att, override_levels_to_keep)
+        if measure_costs:
+            measure_costs = self.format_output_measure_costs(att, override_levels_to_keep)
+        else:
+            measure_costs = None
         cost_list = [c for c in [stock_costs, measure_costs] if c is not None]
         if len(cost_list) == 0:
             return None
@@ -1296,21 +1306,29 @@ class Subsector(schema.DemandSubsectors):
         keys, values = zip(*[(a, b) for a, b in util.unpack_dict(cost_dict)])
         values = list(values)
         for index, value in enumerate(values):
-            if list(value.columns) != ['value']:
+            if value is None:
+                continue
+            if len(value.columns)>1:
                 value = value.stack().to_frame()
                 value.columns = ['value']
                 util.replace_index_name(value, 'year')
                 values[index] = value
             else:
+                value.columns = ['value']
                 values[index]=value
             if hasattr(self.stock,'other_index_1') and self.stock.other_index_1 != None :
                 util.replace_index_name(values[index],"other_index_1", self.stock.other_index_1)
             if hasattr(self.stock,'other_index_2') and self.stock.other_index_2 != None:
                 util.replace_index_name(values[index],"other_index_2", self.stock.other_index_2)
-            values[index] = values[index].groupby(level = [x for x in values[index].index.names if x in override_levels_to_keep]).sum()
+            if override_levels_to_keep is not None:
+                values[index] = values[index].groupby(level = [x for x in values[index].index.names if x in override_levels_to_keep]).sum()
             values[index]['cost_type'] = keys[index][0].upper()
             values[index]['new/replacement'] = keys[index][1].upper()
-        df = util.df_list_concatenate([x.set_index(['cost_type', 'new/replacement'] ,append=True) for x in values],keys=None, new_names=None)
+        try:
+            df = util.df_list_concatenate([x.set_index(['cost_type', 'new/replacement'] ,append=True) for x in values if x is not None],keys=None, new_names=None)
+        except:
+            pdb.set_trace()
+
         df.columns = [cfg.output_currency]
         return df
 
@@ -1793,9 +1811,11 @@ class Subsector(schema.DemandSubsectors):
                     # energy demand inputs
                     self.project_stock(stock_dependent=self.energy_demand.is_stock_dependent)
                     self.stock_subset_prep()
-                    self.energy_demand.project(map_from='raw_values', converted_geography=GeoMapper.demand_primary_geography, fill_timeseries=False)
+                    self.project_energy_demand(stock_dependent =self.energy_demand.is_stock_dependent)
                     # divide by the efficiency of the stock to return service demand values
                     self.efficiency_removal()
+                    self.service_demand.geography = GeoMapper.demand_primary_geography
+                    #self.service_demand.project(map_from = 'int_values',current_geography=GeoMapper.demand_primary_geography)
                 elif self.sub_type == 'stock and service':
                     # determine the year range of service demand inputs
                     self.min_year = self.min_cal_year(self.service_demand)
@@ -1895,7 +1915,10 @@ class Subsector(schema.DemandSubsectors):
                     self.min_year = self.min_cal_year(self.energy_demand)
                     self.max_year = self.max_cal_year(self.energy_demand)
                     self.energy_demand.project(map_from='raw_values', converted_geography=GeoMapper.demand_primary_geography, fill_timeseries=False)
+
                     self.energy_demand.map_from = 'values'
+
+
                     self.project_stock(stock_dependent = self.energy_demand.is_stock_dependent)
                     self.stock_subset_prep()
                     # remove stock efficiency from energy demand to- return service demand
@@ -2647,7 +2670,7 @@ class Subsector(schema.DemandSubsectors):
         self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
                                    converted_geography=GeoMapper.demand_primary_geography,
                                    additional_drivers=self.additional_drivers(stock_or_service='service',
-                                                                              service_dependent=service_dependent),current_data_type=current_data_type, projected=projected)
+                                                                              service_dependent=service_dependent,stock_dependent=stock_dependent),current_data_type=current_data_type, projected=projected)
         self.energy_demand.values = util.remove_df_levels(self.energy_demand.values,cfg.removed_demand_levels)                                                                    
 
     def calculate_sales_shares(self,reference_run=False):
@@ -3081,9 +3104,22 @@ class Subsector(schema.DemandSubsectors):
         self.stock.annual_costs['capital']['replacement'] = util.DfOper.mult([self.rollover_output(tech_class='capital_cost_replacement', tech_att='values', stock_att='sales_replacement'),year_df])
         self.stock.annual_costs['installation']['new'] = util.DfOper.mult([self.rollover_output(tech_class='installation_cost_new', tech_att='values', stock_att='sales_new'),year_df])
         self.stock.annual_costs['installation']['replacement'] = util.DfOper.mult([self.rollover_output(tech_class='installation_cost_replacement', tech_att='values', stock_att='sales_replacement'),year_df])
+        self.stock.annual_costs_documentation['fixed_om']['new'] = self.rollover_output_documentation(tech_class='fixed_om', tech_att='values',unit=cfg.currency_name + "/" + self.stock.unit)
+        self.stock.annual_costs_documentation['fixed_om']['replacement'] = self.rollover_output_documentation(tech_class='fixed_om', tech_att='values',unit=cfg.currency_name + "/" + self.stock.unit)
+        self.stock.annual_costs_documentation['capital']['new'] = self.rollover_output_documentation(tech_class='capital_cost_new', tech_att='values',unit=cfg.currency_name + "/" + self.stock.unit)
+        self.stock.annual_costs_documentation['capital']['replacement'] = self.rollover_output_documentation(tech_class='capital_cost_replacement', tech_att='values',unit=cfg.currency_name + "/" + self.stock.unit)
+        self.stock.annual_costs_documentation['installation']['new'] = self.rollover_output_documentation(tech_class='installation_cost_new', tech_att='values',unit=cfg.currency_name + "/" + self.stock.unit)
+        self.stock.annual_costs_documentation['installation']['replacement'] = self.rollover_output_documentation(tech_class='installation_cost_replacement', tech_att='values',unit=cfg.currency_name + "/" + self.stock.unit)
+
         if self.sub_type != 'link':
             self.stock.annual_costs['fuel_switching']['new'] = util.DfOper.mult([self.rollover_output(tech_class='fuel_switch_cost', tech_att='values', stock_att='sales_fuel_switch'),year_df])
             self.stock.annual_costs['fuel_switching']['replacement'] = self.stock.annual_costs['fuel_switching']['new']  * 0
+            self.stock.annual_costs_documentation['fuel_switching']['new'] = self.rollover_output_documentation(tech_class='fuel_switch_cost', tech_att='values',unit=cfg.currency_name + "/" + self.stock.unit)
+            if self.stock.annual_costs_documentation['fuel_switching']['new'] is not None:
+                self.stock.annual_costs_documentation['fuel_switching']['replacement'] = self.stock.annual_costs_documentation['fuel_switching']['new']  * 0
+            else:
+                self.stock.annual_costs_documentation['fuel_switching']['replacement']=None
+
 
     def remove_extra_subsector_attributes(self):
         if hasattr(self, 'stock'):
@@ -3125,6 +3161,7 @@ class Subsector(schema.DemandSubsectors):
                                                                              other_aggregate_levels=aggregate_level, efficiency=True)
             else:
                 self.stock.efficiency[element]['all'] = self.rollover_output(tech_class='efficiency_main',stock_att=values_normal,other_aggregate_levels=aggregate_level, efficiency=True)
+            #self.stock.efficiency_documentation[]
 
     def fuel_switch_stock_calc(self):
         """
@@ -3273,6 +3310,22 @@ class Subsector(schema.DemandSubsectors):
             c = c[c.index.get_level_values('final_energy')!=9999]
         return c
 
+    def rollover_output_documentation(self, tech_class=None, tech_att='values',unit=None):
+        tech_class = util.put_in_list(tech_class)
+        tech_dfs = []
+        for tech_class in tech_class:
+            tech_dfs += ([self.reformat_tech_df_documentation(tech, tech_class, tech_att, tech.name) for tech in
+                        self.technologies.values() if
+                            hasattr(getattr(tech, tech_class), tech_att)])
+        if len(tech_dfs):
+            #TODO we are doing an add here when an append might work and will be faster
+            c = util.DfOper.add(tech_dfs)
+            if 'final_energy' in c.index.names:
+                c = c[c.index.get_level_values('final_energy')!=9999]
+            if unit is not None:
+                c['unit'] = unit
+                c = c.set_index('unit',append=True)
+            return c
 
 
     def rollover_output_dict(self, tech_dict=None, tech_dict_key=None, tech_att='values', stock_att=None,
@@ -3326,6 +3379,19 @@ class Subsector(schema.DemandSubsectors):
             final_energy = getattr(getattr(tech, tech_class), 'final_energy')
             tech_df['final_energy'] = final_energy
             tech_df.set_index('final_energy', append=True, inplace=True)
+        return tech_df
+
+    def reformat_tech_df_documentation(self, tech, tech_class, tech_att, id, efficiency=False):
+        """
+        reformat technoology dataframes for use in stock-level dataframe operations
+        """
+        if tech_class is None:
+            tech_class_object = copy.deepcopy(tech)
+        else:
+            tech_class_object = getattr(tech, tech_class)
+        tech_df = tech_class_object.geo_map(attr=tech_att,current_geography=GeoMapper.demand_primary_geography,converted_geography=tech_class_object.geography,inplace=False)
+        if tech_df is not None:
+            util.replace_index_name(tech_df,'geography',tech_class_object.geography)
         return tech_df
 
     def reformat_tech_df_dict(self, stock_df, tech, tech_dict, tech_dict_key, tech_att, id, efficiency=False):
