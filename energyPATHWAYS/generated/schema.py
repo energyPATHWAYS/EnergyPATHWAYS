@@ -1864,7 +1864,7 @@ class DemandTechsServiceLink(DataObject):
     _key_col = 'name'
     _cols = ["age_growth_or_decay", "age_growth_or_decay_type", "definition", "demand_technology",
              "extrapolation_growth", "extrapolation_method", "geography", "interpolation_method",
-             "name", "other_index_1", "other_index_2", "reference", "service_link"]
+             "name", "other_index_1", "other_index_2", "reference", "sensitivity", "service_link"]
     _df_cols = ["vintage", "gau", "oth_1", "oth_2", "value"]
     _df_filters = []
     _data_table_name = None
@@ -1886,12 +1886,13 @@ class DemandTechsServiceLink(DataObject):
         self.other_index_1 = None
         self.other_index_2 = None
         self.reference = None
+        self.sensitivity = None
         self.service_link = None
 
     def set_args(self, scenario, age_growth_or_decay=None, age_growth_or_decay_type=None, definition=None,
                  demand_technology=None, extrapolation_growth=None, extrapolation_method=None,
                  geography=None, interpolation_method=None, name=None, other_index_1=None,
-                 other_index_2=None, reference=None, service_link=None):
+                 other_index_2=None, reference=None, sensitivity=None, service_link=None):
         self.check_scenario(scenario)
 
         self.age_growth_or_decay = age_growth_or_decay
@@ -1906,19 +1907,21 @@ class DemandTechsServiceLink(DataObject):
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.reference = reference
+        self.sensitivity = sensitivity
         self.service_link = service_link
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (name, service_link, demand_technology, definition, reference, geography, other_index_1,
          other_index_2, interpolation_method, extrapolation_method, extrapolation_growth,
-         age_growth_or_decay_type, age_growth_or_decay,) = tup
+         age_growth_or_decay_type, age_growth_or_decay, sensitivity,) = tup
 
         self.set_args(scenario, age_growth_or_decay=age_growth_or_decay,
                   age_growth_or_decay_type=age_growth_or_decay_type, definition=definition,
                   demand_technology=demand_technology, extrapolation_growth=extrapolation_growth,
                   extrapolation_method=extrapolation_method, geography=geography,
                   interpolation_method=interpolation_method, name=name, other_index_1=other_index_1,
-                  other_index_2=other_index_2, reference=reference, service_link=service_link)
+                  other_index_2=other_index_2, reference=reference, sensitivity=sensitivity,
+                  service_link=service_link)
 
 class DispatchFeedersAllocation(DataObject):
     _instances_by_key = {}

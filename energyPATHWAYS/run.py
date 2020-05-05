@@ -139,7 +139,7 @@ class SubsectorPerturbation(object):
 if __name__ == "__main__":
     workingdir = r'C:\GitHub\EP_runs\WEST'
     os.chdir(workingdir)
-    rio_scenario = ['central']
+    rio_scenario = ['central','re']
     scenario = ['central']
     run(scenario,
     load_demand   = False,
