@@ -13,6 +13,7 @@ from energyPATHWAYS.util import (DfOper, put_in_list, get_elements_from_level,
 from energyPATHWAYS.geomapper import GeoMapper
 
 from csvdb.data_object import DataObject as CsvDataObject, get_database
+from csvdb.table import SENSITIVITY_COL
 
 
 def _isListOfNoneOrNan(obj):
@@ -52,18 +53,20 @@ class DataObject(CsvDataObject):
         return (self.geography_map_key if 'geography_map_key' in self._cols
                 else GeoMapper.default_geography_map_key)
 
-    def add_sensitivity_filter(self, key, filters): # This overwrites a parent function
-        db = get_database()
-        tbl_name = self._table_name
-        tbl = db.get_table(tbl_name)
-
-        if 'sensitivity' in tbl.data.columns:
-            # check to see if we have a matching sensitivity in our scenario
-            if tbl_name in self._scenario._sensitivities and key in self._scenario._sensitivities[tbl_name]:
-                filters['sensitivity'] = self._scenario._sensitivities[tbl_name][key]
-            else:
-                filters['sensitivity'] = '_reference_'
-        return filters
+    # Deprecated now that sensitivity handling is in csvdb.data_object
+    # def add_sensitivity_filter(self, key, filters): # This overwrites a parent function
+    #
+    #     db = get_database()
+    #     tbl_name = self._table_name
+    #     tbl = db.get_table(tbl_name)
+    #
+    #     if SENSITIVITY_COL in tbl.data.columns:
+    #         # check to see if we have a matching sensitivity in our scenario
+    #         if tbl_name in self._scenario._sensitivities and key in self._scenario._sensitivities[tbl_name]:
+    #             filters[SENSITIVITY_COL] = self._scenario._sensitivities[tbl_name][key]
+    #         else:
+    #             filters[SENSITIVITY_COL] = '_reference_'
+    #     return filters
 
     def timeseries_cleanup(self, timeseries): # This overwrites a parent function
         db = get_database()
@@ -73,8 +76,8 @@ class DataObject(CsvDataObject):
 
         # drop any columns that are all NaN
         timeseries = timeseries.loc[:,~timeseries.isnull().all()]
-        if 'sensitivity' in timeseries.columns: #We've filtered sensitivities in an earlier step, for EP we drop them
-            del timeseries['sensitivity']
+        if SENSITIVITY_COL in timeseries.columns: # We've filtered sensitivities in an earlier step, for EP we drop them
+            del timeseries[SENSITIVITY_COL]
 
         index_cols = [c for c in timeseries.columns if c not in md.df_value_col]
         timeseries = timeseries.set_index(index_cols).sort_index()

@@ -11,7 +11,7 @@ import click
 import os
 import glob
 import cPickle as pickle
-import psycopg2
+# import psycopg2
 import energyPATHWAYS.config as cfg
 import energyPATHWAYS.util as util
 from energyPATHWAYS.pathways_model import PathwaysModel
@@ -53,12 +53,18 @@ def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solv
     if not subfolders:
         GeoMapper.get_instance().log_geo()
 
-    shape.Shapes.get_instance(cfg.getParam('database_path'))
+    # shape.Shapes.get_instance(cfg.getParam('database_path'))
+
+    # TESTING ONLY
+    # from scenario import Scenario
+    # s = Scenario('central')
+    # s.show_filters()
+    # TESTING ONLY
 
     if not scenarios:
         scenarios = [os.path.basename(p) for p in glob.glob(os.path.join(cfg.workingdir, '*.json'))]
         if not scenarios:
-            raise ValueError, "No scenarios specified and no .json files found in working directory."
+            raise ValueError("No scenarios specified and no .json files found in working directory.")
 
     scenarios = util.ensure_iterable(scenarios)
     scenarios = [os.path.splitext(s)[0] for s in scenarios]
@@ -137,17 +143,20 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'Z:\SP\SP_final_1wy_EP2RIO'
+    # RJP: Consider putting per-user elements like this in config file
+    #workingdir = r'Z:\SP\SP_final_1wy_EP2RIO'
+    workingdir = '/Users/rjp/Projects/EvolvedEnergy/rundir'
+    
     os.chdir(workingdir)
     rio_scenario = ['central']
     scenario = ['central']
     run(scenario,
-    load_demand   = True,
-    solve_demand  = False,
-    load_supply   = False,
-    solve_supply  = True,
-    export_results= False,
-    load_error    = False,
-    save_models   = False,
-    clear_results = False,
-    rio_scenario=rio_scenario)
+        load_demand   = False,
+        solve_demand  = True,
+        load_supply   = False,
+        solve_supply  = True,
+        export_results= False,
+        load_error    = False,
+        save_models   = False,
+        clear_results = False,
+        rio_scenario=rio_scenario)

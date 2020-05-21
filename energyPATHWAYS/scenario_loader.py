@@ -9,7 +9,7 @@ from energyPATHWAYS.util import csv_read_table
 from csvdb.data_object import get_database
 
 
-class Scenario():
+class Scenario(object):
     MEASURE_CATEGORIES = ("DemandEnergyEfficiencyMeasures",
                           "DemandFlexibleLoadMeasures",
                           "DemandFuelSwitchingMeasures",
@@ -23,6 +23,7 @@ class Scenario():
                           "SupplyStockMeasures",
                           "CO2PriceMeasures")
 
+    # Deprecated
     # These are the columns that various data tables use to refer to the id of their parent table
     # Order matters here; we use the first one that is found in the table. This is because some tables'
     # "true" parent is a subsector/node, but they are further subindexed by technology
@@ -39,7 +40,7 @@ class Scenario():
             scenario = json.load(scenario_data)
 
         assert len(scenario) == 1, "More than one scenario found at top level in {}: {}".format(
-            path_to_scenario_file, ", ".join(scenario_data.keys)
+            path_to_scenario_file, ", ".join(scenario.keys)
         )
 
         # The name of the scenario is just the key at the top of the dictionary hierarchy

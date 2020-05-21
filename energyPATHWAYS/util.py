@@ -285,11 +285,11 @@ def csv_read_table(table_name, column_names=None, return_unique=False, return_it
     else:
         data = list(df.itertuples(index=False, name=None))
 
-    # pull out the first element if length is 1 and we don't want to return an iterable
     if len(data) == 0 or data == [None]:
         return [] if return_iterable else None
 
     elif len(data) == 1:
+        # pull out the first element if length is 1 and we don't want to return an iterable
         return data if return_iterable else data[0]
 
     else:
@@ -1015,7 +1015,7 @@ class DfOper:
         alen, blen = max(alen, 1), max(blen, 1)  # avoid error from dividing by zero
         average_location = [a_names.index(cand) / alen if cand in a_names else b_names.index(cand) / blen for cand in new_index]
         new_index = [new_index[ni] for ni in np.argsort(average_location)]
-        c = c.set_index(new_index).sort()
+        c = c.set_index(new_index).sort_index()
         # new_a, new_b = c[new_index + merged_a_cols], c[new_index + merged_b_cols]
         new_a, new_b = c[merged_a_cols], c[merged_b_cols]
         # new_a = new_a.set_index(new_index).sort()
@@ -1105,10 +1105,10 @@ def reindex_df_level_with_new_elements(df, level_name, new_elements, fill_value=
         new_labels = flatten_list([[tuple([z if i != index_i else n for i, z in enumerate(lab)]) for n in range(len(new_elements))] for lab in const_labels])
         full_elements = [new_elements if name == level_name else level for name, level in zip(df.index.names, df.index.levels)]
         temp = df.reindex(index=pd.MultiIndex(levels=full_elements, labels=zip(*new_labels), names=df.index.names), fill_value=fill_value)
-        return temp.reset_index().set_index(temp.index.names).sort()
+        return temp.reset_index().set_index(temp.index.names).sort_index()
     else:
         temp = df.reindex(index=pd.Index(new_elements, name=df.index.name), fill_value=fill_value)
-        return temp.reset_index().set_index(temp.index.names).sort()
+        return temp.reset_index().set_index(temp.index.names).sort_index()
 
 def find_weibul_beta(mean_lifetime, lifetime_variance):
     """http://interstat.statjournals.net/YEAR/2000/articles/0010001.pdf"""
