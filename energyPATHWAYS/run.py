@@ -154,7 +154,7 @@ if __name__ == "__main__":
         workingdir = r'E:\EnergyPATHWAYS\MassV2'
         rio_scenario = ['reference']
         scenario = ['reference']
-        load_demand   = True,
+        load_demand   = True
         solve_demand  = False
 
     os.chdir(workingdir)
