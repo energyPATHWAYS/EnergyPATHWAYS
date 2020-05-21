@@ -2538,9 +2538,9 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'Z:\PU'
+    workingdir = r'E:\EnergyPATHWAYS\Mass'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['PU_BaseDDP', 'PU_DelayDDP', 'PU_Reference']
+    scenario = ['all options', 'decarbonized gas', 'reference', 'der breakthrough']
     export = run(workingdir, config, scenario)
     self = export

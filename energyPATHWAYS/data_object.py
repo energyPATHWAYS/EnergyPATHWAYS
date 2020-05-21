@@ -167,9 +167,9 @@ class DataObject(CsvDataObject):
                                       current_data_type, geography_map_key, fill_value, filter_geo,remove_current_geography=remove_current_geography)
 
         if inplace:
-            setattr(self, attr, mapped_data.sort())
+            setattr(self, attr, mapped_data.sort_index())
         else:
-            return mapped_data.sort()
+            return mapped_data.sort_index()
 
     @staticmethod
     def reorder_df_geo_left_year_right(df, current_geography):

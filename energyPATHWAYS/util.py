@@ -123,7 +123,7 @@ def df_list_concatenate(df_list, keys=None, new_names=None, levels_to_keep=None)
     if len(df_list)==0:
         return None
     else:
-        df = pd.concat(df_list, keys=keys, names=new_names).sort()
+        df = pd.concat(df_list, keys=keys, names=new_names).sort_index()
 
     #eliminate any new_names we picked up that are not in levels_to_keep, also reorder levels
     return df.groupby(level=levels_to_keep, sort=False).sum()
@@ -1018,8 +1018,8 @@ class DfOper:
         c = c.set_index(new_index).sort_index()
         # new_a, new_b = c[new_index + merged_a_cols], c[new_index + merged_b_cols]
         new_a, new_b = c[merged_a_cols], c[merged_b_cols]
-        # new_a = new_a.set_index(new_index).sort()
-        # new_b = new_b.set_index(new_index).sort()
+        # new_a = new_a.set_index(new_index).sort_index()
+        # new_b = new_b.set_index(new_index).sort_index()
 
         # new_a.sort(inplace=True)
         # new_b.sort(inplace=True)

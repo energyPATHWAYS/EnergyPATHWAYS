@@ -5,19 +5,19 @@ Created on Thu Jul 07 19:20:05 2016
 @author: ryandrewjones
 """
 
-import sys
-import signal
+# import sys
+# import signal
 import click
 import os
 import glob
 import cPickle as pickle
-# import psycopg2
+#import psycopg2
 import energyPATHWAYS.config as cfg
 import energyPATHWAYS.util as util
 from energyPATHWAYS.pathways_model import PathwaysModel
 import energyPATHWAYS.shape as shape
-from energyPATHWAYS.outputs import Output
-from energyPATHWAYS.dispatch_classes import Dispatch
+# from energyPATHWAYS.outputs import Output
+# from energyPATHWAYS.dispatch_classes import Dispatch
 from energyPATHWAYS.geomapper import GeoMapper
 import time
 import datetime
@@ -25,9 +25,9 @@ import logging
 import smtplib
 import cProfile
 import traceback
-import pandas as pd
+# import pandas as pd
 import pdb
-import energyPATHWAYS.unit_converter as unit_converter
+# import energyPATHWAYS.unit_converter as unit_converter
 
 model = None
 run_start_time = time.time()
@@ -55,7 +55,7 @@ def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solv
 
     # shape.Shapes.get_instance(cfg.getParam('database_path'))
 
-    # TESTING ONLY
+    # TESTING ONLY (RJP)
     # from scenario import Scenario
     # s = Scenario('central')
     # s.show_filters()
@@ -143,16 +143,25 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    # RJP: Consider putting per-user elements like this in config file
-    #workingdir = r'Z:\SP\SP_final_1wy_EP2RIO'
-    workingdir = '/Users/rjp/Projects/EvolvedEnergy/rundir'
-    
+    if os.getenv('USER') == 'rjp':
+        workingdir = '/Users/rjp/Projects/EvolvedEnergy/rundir'
+        rio_scenario = ['central']
+        scenario = ['central']
+        load_demand   = False
+        solve_demand  = True
+
+    else:
+        workingdir = r'E:\EnergyPATHWAYS\MassV2'
+        rio_scenario = ['reference']
+        scenario = ['reference']
+        load_demand   = True,
+        solve_demand  = False
+
     os.chdir(workingdir)
-    rio_scenario = ['central']
-    scenario = ['central']
+
     run(scenario,
-        load_demand   = False,
-        solve_demand  = True,
+        load_demand   = load_demand,
+        solve_demand  = solve_demand,
         load_supply   = False,
         solve_supply  = True,
         export_results= False,
