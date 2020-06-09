@@ -53,7 +53,7 @@ def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solv
     if not subfolders:
         GeoMapper.get_instance().log_geo()
 
-    # shape.Shapes.get_instance(cfg.getParam('database_path'))
+    shape.Shapes.get_instance(cfg.getParam('database_path'))
 
     # TESTING ONLY (RJP)
     # from scenario import Scenario

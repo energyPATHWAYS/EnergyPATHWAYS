@@ -110,9 +110,13 @@ class Shapes(object):
         return cfg_hash_tuple
 
     @classmethod
-    def get_instance(cls, database_path=None):      # TODO: (RJP) None is not a valid value for database_path. Unsure why this is optional.
+    def get_instance(cls, database_path=None):
         if Shapes._instance is not None:
             return Shapes._instance
+
+        if database_path is None:
+            from .error import PathwaysException
+            raise PathwaysException("Shapes.get_instance: No Shapes instance exists and no database_path was specified")
 
         # load from pickle
         cfg_hash = hash(cls.get_hash_tuple())
@@ -388,9 +392,9 @@ class Shape(DataObject):
         return standardize_df
 
     def localize_shapes(self, df):
-        """ Step through time zone and put each profile maped to time zone in that time zone
+        """ Step through time zone and put each profile mapped to time zone in that time zone
         """
-        local_df = []
+        dfs = []
         for tz, group in df.groupby(level='time zone'):
             # get the time zone name and figure out the offset from UTC
             tz = pytz.timezone(self.time_zone or format_timezone_str(tz))
@@ -398,11 +402,12 @@ class Shape(DataObject):
             offset = (tz.utcoffset(_dt) + tz.dst(_dt)).total_seconds() / 60.
             # localize and then convert to dispatch_outputs_timezone
             df2 = group.tz_localize(pytz.FixedOffset(offset), level='weather_datetime')
-            local_df.append(df2)
+            dfs.append(df2)
 
         tz = pytz.timezone(cfg.getParam('dispatch_outputs_timezone'))
         offset = (tz.utcoffset(DT.datetime(2015, 1, 1)) + tz.dst(DT.datetime(2015, 1, 1))).total_seconds() / 60.
-        local_df = pd.concat(local_df).tz_convert(pytz.FixedOffset(offset), level='weather_datetime')
+        local_df = pd.concat(dfs)
+        local_df = local_df.tz_convert(pytz.FixedOffset(offset), level='weather_datetime')
         return local_df.sort_index()
 
     @staticmethod
