@@ -110,13 +110,15 @@ class Shapes(object):
         return cfg_hash_tuple
 
     @classmethod
-    def get_instance(cls, database_path=None):
+    def get_instance(cls, database_path=None):      # TODO: (RJP) None is not a valid value for database_path. Unsure why this is optional.
         if Shapes._instance is not None:
             return Shapes._instance
 
         # load from pickle
         cfg_hash = hash(cls.get_hash_tuple())
-        pickle_path = os.path.join(database_path, 'ShapeData', 'pickles', 'shapes_{}.p'.format(cfg_hash))
+        pickles_dir = os.path.join(database_path, 'ShapeData', 'pickles')
+        pickle_path = os.path.join(pickles_dir, 'shapes_{}.p'.format(cfg_hash))
+
         if os.path.isfile(pickle_path) and os.path.getmtime(pickle_path) > newest_shape_file_modified_date(database_path):
             logging.info('Loading shapes')
             with open(pickle_path, 'rb') as infile:
@@ -127,7 +129,7 @@ class Shapes(object):
         # pickle didn't exist or was not what was needed
         Shapes._instance = Shapes(database_path)
         logging.info('Pickling shapes')
-        util.makedirs_if_needed(os.path.join(database_path, 'ShapeData', 'pickles'))
+        util.makedirs_if_needed(pickles_dir)
         with open(pickle_path, 'wb') as outfile:
             pickle.dump(Shapes._instance, outfile, pickle.HIGHEST_PROTOCOL)
         return Shapes._instance
