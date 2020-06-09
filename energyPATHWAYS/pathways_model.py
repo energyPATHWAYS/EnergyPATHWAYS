@@ -11,7 +11,8 @@ import pandas as pd
 import logging
 import shape
 import pdb
-from scenario_loader import Scenario
+#from scenario_loader import Scenario
+from scenario import Scenario
 import copy
 import numpy as np
 from geomapper import GeoMapper
@@ -128,7 +129,7 @@ class PathwaysModel(object):
                 self.demand.link_to_supply_payback(emissions_demand_link, demand_emissions_rates, cost_demand_link)
             else:
                print  "demand side has not been run with tco outputs set to 'true'"
-    
+
     def calculate_combined_results(self):
         logging.info("Calculating combined emissions results")
         self.calculate_combined_emissions_results()
@@ -206,9 +207,9 @@ class PathwaysModel(object):
         names = ['COST TYPE']
         self.outputs.c_tco = pd.concat([util.DfOper.divi([supply_side_df,util.remove_df_levels(service_demand_df,'unit')]),
                                         util.DfOper.divi([demand_side_df,util.remove_df_levels(service_demand_df,'unit')])],
-                                        keys=keys,names=names) 
+                                        keys=keys,names=names)
         self.outputs.c_tco = self.outputs.c_tco.replace([np.inf,np.nan],0)
-        self.outputs.c_tco[self.outputs.c_tco<0]=0        
+        self.outputs.c_tco[self.outputs.c_tco<0]=0
         for sector in self.demand.sectors.values():
           for subsector in sector.subsectors.values():
                 if hasattr(subsector,'service_demand') and hasattr(subsector,'stock'):
@@ -218,7 +219,7 @@ class PathwaysModel(object):
         self.outputs.c_tco.columns = [cost_unit.upper()]
         self.outputs.c_tco= self.outputs.c_tco[self.outputs.c_tco[cost_unit.upper()]!=0]
         self.outputs.c_tco = self.outputs.return_cleaned_output('c_tco')
-        
+
     def calculate_payback(self):
         cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
         initial_vintage = min(cfg.supply_years)
@@ -233,14 +234,14 @@ class PathwaysModel(object):
         demand_side_df = demand_side_df.reindex(supply_side_df.index).sort_index()
         sales_df = copy.deepcopy(self.demand.outputs.d_sales)
         util.replace_index_name(sales_df,'vintage','year')
-        sales_df = sales_df[sales_df.index.get_level_values('vintage')>=initial_vintage]     
+        sales_df = sales_df[sales_df.index.get_level_values('vintage')>=initial_vintage]
         sales_df = util.add_and_set_index(sales_df,'year',cfg.supply_years)
         sales_df.index = sales_df.index.reorder_levels(supply_side_df.index.names)
         sales_df = sales_df.reindex(supply_side_df.index).sort_index()
         keys = ['SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['COST TYPE']
         self.outputs.c_payback = pd.concat([util.DfOper.divi([supply_side_df, sales_df]), util.DfOper.divi([demand_side_df, sales_df])],keys=keys,names=names)
-        self.outputs.c_payback = self.outputs.c_payback[np.isfinite(self.outputs.c_payback.values)]        
+        self.outputs.c_payback = self.outputs.c_payback[np.isfinite(self.outputs.c_payback.values)]
         self.outputs.c_payback = self.outputs.c_payback.replace([np.inf,np.nan],0)
         for sector in self.demand.sectors.values():
           for subsector in sector.subsectors.values():
@@ -249,13 +250,13 @@ class PathwaysModel(object):
                     self.outputs.c_payback.loc[indexer,'unit'] = subsector.stock.unit.upper()
         self.outputs.c_payback = self.outputs.c_payback.set_index('unit', append=True)
         self.outputs.c_payback.columns = [cost_unit.upper()]
-        self.outputs.c_payback['lifetime_year'] = self.outputs.c_payback.index.get_level_values('year')-self.outputs.c_payback.index.get_level_values('vintage')+1    
+        self.outputs.c_payback['lifetime_year'] = self.outputs.c_payback.index.get_level_values('year')-self.outputs.c_payback.index.get_level_values('vintage')+1
         self.outputs.c_payback = self.outputs.c_payback.set_index('lifetime_year',append=True)
         self.outputs.c_payback = util.remove_df_levels(self.outputs.c_payback,'year')
         self.outputs.c_payback = self.outputs.c_payback.groupby(level = [x for x in self.outputs.c_payback.index.names if x !='lifetime_year']).transform(lambda x: x.cumsum())
         self.outputs.c_payback = self.outputs.c_payback[self.outputs.c_payback[cost_unit.upper()]!=0]
         self.outputs.c_payback = self.outputs.return_cleaned_output('c_payback')
-        
+
     def calculate_d_payback(self):
         cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
         initial_vintage = min(cfg.supply_years)
@@ -265,12 +266,12 @@ class PathwaysModel(object):
         demand_side_df = demand_side_df[demand_side_df.index.get_level_values('year')>=initial_vintage]
         sales_df = copy.deepcopy(self.demand.outputs.d_sales)
         util.replace_index_name(sales_df,'vintage','year')
-        sales_df = sales_df[sales_df.index.get_level_values('vintage')>=initial_vintage]     
+        sales_df = sales_df[sales_df.index.get_level_values('vintage')>=initial_vintage]
         sales_df = util.add_and_set_index(sales_df,'year',cfg.supply_years)
         sales_df.index = sales_df.index.reorder_levels(demand_side_df.index.names)
         sales_df = sales_df.reindex(demand_side_df.index).sort_index()
         self.demand.outputs.d_payback = util.DfOper.divi([demand_side_df, sales_df])
-        self.demand.outputs.d_payback = self.demand.outputs.d_payback[np.isfinite(self.demand.outputs.d_payback.values)]        
+        self.demand.outputs.d_payback = self.demand.outputs.d_payback[np.isfinite(self.demand.outputs.d_payback.values)]
         self.demand.outputs.d_payback = self.demand.outputs.d_payback.replace([np.inf,np.nan],0)
         for sector in self.demand.sectors.values():
           for subsector in sector.subsectors.values():
@@ -279,13 +280,13 @@ class PathwaysModel(object):
                     self.demand.outputs.d_payback.loc[indexer,'unit'] = subsector.stock.unit.upper()
         self.demand.outputs.d_payback = self.demand.outputs.d_payback.set_index('unit', append=True)
         self.demand.outputs.d_payback.columns = [cost_unit.upper()]
-        self.demand.outputs.d_payback['lifetime_year'] = self.demand.outputs.d_payback.index.get_level_values('year')-self.demand.outputs.d_payback.index.get_level_values('vintage')+1    
+        self.demand.outputs.d_payback['lifetime_year'] = self.demand.outputs.d_payback.index.get_level_values('year')-self.demand.outputs.d_payback.index.get_level_values('vintage')+1
         self.demand.outputs.d_payback = self.demand.outputs.d_payback.set_index('lifetime_year',append=True)
         self.demand.outputs.d_payback = util.remove_df_levels(self.demand.outputs.d_payback,'year')
         self.demand.outputs.d_payback = self.demand.outputs.d_payback.groupby(level = [x for x in self.demand.outputs.d_payback.index.names if x !='lifetime_year']).transform(lambda x: x.cumsum())
         self.demand.outputs.d_payback = self.demand.outputs.d_payback[self.demand.outputs.d_payback[cost_unit.upper()]!=0]
         self.demand.outputs.d_payback = self.demand.outputs.return_cleaned_output('d_payback')
-   
+
     def calculate_d_payback_energy(self):
         initial_vintage = min(cfg.supply_years)
         demand_side_df = self.demand.d_all_energy_demand_payback
@@ -294,12 +295,12 @@ class PathwaysModel(object):
         demand_side_df = demand_side_df[demand_side_df.index.get_level_values('year')>=initial_vintage]
         sales_df = copy.deepcopy(self.demand.outputs.d_sales)
         util.replace_index_name(sales_df,'vintage','year')
-        sales_df = sales_df[sales_df.index.get_level_values('vintage')>=initial_vintage]     
+        sales_df = sales_df[sales_df.index.get_level_values('vintage')>=initial_vintage]
         sales_df = util.add_and_set_index(sales_df,'year',cfg.supply_years)
 #        sales_df.index = sales_df.index.reorder_levels(demand_side_df.index.names)
 #        sales_df = sales_df.reindex(demand_side_df.index).sort_index()
         self.demand.outputs.d_payback_energy = util.DfOper.divi([demand_side_df, sales_df])
-        self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy[np.isfinite(self.demand.outputs.d_payback_energy.values)]        
+        self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy[np.isfinite(self.demand.outputs.d_payback_energy.values)]
         self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy.replace([np.inf,np.nan],0)
         for sector in self.demand.sectors.values():
           for subsector in sector.subsectors.values():
@@ -308,7 +309,7 @@ class PathwaysModel(object):
                     self.demand.outputs.d_payback_energy.loc[indexer,'unit'] = subsector.stock.unit.upper()
         self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy.set_index('unit', append=True)
         self.demand.outputs.d_payback_energy.columns = [cfg.calculation_energy_unit.upper()]
-        self.demand.outputs.d_payback_energy['lifetime_year'] = self.demand.outputs.d_payback_energy.index.get_level_values('year')-self.demand.outputs.d_payback_energy.index.get_level_values('vintage')+1    
+        self.demand.outputs.d_payback_energy['lifetime_year'] = self.demand.outputs.d_payback_energy.index.get_level_values('year')-self.demand.outputs.d_payback_energy.index.get_level_values('vintage')+1
         self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy.set_index('lifetime_year',append=True)
         self.demand.outputs.d_payback_energy = util.remove_df_levels(self.demand.outputs.d_payback_energy,'year')
         self.demand.outputs.d_payback_energy = self.demand.outputs.d_payback_energy.groupby(level = [x for x in self.demand.outputs.d_payback_energy.index.names if x !='lifetime_year']).transform(lambda x: x.cumsum())
