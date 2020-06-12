@@ -6417,24 +6417,36 @@ class RioInputs(DataObject):
         df = df.set_index([cfg.rio_geography,'year','supply_node'])
         return df.groupby(level='supply_node').filter(lambda x: x.sum()>0)
 
-    def calc_dual_fuel_efficiency(self,scenario):
+    def calc_dual_fuel_efficiency(self, scenario):
         try:
-            dual_fuel_efficiency = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\dual_fuel_efficiency.csv'), usecols=['year','blend', 'resource_agg', 'zone', 'value','run name'], index_col=['year','blend', 'resource_agg', 'zone','run name'])
+            dual_fuel_efficiency = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\dual_fuel_efficiency.csv'),
+                                               usecols=['year', 'blend', 'resource_agg', 'zone', 'value', 'run name'],
+                                               index_col=['year', 'blend', 'resource_agg', 'zone', 'run name'])
         except:
             logging.info("no dual_fuel_efficiency csv found, returning None")
             return None
         if len(dual_fuel_efficiency) == 0:
             return None
-        df = dual_fuel_efficiency[np.isfinite(dual_fuel_efficiency.values)]
+        df = dual_fuel_efficiency.groupby(
+            level=dual_fuel_efficiency.index.names).sum()  # this is necessary to sum over new and existing
+        annual_energy = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\annual_energy.csv'),
+                                    usecols=['year', 'output', 'zone', 'resource_agg', 'value', 'run name'],
+                                    index_col=['year', 'output', 'zone', 'resource_agg', 'run name'])
+        annual_energy = annual_energy.xs('thermal', level='output')
+        resources = df.index.get_level_values('resource_agg').unique()
+        annual_energy = util.df_slice(annual_energy, resources, 'resource_agg')
+        annual_energy = annual_energy.groupby(
+            level=annual_energy.index.names).sum()  # this is necessary to sum over new and existing
+        df = util.DfOper.divi([df, annual_energy], non_expandable_levels='resource_agg') * -1
+        df = df[np.isfinite(df.values)]
         df = df.groupby(level=df.index.names).mean()
-        df =  util.df_slice(df,scenario,'run name')
+        df = util.df_slice(df, scenario, 'run name')
         df = df.reset_index()
         df[cfg.rio_geography] = [self.geography_mapping[x] for x in df['zone'].values]
         df['supply_node'] = [self.supply_node_mapping[x] for x in df['blend'].values]
         df['supply_technology'] = [self.supply_technology_mapping[x] for x in df['resource_agg'].values]
-        df = df[['supply_technology',cfg.rio_geography,'supply_node', 'year','value']]
-        return df.set_index(['supply_technology',cfg.rio_geography, 'supply_node','year'])
-
+        df = df[['supply_technology', cfg.rio_geography, 'supply_node', 'year', 'value']]
+        return df.set_index(['supply_technology', cfg.rio_geography, 'supply_node', 'year'])
 
     def calc_capacity_factors(self,scenario,gen_energy,fuel_energy):
         gen_annual_energy = self.calc_gen_annual_energy(gen_energy,scenario)
