@@ -6408,7 +6408,7 @@ class RioInputs(DataObject):
         levelized_cost = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\levelized_cost.csv'),
                                  usecols=['vintage','zone', 'year', 'resource_agg', 'output', 'value','run name'], index_col=['vintage','zone', 'year', 'resource_agg', 'output','run name'])
         levelized_cost = util.df_slice(levelized_cost,scenario,'run name')
-        df = util.remove_df_levels(levelized_cost[levelized_cost.index.get_level_values('output').isin(['blend energy storage'])],'vintage')
+        df = util.remove_df_levels(levelized_cost[levelized_cost.index.get_level_values('output').isin(['blend energy storage','conversion delivery cost','product delivery cost'])],'vintage')
         df = util.remove_df_levels(df,'output')
         df = df.reset_index()
         df[cfg.rio_geography] = [self.geography_mapping[x] for x in df['zone'].values]

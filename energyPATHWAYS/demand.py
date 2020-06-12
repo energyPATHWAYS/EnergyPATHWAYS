@@ -1809,11 +1809,12 @@ class Subsector(schema.DemandSubsectors):
                     # project the stock and prepare a subset for use in calculating
                     # the efficiency of the stock during the years in which we have
                     # energy demand inputs
-                    self.project_stock(stock_dependent=self.energy_demand.is_stock_dependent)
+                    self.project_stock(stock_dependent=self.energy_demand.is_stock_dependent,reference_run=True)
                     self.stock_subset_prep()
                     self.project_energy_demand(stock_dependent =self.energy_demand.is_stock_dependent)
                     # divide by the efficiency of the stock to return service demand values
                     self.efficiency_removal()
+
                     self.service_demand.geography = GeoMapper.demand_primary_geography
                     #self.service_demand.project(map_from = 'int_values',current_geography=GeoMapper.demand_primary_geography)
                 elif self.sub_type == 'stock and service':
@@ -1940,9 +1941,10 @@ class Subsector(schema.DemandSubsectors):
                 self.project_stock(map_from=self.stock.map_from, service_dependent=True)
                 self.sd_modifier_full()
             elif self.stock.is_service_demand_dependent == 0 and self.service_demand.is_stock_dependent == 1:
-                self.project_stock(map_from=self.stock.map_from,stock_dependent=True)
+                self.project_stock(map_from=self.stock.map_from,stock_dependent=True,reference_run=True)
                 self.project_service_demand(map_from=self.service_demand.map_from, stock_dependent=True)
                 self.sd_modifier_full()
+                self.project_stock(stock_dependent=True, override=True)
             else:
                 raise ValueError(
                     "stock and service demands both specified as dependent on each other in subsector %s" % self.name)
@@ -2080,7 +2082,10 @@ class Subsector(schema.DemandSubsectors):
                 tech_modifier = getattr(getattr(self.technologies[tech], 'service_demand_modifier'), 'values')
                 levels = sd_modifier.loc[indexer,:].reset_index().set_index(sd_modifier.index.names).index.levels
                 tech_modifier = util.expand_multi(tech_modifier, levels, sd_modifier.index.names, drop_index='demand_technology').fillna(method='bfill')
-                sd_modifier.loc[indexer, :] = tech_modifier.values
+                try:
+                    sd_modifier.loc[indexer, :] = tech_modifier.values
+                except:
+                    pdb.set_trace()
         # multiply stock by service demand modifiers
         stock_values = DfOper.mult([sd_modifier, self.stock.values_efficiency]).groupby(level=self.stock.rollover_group_names).sum()
 #        # group stock and adjusted stock values
@@ -2593,7 +2598,7 @@ class Subsector(schema.DemandSubsectors):
         else:
             self.stock.has_linked_demand_technology = False
 
-    def additional_drivers(self, stock_or_service = None,stock_dependent=False, service_dependent=False):
+    def additional_drivers(self, stock_or_service = None,stock_dependent=False, service_dependent=False,energy_or_service=None):
         """ create a list of additional drivers from linked subsectors """
         additional_drivers = []
         if stock_or_service == 'service':
@@ -2601,10 +2606,19 @@ class Subsector(schema.DemandSubsectors):
                 linked_driver = 1 - DfOper.add(self.linked_service_demand_drivers.values())
                 additional_drivers.append(linked_driver)
         if stock_dependent:
-            if len(additional_drivers):
-                additional_drivers.append(self.stock.geo_map(attr='total_unfiltered',current_geography=GeoMapper.demand_primary_geography, converted_geography=GeoMapper.disagg_geography, current_data_type='total', inplace=False))
+            df = self.stock.values.stack().to_frame()
+            util.replace_index_name(df, 'year')
+            df.columns.names = ['value']
+            df = util.remove_df_levels(df,'vintage')
+            self.stock.technology_total = df
+            if (hasattr(self,'service_demand') and hasattr(self.service_demand,'raw_values') and 'demand_technology' in self.service_demand.raw_values.index.names) or (hasattr(self,'energy_demand') and hasattr(self.energy_demand,'raw_values') and 'demand_technology' in self.energy_demand.raw_values.index.names) :
+                attr = 'technology_total'
             else:
-                additional_drivers = self.stock.geo_map(attr='total_unfiltered',current_geography=GeoMapper.demand_primary_geography,converted_geography=GeoMapper.disagg_geography, current_data_type='total', inplace=False)
+                attr = 'total_unfiltered'
+            if len(additional_drivers):
+                additional_drivers.append(self.stock.geo_map(attr=attr,current_geography=GeoMapper.demand_primary_geography, converted_geography=GeoMapper.disagg_geography, current_data_type='total', inplace=False))
+            #else:
+                #additional_drivers = self.stock.geo_map(attr=attr,current_geography=GeoMapper.demand_primary_geography,converted_geography=GeoMapper.disagg_geography, current_data_type='total', inplace=False)
         if service_dependent:
             if len(additional_drivers):
                 additional_drivers.append(self.service_demand.geo_map(attr='values_unfiltered',current_geography=GeoMapper.demand_primary_geography,converted_geography=GeoMapper.disagg_geography, current_data_type='total', inplace=False))
@@ -2667,10 +2681,11 @@ class Subsector(schema.DemandSubsectors):
             projected =  True
         if 'demand_technology' in getattr(self.energy_demand,map_from).index.names:
             setattr(self.energy_demand, map_from, getattr(self.energy_demand,map_from).groupby(level='demand_technology').filter(lambda x: x.sum()>0))
+        #if self.name == 'residential water heating':
+         #   pdb.set_trace()
         self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
                                    converted_geography=GeoMapper.demand_primary_geography,
-                                   additional_drivers=self.additional_drivers(stock_or_service='service',
-                                                                              service_dependent=service_dependent,stock_dependent=stock_dependent),current_data_type=current_data_type, projected=projected)
+                                   additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent,stock_dependent=stock_dependent),current_data_type=current_data_type, projected=projected)
         self.energy_demand.values = util.remove_df_levels(self.energy_demand.values,cfg.removed_demand_levels)                                                                    
 
     def calculate_sales_shares(self,reference_run=False):
@@ -2966,6 +2981,7 @@ class Subsector(schema.DemandSubsectors):
         total_slice = util.df_slice(self.stock.total, elements, self.stock.rollover_group_names)
         initial_total = total_slice.values[0][0]
         ratio = util.DfOper.divi((tech_slice.sum(axis=1).to_frame(), total_slice))
+        max_ratio = ratio.max().max()
         good_years = ratio.where(((1/percent_spec_cut)>ratio) & (ratio>percent_spec_cut)).dropna().index
         initial_sales_share = self.helper_calc_sales_share_reference_new(elements, initial_stock=None)[0]
         #Best way is if we have all demand_technology stocks specified for some year before current year
@@ -2975,13 +2991,20 @@ class Subsector(schema.DemandSubsectors):
             # gross up if it is just under 100% of the stock represente
             initial_stock = self.stock.technology.loc[elements+(chosen_year,),:]
             initial_stock = initial_stock/np.nansum(initial_stock) * initial_total
+
         #Second best way is if we have an initial sales share
         elif initial_sales_share.sum():
             initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, transition_matrix=initial_sales_share, num_years=len(self.years))
         elif initial_total == 0 or pd.isnull(initial_total):
             initial_stock = np.zeros(len(self.techs))
+        elif not len(good_years) and max_ratio>.7:
+            good_years = ratio.where(ratio==max_ratio).dropna().index
+            chosen_year = min(good_years)
+            initial_stock = self.stock.technology.loc[elements+(chosen_year,),:]
+            initial_stock = initial_stock/np.nansum(initial_stock) * initial_total
         else:
-            raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the demand_technology composition of the initial stock in subsector %s' %self.name)
+            raise ValueError(
+                'user has not input stock data with technologies or sales share data so the model cannot determine the demand_technology composition of the initial stock in subsector %s' % self.name)
         return initial_stock
 
     def determine_need_for_aux_efficiency(self):

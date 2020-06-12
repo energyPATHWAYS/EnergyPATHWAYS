@@ -2538,9 +2538,9 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\GitHub\EP_runs\WEST'
+    workingdir = r'E:\EP_runs\West'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['central',  'reference']
+    scenario = ['100% renewable','central','low demand','reference','slow electricity']
     export = run(workingdir, config, scenario)
     self = export

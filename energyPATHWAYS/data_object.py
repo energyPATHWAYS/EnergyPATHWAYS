@@ -350,6 +350,7 @@ class DataObject(CsvDataObject):
                 projected=False): # TODO: 'projected' is unused; remove it from callers to avoid confusion.
 
         # TODO: for integration stage only. Later, we'll pass this in instead of the old dict(id -> Driver)
+
         drivers_by_name = {driver.name: driver for driver in self.drivers.values()}
 
         current_geography = current_geography or self.geography
