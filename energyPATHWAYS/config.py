@@ -192,13 +192,13 @@ def init_output_parameters():
     rio_time_unit = getParam('rio_time_unit', section='rio')
     rio_timestep_multiplier = getParamAsInt('rio_timestep_multiplier', section='rio')
     # todo: these aren't going to be integers
-    rio_zonal_blend_nodes = [g for g in _ConfigParser.get('rio', 'rio_zonal_blends').split(',') if len(g)]
-    rio_excluded_technologies = [g for g in _ConfigParser.get('rio', 'rio_excluded_technologies').split(',') if len(g)]
-    rio_excluded_blends = [g for g in _ConfigParser.get('rio', 'rio_excluded_blends').split(',') if len(g)]
-    rio_export_blends = [g for g in _ConfigParser.get('rio', 'rio_export_blends').split(',') if len(g)]
-    rio_outflow_products = [g for g in _ConfigParser.get('rio', 'rio_outflow_products').split(',') if len(g)]
-    rio_excluded_nodes = [g for g in _ConfigParser.get('rio', 'rio_excluded_nodes').split(',') if len(g)]
-    rio_no_negative_blends = [g for g in _ConfigParser.get('rio', 'rio_no_negative_blends').split(',') if len(g)]
+    rio_zonal_blend_nodes = [g.strip()  for g in _ConfigParser.get('rio', 'rio_zonal_blends').split(',') if len(g)]
+    rio_excluded_technologies = [g.strip() for g in _ConfigParser.get('rio', 'rio_excluded_technologies').split(',') if len(g)]
+    rio_excluded_blends = [g.strip()  for g in _ConfigParser.get('rio', 'rio_excluded_blends').split(',') if len(g)]
+    rio_export_blends = [g.strip()  for g in _ConfigParser.get('rio', 'rio_export_blends').split(',') if len(g)]
+    rio_outflow_products = [g.strip()  for g in _ConfigParser.get('rio', 'rio_outflow_products').split(',') if len(g)]
+    rio_excluded_nodes = [g.strip()  for g in _ConfigParser.get('rio', 'rio_excluded_nodes').split(',') if len(g)]
+    rio_no_negative_blends = [g.strip()  for g in _ConfigParser.get('rio', 'rio_no_negative_blends').split(',') if len(g)]
     evolved_run = _ConfigParser.get('evolved','evolved_run').lower()
     evolved_years = [x for x in ensure_iterable(_ConfigParser.get('evolved', 'evolved_years'))]
     evolved_blend_nodes = splitclean(_ConfigParser.get('evolved','evolved_blend_nodes'), as_type=int)

@@ -139,13 +139,13 @@ class SubsectorPerturbation(object):
 if __name__ == "__main__":
     workingdir = r'E:\EP_Runs\WEST'
     os.chdir(workingdir)
-    rio_scenario = ['central','re']
+    rio_scenario = ['central']
     scenario = ['central']
     run(scenario,
     load_demand   = True,
     solve_demand  = True,
     load_supply   = False,
-    solve_supply  = False,
+    solve_supply  = True,
     export_results= True,
     load_error    = False,
     save_models   = False,

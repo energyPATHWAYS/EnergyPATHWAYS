@@ -365,7 +365,10 @@ class Supply(object):
             #once measures are loaded, export classes can be initiated
             if node.supply_type == 'Blend':
                 if cfg.rio_supply_run and node.name!=self.bulk_electricity_node_name and node.name!=self.distribution_node_name and node.name!=self.thermal_dispatch_node_name and node.name not in cfg.rio_excluded_blends:
-                    node.add_rio_fuel_blend_measures(self.rio_inputs)
+                    try:
+                        node.add_rio_fuel_blend_measures(self.rio_inputs)
+                    except:
+                        pdb.set_trace()
                 elif cfg.rio_supply_run and node.name==self.bulk_electricity_node_name:
                     node.blend_measures = dict()
                     node.add_rio_bulk_blend_measures(self.reformat_gen_share_measures(self.rio_inputs.bulk_share))
@@ -4817,7 +4820,10 @@ class SupplyStockNode(Node):
             #TODO add to clean timeseries. Don't allow filling of timseries before raw values.
             self.stock.technology[self.stock.technology.index.get_level_values('year')<min(self.stock.raw_values.index.get_level_values('year'))] = np.nan
             self.convert_stock('stock', 'technology')
-            self.stock.technology = self.stock.technology.reorder_levels(names)
+            try:
+                self.stock.technology = self.stock.technology.reorder_levels(names)
+            except:
+                pdb.set_trace()
             self.stock.technology = self.stock.technology.reindex(index)
             #if there's case_specific stock data, we must use that to replace reference technology stocks
             if hasattr(self.case_stock,'technology'):
@@ -6322,27 +6328,31 @@ class RioInputs(DataObject):
                                   usecols=['unit','output','zone','year','blend','fuel','value','run name'],
                                  index_col=['unit','output','zone','year','blend','fuel','run name'])
         gen_energy = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\annual_energy.csv'),
-                                 usecols=['year','output', 'zone', 'feeder','resource', 'value','run name'],
-                                 index_col=['year','output', 'zone', 'feeder','resource','run name'])
-        capacity = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\capacity.csv'), usecols=['output','unit','year','zone','feeder','resource','value','run name'],
-                                         index_col=['output','unit','year','zone','feeder','resource','run name'])
+                                 usecols=['year','output', 'zone', 'feeder','resource', 'outputs_group_detailed','value','run name'],
+                                 index_col=['year','output', 'zone', 'feeder','resource','outputs_group_detailed','run name'])
+        capacity = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\capacity.csv'), usecols=['output','unit','year','zone','feeder','resource','outputs_group_detailed','value','run name'],
+                                         index_col=['output','unit','year','zone','feeder','resource','outputs_group_detailed','run name'])
 
-        try:
-            self.delivered_gen = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\annual_deliverable_gen.csv'),
-                                 usecols=['zone from','zone to', 'resource', 'resource_agg', 'year', 'value','run name'], index_col=['zone from','zone to', 'resource', 'resource_agg', 'year','run name'])
-        except:
-            logging.info("no annual_deliverable_gen csv found, returning None")
-            self.delivered_gen = None
+        #try:
+        self.delivered_gen = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\annual_delivered_gen.csv'),
+                                 usecols=['zone from','zone to','output', 'resource', 'resource_agg', 'outputs_group_detailed', 'year', 'value','run name'], index_col=['zone from','zone to', 'resource', 'resource_agg','output','outputs_group_detailed', 'year','run name'])
+        #except:
+            #logging.info("no annual_delivered_gen csv found, returning None")
+            #self.delivered_gen = None
+
         self.cleaned_delivered_gen = self.clean_delivered_rio_gen()
         self.blend_levelized_costs = self.calc_blend_levelized_costs(self.scenario)
-        self.dual_fuel_efficiency = self.calc_dual_fuel_efficiency(self.scenario,gen_energy)
+        logging.info("prepping dual fuel efficiency")
+        self.dual_fuel_efficiency = self.calc_dual_fuel_efficiency(self.scenario)
         self.zonal_fuel_outputs = self.calc_fuel_share(scenario,fuel_energy,True)
         self.zonal_fuel_exports = self.calc_blend_exports(scenario, fuel_energy)
         self.product_exports = self.calc_product_exports(scenario, fuel_energy)
+        logging.info("prepping fuel outputs")
         self.fuel_outputs = self.calc_fuel_share(scenario,fuel_energy,False)
         self.stock = self.calc_stocks(scenario,capacity)
         self.duration = self.calc_duration(scenario, capacity,gen_energy)
         self.capacity_factor = self.calc_capacity_factors(scenario,gen_energy,fuel_energy)
+        logging.info("prepping electricity shares")
         self.bulk_share = self.calc_bulk_share(scenario,gen_energy)
         self.thermal_share = self.calc_thermal_share(scenario,gen_energy)
         self.electricity_trades = self.calc_trades(scenario,gen_energy)
@@ -6363,11 +6373,31 @@ class RioInputs(DataObject):
         if self.delivered_gen is None:
             return None
         df = util.df_slice(self.delivered_gen,self.scenario, 'run name')
-        df['technology'] = [self.supply_technology_mapping[x.split('||')[1]] if len(x.split('_')) > 3 else
-                            self.supply_technology_mapping[x.split('||')[0]] for x in df.index.get_level_values('resource')]
+        df = util.remove_df_levels(df[df.index.get_level_values('output').isin(
+            ['hydro', 'fixed', 'curtailment'])] * -1, 'output')
+        df = df.reset_index(['resource', 'outputs_group_detailed'])
+        gen_regions = list(set(df.index.get_level_values('zone from')))
+        df['resource'] = df['resource'].apply(lambda x: self.clean_name(x, gen_regions))
+        df['outputs_group_detailed'] = df['outputs_group_detailed'].apply(lambda x: self.clean_name(x, gen_regions))
+        tech_list = []
+        for x, y in zip(df['resource'].values, df['outputs_group_detailed'].values):
+            try:
+                tech_list.append(self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_')) > 3 else
+                                 self.supply_technology_mapping[x.split('_')[0]])
+            except:
+                try:
+                    tech_list.append(self.supply_technology_mapping[y.split('_')[1]] if len(y.split('_')) > 3 else
+                                     self.supply_technology_mapping[y.split('_')[0]])
+                except:
+                    pdb.set_trace()
+        df['technology'] = tech_list
+        df['resource'] = [x.replace('all', '1') for x in df['resource'].values]
         df = df.set_index(['technology'], append=True)
+        df.pop('resource')
+        df.pop('outputs_group_detailed')
         df = df.groupby(level=['zone from', 'zone to',
                                'year', 'technology']).sum()
+        df = df[~df.index.get_level_values('technology').isin(cfg.rio_excluded_technologies)]
         df = df.reset_index('zone from')
         df[cfg.rio_geography+"_from"] = [self.geography_mapping[x] for x in df['zone from'].values]
         df.pop('zone from')
@@ -6479,15 +6509,38 @@ class RioInputs(DataObject):
     def calc_duration(self, scenario, capacity,gen_energy):
         df = util.df_slice(capacity, scenario, 'run name')
         df = df[df.index.get_level_values('output').isin(['storage', 'storage energy'])]
-        df = df.groupby(level=['zone', 'year', 'resource','output']).sum()
+        df = df.groupby(level=['zone', 'year', 'resource','outputs_group_detailed','output']).sum()
         capacity_df = util.df_slice(df, 'storage', 'output')
         energy_df = util.df_slice(df, 'storage energy', 'output')
         df = util.DfOper.divi([energy_df,capacity_df])
-        df = df.reset_index('resource')
+        df = df.reset_index(['resource', 'outputs_group_detailed'])
         gen_regions = list(set(df.index.get_level_values('zone')))
         df['resource'] = df['resource'].apply(lambda x: self.clean_name(x, gen_regions))
-        df['technology'] = [self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_')) > 3 else
-                            self.supply_technology_mapping[x.split('_')[0]] for x in df['resource'].values]
+        df['outputs_group_detailed'] = df['outputs_group_detailed'].apply(lambda x: self.clean_name(x, gen_regions))
+        tech_list = []
+        for x, y in zip(df['resource'].values, df['outputs_group_detailed'].values):
+            try:
+                tech_list.append(self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_')) > 3 else
+                                 self.supply_technology_mapping[x.split('_')[0]])
+            except:
+                try:
+                    tech_list.append(self.supply_technology_mapping[y.split('_')[1]] if len(y.split('_')) > 3 else
+                                     self.supply_technology_mapping[y.split('_')[0]])
+                except:
+                    pdb.set_trace()
+        df['technology'] = tech_list
+        df['resource'] = [x.replace('all', '1') for x in df['resource'].values]
+        resource_bin_list = []
+        for x in df['resource'].values:
+            try:
+                if x.split("_")[0] in self.supply_technology_mapping.keys():
+                    resource_bin_list.append(int(x.split('_')[2]) if len(x.split('_')) == 5 else int(x.split('_')[1]) if len(
+                    x.split('_')) == 3 else 'n/a')
+                else:
+                    resource_bin_list.append('n/a')
+            except:
+                resource_bin_list.append('n/a')
+        df['resource_bin'] = resource_bin_list
         df.pop('resource')
         df = df.set_index(['technology'], append=True)
         df = df.groupby(level=['zone', 'year', 'technology']).mean()
@@ -6503,12 +6556,34 @@ class RioInputs(DataObject):
         df = df[df.index.get_level_values('output').isin(['thermal', 'fixed', 'hydro'])]
         df = util.remove_df_levels(df,'output')
         df*=-1
-        df = df.reset_index('resource')
+        df = df.reset_index(['resource', 'outputs_group_detailed'])
         gen_regions = list(set(df.index.get_level_values('zone')))
-        df['resource'] = df['resource'].apply(lambda x: self.clean_name(x,gen_regions))
-        df['technology'] = [self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_'))>3 else self.supply_technology_mapping[x.split('_')[0]]   for x in df['resource'].values]
-        df['resource'] = [x.replace('all','1') for x in df['resource'].values]
-        df['resource_bin'] = [int(x.split('_')[2]) if len(x.split('_')) == 5 else int(x.split('_')[1]) if len(x.split('_')) == 3 else 'n/a' for x in df['resource'].values]
+        df['resource'] = df['resource'].apply(lambda x: self.clean_name(x, gen_regions))
+        df['outputs_group_detailed'] = df['outputs_group_detailed'].apply(lambda x: self.clean_name(x, gen_regions))
+        tech_list = []
+        for x, y in zip(df['resource'].values, df['outputs_group_detailed'].values):
+            try:
+                tech_list.append(self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_')) > 3 else
+                                 self.supply_technology_mapping[x.split('_')[0]])
+            except:
+                try:
+                    tech_list.append(self.supply_technology_mapping[y.split('_')[1]] if len(y.split('_')) > 3 else
+                                     self.supply_technology_mapping[y.split('_')[0]])
+                except:
+                    pdb.set_trace()
+        df['technology'] = tech_list
+        df['resource'] = [x.replace('all', '1') for x in df['resource'].values]
+        resource_bin_list = []
+        for x in df['resource'].values:
+            try:
+                if x.split("_")[0] in self.supply_technology_mapping.keys():
+                    resource_bin_list.append(int(x.split('_')[2]) if len(x.split('_')) == 5 else int(x.split('_')[1]) if len(
+                    x.split('_')) == 3 else 'n/a')
+                else:
+                    resource_bin_list.append('n/a')
+            except:
+                resource_bin_list.append('n/a')
+        df['resource_bin'] = resource_bin_list
         df.pop('resource')
         df = df.set_index(['technology','resource_bin'],append=True)
         df = df.groupby(level=['zone', 'year', 'technology','resource_bin']).sum()
@@ -6600,7 +6675,7 @@ class RioInputs(DataObject):
         tx_losses["to"] = [self.geography_mapping[x] for x in tx_losses['to'].values]
         tx_losses.set_index("from",append=True,inplace=True)
         tx_losses.set_index("to", append=True, inplace=True)
-        rio_years = set(tx_flows.index.get_level_values('year'))
+        rio_years = set([int(x) for x in tx_flows.index.get_level_values('year')])
         row_index = pd.MultiIndex.from_product([GeoMapper.supply_geographies, rio_years],
                                                names=[cfg.rio_geography, 'year'])
         trade_df = pd.DataFrame(0,index=row_index,columns = GeoMapper.supply_geographies)
@@ -6610,10 +6685,10 @@ class RioInputs(DataObject):
                 if geography_from == geography_to or geography_from not in active_rio_geographies or geography_to not in active_rio_geographies:
                     continue
                 for year in rio_years:
-                    imports_df = util.df_slice(tx_flows,[geography_from,geography_to,year],['zone from','zone to','year'])
+                    imports_df = util.df_slice(tx_flows,[geography_from,geography_to,int(year)],['zone from','zone to','year'])
                     if not len(imports_df):
                         continue
-                    load_df = util.df_slice(df_load,[geography_to,year],['zone','year'])
+                    load_df = util.df_slice(df_load,[geography_to,int(year)],['zone','year'])
                     trade_share = imports_df.sum().sum()/load_df.sum().sum()
                     trade_df.loc[(geography_from,year),geography_to] = trade_share
         copied_trade_df = copy.deepcopy(trade_df)
@@ -6649,12 +6724,39 @@ class RioInputs(DataObject):
         df = df[df.index.get_level_values('output').isin(['thermal'])]
         df = df.groupby(level=df.index.names).sum()
         df = util.DfOper.divi([df,util.remove_df_levels(df,'resource')])
-        df = df.reset_index('resource')
+        df = df.reset_index(['resource', 'outputs_group_detailed'])
         gen_regions = list(set(df.index.get_level_values('zone')))
-        df['resource'] = df['resource'].apply(lambda x: self.clean_name(x,gen_regions))
-        df['technology'] = [self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_'))>3 else self.supply_technology_mapping[x.split('_')[0]]   for x in df['resource'].values]
+
+        df['resource'] = df['resource'].apply(lambda x: self.clean_name(x, gen_regions))
+        df['outputs_group_detailed'] = df['outputs_group_detailed'].apply(lambda x: self.clean_name(x, gen_regions))
+        tech_list = []
+        for x, y in zip(df['resource'].values, df['outputs_group_detailed'].values):
+            try:
+                tech_list.append(self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_')) > 3 else
+                                 self.supply_technology_mapping[x.split('_')[0]])
+            except:
+                try:
+                    tech_list.append(self.supply_technology_mapping[y.split('_')[1]] if len(y.split('_')) > 3 else
+                                     self.supply_technology_mapping[y.split('_')[0]])
+                except:
+                    pdb.set_trace()
+        df['technology'] = tech_list
         df['resource'] = [x.replace('all', '1') for x in df['resource'].values]
-        df['resource_bin'] = [int(x.split('_')[2]) if len(x.split('_')) == 5 else int(x.split('_')[1]) if len(x.split('_')) == 3 else 'n/a' for x in df['resource'].values]
+        resource_bin_list = []
+        for x in df['resource'].values:
+            try:
+                if x.split("_")[0] in self.supply_technology_mapping.keys():
+                    resource_bin_list.append(int(x.split('_')[2]) if len(x.split('_')) == 5 else int(x.split('_')[1]) if len(
+                    x.split('_')) == 3 else 'n/a')
+                else:
+                    resource_bin_list.append('n/a')
+            except:
+                resource_bin_list.append('n/a')
+        df['resource_bin'] = resource_bin_list
+
+
+
+
         df.pop('resource')
         df = df.set_index(['technology','resource_bin'],append=True)
         df = df.groupby(level=['zone', 'year', 'technology','resource_bin']).sum()
@@ -6691,12 +6793,34 @@ class RioInputs(DataObject):
         df = df[~df.index.get_level_values('output').isin(['blend storage','storage energy','flexible load'])]
         df *= np.vstack(np.array([ UnitConverter.unit_convert(1,a,b) for a,b in zip(df.index.get_level_values('unit'),[self.rio_standard_unit_dict[x] for x in df.index.get_level_values('unit')])]))
         df *=  UnitConverter.unit_convert(1,cfg.rio_standard_energy_unit,cfg.rio_energy_unit)
-        df = df.reset_index('resource')
+        df = df.reset_index(['resource','outputs_group_detailed'])
         gen_regions = list(set(df.index.get_level_values('zone')))
+
         df['resource'] = df['resource'].apply(lambda x: self.clean_name(x,gen_regions))
-        df['technology'] = [self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_'))>3 else self.supply_technology_mapping[x.split('_')[0]]   for x in df['resource'].values]
+        df['outputs_group_detailed'] = df['outputs_group_detailed'].apply(lambda x: self.clean_name(x, gen_regions))
+        tech_list = []
+        for x,y in zip(df['resource'].values,df['outputs_group_detailed'].values):
+            try:
+                tech_list.append(self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_'))>3 else self.supply_technology_mapping[x.split('_')[0]])
+            except:
+                try:
+                    tech_list.append(self.supply_technology_mapping[y.split('_')[1]] if len(y.split('_')) > 3 else
+                            self.supply_technology_mapping[y.split('_')[0]] )
+                except:
+                    pdb.set_trace()
+        df['technology'] = tech_list
         df['resource'] = [x.replace('all','1') for x in df['resource'].values]
-        df['resource_bin'] = [int(x.split('_')[2]) if len(x.split('_')) == 5 else int(x.split('_')[1]) if len(x.split('_')) == 3 else 'n/a' for x in df['resource'].values]
+        resource_bin_list = []
+        for x in df['resource'].values:
+            try:
+                if x.split("_")[0] in self.supply_technology_mapping.keys():
+                    resource_bin_list.append(int(x.split('_')[2]) if len(x.split('_')) == 5 else int(x.split('_')[1]) if len(
+                    x.split('_')) == 3 else 'n/a')
+                else:
+                    resource_bin_list.append('n/a')
+            except:
+                resource_bin_list.append('n/a')
+        df['resource_bin'] = resource_bin_list
         df.pop('resource')
         df = df.set_index(['technology','resource_bin'],append=True)
         df = df.groupby(level=['zone', 'year', 'technology','resource_bin']).sum()
