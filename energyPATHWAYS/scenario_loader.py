@@ -3,13 +3,14 @@ import os
 import logging
 import itertools
 from collections import defaultdict
-import config as cfg
 import pdb
 from energyPATHWAYS.util import csv_read_table
 from csvdb.data_object import get_database
 
+from csvdb.error import ScenarioFileError
+from csvdb.scenario import AbstractScenario, CsvdbFilter
 
-class Scenario(object):
+class Scenario(AbstractScenario):
     MEASURE_CATEGORIES = ("DemandEnergyEfficiencyMeasures",
                           "DemandFlexibleLoadMeasures",
                           "DemandFuelSwitchingMeasures",
@@ -23,36 +24,73 @@ class Scenario(object):
                           "SupplyStockMeasures",
                           "CO2PriceMeasures")
 
-    # Deprecated
-    # These are the columns that various data tables use to refer to the id of their parent table
-    # Order matters here; we use the first one that is found in the table. This is because some tables'
-    # "true" parent is a subsector/node, but they are further subindexed by technology
-    PARENT_COLUMN_NAMES = ('parent', 'subsector', 'supply_node', 'primary_node', 'import_node',
-                           'demand_tech', 'demand_technology', 'supply_tech', 'supply_technology')
+    def __init__(self, scenario_name, dirpath=None):
+        self.top_dict = None # set in load() method
 
-    def __init__(self, scenario):
-        self._id = scenario
+        dirpath = dirpath or os.path.abspath(os.curdir)
+        super(Scenario, self).__init__(scenario_name, dirpath, 'json')
+
+        self._id = scenario_name
         self._bucket_lookup = self._load_bucket_lookup()
 
-        scenario_file = scenario if scenario.endswith('.json') else scenario + '.json'
-        path_to_scenario_file = os.path.join(cfg.workingdir, scenario_file)
-        with open(path_to_scenario_file) as scenario_data:
-            scenario = json.load(scenario_data)
-
-        assert len(scenario) == 1, "More than one scenario found at top level in {}: {}".format(
-            path_to_scenario_file, ", ".join(scenario.keys)
-        )
-
-        # The name of the scenario is just the key at the top of the dictionary hierarchy
-        self._name = scenario.keys()[0]
-
-        # Note that the top layer of this dictionary is intentionally NOT a defaultdict, so that we can be sure
-        # it has all the keys in MEASURE_CATEGORIES and no other keys, which is useful when measures are requested
-        # later (if the user asks for an unknown measure type we get a KeyError rather than silently returning
-        # an empty list.)
         self._measures = {category: defaultdict(list) for category in self.MEASURE_CATEGORIES}
         self._sensitivities = defaultdict(dict)
-        self._load_measures(scenario)
+
+        self._load_measures(self.top_dict)
+
+        pass
+
+    # def __init__(self, scenario):
+    #     self._id = scenario
+    #     self._bucket_lookup = self._load_bucket_lookup()
+    #
+    #     scenario_file = scenario if scenario.endswith('.json') else scenario + '.json'
+    #     path_to_scenario_file = os.path.join(cfg.workingdir, scenario_file)
+    #     with open(path_to_scenario_file) as scenario_data:
+    #         scenario = json.load(scenario_data)
+    #
+    #     assert len(scenario) == 1, "More than one scenario found at top level in {}: {}".format(
+    #         path_to_scenario_file, ", ".join(scenario.keys)
+    #     )
+    #
+    #     # The name of the scenario is just the key at the top of the dictionary hierarchy
+    #     self._name = scenario.keys()[0]
+    #
+    #     # Note that the top layer of this dictionary is intentionally NOT a defaultdict, so that we can be sure
+    #     # it has all the keys in MEASURE_CATEGORIES and no other keys, which is useful when measures are requested
+    #     # later (if the user asks for an unknown measure type we get a KeyError rather than silently returning
+    #     # an empty list.)
+    #     self._measures = {category: defaultdict(list) for category in self.MEASURE_CATEGORIES}
+    #     self._sensitivities = defaultdict(dict)
+    #     self._load_measures(scenario)
+
+    def load(self):
+        with open(self.pathname) as f:
+            self.top_dict = top_dict = json.load(f)
+
+        # Each scenario file has a top-level dict with one entry, keyed by scenario
+        # name, which matches the basename of the file. We sanity check this.
+        if len(top_dict) != 1:
+            keys = ", ".join(top_dict.keys())
+            raise ScenarioFileError(self.pathname, "Expected one scenario at top level, got: {}".format(keys))
+
+        try:
+            scenario_dict = top_dict[self.name]
+        except KeyError:
+            raise ScenarioFileError(self.pathname, "Scenario file is missing scenario '{}'".format(self.name))
+
+        # set legacy instance variable name (deprecated?)
+        self._name = self.name
+
+        # In the second level we have 'Supply Case' and 'Demand Case', and in each there's a 'Sensitivities' list,
+        # whose values are of the form:
+        #   {'table': 'SupplyExport', 'sensitivity': 'fossil exports 0 by 2030', 'name': 'Coal Primary - Domestic'}
+        # which we just combine. Note that the 'name' value is the value for the key col, which may not be "name".
+
+        for subdict in scenario_dict.values():
+            for sens in subdict.get('Sensitivities', []):
+                obj = CsvdbFilter(sens['table'], sens['name'], sens['sensitivity'])  # no constraints in JSON currently
+                self.add_filter(obj)
 
     @staticmethod
     def _index_col(measure_table):
@@ -157,6 +195,8 @@ class Scenario(object):
 
             self._sensitivities[table][name] = sensitivity
 
+    # RJP: This method uses the JSON dict directly, rather than using the "common format" defined in csvdb.scenario.
+    # RJP: It could be rewritten for greater consistency with RIO.
     def _load_measures(self, tree):
         """
         Finds all measures in the Scenario by recursively scanning the parsed json and organizes them by type
@@ -216,12 +256,14 @@ class Scenario(object):
         return {category: list(itertools.chain.from_iterable(contents.values()))
                 for category, contents in self._measures.iteritems()}
 
-    def get_sensitivity(self, table, parent_id):
-        sensitivity = self._sensitivities[table].get(parent_id)
-        if sensitivity:
-            logging.debug("Sensitivity '{}' loaded for {} with parent id {}.".format(sensitivity, table, parent_id))
-        return sensitivity
+    # RJP: using the method in AbstractScenario instead
+    # def get_sensitivity(self, table, parent_id):
+    #     sensitivity = self._sensitivities[table].get(parent_id)
+    #     if sensitivity:
+    #         logging.debug("Sensitivity '{}' loaded for {} with parent id {}.".format(sensitivity, table, parent_id))
+    #     return sensitivity
 
-    @property
-    def name(self):
-        return self._name
+    # RJP: deprecated as it interfered with AbstractScenario. Could restore, but then would have to modify other code in RIO and csvdb.
+    # @property
+    # def name(self):
+    #     return self._name

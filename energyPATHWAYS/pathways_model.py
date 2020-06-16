@@ -11,8 +11,8 @@ import pandas as pd
 import logging
 import shape
 import pdb
-#from scenario_loader import Scenario
-from scenario import Scenario
+from scenario_loader import Scenario
+# from scenario import Scenario
 import copy
 import numpy as np
 from geomapper import GeoMapper

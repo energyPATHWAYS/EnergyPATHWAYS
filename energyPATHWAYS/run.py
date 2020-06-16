@@ -55,12 +55,6 @@ def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solv
 
     shape.Shapes.get_instance(cfg.getParam('database_path'))
 
-    # TESTING ONLY (RJP)
-    # from scenario import Scenario
-    # s = Scenario('central')
-    # s.show_filters()
-    # TESTING ONLY
-
     if not scenarios:
         scenarios = [os.path.basename(p) for p in glob.glob(os.path.join(cfg.workingdir, '*.json'))]
         if not scenarios:
