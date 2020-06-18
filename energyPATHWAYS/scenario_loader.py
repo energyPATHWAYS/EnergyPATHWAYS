@@ -25,21 +25,23 @@ class Scenario(AbstractScenario):
                           "CO2PriceMeasures")
 
     def __init__(self, scenario_name, dirpath=None):
+        self.top_dict = None # set in load() method
+
+        dirpath = dirpath or os.path.abspath(os.curdir)
+        super(Scenario, self).__init__(scenario_name, dirpath, 'json')
+
         self._id = scenario_name
         self._bucket_lookup = self._load_bucket_lookup()
 
         self._measures = {category: defaultdict(list) for category in self.MEASURE_CATEGORIES}
         self._sensitivities = defaultdict(dict)
 
-        dirpath = dirpath or os.path.abspath(os.curdir)
+        self._load_measures(self.top_dict)
 
-        # Calls self.load()
-        super(Scenario, self).__init__(scenario_name, dirpath, 'json')
-
-    # Called by AbstractScenario's __init__() method
+    # Called by AbstractScenarip
     def load(self):
         with open(self.pathname) as f:
-            top_dict = json.load(f)
+            self.top_dict = top_dict = json.load(f)
 
         # Each scenario file has a top-level dict with one entry, keyed by scenario
         # name, which matches the basename of the file. We sanity check this.
@@ -55,7 +57,17 @@ class Scenario(AbstractScenario):
         # set legacy instance variable name (deprecated?)
         self._name = self.name
 
-        self._load_measures(top_dict)
+        # In the second level we have 'Supply Case' and 'Demand Case', and in each there's a 'Sensitivities' list,
+        # whose values are of the form:
+        #   {'table': 'SupplyExport', 'sensitivity': 'fossil exports 0 by 2030', 'name': 'Coal Primary - Domestic'}
+        # which we just combine. Note that the 'name' value is the value for the key col, which may not be "name".
+
+        # This data structure is used by csvdb, but not by _load_measures() and _load_sensitivity(), below.
+        # TODO: We could eliminate the redundant parsing, but it may not be worth the trouble for now.
+        for subdict in scenario_dict.values():
+            for sens in subdict.get('Sensitivities', []):
+                obj = CsvdbFilter(sens['table'], sens['name'], sens['sensitivity'])  # no constraints in JSON currently
+                self.add_filter(obj)
 
     @staticmethod
     def _index_col(measure_table):
@@ -125,6 +137,8 @@ class Scenario(AbstractScenario):
 
             self._sensitivities[table][name] = sensitivity
 
+    # This method uses the JSON dict directly, rather than using the "common format" defined in csvdb.scenario.
+    # TODO: It could be rewritten for greater consistency with RIO.
     def _load_measures(self, tree):
         """
         Finds all measures in the Scenario by recursively scanning the parsed json and organizes them by type
@@ -184,11 +198,12 @@ class Scenario(AbstractScenario):
         return {category: list(itertools.chain.from_iterable(contents.values()))
                 for category, contents in self._measures.iteritems()}
 
-    def get_sensitivity(self, table, parent_id):
-        sensitivity = self._sensitivities[table].get(parent_id)
-        if sensitivity:
-            logging.debug("Sensitivity '{}' loaded for {} with parent id {}.".format(sensitivity, table, parent_id))
-        return sensitivity
+    # RJP: csvdb uses the method in AbstractScenario instead, which allows additional keywords
+    # def get_sensitivity(self, table, parent_id):
+    #     sensitivity = self._sensitivities[table].get(parent_id)
+    #     if sensitivity:
+    #         logging.debug("Sensitivity '{}' loaded for {} with parent id {}.".format(sensitivity, table, parent_id))
+    #     return sensitivity
 
     # RJP: deprecated as it interfered with AbstractScenario. Could restore, but then would have to modify other code in RIO and csvdb.
     # @property
