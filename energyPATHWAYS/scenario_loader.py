@@ -25,48 +25,21 @@ class Scenario(AbstractScenario):
                           "CO2PriceMeasures")
 
     def __init__(self, scenario_name, dirpath=None):
-        self.top_dict = None # set in load() method
-
-        dirpath = dirpath or os.path.abspath(os.curdir)
-        super(Scenario, self).__init__(scenario_name, dirpath, 'json')
-
         self._id = scenario_name
         self._bucket_lookup = self._load_bucket_lookup()
 
         self._measures = {category: defaultdict(list) for category in self.MEASURE_CATEGORIES}
         self._sensitivities = defaultdict(dict)
 
-        self._load_measures(self.top_dict)
+        dirpath = dirpath or os.path.abspath(os.curdir)
 
-        pass
+        # Calls self.load()
+        super(Scenario, self).__init__(scenario_name, dirpath, 'json')
 
-    # def __init__(self, scenario):
-    #     self._id = scenario
-    #     self._bucket_lookup = self._load_bucket_lookup()
-    #
-    #     scenario_file = scenario if scenario.endswith('.json') else scenario + '.json'
-    #     path_to_scenario_file = os.path.join(cfg.workingdir, scenario_file)
-    #     with open(path_to_scenario_file) as scenario_data:
-    #         scenario = json.load(scenario_data)
-    #
-    #     assert len(scenario) == 1, "More than one scenario found at top level in {}: {}".format(
-    #         path_to_scenario_file, ", ".join(scenario.keys)
-    #     )
-    #
-    #     # The name of the scenario is just the key at the top of the dictionary hierarchy
-    #     self._name = scenario.keys()[0]
-    #
-    #     # Note that the top layer of this dictionary is intentionally NOT a defaultdict, so that we can be sure
-    #     # it has all the keys in MEASURE_CATEGORIES and no other keys, which is useful when measures are requested
-    #     # later (if the user asks for an unknown measure type we get a KeyError rather than silently returning
-    #     # an empty list.)
-    #     self._measures = {category: defaultdict(list) for category in self.MEASURE_CATEGORIES}
-    #     self._sensitivities = defaultdict(dict)
-    #     self._load_measures(scenario)
-
+    # Called by AbstractScenario's __init__() method
     def load(self):
         with open(self.pathname) as f:
-            self.top_dict = top_dict = json.load(f)
+            top_dict = json.load(f)
 
         # Each scenario file has a top-level dict with one entry, keyed by scenario
         # name, which matches the basename of the file. We sanity check this.
@@ -82,15 +55,7 @@ class Scenario(AbstractScenario):
         # set legacy instance variable name (deprecated?)
         self._name = self.name
 
-        # In the second level we have 'Supply Case' and 'Demand Case', and in each there's a 'Sensitivities' list,
-        # whose values are of the form:
-        #   {'table': 'SupplyExport', 'sensitivity': 'fossil exports 0 by 2030', 'name': 'Coal Primary - Domestic'}
-        # which we just combine. Note that the 'name' value is the value for the key col, which may not be "name".
-
-        for subdict in scenario_dict.values():
-            for sens in subdict.get('Sensitivities', []):
-                obj = CsvdbFilter(sens['table'], sens['name'], sens['sensitivity'])  # no constraints in JSON currently
-                self.add_filter(obj)
+        self._load_measures(top_dict)
 
     @staticmethod
     def _index_col(measure_table):
@@ -111,41 +76,6 @@ class Scenario(AbstractScenario):
             return 'supply_technology'
         else:
             return None
-
-    # Deprecated: used only by db_to_file utility
-    #
-    # @classmethod
-    # def parent_col(cls, data_table):
-    #     """Returns the name of the column in the data table that references the parent table"""
-    #
-    #     # These are one-off exceptions to our general preference order for parent columns
-    #     if data_table == 'DemandSalesData':
-    #         return 'demand_technology'
-    #
-    #     if data_table == 'SupplyTechsEfficiencyData':
-    #         return 'supply_tech'
-    #
-    #     if data_table in ('SupplySalesData', 'SupplySalesShareData'):
-    #         return 'supply_technology'
-    #
-    #     cfg.cur.execute("""
-    #         SELECT column_name FROM information_schema.columns
-    #         WHERE table_schema = 'public' AND table_name = %s
-    #     """, (data_table,))
-    #
-    #     cols = [row[0] for row in cfg.cur]
-    #     if not cols:
-    #         raise ValueError("Could not find any columns for table {}. Did you misspell the table "
-    #                          "name?".format(data_table))
-    #     # We do it this way so that we use a column earlier in the PARENT_COLUMN_NAMES list over one that's later
-    #     parent_cols = [col for col in cls.PARENT_COLUMN_NAMES if col in cols]
-    #     if not parent_cols:
-    #         raise ValueError("Could not find any known parent-referencing columns in {}. "
-    #                          "Are you sure it's a table that references a parent table?".format(data_table))
-    #     elif len(parent_cols) > 1:
-    #         logging.debug("More than one potential parent-referencing column was found in {}; "
-    #                       "we are using the first in this list: {}".format(data_table, parent_cols))
-    #     return parent_cols[0]
 
     def _load_bucket_lookup(self):
         """
@@ -195,8 +125,6 @@ class Scenario(AbstractScenario):
 
             self._sensitivities[table][name] = sensitivity
 
-    # RJP: This method uses the JSON dict directly, rather than using the "common format" defined in csvdb.scenario.
-    # RJP: It could be rewritten for greater consistency with RIO.
     def _load_measures(self, tree):
         """
         Finds all measures in the Scenario by recursively scanning the parsed json and organizes them by type
@@ -256,12 +184,11 @@ class Scenario(AbstractScenario):
         return {category: list(itertools.chain.from_iterable(contents.values()))
                 for category, contents in self._measures.iteritems()}
 
-    # RJP: using the method in AbstractScenario instead
-    # def get_sensitivity(self, table, parent_id):
-    #     sensitivity = self._sensitivities[table].get(parent_id)
-    #     if sensitivity:
-    #         logging.debug("Sensitivity '{}' loaded for {} with parent id {}.".format(sensitivity, table, parent_id))
-    #     return sensitivity
+    def get_sensitivity(self, table, parent_id):
+        sensitivity = self._sensitivities[table].get(parent_id)
+        if sensitivity:
+            logging.debug("Sensitivity '{}' loaded for {} with parent id {}.".format(sensitivity, table, parent_id))
+        return sensitivity
 
     # RJP: deprecated as it interfered with AbstractScenario. Could restore, but then would have to modify other code in RIO and csvdb.
     # @property
