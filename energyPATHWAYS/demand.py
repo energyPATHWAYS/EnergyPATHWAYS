@@ -300,7 +300,7 @@ class Demand(object):
             levels_with_na_only = [name for level, name in zip(df.index.levels, df.index.names) if list(level)==[u'N/A']]
             return util.remove_df_levels(df, levels_with_na_only).sort_index()
         output_list = ['energy', 'stock', 'sales','annual_costs','annual_costs_documentation', 'levelized_costs', 'service_demand','air_pollution']
-        unit_flag = [False, True, False, False, True, True, True,True]
+        unit_flag = [True, True, True, False, True, True, True,True]
         for output_name, include_unit in zip(output_list,unit_flag):
             print "aggregating %s" %output_name
             df = self.group_output(output_name, include_unit=include_unit)
@@ -446,7 +446,7 @@ class Demand(object):
         levels_to_keep = cfg.output_combined_levels if levels_to_keep is None else levels_to_keep
         demand_levels_to_keep = [x for x in levels_to_keep if x in demand_df.index.names]
         demand_df = demand_df.groupby(level=demand_levels_to_keep).sum()
-        demand_df = demand_df[demand_df.index.get_level_values('year') >= cfg.getParamAsInt('current_year')]
+        demand_df = demand_df[demand_df.index.get_level_values('year').isin(cfg.years_subset)]
         df = util.loop_geo_multiply(demand_df, supply_link, geo_label, GeoMapper.combined_geographies, levels_to_keep)
         return df
 
@@ -1014,7 +1014,10 @@ class Subsector(schema.DemandSubsectors):
         if output_type=='energy':
             # a subsector type link would be something like building shell, which does not have an energy demand
             if self.sub_type != 'link':
-                return_array = self.energy_forecast
+                df = copy.deepcopy(self.energy_forecast)
+                df['unit'] = cfg.calculation_energy_unit
+                df.set_index('unit',append=True,inplace=True)
+                return_array = df
             else:
                 return None
         elif output_type=='stock':
@@ -1040,7 +1043,11 @@ class Subsector(schema.DemandSubsectors):
                 return None
         elif output_type == 'air_pollution':
             if self.sub_type != 'link':
-                return_array = self.format_output_air_pollution()
+                df = self.format_output_air_pollution()
+                if df is not None:
+                    df['unit'] = cfg.getParam('mass_unit')
+                    df.set_index('unit',append=True,inplace=True)
+                return df
             else:
                 return None
 
@@ -3457,8 +3464,8 @@ class Subsector(schema.DemandSubsectors):
                 self.air_pollution_forecast = pd.DataFrame(self.air_pollution_forecast.stack())
                 util.replace_index_name(self.air_pollution_forecast, 'year')
                 util.replace_column(self.air_pollution_forecast, 'value')
-        self.energy_forecast = pd.DataFrame(self.energy_forecast.stack())
 
+        self.energy_forecast = pd.DataFrame(self.energy_forecast.stack())
         if len([x for x in self.stock.rollover_group_names if x not in self.service_demand.values.index.names]):
             multiplier = self.stock.values.groupby(level=[x for x in self.stock.rollover_group_names if x not in self.service_demand.values.index.names]).sum()/self.stock.values.sum()
             all_energy = util.DfOper.mult([self.stock.efficiency['all']['all'], self.service_demand.values,multiplier])

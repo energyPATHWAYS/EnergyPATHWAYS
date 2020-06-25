@@ -139,17 +139,17 @@ class SubsectorPerturbation(object):
 if __name__ == "__main__":
     workingdir = r'E:\EP_Runs\WEST'
     os.chdir(workingdir)
-    rio_scenario = ['central']
-    scenario = ['central']
+    rio_scenario = ['slow electricity']
+    scenario = ['slow electricity']
     run(scenario,
     load_demand   = True,
     solve_demand  = True,
     load_supply   = False,
-    solve_supply  = True,
-    export_results= True,
+    solve_supply  = False,
+    export_results= False,
     load_error    = False,
     save_models   = False,
-    clear_results = True,
+    clear_results = False,
     rio_scenario=rio_scenario)
     #
     # test = model.demand.aggregate_electricity_shapes(2017)

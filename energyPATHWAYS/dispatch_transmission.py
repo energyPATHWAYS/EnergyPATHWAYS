@@ -69,8 +69,7 @@ class DispatchTransmissionConstraint(schema.DispatchTransmissionConstraint, Tran
         TransmissionSuper.__init__(self)
         self.scenario = scenario
         self.name = name
-        if self.name is None:
-            self._setup_zero_constraints()
+        if self.name is None:            self._setup_zero_constraints()
         else:
             self._setup_and_validate()
         self.convert_units()

@@ -36,7 +36,8 @@ class PathwaysModel(object):
         self.rio_scenario = rio_scenario
         if solve_demand and not (load_demand or load_supply):
             self.calculate_demand(save_models)
-
+        if solve_demand and load_demand:
+            self.demand.aggregate_results()
         if not append_results:
             self.remove_old_results()
 
@@ -329,6 +330,7 @@ class PathwaysModel(object):
         levels_to_keep = [x for x in cfg.output_combined_levels if x in direct_costs.index.names]
         direct_costs = direct_costs.groupby(level=levels_to_keep).sum()
         direct_costs = Output.clean_df(direct_costs)
+        direct_costs = direct_costs [direct_costs .index.get_level_values('YEAR').isin(cfg.years_subset)]
         direct_costs = util.add_to_df_index(direct_costs, names=['EXPORT/DOMESTIC', "SUPPLY/DEMAND"], keys=["DOMESTIC","DEMAND"])
         return direct_costs
 
@@ -407,7 +409,7 @@ class PathwaysModel(object):
     def calc_and_format_direct_demand_energy(self):
         demand_energy = GeoMapper.geo_map(self.demand.outputs.d_energy.copy(), GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total')
         demand_energy = Output.clean_df(demand_energy)
-        demand_energy = demand_energy[demand_energy.index.get_level_values('YEAR')>=cfg.getParamAsInt('current_year')]
+        demand_energy = demand_energy[demand_energy.index.get_level_values('YEAR').isin(cfg.years_subset)]
         demand_energy = util.add_to_df_index(demand_energy, names=['EXPORT/DOMESTIC', "ENERGY ACCOUNTING"], keys=['DOMESTIC','FINAL'])
         return demand_energy
 

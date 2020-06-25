@@ -42,6 +42,7 @@ calculation_energy_unit = None
 # run years
 years = None
 supply_years = None
+years_subset = None
 
 # shapes
 shape_start_date = None
@@ -76,7 +77,7 @@ log_name = None
 
 def initialize_config():
     global available_cpus, cfgfile_name, log_name, log_initialized, index_levels, solver_name, timestamp
-    global years, supply_years, workingdir
+    global years, supply_years, workingdir,years_subset
     workingdir = os.getcwd()
 
     years = range(getParamAsInt( 'demand_start_year'),
@@ -86,6 +87,10 @@ def initialize_config():
     supply_years = range(getParamAsInt( 'current_year'),
                           getParamAsInt( 'end_year') + 1,
                           getParamAsInt( 'year_step'))
+    if isinstance(getParam('years_subset',section = 'combined_output_detail'),str):
+        years_subset = [int(x.strip()) for x in getParam('years_subset',section = 'combined_output_detail').split(',') ]
+    else:
+        years_subset = supply_years
 
     log_name = '{} energyPATHWAYS log.log'.format(str(datetime.datetime.now())[:-4].replace(':', '.'))
     setuplogging()
@@ -152,6 +157,7 @@ def init_output_levels():
     output_combined_levels = list(set(output_supply_levels + output_demand_levels + [geomapper.GeoMapper.combined_outputs_geography + "_supply"]))
     output_combined_levels = list(set(output_combined_levels) - {geomapper.GeoMapper.demand_primary_geography, geomapper.GeoMapper.supply_primary_geography}) + [geomapper.GeoMapper.combined_outputs_geography]
 
+
     for x in [x[0] for x in _ConfigParser.items('demand_output_detail')]:
         if x in output_demand_levels and _ConfigParser.get('demand_output_detail', x).lower() != 'true':
             output_demand_levels.remove(x)
@@ -178,7 +184,7 @@ def table_dict(table_name, columns=['id', 'name'], append=False,
 
 def init_output_parameters():
     global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes, evolved_years,\
-    rio_supply_run, rio_geography, rio_feeder_geographies, rio_energy_unit, rio_time_unit, rio_timestep_multiplier, rio_zonal_blend_nodes, rio_excluded_technologies, \
+    rio_supply_run, rio_geography, rio_feeder_geographies, rio_energy_unit, rio_time_unit, rio_timestep_multiplier, rio_non_zonal_blend_nodes, rio_excluded_technologies, \
     rio_excluded_blends, rio_export_blends, rio_no_negative_blends, rio_excluded_nodes, rio_mass_unit, rio_distance_unit, rio_outflow_products, rio_standard_energy_unit, rio_volume_unit,\
     rio_standard_mass_unit, rio_standard_distance_unit, rio_standard_volume_unit
     currency_name = getParam('currency_name')
@@ -192,7 +198,7 @@ def init_output_parameters():
     rio_time_unit = getParam('rio_time_unit', section='rio')
     rio_timestep_multiplier = getParamAsInt('rio_timestep_multiplier', section='rio')
     # todo: these aren't going to be integers
-    rio_zonal_blend_nodes = [g.strip()  for g in _ConfigParser.get('rio', 'rio_zonal_blends').split(',') if len(g)]
+    rio_non_zonal_blend_nodes = [g.strip()  for g in _ConfigParser.get('rio', 'rio_non_zonal_blends').split(',') if len(g)]
     rio_excluded_technologies = [g.strip() for g in _ConfigParser.get('rio', 'rio_excluded_technologies').split(',') if len(g)]
     rio_excluded_blends = [g.strip()  for g in _ConfigParser.get('rio', 'rio_excluded_blends').split(',') if len(g)]
     rio_export_blends = [g.strip()  for g in _ConfigParser.get('rio', 'rio_export_blends').split(',') if len(g)]

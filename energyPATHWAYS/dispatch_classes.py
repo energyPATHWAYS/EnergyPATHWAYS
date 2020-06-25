@@ -435,7 +435,6 @@ class Dispatch(object):
     def load_from_pickle():
         with open(os.path.join(cfg.workingdir, 'dispatch_class.p'), 'rb') as infile:
             dispatch = pickle.load(infile)
-        shape.Shapes.set_active_dates()
         return dispatch
 
     def parse_storage_result(self, lists, period):
