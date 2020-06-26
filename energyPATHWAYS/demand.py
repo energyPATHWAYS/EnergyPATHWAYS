@@ -159,6 +159,7 @@ class Demand(object):
         numer = self.energy_demand.xs([cfg.electricity_energy_type, year], level=['final_energy', 'year']).sum().sum()
         denom = df.xs(0, level='timeshift_type').sum().sum() / len(Shapes.get_instance().cfg_weather_years)
         if not np.isclose(numer, denom, rtol=0.01, atol=0):
+            pdb.set_trace()
             logging.warning("Electricity energy is {} and bottom up load shape sums to {}".format(numer, denom))
         df *= numer / denom
         df = df.rename(columns={'value':year})
@@ -300,17 +301,19 @@ class Demand(object):
                 return None
             levels_with_na_only = [name for level, name in zip(df.index.levels, df.index.names) if list(level)==[u'N/A']]
             return util.remove_df_levels(df, levels_with_na_only).sort_index()
+
         output_list = ['energy', 'stock', 'sales','annual_costs', 'levelized_costs', 'service_demand']
         unit_flag = [False, True, False, False, True, True]
-        for output_name, include_unit in zip(output_list,unit_flag):
+        for output_name, include_unit in zip(output_list, unit_flag):
             print "aggregating %s" %output_name
             df = self.group_output(output_name, include_unit=include_unit)
-            df[df.index.get_level_values('year').isin(cfg.combined_years_subset)]
-            df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
-            if df is not None:
-                setattr(self.outputs,"d_"+ output_name, df.sortlevel())
-            else:
+            if df is None:
                 setattr(self.outputs, "d_" + output_name, None)
+                continue
+            # df[df.index.get_level_values('year').isin(cfg.combined_years_subset)]
+            df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
+            setattr(self.outputs,"d_"+ output_name, df.sortlevel())
+
         if cfg.output_tco == 'true':
             output_list = ['energy_tco', 'levelized_costs_tco', 'service_demand_tco']
             unit_flag = [False, False, False,True]
@@ -880,9 +883,12 @@ class Subsector(schema.DemandSubsectors):
             return_shape = util.DfOper.add((return_shape, pd.concat([flex_native], keys=[0], names=['timeshift_type'])))
 
             capacity_group_levels = [l for l in flex_native.index.names if l != 'weather_datetime']
-            self.flexible_load_pmax[year] = flex_native.groupby(level=capacity_group_levels).max()
-            # this is a placeholder for V2G, we need a column in the db
-            self.flexible_load_pmin[year] = - self.flexible_load_pmax[year] if False else pd.DataFrame(0, index=self.flexible_load_pmax[year].index, columns=self.flexible_load_pmax[year].columns)
+            self.flexible_load_pmax[year] = flex_native.groupby(level=capacity_group_levels).max() * self.flexible_load_measure.p_max
+            if self.flexible_load_measure.p_min < 0:
+                # this is p2g
+                self.flexible_load_pmin[year] = flex_native.groupby(level=capacity_group_levels).max() * self.flexible_load_measure.p_min
+            else:
+                self.flexible_load_pmin[year] = flex_native.groupby(level=capacity_group_levels).min() * self.flexible_load_measure.p_min
         else:
             # if we don't have flexible load, we don't introduce electricity reconcilliation because that is done at a more aggregate level
             remaining_shape = util.DfOper.mult((Shapes.get_values(active_shape), remaining_energy))

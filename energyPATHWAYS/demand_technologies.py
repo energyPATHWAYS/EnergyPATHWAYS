@@ -254,8 +254,19 @@ class ServiceDemandModifier(schema.DemandTechsServiceDemandModifier):
         self.vintages = vintages
         self.years = years
         if self._has_data and self.raw_values is not None:
-            self.remap(map_from='raw_values', map_to='values', time_index_name='vintage', converted_geography=GeoMapper.demand_primary_geography)
-            util.convert_age(self, attr_from='values', attr_to='values', reverse=False, vintages=self.vintages, years=self.years)
+            self.values = copy.deepcopy(self.raw_values)
+            self.values['age'] = self.values.index.get_level_values('year') - self.values.index.get_level_values('vintage')
+            self.values = self.values.set_index('age',append=True)
+            self.values = util.remove_df_levels(self.values,'year')
+            self.remap(map_from='values', map_to='values', time_index_name='vintage', converted_geography=GeoMapper.demand_primary_geography)
+            self.values['year'] = self.values.index.get_level_values('vintage') + self.values.index.get_level_values('age')
+            self.values = self.values.set_index('year',append=True)
+            self.values = util.remove_df_levels(self.values,'age')
+            self.remap(map_from='values', map_to='values', time_index_name='year', current_geography=GeoMapper.demand_primary_geography,
+                       converted_geography=GeoMapper.demand_primary_geography)
+            self.values = self.values.unstack('year')
+            self.values.columns = self.values.columns.droplevel()
+            #util.convert_age(self, attr_from='values', attr_to='values', reverse=False, vintages=self.vintages, years=self.years)
             self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
         if not self._has_data:
             self.absolute = False

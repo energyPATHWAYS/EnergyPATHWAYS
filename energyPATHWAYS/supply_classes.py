@@ -13,6 +13,7 @@ from geomapper import GeoMapper
 from unit_converter import UnitConverter
 from energyPATHWAYS.generated import schema
 from data_object import DataObject
+import pdb
         
 # class SupplyStock(Stock, StockItem):
 #     def __init__(self, id, drivers, sql_id_table='SupplyStock', sql_data_table='SupplyStockData',
@@ -99,7 +100,7 @@ class SupplySalesShare(object):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        self.remap(time_index_name='vintage', converted_geography=GeoMapper.supply_primary_geography,)
+        self.remap(time_index_name='vintage', converted_geography=GeoMapper.supply_primary_geography)
 
     def reconcile_with_stock_levels(self, needed_sales_share_levels, needed_sales_share_names):
         if self.input_type == 'intensity':

@@ -30,7 +30,6 @@ class PathwaysModel(object):
         self.demand_solved, self.supply_solved = False, False
 
     def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, export_results, save_models, append_results, rio_scenario):
-        #try:
         self.scenario_id = scenario_id
         self.scenario = Scenario(self.scenario_id)
         self.rio_scenario = rio_scenario
@@ -65,14 +64,6 @@ class PathwaysModel(object):
             self.export_result_to_csv('supply_outputs')
             self.export_result_to_csv('combined_outputs')
             self.export_io()
-        #except:
-            # pickle the model in the event that it crashes
-            #if save_models:
-             #   if cfg.rio_supply_run:
-              #      Output.pickle(self, file_name=self.rio_scenario + cfg.model_error_append_name, path=cfg.workingdir)
-               # else:
-                #    Output.pickle(self, file_name=str(self.scenario_id) + cfg.model_error_append_name,
-                 #                 path=cfg.workingdir)
 
 
     def calculate_demand(self, save_models):
@@ -366,7 +357,7 @@ class PathwaysModel(object):
                 direct_costs.set_index(name, append=True, inplace=True)
             direct_costs = direct_costs.groupby(level=embodied_costs_list[0].index.names).sum()
         self.outputs.c_costs = embodied_costs_list + [direct_costs] + [export_costs]
-        self.outputs.c_costs= [x[x.values!=0] for x in self.outputs.c_costs]
+        # self.outputs.c_costs= [x[x.values!=0] for x in self.outputs.c_costs]
         for x in self.outputs.c_costs: x.index = x.index.reorder_levels(embodied_costs_list[0].index.names)
 
 
@@ -399,10 +390,9 @@ class PathwaysModel(object):
         if GeoMapper.combined_outputs_geography + '_supply' in cfg.output_combined_levels:
              keys = direct_emissions_list[0].index.get_level_values(GeoMapper.combined_outputs_geography.upper()).values
              names = GeoMapper.combined_outputs_geography.upper() + '_SUPPLY'
-             for x in direct_emissions_list:
-                x[names] = keys
-
-             direct_emissions_list = [x.set_index(names, append=True, inplace=True) for x in direct_emissions_list]
+             for i in range(len(direct_emissions_list)):
+                direct_emissions_list[i][names] = keys
+                direct_emissions_list[i] = direct_emissions_list[i].set_index(names, append=True)
         return direct_emissions_list
 
     def calculate_combined_emissions_results(self):
@@ -473,8 +463,9 @@ class PathwaysModel(object):
         self.outputs.c_energy = embodied_energy_list + [demand_energy] + [export_energy]
         self.outputs.c_energy = [x[x['VALUE']!=0] for x in self.outputs.c_energy]
         energy_unit = cfg.calculation_energy_unit
-        for x in self.outputs.c_energy: x.columns = [energy_unit.upper()]
-        for x in self.outputs.c_energy: x.index = x.index.reorder_levels(embodied_energy_list[0].index.names)
+        for x in self.outputs.c_energy:
+            x.columns = [energy_unit.upper()]
+            x.index = x.index.reorder_levels(embodied_energy_list[0].index.names)
 
     def export_io(self):
         io_table_write_step = cfg.getParamAsInt('io_table_write_step', 'output_detail')

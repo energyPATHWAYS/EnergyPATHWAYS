@@ -900,12 +900,13 @@ class Supply(object):
         self.set_net_load_thresholds(year)
         #freeze the bulk net load as opt bulk net load just in case we want to rerun a year. If we don't do this, bulk_net_load would be updated with optimization results
         self.dispatch.set_opt_loads(self.distribution_load,self.distribution_flex_load,self.distribution_gen,self.bulk_load,self.bulk_gen,self.dispatched_bulk_load, self.bulk_net_load, self.active_thermal_dispatch_df)
-        self.dispatch.set_opt_loads(self.distribution_load,self.distribution_flex_load,self.distribution_gen,self.bulk_load,self.bulk_gen,self.dispatched_bulk_load, self.bulk_net_load, self.active_thermal_dispatch_df)
+        # self.dispatch.set_opt_loads(self.distribution_load,self.distribution_flex_load,self.distribution_gen,self.bulk_load,self.bulk_gen,self.dispatched_bulk_load, self.bulk_net_load, self.active_thermal_dispatch_df)
         flex_pmin, flex_pmax = self.demand_object.aggregate_flexible_load_pmin_pmax(year)
         self.dispatch.set_max_min_flex_loads(flex_pmin, flex_pmax)
         self.dispatch.set_technologies(self.storage_capacity_dict, self.storage_efficiency_dict, self.active_thermal_dispatch_df)
         self.set_long_duration_opt(year)
 
+    # Ryan
     def set_grid_capacity_factors(self, year):
         max_year = max(self.years)
         distribution_grid_node = self.nodes[self.distribution_grid_node_name]
@@ -4369,42 +4370,38 @@ class SupplyNode(Node, StockItem):
 
     def calculate_costs(self, year, loop, transmission_node_name, dispatch_tx_costs, dispatch_tx_constraints):
         start_year = min(self.years)
-        if not hasattr(self,'levelized_costs'):
+        if not hasattr(self, 'levelized_costs'):
             index = pd.MultiIndex.from_product(self.rollover_group_levels, names=self.rollover_group_names)
-            self.levelized_costs = util.empty_df(index, columns=self.years,fill_value=0.)
-            self.embodied_cost = util.empty_df(index, columns=self.years,fill_value=0.)
-            self.embodied_cost = util.remove_df_levels(self.embodied_cost,'resource_bin')
-        if not hasattr(self,'annual_costs'):
+            self.levelized_costs = util.empty_df(index, columns=self.years, fill_value=0.)
+            self.embodied_cost = util.empty_df(index, columns=self.years, fill_value=0.)
+            self.embodied_cost = util.remove_df_levels(self.embodied_cost, 'resource_bin')
+        if not hasattr(self, 'annual_costs'):
             index = self.stock.sales.index
-            self.annual_costs = util.empty_df(index, columns=['value'],fill_value=0.)
+            self.annual_costs = util.empty_df(index, columns=['value'], fill_value=0.)
         self.levelized_costs[year] = 0
         for cost in self.costs.values():
             rev_req = util.DfOper.add([self.calculate_dynamic_supply_costs(cost, year, start_year), self.calculate_static_supply_costs(cost, year, start_year)])
             self.levelized_costs.loc[:,year] += rev_req.values.flatten()
             self.calculate_lump_costs(year, rev_req)
             cost.prev_yr_rev_req = rev_req
-        self.embodied_cost.loc[:,year] = util.DfOper.divi([self.levelized_costs[year].to_frame(), self.throughput],expandable=(False,False)).replace([np.inf,-np.inf,np.nan,-np.nan],[0,0,0,0]).values
+        self.embodied_cost.loc[:, year] = util.DfOper.divi([self.levelized_costs[year].to_frame(), self.throughput], expandable=(False, False)).replace([np.inf, -np.inf, np.nan, -np.nan], [0, 0, 0, 0]).values
         if self.name == transmission_node_name and cfg.transmission_constraint is not None:
             if dispatch_tx_costs.cost_incremental:
-                capacity = util.DfOper.subt([util.df_slice(dispatch_tx_constraints.values,year,'year'),
-                                             util.df_slice(dispatch_tx_constraints.values,min(dispatch_tx_constraints.values.index.get_level_values('year')),'year')])
+                capacity = util.DfOper.subt([util.df_slice(dispatch_tx_constraints.values, year, 'year'),
+                                             util.df_slice(dispatch_tx_constraints.values, min(dispatch_tx_constraints.values.index.get_level_values('year')), 'year')])
             else:
-                capacity = util.df_slice(dispatch_tx_constraints.values,year,'year')
-            levelized_tx_costs = util.DfOper.mult([util.df_slice(dispatch_tx_costs.values_level,year,'year'),capacity]).groupby(level='gau_from').sum()
-            util.replace_index_name(levelized_tx_costs,GeoMapper.supply_primary_geography,'gau_from')
-            embodied_tx_costs = util.DfOper.divi([levelized_tx_costs,self.throughput])
-            try:
-                self.embodied_cost.loc[:, year] += embodied_tx_costs.values.flatten()
-            except:
-                pdb.set_trace()
-        self.active_embodied_cost = util.expand_multi(self.embodied_cost[year].to_frame(), levels_list = [GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography], self.demand_sectors],levels_names=[GeoMapper.supply_primary_geography,'demand_sector'])
-
+                capacity = util.df_slice(dispatch_tx_constraints.values, year, 'year')
+            levelized_tx_costs = util.DfOper.mult([util.df_slice(dispatch_tx_costs.values_level, year, 'year'), capacity]).groupby(level='gau_from').sum()
+            util.replace_index_name(levelized_tx_costs, GeoMapper.supply_primary_geography, 'gau_from')
+            embodied_tx_costs = util.DfOper.divi([levelized_tx_costs, self.throughput])
+            self.embodied_cost.loc[:, year] += embodied_tx_costs.values.flatten()
+        self.active_embodied_cost = util.expand_multi(self.embodied_cost[year].to_frame(), levels_list=[GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography], self.demand_sectors], levels_names=[GeoMapper.supply_primary_geography, 'demand_sector'])
 
     def calculate_dynamic_supply_costs(self, cost,year,start_year):
         "returns a revenue requirement for the component of costs that is correlated with throughput"
         if cost._has_data is True:
             #determine increased tariffs due to growth rate (financial/physical stock rati0)
-            limited_names = self.rollover_group_names if len(self.rollover_group_names)>1 else self.rollover_group_names[0]
+            limited_names = self.rollover_group_names if len(self.rollover_group_names) > 1 else self.rollover_group_names[0]
             first_yr_financial_stock = self.stock.values_financial.groupby(level=limited_names).sum()[start_year].to_frame()
             first_yr_stock = self.stock.values.groupby(level= limited_names).sum()[start_year].to_frame()
             financial_stock = self.stock.values_financial.groupby(level= limited_names).sum()[year].to_frame()
@@ -5098,7 +5095,7 @@ class SupplyStockNode(Node):
             reference_sales_shares = True
         # return SalesShare.normalize_array(ss_reference+ss_measure, retiring_must_have_replacement=True)
         # todo make retiring_must_have_replacement true after all data has been put in db
-        return SalesShare.normalize_array(ss_reference + ss_measure, retiring_must_have_replacement=False),reference_sales_shares
+        return SalesShare.normalize_array(ss_reference + ss_measure, retiring_must_have_replacement=False), reference_sales_shares
 
     def calculate_total_sales_share_after_initial(self, elements, levels):
         ss_measure = self.helper_calc_sales_share(elements, levels, reference=False)
@@ -5235,10 +5232,7 @@ class SupplyStockNode(Node):
                 raise ValueError('Sales share has NaN values in node ' + str(self.name))
             sales = self.calculate_total_sales(elements, self.stock.rollover_group_names)
             initial_total = util.df_slice(self.stock.total_rollover, elements, self.stock.rollover_group_names).values[0]
-            try:
-                initial_stock, rerun_sales_shares = self.calculate_initial_stock(elements, initial_total, sales_share,initial_sales_share)
-            except:
-                pdb.set_trace()
+            initial_stock, rerun_sales_shares = self.calculate_initial_stock(elements, initial_total, sales_share, initial_sales_share)
             if rerun_sales_shares:
                  sales_share = self.calculate_total_sales_share_after_initial(elements,self.stock.rollover_group_names)
             technology_stock = self.stock.return_stock_slice(elements, self.stock.rollover_group_names,'technology_rollover').values
@@ -6436,9 +6430,19 @@ class RioInputs(DataObject):
             return None
         if len(dual_fuel_efficiency) == 0:
             return None
-        df = dual_fuel_efficiency[np.isfinite(dual_fuel_efficiency.values)]
+
+        df = dual_fuel_efficiency.groupby(level=dual_fuel_efficiency.index.names).sum() # this is necessary to sum over new and existing
+        annual_energy = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\annual_energy.csv'),
+                                 usecols=['year', 'output', 'zone', 'resource_agg', 'value', 'run name'],
+                                 index_col=['year', 'output', 'zone', 'resource_agg', 'run name'])
+        annual_energy = annual_energy.xs('thermal', level='output')
+        resources = df.index.get_level_values('resource_agg').unique()
+        annual_energy = util.df_slice(annual_energy, resources, 'resource_agg')
+        annual_energy = annual_energy.groupby(level=annual_energy.index.names).sum() # this is necessary to sum over new and existing
+        df = util.DfOper.divi([df,annual_energy],non_expandable_levels='resource_agg')*-1
+        df = df[np.isfinite(df.values)]
         df = df.groupby(level=df.index.names).mean()
-        df =  util.df_slice(df,scenario,'run name')
+        df = util.df_slice(df, scenario, 'run name')
         df = df.reset_index()
         df[cfg.rio_geography] = [self.geography_mapping[x] for x in df['zone'].values]
         df['supply_node'] = [self.supply_node_mapping[x] for x in df['blend'].values]

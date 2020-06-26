@@ -121,10 +121,10 @@ class Dispatch(object):
         # self.dispatch_window_dict = dict(util.csv_read_table('DispatchWindows')) # todo doesn't seem used
         self.curtailment_cost = UnitConverter.unit_convert(0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.unserved_capacity_cost = UnitConverter.unit_convert(10000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.dist_net_load_penalty = UnitConverter.unit_convert(15000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.dist_net_load_penalty = UnitConverter.unit_convert(200000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
 
         # this bulk penalty is mostly for transmission
-        self.bulk_net_load_penalty = UnitConverter.unit_convert(5000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.bulk_net_load_penalty = UnitConverter.unit_convert(75000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.ld_upward_imbalance_penalty = UnitConverter.unit_convert(150.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.ld_downward_imbalance_penalty = UnitConverter.unit_convert(50.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.dispatch_feeders = dispatch_feeders

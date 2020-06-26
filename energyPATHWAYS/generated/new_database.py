@@ -132,7 +132,7 @@ _Metadata = [
                 key_col='demand_technology',
                 lowcase_cols=['sensitivity'],
                 drop_cols=['source', 'notes'],
-                df_cols=['vintage', 'gau', 'value', 'oth_2', 'oth_1', 'sensitivity']),
+                df_cols=['vintage', 'year', 'gau', 'value', 'oth_2', 'oth_1', 'sensitivity']),
     CsvMetadata('DemandTechsServiceLink',
                 key_col='name',
                 drop_cols=['source', 'notes'],

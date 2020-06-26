@@ -125,7 +125,7 @@ def load_model(load_demand, load_supply, load_error, scenario,rio_scenario):
                 model = pickle.load(infile)
                 logging.info('Loaded complete EnergyPATHWAYS model from pickle')
         else:
-            raise("No model file exists")
+            raise IOError("No model file exists")
     else:
         model = PathwaysModel(pathways_scenario)
     return model
@@ -137,15 +137,15 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'E:\EnergyPATHWAYS\MassV2'
+    workingdir = r'E:\EnergyPATHWAYS\MassRIO2EP'
     os.chdir(workingdir)
-    rio_scenario = ['reference']
-    scenario = ['reference']
+    rio_scenario = ['decarbonized gas wf']
+    scenario = ['decarbonized gas']
     run(scenario,
-    load_demand   = True,
+    load_demand   = False,
     solve_demand  = False,
-    load_supply   = False,
-    solve_supply  = True,
+    load_supply   = True,
+    solve_supply  = False,
     export_results= False,
     load_error    = False,
     save_models   = False,
