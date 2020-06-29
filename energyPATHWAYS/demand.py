@@ -1819,9 +1819,9 @@ class Subsector(schema.DemandSubsectors):
                     # project the stock and prepare a subset for use in calculating
                     # the efficiency of the stock during the years in which we have
                     # energy demand inputs
-                    self.project_stock(stock_dependent=self.energy_demand.is_stock_dependent)
+                    self.project_stock(stock_dependent=self.energy_demand.is_stock_dependent, reference_run=True)
                     self.stock_subset_prep()
-                    self.project_energy_demand(stock_dependent =self.energy_demand.is_stock_dependent,Reference_Run=True)
+                    self.project_energy_demand(stock_dependent =self.energy_demand.is_stock_dependent)
                     # divide by the efficiency of the stock to return service demand values
                     self.efficiency_removal()
                     self.service_demand.geography = GeoMapper.demand_primary_geography
