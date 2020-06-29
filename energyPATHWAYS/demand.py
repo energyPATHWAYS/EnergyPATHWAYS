@@ -1821,10 +1821,9 @@ class Subsector(schema.DemandSubsectors):
                     # energy demand inputs
                     self.project_stock(stock_dependent=self.energy_demand.is_stock_dependent)
                     self.stock_subset_prep()
-                    self.project_energy_demand(stock_dependent =self.energy_demand.is_stock_dependent)
+                    self.project_energy_demand(stock_dependent =self.energy_demand.is_stock_dependent,Reference_Run=True)
                     # divide by the efficiency of the stock to return service demand values
                     self.efficiency_removal()
-
                     self.service_demand.geography = GeoMapper.demand_primary_geography
                     #self.service_demand.project(map_from = 'int_values',current_geography=GeoMapper.demand_primary_geography)
                 elif self.sub_type == 'stock and service':
@@ -1943,12 +1942,12 @@ class Subsector(schema.DemandSubsectors):
             # service demand has not been projected by default, so starting point, by default, is 'raw values
             self.service_demand.map_from = self.service_demand.map_from if hasattr(self.service_demand, 'map_from') else 'raw_values'
             if self.stock.is_service_demand_dependent == 0 and self.service_demand.is_stock_dependent == 0:
-                self.project_stock(map_from=self.stock.map_from)
+                self.project_stock(map_from=self.stock.map_from,override=True)
                 self.project_service_demand(map_from=self.service_demand.map_from)
                 self.sd_modifier_full()
             elif self.stock.is_service_demand_dependent == 1 and self.service_demand.is_stock_dependent == 0:
                 self.project_service_demand(map_from=self.service_demand.map_from,service_dependent=True)
-                self.project_stock(map_from=self.stock.map_from, service_dependent=True)
+                self.project_stock(map_from=self.stock.map_from, service_dependent=True,override=True)
                 self.sd_modifier_full()
             elif self.stock.is_service_demand_dependent == 0 and self.service_demand.is_stock_dependent == 1:
                 self.project_stock(map_from=self.stock.map_from,stock_dependent=True,reference_run=True)
