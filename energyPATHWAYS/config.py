@@ -87,7 +87,10 @@ def initialize_config():
     supply_years = range(getParamAsInt( 'current_year'),
                           getParamAsInt( 'end_year') + 1,
                           getParamAsInt( 'year_step'))
-    if isinstance(getParam('years_subset',section = 'combined_output_detail'),str):
+
+
+    if len(getParam('years_subset',section = 'combined_output_detail')):
+        pdb.set_trace()
         years_subset = [int(x.strip()) for x in getParam('years_subset',section = 'combined_output_detail').split(',') ]
     else:
         years_subset = supply_years

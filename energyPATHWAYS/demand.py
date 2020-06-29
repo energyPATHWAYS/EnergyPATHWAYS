@@ -1956,6 +1956,7 @@ class Subsector(schema.DemandSubsectors):
                 raise ValueError(
                     "stock and service demands both specified as dependent on each other in subsector %s" % self.name)
             levels = [level for level in self.stock.rollover_group_names if level in self.service_demand.values.index.names] + ['year']
+            pdb.set_trace()
             self.service_demand.values = self.service_demand.values.groupby(level=levels).sum()
 
 

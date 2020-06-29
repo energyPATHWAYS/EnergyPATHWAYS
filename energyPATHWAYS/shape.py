@@ -92,7 +92,7 @@ class Shapes(object):
                                                   self.time_slice_elements,
                                                   self.num_active_years)
 
-        self.process_active_shapes()
+        #self.process_active_shapes()
 
     @classmethod
     def get_values(cls, key, database_path=None):
@@ -190,6 +190,7 @@ class Shape(DataObject):
         self.values_all_sensitivities = None
         self.extrapolation_growth = None
         self.raw_values = self.filter_foreign_gaus(self.raw_values)
+
 
     def filter_foreign_gaus(self, raw_values):
         geographies_to_keep = GeoMapper.geography_to_gau[self.geography]
