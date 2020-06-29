@@ -1956,7 +1956,6 @@ class Subsector(schema.DemandSubsectors):
                 raise ValueError(
                     "stock and service demands both specified as dependent on each other in subsector %s" % self.name)
             levels = [level for level in self.stock.rollover_group_names if level in self.service_demand.values.index.names] + ['year']
-            pdb.set_trace()
             self.service_demand.values = self.service_demand.values.groupby(level=levels).sum()
 
 
@@ -2694,7 +2693,7 @@ class Subsector(schema.DemandSubsectors):
         self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
                                    converted_geography=GeoMapper.demand_primary_geography,
                                    additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent,stock_dependent=stock_dependent),current_data_type=current_data_type, projected=projected)
-        self.energy_demand.values = util.remove_df_levels(self.energy_demand.values,cfg.removed_demand_levels)                                                                    
+        self.energy_demand.values = util.remove_df_levels(self.energy_demand.values,cfg.removed_demand_levels)
 
     def calculate_sales_shares(self,reference_run=False):
         for tech in self.techs:
