@@ -369,7 +369,7 @@ class DemandFlexibleLoadMeasures(DataObject):
     _table_name = "DemandFlexibleLoadMeasures"
     _key_col = 'name'
     _cols = ["extrapolation_growth", "extrapolation_method", "geography", "interpolation_method",
-             "name", "other_index_1", "subsector"]
+             "name", "other_index_1", "p_max", "p_min", "subsector"]
     _df_cols = ["gau", "demand_technology", "value", "oth_1", "year"]
     _df_filters = []
     _data_table_name = None
@@ -385,10 +385,13 @@ class DemandFlexibleLoadMeasures(DataObject):
         self.interpolation_method = None
         self.name = name
         self.other_index_1 = None
+        self.p_max = None
+        self.p_min = None
         self.subsector = None
 
     def set_args(self, scenario, extrapolation_growth=None, extrapolation_method=None, geography=None,
-                 interpolation_method=None, name=None, other_index_1=None, subsector=None):
+                 interpolation_method=None, name=None, other_index_1=None, p_max=None, p_min=None,
+                 subsector=None):
         self.check_scenario(scenario)
 
         self.extrapolation_growth = extrapolation_growth
@@ -397,15 +400,17 @@ class DemandFlexibleLoadMeasures(DataObject):
         self.interpolation_method = interpolation_method
         self.name = name
         self.other_index_1 = other_index_1
+        self.p_max = p_max
+        self.p_min = p_min
         self.subsector = subsector
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, subsector, geography, other_index_1, interpolation_method, extrapolation_method,
-         extrapolation_growth,) = tup
+        (name, subsector, geography, p_min, p_max, other_index_1, interpolation_method,
+         extrapolation_method, extrapolation_growth,) = tup
 
         self.set_args(scenario, extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, interpolation_method=interpolation_method, name=name,
-                  other_index_1=other_index_1, subsector=subsector)
+                  other_index_1=other_index_1, p_max=p_max, p_min=p_min, subsector=subsector)
 
 class DemandFuelSwitchingMeasures(DataObject):
     _instances_by_key = {}

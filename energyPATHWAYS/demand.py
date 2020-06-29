@@ -885,9 +885,12 @@ class Subsector(schema.DemandSubsectors):
             return_shape = util.DfOper.add((return_shape, pd.concat([flex_native], keys=[0], names=['timeshift_type'])))
 
             capacity_group_levels = [l for l in flex_native.index.names if l != 'weather_datetime']
-            self.flexible_load_pmax[year] = flex_native.groupby(level=capacity_group_levels).max()
-            # this is a placeholder for V2G, we need a column in the db
-            self.flexible_load_pmin[year] = - self.flexible_load_pmax[year] if False else pd.DataFrame(0, index=self.flexible_load_pmax[year].index, columns=self.flexible_load_pmax[year].columns)
+            self.flexible_load_pmax[year] = flex_native.groupby(level=capacity_group_levels).max() * self.flexible_load_measure.p_max
+            if self.flexible_load_measure.p_min < 0:
+                # this is p2g
+                self.flexible_load_pmin[year] = flex_native.groupby(level=capacity_group_levels).max() * self.flexible_load_measure.p_min
+            else:
+                self.flexible_load_pmin[year] = flex_native.groupby(level=capacity_group_levels).min() * self.flexible_load_measure.p_min
         else:
             # if we don't have flexible load, we don't introduce electricity reconcilliation because that is done at a more aggregate level
             remaining_shape = util.DfOper.mult((Shapes.get_values(active_shape), remaining_energy))
@@ -1816,7 +1819,7 @@ class Subsector(schema.DemandSubsectors):
                     # project the stock and prepare a subset for use in calculating
                     # the efficiency of the stock during the years in which we have
                     # energy demand inputs
-                    self.project_stock(stock_dependent=self.energy_demand.is_stock_dependent,reference_run=True)
+                    self.project_stock(stock_dependent=self.energy_demand.is_stock_dependent)
                     self.stock_subset_prep()
                     self.project_energy_demand(stock_dependent =self.energy_demand.is_stock_dependent)
                     # divide by the efficiency of the stock to return service demand values
@@ -2035,8 +2038,7 @@ class Subsector(schema.DemandSubsectors):
         """
         self.stock_subset_prep()
         df_for_indexing = util.empty_df(index=self.stock.values_efficiency.index, columns=self.stock.values.columns.values, fill_value=1)
-        sd_subset = getattr(self.service_demand, 'values')
-        sd_subset = util.df_slice(self.service_demand.values,np.arange(self.min_year,self.max_year+1,1),'year',drop_level=False)
+        sd_subset = util.df_slice(self.service_demand.values, np.arange(self.min_year,self.max_year+1,1),'year',drop_level=False)
         if self.service_subset is None:
             # if there is no service subset, initial service demand modifiers equal 1"
             sd_modifier = df_for_indexing
@@ -2045,7 +2047,6 @@ class Subsector(schema.DemandSubsectors):
             sd_subset_normal = sd_subset.groupby(level=util.ix_excl(sd_subset, ['demand_technology'])).transform(lambda x: x / x.sum())
 
             # calculate service demand modifier by dividing the share of service demand by the share of stock
-
             sd_modifier = DfOper.divi([sd_subset_normal, self.stock.tech_subset_normal])
             # expand the dataframe to put years as columns
             sd_modifier = self.vintage_year_array_expand(sd_modifier, df_for_indexing, sd_subset)
@@ -2056,8 +2057,7 @@ class Subsector(schema.DemandSubsectors):
         elif self.service_subset == 'final_energy':
             # calculate share of service demand by final energy
             sd_subset = sd_subset.groupby(level=util.ix_excl(sd_subset, ['demand_technology'])).sum()
-            sd_subset_normal = sd_subset.groupby(level=util.ix_excl(sd_subset, ['final_energy'])).transform(
-                lambda x: x / x.sum())
+            sd_subset_normal = sd_subset.groupby(level=util.ix_excl(sd_subset, ['final_energy'])).transform(lambda x: x / x.sum())
             # calculate service demand modifier by dividing the share of service demand by the share of stock
             sd_modifier = DfOper.divi([sd_subset_normal, self.stock.energy_subset_normal])
             # expand the dataframe to put years as columns
@@ -2065,7 +2065,6 @@ class Subsector(schema.DemandSubsectors):
             sd_modifier.fillna(1, inplace=True)
             # replace any 0's with 1 since zeros indicates no stock in that subset, not a service demand modifier of 0
             sd_modifier[sd_modifier == 0] = 1
-
         else:
             # group over final energy since this is overspecified with demand_technology utility factors if indices of both
             # demand_technology and energy are present
@@ -2081,25 +2080,23 @@ class Subsector(schema.DemandSubsectors):
             # replace any 0's with 1 since zeros indicates no stock in that subset, not a service demand modifier of 0
             sd_modifier[sd_modifier == 0] = 1
 
-            # loop through technologies and add service demand modifiers by demand_technology-specific input (i.e. demand_technology has a
+        # loop through technologies and add service demand modifiers by demand_technology-specific input (i.e. demand_technology has a
         # a service demand modifier class)
         for tech in self.techs:
             if self.technologies[tech].service_demand_modifier.raw_values is not None:
                 indexer = util.level_specific_indexer(sd_modifier, 'demand_technology', tech)
-                tech_modifier = getattr(getattr(self.technologies[tech], 'service_demand_modifier'), 'values')
-                levels = sd_modifier.loc[indexer,:].reset_index().set_index(sd_modifier.index.names).index.levels
+                tech_modifier = self.technologies[tech].service_demand_modifier.values
+                sd_modifier_reset = sd_modifier.loc[indexer,:].reset_index().set_index(sd_modifier.index.names)
+                levels = sd_modifier_reset.index.levels
+                gaus = sd_modifier_reset.index.get_level_values(GeoMapper.demand_primary_geography).unique()
+                tech_modifier = util.df_slice(tech_modifier, gaus, GeoMapper.demand_primary_geography, reset_index=True)
                 tech_modifier = util.expand_multi(tech_modifier, levels, sd_modifier.index.names, drop_index='demand_technology').fillna(method='bfill')
-                try:
-                    sd_modifier.loc[indexer, :] = tech_modifier.values
-                except:
-                    pdb.set_trace()
+                sd_modifier.loc[indexer, :] = tech_modifier.values
         # multiply stock by service demand modifiers
         stock_values = DfOper.mult([sd_modifier, self.stock.values_efficiency]).groupby(level=self.stock.rollover_group_names).sum()
-#        # group stock and adjusted stock values
+        # group stock and adjusted stock values
         adj_stock_values = self.stock.values_efficiency.groupby(level=self.stock.rollover_group_names).sum()
-#        stock_values = self.stock.values.groupby(
-#            level=util.ix_excl(self.stock.values, exclude=['vintage', 'demand_technology'])).sum()
-#        # if this adds up to more or less than 1, we have to adjust the service demand modifers
+        # if this adds up to more or less than 1, we have to adjust the service demand modifers
         sd_mod_adjustment = DfOper.divi([stock_values, adj_stock_values])
         sd_mod_adjustment.replace([np.inf, -np.inf, np.nan], 1, inplace=True)
         self.sd_modifier = sd_modifier
@@ -2867,18 +2864,20 @@ class Subsector(schema.DemandSubsectors):
 
     def tech_sd_modifier_calc(self):
         if self.stock.is_service_demand_dependent and self.stock.demand_stock_unit_type == 'equipment':
-            full_levels = self.stock.rollover_group_levels + [self.technologies.keys()] + [
-                [self.vintages[0] - 1] + self.vintages]
+            full_levels = self.stock.rollover_group_levels + [self.technologies.keys()] + [[self.vintages[0] - 1] + self.vintages]
             full_names = self.stock.rollover_group_names + ['demand_technology', 'vintage']
             columns = self.years
             index = pd.MultiIndex.from_product(full_levels, names=full_names)
             sd_modifier = util.empty_df(index=index, columns=pd.Index(columns, dtype='object'),fill_value=1.0)
             for tech in self.techs:
                 if self.technologies[tech].service_demand_modifier.raw_values is not None:
-                    tech_modifier = getattr(getattr(self.technologies[tech], 'service_demand_modifier'), 'values')
-                    tech_modifier = util.expand_multi(tech_modifier, sd_modifier.index.levels, sd_modifier.index.names,
-                                                      drop_index='demand_technology').fillna(method='bfill')
                     indexer = util.level_specific_indexer(sd_modifier, 'demand_technology', tech)
+                    tech_modifier = self.technologies[tech].service_demand_modifier.values
+                    sd_modifier_reset = sd_modifier.loc[indexer, :].reset_index().set_index(sd_modifier.index.names)
+                    levels = sd_modifier_reset.index.levels
+                    gaus = sd_modifier_reset.index.get_level_values(GeoMapper.demand_primary_geography).unique()
+                    tech_modifier = util.df_slice(tech_modifier, gaus, GeoMapper.demand_primary_geography, reset_index=True)
+                    tech_modifier = util.expand_multi(tech_modifier, levels, sd_modifier.index.names, drop_index='demand_technology').fillna(method='bfill')
                     sd_modifier.loc[indexer, :] = tech_modifier.values
             self.tech_sd_modifier = sd_modifier
 
