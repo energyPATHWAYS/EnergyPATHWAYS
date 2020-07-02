@@ -26,6 +26,8 @@ class FlexibleLoadMeasure(schema.DemandFlexibleLoadMeasures):
         self.input_type = 'intensity'
         self.remap(converted_geography=GeoMapper.demand_primary_geography)
         self.values.sort_index(inplace=True)
+        self.p_max = 1. if self.p_max is None else self.p_max
+        self.p_min = 1. if self.p_min is None else self.p_min
 
 
 class DemandMeasure(StockItem):
