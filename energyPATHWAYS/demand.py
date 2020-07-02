@@ -202,7 +202,7 @@ class Demand(object):
         ['gau', 'dispatch_feeder', 'weather_datetime']
         """
         indexer = util.level_specific_indexer(self.outputs.d_energy, levels=['year', 'final_energy'], elements=[[year], [cfg.electricity_energy_type]])
-        ele_energy_helper = self.outputs.d_energy.loc[indexer].groupby(level=('subsector', GeoMapper.demand_primary_geography)).sum()
+        ele_energy_helper = self.outputs.d_energy.loc[indexer,:].groupby(level=('subsector', GeoMapper.demand_primary_geography)).sum()
 
         df_list = []
         for sector in self.sectors.values():
