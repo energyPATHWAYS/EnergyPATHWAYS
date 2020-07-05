@@ -92,7 +92,7 @@ class Shapes(object):
                                                   self.time_slice_elements,
                                                   self.num_active_years)
 
-        #self.process_active_shapes()
+        self.process_active_shapes()
 
     @classmethod
     def get_values(cls, key, database_path=None):

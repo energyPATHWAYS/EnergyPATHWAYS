@@ -89,8 +89,7 @@ def initialize_config():
                           getParamAsInt( 'year_step'))
 
 
-    if len(getParam('years_subset',section = 'combined_output_detail')):
-        pdb.set_trace()
+    if len(getParam('years_subset',section = 'combined_output_detail')) and getParam('years_subset',section = 'combined_output_detail')!='None':
         years_subset = [int(x.strip()) for x in getParam('years_subset',section = 'combined_output_detail').split(',') ]
     else:
         years_subset = supply_years

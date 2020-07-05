@@ -551,13 +551,13 @@ class Supply(object):
         self.aggregate_results()
         logging.info("calculating supply cost link")
         self.cost_demand_link = self.map_embodied_to_demand(self.cost_dict, self.embodied_cost_link_dict)
-        #self.cost_demand_link = util.remove_df_levels(self.cost_demand_link,
-        #                                                GeoMapper.supply_primary_geography + "_supply")
+        self.cost_demand_link = util.remove_df_levels(self.cost_demand_link,
+                                                        GeoMapper.supply_primary_geography + "_supply")
         logging.info("calculating supply emissions link")
         self.emissions_demand_link = self.map_embodied_to_demand(self.emissions_dict, self.embodied_emissions_link_dict)
         logging.info("calculating supply energy link")
         self.energy_demand_link = self.map_embodied_to_demand(self.inverse_dict['energy'], self.embodied_energy_link_dict)
-        #self.energy_demand_link = util.remove_df_levels(self.energy_demand_link,GeoMapper.supply_primary_geography + "_supply")
+        self.energy_demand_link = util.remove_df_levels(self.energy_demand_link,GeoMapper.supply_primary_geography + "_supply")
 #       self.remove_blend_and_import()
         logging.info("calculate exported costs")
         self.calculate_export_result('export_costs', self.cost_dict)
