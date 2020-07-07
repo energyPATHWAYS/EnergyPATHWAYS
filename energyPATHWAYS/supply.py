@@ -5525,7 +5525,7 @@ class SupplyStockNode(Node):
             b[b<a] = a
             self.stock.requirement_energy.loc[:,year] = b
             if cfg.rio_supply_run and self.name not in cfg.rio_excluded_nodes:
-                self.stock.requirement_energy.loc[:, year] = 0
+                self.stock.requirement_energy.loc[:,year] = self.stock.act_total_energy
             self.stock.requirement.loc[:,year] = DfOper.divi([self.stock.requirement_energy.loc[:,year].to_frame(),self.stock.act_energy_capacity_ratio])
         else:
             #calculates the total amount of energy needed to distribute
@@ -6372,6 +6372,7 @@ class RioInputs(DataObject):
     def clean_delivered_rio_gen(self,gen_energy):
         if self.delivered_gen is None:
             return None
+
         df = util.df_slice(self.delivered_gen,self.scenario, 'run name')
         reverse_tech_lookup = dict(zip(self.supply_technology_mapping.values(), self.supply_technology_mapping.keys()))
         df = df[~df.index.get_level_values('resource_agg').isin(
