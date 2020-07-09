@@ -137,15 +137,15 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'E:\EP_Runs\WEST'
+    workingdir = r'E:\ep_runs\DTE\EP2RIO'
     os.chdir(workingdir)
-    rio_scenario = ['slow electricity']
-    scenario = ['slow electricity']
+    rio_scenario = None
+    scenario = ['high electrification']
     run(scenario,
-    load_demand   = True,
+    load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
-    solve_supply  = False,
+    solve_supply  = True,
     export_results= False,
     load_error    = False,
     save_models   = False,

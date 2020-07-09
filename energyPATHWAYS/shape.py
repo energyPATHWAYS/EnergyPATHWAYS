@@ -292,8 +292,7 @@ class Shape(DataObject):
         logging.debug('        ...normalizing shapes')
         final_data = self.normalize(final_data)
         if final_data.sum().sum() == 0:
-            pass
-            #raise ValueError("'{}' shape data is all zeros after processing. This indicates an error upstream and if not fixed will cause issues downstream.".format(self.name))
+            logging.info("'{}' shape data is all zeros after processing. This indicates an error upstream and if not fixed will cause issues downstream.".format(self.name))
         self.values = final_data
         #raw values can be very large, so we delete it in this one case
         del self.raw_values

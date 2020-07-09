@@ -39,7 +39,7 @@ class RioExport(object):
             #self.write_reference_tables()
             #self.write_all_empty()
             # logging.info("writing shapes")
-            # self.write_shapes()
+            self.write_shapes()
             #self.write_blend_main()
             #self.write_new_tech_main()
             #logging.info("writing existing_tech_main")
@@ -2538,9 +2538,16 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'E:\EP_runs\West'
+    workingdir = r'E:\ep_runs\DTE\EP2RIO'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['100% renewable','central','low demand','reference','slow electricity']
+    scenario = ['high electrificaiton no capture',
+                'high electrificaiton no capture medt',
+                'high electrificaiton with capture',
+                'pipeline gas no capture',
+                'pipeline gas no capture medt',
+                'pipeline gas with capture',
+                'reference',
+                'reference no covid']
     export = run(workingdir, config, scenario)
     self = export
