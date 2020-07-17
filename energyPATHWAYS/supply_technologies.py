@@ -423,7 +423,10 @@ class SupplyTechCapacityFactor(schema.SupplyTechsCapacityFactor):
         self.vintages = vintages
         self.years = years
         if self._has_data and self.raw_values is not None and (cfg.rio_supply_run is not True or 'vintage' in self.raw_values.index.names):
-            self.remap(time_index_name='vintage', converted_geography=GeoMapper.supply_primary_geography,fill_value=np.nan)
+            try:
+                self.remap(time_index_name='vintage', converted_geography=GeoMapper.supply_primary_geography,fill_value=np.nan)
+            except:
+                pdb.set_trace()
             self.values.replace(0,1,inplace=True)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
         elif self._has_data and self.raw_values is not None and cfg.rio_supply_run==True:

@@ -142,7 +142,7 @@ if __name__ == "__main__":
     rio_scenario = ['100 percent renewables']
     scenario = ['100% renewable']
     run(scenario,
-    load_demand   = True,
+    load_demand   = False,
     solve_demand  = False,
     load_supply   = True,
     solve_supply  = False,
@@ -151,6 +151,10 @@ if __name__ == "__main__":
     save_models   = False,
     clear_results = False,
     rio_scenario=rio_scenario)
+
+    #dispatch = Dispatch.load_from_pickle()
+
+
     #
     # test = model.demand.aggregate_electricity_shapes(2017)
     # test2 = model.demand.aggregate_electricity_shapes(2020)
