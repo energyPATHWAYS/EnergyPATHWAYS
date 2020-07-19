@@ -87,8 +87,10 @@ def initialize_config():
     supply_years = range(getParamAsInt( 'current_year'),
                           getParamAsInt( 'end_year') + 1,
                           getParamAsInt( 'year_step'))
-    if len(getParam('years_subset',section='combined_output_detail')):
-        years_subset = [int(x.strip()) for x in getParam('years_subset',section='combined_output_detail').split(',')]
+
+
+    if len(getParam('years_subset',section = 'combined_output_detail')) and getParam('years_subset',section = 'combined_output_detail')!='None':
+        years_subset = [int(x.strip()) for x in getParam('years_subset',section = 'combined_output_detail').split(',') ]
     else:
         years_subset = supply_years
 

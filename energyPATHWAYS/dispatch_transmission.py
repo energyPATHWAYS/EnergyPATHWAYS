@@ -21,7 +21,6 @@ class TransmissionSuper(DataObject):
         if self.raw_values is None:
             self._setup_zero_constraints()
             return""
-
         self._validate_gaus()
         self.values = self.clean_timeseries(attr='raw_values', inplace=False, time_index=cfg.supply_years, time_index_name='year', interpolation_method=self.interpolation_method, extrapolation_method=self.extrapolation_method)
         # fill in any missing combinations of geographies
@@ -65,7 +64,8 @@ class DispatchTransmissionConstraint(schema.DispatchTransmissionConstraint, Tran
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
     def __init__(self, name, scenario):
         schema.DispatchTransmissionConstraint.__init__(self, name, scenario=scenario)
-        self.init_from_db(name, scenario)
+        if self.name is not None:
+           self.init_from_db(name, scenario)
         TransmissionSuper.__init__(self)
         self.scenario = scenario
         self.name = name
@@ -85,7 +85,8 @@ class DispatchTransmissionHurdleRate(schema.DispatchTransmissionHurdleRate, Tran
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
     def __init__(self, name, scenario):
         schema.DispatchTransmissionHurdleRate.__init__(self, name, scenario=scenario)
-        self.init_from_db(name, scenario)
+        if self.name is not None:
+           self.init_from_db(name, scenario)
         self.name = name
         TransmissionSuper.__init__(self)
         self.scenario = scenario
@@ -101,8 +102,9 @@ class DispatchTransmissionLosses(schema.DispatchTransmissionLosses, Transmission
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
     def __init__(self, name, scenario):
         schema.DispatchTransmissionLosses.__init__(self, name, scenario=scenario)
-        self.init_from_db(name, scenario)
         self.name = name
+        if self.name is not None:
+           self.init_from_db(name, scenario)
         TransmissionSuper.__init__(self)
         self.scenario = scenario
 
@@ -110,8 +112,9 @@ class DispatchTransmissionCost(schema.DispatchTransmissionCost, TransmissionSupe
     """loads and cleans the data that allocates demand sectors to dispatch feeders"""
     def __init__(self, name, scenario):
         schema.DispatchTransmissionCost.__init__(self, name, scenario=scenario)
-        self.init_from_db(name, scenario)
         self.name = name
+        if self.name is not None:
+           self.init_from_db(name, scenario)
         TransmissionSuper.__init__(self)
         self.scenario = scenario
 

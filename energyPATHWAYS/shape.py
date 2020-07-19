@@ -191,6 +191,7 @@ class Shape(DataObject):
         self.extrapolation_growth = None
         self.raw_values = self.filter_foreign_gaus(self.raw_values)
 
+
     def filter_foreign_gaus(self, raw_values):
         geographies_to_keep = GeoMapper.geography_to_gau[self.geography]
         keep_index = raw_values.index.get_level_values(self.geography).isin(geographies_to_keep)
