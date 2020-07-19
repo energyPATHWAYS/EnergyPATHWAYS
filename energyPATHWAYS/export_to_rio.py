@@ -2538,9 +2538,9 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'E:\EnergyPATHWAYS\MassV3'
+    workingdir = r'E:\ep_runs\Mass\MassV4'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['all options', 'decarbonized gas', 'reference', 'der breakthrough', 'no ee']
+    scenario = ['all options', 'pipeline gas', 'reference', 'der breakthrough', 'limited efficiency']
     export = run(workingdir, config, scenario)
     self = export

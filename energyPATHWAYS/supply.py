@@ -925,11 +925,12 @@ class Supply(object):
         #hardcoded 50% assumption of colocated energy for dispatched flexible gen. I.e. wind and solar. Means that transmission capacity isn't needed to support energy demands.
         #TODO change to config parameter
         if hasattr(self, 'dispatched_bulk_load'):
-            bulk_flow = util.DfOper.subt([util.DfOper.add([self.bulk_load,util.remove_df_levels(self.dist_only_net_load,'dispatch_feeder')]),self.dispatched_bulk_load * .5])
-        else:
+            bulk_flow_adjusted = util.DfOper.subt([util.DfOper.add([self.bulk_load, util.remove_df_levels(self.dist_only_net_load, 'dispatch_feeder')]), self.dispatched_bulk_load * .5])
             bulk_flow = util.DfOper.add([self.bulk_load, util.remove_df_levels(self.dist_only_net_load, 'dispatch_feeder')])
-        all_bulk_flow =  util.DfOper.add([self.bulk_load, util.remove_df_levels(self.dist_only_net_load, 'dispatch_feeder')])
-        bulk_cap_factor = util.DfOper.divi([all_bulk_flow.groupby(level=GeoMapper.dispatch_geography).mean(),bulk_flow.groupby(level=GeoMapper.dispatch_geography).max()])
+        else:
+            bulk_flow_adjusted = util.DfOper.add([self.bulk_load, util.remove_df_levels(self.dist_only_net_load, 'dispatch_feeder')])
+            bulk_flow = util.DfOper.add([self.bulk_load, util.remove_df_levels(self.dist_only_net_load, 'dispatch_feeder')])
+        bulk_cap_factor = util.DfOper.divi([bulk_flow.groupby(level=GeoMapper.dispatch_geography).mean(), bulk_flow_adjusted.groupby(level=GeoMapper.dispatch_geography).max()])
         transmission_grid_node = self.nodes[self.transmission_node_name]
         geography_map_key = transmission_grid_node.geography_map_key if hasattr(transmission_grid_node, 'geography_map_key') and transmission_grid_node.geography_map_key is not None else GeoMapper.default_geography_map_key
         if GeoMapper.dispatch_geography != GeoMapper.supply_primary_geography:
@@ -5317,10 +5318,14 @@ class SupplyStockNode(Node):
         for elements in self.rollover_groups.keys():
             elements = util.ensure_tuple(elements)
             try:
-                self.rollover_dict[elements].use_stock_changes = True
-                self.rollover_dict[elements].run(1, stock_changes.loc[elements],self.stock.return_stock_slice(elements + (year,), self.stock.rollover_group_names+['year'],'technology_rollover').values)
+                if isinstance(self, StorageNode):
+                    self.rollover_dict[elements].use_stock_changes = False
+                    self.rollover_dict[elements].run(1, stock_changes.loc[elements], self.stock.return_stock_slice(elements + (year,), self.stock.rollover_group_names + ['year'], 'technology_rollover').values)
+                else:
+                    self.rollover_dict[elements].use_stock_changes = True
+                    self.rollover_dict[elements].run(1, stock_changes.loc[elements], self.stock.return_stock_slice(elements + (year,), self.stock.rollover_group_names + ['year'], 'technology_rollover').values)
             except:
-                logging.error('error encountered in rollover for node ' + str(self.name) + ' in elements '+ str(elements) + ' year ' + str(year))
+                logging.error('error encountered in rollover for node ' + str(self.name) + ' in elements ' + str(elements) + ' year ' + str(year))
                 raise
             stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover_dict[(elements)].return_formatted_outputs(year_offset=0)
             self.stock.values.loc[elements, year], self.stock.values_new.loc[elements, year], self.stock.values_replacement.loc[
@@ -5338,7 +5343,8 @@ class SupplyStockNode(Node):
                 adjustment_factor = self.calculate_adjustment_factor(year)
                 for elements in self.rollover_groups.keys():
                     elements = util.ensure_tuple(elements)
-                    self.rollover_dict[elements].factor_adjust_current_year(adjustment_factor.loc[elements].values)
+                    if not isinstance(self, StorageNode):
+                        self.rollover_dict[elements].factor_adjust_current_year(adjustment_factor.loc[elements].values)
                     stock, stock_new, stock_replacement, retirements, retirements_natural, retirements_early, sales_record, sales_new, sales_replacement = self.rollover_dict[(elements)].return_formatted_outputs(year_offset=0)
                     self.stock.values.loc[elements, year], self.stock.values_new.loc[elements, year], self.stock.values_replacement.loc[
                         elements,year] = stock, stock_new, stock_replacement
