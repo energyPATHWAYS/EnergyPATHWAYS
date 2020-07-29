@@ -36,8 +36,8 @@ class PathwaysModel(object):
         self.rio_scenario = rio_scenario
         if solve_demand and not (load_demand or load_supply):
             self.calculate_demand(save_models)
-        if solve_demand and load_demand:
-            self.demand.aggregate_results()
+        # if solve_demand and load_demand:
+        #     self.demand.aggregate_results()
         if not append_results:
             self.remove_old_results()
 
