@@ -53,8 +53,6 @@ def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solv
     if not subfolders:
         GeoMapper.get_instance().log_geo()
 
-    shape.Shapes.get_instance(cfg.getParam('database_path'))
-
     if not scenarios:
         scenarios = [os.path.basename(p) for p in glob.glob(os.path.join(cfg.workingdir, '*.json'))]
         if not scenarios:
@@ -90,6 +88,7 @@ def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solv
                       save_models=save_models,
                       append_results=False if (scenario == scenarios[0] and clear_results) else True,rio_scenario=rio_scenario)
 
+        shape.Shapes._instance = None  # needed because we filter shapes and need to reload it during the next for loop
         logging.info('EnergyPATHWAYS run for scenario {} successful!'.format(scenario))
         logging.info('Scenario calculation time {}'.format(str(datetime.timedelta(seconds=time.time() - scenario_start_time)).split('.')[0]))
     logging.info('Total calculation time {}'.format(str(datetime.timedelta(seconds=time.time() - run_start_time)).split('.')[0]))

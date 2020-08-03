@@ -146,13 +146,14 @@ class Scenario():
             if name in self._sensitivities[table]:
                 raise ValueError("Scenario specifies sensitivity for {} {} more than once".format(table, name))
 
-            # Check that the sensitivity actually exists in the database before using it
-            md = db.table_metadata(table)
-            filters = {'sensitivity' : sensitivity, md.key_col : name}
-            data = csv_read_table(table, **filters)
+            if table != "ShapeData":
+                # Check that the sensitivity actually exists in the database before using it
+                md = db.table_metadata(table)
+                filters = {'sensitivity' : sensitivity, md.key_col : name}
+                data = csv_read_table(table, **filters)
 
-            if data is None or len(data) == 0:
-                raise ValueError("Could not find sensitivity '{}' for {} {}.".format(sensitivity, table, name))
+                if data is None or len(data) == 0:
+                    raise ValueError("Could not find sensitivity '{}' for {} {}.".format(sensitivity, table, name))
 
             self._sensitivities[table][name] = sensitivity
 

@@ -155,11 +155,10 @@ class Shapes(object):
 
     def slice_sensitivities(self, sensitivities):
         logging.info(' slicing shape sensitivities')
-        index_divider = '--'
         for shape_name in self.data:
-            sensitivity_id = shape_name + index_divider + shape_name
-            sensitivity_name = sensitivities[sensitivity_id] if sensitivity_id in sensitivities.index else '_reference_'
-            self.data[shape_name].slice_sensitivity(sensitivity_name)
+            sensitivity_name = sensitivities.get_sensitivity('ShapeData', shape_name)
+            if sensitivity_name:
+                self.data[shape_name].slice_sensitivity(sensitivity_name)
 
 class Shape(DataObject):
     def __init__(self, meta, raw_values, active_dates_index, active_dates_index_unique, time_slice_elements, num_active_years):
