@@ -155,11 +155,10 @@ class Shapes(object):
 
     def slice_sensitivities(self, sensitivities):
         logging.info(' slicing shape sensitivities')
-        index_divider = '--'
         for shape_name in self.data:
-            sensitivity_id = shape_name + index_divider + shape_name
-            sensitivity_name = sensitivities[sensitivity_id] if sensitivity_id in sensitivities.index else '_reference_'
-            self.data[shape_name].slice_sensitivity(sensitivity_name)
+            sensitivity_name = sensitivities.get_sensitivity('ShapeData', shape_name)
+            if sensitivity_name:
+                self.data[shape_name].slice_sensitivity(sensitivity_name)
 
 class Shape(DataObject):
     def __init__(self, meta, raw_values, active_dates_index, active_dates_index_unique, time_slice_elements, num_active_years):
@@ -190,7 +189,6 @@ class Shape(DataObject):
         self.values_all_sensitivities = None
         self.extrapolation_growth = None
         self.raw_values = self.filter_foreign_gaus(self.raw_values)
-
 
     def filter_foreign_gaus(self, raw_values):
         geographies_to_keep = GeoMapper.geography_to_gau[self.geography]
@@ -293,8 +291,7 @@ class Shape(DataObject):
         logging.debug('        ...normalizing shapes')
         final_data = self.normalize(final_data)
         if final_data.sum().sum() == 0:
-            pass
-            #raise ValueError("'{}' shape data is all zeros after processing. This indicates an error upstream and if not fixed will cause issues downstream.".format(self.name))
+            logging.info("'{}' shape data is all zeros after processing. This indicates an error upstream and if not fixed will cause issues downstream.".format(self.name))
         self.values = final_data
         #raw values can be very large, so we delete it in this one case
         del self.raw_values

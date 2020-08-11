@@ -27,7 +27,7 @@ import dispatch_long_duration
 from pyomo.opt import TerminationCondition
 from pyomo.environ import Constraint
 from unit_converter import UnitConverter
-
+import time
 from geomapper import GeoMapper
 from energyPATHWAYS.generated import schema
 
@@ -41,6 +41,8 @@ class DispatchFeederAllocation(schema.DispatchFeedersAllocation):
             assert (self.raw_values.groupby(level=['year', self.geography]).sum() == 1).all().all()
             self.remap(map_from='raw_values', map_to='values', converted_geography=getParam('demand_primary_geography'))
             self.values.sort_index(inplace=True)
+        else:
+            self.values = None
 
 class DispatchNodeConfig(schema.DispatchNodeConfig):
     def __init__(self, name, scenario=None):
@@ -259,7 +261,7 @@ class Dispatch(object):
             cum_distribution_load = self._ensure_feasible_flexible_load(cum_distribution_load)
 
             self.native_flex = self._timeseries_to_dict(distribution_flex_load.xs('native', level='timeshift_type'))
-            self.native_cumulative_flex = self._timeseries_to_dict(cum_distribution_load.xs('native', level='timeshift_type'))
+            self.native_cumulative_flex= self._timeseries_to_dict(cum_distribution_load.xs('native', level='timeshift_type'))
             self.min_cumulative_flex = self._timeseries_to_dict(cum_distribution_load.xs('delayed', level='timeshift_type'))
             self.max_cumulative_flex = self._timeseries_to_dict(cum_distribution_load.xs('advanced', level='timeshift_type'))
 
@@ -267,7 +269,7 @@ class Dispatch(object):
         self.flex_load_penalty_short = UnitConverter.unit_convert(cfg.getParamAsFloat('flex_load_penalty_short', 'opt'), unit_from_den='megawatt_hour', unit_to_den=cfg.calculation_energy_unit)
         self.flex_load_penalty_long = UnitConverter.unit_convert(cfg.getParamAsFloat('flex_load_penalty_long', 'opt'), unit_from_den='megawatt_hour', unit_to_den=cfg.calculation_energy_unit)
         if self.has_flexible_load:
-            self.max_flex_load = flex_pmax.squeeze().to_dict()
+            self.max_flex_load = (flex_pmax * 1.2).squeeze().to_dict()
             self.min_flex_load = flex_pmin.squeeze().to_dict()
 
     def set_opt_bulk_net_loads(self, bulk_load, bulk_gen, dispatched_bulk_load, bulk_net_load, active_thermal_dispatch_df):
@@ -591,26 +593,33 @@ class Dispatch(object):
         hour_discharge.plot(subplots=True, ax=axes, title='AVERAGE STORAGE CHARGE (-) AND DISCHARGE (+) BY HOUR')
 
     def solve_optimization(self):
-        try:
-            self.ld_energy_budgets = self.solve_ld_optimization()
-            self.set_average_net_loads(self.ld_bulk_net_load_df_updated)
-            state_of_charge = self.run_year_to_month_allocation()
-            self.start_soc_large_storage, self.end_soc_large_storage = state_of_charge[0], state_of_charge[1]
-            for period in self.periods:
-                for technology in self.ld_technologies:
-                    if self.ld_energy_budgets[period][technology]>= self.capacity[period][technology] * self.period_lengths[period]:
-                        self.ld_energy_budgets[period][technology]= self.capacity[period][technology] * self.period_lengths[period]-1
-                    if self.ld_energy_budgets[period][technology]<= self.min_capacity[period][technology] * self.period_lengths[period]:
-                        self.ld_energy_budgets[period][technology]= self.min_capacity[period][technology] * self.period_lengths[period]+1
-            if cfg.getParamAsBoolean('parallel_process'):
-                params = [(dispatch_formulation.create_dispatch_model(self, period), cfg.solver_name) for period in self.periods]
-                results = helper_multiprocess.safe_pool(helper_multiprocess.run_optimization, params)
-            else:
-                results = [self.solve_optimization_period(period) for period in self.periods]
-            self.storage_df, self.flex_load_df, self.ld_df, self.transmission_flow_df, self.generator_df  = self.parse_optimization_results(results)
-        except:
-            self.pickle_for_debugging()
-            raise
+        attempts = 0
+        while True:
+            try:
+                self.ld_energy_budgets = self.solve_ld_optimization()
+                self.set_average_net_loads(self.ld_bulk_net_load_df_updated)
+                state_of_charge = self.run_year_to_month_allocation()
+                self.start_soc_large_storage, self.end_soc_large_storage = state_of_charge[0], state_of_charge[1]
+                for period in self.periods:
+                    for technology in self.ld_technologies:
+                        if self.ld_energy_budgets[period][technology] >= self.capacity[period][technology] * self.period_lengths[period]:
+                            self.ld_energy_budgets[period][technology] = self.capacity[period][technology] * self.period_lengths[period] - 1
+                        if self.ld_energy_budgets[period][technology] <= self.min_capacity[period][technology] * self.period_lengths[period]:
+                            self.ld_energy_budgets[period][technology] = self.min_capacity[period][technology] * self.period_lengths[period] + 1
+                if cfg.getParamAsBoolean('parallel_process'):
+                    params = [(dispatch_formulation.create_dispatch_model(self, period), cfg.solver_name) for period in self.periods]
+                    results = helper_multiprocess.safe_pool(helper_multiprocess.run_optimization, params)
+                else:
+                    results = [self.solve_optimization_period(period) for period in self.periods]
+                self.storage_df, self.flex_load_df, self.ld_df, self.transmission_flow_df, self.generator_df = self.parse_optimization_results(results)
+                break
+            except:
+                print "Optimization failed... waiting 10 seconds before attempting again. Memory errors sometimes clear on the second try."
+                time.sleep(10)
+                attempts += 1
+                if attempts > 5:
+                    self.pickle_for_debugging()
+                    raise
 
     def run_year_to_month_allocation(self):
         model = dispatch_long_duration.ld_storage_formulation(self)

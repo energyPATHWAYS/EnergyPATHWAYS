@@ -902,7 +902,7 @@ class Supply(object):
         self.set_net_load_thresholds(year)
         #freeze the bulk net load as opt bulk net load just in case we want to rerun a year. If we don't do this, bulk_net_load would be updated with optimization results
         self.dispatch.set_opt_loads(self.distribution_load,self.distribution_flex_load,self.distribution_gen,self.bulk_load,self.bulk_gen,self.dispatched_bulk_load, self.bulk_net_load, self.active_thermal_dispatch_df)
-        self.dispatch.set_opt_loads(self.distribution_load,self.distribution_flex_load,self.distribution_gen,self.bulk_load,self.bulk_gen,self.dispatched_bulk_load, self.bulk_net_load, self.active_thermal_dispatch_df)
+        # self.dispatch.set_opt_loads(self.distribution_load,self.distribution_flex_load,self.distribution_gen,self.bulk_load,self.bulk_gen,self.dispatched_bulk_load, self.bulk_net_load, self.active_thermal_dispatch_df)
         flex_pmin, flex_pmax = self.demand_object.aggregate_flexible_load_pmin_pmax(year)
         self.dispatch.set_max_min_flex_loads(flex_pmin, flex_pmax)
         self.dispatch.set_technologies(self.storage_capacity_dict, self.storage_efficiency_dict, self.active_thermal_dispatch_df)
@@ -2412,12 +2412,12 @@ class Supply(object):
                         if hasattr(dict_node, 'pass_through_dict'):
                             if node.name in dict_node.pass_through_dict.keys():
                                 del dict_node.pass_through_dict[node.name]
-            for node in self.nodes.values():
-                if hasattr(node,'pass_through_dict') and node.pass_through_dict == {}:
-                    for dict_node in self.nodes.values():
-                        if hasattr(dict_node, 'pass_through_dict'):
-                            if node.name in dict_node.pass_through_dict.keys():
-                                del dict_node.pass_through_dict[node.name]
+            #for node in self.nodes.values():
+             #   if hasattr(node,'pass_through_dict') and node.pass_through_dict == {}:
+              #      for dict_node in self.nodes.values():
+               #         if hasattr(dict_node, 'pass_through_dict'):
+                #            if node.name in dict_node.pass_through_dict.keys():
+                 #               del dict_node.pass_through_dict[node.name]
         else:
             for node in self.nodes.values():
                     if hasattr(node,'pass_through_dict'):
@@ -6340,15 +6340,18 @@ class RioInputs(DataObject):
                                  index_col=['year','output', 'zone', 'feeder','resource','resource_agg','outputs_group_detailed','run name'])
         capacity = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\capacity.csv'), usecols=['output','unit','year','zone','feeder','resource','outputs_group_detailed','value','run name'],
                                          index_col=['output','unit','year','zone','feeder','resource','outputs_group_detailed','run name'])
-
-        self.delivered_gen = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\annual_delivered_gen.csv'),
+        try:
+            self.delivered_gen = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\annual_delivered_gen.csv'),
                                  usecols=['zone from','zone to','output', 'resource', 'resource_agg', 'outputs_group_detailed', 'year', 'value','run name'], index_col=['zone from','zone to', 'resource', 'resource_agg','output','outputs_group_detailed', 'year','run name'])
-
-        if self.delivered_gen.sum().sum()>0:
-            self.cleaned_delivered_gen = self.clean_delivered_rio_gen(gen_energy)
-            self.delivered_gen[self.delivered_gen.index.get_level_values('zone from')==self.delivered_gen.index.get_level_values('zone to')]=0
-        else:
-            self.delivered_gen  = None
+            if self.delivered_gen.sum().sum() > 0:
+                self.cleaned_delivered_gen = self.clean_delivered_rio_gen(gen_energy)
+                self.delivered_gen[self.delivered_gen.index.get_level_values('zone from') == self.delivered_gen.index.get_level_values('zone to')] = 0
+            else:
+                self.delivered_gen = None
+                self.cleaned_delivered_gen = None
+        except:
+            logging.info("no annual_delivered_gen.csv file found in rio_db_import")
+            self.delivered_gen = None
             self.cleaned_delivered_gen = None
         self.blend_levelized_costs = self.calc_blend_levelized_costs(self.scenario)
         logging.info("prepping dual fuel efficiency")
@@ -6370,7 +6373,7 @@ class RioInputs(DataObject):
         self.transmission_constraint = self.calc_transmission_constraint(scenario)
         #self.adjust_bulk_shares_for_missing_techs()
         for attr in ['bulk_share','fuel_outputs','zonal_fuel_outputs','zonal_fuel_exports','product_exports','blend_levelized_costs','cleaned_delivered_gen']:
-            self.clean_timeseries_and_fill_with_zeros(attr)
+                self.clean_timeseries_and_fill_with_zeros(attr)
 
 
     def adjust_bulk_shares_for_missing_techs(self):
@@ -6454,14 +6457,20 @@ class RioInputs(DataObject):
 
 
     def calc_blend_levelized_costs(self, scenario):
-        levelized_cost = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\levelized_cost.csv'),
+        try:
+            levelized_cost = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\levelized_cost.csv'),
                                  usecols=['vintage','zone', 'year', 'resource_agg', 'output', 'value','run name'], index_col=['vintage','zone', 'year', 'resource_agg', 'output','run name'])
+        except:
+            return None
         levelized_cost = util.df_slice(levelized_cost,scenario,'run name')
         df = util.remove_df_levels(levelized_cost[levelized_cost.index.get_level_values('output').isin(['blend energy storage','conversion delivery cost','product delivery cost'])],'vintage')
+        df = df.reset_index('year')
+        df['year'] = df['year'].astype(int)
+        df = df.set_index('year',append=True)
         df = util.remove_df_levels(df,'output')
         df = df.reset_index()
         df[cfg.rio_geography] = [self.geography_mapping[x] for x in df['zone'].values]
-        df['supply_node'] = [self.supply_node_mapping[x] for x in df['resource_agg'].values]
+        df['supply_node'] = [self.supply_node_mapping[x.lower()] for x in df['resource_agg'].values]
         df = df[['supply_node',cfg.rio_geography,'year','value']]
         df = df.set_index([cfg.rio_geography,'year','supply_node'])
         return df.groupby(level='supply_node').filter(lambda x: x.sum()>0)
@@ -6494,7 +6503,7 @@ class RioInputs(DataObject):
         df = util.df_slice(df, scenario, 'run name')
         df = df.reset_index()
         df[cfg.rio_geography] = [self.geography_mapping[x] for x in df['zone'].values]
-        df['supply_node'] = [self.supply_node_mapping[x] for x in df['blend'].values]
+        df['supply_node'] = [self.supply_node_mapping[x.lower()] for x in df['blend'].values]
         gen_regions = list(set(df['zone'].values))
         df['resource'] = df['resource'].apply(lambda x: self.clean_name(x, gen_regions))
         df['outputs_group_detailed_clean'] = df['outputs_group_detailed'].apply(lambda x: self.clean_name(x, gen_regions))
@@ -6665,12 +6674,28 @@ class RioInputs(DataObject):
             df_gen_bulk = util.remove_df_levels(util.df_list_concatenate([df_gen_bulk,-delivered_gen_reduction],new_names='output',keys=['a','b','c']),'output')
         df = util.DfOper.divi([df_gen_bulk,df_gen_all.groupby(level=['year','zone']).sum()])
         df = df.reset_index('resource')
+        df = df.reset_index('outputs_group_detailed')
         gen_regions = list(set(df.index.get_level_values('zone')))
         df['resource'] = df['resource'].apply(lambda x: self.clean_name(x,gen_regions))
-        df['technology'] = [self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_'))>3 else self.supply_technology_mapping[x.split('_')[0]]   for x in df['resource'].values]
+        #df['technology'] = [self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_'))>3 else self.supply_technology_mapping[x.split('_')[0]]   for x in df['resource'].values]
         df['resource'] = [x.replace('all', '1') for x in df['resource'].values]
+        df['resource'] = df['resource'].apply(lambda x: self.clean_name(x, gen_regions))
+        df['outputs_group_detailed'] = df['outputs_group_detailed'].apply(lambda x: self.clean_name(x, gen_regions))
+        tech_list = []
+        for x, y in zip(df['resource'].values, df['outputs_group_detailed'].values):
+            try:
+                tech_list.append(self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_')) > 3 else
+                                 self.supply_technology_mapping[x.split('_')[0]])
+            except:
+                try:
+                    tech_list.append(self.supply_technology_mapping[y.split('_')[1]] if len(y.split('_')) > 3 else
+                                     self.supply_technology_mapping[y.split('_')[0]])
+                except:
+                    pdb.set_trace()
+        df['technology'] = tech_list
         df['resource_bin'] = [int(x.split('_')[2]) if len(x.split('_')) == 5 else int(x.split('_')[1]) if len(x.split('_')) == 3 else 'n/a' for x in df['resource'].values]
         df.pop('resource')
+        df.pop('outputs_group_detailed')
         df = df.set_index(['technology','resource_bin'],append=True)
         df = df.groupby(level=['zone', 'year', 'technology','resource_bin']).sum()
         df = df[~df.index.get_level_values('technology').isin(cfg.rio_excluded_technologies)]
@@ -6685,7 +6710,14 @@ class RioInputs(DataObject):
         if getattr(self,attr) is None or len(getattr(self,attr))==0:
             print attr
             return None
-        self.clean_timeseries(attr, time_index_name = 'year',time_index = list(set(getattr(self,attr).index.get_level_values('year'))),extrapolation_method=None,interpolation_method='linear_interpolation')
+        df = getattr(self,attr)
+        df = df.reset_index('year')
+        df['year'] = df['year'].astype(int)
+        setattr(self,attr, df.set_index('year',append=True))
+        try:
+            self.clean_timeseries(attr, time_index_name = 'year',time_index = list(sorted([int(x) for x in set(getattr(self,attr).index.get_level_values('year'))])),extrapolation_method=None,interpolation_method='linear_interpolation')
+        except:
+            pdb.set_trace()
         setattr(self, attr, getattr(self, attr).fillna(0))
         self.clean_timeseries(attr, extrapolation_method='linear_interpolation', interpolation_method='linear_interpolation')
         setattr(self,attr,getattr(self,attr).fillna(0))
@@ -6900,7 +6932,7 @@ class RioInputs(DataObject):
         df_supply = df[df.values >= 0]
         df_supply = df_supply[df_supply.index.get_level_values('output').isin(
             ['conversion inflow','product flow'])]
-        df_supply['blend_new'] = [self.supply_node_mapping[x] for x in df_supply.index.get_level_values('blend')]
+        df_supply['blend_new'] = [self.supply_node_mapping[x.lower()] for x in df_supply.index.get_level_values('blend')]
         df_supply = df_supply.reset_index('blend')
         df_supply['blend'] = df_supply['blend_new']
         df_supply.pop('blend_new')
@@ -6938,7 +6970,7 @@ class RioInputs(DataObject):
         df *= np.vstack(np.array([ UnitConverter.unit_convert(1,a,b) for a,b in zip(df.index.get_level_values('unit'),[self.rio_standard_unit_dict[x] for x in df.index.get_level_values('unit')])]))
         df *= UnitConverter.unit_convert(1,cfg.rio_standard_energy_unit,cfg.rio_energy_unit)
         df = util.remove_df_levels(df,'unit')
-        df['blend_new'] = [self.supply_node_mapping[x] for x in df.index.get_level_values('blend')]
+        df['blend_new'] = [self.supply_node_mapping[x.lower()] for x in df.index.get_level_values('blend')]
         df = df.reset_index('blend')
         df['blend'] = df['blend_new']
         df.pop('blend_new')
@@ -6961,7 +6993,7 @@ class RioInputs(DataObject):
         df = util.remove_df_levels(df, 'unit')
         supply_node_names = [x.split('_')[0] for x in [x.split('||')[0] for x in df.index.get_level_values('fuel')]]
         df= df.reset_index()
-        df['supply_node'] = [self.supply_node_mapping[x] for x in supply_node_names]
+        df['supply_node'] = [self.supply_node_mapping[x.lower()] for x in supply_node_names]
         df = df[df['supply_node'].isin(cfg.rio_outflow_products)]
         df[cfg.rio_geography] = [self.geography_mapping[x] for x in df['zone']]
         df = df[['supply_node',cfg.rio_geography,'year','value']]

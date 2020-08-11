@@ -317,9 +317,9 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
                                            
     # Flex  loads
     if dispatch.has_flexible_load:
-        model.min_cumulative_flex = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.min_cumulative_flex[period])
-        model.max_cumulative_flex = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.max_cumulative_flex[period])
-        model.native_cumulative_flex = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.native_cumulative_flex[period])
+        model.min_cumulative_flex = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.min_cumulative_flex[period],default=0)
+        model.max_cumulative_flex = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.max_cumulative_flex[period],default=0)
+        model.native_cumulative_flex = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.native_cumulative_flex[period],default=0)
         model.native_flex = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, within=Reals, initialize=dispatch.native_flex[period])
         model.max_flex_load = Param(model.GEOGRAPHIES,model.FEEDERS, within=Reals, initialize=dispatch.max_flex_load)
         model.min_flex_load = Param(model.GEOGRAPHIES,model.FEEDERS, within=Reals, initialize=dispatch.min_flex_load)

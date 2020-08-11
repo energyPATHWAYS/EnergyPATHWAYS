@@ -375,6 +375,7 @@ class TimeSeries:
                                                       interpolation_method=interpolation_method,
                                                       extrapolation_method=extrapolation_method,
                                                       **kwargs)
+
         
         data = util.reindex_df_level_with_new_elements(data, time_index_name, newindex)
 

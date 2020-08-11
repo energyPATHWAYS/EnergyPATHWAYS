@@ -151,7 +151,11 @@ class Demand(object):
         inflex_load = util.DfOper.mult((inflex_load, self.electricity_reconciliation))
         inflex_load = pd.concat([inflex_load], keys=[0], names=['timeshift_type'])
         flex_load = util.DfOper.add([sector.aggregate_flexible_electricity_shape(year) for sector in self.sectors.values()], expandable=False, collapsible=False)
+        # add all the dispatch feeders if they don't exist. If not, it will break in the dispatch.
+        if flex_load is not None:
+            flex_load = util.reindex_df_level_with_new_elements(flex_load, 'dispatch_feeder', inflex_load.index.get_level_values('dispatch_feeder').unique()).fillna(0)
         agg_load = inflex_load if flex_load is None else util.DfOper.add((inflex_load, flex_load), expandable=False, collapsible=False)
+
         df = GeoMapper.geo_map(agg_load, GeoMapper.demand_primary_geography, GeoMapper.dispatch_geography, current_data_type='total') if geomap_to_dispatch_geography else agg_load
         group_by_geo = GeoMapper.dispatch_geography if geomap_to_dispatch_geography else GeoMapper.demand_primary_geography
         df = df.groupby(level=['timeshift_type', group_by_geo, 'dispatch_feeder', 'weather_datetime']).sum()
@@ -190,6 +194,12 @@ class Demand(object):
         pmins, pmaxs = zip(*[sector.aggregate_flexible_load_pmin_pmax(year) for sector in self.sectors.values()])
         pmin = util.DfOper.add(pmins, expandable=False, collapsible=False)
         pmax = util.DfOper.add(pmaxs, expandable=False, collapsible=False)
+        dispatch_feeder_allocation = self.get_weighted_feeder_allocation_by_sector()
+        dispatch_feeders = sorted(dispatch_feeder_allocation.index.get_level_values('dispatch_feeder').unique())
+        if pmin is None and pmax is None:
+            return pmin, pmax
+        pmin = util.reindex_df_level_with_new_elements(pmin, 'dispatch_feeder', dispatch_feeders).fillna(0)
+        pmax = util.reindex_df_level_with_new_elements(pmax, 'dispatch_feeder', dispatch_feeders).fillna(0)
         if geomap_to_dispatch_geography and pmin is not None:
             pmin = GeoMapper.geo_map(pmin, GeoMapper.demand_primary_geography, GeoMapper.dispatch_geography, current_data_type='total')
         if geomap_to_dispatch_geography and pmax is not None:
@@ -793,8 +803,10 @@ class Subsector(schema.DemandSubsectors):
         return util.DfOper.add(result, collapsible=False)
 
     def aggr_elect_shapes_techs_not_unique(self, techs_with_energy_and_shapes, active_shape, energy_slice):
-        tech_shapes = pd.concat([self.technologies[tech].get_shape(default_shape=active_shape) for tech in techs_with_energy_and_shapes],
-                                keys=techs_with_energy_and_shapes, names=['demand_technology'])
+        try:
+            tech_shapes = pd.concat([self.technologies[tech].get_shape(default_shape=active_shape) for tech in techs_with_energy_and_shapes],keys=techs_with_energy_and_shapes, names=['demand_technology'])
+        except:
+            pdb.set_trace()
         energy_with_shapes = util.df_slice(energy_slice, techs_with_energy_and_shapes, 'demand_technology', drop_level=False, reset_index=True)
         return util.remove_df_levels(util.DfOper.mult((energy_with_shapes, tech_shapes)), levels='demand_technology')
 
