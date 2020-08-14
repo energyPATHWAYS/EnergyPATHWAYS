@@ -2538,16 +2538,16 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'E:\ep_runs\DTE\EP2RIO'
+    workingdir = r'E:\0803_ep2rio_v2'
     os.chdir(workingdir)
     config = 'config.INI'
     scenario = ['high electrificaiton no capture',
-                'high electrificaiton no capture medt',
+                'high electrificaiton with capture sens heating',
+                'high electrificaiton with capture sens transport',
                 'high electrificaiton with capture',
                 'pipeline gas no capture',
-                'pipeline gas no capture medt',
+                'pipeline gas with capture sens transport',
                 'pipeline gas with capture',
-                'reference',
-                'reference no covid']
+                'reference']
     export = run(workingdir, config, scenario)
     self = export
