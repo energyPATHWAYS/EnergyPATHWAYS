@@ -6450,22 +6450,29 @@ class RioInputs(DataObject):
                                       cfg.rio_standard_volume_unit + "/" + cfg.rio_time_unit]
                                       ))
 
-
-
-
     def calc_blend_levelized_costs(self, scenario):
-        levelized_cost = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\levelized_cost.csv'),
-                                 usecols=['vintage','zone', 'year', 'resource_agg', 'output', 'value','run name'], index_col=['vintage','zone', 'year', 'resource_agg', 'output','run name'])
-        levelized_cost = util.df_slice(levelized_cost,scenario,'run name')
-        df = util.remove_df_levels(levelized_cost[levelized_cost.index.get_level_values('output').isin(['blend energy storage','conversion delivery cost','product delivery cost'])],'vintage')
-        df = util.remove_df_levels(df,'output')
+        try:
+            levelized_cost = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\levelized_cost.csv'),
+                                         usecols=['vintage', 'zone', 'year', 'resource_agg', 'output', 'value',
+                                                  'run name'],
+                                         index_col=['vintage', 'zone', 'year', 'resource_agg', 'output',
+                                                    'run name'])
+        except:
+            return None
+        levelized_cost = util.df_slice(levelized_cost, scenario, 'run name')
+        df = util.remove_df_levels(levelized_cost[levelized_cost.index.get_level_values('output').isin(
+            ['blend energy storage', 'conversion delivery cost', 'product delivery cost'])], 'vintage')
+        df = df.reset_index('year')
+        df['year'] = df['year'].astype(int)
+        df = df.set_index('year', append=True)
+        df = util.remove_df_levels(df, 'output')
         df = df.reset_index()
         df[cfg.rio_geography] = [self.geography_mapping[x] for x in df['zone'].values]
-        df['supply_node'] = [self.supply_node_mapping[x] for x in df['resource_agg'].values]
-        df = df[['supply_node',cfg.rio_geography,'year','value']]
-        df = df.set_index([cfg.rio_geography,'year','supply_node'])
-        return df.groupby(level='supply_node').filter(lambda x: x.sum()>0)
-
+        df['supply_node'] = [self.supply_node_mapping[x.lower()] for x in df['resource_agg'].values]
+        df = df[['supply_node', cfg.rio_geography, 'year', 'value']]
+        df = df.set_index([cfg.rio_geography, 'year', 'supply_node'])
+        return df.groupby(level='supply_node').filter(lambda x: x.sum() > 0)
+    
     def calc_dual_fuel_efficiency(self, scenario):
         try:
             dual_fuel_efficiency = pd.read_csv(os.path.join(cfg.workingdir, 'rio_db_import\\dual_fuel_efficiency.csv'),
@@ -6681,14 +6688,24 @@ class RioInputs(DataObject):
         df = df.fillna(0)
         return df
 
-    def clean_timeseries_and_fill_with_zeros(self,attr):
-        if getattr(self,attr) is None or len(getattr(self,attr))==0:
+    def clean_timeseries_and_fill_with_zeros(self, attr):
+        if getattr(self, attr) is None or len(getattr(self, attr)) == 0:
             print attr
             return None
-        self.clean_timeseries(attr, time_index_name = 'year',time_index = list(set(getattr(self,attr).index.get_level_values('year'))),extrapolation_method=None,interpolation_method='linear_interpolation')
+        df = getattr(self, attr)
+        df = df.reset_index('year')
+        df['year'] = df['year'].astype(int)
+        setattr(self, attr, df.set_index('year', append=True))
+        try:
+            self.clean_timeseries(attr, time_index_name='year', time_index=list(
+                sorted([int(x) for x in set(getattr(self, attr).index.get_level_values('year'))])),
+                                  extrapolation_method=None, interpolation_method='linear_interpolation')
+        except:
+            pdb.set_trace()
         setattr(self, attr, getattr(self, attr).fillna(0))
-        self.clean_timeseries(attr, extrapolation_method='linear_interpolation', interpolation_method='linear_interpolation')
-        setattr(self,attr,getattr(self,attr).fillna(0))
+        self.clean_timeseries(attr, extrapolation_method='linear_interpolation',
+                              interpolation_method='linear_interpolation')
+        setattr(self, attr, getattr(self, attr).fillna(0))
 
     def calc_trades(self,scenario,gen_energy):
         df = util.df_slice(gen_energy, scenario, 'run name')
