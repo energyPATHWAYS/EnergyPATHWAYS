@@ -2824,8 +2824,10 @@ class Supply(object):
             node.active_cost_supply = self.io_cost_supply_df.loc[indexer, year].groupby(
                 level=[GeoMapper.supply_primary_geography, 'demand_sector']).sum().to_frame()
 
-    def calculate_rio_blend_demand(self):
+    def calculate_rio_blend_demand(self,ignored_subsectors=[]):
         self.io_rio_supply_df = copy.deepcopy(self.io_supply_df)
+        self.demand_object.aggregate_sector_energy_for_supply_side(db_run=True,ignored_subsectors=ignored_subsectors)
+        self.map_demand_to_io()
         for year in self.dispatch_years:
         #for year in [2050]:
             logging.info("calculating rio blend demand in year %s" %year)
