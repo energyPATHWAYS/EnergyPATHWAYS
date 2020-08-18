@@ -139,18 +139,18 @@ class Demand(object):
         driver.mapped = True
         driver.values.data_type = 'total'
 
-    def aggregate_electricity_shapes(self, year, geomap_to_dispatch_geography=True, reconciliation_step=False,subsector_filter=None):
+    def aggregate_electricity_shapes(self, year, geomap_to_dispatch_geography=True, reconciliation_step=False, exclude_subsectors=None):
         """ Final levels that will always return from this function
         ['timeshift_type', 'gau', 'dispatch_feeder', 'weather_datetime']
         """
         if reconciliation_step==False and self.electricity_reconciliation is None:
             self.create_electricity_reconciliation()
-        inflexible = [sector.aggregate_inflexible_electricity_shape(year) for sector in self.sectors.values()]
-        no_shape = [self.shape_from_subsectors_with_no_shape(year)]
+        inflexible = [sector.aggregate_inflexible_electricity_shape(year, exclude_subsectors) for sector in self.sectors.values()]
+        no_shape = [self.shape_from_subsectors_with_no_shape(year, exclude_subsectors)]
         inflex_load = util.DfOper.add(no_shape + inflexible, expandable=False, collapsible=False)
         inflex_load = util.DfOper.mult((inflex_load, self.electricity_reconciliation))
         inflex_load = pd.concat([inflex_load], keys=[0], names=['timeshift_type'])
-        flex_load = util.DfOper.add([sector.aggregate_flexible_electricity_shape(year) for sector in self.sectors.values()], expandable=False, collapsible=False)
+        flex_load = util.DfOper.add([sector.aggregate_flexible_electricity_shape(year, exclude_subsectors) for sector in self.sectors.values()], expandable=False, collapsible=False)
         # add all the dispatch feeders if they don't exist. If not, it will break in the dispatch.
         if flex_load is not None:
             flex_load = util.reindex_df_level_with_new_elements(flex_load, 'dispatch_feeder', inflex_load.index.get_level_values('dispatch_feeder').unique()).fillna(0)
@@ -207,20 +207,16 @@ class Demand(object):
         # this will return None if we don't have any flexible load
         return pmin, pmax
 
-    def shape_from_subsectors_with_no_shape(self, year):
+    def shape_from_subsectors_with_no_shape(self, year, exclude_subsectors=None):
         """ Final levels that will always return from this function
         ['gau', 'dispatch_feeder', 'weather_datetime']
         """
         indexer = util.level_specific_indexer(self.outputs.d_energy, levels=['year', 'final_energy'], elements=[[year], [cfg.electricity_energy_type]])
-
-        try:
-            ele_energy_helper = self.outputs.d_energy.loc[indexer,:].groupby(level=('subsector', GeoMapper.demand_primary_geography)).sum()
-        except:
-            pdb.set_trace()
+        ele_energy_helper = self.outputs.d_energy.loc[indexer,:].groupby(level=('subsector', GeoMapper.demand_primary_geography)).sum()
 
         df_list = []
         for sector in self.sectors.values():
-            subsectors_with_no_shape = sector.get_subsectors_with_no_shape(year)
+            subsectors_with_no_shape = sector.get_subsectors_with_no_shape(year, exclude_subsectors)
             if len(subsectors_with_no_shape) == 0:
                 continue
             feeder_allocation = sector.get_subsectors_feeder_allocation(year, subsectors_with_no_shape)
@@ -498,10 +494,10 @@ class Demand(object):
         df = pd.concat(geography_df_list)
         return df
 
-    def aggregate_sector_energy_for_supply_side(self,db_run=False,ignored_subsectors=[]):
+    def aggregate_sector_energy_for_supply_side(self):
         """Aggregates for the supply side, works with function in sector"""
         names = ['sector', GeoMapper.demand_primary_geography, 'final_energy', 'year']
-        sectors_aggregates = [sector.aggregate_subsector_energy_for_supply_side(db_run,ignored_subsectors) for sector in self.sectors.values()]
+        sectors_aggregates = [sector.aggregate_subsector_energy_for_supply_side() for sector in self.sectors.values()]
         self.energy_demand = pd.concat([s for s in sectors_aggregates if s is not None], keys=self.sectors.keys(), names=names)
         self.energy_supply_geography = GeoMapper.geo_map(self.energy_demand, GeoMapper.demand_primary_geography, GeoMapper.supply_primary_geography, current_data_type='total')
 
@@ -651,14 +647,10 @@ class Sector(schema.DemandSectors):
             subsector.linked_service_demand_drivers = self.service_precursors[subsector.name]
             subsector.linked_stock = self.stock_precursors[subsector.name]
 
-    def aggregate_subsector_energy_for_supply_side(self,db_run=False,ignored_subsectors = []):
+    def aggregate_subsector_energy_for_supply_side(self):
         """Aggregates for the supply side, works with function in demand"""
         levels_to_keep = [GeoMapper.demand_primary_geography, 'final_energy', 'year']
-        if db_run:
-            subs = ignored_subsectors
-            return util.DfOper.add([pd.DataFrame(subsector.energy_forecast.value.groupby(level=levels_to_keep).sum()).sort_index() for subsector in self.subsectors.values() if hasattr(subsector, 'energy_forecast') and subsector.name not in subs])
-        else:
-            return util.DfOper.add([pd.DataFrame(subsector.energy_forecast.value.groupby(level=levels_to_keep).sum()).sort_index() for subsector in self.subsectors.values() if hasattr(subsector, 'energy_forecast')])
+        return util.DfOper.add([pd.DataFrame(subsector.energy_forecast.value.groupby(level=levels_to_keep).sum()).sort_index() for subsector in self.subsectors.values() if hasattr(subsector, 'energy_forecast')])
 
     def group_output(self, output_type, levels_to_keep=None, include_unit=False, specific_years=None):
         levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep
@@ -681,10 +673,14 @@ class Sector(schema.DemandSectors):
         new_names = 'subsector'
         return util.df_list_concatenate(dfs, keys, new_names, levels_to_keep)
 
-    def get_subsectors_with_no_shape(self, year):
+    def get_subsectors_with_no_shape(self, year, exclude_subsectors=None):
         """ Returns only subsectors that have electricity consumption
         """
-        return [sub.name for sub in self.subsectors.values() if (sub.has_electricity_consumption(year) and not sub.has_shape() and not sub.has_flexible_load(year))]
+        exclude_subsectors = [] if exclude_subsectors is None else exclude_subsectors
+        return [sub.name for sub in self.subsectors.values() if (sub.has_electricity_consumption(year)
+                                                                 and not sub.has_shape()
+                                                                 and not sub.has_flexible_load(year)
+                                                                 and sub.name not in exclude_subsectors)]
 
     def get_subsectors_feeder_allocation(self, year, subsectors):
         if year=='all':
@@ -701,18 +697,25 @@ class Sector(schema.DemandSectors):
         pmin = util.DfOper.add([util.DfOper.mult((allo, self.subsectors[id].flexible_load_pmin[year])) for id, allo in zip(subsectors_with_flex, feeder_allocations)], expandable=False, collapsible=False)
         return pmin, pmax
 
-    def aggregate_inflexible_electricity_shape(self, year):
+    def aggregate_inflexible_electricity_shape(self, year, exclude_subsectors=None):
         """ Final levels that will always return from this function
         ['gau', 'dispatch_feeder', 'weather_datetime']
         """
-        subsectors_with_shape_only = [sub.name for sub in self.subsectors.values() if (sub.has_electricity_consumption(year) and sub.has_shape() and not sub.has_flexible_load(year))]
+        exclude_subsectors = [] if exclude_subsectors is None else exclude_subsectors
+        subsectors_with_shape_only = [sub.name for sub in self.subsectors.values() if (sub.has_electricity_consumption(year)
+                                                                                       and sub.has_shape()
+                                                                                       and not sub.has_flexible_load(year)
+                                                                                       and sub.name not in exclude_subsectors)]
         return self.aggregate_electricity_shape(year, ids=subsectors_with_shape_only) if len(subsectors_with_shape_only) else None
 
-    def aggregate_flexible_electricity_shape(self, year):
+    def aggregate_flexible_electricity_shape(self, year, exclude_subsectors):
         """ Final levels that will always return from this function
         ['timeshift_type', 'gau', 'dispatch_feeder', 'weather_datetime']
         """
-        subsectors_with_flex = [sub.name for sub in self.subsectors.values() if (sub.has_electricity_consumption(year) and sub.has_flexible_load(year))]
+        exclude_subsectors = [] if exclude_subsectors is None else exclude_subsectors
+        subsectors_with_flex = [sub.name for sub in self.subsectors.values() if (sub.has_electricity_consumption(year)
+                                                                                 and sub.has_flexible_load(year)
+                                                                                 and sub.name not in exclude_subsectors)]
         if len(subsectors_with_flex):
             return self.aggregate_electricity_shape(year, ids=subsectors_with_flex).reorder_levels(['timeshift_type', GeoMapper.demand_primary_geography, 'dispatch_feeder', 'weather_datetime'])
         else:

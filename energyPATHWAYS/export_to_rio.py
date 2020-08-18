@@ -77,6 +77,8 @@ class RioExport(object):
                 if subsector_name in sector.subsectors.keys():
                     subsector = sector.subsectors[subsector_name]
                     for tech in subsector.technologies.values():
+                        if not 'electricity' in tech.efficiency_main.values.index.get_level_values('final_energy'):
+                            continue
                         if tech.shape is not None:
                             shapes[tech.name] = Shapes.get_values(tech.shape)
                         elif subsector.shape is not None:
@@ -550,7 +552,7 @@ class RioExport(object):
         bulk_list = []
         for year in self.supply.rio_distribution_load.keys():
             dist_df = self.supply.rio_distribution_load[year]
-            dist_df =utilDfOper.subt([dist_df,self.supply.demand_object.aggregate_electricity_shapes(year,subsector_filter=cfg.rio_opt_demand_subsectors)])
+            dist_df =utilDfOper.subt([dist_df,self.supply.demand_object.aggregate_electricity_shapes(year,])
 
             dist_df.columns = ['value']
             dist_list.append(dist_df)
