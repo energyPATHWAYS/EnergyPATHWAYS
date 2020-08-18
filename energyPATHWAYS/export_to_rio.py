@@ -552,8 +552,6 @@ class RioExport(object):
         bulk_list = []
         for year in self.supply.rio_distribution_load.keys():
             dist_df = self.supply.rio_distribution_load[year]
-            dist_df =utilDfOper.subt([dist_df,self.supply.demand_object.aggregate_electricity_shapes(year,])
-
             dist_df.columns = ['value']
             dist_list.append(dist_df)
             bulk_df = self.supply.rio_bulk_load[year]

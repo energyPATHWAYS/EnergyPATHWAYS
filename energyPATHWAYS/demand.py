@@ -494,10 +494,10 @@ class Demand(object):
         df = pd.concat(geography_df_list)
         return df
 
-    def aggregate_sector_energy_for_supply_side(self):
+    def aggregate_sector_energy_for_supply_side(self,db_run=False,ignored_subsectors=[]):
         """Aggregates for the supply side, works with function in sector"""
         names = ['sector', GeoMapper.demand_primary_geography, 'final_energy', 'year']
-        sectors_aggregates = [sector.aggregate_subsector_energy_for_supply_side() for sector in self.sectors.values()]
+        sectors_aggregates = [sector.aggregate_subsector_energy_for_supply_side(db_run,ignored_subsectors) for sector in self.sectors.values()]
         self.energy_demand = pd.concat([s for s in sectors_aggregates if s is not None], keys=self.sectors.keys(), names=names)
         self.energy_supply_geography = GeoMapper.geo_map(self.energy_demand, GeoMapper.demand_primary_geography, GeoMapper.supply_primary_geography, current_data_type='total')
 
@@ -647,10 +647,14 @@ class Sector(schema.DemandSectors):
             subsector.linked_service_demand_drivers = self.service_precursors[subsector.name]
             subsector.linked_stock = self.stock_precursors[subsector.name]
 
-    def aggregate_subsector_energy_for_supply_side(self):
+    def aggregate_subsector_energy_for_supply_side(self,db_run=False,ignored_subsectors = []):
         """Aggregates for the supply side, works with function in demand"""
         levels_to_keep = [GeoMapper.demand_primary_geography, 'final_energy', 'year']
-        return util.DfOper.add([pd.DataFrame(subsector.energy_forecast.value.groupby(level=levels_to_keep).sum()).sort_index() for subsector in self.subsectors.values() if hasattr(subsector, 'energy_forecast')])
+        if db_run:
+            subs = ignored_subsectors
+            return util.DfOper.add([pd.DataFrame(subsector.energy_forecast.value.groupby(level=levels_to_keep).sum()).sort_index() for subsector in self.subsectors.values() if hasattr(subsector, 'energy_forecast') and subsector.name not in subs])
+        else:
+            return util.DfOper.add([pd.DataFrame(subsector.energy_forecast.value.groupby(level=levels_to_keep).sum()).sort_index() for subsector in self.subsectors.values() if hasattr(subsector, 'energy_forecast')])
 
     def group_output(self, output_type, levels_to_keep=None, include_unit=False, specific_years=None):
         levels_to_keep = cfg.output_demand_levels if levels_to_keep is None else levels_to_keep

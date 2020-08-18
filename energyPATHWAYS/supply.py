@@ -2064,7 +2064,7 @@ class Supply(object):
             self.output_final_demand_for_bulk_dispatch_outputs(distribution_native_load)
         self.distribution_gen = self.shaped_dist(year, self.non_flexible_gen, generation=True)
         self.distribution_load = util.DfOper.add([distribution_native_load, self.shaped_dist(year, self.non_flexible_load, generation=False)])
-        if not cfg.rio_db_run:
+        if not cfg.getParamAsBoolean('rio_db_run', section='rio'):
             self.rio_distribution_load[year] =copy.deepcopy(self.distribution_load)
         else:
             final_demand = self.demand_object.aggregate_electricity_shapes(year)
