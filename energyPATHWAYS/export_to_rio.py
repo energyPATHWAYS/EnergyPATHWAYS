@@ -61,7 +61,7 @@ class RioExport(object):
                  'extrapolation_method', 'vintage', 'value', 'sensitivity'])
             self.write_empty('FLEX_TECH_SCHEDULE', '\\Technology Inputs\\Flex Load', ['name','geography','gau','geography_map_key','interpolation_method','extrapolation_method','year','value','sensitivity'])
 
-    def write_supply_shapes(self):
+    def write_demand_shapes(self):
         def get_active_dates(years):
             active_dates_index = []
             for year in years:
@@ -72,25 +72,17 @@ class RioExport(object):
         weather_years = [int(y) for y in cfg.getParam('weather_years').split(',')]
         self.active_dates_index = get_active_dates(weather_years)
         shapes = {}
-        active_nodes = self.supply.nodes[self.supply.bulk_electricity_node_name].nodes + self.supply.nodes[
-            self.supply.thermal_dispatch_node_name].nodes + self.supply.nodes[self.supply.distribution_node_name].nodes
-        for node in active_nodes:
-            if not isinstance(self.supply.nodes[node], BlendNode) and hasattr(self.supply.nodes[node],'technologies'):
-                for technology in self.supply.nodes[node].technologies.keys():
-                    if self.supply.nodes[node].technologies[technology].shape is not None:
-                        shapes[self.supply.nodes[node].technologies[technology].shape] = Shapes.get_values(self.supply.nodes[node].technologies[technology].shape)
-                    elif self.supply.nodes[
-                        node].shape is not None:
-                        shapes[self.supply.nodes[node].shape] = Shapes.get_values(self.supply.nodes[node].shape)
-                    else:
-                        if "flat" in shapes.keys():
-                            continue
+        for subsector_name in cfg.rio_opt_demand_subsectors:
+            for sector in model.demand.sectors.values():
+                if subsector_name in sector.subsectors.keys():
+                    subsector = sector.subsectors[subsector_name]
+                    for tech in subsector.technologies.values():
+                        if tech.shape is not None:
+                            shapes[tech.name] = Shapes.get_values(tech.shape)
+                        elif subsector.shape is not None:
+                            shapes[tech.name] = Shapes.get_values(subsector.shape)
                         else:
-                            index = pd.MultiIndex.from_product([GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography],self.active_dates_index], names=[GeoMapper.supply_primary_geography,'weather_datetime'])
-                            shapes['flat'] = Shape.make_flat_load_shape(index)
-
-
-
+                            shapes[tech.name] = Shapes.get_values('flat_demand_side')
         for shape_name, shape in shapes.iteritems():
             self.meta_dict['name'].append(shape_name.lower())
             self.meta_dict['shape_type'].append( 'weather date')
@@ -103,19 +95,26 @@ class RioExport(object):
             self.meta_dict['extrapolation_method'].append('nearest')
             shape_df = util.remove_df_levels(shape,['resource_bin','dispatch_feeder'],agg_function='mean')
             shape_df = Output.clean_rio_df(shape_df,add_geography=False)
-            Output.write_rio(shape_df,shape_name.lower() + "_" +self.supply.scenario.name + ".csv",self.db_dir + "\\ShapeData"+"\\"+shape_name.lower()+".csvd",index=False)
-        self.meta_dict['name'].append('bulk')
-        self.meta_dict['shape_type'].append('weather date')
-        self.meta_dict['input_type'].append('intensity')
-        self.meta_dict['shape_unit_type'].append('power')
-        self.meta_dict['time_zone'].append(cfg.getParam('dispatch_outputs_timezone'))
-        self.meta_dict['geography'].append(GeoMapper.dispatch_geography)
-        self.meta_dict['geography_map_key'].append(None)
-        self.meta_dict['interpolation_method'].append('linear_interpolation')
-        self.meta_dict['extrapolation_method'].append('nearest')
+            Output.write_rio(shape_df,shape_name.lower() + ".csv",self.db_dir + "\\ShapeData"+"\\"+shape_name.lower()+".csvd",index=False)
+        shape_df = Output.clean_rio_df(model.demand.electricity_reconciliation, add_geography=False)
+        Output.write_rio(shape_df, 'electricity_reconcilitation'+ ".csv", self.db_dir + "\\ShapeData" + "\\" + 'electricity_reconcilitation' + ".csvd", index=False)
+        for name in ['bulk','electricity_reconciliation']:
+            self.meta_dict['name'].append(name)
+            self.meta_dict['shape_type'].append('weather date')
+            self.meta_dict['input_type'].append('intensity')
+            self.meta_dict['shape_unit_type'].append('power')
+            self.meta_dict['time_zone'].append(cfg.getParam('dispatch_outputs_timezone'))
+            self.meta_dict['geography'].append(GeoMapper.dispatch_geography)
+            self.meta_dict['geography_map_key'].append(None)
+            self.meta_dict['interpolation_method'].append('linear_interpolation')
+            self.meta_dict['extrapolation_method'].append('nearest')
         df = pd.DataFrame(self.meta_dict)
         df = df[['name', 'shape_type', 'input_type', 'shape_unit_type', 'time_zone', 'geography', 'geography_map_key', 'interpolation_method', 'extrapolation_method']]
         Output.write_rio(df, "SHAPE_META" + '.csv', self.db_dir, index=False)
+
+
+        reconciliation_df =  Output.clean_rio_df(model.demand.electricity_reconciliation,add_geography=False)
+        Output.write_rio(shape_df, shape_name.lower() + "_" + self.supply.scenario.name + ".csv", self.db_dir + "\\ShapeData" + "\\" + shape_name.lower() + ".csvd", index=False)
 
     def write_flex_tech_main(self):
         dct = dict()
@@ -586,15 +585,17 @@ class RioExport(object):
         return pd.concat(dist_list), pd.concat(bulk_list,keys=self.supply.rio_distribution_losses.keys(),names=['year'])
 
     def write_demand_subsector(self):
-        self.write_demand_service_demand()
-        self.write_demand_tech_service_demand()
-        self.write_demand_tech_main()
-        self.write_demand_tech_sales()
-        self.write_demand_tech_capital_costs()
-        self.write_demand_tech_fixed_om()
-        self.write_demand_tech_service_demand_modifier()
-        self.write_demand_tech_efficiency()
-
+        if self.scenario_index == 0:
+            self.write_demand_service_demand()
+            self.write_demand_tech_service_demand()
+            self.write_demand_shapes()
+            self.write_demand_tech_sales()
+            self.write_demand_tech_capital_costs()
+            self.write_demand_tech_fixed_om()
+            self.write_demand_tech_service_demand_modifier()
+            self.write_demand_tech_efficiency()
+        else:
+            self.write_demand_service_demand()
 
 
     def write_demand_tech_sales(self):
