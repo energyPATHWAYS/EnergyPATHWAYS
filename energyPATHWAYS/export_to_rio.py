@@ -43,6 +43,7 @@ class RioExport(object):
             #self.write_blend_main()
             #self.write_new_tech_main()
             #logging.info("writing existing_tech_main")
+            #logging.info("writing existing_tech_main")
             #self.write_existing_gen()
             #self.write_conversion_main()
             logging.info("writing new flex techs")
@@ -2451,13 +2452,15 @@ class RioExport(object):
 
     def flatten_flex_load_dict(self):
         df_list = []
+        years = []
         for year in self.supply.rio_flex_load.keys():
             df = self.supply.rio_flex_load[year]
             if df is not None:
                 df.columns = ['value']
                 df_list.append(df)
+                years.append(year)
         if len(df_list):
-            return pd.concat(df_list, keys=self.supply.rio_flex_load.keys(), names=['year'])
+            return pd.concat(df_list, keys=years, names=['year'])
         else:
             return None
 
