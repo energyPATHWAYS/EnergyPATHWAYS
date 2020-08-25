@@ -562,13 +562,15 @@ class RioExport(object):
 
     def flatten_flex_load_dict(self):
         df_list = []
+        years = []
         for year in self.supply.rio_flex_load.keys():
             df = self.supply.rio_flex_load[year]
             if df is not None:
                 df.columns = ['value']
                 df_list.append(df)
+                years.append(year)
         if len(df_list):
-            return pd.concat(df_list, keys=self.supply.rio_flex_load.keys(), names=['year'])
+            return pd.concat(df_list, keys=years, names=['year'])
         else:
             return None
 
@@ -587,6 +589,9 @@ class RioExport(object):
     def write_demand_subsector(self):
         if self.scenario_index == 0:
             self.write_demand_service_demand()
+            self.write_existing_service_demand()
+            self.write_existing_energy()
+            self.write_demand_tech_main()
             self.write_demand_tech_service_demand()
             self.write_demand_shapes()
             self.write_demand_tech_sales()
@@ -596,6 +601,10 @@ class RioExport(object):
             self.write_demand_tech_efficiency()
         else:
             self.write_demand_service_demand()
+
+
+
+
 
 
     def write_demand_tech_sales(self):
@@ -639,12 +648,12 @@ class RioExport(object):
                     df = subsector.service_demand.values.stack('year').to_frame()
                     df.columns = ['value']
                     util.replace_index_name(df, 'gau', GeoMapper.supply_primary_geography)
-                    if 'other_index_1'not in df.index.names:
+                    if subsector.service_demand.other_index_1 not in df.index.names:
                         df['other_index'] = None
-                    elif 'other_index_1'in df.index.names:
-                        util.replace_index_name(df, 'other_index', 'other_index_1')
-                    if 'other_index_1' and 'other_index_2' in df.index.names:
-                        df['other_index'] == [x + "||" + y for x,y in zip(df.index.get_level_values('other_index_1'),df.index.get_level_values('other_index_2'))]
+                    if subsector.service_demand.other_index_1 and subsector.service_demand.other_index_2 in df.index.names:
+                        df['other_index'] == [x + "||" + y for x,y in zip(df.index.get_level_values(subsector.service_demand.other_index_1),df.index.get_level_values(subsector.service_demand.other_index_2))]
+                    elif subsector.service_demand.other_index_1 in df.index.names:
+                        util.replace_index_name(df, 'other_index',subsector.service_demand.other_index_1)
                     df['interpolation_method'] = 'linear_interpolation'
                     df['extrapolation_method'] = 'nearest'
                     df['extrapolation_growth_rate'] = None
@@ -652,11 +661,13 @@ class RioExport(object):
                     df['notes'] = None
                     df['sensitivity'] = None
                     df['geography'] = GeoMapper.supply_primary_geography
+                    df['unit'] = subsector.service_demand.unit
                     df = df.reset_index()
-                    df = df[['source','notes','geography','gau','interpolation_method','extrapolation_method', 'extrapolation_growth_rate','other_index','year','value','sensitivity']]
+                    df = df[['source','notes','geography','gau','unit','interpolation_method','extrapolation_method', 'extrapolation_growth_rate','other_index','year','value','sensitivity']]
                     service_demand_dfs.append(df)
                     subsector_names.append(subsector_name)
-        df = pd.concat(service_demand_dfs,keys=subsector_names,names=['name'])
+        df = pd.concat(service_demand_dfs,keys=subsector_names,names=['name']).reset_index()
+        del df['level_1']
         Output.write_rio(df, "DEMAND_SERVICE_DEMAND" + '.csv', self.db_dir + "\\Topography Inputs\\Demand", index=False)
 
     def write_demand_tech_service_demand(self):
@@ -671,12 +682,12 @@ class RioExport(object):
                     df.columns = ['value']
                     df = util.add_and_set_index(df,'name',subsector.technologies.keys(),)
                     util.replace_index_name(df, 'gau', GeoMapper.supply_primary_geography)
-                    if 'other_index_1'not in df.index.names:
+                    if subsector.service_demand.other_index_1 not in df.index.names:
                         df['other_index'] = None
-                    elif 'other_index_1'in df.index.names:
-                        util.replace_index_name(df, 'other_index', 'other_index_1')
-                    if 'other_index_1' and 'other_index_2' in df.index.names:
-                        df['other_index'] == [x + "||" + y for x,y in zip(df.index.get_level_values('other_index_1'),df.index.get_level_values('other_index_2'))]
+                    if subsector.service_demand.other_index_1 and subsector.service_demand.other_index_2 in df.index.names:
+                        df['other_index'] == [x + "||" + y for x,y in zip(df.index.get_level_values(subsector.service_demand.other_index_1),df.index.get_level_values(subsector.service_demand.other_index_2))]
+                    elif subsector.service_demand.other_index_1 in df.index.names:
+                        util.replace_index_name(df, 'other_index',subsector.service_demand.other_index_1)
                     df['interpolation_method'] = 'linear_interpolation'
                     df['extrapolation_method'] = 'nearest'
                     df['extrapolation_growth_rate'] = None
@@ -684,11 +695,82 @@ class RioExport(object):
                     df['notes'] = None
                     df['sensitivity'] = None
                     df['geography'] = GeoMapper.supply_primary_geography
+                    df['unit'] = subsector.service_demand.unit
                     df = df.reset_index()
-                    df = df[['name','source','notes','geography','gau','interpolation_method','extrapolation_method', 'extrapolation_growth_rate','other_index','year','value','sensitivity']]
+                    df = df[['name','source','notes','geography','gau','unit','interpolation_method','extrapolation_method', 'extrapolation_growth_rate','other_index','year','value','sensitivity']]
                     service_demand_dfs.append(df)
         df = pd.concat(service_demand_dfs)
         Output.write_rio(df, "DEMAND_TECH_SERVICE_DEMAND" + '.csv', self.db_dir + "\\Technology Inputs\\Demand", index=False)
+
+    def write_existing_service_demand(self):
+        service_demand_dfs = []
+        for subsector_name in cfg.rio_opt_demand_subsectors:
+            for sector in model.demand.sectors.values():
+                if subsector_name in sector.subsectors.keys():
+                    subsector = sector.subsectors[subsector_name]
+                    df = util.DfOper.mult([subsector.stock.values_normal, subsector.service_demand.modifier,subsector.service_demand.values])
+                    df = df.stack().to_frame()
+                    util.replace_index_name(df,'year')
+                    df.columns = ['value']
+                    df = df[df.index.get_level_values('vintage')<cfg.rio_start_year]
+                    df = util.remove_df_levels(df,['final_energy','demand_technology','vintage'])
+                    util.replace_index_name(df, 'gau', GeoMapper.supply_primary_geography)
+                    if subsector.service_demand.other_index_1 not in df.index.names:
+                        df['other_index'] = None
+                    if subsector.service_demand.other_index_1 and subsector.service_demand.other_index_2 in df.index.names:
+                        df['other_index'] == [x + "||" + y for x,y in zip(df.index.get_level_values(subsector.service_demand.other_index_1),df.index.get_level_values(subsector.service_demand.other_index_2))]
+                    elif subsector.service_demand.other_index_1 in df.index.names:
+                        util.replace_index_name(df, 'other_index',subsector.service_demand.other_index_1)
+                    df['interpolation_method'] = 'linear_interpolation'
+                    df['extrapolation_method'] = 'nearest'
+                    df['extrapolation_growth_rate'] = None
+                    df['source'] = None
+                    df['notes'] = None
+                    df['sensitivity'] = None
+                    df['geography'] = GeoMapper.supply_primary_geography
+                    df['unit'] = subsector.service_demand.unit
+                    df['name'] = subsector_name
+                    df = df.reset_index()
+                    df = df[['name','source','notes','geography','gau','unit','interpolation_method','extrapolation_method', 'extrapolation_growth_rate','other_index','year','value','sensitivity']]
+                    service_demand_dfs.append(df)
+        df = pd.concat(service_demand_dfs)
+        Output.write_rio(df, "DEMAND_EXISTING_SERVICE_DEMAND" + '.csv', self.db_dir + "\\Topography Inputs\\Demand", index=False)
+
+    def write_existing_energy(self):
+        demand_dfs = []
+        for subsector_name in cfg.rio_opt_demand_subsectors:
+            for sector in model.demand.sectors.values():
+                if subsector_name in sector.subsectors.keys():
+                    subsector = sector.subsectors[subsector_name]
+                    df = subsector.energy_forecast
+                    df = df[df.index.get_level_values('vintage')<cfg.rio_start_year]
+                    df = util.remove_df_levels(df,['vintage'])
+                    util.replace_index_name(df, 'gau', GeoMapper.supply_primary_geography)
+                    util.replace_index_name(df,'blend_in','final_energy')
+                    util.replace_index_name(df,'name','demand_technology')
+                    if 'other_index_1' not in df.index.names:
+                        df['other_index'] = None
+                    elif 'other_index_1' and 'other_index_2' in df.index.names:
+                        df['other_index'] == [x + "||" + y for x,y in zip(df.index.get_level_values(subsector.service_demand.other_index_1),df.index.get_level_values(subsector.service_demand.other_index_2))]
+                    elif 'other_index_1' in df.index.names:
+                        util.replace_index_name(df, 'other_index','other_index_1')
+                    df['interpolation_method'] = 'linear_interpolation'
+                    df['extrapolation_method'] = 'nearest'
+                    df['extrapolation_growth_rate'] = None
+                    df['source'] = None
+                    df['notes'] = None
+                    df['sensitivity'] = None
+                    df['geography'] = GeoMapper.supply_primary_geography
+                    df['unit'] = cfg.calculation_energy_unit
+                    #df['name'] = subsector_name
+                    df = df.reset_index()
+                    df = df[['name','source','notes','geography','gau','unit','interpolation_method','extrapolation_method', 'extrapolation_growth_rate','other_index',
+                             'blend_in','year','value','sensitivity']]
+                    demand_dfs.append(df)
+        df = pd.concat(demand_dfs)
+        Output.write_rio(df[df['blend_in'].values=='electricity'], "DEMAND_EXISTING_ELECTRICITY_DEMAND" + '.csv', self.db_dir + "\\Technology Inputs\\Demand", index=False)
+        Output.write_rio(df[df['blend_in'].values != 'electricity'], "DEMAND_EXISTING_BLEND_DEMAND" + '.csv', self.db_dir + "\\Technology Inputs\\Demand", index=False)
+
 
 
 
@@ -746,7 +828,7 @@ class RioExport(object):
                         df['extrapolation_method'] = 'nearest'
                         df['extrapolation_growth_rate'] = None
                         df['sensitivity'] = None
-                        df['geography'] = GeoMapper.supply_primary_geography
+                        df['geography'] = technology.capital_cost_new.geography
                         df['currency'] = cfg.currency_name
                         df['currency_year'] = cfg.getParamAsInt('currency_year')
                         df['source'] = None
@@ -755,7 +837,7 @@ class RioExport(object):
                         df = df[['name','source','notes','geography','gau','interpolation_method','extrapolation_method', 'extrapolation_growth_rate','currency','currency_year','other_index','vintage','value','sensitivity']]
                         tech_dfs.append(df)
         df = pd.concat(tech_dfs)
-        Output.write_rio(df.drop_duplicates(subset=df.columns.difference(['vintage'])), "DEMAND_TECH_CAPITAL_COSTS" + '.csv', self.db_dir + "\\Technology Inputs\\Demand", index=False)
+        Output.write_rio(df.drop_duplicates(subset=df.columns.difference(['vintage'])), "DEMAND_TECH_CAPITAL_COST" + '.csv', self.db_dir + "\\Technology Inputs\\Demand", index=False)
 
     def write_demand_tech_fixed_om(self):
         tech_dfs = []
@@ -802,16 +884,23 @@ class RioExport(object):
                     for technology in subsector.technologies.values():
                         efficiency = technology.efficiency_main.values[max(self.supply.dispatch_years)].to_frame()
                         efficiency.columns = ['value']
-                        efficiency = GeoMapper.geo_map(efficiency, GeoMapper.supply_primary_geography, technology.efficiency_main.geography, 'intensity', geography_map_key= technology.efficiency_main.geography_map_key, fill_value=0, filter_geo=False, remove_current_geography=True)
+                        if len(GeoMapper.geography_to_gau[technology.efficiency_main.geography])>1:
+                            geography = GeoMapper.supply_primary_geography
+                        else:
+                            efficiency = GeoMapper.geo_map(efficiency, GeoMapper.supply_primary_geography, technology.efficiency_main.geography, 'intensity', geography_map_key= technology.efficiency_main.geography_map_key, fill_value=0, filter_geo=False, remove_current_geography=True)
+                            geography = technology.efficiency_main.geography
+
                         if technology.efficiency_main.utility_factor !=1:
                             efficiency_aux = technology.efficiency_aux.values[max(self.supply.dispatch_years)].to_frame() if hasattr(technology.efficiency_aux,'values') else None
                             efficiency_aux.columns = ['value']
+                            if len(GeoMapper.geography_to_gau[technology.efficiency_main.geography]) == 1:
+                                efficiency_aux = GeoMapper.geo_map(efficiency_aux, GeoMapper.supply_primary_geography, technology.efficiency_main.geography, 'intensity', geography_map_key=technology.efficiency_main.geography_map_key, fill_value=0, filter_geo=False, remove_current_geography=True)
                             efficiency_aux *= 1- technology.efficiency_main.utility_factor
                             efficiency_main = efficiency * technology.efficiency_main.utility_factor
                             efficiency = util.DfOper.add([efficiency_aux,efficiency_main])
                         df = efficiency
                         util.replace_index_name(df,'name','demand_technology')
-                        util.replace_index_name(df, 'gau', technology.efficiency_main.geography)
+                        util.replace_index_name(df, 'gau', geography)
                         util.replace_index_name(df, 'blend_in', 'final_energy')
                         length = len([x for x in [technology.efficiency_main.other_index_1,technology.efficiency_main.other_index_2] if x is not None])
                         if length == 0:
@@ -824,7 +913,7 @@ class RioExport(object):
                         df['extrapolation_method'] = 'nearest'
                         df['extrapolation_growth_rate'] = None
                         df['sensitivity'] = None
-                        df['geography'] = GeoMapper.supply_primary_geography
+                        df['geography'] = geography
                         df['source'] = None
                         df['notes'] = None
                         df['is_numerator_service'] = True
@@ -881,7 +970,8 @@ class RioExport(object):
                                  'other_index','vintage','year','value','sensitivity']]
                         tech_dfs.append(df)
                         tech_names.append(technology.name)
-        df = pd.concat(tech_dfs,keys=tech_names,names=['name'])
+        df = pd.concat(tech_dfs,keys=tech_names,names=['name']).reset_index()
+        del df['level_1']
         Output.write_rio(df.drop_duplicates(subset=df.columns.difference(['vintage','year'])), "DEMAND_TECH_SERVICE_DEMAND_MODIFIER" + '.csv', self.db_dir + "\\Technology Inputs\\Demand", index=False)
 
 
