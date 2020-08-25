@@ -137,15 +137,15 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'E:\EnergyPATHWAYS\MassRIO2EP'
+    workingdir = r'E:\ep_runs\UCS\EP2RIO v1'
     os.chdir(workingdir)
-    rio_scenario = ['decarbonized gas wf']
-    scenario = ['decarbonized gas']
+    rio_scenario = ['UCS_core']
+    scenario = ['UCS_core']
     run(scenario,
-    load_demand   = False,
+    load_demand   = True,
     solve_demand  = False,
-    load_supply   = True,
-    solve_supply  = False,
+    load_supply   = False,
+    solve_supply  = True,
     export_results= False,
     load_error    = False,
     save_models   = False,

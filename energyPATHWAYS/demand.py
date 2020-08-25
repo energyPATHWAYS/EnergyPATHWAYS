@@ -2953,6 +2953,7 @@ class Subsector(schema.DemandSubsectors):
         total_slice = util.df_slice(self.stock.total, elements, self.stock.rollover_group_names)
         initial_total = total_slice.values[0][0]
         ratio = util.DfOper.divi((tech_slice.sum(axis=1).to_frame(), total_slice))
+        max_ratio = ratio.max().max()
         good_years = ratio.where(((1/percent_spec_cut)>ratio) & (ratio>percent_spec_cut)).dropna().index
         initial_sales_share = self.helper_calc_sales_share_reference_new(elements, initial_stock=None)[0]
         #Best way is if we have all demand_technology stocks specified for some year before current year
@@ -2967,7 +2968,13 @@ class Subsector(schema.DemandSubsectors):
             initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, transition_matrix=initial_sales_share, num_years=len(self.years))
         elif initial_total == 0 or pd.isnull(initial_total):
             initial_stock = np.zeros(len(self.techs))
+        elif not len(good_years) and max_ratio>.7:
+            good_years = ratio.where(ratio==max_ratio).dropna().index
+            chosen_year = min(good_years)
+            initial_stock = self.stock.technology.loc[elements+(chosen_year,),:]
+            initial_stock = initial_stock/np.nansum(initial_stock) * initial_total
         else:
+            pdb.set_trace()
             raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the demand_technology composition of the initial stock in subsector %s' %self.name)
         return initial_stock
 
