@@ -1059,6 +1059,6 @@ if __name__ == "__main__":
     workingdir = r'E:\EP_Runs\EDF'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['Core']
+    scenario = ['Core','Core with CC']
     export = run(workingdir, config, scenario)
     self = export
