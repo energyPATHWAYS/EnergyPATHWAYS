@@ -30,15 +30,14 @@ class PathwaysModel(object):
         self.demand_solved, self.supply_solved = False, False
 
     def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, export_results, save_models, append_results, rio_scenario):
-        #try:
         self.scenario_id = scenario_id
         self.scenario = Scenario(self.scenario_id)
         shape.Shapes.get_instance(cfg.getParam('database_path')).slice_sensitivities(self.scenario)
         self.rio_scenario = rio_scenario
         if solve_demand and not (load_demand or load_supply):
             self.calculate_demand(save_models)
-        # if solve_demand and load_demand:
-        #     self.demand.aggregate_results()
+        if solve_demand and load_demand:
+             self.demand.aggregate_results()
         if not append_results:
             self.remove_old_results()
 
