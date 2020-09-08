@@ -2538,9 +2538,9 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'E:\ep_runs\Mass\MassV4'
+    workingdir = r'E:\ep_runs\UCS\EP2RIO v1'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['all options', 'pipeline gas', 'reference', 'der breakthrough', 'limited efficiency']
+    scenario = ['UCS_Ref', 'UCS_core', 'UCS_delayed', 'UCS_JOD_transport', 'UCS_low_service', 'UCS_select_transport']
     export = run(workingdir, config, scenario)
     self = export
