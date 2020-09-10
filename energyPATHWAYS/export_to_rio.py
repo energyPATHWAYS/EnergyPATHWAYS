@@ -21,7 +21,8 @@ from unit_converter import UnitConverter
 import datetime as DT
 
 class RioExport(object):
-    def __init__(self, model, scenario_index):
+    def __init__(self, model, scenario_index,scenario):
+        self.scenario = scenario
         self.supply = model.supply
         self.supply.bulk_electricity_node_name = 'Bulk Electricity Blend'
         self.db_dir = os.path.join(cfg.workingdir, 'rio_db_export')
@@ -116,7 +117,7 @@ class RioExport(object):
 
 
         reconciliation_df =  Output.clean_rio_df(model.demand.electricity_reconciliation,add_geography=False)
-        Output.write_rio(shape_df, shape_name.lower() + "_" + self.supply.scenario.name + ".csv", self.db_dir + "\\ShapeData" + "\\" + shape_name.lower() + ".csvd", index=False)
+        Output.write_rio(shape_df, shape_name.lower() + "_" + self.scenario + ".csv", self.db_dir + "\\ShapeData" + "\\" + shape_name.lower() + ".csvd", index=False)
 
     def write_flex_tech_main(self):
         dct = dict()
@@ -163,7 +164,7 @@ class RioExport(object):
                 tech_df['extrapolation_method'] = 'nearest'
                 tech_df[tech_df.index.get_level_values('year').values == min(self.supply.years)]
                 util.replace_index_name(tech_df, 'year', 'vintage')
-                tech_df['sensitivity'] = self.supply.scenario.name
+                tech_df['sensitivity'] = self.scenario
                 df_list.append(copy.deepcopy(tech_df))
         for feeder in self.supply.dispatch_feeders:
             tech_df = util.DfOper.mult([util.df_slice(df, feeder, 'dispatch_feeder'),bulk_losses])
@@ -177,7 +178,7 @@ class RioExport(object):
             tech_df['extrapolation_method'] = 'nearest'
             tech_df[tech_df.index.get_level_values('year').values == min(self.supply.years)]
             util.replace_index_name(tech_df, 'year','vintage')
-            tech_df['sensitivity'] = self.supply.scenario.name
+            tech_df['sensitivity'] = self.scenario
             df_list.append(tech_df)
         df = pd.concat(df_list)
         df = Output.clean_rio_df(df)
@@ -196,7 +197,7 @@ class RioExport(object):
                     tech_df = util.df_slice(tech_df,[geography],GeoMapper.supply_primary_geography,drop_level=False)
                     tech_df = util.DfOper.divi([tech_df, util.remove_df_levels(tech_df, ['weather_datetime',GeoMapper.supply_primary_geography], 'sum')])
                     #tech_df = tech_df.tz_localize(None, level='weather_datetime')
-                    tech_df['sensitivity'] = self.supply.scenario.name
+                    tech_df['sensitivity'] = self.scenario
                     name = "flex_" + geography + "_"+ feeder.lower()
                     tech_df = Output.clean_rio_df(tech_df,add_geography=False)
                     for year in self.supply.dispatch_years:
@@ -215,11 +216,11 @@ class RioExport(object):
             tech_df = util.df_slice(df, feeder, 'dispatch_feeder')
             tech_df = util.DfOper.divi([tech_df, util.remove_df_levels(tech_df, 'weather_datetime', 'sum')])
             # tech_df = tech_df.tz_localize(None, level='weather_datetime')
-            tech_df['sensitivity'] = self.supply.scenario.name
+            tech_df['sensitivity'] = self.scenario
             name = "flex_" + feeder.lower()
             tech_df = Output.clean_rio_df(tech_df, add_geography=False)
             for year in self.supply.dispatch_years:
-                Output.write_rio(tech_df[tech_df['year']==year], name + "_"+ str(year) + "_" +  self.supply.scenario.name+".csv",
+                Output.write_rio(tech_df[tech_df['year']==year], name + "_"+ str(year) + "_" +  self.scenario+".csv",
                                  self.db_dir + "\\ShapeData\\"+name+".csvd"+"\\", index=False,compression='gzip')
             self.meta_dict['name'].append(name)
             self.meta_dict['shape_type'].append('weather date')
@@ -250,7 +251,7 @@ class RioExport(object):
                 tech_df['extrapolation_method'] = 'nearest'
                 tech_df[tech_df.index.get_level_values('year').values == min(self.supply.years)]
                 util.replace_index_name(tech_df,'vintage','year')
-                tech_df['sensitivity'] = self.supply.scenario.name
+                tech_df['sensitivity'] = self.scenario
                 df_list.append(copy.deepcopy(tech_df))
         for feeder in self.supply.dispatch_feeders:
             tech_df = util.df_slice(df,feeder,'dispatch_feeder')
@@ -265,7 +266,7 @@ class RioExport(object):
             tech_df['extrapolation_method'] = 'nearest'
             tech_df[tech_df.index.get_level_values('year').values == min(self.supply.years)]
             util.replace_index_name(tech_df,'vintage','year')
-            tech_df['sensitivity'] = self.supply.scenario.name
+            tech_df['sensitivity'] = self.scenario
             df_list.append(tech_df)
         df = pd.concat(df_list)
         df = Output.clean_rio_df(df)
@@ -289,7 +290,7 @@ class RioExport(object):
                 tech_df['extrapolation_method'] = 'nearest'
                 tech_df[tech_df.index.get_level_values('year').values == min(self.supply.years)]
                 util.replace_index_name(tech_df, 'vintage', 'year')
-                tech_df['sensitivity'] = self.supply.scenario.name
+                tech_df['sensitivity'] = self.scenario
                 df_list.append(copy.deepcopy(tech_df))
         for feeder in self.supply.dispatch_feeders:
             tech_df = util.df_slice(df, feeder, 'dispatch_feeder')
@@ -303,7 +304,7 @@ class RioExport(object):
             tech_df['extrapolation_method'] = 'nearest'
             tech_df[tech_df.index.get_level_values('year').values == min(self.supply.years)]
             util.replace_index_name(tech_df, 'vintage', 'year')
-            tech_df['sensitivity'] = self.supply.scenario.name
+            tech_df['sensitivity'] = self.scenario
             df_list.append(tech_df)
         df = pd.concat(df_list)
         df = Output.clean_rio_df(df)
@@ -328,7 +329,7 @@ class RioExport(object):
                 tech_df['extrapolation_method'] = 'nearest'
                 tech_df[tech_df.index.get_level_values('year').values == min(self.supply.years)]
                 util.replace_index_name(tech_df, 'vintage', 'year')
-                tech_df['sensitivity'] = self.supply.scenario.name
+                tech_df['sensitivity'] = self.scenario
                 df_list.append(copy.deepcopy(tech_df))
         for feeder in self.supply.dispatch_feeders:
             tech_df = util.df_slice(df, feeder, 'dispatch_feeder')
@@ -342,7 +343,7 @@ class RioExport(object):
             tech_df['extrapolation_method'] = 'nearest'
             tech_df[tech_df.index.get_level_values('year').values == min(self.supply.years)]
             util.replace_index_name(tech_df, 'vintage', 'year')
-            tech_df['sensitivity'] = self.supply.scenario.name
+            tech_df['sensitivity'] = self.scenario
             df_list.append(tech_df)
         df = pd.concat(df_list)
         df = Output.clean_rio_df(df)
@@ -402,7 +403,7 @@ class RioExport(object):
         df = self.supply.io_rio_supply_df.loc[idx[:, self.blend_node_subset], :]
         df = df.stack().to_frame()
         util.replace_index_name(df, 'year')
-        df[df.index.get_level_values('supply_node') == 'co2 utilization blend A'] = df[df.index.get_level_values('supply_node')== 'Captured CO2 Blend'].values*-1
+        #df[df.index.get_level_values('supply_node') == 'co2 utilization blend A'] = df[df.index.get_level_values('supply_node')== 'Captured CO2 Blend'].values*-1
         df = df[df.index.get_level_values('supply_node') != 'Captured CO2 Blend']
         df = df[df.index.get_level_values('year').isin(self.supply.dispatch_years)]
         df.columns = ['value']
@@ -415,7 +416,7 @@ class RioExport(object):
         df['unit'] = 'TBTU'
         df['interpolation_method'] = 'linear_interpolation'
         df['extrapolation_method'] = 'nearest'
-        df['sensitivity'] = self.supply.scenario.name
+        df['sensitivity'] = self.scenario
         try:
             df = df[['name', 'unit', 'geography', 'gau',
                      'interpolation_method', 'extrapolation_method',
@@ -453,7 +454,7 @@ class RioExport(object):
         df['unit'] = cfg.calculation_energy_unit
         df['time_unit'] = 'hour'
         df['type'] = 'capacity'
-        df['sensitivity'] = self.supply.scenario.name
+        df['sensitivity'] = self.scenario
         df['geography_map_key'] = None
         df = df[['name', 'type', 'unit', 'time_unit',
                  'geography', 'gau', 'geography_map_key', 'interpolation_method', 'extrapolation_method', \
@@ -495,7 +496,7 @@ class RioExport(object):
                     load_shape_df = util.DfOper.divi([df, util.remove_df_levels(df, 'weather_datetime', 'sum')])
                     #load_shape_df = load_shape_df.tz_localize(None, level='weather_datetime')
                     load_shape_df = Output.clean_rio_df(load_shape_df,add_geography=False)
-                    load_shape_df['sensitivity'] = self.supply.scenario.name
+                    load_shape_df['sensitivity'] = self.scenario
                     df = util.remove_df_levels(df,'weather_datetime')
                     df /= len(Shapes.get_instance().cfg_weather_years)
                     df *= UnitConverter.unit_convert(unit_from=cfg.calculation_energy_unit,unit_to='TWh')
@@ -503,13 +504,13 @@ class RioExport(object):
                     df['interpolation_method'] = 'linear_interpolation'
                     df['extrapolation_method'] = 'nearest'
                     df['unit'] = 'TWh'
-                    df['sensitivity'] = self.supply.scenario.name
+                    df['sensitivity'] = self.scenario
                     df['name'] = geography.lower() + "_" + feeder.lower()
                     df = df[['name', 'geography', 'gau', 'unit', 'interpolation_method', 'extrapolation_method', \
                          'year', 'value', 'sensitivity']]
                     df_list.append(copy.deepcopy(df))
                     for year in self.supply.years:
-                        Output.write_rio(load_shape_df['year']==year, geography.lower() + "_" + feeder.lower() +"_" + str(year)+"_"+ self.supply.scenario.name + ".csv", self.db_dir + "\\ShapeData\\"+geography.lower() + "_" + feeder.lower() + ".csvd", index=False, compression='gzip')
+                        Output.write_rio(load_shape_df['year']==year, geography.lower() + "_" + feeder.lower() +"_" + str(year)+"_"+ self.scenario + ".csv", self.db_dir + "\\ShapeData\\"+geography.lower() + "_" + feeder.lower() + ".csvd", index=False, compression='gzip')
             df = pd.concat(df_list)
             Output.write_rio(df, "LOCAL_CAPACITY_ZONE_LOAD" + '.csv', self.db_dir + "\\Topography Inputs\Capacity Zones", index=False)
         df_list, load_shape_list = [], []
@@ -527,7 +528,7 @@ class RioExport(object):
             load_shape_df = util.DfOper.divi([df, util.remove_df_levels(df, 'weather_datetime', 'sum')])
             #load_shape_df = load_shape_df.tz_localize(None, level='weather_datetime')
             load_shape_df = Output.clean_rio_df(load_shape_df,add_geography=False)
-            load_shape_df['sensitivity'] = self.supply.scenario.name
+            load_shape_df['sensitivity'] = self.scenario
             df = util.remove_df_levels(df,'weather_datetime')
             df *=  UnitConverter.unit_convert(unit_from_num=cfg.calculation_energy_unit, unit_to_num='TWh')
             df/=len(Shapes.get_instance().cfg_weather_years)
@@ -535,7 +536,7 @@ class RioExport(object):
             df['interpolation_method'] = 'linear_interpolation'
             df['extrapolation_method'] = 'nearest'
             df['unit'] = 'TWh'
-            df['sensitivity'] = self.supply.scenario.name
+            df['sensitivity'] = self.scenario
             df['name'] = 'bulk'
             df = df[['name', 'geography', 'gau', 'unit', 'interpolation_method', 'extrapolation_method', \
                      'year', 'value', 'sensitivity']]
@@ -543,7 +544,7 @@ class RioExport(object):
             load_shape_list.append(load_shape_df)
         load_shape = pd.concat(load_shape_list)
         for year in self.supply.dispatch_years:
-            Output.write_rio(load_shape[load_shape['year']==year], "bulk" + "_"+ str(year)+ "_"+ self.supply.scenario.name +".csv", self.db_dir + "\\ShapeData\\bulk.csvd", index=False, compression='gzip')
+            Output.write_rio(load_shape[load_shape['year']==year], "bulk" + "_"+ str(year)+ "_"+ self.scenario +".csv", self.db_dir + "\\ShapeData\\bulk.csvd", index=False, compression='gzip')
         df = pd.concat(df_list)
         Output.write_rio(df, "BULK_CAPACITY_ZONE_LOAD" + '.csv', self.db_dir + "\\Topography Inputs\Capacity Zones", index=False)
 
@@ -1021,7 +1022,7 @@ def run(path, config, scenarios):
                  shutil.rmtree(os.path.join(folder,dir))
     for scenario_index, scenario in enumerate(scenarios):
         model = load_model(False, True, False, scenario)
-        export = RioExport(model,scenario_index)
+        export = RioExport(model,scenario_index,scenario)
         export.write_all()
         logging.info('EnergyPATHWAYS to RIO  for scenario {} successful!'.format(scenario))
     return export
@@ -1059,6 +1060,6 @@ if __name__ == "__main__":
     workingdir = r'E:\EP_Runs\EDF'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['Core','Core with CC']
+    scenario = ['Aggressive Policy Support','Modest Policy Support']
     export = run(workingdir, config, scenario)
     self = export
