@@ -2115,7 +2115,8 @@ class Subsector(schema.DemandSubsectors):
                 try:
                     sd_modifier.loc[indexer, :] = tech_modifier.values
                 except:
-                    pdb.set_trace()
+                    sd_modifier.loc[indexer, :] = util.DfOper.none([tech_modifier,sd_modifier.loc[indexer, :].reset_index().set_index(sd_modifier.index.names)]).values
+
         # multiply stock by service demand modifiers
         stock_values = DfOper.mult([sd_modifier, self.stock.values_efficiency]).groupby(level=self.stock.rollover_group_names).sum()
 #        # group stock and adjusted stock values
@@ -3005,7 +3006,7 @@ class Subsector(schema.DemandSubsectors):
         last_total = util.df_slice(self.stock.total, elements+(last_specified_year,), self.stock.rollover_group_names+['year']).values[0]
         return last_specified / np.nansum(last_specified) * last_total
 
-    def calculate_initial_stock(self, elements, percent_spec_cut=0.95):
+    def calculate_initial_stock(self, elements, percent_spec_cut=0.7):
         # todo, we have an issue here if the total and technology come in on different years.. this is sometimes happening in industry
         tech_slice = util.df_slice(self.stock.technology, elements, self.stock.rollover_group_names)
         total_slice = util.df_slice(self.stock.total, elements, self.stock.rollover_group_names)

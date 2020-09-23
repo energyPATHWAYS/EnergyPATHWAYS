@@ -6147,6 +6147,7 @@ class PrimaryNode(Node):
                     self.active_embodied_cost = self.cost.values.loc[:,year].to_frame()
                     self.active_embodied_cost = util.expand_multi(self.active_embodied_cost, levels_list = [GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography], self.demand_sectors],levels_names=[GeoMapper.supply_primary_geography,'demand_sector'])
                 else:
+                    pdb.set_trace()
                     raise ValueError("too many indexes in cost inputs of node %s" %self.name)
             self.levelized_costs.loc[:,year] = DfOper.mult([self.active_embodied_cost,self.active_cost_supply],expandable=(False,False)).values
 

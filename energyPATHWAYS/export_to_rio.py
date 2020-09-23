@@ -2544,6 +2544,6 @@ if __name__ == "__main__":
     workingdir = r'E:\EP_Runs\VA'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['central','reference']
+    scenario = ['central','reference','slow demand transformation']
     export = run(workingdir, config, scenario)
     self = export

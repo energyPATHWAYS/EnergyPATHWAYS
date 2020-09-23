@@ -416,4 +416,5 @@ class DataObject(CsvDataObject):
                     else:
                         missing_elements = set(df_levels[index_name]) - set(driver.index.get_level_values(index_name))
                         if len(missing_elements):
+                            pdb.set_trace()
                             raise ValueError('Index elements in the data that are not found in the driver. \n data: {} \n The following elements are missing from driver index "{}": {}'.format(df, index_name, missing_elements))
