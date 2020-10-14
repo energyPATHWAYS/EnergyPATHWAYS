@@ -2067,7 +2067,7 @@ class Supply(object):
         if not cfg.getParamAsBoolean('rio_db_run', section='rio'):
             self.rio_distribution_load[year] =copy.deepcopy(self.distribution_load)
         else:
-            final_demand = self.demand_object.aggregate_electricity_shapes(year)
+            final_demand = self.demand_object.aggregate_electricity_shapes(year, exclude_subsectors=cfg.rio_opt_demand_subsectors)
             distribution_native_load = final_demand.xs(0, level='timeshift_type')
             self.rio_distribution_load[year]= util.DfOper.add([distribution_native_load, self.shaped_dist(year, self.non_flexible_load, generation=False)])
             self.rio_flex_load[year] = util.df_slice(final_demand, ['advanced','delayed','native'], 'timeshift_type', drop_level=False, reset_index=True)
