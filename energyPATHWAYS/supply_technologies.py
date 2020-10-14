@@ -88,6 +88,8 @@ class SupplyTechnology(schema.SupplyTechs, StockItem):
 
         """
         self.capital_cost_new = SupplyTechsCapitalCapacityCostObj(self.name, self.scenario, 'new', self.book_life, self.cost_of_capital)
+        if not self.capital_cost_new._has_data:
+            logging.warning("Conversion technology %s has no capital cost data" % (self.name))
         self.capital_cost_replacement = SupplyTechsCapitalCapacityCostObj(self.name, self.scenario, 'replacement', self.book_life, self.cost_of_capital)
         self.installation_cost_new = SupplyTechsInstallationCostObj(self.name, self.scenario, 'new', self.book_life, self.cost_of_capital)
         self.installation_cost_replacement = SupplyTechsInstallationCostObj(self.name, self.scenario, 'replacement', self.book_life, self.cost_of_capital)
@@ -195,7 +197,10 @@ class SupplyTechInvestmentCost(SupplyTechCost):
             self.remap(map_from='values', map_to='values', converted_geography=GeoMapper.supply_primary_geography, time_index_name='vintage')
             self.levelize_costs()
         if not self._has_data:
-            raise ValueError("no costs are input")
+            self.absolute = False
+        if self.raw_values is None:
+            # if the class is empty, then there is no data for conversion, so the class is considered converted
+            self.absolute = True
 
     def levelize_costs(self):
         if hasattr(self, 'is_levelized'):
