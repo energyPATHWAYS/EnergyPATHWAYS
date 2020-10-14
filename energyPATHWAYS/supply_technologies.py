@@ -195,10 +195,7 @@ class SupplyTechInvestmentCost(SupplyTechCost):
             self.remap(map_from='values', map_to='values', converted_geography=GeoMapper.supply_primary_geography, time_index_name='vintage')
             self.levelize_costs()
         if not self._has_data:
-            self.absolute = False
-        if self.raw_values is None:
-            # if the class is empty, then there is no data for conversion, so the class is considered converted
-            self.absolute = True
+            raise ValueError("no costs are input")
 
     def levelize_costs(self):
         if hasattr(self, 'is_levelized'):

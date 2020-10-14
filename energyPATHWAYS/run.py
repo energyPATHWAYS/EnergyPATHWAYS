@@ -136,10 +136,10 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'E:\EP_Runs\Third Way'
+    workingdir = r'E:\EP_Runs\West'
     os.chdir(workingdir)
     rio_scenario = None
-    scenario = ['Core']
+    scenario = ['central']
     run(scenario,
     load_demand   = True,
     solve_demand  = False,
