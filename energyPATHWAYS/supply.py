@@ -5692,7 +5692,7 @@ class SupplyStockNode(Node):
         fixed_om = util.remove_df_levels(self.stock.fixed_om,'vintage').stack().to_frame()
         util.replace_index_name(fixed_om,'vintage',)
         fixed_om.columns = ['value']
-        variable_om = util.remove_df_levels(self.stock.fixed_om,'vintage').stack().to_frame()
+        variable_om = util.remove_df_levels(self.stock.variable_om,'vintage').stack().to_frame()
         util.replace_index_name(variable_om,'vintage')
         variable_om.columns = ['value']
         keys = ['capital cost - new', 'capital cost - replacement','installation cost - new','installation cost - replacement',
