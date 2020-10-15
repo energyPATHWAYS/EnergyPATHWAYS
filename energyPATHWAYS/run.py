@@ -88,7 +88,6 @@ def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solv
                       save_models=save_models,
                       append_results=False if (scenario == scenarios[0] and clear_results) else True,rio_scenario=rio_scenario)
 
-        shape.Shapes._instance = None  # needed because we filter shapes and need to reload it during the next for loop
         logging.info('EnergyPATHWAYS run for scenario {} successful!'.format(scenario))
         logging.info('Scenario calculation time {}'.format(str(datetime.timedelta(seconds=time.time() - scenario_start_time)).split('.')[0]))
     logging.info('Total calculation time {}'.format(str(datetime.timedelta(seconds=time.time() - run_start_time)).split('.')[0]))
@@ -136,18 +135,18 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'E:\EP_Runs\West'
+    workingdir = r'E:\EP_Runs\EDF'
     os.chdir(workingdir)
     rio_scenario = None
-    scenario = ['central']
+    scenario = ['Aggressive Policy Support']
     run(scenario,
     load_demand   = True,
     solve_demand  = False,
-    load_supply   = True,
-    solve_supply  = False,
+    load_supply   = False,
+    solve_supply  = True,
     export_results= False,
     load_error    = False,
-    save_models   = False,
+    save_models   = True,
     clear_results = False,
     rio_scenario=rio_scenario)
 

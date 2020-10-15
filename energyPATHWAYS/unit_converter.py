@@ -84,7 +84,10 @@ class UnitConverter:
             factor = input_unit.to(output_unit).magnitude
             return data * factor
         except pint.DimensionalityError:
-            factor = (1. / input_unit).to(output_unit).magnitude
+            try:
+                factor = (1. / input_unit).to(output_unit).magnitude
+            except:
+                pdb.set_trace()
             return (1. / data) * factor
 
     def exchange_rate(self, year, currency_from, currency_to=None):

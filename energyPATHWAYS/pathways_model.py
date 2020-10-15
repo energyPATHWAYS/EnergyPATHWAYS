@@ -9,7 +9,7 @@ import config as cfg
 from supply import Supply
 import pandas as pd
 import logging
-import energyPATHWAYS.shape as shape
+import energyPATHWAYS.shape
 import pdb
 from scenario_loader import Scenario
 import copy
@@ -33,7 +33,8 @@ class PathwaysModel(object):
         #try:
         self.scenario_id = scenario_id
         self.scenario = Scenario(self.scenario_id)
-        shape.Shapes.get_instance(cfg.getParam('database_path')).slice_sensitivities(self.scenario)
+        energyPATHWAYS.shape.Shapes._instance = None  # needed because we filter shapes and need to reload it during the next for loop
+        energyPATHWAYS.shape.Shapes.get_instance(cfg.getParam('database_path')).slice_sensitivities(self.scenario)
 
         self.rio_scenario = rio_scenario
         if solve_demand and not (load_demand or load_supply):

@@ -1000,7 +1000,7 @@ def run(path, config, scenarios):
     cfg.initialize_config()
     GeoMapper.get_instance().log_geo()
     Shapes.get_instance(cfg.getParam('database_path'))
-    
+    pdb.set_trace()
     if not scenarios:
         scenarios = [os.path.basename(p) for p in glob.glob(os.path.join(cfg.workingdir, '*.json'))]
         if not scenarios:
