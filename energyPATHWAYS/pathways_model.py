@@ -61,7 +61,7 @@ class PathwaysModel(object):
             self.supply.calculate_supply_outputs()
             self.pass_supply_results_back_to_demand()
             self.calculate_combined_results()
-            self.outputs.electricity_reconciliation = self.demand.electricity_reconciliation # we want to write these to outputs
+            #self.outputs.electricity_reconciliation = self.demand.electricity_reconciliation # we want to write these to outputs
             self.export_result_to_csv('supply_outputs')
             self.export_result_to_csv('combined_outputs')
             self.export_io()
@@ -111,16 +111,21 @@ class PathwaysModel(object):
 
     def pass_supply_results_back_to_demand(self):
         # we need to geomap to the combined output geography
-        emissions_demand_link = GeoMapper.geo_map(self.supply.emissions_demand_link, GeoMapper.supply_primary_geography, GeoMapper.combined_outputs_geography, 'intensity')
-        demand_emissions_rates = GeoMapper.geo_map(self.supply.demand_emissions_rates, GeoMapper.supply_primary_geography, GeoMapper.combined_outputs_geography, 'intensity')
-        energy_demand_link = GeoMapper.geo_map(self.supply.energy_demand_link, GeoMapper.supply_primary_geography, GeoMapper.combined_outputs_geography, 'intensity')
-        cost_demand_link = GeoMapper.geo_map(self.supply.cost_demand_link, GeoMapper.supply_primary_geography, GeoMapper.combined_outputs_geography, 'intensity')
+        #emissions_demand_link = GeoMapper.geo_map(self.supply.emissions_demand_link, GeoMapper.supply_primary_geography, GeoMapper.combined_outputs_geography, 'intensity')
+        #emissions_demand_link = self.supply.emissions_demand_link
+        #demand_emissions_rates = GeoMapper.geo_map(self.supply.demand_emissions_rates, GeoMapper.supply_primary_geography, GeoMapper.combined_outputs_geography, 'intensity')
+        #energy_demand_link = GeoMapper.geo_map(self.supply.energy_demand_link, GeoMapper.supply_primary_geography, GeoMapper.combined_outputs_geography, 'intensity')
+        #energy_demand_link = self.supply.energy_demand_link
+        #cost_demand_link = GeoMapper.geo_map(self.supply.cost_demand_link, GeoMapper.supply_primary_geography, GeoMapper.combined_outputs_geography, 'intensity')
+        cost_demand_link = self.supply.cost_demand_link
 
         logging.info("Calculating link to supply")
-        self.demand.link_to_supply(emissions_demand_link, demand_emissions_rates, energy_demand_link, cost_demand_link)
+        self.demand.link_to_supply(None, None, None, cost_demand_link)
+
+
         if cfg.output_tco == 'true':
             if hasattr(self,'d_energy_tco'):
-                self.demand.link_to_supply_tco(emissions_demand_link, demand_emissions_rates, cost_demand_link)
+                self.demand.link_to_supply_tco(None, None, cost_demand_link)
             else:
                print  "demand side has not been run with tco outputs set to 'true'"
         if cfg.output_payback == 'true':
@@ -131,11 +136,11 @@ class PathwaysModel(object):
     
     def calculate_combined_results(self):
         logging.info("Calculating combined emissions results")
-        self.calculate_combined_emissions_results()
+        #self.calculate_combined_emissions_results()
         logging.info("Calculating combined cost results")
         self.calculate_combined_cost_results()
         logging.info("Calculating combined energy results")
-        self.calculate_combined_energy_results()
+        #self.calculate_combined_energy_results()
         if cfg.output_tco == 'true':
             if self.demand.d_energy_tco is not None:
                 self.calculate_tco()

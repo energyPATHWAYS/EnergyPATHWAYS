@@ -404,13 +404,13 @@ class Demand(object):
     def link_to_supply(self, embodied_emissions_link, direct_emissions_link, energy_link, cost_link):
         demand_df = GeoMapper.geo_map(self.outputs.d_energy, GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total')
         logging.info("linking supply emissions to energy demand")
-        setattr(self.outputs, 'demand_embodied_emissions', self.group_linked_output(demand_df, embodied_emissions_link))
+        #setattr(self.outputs, 'demand_embodied_emissions', self.group_linked_output(demand_df, embodied_emissions_link))
         logging.info("calculating direct demand emissions")
-        setattr(self.outputs, 'demand_direct_emissions', self.group_linked_output(demand_df, direct_emissions_link))
+        #setattr(self.outputs, 'demand_direct_emissions', self.group_linked_output(demand_df, direct_emissions_link))
         logging.info("linking supply costs to energy demand")
         setattr(self.outputs, 'demand_embodied_energy_costs', self.group_linked_output(demand_df, cost_link))
         logging.info("linking supply energy to energy demand")
-        setattr(self.outputs, 'demand_embodied_energy', self.group_linked_output(demand_df, energy_link))
+        #setattr(self.outputs, 'demand_embodied_energy', self.group_linked_output(demand_df, energy_link))
 
     def link_to_supply_tco(self, embodied_emissions_link, direct_emissions_link, cost_link):
         demand_df = GeoMapper.geo_map(self.d_energy_tco, GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total')
