@@ -6378,7 +6378,6 @@ class RioInputs(DataObject):
         #self.adjust_bulk_shares_for_missing_techs()
         for attr in ['bulk_share','fuel_outputs','zonal_fuel_outputs','zonal_fuel_exports','product_exports','blend_levelized_costs','cleaned_delivered_gen']:
                 self.clean_timeseries_and_fill_with_zeros(attr)
-        pdb.set_trace()
 
     def adjust_bulk_shares_for_missing_techs(self):
         multiplier = 1/util.DfOper.add([self.bulk_share.groupby(level=[cfg.rio_geography,'year']).sum(),self.bulk_thermal_share.groupby(level=[cfg.rio_geography,'year']).sum()])
@@ -6688,8 +6687,7 @@ class RioInputs(DataObject):
         tech_list = []
         for x, y in zip(df['resource'].values, df['outputs_group_detailed'].values):
             try:
-                tech_list.append(self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_')) > 3 else
-                                 self.supply_technology_mapping[x.split('_')[0]])
+                tech_list.append(self.supply_technology_mapping[x.split('_')[1]] if len(x.split('_')) > 3 else self.supply_technology_mapping[x.split('_')[0]])
             except:
                 try:
                     tech_list.append(self.supply_technology_mapping[y.split('_')[1]] if len(y.split('_')) > 3 else
