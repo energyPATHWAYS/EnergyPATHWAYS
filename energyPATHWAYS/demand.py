@@ -309,7 +309,7 @@ class Demand(object):
                 return None
             levels_with_na_only = [name for level, name in zip(df.index.levels, df.index.names) if list(level)==[u'N/A']]
             return util.remove_df_levels(df, levels_with_na_only).sort_index()
-        output_list = [ 'stock']
+        output_list = ['energy', 'stock', 'sales','annual_costs','annual_costs_documentation', 'levelized_costs', 'service_demand','air_pollution']
         unit_flag = [True, True, True, False, True, True, True,True]
         for output_name, include_unit in zip(output_list,unit_flag):
             print "aggregating %s" %output_name
