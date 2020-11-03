@@ -136,18 +136,18 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'E:\EP_Runs\PGE Net Zero'
+    workingdir = r'E:\EP_Runs\West'
     os.chdir(workingdir)
-    rio_scenario = ['in-state only']
-    scenario = ['all options']
+    rio_scenario = None
+    scenario = ['low demand','100% renewable','reference','central','slow electricity']
     run(scenario,
     load_demand   = True,
-    solve_demand  = False,
+    solve_demand  = True,
     load_supply   = False,
-    solve_supply  = True,
-    export_results= False,
+    solve_supply  = False,
+    export_results= True,
     load_error    = False,
-    save_models   = False,
+    save_models   = True,
     clear_results = False,
     rio_scenario=rio_scenario)
 

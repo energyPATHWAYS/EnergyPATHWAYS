@@ -309,7 +309,7 @@ class Demand(object):
                 return None
             levels_with_na_only = [name for level, name in zip(df.index.levels, df.index.names) if list(level)==[u'N/A']]
             return util.remove_df_levels(df, levels_with_na_only).sort_index()
-        output_list = ['energy', 'stock', 'sales','annual_costs','annual_costs_documentation', 'levelized_costs', 'service_demand','air_pollution']
+        output_list = [ 'stock']
         unit_flag = [True, True, True, False, True, True, True,True]
         for output_name, include_unit in zip(output_list,unit_flag):
             print "aggregating %s" %output_name
@@ -403,14 +403,17 @@ class Demand(object):
 
     def link_to_supply(self, embodied_emissions_link, direct_emissions_link, energy_link, cost_link):
         demand_df = GeoMapper.geo_map(self.outputs.d_energy, GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total')
-        logging.info("linking supply emissions to energy demand")
-        #setattr(self.outputs, 'demand_embodied_emissions', self.group_linked_output(demand_df, embodied_emissions_link))
-        logging.info("calculating direct demand emissions")
-        #setattr(self.outputs, 'demand_direct_emissions', self.group_linked_output(demand_df, direct_emissions_link))
-        logging.info("linking supply costs to energy demand")
-        setattr(self.outputs, 'demand_embodied_energy_costs', self.group_linked_output(demand_df, cost_link))
-        logging.info("linking supply energy to energy demand")
-        #setattr(self.outputs, 'demand_embodied_energy', self.group_linked_output(demand_df, energy_link))
+        if cfg.calculate_emissions:
+            logging.info("linking supply emissions to energy demand")
+            setattr(self.outputs, 'demand_embodied_emissions', self.group_linked_output(demand_df, embodied_emissions_link))
+            logging.info("calculating direct demand emissions")
+            setattr(self.outputs, 'demand_direct_emissions', self.group_linked_output(demand_df, direct_emissions_link))
+        if cfg.calculate_costs:
+            logging.info("linking supply costs to energy demand")
+            setattr(self.outputs, 'demand_embodied_energy_costs', self.group_linked_output(demand_df, cost_link))
+        if cfg.calculate_energy:
+            logging.info("linking supply energy to energy demand")
+            setattr(self.outputs, 'demand_embodied_energy', self.group_linked_output(demand_df, energy_link))
 
     def link_to_supply_tco(self, embodied_emissions_link, direct_emissions_link, cost_link):
         demand_df = GeoMapper.geo_map(self.d_energy_tco, GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total')

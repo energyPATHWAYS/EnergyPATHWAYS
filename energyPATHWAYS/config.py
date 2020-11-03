@@ -188,7 +188,17 @@ def init_output_parameters():
     global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes, evolved_years,\
     rio_supply_run, rio_geography, rio_feeder_geographies, rio_energy_unit, rio_time_unit, rio_timestep_multiplier, rio_non_zonal_blend_nodes, rio_excluded_technologies, \
     rio_excluded_blends, rio_export_blends, rio_no_negative_blends, rio_excluded_nodes, rio_mass_unit, rio_distance_unit, rio_outflow_products, rio_standard_energy_unit, rio_volume_unit,\
-    rio_standard_mass_unit, rio_standard_distance_unit, rio_standard_volume_unit
+    rio_standard_mass_unit, rio_standard_distance_unit, rio_standard_volume_unit, calculate_costs, calculate_energy, calculate_emissions
+
+    try:
+        calculate_costs = getParamAsBoolean("calculate_costs",section='combined_output_detail')
+        calculate_energy= getParamAsBoolean("calculate_energy", section='combined_output_detail')
+        calculate_emissions = getParamAsBoolean("calculate_emissions", section='combined_output_detail')
+    except:
+        calculate_costs = True
+        calculate_energy = True
+        calculate_emissions = True
+
     currency_name = getParam('currency_name')
     output_currency = getParam('currency_year') + ' ' + currency_name
     output_tco = getParamAsBoolean('output_tco', section='output_detail')

@@ -549,32 +549,37 @@ class Supply(object):
             del self.map_dict[None]
         logging.info("calculating supply-side outputs")
         self.aggregate_results()
-        logging.info("calculating supply cost link")
-        self.cost_demand_link = self.map_embodied_to_demand(self.cost_dict, self.embodied_cost_link_dict,'cost')
-        self.cost_demand_link = util.remove_df_levels(self.cost_demand_link,
-                                                        GeoMapper.supply_primary_geography + "_supply")
-        logging.info("calculating supply emissions link")
-        self.emissions_demand_link = self.map_embodied_to_demand(self.emissions_dict, self.embodied_emissions_link_dict,'emissions')
-        logging.info("calculating supply energy link")
-        self.energy_demand_link = self.map_embodied_to_demand(self.inverse_dict['energy'], self.embodied_energy_link_dict,'energy')
-        self.energy_demand_link = util.remove_df_levels(self.energy_demand_link,GeoMapper.supply_primary_geography + "_supply")
-#       self.remove_blend_and_import()
-        logging.info("calculate exported costs")
-        self.calculate_export_result('export_costs', self.cost_dict)
-        logging.info("calculate exported emissions")
-        self.calculate_export_result('export_emissions', self.emissions_dict)
-        logging.info("calculate exported energy")
-        self.calculate_export_result('export_energy', self.inverse_dict['energy'])
-        logging.info("calculate emissions rates for demand side")
-        self.calculate_demand_emissions_rates()
+        if cfg.calculate_costs:
+            logging.info("calculating supply cost link")
+            self.cost_demand_link = self.map_embodied_to_demand(self.cost_dict, self.embodied_cost_link_dict,'cost')
+            self.cost_demand_link = util.remove_df_levels(self.cost_demand_link,
+                                                            GeoMapper.supply_primary_geography + "_supply")
+            logging.info("calculate exported costs")
+            self.calculate_export_result('export_costs', self.cost_dict)
+        if cfg.calculate_emissions:
+            logging.info("calculating supply emissions link")
+            self.emissions_demand_link = self.map_embodied_to_demand(self.emissions_dict, self.embodied_emissions_link_dict,'emissions')
+    #       self.remove_blend_and_import()
+            logging.info("calculate exported emissions")
+            self.calculate_export_result('export_emissions', self.emissions_dict)
+            logging.info("calculate emissions rates for demand side")
+            self.calculate_demand_emissions_rates()
+        if cfg.calculate_energy:
+            logging.info("calculating supply energy link")
+            self.energy_demand_link = self.map_embodied_to_demand(self.inverse_dict['energy'], self.embodied_energy_link_dict, 'energy')
+            self.energy_demand_link = util.remove_df_levels(self.energy_demand_link, GeoMapper.supply_primary_geography + "_supply")
+            logging.info("calculate exported energy")
+            self.calculate_export_result('export_energy', self.inverse_dict['energy'])
 
     def calculate_embodied_supply_outputs(self):
-        supply_embodied_cost = self.convert_io_matrix_dict_to_df(self.cost_dict)
-        supply_embodied_cost.columns = [cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')]
-        self.outputs.supply_embodied_cost = supply_embodied_cost
-        supply_embodied_emissions = self.convert_io_matrix_dict_to_df(self.emissions_dict)
-        supply_embodied_emissions.columns = [cfg.getParam('mass_unit')]
-        self.outputs.supply_embodied_emissions = supply_embodied_emissions
+        if cfg.calculate_costs:
+            supply_embodied_cost = self.convert_io_matrix_dict_to_df(self.cost_dict)
+            supply_embodied_cost.columns = [cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')]
+            self.outputs.supply_embodied_cost = supply_embodied_cost
+        if cfg.calculate_emissions:
+            supply_embodied_emissions = self.convert_io_matrix_dict_to_df(self.emissions_dict)
+            supply_embodied_emissions.columns = [cfg.getParam('mass_unit')]
+            self.outputs.supply_embodied_emissions = supply_embodied_emissions
 
     def calculate_annual_costs(self, year):
         for node in self.nodes.values():
