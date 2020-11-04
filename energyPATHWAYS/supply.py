@@ -6358,7 +6358,9 @@ class RioInputs(DataObject):
             logging.info("no annual_delivered_gen.csv file found in rio_db_import")
             self.delivered_gen = None
         if self.delivered_gen is not None and self.delivered_gen.sum().sum() > 0:
-            self.cleaned_delivered_gen = self.clean_delivered_rio_gen(gen_energy)
+            self.cleaned_delivered_gen = None
+            self.delivered_gen = None
+            #self.cleaned_delivered_gen = self.clean_delivered_rio_gen(gen_energy)
         else:
             self.cleaned_delivered_gen = None
             self.delivered_gen = None
@@ -6405,6 +6407,8 @@ class RioInputs(DataObject):
         util.replace_index_name(df_gen_all,'zone to','zone')
         df[df.index.get_level_values('zone from')==df.index.get_level_values('zone to')] = 0
         df = util.DfOper.divi([df,df_gen_all.groupby(level=['zone to','year']).sum()])
+        pdb.set_trace()
+
         df = df.reset_index(['resource', 'outputs_group_detailed'])
         gen_regions = list(set(df.index.get_level_values('zone from')))
         df['resource'] = df['resource'].apply(lambda x: self.clean_name(x, gen_regions))
