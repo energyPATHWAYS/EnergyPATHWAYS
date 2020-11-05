@@ -62,20 +62,26 @@ def splitclean(s, delim=',', allow_empties=False, as_type=None):
 
 def loop_geo_multiply(df1, df2, geo_label, geographies, levels_to_keep=None):
     geography_df_list = []
-    for geography in geographies:
-        if geography in df2.index.get_level_values(geo_label):
-            supply_indexer = level_specific_indexer(df2, [geo_label], [geography])
-            demand_indexer = level_specific_indexer(df1, [geo_label], [geography])
-            demand_df = df1.loc[demand_indexer, :]
-            demand_df = demand_df.round(12)
-            demand_df = demand_df[demand_df.values!=0]
-            supply_df =  df2.loc[supply_indexer, :]
-            supply_df = supply_df.round(12)
-            supply_df = supply_df[supply_df.values != 0]
-            geography_df = DfOper.mult([demand_df,supply_df])
-            geography_df = geography_df[geography_df.values!=0]
-            geography_df_list.append(geography_df)
-    df = pd.concat(geography_df_list)
+    #for geography in geographies:
+     #   if geography in df2.index.get_level_values(geo_label):
+      #      supply_indexer = level_specific_indexer(df2, [geo_label], [geography])
+       #     demand_indexer = level_specific_indexer(df1, [geo_label], [geography])
+    #     demand_df = df1.loc[demand_indexer, :]
+    #     demand_df = demand_df.round(12)
+    #     demand_df = demand_df[demand_df.values!=0]
+    #     supply_df =  df2.loc[supply_indexer, :]
+    #     supply_df = supply_df.round(12)
+    #     supply_df = supply_df[supply_df.values != 0]
+    #     geography_df = DfOper.mult([demand_df,supply_df])
+    #     geography_df = geography_df[geography_df.values!=0]
+    # geography_df_list.append(geography_df)
+    # df = pd.concat(geography_df_list)
+    demand_df = df1.round(2)
+    demand_df = demand_df[demand_df.values!=0]
+    #supply_df =  df2.loc[supply_indexer, :]
+    supply_df = df2.round(12)
+    supply_df = supply_df[supply_df.values != 0]
+    df = DfOper.mult([demand_df,supply_df])
     if levels_to_keep:
         filtered_ltk = [x for x in levels_to_keep if x in df.index.names]
         df = df.groupby(level=filtered_ltk).sum()
