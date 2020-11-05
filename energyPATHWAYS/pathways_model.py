@@ -360,7 +360,7 @@ class PathwaysModel(object):
         keys = ['EXPORTED', 'SUPPLY-SIDE', 'DEMAND-SIDE']
         names = ['COST TYPE']
         self.outputs.c_costs = util.df_list_concatenate([export_costs, embodied_costs, direct_costs],keys=keys,new_names=names)
-        self.outputs.c_costs[self.outputs.c_costs<0]=0
+        #self.outputs.c_costs[self.outputs.c_costs<0]=0
         self.outputs.c_costs= self.outputs.c_costs[self.outputs.c_costs[cost_unit.upper()]!=0]
 
     def calc_and_format_export_emissions(self):
