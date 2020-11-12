@@ -2541,9 +2541,9 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'E:\EP_Runs\Third Way'
+    workingdir = r'E:\EP_Runs\Rhodium'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['Core','Core - Policy','Slow Demand Transformation','Reference','Small is Beautiful']
+    scenario = ['Base','Base - Delayed Electrification','Base - EER Electrification','Reference','Low Efficiency','Low Electrification']
     export = run(workingdir, config, scenario)
     self = export
