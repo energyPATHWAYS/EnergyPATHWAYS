@@ -151,7 +151,8 @@ if __name__ == "__main__":
     clear_results = False,
     rio_scenario=rio_scenario)
 
-    # asdf = model.demand.aggregate_electricity_shapes(2017)
+    # model.setup_shapes()
+    # asdf = model.demand.aggregate_electricity_shapes(2020)
     # model.demand.aggregate_flexible_load_pmin_pmax(2017)
 
     #dispatch = Dispatch.load_from_pickle()

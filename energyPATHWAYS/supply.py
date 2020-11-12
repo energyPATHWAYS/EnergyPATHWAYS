@@ -19,7 +19,7 @@ from dispatch_classes import Dispatch, DispatchFeederAllocation
 import dispatch_classes
 import inspect
 import operator
-from shape import Shapes, Shape
+import energyPATHWAYS.shape as shape
 from outputs import Output
 from multiprocessing import Pool, cpu_count
 import energyPATHWAYS.helper_multiprocess as helper_multiprocess
@@ -743,7 +743,7 @@ class Supply(object):
                         annual_energy = lookup[node_name][geography][zone][feeder]['energy'].values.sum()
                         opt_periods = self.dispatch.period_repeated
                         dispatch_window = self.dispatch.node_config_dict[node_name].dispatch_window
-                        dispatch_periods = getattr(Shapes.get_active_dates_index(), dispatch_window)
+                        dispatch_periods = getattr(shape.Shapes.get_active_dates_index(), dispatch_window)
                         if load_or_gen=='load':
                             annual_energy = copy.deepcopy(annual_energy) *-1
                         if p_min_shape is None:
@@ -832,7 +832,7 @@ class Supply(object):
                         capacity = lookup[node_name][geography][zone][feeder]['capacity']
                         energy = lookup[node_name][geography][zone][feeder]['energy']
                         dispatch_window = self.dispatch.node_config_dict[node_name].dispatch_window
-                        dispatch_periods = getattr(Shapes.get_active_dates_index(), dispatch_window)
+                        dispatch_periods = getattr(shape.Shapes.get_active_dates_index(), dispatch_window)
                         num_years = len(dispatch_periods)/8766.
                         if load_or_gen=='load':
                             energy = copy.deepcopy(energy) *-1
@@ -886,7 +886,7 @@ class Supply(object):
                                 dispatch =  np.transpose([dispatch_budget.dispatch_to_energy_budget(self.dist_net_load_no_feeders.loc[net_indexer,:].values.flatten(),energy_budgets, dispatch_periods, p_min, p_max)])
                                 self.distribution_gen.loc[indexer,:] += dispatch
                                 self.dispatched_dist_gen.loc[indexer,:] += dispatch
-                        index = pd.MultiIndex.from_product([Shapes.get_active_dates_index(),[feeder]],names=['weather_datetime','dispatch_feeder'])
+                        index = pd.MultiIndex.from_product([shape.Shapes.get_active_dates_index(),[feeder]],names=['weather_datetime','dispatch_feeder'])
                         dispatch=pd.DataFrame(dispatch,index=index,columns=['value'])
                         if load_or_gen=='gen':
                             dispatch *=-1
@@ -1630,7 +1630,7 @@ class Supply(object):
 
         if year in self.dispatch_write_years:
             for x in detailed_results:
-                x['dispatch_by_category'].index = Shapes.get_active_dates_index()
+                x['dispatch_by_category'].index = shape.Shapes.get_active_dates_index()
 
             thermal_shape = pd.concat([x['dispatch_by_category'] for x in detailed_results],axis=0,keys=GeoMapper.dispatch_geographies)
             thermal_shape = thermal_shape.stack().to_frame()
@@ -1641,8 +1641,8 @@ class Supply(object):
             util.replace_index_name(thermal_shape_dataframe,'DISPATCH_OUTPUT','SUPPLY_TECHNOLOGY')
             self.bulk_dispatch = pd.concat([self.bulk_dispatch, -thermal_shape_dataframe.reorder_levels(self.bulk_dispatch.index.names)])
 
-            bulk_marginal_cost = pd.concat([pd.DataFrame(outputs['market_price'], index=Shapes.get_active_dates_index()) for outputs in detailed_results],axis=0,keys=GeoMapper.dispatch_geographies)
-            bulk_production_cost = pd.concat([pd.DataFrame(outputs['production_cost'], index=Shapes.get_active_dates_index()) for outputs in detailed_results],axis=0,keys=GeoMapper.dispatch_geographies)
+            bulk_marginal_cost = pd.concat([pd.DataFrame(outputs['market_price'], index=shape.Shapes.get_active_dates_index()) for outputs in detailed_results],axis=0,keys=GeoMapper.dispatch_geographies)
+            bulk_production_cost = pd.concat([pd.DataFrame(outputs['production_cost'], index=shape.Shapes.get_active_dates_index()) for outputs in detailed_results],axis=0,keys=GeoMapper.dispatch_geographies)
             bulk_marginal_cost = pd.concat([bulk_marginal_cost], keys=[year], names=['year'])
             bulk_production_cost = pd.concat([bulk_production_cost], keys=[year], names=['year'])
             bulk_marginal_cost.index.names = ['year', GeoMapper.dispatch_geography, 'weather_datetime']
@@ -3087,31 +3087,31 @@ class Node(schema.SupplyNodes):
         """
         if not hasattr(self,'stock'):
             if self.shape is None:
-                index = pd.MultiIndex.from_product([GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography],Shapes.get_active_dates_index()], names=[GeoMapper.supply_primary_geography,'weather_datetime'])
-                energy_shape = Shape.make_flat_load_shape(index)
+                index = pd.MultiIndex.from_product([GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography],shape.Shapes.get_active_dates_index()], names=[GeoMapper.supply_primary_geography,'weather_datetime'])
+                energy_shape = shape.Shape.make_flat_load_shape(index)
             else:
-                energy_shape = Shapes.get_values(self.shape)
+                energy_shape = shape.Shapes.get_values(self.shape)
         elif 'demand_sector' in self.stock.values_energy:
             values_energy = util.remove_df_levels(DfOper.mult([self.stock.values_energy[year],dispatch_feeder_allocation]),'demand_sector')
         else:
             values_energy = self.stock.values_energy[year]
         if self.shape is None and (hasattr(self, 'technologies') and  np.all([tech.shape is None for tech in self.technologies.values()]) or not hasattr(self,'technologies')):
-            index = pd.MultiIndex.from_product([GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography],Shapes.get_active_dates_index()], names=[GeoMapper.supply_primary_geography,'weather_datetime'])
-            energy_shape = Shape.make_flat_load_shape(index)
+            index = pd.MultiIndex.from_product([GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography],shape.Shapes.get_active_dates_index()], names=[GeoMapper.supply_primary_geography,'weather_datetime'])
+            energy_shape = shape.Shape.make_flat_load_shape(index)
         # we don't have technologies or none of the technologies have specific shapes
         elif not hasattr(self, 'technologies') or np.all([tech.shape is None for tech in self.technologies.values()]):
-            if 'resource_bin' in Shapes.get_values(self.shape).index.names and 'resource_bin' not in self.stock.values.index.names:
+            if 'resource_bin' in shape.Shapes.get_values(self.shape).index.names and 'resource_bin' not in self.stock.values.index.names:
                 raise ValueError('Shape for %s has resource bins but the stock in this supply node does not have resource bins as a level' %self.name)
-            elif 'resource_bin' in self.stock.values.index.names and 'resource_bin' not in Shapes.get_values(self.shape).index.names:
-                energy_shape = Shapes.get_values(self.shape)
-            elif 'resource_bin' in self.stock.values.index.names and 'resource_bin' in Shapes.get_values(self.shape).index.names:
+            elif 'resource_bin' in self.stock.values.index.names and 'resource_bin' not in shape.Shapes.get_values(self.shape).index.names:
+                energy_shape = shape.Shapes.get_values(self.shape)
+            elif 'resource_bin' in self.stock.values.index.names and 'resource_bin' in shape.Shapes.get_values(self.shape).index.names:
                 energy_slice = util.remove_df_levels(values_energy, ['vintage', 'supply_technology']).to_frame()
                 energy_slice.columns = ['value']
-                energy_shape = util.DfOper.mult([energy_slice, Shapes.get_values(self.shape)])
+                energy_shape = util.DfOper.mult([energy_slice, shape.Shapes.get_values(self.shape)])
                 energy_shape = util.DfOper.divi([util.remove_df_levels(energy_shape,'resource_bin'), util.remove_df_levels(energy_slice, 'resource_bin')])
                 energy_shape = energy_shape.replace(np.nan,0)
             else:
-                energy_shape = Shapes.get_values(self.shape)
+                energy_shape = shape.Shapes.get_values(self.shape)
         else:
             energy_slice = util.remove_df_levels(values_energy, 'vintage').to_frame()
             energy_slice.columns = ['value']
@@ -3120,7 +3120,7 @@ class Node(schema.SupplyNodes):
             if techs_with_default_shape:
                 energy_slice_default_shape = util.df_slice(energy_slice, techs_with_default_shape, 'supply_technology')
                 energy_slice_default_shape = util.remove_df_levels(energy_slice_default_shape, 'supply_technology')
-                default_shape_portion = util.DfOper.mult([energy_slice_default_shape, Shapes.get_values(self.shape)])
+                default_shape_portion = util.DfOper.mult([energy_slice_default_shape, shape.Shapes.get_values(self.shape)])
                 default_shape_portion = util.remove_df_levels(default_shape_portion, ['resource_bin'])
             if techs_with_own_shape:
                 energy_slice_own_shape = util.df_slice(energy_slice, techs_with_own_shape, 'supply_technology')
@@ -3153,17 +3153,17 @@ class Node(schema.SupplyNodes):
             p_max_shape = None
             p_min_shape = None
         elif not hasattr(self, 'technologies') or np.all([tech.shape is None for tech in self.technologies.values()]):
-            if 'dispatch_constraint' not in Shapes.get_values(self.shape).index.names:
-                if 'resource_bin' in Shapes.get_values(self.shape).index.names and 'resource_bin' not in self.stock.values.index.names:
+            if 'dispatch_constraint' not in shape.Shapes.get_values(self.shape).index.names:
+                if 'resource_bin' in shape.Shapes.get_values(self.shape).index.names and 'resource_bin' not in self.stock.values.index.names:
                     raise ValueError('Shape for %s has resource bins but the stock in this supply node does not have resource bins as a level' %self.name)
-                elif 'resource_bin' in self.stock.values.index.names and 'resource_bin' not in Shapes.get_values(self.shape).index.names:
-                    energy_shape = Shapes.get_values(self.shape)
+                elif 'resource_bin' in self.stock.values.index.names and 'resource_bin' not in shape.Shapes.get_values(self.shape).index.names:
+                    energy_shape = shape.Shapes.get_values(self.shape)
                 elif 'resource_bin' not in self.stock.values.index.names:
-                    energy_shape = Shapes.get_values(self.shape)
-                elif 'resource_bin' in self.stock.values.index.names and 'resource_bin' in Shapes.get_values(self.shape).index.names:
+                    energy_shape = shape.Shapes.get_values(self.shape)
+                elif 'resource_bin' in self.stock.values.index.names and 'resource_bin' in shape.Shapes.get_values(self.shape).index.names:
                     energy_slice = util.remove_df_levels(stock_values_energy[year], ['vintage', 'supply_technology']).to_frame()
                     energy_slice.columns = ['value']
-                    energy_shape = util.DfOper.mult([energy_slice, Shapes.get_values(self.shape)])
+                    energy_shape = util.DfOper.mult([energy_slice, shape.Shapes.get_values(self.shape)])
                     energy_shape = util.remove_df_levels(energy_shape, 'resource_bin')
                     energy_shape = DfOper.div([energy_shape, util.remove_df_levels(energy_slice,'resource_bin')])
                 p_min_shape = None
@@ -3171,15 +3171,15 @@ class Node(schema.SupplyNodes):
             else:
                 energy_shape, p_min_shape, p_max_shape,  = self.calculate_disp_constraints_shape(year, stock_values, stock_values_energy)
         else:
-            if 'dispatch_constraint' not in Shapes.get_values(self.shape).index.names:
+            if 'dispatch_constraint' not in shape.Shapes.get_values(self.shape).index.names:
                 energy_slice = util.remove_df_levels(self.stock.values_energy[year], 'vintage').to_frame()
                 energy_slice.columns = ['value']
-                techs_with_default_shape = [tech_name for tech_name, tech in self.technologies.items() if tech.shape is None or 'dispatch_constraint' in Shapes.get_values(tech.shape).index.names]
-                techs_with_own_shape = [tech_name for tech_name, tech in self.technologies.items() if tech.shape is not None and 'dispatch_constraint' not in Shapes.get_values(tech.shape).index.names]
+                techs_with_default_shape = [tech_name for tech_name, tech in self.technologies.items() if tech.shape is None or 'dispatch_constraint' in shape.Shapes.get_values(tech.shape).index.names]
+                techs_with_own_shape = [tech_name for tech_name, tech in self.technologies.items() if tech.shape is not None and 'dispatch_constraint' not in shape.Shapes.get_values(tech.shape).index.names]
                 if techs_with_default_shape:
                     energy_slice_default_shape = util.df_slice(energy_slice, techs_with_default_shape, 'supply_technology')
                     energy_slice_default_shape = util.remove_df_levels(energy_slice_default_shape, 'supply_technology')
-                    default_shape_portion = util.DfOper.mult([energy_slice_default_shape, Shapes.get_values(self.shape)])
+                    default_shape_portion = util.DfOper.mult([energy_slice_default_shape, shape.Shapes.get_values(self.shape)])
                     default_shape_portion = util.remove_df_levels(default_shape_portion, 'resource_bin')
                 if techs_with_own_shape:
                     energy_slice_own_shape = util.df_slice(energy_slice, techs_with_own_shape, 'supply_technology')
@@ -3198,30 +3198,30 @@ class Node(schema.SupplyNodes):
         return energy_shape,  p_min_shape , p_max_shape
 
     def calculate_disp_constraints_shape(self,year, stock_values, stock_values_energy):
-        if 'resource_bin' in Shapes.get_values(self.shape).index.names and 'resource_bin' not in self.stock.values.index.names:
+        if 'resource_bin' in shape.Shapes.get_values(self.shape).index.names and 'resource_bin' not in self.stock.values.index.names:
             raise ValueError('Shape for %s has resource bins but the stock in this supply node does not have resource bins as a level' %self.name)
-        elif 'resource_bin' in self.stock.values.index.names and 'resource_bin' not in Shapes.get_values(self.shape).index.names:
-            energy_shape = util.df_slice(Shapes.get_values(self.shape),'energy_budget','dispatch_constraint')
-            p_min_shape = util.df_slice(Shapes.get_values(self.shape),'p_min','dispatch_constraint')
-            p_max_shape = util.df_slice(Shapes.get_values(self.shape),'p_max','dispatch_constraint')
-        elif 'resource_bin' in self.stock.values.index.names and 'resource_bin' in Shapes.get_values(self.shape).index.names:
+        elif 'resource_bin' in self.stock.values.index.names and 'resource_bin' not in shape.Shapes.get_values(self.shape).index.names:
+            energy_shape = util.df_slice(shape.Shapes.get_values(self.shape),'energy_budget','dispatch_constraint')
+            p_min_shape = util.df_slice(shape.Shapes.get_values(self.shape),'p_min','dispatch_constraint')
+            p_max_shape = util.df_slice(shape.Shapes.get_values(self.shape),'p_max','dispatch_constraint')
+        elif 'resource_bin' in self.stock.values.index.names and 'resource_bin' in shape.Shapes.get_values(self.shape).index.names:
             energy_slice = util.remove_df_levels(stock_values_energy, ['vintage', 'supply_technology']).to_frame()
             energy_slice.columns = ['value']
-            energy_shape = util.DfOper.mult([energy_slice, util.df_slice(Shapes.get_values(self.shape),'energy_budget','dispatch_constraint')])
+            energy_shape = util.DfOper.mult([energy_slice, util.df_slice(shape.Shapes.get_values(self.shape),'energy_budget','dispatch_constraint')])
             energy_shape = util.remove_df_levels(energy_shape, 'resource_bin')
             energy_shape = DfOper.div([energy_shape, util.remove_df_levels(energy_slice,'resource_bin')])
             capacity_slice = util.remove_df_levels(stock_values, ['vintage', 'supply_technology']).to_frame()
             capacity_slice.columns = ['value']
-            p_min_shape = util.DfOper.mult([capacity_slice, util.df_slice(Shapes.get_values(self.shape),'p_min','dispatch_constraint')])
+            p_min_shape = util.DfOper.mult([capacity_slice, util.df_slice(shape.Shapes.get_values(self.shape),'p_min','dispatch_constraint')])
             p_min_shape = util.remove_df_levels(p_min_shape, 'resource_bin')
             p_min_shape = DfOper.div([p_min_shape, util.remove_df_levels(capacity_slice,'resource_bin')])
-            p_max_shape = util.DfOper.mult([capacity_slice, util.df_slice(Shapes.get_values(self.shape),'p_max','dispatch_constraint')])
+            p_max_shape = util.DfOper.mult([capacity_slice, util.df_slice(shape.Shapes.get_values(self.shape),'p_max','dispatch_constraint')])
             p_max_shape = util.remove_df_levels(p_max_shape, 'resource_bin')
             p_max_shape = DfOper.div([p_max_shape, util.remove_df_levels(capacity_slice,'resource_bin')])
         else:
-            energy_shape = util.df_slice(Shapes.get_values(self.shape),'energy_budget','dispatch_constraint')
-            p_min_shape = util.df_slice(Shapes.get_values(self.shape),'p_min','dispatch_constraint')
-            p_max_shape = util.df_slice(Shapes.get_values(self.shape),'p_max','dispatch_constraint')
+            energy_shape = util.df_slice(shape.Shapes.get_values(self.shape),'energy_budget','dispatch_constraint')
+            p_min_shape = util.df_slice(shape.Shapes.get_values(self.shape),'p_min','dispatch_constraint')
+            p_max_shape = util.df_slice(shape.Shapes.get_values(self.shape),'p_max','dispatch_constraint')
         return energy_shape, p_min_shape, p_max_shape
 
     def calculate_active_coefficients(self, year, loop):
