@@ -57,7 +57,11 @@ def format_timezone_str(tz):
     return time_zones[tz.lower()]
 
 def newest_shape_file_modified_date(database_path):
-    max_shapes_data_modified = max([os.path.getmtime(os.path.join(database_path, 'ShapeData', file_name)) for file_name in os.listdir(os.path.join(database_path, 'ShapeData'))])
+    max_shapes_data_modified = 0
+    for dirpath, dirnames, filenames in os.walk(os.path.join(database_path, 'ShapeData'), topdown=False):
+        valid_paths = [os.path.join(dirpath, file_name) for file_name in filenames if file_name[-7:]=='.csv.gz' or file_name[-5:]=='.csv']
+        max_date_modified_in_folder = max([os.path.getmtime(valid_path) for valid_path in valid_paths]) if len(valid_paths) else 0
+        max_shapes_data_modified = max(max_shapes_data_modified, max_date_modified_in_folder)
     shape_meta_modified = os.path.getmtime(os.path.join(database_path, 'Shapes.csv'))
     return max(max_shapes_data_modified, shape_meta_modified)
 
@@ -96,7 +100,10 @@ class Shapes(object):
 
     @classmethod
     def get_values(cls, key, database_path=None):
-        return cls.get_instance(database_path).data[key].values
+        instance = cls.get_instance(database_path)
+        if key not in instance.data:
+            raise ValueError("shape named '{}' not found in pickled shapes".format(key))
+        return instance.data[key].values
 
     @classmethod
     def get_active_dates_index(cls, database_path=None):
@@ -157,10 +164,7 @@ class Shapes(object):
         logging.info(' slicing shape sensitivities')
         for shape_name in self.data:
             sensitivity_name = sensitivities.get_sensitivity('ShapeData', shape_name) or '_reference_'
-            try:
-                self.data[shape_name].slice_sensitivity(sensitivity_name)
-            except:
-                pdb.set_trace()
+            self.data[shape_name].slice_sensitivity(sensitivity_name)
 
 class Shape(DataObject):
     def __init__(self, meta, raw_values, active_dates_index, active_dates_index_unique, time_slice_elements, num_active_years):

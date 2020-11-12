@@ -9,7 +9,7 @@ import config as cfg
 from supply import Supply
 import pandas as pd
 import logging
-import shape
+import energyPATHWAYS.shape as shape
 import pdb
 from scenario_loader import Scenario
 import copy
@@ -29,10 +29,15 @@ class PathwaysModel(object):
         self.supply = None
         self.demand_solved, self.supply_solved = False, False
 
+    def setup_shapes(self):
+        shapes = shape.Shapes.get_instance(cfg.getParam('database_path'))
+        shapes.slice_sensitivities(self.scenario)
+        return shapes
+
     def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, export_results, save_models, append_results, rio_scenario):
         self.scenario_id = scenario_id
         self.scenario = Scenario(self.scenario_id)
-        shape.Shapes.get_instance(cfg.getParam('database_path')).slice_sensitivities(self.scenario)
+        self.shapes = self.setup_shapes()
         self.rio_scenario = rio_scenario
         if solve_demand and not (load_demand or load_supply):
             self.calculate_demand(save_models)
