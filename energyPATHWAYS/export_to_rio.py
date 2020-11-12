@@ -1000,7 +1000,6 @@ def run(path, config, scenarios):
     cfg.initialize_config()
     GeoMapper.get_instance().log_geo()
     Shapes.get_instance(cfg.getParam('database_path'))
-    pdb.set_trace()
     if not scenarios:
         scenarios = [os.path.basename(p) for p in glob.glob(os.path.join(cfg.workingdir, '*.json'))]
         if not scenarios:
@@ -1057,9 +1056,9 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'E:\EP_Runs\EDF'
+    workingdir = r'E:\EP_Runs\EDF - MAC'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['Aggressive Policy Support','Modest Policy Support']
+    scenario = ['Reference']
     export = run(workingdir, config, scenario)
     self = export
