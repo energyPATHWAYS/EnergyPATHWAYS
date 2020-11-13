@@ -745,10 +745,10 @@ class RioExport(object):
                     subsector = sector.subsectors[subsector_name]
                     df = subsector.energy_forecast
                     df = df[df.index.get_level_values('vintage')<cfg.rio_start_year]
-                    df = util.remove_df_levels(df,['vintage'])
+                    df = util.remove_df_levels(df,['vintage','technology'])
                     util.replace_index_name(df, 'gau', GeoMapper.supply_primary_geography)
                     util.replace_index_name(df,'blend_in','final_energy')
-                    util.replace_index_name(df,'name','demand_technology')
+                    df['name'] = subsector_name
                     if 'other_index_1' not in df.index.names:
                         df['other_index'] = None
                     elif 'other_index_1' and 'other_index_2' in df.index.names:
@@ -769,9 +769,7 @@ class RioExport(object):
                              'blend_in','year','value','sensitivity']]
                     demand_dfs.append(df)
         df = pd.concat(demand_dfs)
-        Output.write_rio(df[df['blend_in'].values=='electricity'], "DEMAND_EXISTING_ELECTRICITY_DEMAND" + '.csv', self.db_dir + "\\Technology Inputs\\Demand", index=False)
-        Output.write_rio(df[df['blend_in'].values != 'electricity'], "DEMAND_EXISTING_BLEND_DEMAND" + '.csv', self.db_dir + "\\Technology Inputs\\Demand", index=False)
-
+        Output.write_rio(df, "DEMAND_EXISTING_ENERGY" + '.csv', self.db_dir + "\\Topography Inputs\\Demand", index=False)
 
 
 
@@ -1056,7 +1054,7 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'E:\EP_Runs\EDF - MAC'
+    workingdir = r'E:\EP_Runs\EDF'
     os.chdir(workingdir)
     config = 'config.INI'
     scenario = ['Reference']
