@@ -3805,11 +3805,12 @@ class BlendNode(Node):
             else:
                 df = rio_inputs.fuel_outputs
             df = util.df_slice(df,self.name,'blend')
-            input_nodes = list(set(df.index.get_level_values('supply_node')))
             self.blend_measures = dict()
-            for node in input_nodes:
-                data =util.df_slice(df,node,'supply_node')
-                self.blend_measures[node] = RioBlendMeasure(node,data)
+            if df is not None:
+                input_nodes = list(set(df.index.get_level_values('supply_node')))
+                for node in input_nodes:
+                    data =util.df_slice(df,node,'supply_node')
+                    self.blend_measures[node] = RioBlendMeasure(node,data)
 
     def add_rio_bulk_blend_measures(self,df):
             """
