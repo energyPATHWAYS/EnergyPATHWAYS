@@ -34,11 +34,12 @@ class PathwaysModel(object):
         shapes.slice_sensitivities(self.scenario)
         return shapes
 
-    def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, export_results, save_models, append_results, rio_scenario):
+    def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, export_results, save_models, append_results, rio_scenario, write_scenario_name):
         self.scenario_id = scenario_id
         self.scenario = Scenario(self.scenario_id)
         self.shapes = self.setup_shapes()
         self.rio_scenario = rio_scenario
+        self.write_scenario_name = write_scenario_name
         if solve_demand and not (load_demand or load_supply):
             self.calculate_demand(save_models)
         if solve_demand and load_demand:
@@ -106,7 +107,7 @@ class PathwaysModel(object):
         self.supply_solved = True
         if save_models:
             if cfg.rio_supply_run:
-                Output.pickle(self, file_name=self.rio_scenario + cfg.full_model_append_name, path=cfg.workingdir)
+                Output.pickle(self, file_name=self.write_scenario_name + cfg.full_model_append_name, path=cfg.workingdir)
             else:
                 Output.pickle(self, file_name=str(self.scenario_id) + cfg.full_model_append_name, path=cfg.workingdir)
             # we don't need the demand side object any more, so we can remove it to save drive space
@@ -188,8 +189,8 @@ class PathwaysModel(object):
                 continue
 
             result_df = getattr(res_obj, 'return_cleaned_output')(attribute)
-            if cfg.rio_supply_run:
-                keys = [self.supply.rio_scenario.upper(),cfg.timestamp]
+            if cfg.rio_supply_run and self.supply is not None:
+                keys = [self.supply.write_scenario_name.upper(),cfg.timestamp]
             else:
                 keys = [self.scenario.name.upper(), cfg.timestamp]
             names = ['SCENARIO', 'TIMESTAMP']

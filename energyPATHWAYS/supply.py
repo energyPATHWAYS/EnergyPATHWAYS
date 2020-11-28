@@ -6215,7 +6215,10 @@ class PrimaryCost(schema.PrimaryCost):
         if self._has_data:
             self.conversion = conversion
             self.resource_unit=resource_unit
-            self.remap(converted_geography=GeoMapper.supply_primary_geography)
+            try:
+                self.remap(converted_geography=GeoMapper.supply_primary_geography)
+            except:
+                pdb.set_trace()
             self.convert()
 
     def convert(self):
@@ -6972,6 +6975,8 @@ class RioInputs(DataObject):
                 return None
         else:
             df = df_supply.groupby(level=[cfg.rio_geography,'blend','year']).transform(lambda x: x / x.sum())
+
+
         df = df.replace([np.inf,np.nan],0,0)
         return df
 
