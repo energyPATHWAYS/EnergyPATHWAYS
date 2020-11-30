@@ -2359,7 +2359,7 @@ class Supply(object):
                io_adjusted.loc[:,col_indexer] = 0
             if node.overflow_node:
                col_indexer = util.level_specific_indexer(io_adjusted, 'supply_node', node.name, axis=1)
-               io_adjusted.loc[:, col_indexer] *= .5
+               io_adjusted.loc[:, col_indexer] *= .8
         return io_adjusted
 
     def rio_adjust(self,io):
@@ -2471,7 +2471,6 @@ class Supply(object):
                         self.feed_internal_trades(year, trade_sub, node.active_internal_trade_df)
 
 
-
     def reconcile_constraints(self,year,loop):
         """Reconciles instances where IO demands exceed a node's potentia.  To achieve this result, we calculate the expected location of supply and then pass
         that information to blend or import node trade adjustment dataframes so that the IO demands supply with that geographic distribution
@@ -2491,8 +2490,6 @@ class Supply(object):
                 if node.constraint_violation:
                     #enters a loop to feed that constraint forward in the supply node
                     self.feed_constraints(year, node.name, node.active_constraint_df)
-
-
 
 
     def reconcile_oversupply(self,year,loop):
@@ -6384,15 +6381,16 @@ class RioInputs(DataObject):
         self.electricity_trades = self.calc_trades(scenario,gen_energy)
         self.bulk_thermal_share = self.calc_bulk_thermal_share(scenario,gen_energy)
         self.transmission_constraint = self.calc_transmission_constraint(scenario)
-        #self.adjust_bulk_shares_for_missing_techs()
+        self.stock = util.reindex_df_level_with_new_elements(self.stock, 'year', sorted(self.stock.index.get_level_values('year').unique()), fill_value=0)
+        self.duration = util.reindex_df_level_with_new_elements(self.duration, 'year', sorted(self.duration.index.get_level_values('year').unique()), fill_value=0)
+        self.capacity_factor = util.reindex_df_level_with_new_elements(self.capacity_factor, 'year', sorted(self.capacity_factor.index.get_level_values('year').unique()), fill_value=0)
         for attr in ['bulk_share','fuel_outputs','zonal_fuel_outputs','zonal_fuel_exports','product_exports','blend_levelized_costs','cleaned_delivered_gen']:
-                self.clean_timeseries_and_fill_with_zeros(attr)
+            self.clean_timeseries_and_fill_with_zeros(attr)
 
     def adjust_bulk_shares_for_missing_techs(self):
         multiplier = 1/util.DfOper.add([self.bulk_share.groupby(level=[cfg.rio_geography,'year']).sum(),self.bulk_thermal_share.groupby(level=[cfg.rio_geography,'year']).sum()])
         self.bulk_share = util.DfOper.mult([self.bulk_share,multiplier])
         self.bulk_thermal_share = util.DfOper.mult([self.bulk_thermal_share, multiplier])
-
 
 
     def clean_delivered_rio_gen(self,gen_energy):
@@ -6408,7 +6406,6 @@ class RioInputs(DataObject):
         util.replace_index_name(df_gen_all,'zone to','zone')
         df[df.index.get_level_values('zone from')==df.index.get_level_values('zone to')] = 0
         df = util.DfOper.divi([df,df_gen_all.groupby(level=['zone to','year']).sum()])
-        pdb.set_trace()
 
         df = df.reset_index(['resource', 'outputs_group_detailed'])
         gen_regions = list(set(df.index.get_level_values('zone from')))
@@ -6728,7 +6725,11 @@ class RioInputs(DataObject):
         df['year'] = df['year'].astype(int)
         setattr(self,attr, df.set_index('year',append=True))
         try:
-            self.clean_timeseries(attr, time_index_name = 'year',time_index = list(sorted([int(x) for x in set(getattr(self,attr).index.get_level_values('year'))])),extrapolation_method=None,interpolation_method='linear_interpolation')
+            self.clean_timeseries(attr,
+                                  inplace=True,
+                                  time_index_name='year',
+                                  time_index=list(sorted([int(x) for x in set(getattr(self,attr).index.get_level_values('year'))])),
+                                  extrapolation_method=None,interpolation_method='linear_interpolation')
         except:
             pdb.set_trace()
         setattr(self, attr, getattr(self, attr).fillna(0))

@@ -2541,9 +2541,18 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'E:\EP_Runs\Rhodium'
+    workingdir = r'E:\ep_runs\socalgas\EP2RIO'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['Base','Base - Delayed Electrification','Base - EER Electrification','Reference','Low Efficiency','Low Electrification']
+    scenario = [
+        'Accel Clean Fuels',
+        'Accel Sequestration',
+        'Current Policy',
+        'Gas Decommission',
+        'No Decommission',
+        'Reference',
+                ]
     export = run(workingdir, config, scenario)
     self = export
+
+
