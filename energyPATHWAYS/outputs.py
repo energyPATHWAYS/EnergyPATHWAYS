@@ -43,7 +43,7 @@ class Output(object):
             util.replace_index_name(df,'year')
             df.columns = ['value']
         if 'year' in df.index.names:
-            df = df[df.index.get_level_values('year')>=cfg.getParamAsInt('current_year')]
+            df = df[df.index.get_level_values('year')>=cfg.getParamAsInt('current_year', section='TIME')]
         dct = cfg.outputs_id_map
         index = df.index
         index.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(index.names, index.levels)], inplace=True)
@@ -112,10 +112,10 @@ class Output(object):
                     df.to_csv(os.path.join(path, file_name), header=False, mode='a', compression=compression,index=index)
                     return
                 except OSError:
-                    wait_time = min(30, 2 ** tries) * np.random.rand()
+                    wait_time = min(60, 2 ** tries)
                     logging.error('waiting {} seconds to try to write {}...'.format(wait_time,file_name))
                     time.sleep(wait_time)
-                    if tries >= 30:
+                    if tries >= 60:
                         raise
                     tries += 1
         else:

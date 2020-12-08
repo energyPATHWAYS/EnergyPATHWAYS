@@ -39,7 +39,7 @@ class DispatchFeederAllocation(schema.DispatchFeedersAllocation):
 
         if self.raw_values is not None:
             assert (self.raw_values.groupby(level=['year', self.geography]).sum() == 1).all().all()
-            self.remap(map_from='raw_values', map_to='values', converted_geography=getParam('demand_primary_geography'))
+            self.remap(map_from='raw_values', map_to='values', converted_geography=getParam('demand_primary_geography', section='GEOGRAPHY'))
             self.values.sort_index(inplace=True)
 
 class DispatchNodeConfig(schema.DispatchNodeConfig):
@@ -121,17 +121,17 @@ class Dispatch(object):
         # self.dispatch_window_dict = dict(util.csv_read_table('DispatchWindows')) # todo doesn't seem used
         self.curtailment_cost = UnitConverter.unit_convert(0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.unserved_capacity_cost = UnitConverter.unit_convert(10000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
-        self.dist_net_load_penalty = UnitConverter.unit_convert(15000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.dist_net_load_penalty = UnitConverter.unit_convert(200000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
 
         # this bulk penalty is mostly for transmission
-        self.bulk_net_load_penalty = UnitConverter.unit_convert(5000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
+        self.bulk_net_load_penalty = UnitConverter.unit_convert(75000.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.ld_upward_imbalance_penalty = UnitConverter.unit_convert(150.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.ld_downward_imbalance_penalty = UnitConverter.unit_convert(50.0, unit_from_den='megawatt_hour',unit_to_den=cfg.calculation_energy_unit)
         self.dispatch_feeders = dispatch_feeders
         self.feeders = ['bulk'] + dispatch_feeders
         self.dispatch_geography = dispatch_geography
         self.dispatch_geographies = dispatch_geographies
-        self.stdout_detail = getParamAsBoolean('stdout_detail', 'opt')
+        self.stdout_detail = getParamAsBoolean('stdout_detail', 'ELECTRICITY_DISPATCH')
         self.transmission = dispatch_transmission.DispatchTransmission(cfg.transmission_constraint, scenario)
 
         self.solve_kwargs = {"keepfiles": False, "tee": False}
@@ -264,8 +264,8 @@ class Dispatch(object):
             self.max_cumulative_flex = self._timeseries_to_dict(cum_distribution_load.xs('advanced', level='timeshift_type'))
 
     def set_max_min_flex_loads(self, flex_pmin, flex_pmax):
-        self.flex_load_penalty_short = UnitConverter.unit_convert(cfg.getParamAsFloat('flex_load_penalty_short', 'opt'), unit_from_den='megawatt_hour', unit_to_den=cfg.calculation_energy_unit)
-        self.flex_load_penalty_long = UnitConverter.unit_convert(cfg.getParamAsFloat('flex_load_penalty_long', 'opt'), unit_from_den='megawatt_hour', unit_to_den=cfg.calculation_energy_unit)
+        self.flex_load_penalty_short = UnitConverter.unit_convert(cfg.getParamAsFloat('flex_load_penalty_short', 'ELECTRICITY_DISPATCH'), unit_from_den='megawatt_hour', unit_to_den=cfg.calculation_energy_unit)
+        self.flex_load_penalty_long = UnitConverter.unit_convert(cfg.getParamAsFloat('flex_load_penalty_long', 'ELECTRICITY_DISPATCH'), unit_from_den='megawatt_hour', unit_to_den=cfg.calculation_energy_unit)
         if self.has_flexible_load:
             self.max_flex_load = flex_pmax.squeeze().to_dict()
             self.min_flex_load = flex_pmin.squeeze().to_dict()
@@ -341,7 +341,7 @@ class Dispatch(object):
                      self.capacity[tech_dispatch_id] = storage_capacity_dict['power'][dispatch_geography][zone][feeder][tech]
                      self.duration[tech_dispatch_id] = storage_capacity_dict['duration'][dispatch_geography][zone][feeder][tech]
                      self.energy[tech_dispatch_id] = self.capacity[tech_dispatch_id] * self.duration[tech_dispatch_id]
-                     if self.duration[tech_dispatch_id] >= cfg.getParamAsInt('large_storage_duration', section='opt'):
+                     if self.duration[tech_dispatch_id] >= cfg.getParamAsInt('large_storage_duration', section='ELECTRICITY_DISPATCH'):
                         self.alloc_technologies.append(tech_dispatch_id)
                         self.large_storage[tech_dispatch_id] = 1
                         self.alloc_geography[tech_dispatch_id] = dispatch_geography
@@ -387,7 +387,7 @@ class Dispatch(object):
         MORs = np.array(util.df_slice(thermal_dispatch_df,['maintenance_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
         FORs = np.array(util.df_slice(thermal_dispatch_df,['forced_outage_rate',geography],['IO',self.dispatch_geography]).values).T[0]
         must_run = np.array(util.df_slice(thermal_dispatch_df,['must_run',geography],['IO',self.dispatch_geography]).values).T[0]
-        clustered_dict = dispatch_generators.cluster_generators(n_clusters = cfg.getParamAsInt('generator_steps', 'opt'), pmax=pmax, marginal_cost=marginal_cost, FORs=FORs,
+        clustered_dict = dispatch_generators.cluster_generators(n_clusters = cfg.getParamAsInt('generator_steps', 'ELECTRICITY_DISPATCH'), pmax=pmax, marginal_cost=marginal_cost, FORs=FORs,
                                                                 MORs=MORs, must_run=must_run, pad_stack=False, zero_mc_4_must_run=True)
         generator_numbers = range(len(clustered_dict['derated_pmax']))
         for number in generator_numbers:
@@ -603,7 +603,7 @@ class Dispatch(object):
                         self.ld_energy_budgets[period][technology]= self.capacity[period][technology] * self.period_lengths[period]-1
                     if self.ld_energy_budgets[period][technology]<= self.min_capacity[period][technology] * self.period_lengths[period]:
                         self.ld_energy_budgets[period][technology]= self.min_capacity[period][technology] * self.period_lengths[period]+1
-            if cfg.getParamAsBoolean('parallel_process'):
+            if cfg.getParamAsBoolean('parallel_process', section='DEFAULT'):
                 params = [(dispatch_formulation.create_dispatch_model(self, period), cfg.solver_name) for period in self.periods]
                 results = helper_multiprocess.safe_pool(helper_multiprocess.run_optimization, params)
             else:

@@ -125,7 +125,7 @@ class DispatchTransmissionCost(schema.DispatchTransmissionCost, TransmissionSupe
         """
         self.values = UnitConverter.currency_convert(self.values, self.currency, self.currency_year)
         model_energy_unit = cfg.calculation_energy_unit
-        model_time_step = cfg.getParam('time_step')
+        model_time_step = cfg.getParam('time_step', section='TIME')
         if self.time_unit is not None:
             # if a cost has a time_unit, then the unit is energy and must be converted to capacity
             self.values = UnitConverter.unit_convert(self.values,
@@ -137,7 +137,7 @@ class DispatchTransmissionCost(schema.DispatchTransmissionCost, TransmissionSupe
                                                 unit_to_den=model_energy_unit)
 
     def levelize_costs(self):
-        inflation = cfg.getParamAsFloat('inflation_rate')
+        inflation = cfg.getParamAsFloat('inflation_rate', section='UNITS')
         rate = self.cost_of_capital - inflation
         self.values_level = - np.pmt(rate, self.lifetime, 1, 0, 'end') * self.values
 

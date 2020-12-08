@@ -192,7 +192,7 @@ class DataObject(CsvDataObject):
         geography_map_key = self.get_geography_map_key()
 
         df = getattr(self, attr).copy()
-        if getParamAsBoolean('include_foreign_gaus'):
+        if getParamAsBoolean('include_foreign_gaus', section='GEOGRAPHY'):
             native_gaus, current_gaus, foreign_gaus = GeoMapper.get_instance().get_native_current_foreign_gaus(df, current_geography)
 
             if foreign_gaus:
@@ -242,8 +242,8 @@ class DataObject(CsvDataObject):
             drivers (list of or single dataframe): drivers for the remap
             input_type_override (string): either 'total' or 'intensity' (defaults to self.type)
         """
-        driver_geography    = driver_geography or getParam('disagg_geography')
-        converted_geography = converted_geography or getParam('primary_geography')
+        driver_geography    = driver_geography or getParam('disagg_geography', section='GEOGRAPHY')
+        converted_geography = converted_geography
         current_data_type   = current_data_type or self.input_type
         current_geography   = current_geography or self.geography
         time_index = self._get_active_time_index(time_index, time_index_name)

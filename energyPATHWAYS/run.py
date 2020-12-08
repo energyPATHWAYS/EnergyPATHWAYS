@@ -5,19 +5,19 @@ Created on Thu Jul 07 19:20:05 2016
 @author: ryandrewjones
 """
 
-# import sys
-# import signal
+import sys
+import signal
 import click
 import os
 import glob
 import cPickle as pickle
-#import psycopg2
+import psycopg2
 import energyPATHWAYS.config as cfg
 import energyPATHWAYS.util as util
 from energyPATHWAYS.pathways_model import PathwaysModel
 import energyPATHWAYS.shape as shape
-# from energyPATHWAYS.outputs import Output
-# from energyPATHWAYS.dispatch_classes import Dispatch
+from energyPATHWAYS.outputs import Output
+from energyPATHWAYS.dispatch_classes import Dispatch
 from energyPATHWAYS.geomapper import GeoMapper
 import time
 import datetime
@@ -25,9 +25,9 @@ import logging
 import smtplib
 import cProfile
 import traceback
-# import pandas as pd
+import pandas as pd
 import pdb
-# import energyPATHWAYS.unit_converter as unit_converter
+import energyPATHWAYS.unit_converter as unit_converter
 
 model = None
 run_start_time = time.time()
@@ -53,7 +53,7 @@ def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solv
     if not subfolders:
         GeoMapper.get_instance().log_geo()
 
-    shape.Shapes.get_instance(cfg.getParam('database_path'))
+    shape.Shapes.get_instance(cfg.getParam('database_path', section='DEFAULT'))
 
     if not scenarios:
         scenarios = [os.path.basename(p) for p in glob.glob(os.path.join(cfg.workingdir, '*.json'))]
@@ -125,7 +125,7 @@ def load_model(load_demand, load_supply, load_error, scenario,rio_scenario):
                 model = pickle.load(infile)
                 logging.info('Loaded complete EnergyPATHWAYS model from pickle')
         else:
-            raise("No model file exists")
+            raise IOError("No model file exists")
     else:
         model = PathwaysModel(pathways_scenario)
     return model
@@ -137,29 +137,17 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    if os.getenv('USER') == 'rjp':
-        workingdir = '/Users/rjp/Projects/EvolvedEnergy/rundir'
-        rio_scenario = ['central']
-        scenario = ['central']
-        load_demand   = False
-        solve_demand  = True
-
-    else:
-        workingdir = r'E:\EnergyPATHWAYS\MassV2'
-        rio_scenario = ['reference']
-        scenario = ['reference']
-        load_demand   = True
-        solve_demand  = False
-
+    workingdir = r'C:\Users\ryandrewjones\Dropbox (EER)\Evolved Energy Research\Tools\EnergyPATHWAYS\Active Runs\rich'
     os.chdir(workingdir)
-
+    rio_scenario = ['reference']
+    scenario = ['reference']
     run(scenario,
-        load_demand   = load_demand,
-        solve_demand  = solve_demand,
-        load_supply   = False,
-        solve_supply  = True,
-        export_results= False,
-        load_error    = False,
-        save_models   = False,
-        clear_results = False,
-        rio_scenario=rio_scenario)
+    load_demand   = False,
+    solve_demand  = True,
+    load_supply   = False,
+    solve_supply  = True,
+    export_results= False,
+    load_error    = False,
+    save_models   = False,
+    clear_results = False,
+    rio_scenario=rio_scenario)

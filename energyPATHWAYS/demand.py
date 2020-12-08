@@ -70,8 +70,8 @@ class Demand(object):
         self.calculate_demand()
         logging.info("Aggregating demand results")
         self.aggregate_results()
-        if getParamAsBoolean('evolved_run', section='evolved'):
-            self.aggregate_results_evolved(cfg.evolved_years)
+        # if getParamAsBoolean('evolved_run', section='evolved'):
+        #     self.aggregate_results_evolved(cfg.evolved_years)
 
 
     def add_sectors(self):
@@ -159,6 +159,7 @@ class Demand(object):
         numer = self.energy_demand.xs([cfg.electricity_energy_type, year], level=['final_energy', 'year']).sum().sum()
         denom = df.xs(0, level='timeshift_type').sum().sum() / len(Shapes.get_instance().cfg_weather_years)
         if not np.isclose(numer, denom, rtol=0.01, atol=0):
+            pdb.set_trace()
             logging.warning("Electricity energy is {} and bottom up load shape sums to {}".format(numer, denom))
         df *= numer / denom
         df = df.rename(columns={'value':year})
@@ -225,7 +226,7 @@ class Demand(object):
     def create_electricity_reconciliation(self):
         logging.info('Creating electricity shape reconciliation')
         # weather_year is the year for which we have top down load data
-        weather_year = max(int(np.round(np.mean(Shapes.get_active_dates_index().year))), cfg.getParamAsInt('current_year'))
+        weather_year = max(int(np.round(np.mean(Shapes.get_active_dates_index().year))), cfg.getParamAsInt('current_year', section='TIME'))
 
         # the next four lines create the top down load shape in the weather_year
         levels_to_keep = [GeoMapper.demand_primary_geography, 'year', 'final_energy']
@@ -300,17 +301,19 @@ class Demand(object):
                 return None
             levels_with_na_only = [name for level, name in zip(df.index.levels, df.index.names) if list(level)==[u'N/A']]
             return util.remove_df_levels(df, levels_with_na_only).sort_index()
+
         output_list = ['energy', 'stock', 'sales','annual_costs', 'levelized_costs', 'service_demand']
         unit_flag = [False, True, False, False, True, True]
-        for output_name, include_unit in zip(output_list,unit_flag):
+        for output_name, include_unit in zip(output_list, unit_flag):
             print "aggregating %s" %output_name
             df = self.group_output(output_name, include_unit=include_unit)
-            df[df.index.get_level_values('year').isin(cfg.combined_years_subset)]
-            df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
-            if df is not None:
-                setattr(self.outputs,"d_"+ output_name, df.sortlevel())
-            else:
+            if df is None:
                 setattr(self.outputs, "d_" + output_name, None)
+                continue
+            # df[df.index.get_level_values('year').isin(cfg.combined_years_subset)]
+            df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
+            setattr(self.outputs,"d_"+ output_name, df.sortlevel())
+
         if cfg.output_tco == 'true':
             output_list = ['energy_tco', 'levelized_costs_tco', 'service_demand_tco']
             unit_flag = [False, False, False,True]
@@ -337,12 +340,12 @@ class Demand(object):
         self.aggregate_sector_energy_for_supply_side()
 
         # we are going to output the shapes for all the demand subsectors for specific years
-        if cfg.getParamAsBoolean('subsector_electricity_profiles', 'demand_output_detail'):
+        if cfg.getParamAsBoolean('demand_od_subsector_profile_years', section='DEMAND_OUTPUT_DETAIL'):
             self.create_electricity_reconciliation()
             self.output_subsector_electricity_profiles()
 
     def output_subsector_electricity_profiles(self):
-        subsector_profile_years = cfg.getParam('subsector_profile_years', 'demand_output_detail')
+        subsector_profile_years = cfg.getParam('demand_od_subsector_profile_years', section='DEMAND_OUTPUT_DETAIL')
         if subsector_profile_years.lower().rstrip().lstrip() == 'all':
             output_years = cfg.supply_years
         else:
@@ -361,7 +364,7 @@ class Demand(object):
     def stack_subsector_electricity_profiles(self, year):
         # df_zeros = pd.DataFrame(0, columns=['value'], index=pd.MultiIndex.from_product((GeoMapper.demand_geographies, shape.shapes.active_dates_index), names=[GeoMapper.demand_primary_geography, 'weather_datetime']))
         stack = []
-        aggregate_subsector_profiles_to_sector = cfg.getParamAsBoolean('aggregate_subsector_profiles_to_sector', 'demand_output_detail')
+        aggregate_subsector_profiles_to_sector = cfg.getParamAsBoolean('demand_od_aggregate_subsector_profiles_to_sector', section='DEMAND_OUTPUT_DETAIL')
         if aggregate_subsector_profiles_to_sector:
             index_levels = ['year', GeoMapper.demand_primary_geography, 'dispatch_feeder', 'sector', 'weather_datetime']
             # index_levels = ['year', GeoMapper.demand_primary_geography, 'dispatch_feeder', 'sector', 'timeshift_type', 'weather_datetime']
@@ -452,7 +455,7 @@ class Demand(object):
         demand_df = input_df.copy()
         supply_link = supply_link.groupby(level=[GeoMapper.combined_outputs_geography,'year', 'final_energy', 'sector']).sum()
         geo_label = GeoMapper.combined_outputs_geography
-        demand_df = demand_df[demand_df.index.get_level_values('year') >= cfg.getParamAsInt('current_year')]
+        demand_df = demand_df[demand_df.index.get_level_values('year') >= cfg.getParamAsInt('current_year', section='TIME')]
         geography_df_list = []
         for geography in GeoMapper.combined_geographies:
             if geography in supply_link.index.get_level_values(geo_label):
@@ -469,7 +472,7 @@ class Demand(object):
         demand_df = input_df.copy()
         supply_link = supply_link.groupby(level=[GeoMapper.combined_outputs_geography,'year', 'final_energy', 'sector']).sum()
         geo_label = GeoMapper.combined_outputs_geography
-        demand_df = demand_df[demand_df.index.get_level_values('year') >= cfg.getParamAsInt('current_year')]
+        demand_df = demand_df[demand_df.index.get_level_values('year') >= cfg.getParamAsInt('current_year', section='TIME')]
         geography_df_list = []
         for geography in GeoMapper.combined_geographies:
             if geography in supply_link.index.get_level_values(geo_label):
@@ -514,7 +517,7 @@ class Sector(schema.DemandSectors):
             self.add_subsector(name)
 
         # # populate_subsector_data, this is a separate step so we can use multiprocessing
-        if cfg.getParamAsBoolean('parallel_process'):
+        if cfg.getParamAsBoolean('parallel_process', section='DEFAULT'):
             subsectors = helper_multiprocess.safe_pool(helper_multiprocess.subsector_populate, self.subsectors.values())
             self.subsectors = dict(zip(self.subsectors.keys(), subsectors))
         else:
@@ -583,7 +586,7 @@ class Sector(schema.DemandSectors):
         # TODO: seems like this next step could be shortened, but it changes the answer when it is removed altogether
         self.update_links(precursors)
 
-        if cfg.getParamAsBoolean('parallel_process'):
+        if cfg.getParamAsBoolean('parallel_process', section='DEFAULT'):
             subsectors = helper_multiprocess.safe_pool(helper_multiprocess.subsector_calculate, self.subsectors.values())
             self.subsectors = dict(zip(self.subsectors.keys(), subsectors))
         else:
@@ -880,9 +883,12 @@ class Subsector(schema.DemandSubsectors):
             return_shape = util.DfOper.add((return_shape, pd.concat([flex_native], keys=[0], names=['timeshift_type'])))
 
             capacity_group_levels = [l for l in flex_native.index.names if l != 'weather_datetime']
-            self.flexible_load_pmax[year] = flex_native.groupby(level=capacity_group_levels).max()
-            # this is a placeholder for V2G, we need a column in the db
-            self.flexible_load_pmin[year] = - self.flexible_load_pmax[year] if False else pd.DataFrame(0, index=self.flexible_load_pmax[year].index, columns=self.flexible_load_pmax[year].columns)
+            self.flexible_load_pmax[year] = flex_native.groupby(level=capacity_group_levels).max() * self.flexible_load_measure.p_max
+            if self.flexible_load_measure.p_min < 0:
+                # this is p2g
+                self.flexible_load_pmin[year] = flex_native.groupby(level=capacity_group_levels).max() * self.flexible_load_measure.p_min
+            else:
+                self.flexible_load_pmin[year] = flex_native.groupby(level=capacity_group_levels).min() * self.flexible_load_measure.p_min
         else:
             # if we don't have flexible load, we don't introduce electricity reconcilliation because that is done at a more aggregate level
             remaining_shape = util.DfOper.mult((Shapes.get_values(active_shape), remaining_energy))
@@ -1081,7 +1087,7 @@ class Subsector(schema.DemandSubsectors):
     def format_output_service_demand(self, override_levels_to_keep):
         if not hasattr(self, 'service_demand'):
             return None
-        if hasattr(self.service_demand, 'modifier') and cfg.getParamAsBoolean('use_service_demand_modifiers'):
+        if hasattr(self.service_demand, 'modifier') and cfg.getParamAsBoolean('use_service_demand_modifiers', section='DEMAND_CALCULATION_PARAMETERS'):
             df = util.DfOper.mult([util.remove_df_elements(self.service_demand.modifier, 9999, 'final_energy'),self.stock.values_efficiency_normal]).groupby(level=self.service_demand.values.index.names).transform(lambda x: x/x.sum())
             df = util.DfOper.mult([df,self.service_demand.values])
             original_other_indexers = [x for x in self.service_demand.values.index.names if x not in [GeoMapper.demand_primary_geography,'year']]
@@ -1221,7 +1227,7 @@ class Subsector(schema.DemandSubsectors):
                 keys = measure_types
                 names = ['cost_type']
                 df = util.df_list_concatenate(df_list,keys=keys,new_names=names,levels_to_keep=override_levels_to_keep)
-                unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
+                unit = cfg.getParam('currency_year', section='UNITS') + " " + cfg.getParam('currency_name', section='UNITS')
                 df.columns = [unit]
                 return df
             else:
@@ -1390,7 +1396,7 @@ class Subsector(schema.DemandSubsectors):
             else:
                 sales_share_min_year = 9999
             energy_min_year = min(self.energy_demand.raw_values.index.levels[util.position_in_index(self.energy_demand.raw_values, 'year')])
-            min_year = min(cfg.getParamAsInt('current_year'), stock_min_year, sales_share_min_year, energy_min_year)
+            min_year = min(cfg.getParamAsInt('current_year', section='TIME'), stock_min_year, sales_share_min_year, energy_min_year)
         elif self.sub_type == 'stock and service':
             stock_min_year = min(self.stock.raw_values.index.levels[util.position_in_index(self.stock.raw_values, 'year')])
             sales_share_vintages = util.csv_read_table('DemandSales', 'vintage', return_iterable=True, subsector=self.name)
@@ -1399,24 +1405,24 @@ class Subsector(schema.DemandSubsectors):
             else:
                 sales_share_min_year = 9999
             service_min_year = min(self.service_demand.raw_values.index.levels[util.position_in_index(self.service_demand.raw_values, 'year')])
-            min_year = min(cfg.getParamAsInt('current_year'), stock_min_year, sales_share_min_year, service_min_year)
+            min_year = min(cfg.getParamAsInt('current_year', section='TIME'), stock_min_year, sales_share_min_year, service_min_year)
         elif self.sub_type == 'service and efficiency':
             service_min_year = min(self.service_demand.raw_values.index.levels[
                 util.position_in_index(self.service_demand.raw_values, 'year')])
             service_efficiency_min_year = min(self.service_demand.raw_values.index.levels[
                 util.position_in_index(self.service_demand.raw_values, 'year')])
-            min_year = min(cfg.getParamAsInt('current_year'), service_min_year, service_efficiency_min_year)
+            min_year = min(cfg.getParamAsInt('current_year', section='TIME'), service_min_year, service_efficiency_min_year)
         elif self.sub_type == 'service and energy':
             service_min_year = min(self.service_demand.raw_values.index.levels[
                 util.position_in_index(self.service_demand.raw_values, 'year')])
             energy_min_year = min(self.energy_demand.raw_values.index.levels[
                 util.position_in_index(self.energy_demand.raw_values, 'year')])
-            min_year = min(cfg.getParamAsInt('current_year'), service_min_year,
+            min_year = min(cfg.getParamAsInt('current_year', section='TIME'), service_min_year,
                                 energy_min_year)
         elif self.sub_type == 'energy':
             energy_min_year = min(self.energy_demand.raw_values.index.levels[
                 util.position_in_index(self.energy_demand.raw_values, 'year')])
-            min_year = min(cfg.getParamAsInt('current_year'), energy_min_year)
+            min_year = min(cfg.getParamAsInt('current_year', section='TIME'), energy_min_year)
 
         elif self.sub_type == 'link':
             stock_min_year = min(self.stock.raw_values.index.levels[util.position_in_index(self.stock.raw_values, 'year')])
@@ -1425,10 +1431,10 @@ class Subsector(schema.DemandSubsectors):
                 sales_share_min_year = min(sales_share_vintages)
             else:
                 sales_share_min_year = 9999
-            min_year = min(cfg.getParamAsInt('current_year'), stock_min_year, sales_share_min_year)
-        min_year = max(min_year, cfg.getParamAsInt('demand_start_year'))
-        min_year = int(cfg.getParamAsInt('year_step') * round(float(min_year)/cfg.getParamAsInt('year_step')))
-        self.years = range(min_year, cfg.getParamAsInt('end_year') + 1, cfg.getParamAsInt('year_step'))
+            min_year = min(cfg.getParamAsInt('current_year', section='TIME'), stock_min_year, sales_share_min_year)
+        min_year = max(min_year, cfg.getParamAsInt('demand_start_year', section='TIME'))
+        min_year = int(cfg.getParamAsInt('year_step', section='TIME') * round(float(min_year)/cfg.getParamAsInt('year_step', section='TIME')))
+        self.years = range(min_year, cfg.getParamAsInt('end_year', section='TIME') + 1, cfg.getParamAsInt('year_step', section='TIME'))
         self.vintages = self.years
 
 
@@ -2195,7 +2201,7 @@ class Subsector(schema.DemandSubsectors):
     def vintage_year_array_expand(self, df, df_for_indexing, sd_subset):
         """creates a dataframe with years as columns instead of an index"""
         level_values = sd_subset.index.get_level_values(level='year')
-        max_column = min(max(level_values),cfg.getParamAsInt('current_year'))
+        max_column = min(max(level_values),cfg.getParamAsInt('current_year', section='TIME'))
         df = df.unstack(level='year')
         df.columns = df.columns.droplevel()
         df = df.loc[:, max_column].to_frame()
@@ -2280,7 +2286,7 @@ class Subsector(schema.DemandSubsectors):
             self.stock.technology = self.stock.total.reindex(index)
         self.stock.technology = util.remove_df_levels(self.stock.technology, cfg.removed_demand_levels)
         if not self.stock.specify_stocks_past_current_year:
-            self.stock.technology[self.stock.technology.index.get_level_values('year')>cfg.getParamAsInt('current_year')] = np.nan
+            self.stock.technology[self.stock.technology.index.get_level_values('year')>cfg.getParamAsInt('current_year', section='TIME')] = np.nan
         self.remap_linked_stock()
         if self.stock.has_linked_demand_technology:
             # if a stock a demand_technology stock that is linked from other subsectors, we goup by the levels found in the stotal stock of the subsector
@@ -2932,10 +2938,10 @@ class Subsector(schema.DemandSubsectors):
         tech_slice = util.df_slice(self.stock.technology, elements, self.stock.rollover_group_names)
         spec_threshold = percent_spec_cut*self.stock.total.loc[elements,:].values.flatten()
         demand_technology_years = tech_slice.sum(axis=1)[tech_slice.sum(axis=1)>spec_threshold].index.get_level_values('year')
-        if not len(demand_technology_years) or all(demand_technology_years > cfg.getParamAsInt('current_year')):
+        if not len(demand_technology_years) or all(demand_technology_years > cfg.getParamAsInt('current_year', section='TIME')):
             # we don't have specified stock for any of the years
             return None
-        last_specified_year = max(demand_technology_years[demand_technology_years <= cfg.getParamAsInt('current_year')])
+        last_specified_year = max(demand_technology_years[demand_technology_years <= cfg.getParamAsInt('current_year', section='TIME')])
         # last_specified_year = max(demand_technology_years)
         last_specified = self.stock.technology.loc[elements+(last_specified_year,),:].values
         last_total = util.df_slice(self.stock.total, elements+(last_specified_year,), self.stock.rollover_group_names+['year']).values[0]
@@ -2947,11 +2953,12 @@ class Subsector(schema.DemandSubsectors):
         total_slice = util.df_slice(self.stock.total, elements, self.stock.rollover_group_names)
         initial_total = total_slice.values[0][0]
         ratio = util.DfOper.divi((tech_slice.sum(axis=1).to_frame(), total_slice))
+        max_ratio = ratio.max().max()
         good_years = ratio.where(((1/percent_spec_cut)>ratio) & (ratio>percent_spec_cut)).dropna().index
         initial_sales_share = self.helper_calc_sales_share_reference_new(elements, initial_stock=None)[0]
         #Best way is if we have all demand_technology stocks specified for some year before current year
 
-        if len(good_years) and min(good_years)<=cfg.getParamAsInt('current_year'):
+        if len(good_years) and min(good_years)<=cfg.getParamAsInt('current_year', section='TIME'):
             chosen_year = min(good_years)
             # gross up if it is just under 100% of the stock represente
             initial_stock = self.stock.technology.loc[elements+(chosen_year,),:]
@@ -2961,7 +2968,13 @@ class Subsector(schema.DemandSubsectors):
             initial_stock = self.stock.calc_initial_shares(initial_total=initial_total, transition_matrix=initial_sales_share, num_years=len(self.years))
         elif initial_total == 0 or pd.isnull(initial_total):
             initial_stock = np.zeros(len(self.techs))
+        elif not len(good_years) and max_ratio>.7:
+            good_years = ratio.where(ratio==max_ratio).dropna().index
+            chosen_year = min(good_years)
+            initial_stock = self.stock.technology.loc[elements+(chosen_year,),:]
+            initial_stock = initial_stock/np.nansum(initial_stock) * initial_total
         else:
+            pdb.set_trace()
             raise ValueError('user has not input stock data with technologies or sales share data so the model cannot determine the demand_technology composition of the initial stock in subsector %s' %self.name)
         return initial_stock
 
@@ -3379,7 +3392,7 @@ class Subsector(schema.DemandSubsectors):
         util.replace_column(self.energy_forecast_no_modifier, 'value')
         self.energy_forecast = util.remove_df_elements(self.energy_forecast, 9999, 'final_energy')
         self.energy_forecast_no_modifier = util.remove_df_elements(self.energy_forecast_no_modifier, 9999, 'final_energy')
-        if not cfg.getParamAsBoolean('use_service_demand_modifiers'):
+        if not cfg.getParamAsBoolean('use_service_demand_modifiers', section='DEMAND_CALCULATION_PARAMETERS'):
             self.energy_forecast = self.energy_forecast_no_modifier
         if hasattr(self,'service_demand') and hasattr(self.service_demand,'other_index_1') :
             util.replace_index_name(self.energy_forecast,"other_index_1",self.service_demand.other_index_1)

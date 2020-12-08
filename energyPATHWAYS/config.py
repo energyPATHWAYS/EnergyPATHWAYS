@@ -79,13 +79,13 @@ def initialize_config():
     global years, supply_years, workingdir
     workingdir = os.getcwd()
 
-    years = range(getParamAsInt( 'demand_start_year'),
-                   getParamAsInt( 'end_year') + 1,
-                   getParamAsInt( 'year_step'))
+    years = range(getParamAsInt('demand_start_year', section='TIME'),
+                   getParamAsInt('end_year', section='TIME') + 1,
+                   getParamAsInt('year_step', section='TIME'))
 
-    supply_years = range(getParamAsInt( 'current_year'),
-                          getParamAsInt( 'end_year') + 1,
-                          getParamAsInt( 'year_step'))
+    supply_years = range(getParamAsInt('current_year', section='TIME'),
+                          getParamAsInt('end_year', section='TIME') + 1,
+                          getParamAsInt('year_step', section='TIME'))
 
     log_name = '{} energyPATHWAYS log.log'.format(str(datetime.datetime.now())[:-4].replace(':', '.'))
     setuplogging()
@@ -100,30 +100,30 @@ def initialize_config():
     index_levels = csv_read_table('IndexLevels', column_names=['index_level', 'data_column_name'])
     solver_name = find_solver()
 
-    available_cpus = getParamAsInt('num_cores')
+    available_cpus = getParamAsInt('num_cores', section='DEFAULT')
     timestamp = str(datetime.datetime.now().replace(second=0,microsecond=0))
 
 def setuplogging():
     if not os.path.exists(os.path.join(os.getcwd(), 'logs')):
         os.makedirs(os.path.join(os.getcwd(), 'logs'))
     log_path = os.path.join(os.getcwd(), 'logs', log_name)
-    log_level = getParam('log_level', section='log').upper()
+    log_level = getParam('log_level', section='LOG').upper()
     logging.basicConfig(filename=log_path, level=log_level)
     logger = logging.getLogger()
-    if getParamAsBoolean('stdout', 'log') and not any(type(h) is logging.StreamHandler for h in logger.handlers):
+    if getParamAsBoolean('stdout', 'LOG') and not any(type(h) is logging.StreamHandler for h in logger.handlers):
         soh = logging.StreamHandler(sys.stdout)
         soh.setLevel(log_level)
         logger.addHandler(soh)
 
 def init_db():
-    dbdir = getParam('database_path')
+    dbdir = getParam('database_path', section='DEFAULT')
     EnergyPathwaysDatabase.get_database(dbdir, load=False)
 
 def init_units():
     # Initiate pint for unit conversions
     global calculation_energy_unit
 
-    calculation_energy_unit = getParam('calculation_energy_unit')
+    calculation_energy_unit = getParam('calculation_energy_unit', section='UNITS')
 
 
 def init_date_lookup():
@@ -134,16 +134,16 @@ def init_date_lookup():
     electricity_energy_type = 'electricity'
     elect_default_shape_key = csv_read_table('FinalEnergy', column_names=['shape'], name='electricity')
 
-    opt_period_length = getParamAsInt('period_length', 'opt')
-    transmission_constraint = _ConfigParser.get('opt','transmission_constraint')
+    opt_period_length = getParamAsInt('period_length', section='ELECTRICITY_DISPATCH')
+    transmission_constraint = getParam('transmission_constraint', section='ELECTRICITY_DISPATCH')
     transmission_constraint = transmission_constraint if transmission_constraint != "" else None
-    filter_dispatch_less_than_x = _ConfigParser.get('output_detail','filter_dispatch_less_than_x')
-    keep_dispatch_outputs_in_model = _ConfigParser.get('output_detail', 'keep_dispatch_outputs_in_model')
+    filter_dispatch_less_than_x = getParamAsFloat('filter_dispatch_less_than_x', section='ELECTRICITY_DISPATCH')
+    keep_dispatch_outputs_in_model = getParamAsBoolean('keep_dispatch_outputs_in_model', section='ELECTRICITY_DISPATCH')
     filter_dispatch_less_than_x = float(filter_dispatch_less_than_x) if filter_dispatch_less_than_x != "" else None
 
 def init_removed_levels():
     global removed_demand_levels
-    removed_demand_levels = splitclean(_ConfigParser.get('removed_levels', 'levels'))
+    removed_demand_levels = splitclean(getParam('removed_demand_levels', section='DEMAND_CALCULATION_PARAMETERS'))
 
 def init_output_levels():
     global output_demand_levels, output_supply_levels, output_combined_levels,combined_years_subset
@@ -152,23 +152,24 @@ def init_output_levels():
     output_combined_levels = list(set(output_supply_levels + output_demand_levels + [geomapper.GeoMapper.combined_outputs_geography + "_supply"]))
     output_combined_levels = list(set(output_combined_levels) - {geomapper.GeoMapper.demand_primary_geography, geomapper.GeoMapper.supply_primary_geography}) + [geomapper.GeoMapper.combined_outputs_geography]
 
-    for x in [x[0] for x in _ConfigParser.items('demand_output_detail')]:
-        if x in output_demand_levels and _ConfigParser.get('demand_output_detail', x).lower() != 'true':
+    for x in [x[0] for x in _ConfigParser.items('DEMAND_OUTPUT_DETAIL')]:
+        if x in output_demand_levels and _ConfigParser.get('DEMAND_OUTPUT_DETAIL', x).lower() != 'true':
             output_demand_levels.remove(x)
-    for x in [x[0] for x in _ConfigParser.items('supply_output_detail')]:
-        if x in output_supply_levels and _ConfigParser.get('supply_output_detail',x).lower() != 'true':
+    for x in [x[0] for x in _ConfigParser.items('SUPPLY_OUTPUT_DETAIL')]:
+        if x in output_supply_levels and _ConfigParser.get('SUPPLY_OUTPUT_DETAIL',x).lower() != 'true':
             output_supply_levels.remove(x)
-    for x in [x[0] for x in _ConfigParser.items('combined_output_detail')]:
-        if _ConfigParser.get('combined_output_detail',x).lower() != 'true':
+    for x in [x[0] for x in _ConfigParser.items('COMBINED_OUTPUT_DETAIL')]:
+        if _ConfigParser.get('COMBINED_OUTPUT_DETAIL',x).lower() != 'true':
             if x == 'supply_geography':
                 x = geomapper.GeoMapper.combined_outputs_geography + "_supply"
             if x in output_combined_levels:
                 output_combined_levels.remove(x)
-    years_subset = _ConfigParser.get('combined_output_detail', 'years_subset')
+    years_subset = _ConfigParser.get('COMBINED_OUTPUT_DETAIL', 'combined_od_years_subset')
     if years_subset != 'None' and len(years_subset):
         combined_years_subset = [int(y) for y in years_subset.split(',') if int(y) in supply_years]
     else:
         combined_years_subset = supply_years
+
 def table_dict(table_name, columns=['id', 'name'], append=False,
                other_index_id=id, return_iterable=False, return_unique=True):
     df = csv_read_table(table_name, columns,
@@ -185,43 +186,40 @@ def init_output_parameters():
     rio_supply_run, rio_geography, rio_feeder_geographies, rio_energy_unit, rio_time_unit, rio_timestep_multiplier, rio_zonal_blend_nodes, rio_excluded_technologies, \
     rio_excluded_blends, rio_export_blends, rio_no_negative_blends, rio_excluded_nodes, rio_mass_unit, rio_distance_unit, rio_outflow_products, rio_standard_energy_unit, rio_volume_unit,\
     rio_standard_mass_unit, rio_standard_distance_unit, rio_standard_volume_unit
-    currency_name = getParam('currency_name')
-    output_currency = getParam('currency_year') + ' ' + currency_name
-    output_tco = getParamAsBoolean('output_tco', section='output_detail')
-    output_payback = getParamAsBoolean('output_payback', section='output_detail')
-    rio_supply_run = getParamAsBoolean('rio_supply_run', section='rio')
-    rio_geography = getParam('rio_geography', section='rio')
-    rio_feeder_geographies = [feeder_geo.strip() for feeder_geo in getParam('rio_feeder_geographies', section='rio').split(',') if len(feeder_geo)]
-    rio_energy_unit = getParam('rio_energy_unit', section='rio')
-    rio_time_unit = getParam('rio_time_unit', section='rio')
-    rio_timestep_multiplier = getParamAsInt('rio_timestep_multiplier', section='rio')
-    # todo: these aren't going to be integers
-    rio_zonal_blend_nodes = [g.strip()for g in _ConfigParser.get('rio', 'rio_zonal_blends').split(',') if len(g)]
-    rio_excluded_technologies = [g.strip()for g in _ConfigParser.get('rio', 'rio_excluded_technologies').split(',') if len(g)]
-    rio_excluded_blends = [g.strip()for g in _ConfigParser.get('rio', 'rio_excluded_blends').split(',') if len(g)]
-    rio_export_blends = [g.strip() for g in _ConfigParser.get('rio', 'rio_export_blends').split(',') if len(g)]
-    rio_outflow_products = [g.strip() for g in _ConfigParser.get('rio', 'rio_outflow_products').split(',') if len(g)]
-    rio_excluded_nodes = [g.strip() for g in _ConfigParser.get('rio', 'rio_excluded_nodes').split(',') if len(g)]
-    rio_no_negative_blends = [g for g in _ConfigParser.get('rio', 'rio_no_negative_blends').split(',') if len(g)]
-    evolved_run = _ConfigParser.get('evolved','evolved_run').lower()
-    evolved_years = [x for x in ensure_iterable(_ConfigParser.get('evolved', 'evolved_years'))]
-    evolved_blend_nodes = splitclean(_ConfigParser.get('evolved','evolved_blend_nodes'), as_type=int)
-    rio_mass_unit = getParam('rio_mass_unit', section='rio')
-    rio_volume_unit = getParam('rio_volume_unit', section='rio')
-    rio_distance_unit = getParam('rio_distance_unit', section='rio')
-    rio_standard_energy_unit = getParam('rio_standard_energy_unit', section='rio')
-    rio_standard_mass_unit = getParam('rio_standard_mass_unit', section='rio')
-    rio_standard_volume_unit = getParam('rio_standard_volume_unit', section='rio')
-    rio_standard_distance_unit = getParam('rio_standard_distance_unit', section='rio')
+    currency_name = getParam('currency_name', section='UNITS')
+    output_currency = getParam('currency_year', section='UNITS') + ' ' + currency_name
+    output_tco = getParamAsBoolean('output_tco', section='DEMAND_CALCULATION_PARAMETERS')
+    output_payback = getParamAsBoolean('output_payback', section='DEMAND_CALCULATION_PARAMETERS')
+    rio_supply_run = getParamAsBoolean('rio_supply_run', section='RIO')
+    rio_geography = getParam('rio_geography', section='RIO')
+    rio_feeder_geographies = [feeder_geo.strip() for feeder_geo in getParam('rio_feeder_geographies', section='RIO').split(',') if len(feeder_geo)]
+    rio_energy_unit = getParam('rio_energy_unit', section='RIO')
+    rio_time_unit = getParam('rio_time_unit', section='RIO')
+    rio_timestep_multiplier = getParamAsInt('rio_timestep_multiplier', section='RIO')
+    rio_zonal_blend_nodes = [g.strip() for g in getParam('rio_zonal_blends', section='RIO').split(',') if len(g)]
+    rio_excluded_technologies = [g.strip() for g in getParam('rio_excluded_technologies', section='RIO').split(',') if len(g)]
+    rio_excluded_blends = [g.strip() for g in getParam('rio_excluded_blends', section='RIO').split(',') if len(g)]
+    rio_export_blends = [g.strip() for g in getParam('rio_export_blends', section='RIO').split(',') if len(g)]
+    rio_outflow_products = [g.strip() for g in getParam('rio_outflow_products', section='RIO').split(',') if len(g)]
+    rio_excluded_nodes = [g.strip() for g in getParam('rio_excluded_nodes', section='RIO').split(',') if len(g)]
+    rio_no_negative_blends = [g.strip() for g in getParam('rio_no_negative_blends', section='RIO').split(',') if len(g)]
+    # evolved_run = getParam('evolved','evolved_run').lower()
+    # evolved_years = [x for x in ensure_iterable(getParam('evolved', 'evolved_years'))]
+    # evolved_blend_nodes = splitclean(getParam('evolved','evolved_blend_nodes'), as_type=int)
+    rio_mass_unit = getParam('rio_mass_unit', section='RIO')
+    rio_volume_unit = getParam('rio_volume_unit', section='RIO')
+    rio_distance_unit = getParam('rio_distance_unit', section='RIO')
+    rio_standard_energy_unit = getParam('rio_standard_energy_unit', section='RIO')
+    rio_standard_mass_unit = getParam('rio_standard_mass_unit', section='RIO')
+    rio_standard_volume_unit = getParam('rio_standard_volume_unit', section='RIO')
+    rio_standard_distance_unit = getParam('rio_standard_distance_unit', section='RIO')
     init_removed_levels()
     init_output_levels()
 
 
 
 def find_solver():
-    dispatch_solver = _ConfigParser.get('opt', 'dispatch_solver')
-    # TODO: is replacing spaces just stripping surrounding whitespace? If so, use splitclean instead
-    requested_solvers = _ConfigParser.get('opt', 'dispatch_solver').replace(' ', '').split(',')
+    requested_solvers = [g.strip() for g in getParam('dispatch_solver', section='ELECTRICITY_DISPATCH').split(',') if len(g)]
     solver_name = None
     # inspired by the solver detection code at https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/scripting/driver_help.py#L336
     # suppress logging of warnings for solvers that are not found

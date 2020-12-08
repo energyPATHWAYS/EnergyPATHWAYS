@@ -31,7 +31,6 @@ class PathwaysModel(object):
         self.demand_solved, self.supply_solved = False, False
 
     def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, export_results, save_models, append_results, rio_scenario):
-        #try:
         self.scenario_id = scenario_id
         self.scenario = Scenario(self.scenario_id)
         self.rio_scenario = rio_scenario
@@ -66,14 +65,6 @@ class PathwaysModel(object):
             self.export_result_to_csv('supply_outputs')
             self.export_result_to_csv('combined_outputs')
             self.export_io()
-        #except:
-            # pickle the model in the event that it crashes
-            #if save_models:
-             #   if cfg.rio_supply_run:
-              #      Output.pickle(self, file_name=self.rio_scenario + cfg.model_error_append_name, path=cfg.workingdir)
-               # else:
-                #    Output.pickle(self, file_name=str(self.scenario_id) + cfg.model_error_append_name,
-                 #                 path=cfg.workingdir)
 
 
     def calculate_demand(self, save_models):
@@ -194,7 +185,7 @@ class PathwaysModel(object):
                 continue
 
     def calculate_tco(self):
-        cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
+        cost_unit = cfg.getParam('currency_year', section='UNITS') + " " + cfg.getParam('currency_name', section='UNITS')
         initial_vintage = min(cfg.supply_years)
         supply_side_df = self.demand.outputs.demand_embodied_energy_costs_tco
         supply_side_df = supply_side_df[supply_side_df.index.get_level_values('vintage')>=initial_vintage]
@@ -221,7 +212,7 @@ class PathwaysModel(object):
         self.outputs.c_tco = self.outputs.return_cleaned_output('c_tco')
 
     def calculate_payback(self):
-        cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
+        cost_unit = cfg.getParam('currency_year', section='UNITS') + " " + cfg.getParam('currency_name', section='UNITS')
         initial_vintage = min(cfg.supply_years)
         supply_side_df = self.demand.outputs.demand_embodied_energy_costs_payback
         supply_side_df = supply_side_df[supply_side_df.index.get_level_values('vintage')>=initial_vintage]
@@ -258,7 +249,7 @@ class PathwaysModel(object):
         self.outputs.c_payback = self.outputs.return_cleaned_output('c_payback')
 
     def calculate_d_payback(self):
-        cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
+        cost_unit = cfg.getParam('currency_year', section='UNITS') + " " + cfg.getParam('currency_name', section='UNITS')
         initial_vintage = min(cfg.supply_years)
         demand_side_df = self.demand.d_annual_costs_payback
         demand_side_df.columns = ['value']
@@ -324,14 +315,14 @@ class PathwaysModel(object):
         export_costs = Output.clean_df(export_costs)
         util.replace_index_name(export_costs, 'FINAL_ENERGY', 'SUPPLY_NODE_EXPORT')
         export_costs = util.add_to_df_index(export_costs, names=['EXPORT/DOMESTIC', "SUPPLY/DEMAND"], keys=["EXPORT", "SUPPLY"])
-        cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
+        cost_unit = cfg.getParam('currency_year', section='UNITS') + " " + cfg.getParam('currency_name', section='UNITS')
         export_costs.columns = [cost_unit.upper()]
         return export_costs
 
     def calc_and_format_embodied_costs(self):
         #calculate and format embodied supply costs
         embodied_costs_list = [Output.clean_df(x) for x in self.demand.outputs.demand_embodied_energy_costs]
-        cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
+        cost_unit = cfg.getParam('currency_year', section='UNITS') + " " + cfg.getParam('currency_name', section='UNITS')
         for embodied_costs in embodied_costs_list: embodied_costs.columns = [cost_unit.upper()]
         embodied_costs_list = [util.add_to_df_index(x, names=['EXPORT/DOMESTIC', "SUPPLY/DEMAND"], keys=["DOMESTIC","SUPPLY"]) for x in embodied_costs_list]
         return embodied_costs_list
@@ -349,7 +340,7 @@ class PathwaysModel(object):
         return direct_costs
 
     def calculate_combined_cost_results(self):
-        cost_unit = cfg.getParam('currency_year') + " " + cfg.getParam('currency_name')
+        cost_unit = cfg.getParam('currency_year', section='UNITS') + " " + cfg.getParam('currency_name', section='UNITS')
         export_costs = self.calc_and_format_export_costs()
         embodied_costs_list = self.calc_and_format_embodied_costs()
         direct_costs = self.calc_and_format_direct_demand_costs()
@@ -367,7 +358,7 @@ class PathwaysModel(object):
                 direct_costs.set_index(name, append=True, inplace=True)
             direct_costs = direct_costs.groupby(level=embodied_costs_list[0].index.names).sum()
         self.outputs.c_costs = embodied_costs_list + [direct_costs] + [export_costs]
-        self.outputs.c_costs= [x[x.values!=0] for x in self.outputs.c_costs]
+        # self.outputs.c_costs= [x[x.values!=0] for x in self.outputs.c_costs]
         for x in self.outputs.c_costs: x.index = x.index.reorder_levels(embodied_costs_list[0].index.names)
 
 
@@ -400,10 +391,9 @@ class PathwaysModel(object):
         if GeoMapper.combined_outputs_geography + '_supply' in cfg.output_combined_levels:
              keys = direct_emissions_list[0].index.get_level_values(GeoMapper.combined_outputs_geography.upper()).values
              names = GeoMapper.combined_outputs_geography.upper() + '_SUPPLY'
-             for x in direct_emissions_list:
-                x[names] = keys
-
-             direct_emissions_list = [x.set_index(names, append=True, inplace=True) for x in direct_emissions_list]
+             for i in range(len(direct_emissions_list)):
+                direct_emissions_list[i][names] = keys
+                direct_emissions_list[i] = direct_emissions_list[i].set_index(names, append=True)
         return direct_emissions_list
 
     def calculate_combined_emissions_results(self):
@@ -427,7 +417,7 @@ class PathwaysModel(object):
         self.outputs.c_emissions = [util.replace_index_name(x, GeoMapper.combined_outputs_geography.upper() +'-EMITTED', GeoMapper.combined_outputs_geography.upper() +'_SUPPLY',inplace=True) for x in self.outputs.c_emissions]
         self.outputs.c_emissions = [util.replace_index_name(x, GeoMapper.combined_outputs_geography.upper() +'-CONSUMED', GeoMapper.combined_outputs_geography.upper(),inplace=True) for x in self.outputs.c_emissions]
         self.outputs.c_emissions = [x[x['VALUE']!=0] for x in  self.outputs.c_emissions]
-        emissions_unit = cfg.getParam('mass_unit')
+        emissions_unit = cfg.getParam('mass_unit', section='UNITS')
         for x in self.outputs.c_emissions:
             x.columns = [emissions_unit.upper()]
         for x in self.outputs.c_emissions: x.index = x.index.reorder_levels([l for l in embodied_emissions_list[0].index.names if l in x.index.names])
@@ -452,7 +442,7 @@ class PathwaysModel(object):
     def calc_and_format_direct_demand_energy(self):
         demand_energy = GeoMapper.geo_map(self.demand.outputs.d_energy.copy(), GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total')
         demand_energy = Output.clean_df(demand_energy)
-        demand_energy = demand_energy[demand_energy.index.get_level_values('YEAR')>=cfg.getParamAsInt('current_year')]
+        demand_energy = demand_energy[demand_energy.index.get_level_values('YEAR')>=cfg.getParamAsInt('current_year', section='TIME')]
         demand_energy = util.add_to_df_index(demand_energy, names=['EXPORT/DOMESTIC', "ENERGY ACCOUNTING"], keys=['DOMESTIC','FINAL'])
         return demand_energy
 
@@ -474,11 +464,12 @@ class PathwaysModel(object):
         self.outputs.c_energy = embodied_energy_list + [demand_energy] + [export_energy]
         self.outputs.c_energy = [x[x['VALUE']!=0] for x in self.outputs.c_energy]
         energy_unit = cfg.calculation_energy_unit
-        for x in self.outputs.c_energy: x.columns = [energy_unit.upper()]
-        for x in self.outputs.c_energy: x.index = x.index.reorder_levels(embodied_energy_list[0].index.names)
+        for x in self.outputs.c_energy:
+            x.columns = [energy_unit.upper()]
+            x.index = x.index.reorder_levels(embodied_energy_list[0].index.names)
 
     def export_io(self):
-        io_table_write_step = cfg.getParamAsInt('io_table_write_step', 'output_detail')
+        io_table_write_step = cfg.getParamAsInt('supply_od_io_table_write_step', section='SUPPLY_OUTPUT_DETAIL')
         io_table_years = sorted([min(self.supply.years)] + range(max(self.supply.years), min(self.supply.years), -io_table_write_step))
         df_list = []
         for year in io_table_years:

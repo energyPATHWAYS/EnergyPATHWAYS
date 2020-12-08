@@ -27,7 +27,7 @@ class RioExport(object):
         self.db_dir = os.path.join(cfg.workingdir, 'rio_db_export')
         self.meta_dict = defaultdict(list)
         self.scenario_index = scenario_index
-        # self.shapes = Shapes.get_instance(cfg.getParam('database_path'))
+        # self.shapes = Shapes.get_instance(cfg.getParam('database_path', section='DEFAULT'))
 
 
     def write_all(self):
@@ -125,7 +125,7 @@ class RioExport(object):
                 # todo, change the frequency to change the timestep
                 active_dates_index.append(pd.date_range(start_date, end_date, freq='H'))
             return reduce(pd.DatetimeIndex.append, active_dates_index)
-        weather_years = [int(y) for y in cfg.getParam('weather_years').split(',')]
+        weather_years = [int(y) for y in cfg.getParam('weather_years', section='TIME').split(',')]
         self.active_dates_index = get_active_dates(weather_years)
         shapes = {}
         active_nodes = self.supply.nodes[self.supply.bulk_electricity_node_name].nodes + self.supply.nodes[
@@ -164,7 +164,7 @@ class RioExport(object):
         self.meta_dict['shape_type'].append('weather date')
         self.meta_dict['input_type'].append('intensity')
         self.meta_dict['shape_unit_type'].append('power')
-        self.meta_dict['time_zone'].append(cfg.getParam('dispatch_outputs_timezone'))
+        self.meta_dict['time_zone'].append(cfg.getParam('dispatch_outputs_timezone', section='TIME'))
         self.meta_dict['geography'].append(GeoMapper.dispatch_geography)
         self.meta_dict['geography_map_key'].append(None)
         self.meta_dict['interpolation_method'].append('linear_interpolation')
@@ -261,7 +261,7 @@ class RioExport(object):
                     self.meta_dict['shape_type'].append( 'weather date')
                     self.meta_dict['input_type'].append( 'intensity')
                     self.meta_dict['shape_unit_type'].append('power')
-                    self.meta_dict['time_zone'].append(cfg.getParam('dispatch_outputs_timezone'))
+                    self.meta_dict['time_zone'].append(cfg.getParam('dispatch_outputs_timezone', section='TIME'))
                     self.meta_dict['geography'].append(GeoMapper.dispatch_geography)
                     self.meta_dict['geography_map_key'].append(None)
                     self.meta_dict['interpolation_method'].append('linear_interpolation')
@@ -281,7 +281,7 @@ class RioExport(object):
             self.meta_dict['input_type'].append('intensity')
             self.meta_dict['shape_unit_type'].append('power')
             self.meta_dict['time_zone'].append(
-               cfg.getParam('dispatch_outputs_timezone'))
+               cfg.getParam('dispatch_outputs_timezone', section='TIME'))
             self.meta_dict['geography'].append(GeoMapper.dispatch_geography)
             self.meta_dict['geography_map_key'].append(None)
             self.meta_dict['interpolation_method'].append('linear_interpolation')
@@ -564,7 +564,7 @@ class RioExport(object):
                 df['notes'] = None
                 df['unit'] = cfg.calculation_energy_unit
                 df['currency'] = cfg.currency_name
-                df['currency_year'] = cfg.getParam('currency_year')
+                df['currency_year'] = cfg.getParam('currency_year', section='UNITS')
                 df['interpolation_method'] = 'linear_interpolation'
                 df['extrapolation_method'] = 'nearest'
                 df['sensitivity'] = self.supply.scenario.name
@@ -679,7 +679,7 @@ class RioExport(object):
                                 df_rows['lifetime'] = self.supply.nodes[node].technologies[tech_name].mean_lifetime
                         except:
                             pdb.set_trace()
-                        df_rows['cost_of_capital'] = self.supply.nodes[node].technologies[tech_name].cost_of_capital -float(cfg.getParam('inflation_rate'))
+                        df_rows['cost_of_capital'] = self.supply.nodes[node].technologies[tech_name].cost_of_capital -float(cfg.getParam('inflation_rate', section='UNITS'))
                         df_rows['retirement_type'] = 'simple' if self.supply.nodes[node].stock.extrapolation_method!='none' else 'complex'
                         df_rows['use_retirement_year'] = False
                         if len(plant) == 3:
@@ -718,7 +718,7 @@ class RioExport(object):
                         df_rows['unit_out'] = cfg.calculation_energy_unit
                         df_rows['output_numerator'] = False
                         df_rows['currency'] = cfg.currency_name
-                        df_rows['currency_year'] = cfg.getParam('currency_year')
+                        df_rows['currency_year'] = cfg.getParam('currency_year', section='UNITS')
                         if hasattr(self.supply.nodes[node].technologies[tech_name].variable_om,'values'):
                             df_rows['variable_om'] = UnitConverter.unit_convert(self.supply.nodes[node].technologies[tech_name].variable_om.values.loc[gau,plant[-1]][0],unit_from_den=cfg.calculation_energy_unit,unit_to_num='megawatt_hour')
                         else:
@@ -886,10 +886,10 @@ class RioExport(object):
                     df['unit'] = cfg.calculation_energy_unit
                     df['time_unit'] = 'hour'
                     df['currency'] = cfg.currency_name
-                    df['currency_year'] = cfg.getParam('currency_year')
+                    df['currency_year'] = cfg.getParam('currency_year', section='UNITS')
                     df['cost_type'] = 'capacity'
                     df['lifecycle'] = 'new'
-                    df['cost_of_capital'] = self.supply.nodes[node].technologies[tech_name].cost_of_capital -float(cfg.getParam('inflation_rate'))
+                    df['cost_of_capital'] = self.supply.nodes[node].technologies[tech_name].cost_of_capital -float(cfg.getParam('inflation_rate', section='UNITS'))
                     df['levelized'] = False
                     df['geography_map_key'] = None
                     df['interpolation_method'] = 'linear_interpolation'
@@ -938,10 +938,10 @@ class RioExport(object):
                     df['unit'] = cfg.calculation_energy_unit
                     df['time_unit'] = 'hour'
                     df['currency'] = cfg.currency_name
-                    df['currency_year'] = cfg.getParam('currency_year')
+                    df['currency_year'] = cfg.getParam('currency_year', section='UNITS')
                     df['cost_type'] = 'energy'
                     df['lifecycle'] = 'new'
-                    df['cost_of_capital'] = self.supply.nodes[node].technologies[tech_name].cost_of_capital - cfg.getParamAsFloat('inflation_rate')
+                    df['cost_of_capital'] = self.supply.nodes[node].technologies[tech_name].cost_of_capital - cfg.getParamAsFloat('inflation_rate', section='UNITS')
                     df['levelized'] = False
                     df['geography_map_key'] = None
                     df['interpolation_method'] = 'linear_interpolation'
@@ -1342,10 +1342,10 @@ class RioExport(object):
                     df['unit'] = cfg.calculation_energy_unit
                     df['time_unit'] = 'hour'
                     df['currency'] = cfg.currency_name
-                    df['currency_year'] = cfg.getParam('currency_year')
+                    df['currency_year'] = cfg.getParam('currency_year', section='UNITS')
                     df['cost_type'] = 'capacity'
                     df['lifecycle'] = 'new'
-                    df['cost_of_capital'] = self.supply.nodes[node].technologies[tech_name].cost_of_capital-cfg.getParamAsFloat('inflation_rate')
+                    df['cost_of_capital'] = self.supply.nodes[node].technologies[tech_name].cost_of_capital-cfg.getParamAsFloat('inflation_rate', section='UNITS')
                     df['levelized'] = False
                     df['geography_map_key'] = None
                     df['interpolation_method'] = 'linear_interpolation'
@@ -1396,7 +1396,7 @@ class RioExport(object):
                     df['notes'] = None
                     df['unit'] = 'megawatt'
                     df['currency'] = cfg.currency_name
-                    df['currency_year'] = cfg.getParam('currency_year')
+                    df['currency_year'] = cfg.getParam('currency_year', section='UNITS')
                     df['geography_map_key'] = None
                     df['interpolation_method'] = 'linear_interpolation'
                     df['extrapolation_method'] = 'nearest'
@@ -1447,7 +1447,7 @@ class RioExport(object):
                     df['notes'] = None
                     df['unit'] = 'megawatt_hour'
                     df['currency'] = cfg.currency_name
-                    df['currency_year'] = cfg.getParam('currency_year')
+                    df['currency_year'] = cfg.getParam('currency_year', section='UNITS')
                     df['geography_map_key'] = None
                     df['interpolation_method'] = 'linear_interpolation'
                     df['extrapolation_method'] = 'nearest'
@@ -1911,7 +1911,7 @@ class RioExport(object):
                                         eff_del.columns = ['value']
                                         eff_del = eff_del.loc[idx[:, self.supply.blend_nodes], :]
                                         eff_del = cfg.geo.geo_map(eff_del, self.supply.nodes[delivery_node].coefficients.geography,self.supply.nodes[node].technologies[technology].efficiency.geography,
-                                      'intensity',cfg.getParam('default_geography_map_key'), 1, False)
+                                      'intensity',cfg.getParam('default_geography_map_key', section='GEOGRAPHY'), 1, False)
                                         if len (eff_del)>0:
                                             eff_del = util.DfOper.mult([temp_df, eff_del]).reorder_levels(
                                                     [self.supply.nodes[node].technologies[technology].efficiency.geography, 'vintage', 'supply_node'])
@@ -1975,7 +1975,7 @@ class RioExport(object):
         df['unit'] = cfg.calculation_energy_unit
         df['time_unit'] = 'hour'
         df['currency'] = cfg.currency_name
-        df['currency_year'] = cfg.getParam('currency_year')
+        df['currency_year'] = cfg.getParam('currency_year', section='UNITS')
         df['sensitivity'] = self.supply.scenario.name
         df['geography_map_key'] = None
         df = df[['name', 'source', 'notes', 'currency', 'currency_year', 'unit', 'time_unit', \
@@ -2052,7 +2052,7 @@ class RioExport(object):
         df['construction_time'] = 1
         df['unit'] = cfg.calculation_energy_unit
         df['currency'] = cfg.currency_name
-        df['currency_year'] = cfg.getParam('currency_year')
+        df['currency_year'] = cfg.getParam('currency_year', section='UNITS')
         df['sensitivity'] = self.supply.scenario.name
         df['geography_map_key'] = None
         df = df[['name', 'source', 'notes', 'currency', 'currency_year', 'unit',
@@ -2101,7 +2101,7 @@ class RioExport(object):
                                               technology + "_" + self.blend_node_subset_lookup[blend]
                             cost_df['lifetime'] = self.supply.nodes[node].technologies[technology].mean_lifetime
                             cost_df['cost_of_capital'] = self.supply.nodes[node].technologies[
-                                technology].cost_of_capital - cfg.getParamAsFloat('inflation_rate')
+                                technology].cost_of_capital - cfg.getParamAsFloat('inflation_rate', section='UNITS')
                             df_list.append(cost_df)
         df = pd.concat(df_list)
         df.reset_index(inplace=True)
@@ -2116,7 +2116,7 @@ class RioExport(object):
         df['unit'] = cfg.calculation_energy_unit
         df['time_unit'] = 'hour'
         df['currency'] = cfg.currency_name
-        df['currency_year'] = cfg.getParam('currency_year')
+        df['currency_year'] = cfg.getParam('currency_year', section='UNITS')
         df['sensitivity'] = self.supply.scenario.name
         df['geography_map_key'] = None
         df = df[['name', 'source', 'notes', 'currency', 'currency_year', 'unit', 'time_unit', \
@@ -2243,7 +2243,7 @@ class RioExport(object):
         df['extrapolation_method'] = 'nearest'
         df['extrapolation_growth_rate'] = None
         df['energy_unit'] = cfg.calculation_energy_unit
-        df['mass_unit'] = cfg.getParam('mass_unit')
+        df['mass_unit'] = cfg.getParam('mass_unit', section='UNITS')
         df['sensitivity'] = self.supply.scenario.name
         df['geography_map_key'] = None
         df = df[['name', 'source', 'notes', 'mass_unit', 'energy_unit',
@@ -2480,7 +2480,7 @@ def run(path, config, scenarios):
     global model
     cfg.initialize_config()
     GeoMapper.get_instance().log_geo()
-    Shapes.get_instance(cfg.getParam('database_path'))
+    Shapes.get_instance(cfg.getParam('database_path', section='DEFAULT'))
     
     if not scenarios:
         scenarios = [os.path.basename(p) for p in glob.glob(os.path.join(cfg.workingdir, '*.json'))]
@@ -2538,9 +2538,9 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'E:\EnergyPATHWAYS\Mass'
+    workingdir = r'E:\ep_runs\UCS\EP2RIO v1'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['all options', 'decarbonized gas', 'reference', 'der breakthrough']
+    scenario = ['UCS_Ref', 'UCS_core', 'UCS_delayed', 'UCS_JOD_transport', 'UCS_low_service', 'UCS_select_transport']
     export = run(workingdir, config, scenario)
     self = export

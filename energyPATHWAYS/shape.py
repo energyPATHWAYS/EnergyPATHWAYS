@@ -68,7 +68,7 @@ class Shapes(object):
     def __init__(self, database_path=None):
         db = CsvDatabase.get_database(database_path)
         db.shapes.load_all()
-        self.cfg_weather_years = [int(y) for y in cfg.getParam('weather_years').split(',')]
+        self.cfg_weather_years = [int(y) for y in cfg.getParam('weather_years', section='TIME').split(',')]
         self.active_dates_index = self.get_active_dates(self.cfg_weather_years)
         self.active_dates_index_unique = self.active_dates_index.unique()
         self.time_slice_elements = create_time_slice_elements(self.active_dates_index)
@@ -104,7 +104,7 @@ class Shapes(object):
 
     @classmethod
     def get_hash_tuple(cls):
-        cfg_weather_years = [int(y) for y in cfg.getParam('weather_years').split(',')]
+        cfg_weather_years = [int(y) for y in cfg.getParam('weather_years', section='TIME').split(',')]
         geography_check = (GeoMapper.demand_primary_geography, GeoMapper.supply_primary_geography, tuple(sorted(GeoMapper.primary_subset)), tuple(GeoMapper.breakout_geography))
         cfg_hash_tuple = geography_check + tuple(cfg_weather_years)
         return cfg_hash_tuple
@@ -149,8 +149,8 @@ class Shapes(object):
     def process_active_shapes(self):
         logging.info(' mapping data for:')
 
-        if cfg.getParamAsBoolean('parallel_process'):
-            pool = pathos.multiprocessing.Pool(processes=cfg.getParamAsInt('num_cores'), maxtasksperchild=1)
+        if cfg.getParamAsBoolean('parallel_process', section='DEFAULT'):
+            pool = pathos.multiprocessing.Pool(processes=cfg.getParamAsInt('num_cores', section='DEFAULT'), maxtasksperchild=1)
             shapes = pool.map(helper_multiprocess.process_shapes, self.data.values(), chunksize=1)
             pool.close()
             pool.join()
@@ -378,7 +378,7 @@ class Shape(DataObject):
         return df_no_tz.sort_index()
 
     def standardize_time_across_timezones(self, df):
-        tz = pytz.timezone(cfg.getParam('dispatch_outputs_timezone'))
+        tz = pytz.timezone(cfg.getParam('dispatch_outputs_timezone', section='TIME'))
         offset = (tz.utcoffset(DT.datetime(2015, 1, 1)) + tz.dst(DT.datetime(2015, 1, 1))).total_seconds() / 60.
         new_index = pd.DatetimeIndex(self.active_dates_index_unique, tz=pytz.FixedOffset(offset))
         # if we have hydro year, when this does a reindex, it can introduce NaNs, so we want to remove them after
@@ -404,7 +404,7 @@ class Shape(DataObject):
             df2 = group.tz_localize(pytz.FixedOffset(offset), level='weather_datetime')
             dfs.append(df2)
 
-        tz = pytz.timezone(cfg.getParam('dispatch_outputs_timezone'))
+        tz = pytz.timezone(cfg.getParam('dispatch_outputs_timezone', section='TIME'))
         offset = (tz.utcoffset(DT.datetime(2015, 1, 1)) + tz.dst(DT.datetime(2015, 1, 1))).total_seconds() / 60.
         local_df = pd.concat(dfs)
         local_df = local_df.tz_convert(pytz.FixedOffset(offset), level='weather_datetime')

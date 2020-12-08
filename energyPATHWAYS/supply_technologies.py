@@ -202,7 +202,7 @@ class SupplyTechInvestmentCost(SupplyTechCost):
 
     def levelize_costs(self):
         if hasattr(self, 'is_levelized'):
-            inflation = cfg.getParamAsFloat('inflation_rate')
+            inflation = cfg.getParamAsFloat('inflation_rate', section='UNITS')
             try:
                 rate = self.cost_of_capital - inflation
             except:
@@ -228,7 +228,7 @@ class SupplyTechInvestmentCost(SupplyTechCost):
         convert raw_values to model currency and capacity (energy_unit/time_step)
         """
         model_energy_unit = cfg.calculation_energy_unit
-        model_time_step = cfg.getParam('time_step')
+        model_time_step = cfg.getParam('time_step', section='TIME')
         if hasattr(self, 'time_unit') and self.time_unit is not None:
             # if a cost has a time_unit, then the unit is energy and must be converted to capacity
             self.values = UnitConverter.unit_convert(self.raw_values, unit_from_den=self.capacity_or_energy_unit, unit_from_num=self.time_unit, unit_to_den=model_energy_unit, unit_to_num=model_time_step)
@@ -313,7 +313,7 @@ class SupplyTechFixedOMCost(schema.SupplyTechsFixedMaintenanceCost, SupplyTechCo
         convert raw_values to model currency and capacity (energy_unit/time_step)
         """
         model_energy_unit = cfg.calculation_energy_unit
-        model_time_step = cfg.getParam('time_step')
+        model_time_step = cfg.getParam('time_step', section='TIME')
         if self.time_unit is not None:
             # if a cost has a time_unit, then the unit is energy and must be converted to capacity
             self.values = UnitConverter.unit_convert(self.raw_values, unit_from_den=self.capacity_or_energy_unit,

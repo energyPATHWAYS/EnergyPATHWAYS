@@ -47,9 +47,9 @@ class UnitConverter:
     def __init__(self, database_path):
         # Initiate pint for unit conversions
         self.ureg = pint.UnitRegistry()
-        self.cfg_energy_unit = cfg.getParam('calculation_energy_unit')
-        self.cfg_currency = cfg.getParam('currency_name')
-        self.cfg_currency_year = cfg.getParamAsInt('currency_year')
+        self.cfg_energy_unit = cfg.getParam('calculation_energy_unit', section='UNITS')
+        self.cfg_currency = cfg.getParam('currency_name', section='UNITS')
+        self.cfg_currency_year = cfg.getParamAsInt('currency_year', section='UNITS')
 
         db = get_database(database_path)
         self.currency_table = db.get_table("CurrenciesConversion").data

@@ -313,7 +313,7 @@ def create_dispatch_model(dispatch, period, model_type='abstract'):
     model.bulk_load = Param(model.GEOGRAPHIES, model.TIMEPOINTS, within=Reals, initialize=dispatch.bulk_load[period]) 
     model.dispatched_bulk_load = Param(model.GEOGRAPHIES, model.TIMEPOINTS, within=Reals, initialize=dispatch.dispatched_bulk_load[period])     
     model.distribution_gen = Param(model.GEOGRAPHIES, model.TIMEPOINTS, model.FEEDERS, initialize=dispatch.distribution_gen[period], within=Reals)
-    model.bulk_gen = Param(model.GEOGRAPHIES, model.TIMEPOINTS, within=NonNegativeReals, initialize=dispatch.bulk_gen[period])                                        
+    model.bulk_gen = Param(model.GEOGRAPHIES, model.TIMEPOINTS, within=Reals, initialize=dispatch.bulk_gen[period])
                                            
     # Flex  loads
     if dispatch.has_flexible_load:
