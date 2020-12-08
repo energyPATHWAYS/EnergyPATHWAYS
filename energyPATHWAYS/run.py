@@ -53,15 +53,21 @@ def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solv
     if not subfolders:
         GeoMapper.get_instance().log_geo()
 
-    shape.Shapes.get_instance(cfg.getParam('database_path', section='DEFAULT'))
+    # TODO: restore this after testing
+    if False:
+        shape.Shapes.get_instance(cfg.getParam('database_path', section='DEFAULT'))
 
-    if not scenarios:
-        scenarios = [os.path.basename(p) for p in glob.glob(os.path.join(cfg.workingdir, '*.json'))]
-        if not scenarios:
-            raise ValueError("No scenarios specified and no .json files found in working directory.")
+    # Deprecated
+    # if not scenarios:
+    #     scenarios = [os.path.basename(p) for p in glob.glob(os.path.join(cfg.workingdir, '*.json'))]
+    #     if not scenarios:
+    #         raise ValueError("No scenarios specified and no .json files found in working directory.")
 
     scenarios = util.ensure_iterable(scenarios)
-    scenarios = [os.path.splitext(s)[0] for s in scenarios]
+
+    # Deprecated
+    # scenarios = [os.path.splitext(s)[0] for s in scenarios]
+
     rio_scenario = [None]*len(scenarios) if rio_scenario is None or not len(rio_scenario) else util.ensure_iterable(rio_scenario)
 
     combined_scenarios = zip(scenarios, rio_scenario)
@@ -137,7 +143,10 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Users\ryandrewjones\Dropbox (EER)\Evolved Energy Research\Tools\EnergyPATHWAYS\Active Runs\rich'
+    if os.getlogin() == 'rjp':
+        workingdir = r'/Users/rjp/Projects/EvolvedEnergy/rundir'
+    else:
+        workingdir = r'C:\Users\ryandrewjones\Dropbox (EER)\Evolved Energy Research\Tools\EnergyPATHWAYS\Active Runs\rich'
     os.chdir(workingdir)
     rio_scenario = ['reference']
     scenario = ['reference']

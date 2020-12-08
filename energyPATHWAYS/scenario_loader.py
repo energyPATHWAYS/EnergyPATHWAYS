@@ -10,7 +10,89 @@ from csvdb.data_object import get_database
 from csvdb.error import ScenarioFileError
 from csvdb.scenario import AbstractScenario, CsvdbFilter
 
+SCENARIO_FILE = 'runs_key.csv'
+INDEX_DIVIDER = '--'
+
+def read_runs_key(pathname):
+    import pandas as pd
+
+    # TODO: for now, just transpose to old format. Later we may fix the parser.
+    df = pd.read_csv(pathname, index_col=0).T
+    return df
+
 class Scenario(AbstractScenario):
+    def __init__(self, scenario_name, dirpath=None):
+        dirpath = dirpath or os.getcwd()
+        super(Scenario, self).__init__(scenario_name, dirpath, 'csv', filename=SCENARIO_FILE)
+
+    @classmethod
+    def scenario_names(cls, dirpath=None):
+        dirpath = dirpath or os.getcwd()
+        pathname = cls.filepath(SCENARIO_FILE, dirpath, 'csv')
+
+        df = read_runs_key(pathname)
+        return list(df.index)
+
+    def load(self):
+        import pandas as pd
+
+        df = read_runs_key(self.pathname)
+
+        # Special case where the sensitivities are empty. We assume the user just
+        # wants a sensitivity with all the reference selections.
+        if len(df) == 0:
+            df = pd.DataFrame(index=pd.Index(['reference']))
+
+        try:
+            sensitivities = df.loc[self.name]
+
+        except KeyError:
+            raise ScenarioFileError(self.pathname, "Scenario '{}' not found.".format(self.name))
+
+        for key, sens_name in sensitivities.iteritems():
+            obj = self.create_filter(key, sens_name)
+            self.add_filter(obj)
+
+    def create_filter(self, sens_key, sens_value):
+        """
+        Parse a sensitivity "key" to extract table name, key col value, and optional filters
+
+        :param sens_key: (str) the '--' delimited value stored in runs_key.csv, i.e., the
+            key in the row for the named scenario.
+        :param sens_value: (str) the value to match in the 'sensitivity' column, i.e., the
+            value in the row for the named scenario.
+        """
+        parts = sens_key.split(INDEX_DIVIDER)
+        count = len(parts)
+        if count == 0:
+            msg = 'Badly formed runs_key id "{}". Expected "table_name" or "table_name--key_value[--filters...]"'.format(sens_key)
+            raise ScenarioFileError(self.pathname, msg)
+
+        table_name = parts[0]
+        key_value = None if count == 1 else parts[1]
+        constraints = []
+
+        for filter in parts[2:]:
+            # filter_parts = filter.split(':')
+            filter_parts = [s.strip() for s in filter.split(':')]
+
+            if len(filter_parts) != 2:
+                msg = 'Badly formed runs_key column filter "{}". Expected "column_name:value"'.format(filter)
+                # TODO: reinstate this if still correct, and delete next 2 lines
+                # raise ScenarioFileError(self.pathname, msg)
+                print(msg, "(ignoring)")
+                continue
+
+            constraints.append(tuple(filter_parts))
+
+        return CsvdbFilter(table_name, key_value, sens_value, constraints=constraints)
+
+
+################
+# JSON version #
+################
+
+class ScenarioDeprecated(AbstractScenario):
     MEASURE_CATEGORIES = ("DemandEnergyEfficiencyMeasures",
                           "DemandFlexibleLoadMeasures",
                           "DemandFuelSwitchingMeasures",
@@ -28,7 +110,7 @@ class Scenario(AbstractScenario):
         self.top_dict = None # set in load() method
 
         dirpath = dirpath or os.path.abspath(os.curdir)
-        super(Scenario, self).__init__(scenario_name, dirpath, 'json')
+        super(ScenarioDeprecated, self).__init__(scenario_name, dirpath, 'json')
 
         self._id = scenario_name
         self._bucket_lookup = self._load_bucket_lookup()
