@@ -77,7 +77,8 @@ class Shapes(object):
         self.cfg_hash = hash(self.cfg_hash_tuple)
 
         if len(db.shapes.slices.keys()) == 0:
-            raise ValueError("No shapes data found, check path to the database. The folder ShapeData must be located in the database folder specified")
+            raise ValueError("No shapes data found, check database path ({}).\nThe folder ShapeData must be located in the database folder specified".format(
+                database_path))
 
         shape_meta = db.get_table("Shapes").data
         self.data = {}

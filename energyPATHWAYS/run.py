@@ -53,9 +53,7 @@ def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solv
     if not subfolders:
         GeoMapper.get_instance().log_geo()
 
-    # TODO: restore this after testing
-    if False:
-        shape.Shapes.get_instance(cfg.getParam('database_path', section='DEFAULT'))
+    shape.Shapes.get_instance(cfg.getParam('database_path', section='DEFAULT'))
 
     # Deprecated
     # if not scenarios:

@@ -4,6 +4,7 @@ import logging
 import itertools
 from collections import defaultdict
 import pdb
+import pandas as pd
 from energyPATHWAYS.util import csv_read_table
 from csvdb.data_object import get_database
 
@@ -13,87 +14,8 @@ from csvdb.scenario import AbstractScenario, CsvdbFilter
 SCENARIO_FILE = 'runs_key.csv'
 INDEX_DIVIDER = '--'
 
-def read_runs_key(pathname):
-    import pandas as pd
-
-    # TODO: for now, just transpose to old format. Later we may fix the parser.
-    df = pd.read_csv(pathname, index_col=0).T
-    return df
-
 class Scenario(AbstractScenario):
-    def __init__(self, scenario_name, dirpath=None):
-        dirpath = dirpath or os.getcwd()
-        super(Scenario, self).__init__(scenario_name, dirpath, 'csv', filename=SCENARIO_FILE)
-
-    @classmethod
-    def scenario_names(cls, dirpath=None):
-        dirpath = dirpath or os.getcwd()
-        pathname = cls.filepath(SCENARIO_FILE, dirpath, 'csv')
-
-        df = read_runs_key(pathname)
-        return list(df.index)
-
-    def load(self):
-        import pandas as pd
-
-        df = read_runs_key(self.pathname)
-
-        # Special case where the sensitivities are empty. We assume the user just
-        # wants a sensitivity with all the reference selections.
-        if len(df) == 0:
-            df = pd.DataFrame(index=pd.Index(['reference']))
-
-        try:
-            sensitivities = df.loc[self.name]
-
-        except KeyError:
-            raise ScenarioFileError(self.pathname, "Scenario '{}' not found.".format(self.name))
-
-        for key, sens_name in sensitivities.iteritems():
-            obj = self.create_filter(key, sens_name)
-            self.add_filter(obj)
-
-    def create_filter(self, sens_key, sens_value):
-        """
-        Parse a sensitivity "key" to extract table name, key col value, and optional filters
-
-        :param sens_key: (str) the '--' delimited value stored in runs_key.csv, i.e., the
-            key in the row for the named scenario.
-        :param sens_value: (str) the value to match in the 'sensitivity' column, i.e., the
-            value in the row for the named scenario.
-        """
-        parts = sens_key.split(INDEX_DIVIDER)
-        count = len(parts)
-        if count == 0:
-            msg = 'Badly formed runs_key id "{}". Expected "table_name" or "table_name--key_value[--filters...]"'.format(sens_key)
-            raise ScenarioFileError(self.pathname, msg)
-
-        table_name = parts[0]
-        key_value = None if count == 1 else parts[1]
-        constraints = []
-
-        for filter in parts[2:]:
-            # filter_parts = filter.split(':')
-            filter_parts = [s.strip() for s in filter.split(':')]
-
-            if len(filter_parts) != 2:
-                msg = 'Badly formed runs_key column filter "{}". Expected "column_name:value"'.format(filter)
-                # TODO: reinstate this if still correct, and delete next 2 lines
-                # raise ScenarioFileError(self.pathname, msg)
-                print(msg, "(ignoring)")
-                continue
-
-            constraints.append(tuple(filter_parts))
-
-        return CsvdbFilter(table_name, key_value, sens_value, constraints=constraints)
-
-
-################
-# JSON version #
-################
-
-class ScenarioDeprecated(AbstractScenario):
-    MEASURE_CATEGORIES = ("DemandEnergyEfficiencyMeasures",
+    MEASURE_CATEGORIES = {"DemandEnergyEfficiencyMeasures",
                           "DemandFlexibleLoadMeasures",
                           "DemandFuelSwitchingMeasures",
                           "DemandServiceDemandMeasures",
@@ -104,13 +26,10 @@ class ScenarioDeprecated(AbstractScenario):
                           "SupplySalesMeasures",
                           "SupplySalesShareMeasures",
                           "SupplyStockMeasures",
-                          "CO2PriceMeasures")
+                          "CO2PriceMeasures"}
 
     def __init__(self, scenario_name, dirpath=None):
-        self.top_dict = None # set in load() method
-
-        dirpath = dirpath or os.path.abspath(os.curdir)
-        super(ScenarioDeprecated, self).__init__(scenario_name, dirpath, 'json')
+        dirpath = dirpath or os.getcwd()
 
         self._id = scenario_name
         self._bucket_lookup = self._load_bucket_lookup()
@@ -118,10 +37,88 @@ class ScenarioDeprecated(AbstractScenario):
         self._measures = {category: defaultdict(list) for category in self.MEASURE_CATEGORIES}
         self._sensitivities = defaultdict(dict)
 
-        self._load_measures(self.top_dict)
+        # N.B. self.pathname is set in super's __init__()
+        super(Scenario, self).__init__(scenario_name, dirpath, 'csv', filename=SCENARIO_FILE)
 
-    # Called by AbstractScenarip
+    # Required subclass method, called by AbstractScenario
     def load(self):
+        df = pd.read_csv(self.pathname, index_col=0)
+        df.fillna('', inplace=True)
+
+        # TODO: (RJP) discuss with Ryan. Not sure this is still relevant.
+        # Special case where there are no sensitivity columns. We assume the user just
+        # wants a sensitivity with all the reference selections.
+        if df.shape == 1:
+            df['reference'] = ''
+
+        try:
+            scenario_data = df[self.name]
+
+        except KeyError:
+            raise ScenarioFileError(self.pathname, "Scenario '{}' not found.".format(self.name))
+
+        for key, sens_name in scenario_data.iteritems():
+            # TODO (RJP): skip measures with no value in the current sensitivity column?
+            if sens_name == '':
+                continue
+
+            parts = key.split(INDEX_DIVIDER)
+            tbl_name = parts[0]
+
+            if tbl_name in self.MEASURE_CATEGORIES:
+                if len(parts) != 3:
+                    raise ValueError("Expected measure to have 3 parts delimited by '--', got {}".format(parts))
+
+                idx_value = parts[1]
+                tbl_key   = parts[2]
+                self._add_measure(tbl_name, tbl_key, idx_value)
+
+            else: # sensitivity scenario
+                tbl_key = parts[1]
+                constraints = [tuple(c.split(':')) for c in parts[2:]]
+                self._add_sensitivity(tbl_name, tbl_key, constraints)
+
+    def _add_sensitivity(self, tbl_name, tbl_key, constraints):
+        obj = CsvdbFilter(tbl_name, tbl_key, self.name, constraints)
+        self.add_filter(obj)
+
+    def _add_measure(self, tbl_name, measure, subsector):
+        try:
+            bucket_id = self._bucket_lookup[tbl_name][measure]
+        except KeyError:
+            raise ValueError(
+                "{} scenario wants to use {} {} but no such measure was found in the database.".format(self._id,
+                                                                                                       tbl_name,
+                                                                                                       measure))
+        if measure in self._measures[tbl_name][bucket_id]:
+            raise ValueError("Scenario uses {} {} more than once.".format(tbl_name, measure))
+
+        self._measures[tbl_name][bucket_id].append(measure)
+
+    def _load_sensitivity(self, filter):
+        db = get_database()
+
+        table       = filter.table_name
+        name        = filter.key_value
+        sensitivity = filter.sens_value
+
+        if name in self._sensitivities[table]:
+            raise ValueError("Scenario specifies sensitivity for {} {} more than once".format(table, name))
+
+        # Check that the sensitivity actually exists in the database before using it
+        md = db.table_metadata(table)
+
+        # TODO: (RJP) Why aren't explicit constraints applied here?
+        filters = {'sensitivity' : sensitivity, md.key_col : name}
+        data = csv_read_table(table, **filters)
+
+        if data is None or len(data) == 0:
+            raise ValueError("Could not find sensitivity '{}' for {} {}.".format(sensitivity, table, name))
+
+        self._sensitivities[table][name] = sensitivity
+
+    # Deprecated
+    def load_JSON(self):
         with open(self.pathname) as f:
             self.top_dict = top_dict = json.load(f)
 
@@ -194,7 +191,8 @@ class ScenarioDeprecated(AbstractScenario):
 
         return lookup
 
-    def _load_sensitivities(self, sensitivities):
+    # Deprecated
+    def _load_sensitivities_JSON(self, sensitivities):
         if not isinstance(sensitivities, list):
             raise ValueError("The 'Sensitivities' for a scenario should be a list of objects containing "
                              "the keys 'table', 'name' and 'sensitivity'.")
@@ -219,8 +217,7 @@ class ScenarioDeprecated(AbstractScenario):
 
             self._sensitivities[table][name] = sensitivity
 
-    # This method uses the JSON dict directly, rather than using the "common format" defined in csvdb.scenario.
-    # TODO: It could be rewritten for greater consistency with RIO.
+    # Deprecated
     def _load_measures(self, tree):
         """
         Finds all measures in the Scenario by recursively scanning the parsed json and organizes them by type
@@ -230,7 +227,7 @@ class ScenarioDeprecated(AbstractScenario):
         """
         for key, subtree in tree.iteritems():
             if key.lower() == 'sensitivities':
-                self._load_sensitivities(subtree)
+                self._load_sensitivities_JSON(subtree)
 
             elif isinstance(subtree, dict):
                 self._load_measures(subtree)
@@ -279,15 +276,3 @@ class ScenarioDeprecated(AbstractScenario):
         # This list(itertools...) nonsense is just to flatten to a single list from a list-of-lists
         return {category: list(itertools.chain.from_iterable(contents.values()))
                 for category, contents in self._measures.iteritems()}
-
-    # RJP: csvdb uses the method in AbstractScenario instead, which allows additional keywords
-    # def get_sensitivity(self, table, parent_id):
-    #     sensitivity = self._sensitivities[table].get(parent_id)
-    #     if sensitivity:
-    #         logging.debug("Sensitivity '{}' loaded for {} with parent id {}.".format(sensitivity, table, parent_id))
-    #     return sensitivity
-
-    # RJP: deprecated as it interfered with AbstractScenario. Could restore, but then would have to modify other code in RIO and csvdb.
-    # @property
-    # def name(self):
-    #     return self._name
