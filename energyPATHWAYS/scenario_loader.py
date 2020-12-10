@@ -76,13 +76,13 @@ class Scenario(AbstractScenario):
             else: # sensitivity scenario
                 tbl_key = parts[1]
                 constraints = [tuple(c.split(':')) for c in parts[2:]]
-                self._add_sensitivity(tbl_name, tbl_key, constraints)
+                self._add_sensitivity(tbl_name, tbl_key, sens_name, constraints)
 
-    def _add_sensitivity(self, tbl_name, tbl_key, constraints):
-        obj = CsvdbFilter(tbl_name, tbl_key, self.name, constraints)
+    def _add_sensitivity(self, tbl_name, tbl_key, sens_name, constraints):
+        obj = CsvdbFilter(tbl_name, tbl_key, sens_name, constraints)
         self.add_filter(obj)
 
-    def _add_measure(self, tbl_name, measure, subsector):
+    def _add_measure(self, tbl_name, measure, idx_value):
         try:
             bucket_id = self._bucket_lookup[tbl_name][measure]
         except KeyError:

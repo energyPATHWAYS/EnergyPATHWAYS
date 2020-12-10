@@ -141,7 +141,8 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    if os.getlogin() == 'rjp':
+    # This should work on windows since it returns None if the env var is undefined.
+    if os.environ.get('USER') == 'rjp':
         workingdir = r'/Users/rjp/Projects/EvolvedEnergy/rundir'
     else:
         workingdir = r'C:\Users\ryandrewjones\Dropbox (EER)\Evolved Energy Research\Tools\EnergyPATHWAYS\Active Runs\rich'

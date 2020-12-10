@@ -336,7 +336,7 @@ class DemandTechnology(schema.DemandTechs, StockItem):
         Used to determine start year of subsector for analysis."""
 
         attributes = vars(self)
-        self.min_year = cfg.getParam('current_year', section='UNITS')
+        self.min_year = cfg.getParam('current_year', section='TIME')
         for att in attributes:
             obj = getattr(self, att)
             if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'raw_values'):
