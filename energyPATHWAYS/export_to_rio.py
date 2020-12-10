@@ -27,7 +27,7 @@ class RioExport(object):
         self.db_dir = os.path.join(cfg.workingdir, 'rio_db_export')
         self.meta_dict = defaultdict(list)
         self.scenario_index = scenario_index
-        # self.shapes = Shapes.get_instance(cfg.getParam('database_path', section='DEFAULT'))
+        # self.shapes = Shapes.get_instance(cfg.getParam('database_path', section='DATABASE'))
 
 
     def write_all(self):
@@ -2480,7 +2480,7 @@ def run(path, config, scenarios):
     global model
     cfg.initialize_config()
     GeoMapper.get_instance().log_geo()
-    Shapes.get_instance(cfg.getParam('database_path', section='DEFAULT'))
+    Shapes.get_instance(cfg.getParam('database_path', section='DATABASE'))
     
     if not scenarios:
         scenarios = [os.path.basename(p) for p in glob.glob(os.path.join(cfg.workingdir, '*.json'))]

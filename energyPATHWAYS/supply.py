@@ -194,7 +194,7 @@ class Supply(object):
 
     def calculate_nodes(self):
         """Performs an initial calculation for all import, conversion, delivery, and storage nodes"""
-        if cfg.getParamAsBoolean('parallel_process', section='DEFAULT'):
+        if cfg.getParamAsBoolean('parallel_process', section='CALCULATION_PARAMETERS'):
             nodes = helper_multiprocess.safe_pool(helper_multiprocess.node_calculate, self.nodes.values())
             self.nodes = dict(zip(self.nodes.keys(), nodes))
         else:
@@ -1617,7 +1617,7 @@ class Supply(object):
                                    [cfg.getParamAsFloat('operating_reserves', 'ELECTRICITY_DISPATCH')]*len(GeoMapper.dispatch_geographies),
                                    [cfg.getParamAsBoolean('schedule_maintenance', section='ELECTRICITY_DISPATCH')]*len(GeoMapper.dispatch_geographies)))
 
-        if cfg.getParamAsBoolean('parallel_process', section='DEFAULT'):
+        if cfg.getParamAsBoolean('parallel_process', section='CALCULATION_PARAMETERS'):
             dispatch_results = helper_multiprocess.safe_pool(dispatch_generators.run_thermal_dispatch, parallel_params)
         else:
             dispatch_results = []

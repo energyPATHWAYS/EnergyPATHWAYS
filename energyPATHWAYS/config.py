@@ -100,7 +100,7 @@ def initialize_config():
     index_levels = csv_read_table('IndexLevels', column_names=['index_level', 'data_column_name'])
     solver_name = find_solver()
 
-    available_cpus = getParamAsInt('num_cores', section='DEFAULT')
+    available_cpus = getParamAsInt('num_cores', section='CALCULATION_PARAMETERS')
     timestamp = str(datetime.datetime.now().replace(second=0,microsecond=0))
 
 def setuplogging():
@@ -116,7 +116,7 @@ def setuplogging():
         logger.addHandler(soh)
 
 def init_db():
-    dbdir = getParam('database_path', section='DEFAULT')
+    dbdir = getParam('database_path', section='DATABASE')
     EnergyPathwaysDatabase.get_database(dbdir, load=False)
 
 def init_units():
@@ -238,14 +238,14 @@ def find_solver():
     assert solver_name is not None, "Dispatch could not find any of the solvers requested in your configuration (%s) please see README.md, check your configuration, and make sure you have at least one requested solver installed." % ', '.join(requested_solvers)
     return solver_name
 
-DEFAULT_SECTION = 'DEFAULT'
+CALCULATION_PARAMETERS_SECTION = 'CALCULATION_PARAMETERS'
 PROJ_CONFIG_FILE = 'config.ini'
 
 PlatformName = platform.system()
 
 _ConfigParser = None
 
-_ProjectSection = DEFAULT_SECTION
+_ProjectSection = CALCULATION_PARAMETERS_SECTION
 
 
 _ReadUserConfig = False
@@ -287,7 +287,7 @@ def setParam(name, value, section=None):
     :param name: (str) parameter name
     :param value: (any, coerced to str) parameter value
     :param section: (str) if given, the name of the section in which to set the value.
-       If not given, the value is set in the established project section, or DEFAULT
+       If not given, the value is set in the established project section, or CALCULATION_PARAMETERS
        if no project section has been set.
     :return: value
     """

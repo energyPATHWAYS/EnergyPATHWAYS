@@ -603,7 +603,7 @@ class Dispatch(object):
                         self.ld_energy_budgets[period][technology]= self.capacity[period][technology] * self.period_lengths[period]-1
                     if self.ld_energy_budgets[period][technology]<= self.min_capacity[period][technology] * self.period_lengths[period]:
                         self.ld_energy_budgets[period][technology]= self.min_capacity[period][technology] * self.period_lengths[period]+1
-            if cfg.getParamAsBoolean('parallel_process', section='DEFAULT'):
+            if cfg.getParamAsBoolean('parallel_process', section='CALCULATION_PARAMETERS'):
                 params = [(dispatch_formulation.create_dispatch_model(self, period), cfg.solver_name) for period in self.periods]
                 results = helper_multiprocess.safe_pool(helper_multiprocess.run_optimization, params)
             else:

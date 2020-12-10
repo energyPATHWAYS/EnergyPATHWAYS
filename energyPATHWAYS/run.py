@@ -53,7 +53,7 @@ def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solv
     if not subfolders:
         GeoMapper.get_instance().log_geo()
 
-    shape.Shapes.get_instance(cfg.getParam('database_path', section='DEFAULT'))
+    shape.Shapes.get_instance(cfg.getParam('database_path', section='DATABASE'))
 
     # Deprecated
     # if not scenarios:
@@ -146,8 +146,8 @@ if __name__ == "__main__":
     else:
         workingdir = r'C:\Users\ryandrewjones\Dropbox (EER)\Evolved Energy Research\Tools\EnergyPATHWAYS\Active Runs\rich'
     os.chdir(workingdir)
-    rio_scenario = ['reference']
-    scenario = ['reference']
+    rio_scenario = ['UCS_core']
+    scenario = ['UCS_core']
     run(scenario,
     load_demand   = False,
     solve_demand  = True,

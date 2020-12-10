@@ -150,8 +150,8 @@ class Shapes(object):
     def process_active_shapes(self):
         logging.info(' mapping data for:')
 
-        if cfg.getParamAsBoolean('parallel_process', section='DEFAULT'):
-            pool = pathos.multiprocessing.Pool(processes=cfg.getParamAsInt('num_cores', section='DEFAULT'), maxtasksperchild=1)
+        if cfg.getParamAsBoolean('parallel_process', section='CALCULATION_PARAMETERS'):
+            pool = pathos.multiprocessing.Pool(processes=cfg.getParamAsInt('num_cores', section='CALCULATION_PARAMETERS'), maxtasksperchild=1)
             shapes = pool.map(helper_multiprocess.process_shapes, self.data.values(), chunksize=1)
             pool.close()
             pool.join()

@@ -517,7 +517,7 @@ class Sector(schema.DemandSectors):
             self.add_subsector(name)
 
         # # populate_subsector_data, this is a separate step so we can use multiprocessing
-        if cfg.getParamAsBoolean('parallel_process', section='DEFAULT'):
+        if cfg.getParamAsBoolean('parallel_process', section='CALCULATION_PARAMETERS'):
             subsectors = helper_multiprocess.safe_pool(helper_multiprocess.subsector_populate, self.subsectors.values())
             self.subsectors = dict(zip(self.subsectors.keys(), subsectors))
         else:
@@ -586,7 +586,7 @@ class Sector(schema.DemandSectors):
         # TODO: seems like this next step could be shortened, but it changes the answer when it is removed altogether
         self.update_links(precursors)
 
-        if cfg.getParamAsBoolean('parallel_process', section='DEFAULT'):
+        if cfg.getParamAsBoolean('parallel_process', section='CALCULATION_PARAMETERS'):
             subsectors = helper_multiprocess.safe_pool(helper_multiprocess.subsector_calculate, self.subsectors.values())
             self.subsectors = dict(zip(self.subsectors.keys(), subsectors))
         else:
