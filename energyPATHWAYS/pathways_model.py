@@ -476,6 +476,11 @@ class PathwaysModel(object):
                     df.loc[util.level_specific_indexer(df,'sector',row_sector),util.level_specific_indexer(df,'sector',col_sector,axis=1)] = 0
         self.supply.outputs.io = df
         result_df = self.supply.outputs.return_cleaned_output('io')
+        result_df.columns.names = [col+'||to' for col in result_df.columns.names]
+        result_df.index.names = [col+'||from' if col not in ['YEAR'] else col for col in result_df.index.names]
+        result_df = result_df.stack().stack().stack().to_frame()
+        result_df.columns = ['value']
+        result_df = result_df[result_df.values!=0]
         keys = [self.scenario.name.upper(), cfg.timestamp]
         names = ['SCENARIO','TIMESTAMP']
         for key, name in zip(keys,names):

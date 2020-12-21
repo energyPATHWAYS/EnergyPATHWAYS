@@ -1695,7 +1695,7 @@ class RioExport(object):
         df = self.supply.io_rio_supply_df.loc[idx[:, self.blend_node_subset], :]
         df = df.stack().to_frame()
         util.replace_index_name(df, 'year')
-        df[df.index.get_level_values('supply_node') == 'co2 utilization blend'] = df[df.index.get_level_values('supply_node')== 'Captured CO2 Blend'].values*-1
+        df[df.index.get_level_values('supply_node') == 'co2 utilization blend A'] = df[df.index.get_level_values('supply_node')== 'Captured CO2 Blend'].values*-1
         df = df[df.index.get_level_values('supply_node') != 'Captured CO2 Blend']
         df = df[df.index.get_level_values('year').isin(self.supply.dispatch_years)]
         df.columns = ['value']
@@ -2541,9 +2541,18 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'E:\EP_Runs\West'
+    workingdir = r'E:\ep_runs\socalgas\EP2RIO'
     os.chdir(workingdir)
     config = 'config.INI'
-    scenario = ['100% renewable', 'central','low demand', 'reference', 'slow electricity']
+    scenario = [
+        'Accel Clean Fuels',
+        'Accel Sequestration',
+        'Current Policy',
+        'Gas Decommission',
+        'No Decommission',
+        'Reference',
+                ]
     export = run(workingdir, config, scenario)
     self = export
+
+
