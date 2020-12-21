@@ -5696,7 +5696,7 @@ class SupplyStockNode(Node):
         self.stock.capital_cost_new_annual.loc[indexer,:] = self.rollover_output(tech_class='capital_cost_new', tech_att= 'values', stock_att='sales_new',year=year)
         self.stock.capital_cost_replacement_annual.loc[indexer,:] = self.rollover_output(tech_class='capital_cost_replacement', tech_att= 'values', stock_att='sales_replacement',year=year)
         self.stock.installation_cost_new_annual.loc[indexer,:] = self.rollover_output(tech_class='installation_cost_new', tech_att= 'values', stock_att='sales_new',year=year)
-        self.stock.installation_cost_replacement_annual.loc[indexer,:] = self.rollover_output(tech_class='installation_cost_new', tech_att= 'values', stock_att='sales_new',year=year)
+        self.stock.installation_cost_replacement_annual.loc[indexer,:] = self.rollover_output(tech_class='installation_cost_new', tech_att= 'values', stock_att='sales_replacement',year=year)
         #in the last year of the analysis, these need to be concatenated together for output
 
     def concatenate_annual_costs(self):
