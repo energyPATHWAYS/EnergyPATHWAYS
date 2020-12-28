@@ -2069,8 +2069,13 @@ class Supply(object):
             self.output_final_demand_for_bulk_dispatch_outputs(distribution_native_load)
         self.distribution_gen = self.shaped_dist(year, self.non_flexible_gen, generation=True)
         self.distribution_load = util.DfOper.add([distribution_native_load, self.shaped_dist(year, self.non_flexible_load, generation=False)])
-        self.rio_distribution_load[year] =copy.deepcopy(self.distribution_load)
-        self.rio_flex_load[year] = copy.deepcopy(self.distribution_flex_load)
+        if not cfg.getParamAsBoolean('rio_db_run', section='rio'):
+            self.rio_distribution_load[year] =copy.deepcopy(self.distribution_load)
+        else:
+            final_demand = self.demand_object.aggregate_electricity_shapes(year, exclude_subsectors=cfg.rio_opt_demand_subsectors)
+            distribution_native_load = final_demand.xs(0, level='timeshift_type')
+            self.rio_distribution_load[year]= util.DfOper.add([distribution_native_load, self.shaped_dist(year, self.non_flexible_load, generation=False)])
+            self.rio_flex_load[year] = util.df_slice(final_demand, ['advanced','delayed','native'], 'timeshift_type', drop_level=False, reset_index=True)
         self.bulk_gen = self.shaped_bulk(year, self.non_flexible_gen, generation=True)
         if cfg.getParamAsBoolean('rio_db_run', section='rio'):
             for blend_name in [x for x in self.blend_nodes if x not in cfg.rio_excluded_blends]:
@@ -2833,8 +2838,10 @@ class Supply(object):
             node.active_cost_supply = self.io_cost_supply_df.loc[indexer, year].groupby(
                 level=[GeoMapper.supply_primary_geography, 'demand_sector']).sum().to_frame()
 
-    def calculate_rio_blend_demand(self):
+    def calculate_rio_blend_demand(self,ignored_subsectors=[]):
         self.io_rio_supply_df = copy.deepcopy(self.io_supply_df)
+        self.demand_object.aggregate_sector_energy_for_supply_side(db_run=True,ignored_subsectors=ignored_subsectors)
+        self.map_demand_to_io()
         for year in self.dispatch_years:
         #for year in [2050]:
             logging.info("calculating rio blend demand in year %s" %year)
