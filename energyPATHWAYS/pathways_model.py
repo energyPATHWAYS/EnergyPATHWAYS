@@ -102,7 +102,10 @@ class PathwaysModel(object):
         self.supply.add_measures()
         self.supply.initial_calculate()
         self.supply.calculated_years = []
-        self.supply.calculate_loop(self.supply.years, self.supply.calculated_years)
+        if cfg.rio_db_run:
+            self.supply.calculate_ep2rio_loop(self.supply.years, self.supply.calculated_years)
+        else:
+            self.supply.calculate_loop(self.supply.years, self.supply.calculated_years)
         self.supply.final_calculate()
         self.supply_solved = True
         if save_models:

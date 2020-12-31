@@ -186,7 +186,7 @@ def table_dict(table_name, columns=['id', 'name'], append=False,
 
 def init_output_parameters():
     global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes, evolved_years,\
-    rio_supply_run, rio_geography, rio_feeder_geographies, rio_energy_unit, rio_time_unit, rio_timestep_multiplier, rio_non_zonal_blend_nodes, rio_excluded_technologies, \
+    rio_supply_run,rio_db_run, rio_geography, rio_feeder_geographies, rio_energy_unit, rio_time_unit, rio_timestep_multiplier, rio_non_zonal_blend_nodes, rio_excluded_technologies, \
     rio_excluded_blends, rio_export_blends, rio_no_negative_blends, rio_excluded_nodes, rio_mass_unit, rio_distance_unit, rio_outflow_products, rio_standard_energy_unit, rio_volume_unit,\
     rio_standard_mass_unit, rio_standard_distance_unit, rio_standard_volume_unit, calculate_costs, calculate_energy, calculate_emissions
 
@@ -204,6 +204,7 @@ def init_output_parameters():
     output_tco = getParamAsBoolean('output_tco', section='output_detail')
     output_payback = getParamAsBoolean('output_payback', section='output_detail')
     rio_supply_run = getParamAsBoolean('rio_supply_run', section='rio')
+    rio_db_run = getParamAsBoolean('rio_db_run', section='rio')
     rio_geography = getParam('rio_geography', section='rio')
     rio_feeder_geographies = [feeder_geo.strip() for feeder_geo in getParam('rio_feeder_geographies', section='rio').split(',') if len(feeder_geo)]
     rio_energy_unit = getParam('rio_energy_unit', section='rio')

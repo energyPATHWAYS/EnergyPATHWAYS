@@ -438,6 +438,14 @@ class Supply(object):
         self.calculate_io(year, loop)
         self.calculate_stocks(year, loop)
 
+    def _recalculate_ep2rio_io(self, year, loop):
+        """ Basic calculation control for the IO
+        """
+        self.calculate_coefficients(year, loop)
+        self.copy_io(year,loop)
+        self.update_io_df(year,loop)
+        self.calculate_io(year, loop)
+
     def _recalculate_after_reconciliation(self, year, loop, update_demand=False):
         """ if reconciliation has occured, we have to recalculate coefficients and resolve the io
         """
@@ -446,6 +454,16 @@ class Supply(object):
                 self.update_demand(year,loop)
             self._recalculate_stocks_and_io(year, loop)
             self.reconciled = False
+
+    def _recalculate_ep2rio_after_reconciliation(self, year, loop, update_demand=False):
+        """ if reconciliation has occured, we have to recalculate coefficients and resolve the io
+        """
+        if self.reconciled is True:
+            if update_demand:
+                self.update_demand(year,loop)
+            self._recalculate_ep2rio_io(year, loop)
+            self.reconciled = False
+
 
     def copy_io(self,year,loop):
         if year != min(self.years) and loop ==1:
@@ -528,6 +546,34 @@ class Supply(object):
             self.calculate_embodied_emissions(year)
             self.calculate_annual_costs(year)
             self.calculated_years.append(year)
+
+    def calculate_ep2rio_loop(self, years, calculated_years):
+        """Performs all IO loop calculations"""
+        self.set_dispatch_years()
+        first_year = min(self.years)
+        self._calculate_initial_loop()
+        self.calculated_years = calculated_years
+        for year in [x for x in self.dispatch_years if x not in self.calculated_years]:
+            logging.info("Starting supply side calculations for {}".format(year))
+            for loop in [1, 2, 3]:
+                # starting loop
+                if loop == 1:
+                    logging.info("   loop {}: input-output calculation".format(loop))
+                    if year is not first_year:
+                        # initialize year is not necessary in the first year
+                        self.initialize_year(year, loop)
+                    self._recalculate_ep2rio_io(year,loop)
+                elif loop == 2 :
+                    logging.info("   loop {}: supply reconciliation".format(loop))
+                    # sets a flag for whether any reconciliation occurs in the loop determined in the reconcile function
+                    self.reconciled = False
+                    # each time, if reconciliation has occured, we have to recalculate coefficients and resolve the io
+                    self.reconcile_trades(year, loop)
+                    self._recalculate_ep2rio_after_reconciliation(year, loop, update_demand=True)
+                elif loop == 3:
+                    self.prepare_dispatch_inputs_RIO(year,loop)
+            self.calculated_years.append(year)
+
 
     def discover_bulk_name(self):
         for blend in self.blend_nodes:
