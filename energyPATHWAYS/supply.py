@@ -5693,7 +5693,7 @@ class SupplyStockNode(Node):
         self.stock.capital_cost_new_annual.loc[indexer,:] = self.rollover_output(tech_class='capital_cost_new', tech_att= 'values', stock_att='sales_new',year=year)
         self.stock.capital_cost_replacement_annual.loc[indexer,:] = self.rollover_output(tech_class='capital_cost_replacement', tech_att= 'values', stock_att='sales_replacement',year=year)
         self.stock.installation_cost_new_annual.loc[indexer,:] = self.rollover_output(tech_class='installation_cost_new', tech_att= 'values', stock_att='sales_new',year=year)
-        self.stock.installation_cost_replacement_annual.loc[indexer,:] = self.rollover_output(tech_class='installation_cost_new', tech_att= 'values', stock_att='sales_new',year=year)
+        self.stock.installation_cost_replacement_annual.loc[indexer,:] = self.rollover_output(tech_class='installation_cost_new', tech_att= 'values', stock_att='sales_replacement',year=year)
         #in the last year of the analysis, these need to be concatenated together for output
 
     def concatenate_annual_costs(self):
@@ -6212,7 +6212,10 @@ class PrimaryCost(schema.PrimaryCost):
         if self._has_data:
             self.conversion = conversion
             self.resource_unit=resource_unit
-            self.remap(converted_geography=GeoMapper.supply_primary_geography)
+            try:
+                self.remap(converted_geography=GeoMapper.supply_primary_geography)
+            except:
+                pdb.set_trace()
             self.convert()
 
     def convert(self):
@@ -6973,6 +6976,8 @@ class RioInputs(DataObject):
                 return None
         else:
             df = df_supply.groupby(level=[cfg.rio_geography,'blend','year']).transform(lambda x: x / x.sum())
+
+
         df = df.replace([np.inf,np.nan],0,0)
         return df
 

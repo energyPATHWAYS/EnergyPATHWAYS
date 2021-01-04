@@ -166,7 +166,10 @@ class SupplyTechCost(object):
         self.years = years
         if self._has_data and self.raw_values is not None:
             self.convert()
-            self.remap(map_from='values', map_to='values', converted_geography=GeoMapper.supply_primary_geography, time_index_name='vintage')
+            try:
+                self.remap(map_from='values', map_to='values', converted_geography=GeoMapper.supply_primary_geography, time_index_name='vintage')
+            except:
+                pdb.set_trace()
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values_level', reverse=False)
         if not self._has_data:
             self.absolute = False
