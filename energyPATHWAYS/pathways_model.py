@@ -12,7 +12,6 @@ import logging
 import shape
 import pdb
 from scenario_loader import Scenario
-# from scenario import Scenario
 import copy
 import numpy as np
 from geomapper import GeoMapper
@@ -21,27 +20,31 @@ class PathwaysModel(object):
     """
     Highest level classification of the definition of an energy system.
     """
-    def __init__(self, scenario_id, api_run=False):
+    def __init__(self, scenario_id):
         self.scenario_id = scenario_id
         self.scenario = Scenario(self.scenario_id)
-        self.api_run = api_run
         self.outputs = Output()
         self.demand = Demand(self.scenario)
         self.supply = None
         self.demand_solved, self.supply_solved = False, False
 
-    def run(self, scenario_id, solve_demand, solve_supply, load_demand, load_supply, export_results, save_models, append_results, rio_scenario):
-        self.scenario_id = scenario_id
+    def setup_shapes(self, shape_owner):
+        shapes = shape.Shapes.get_instance(cfg.getParam('database_path', section='DATABASE'), shape_owner)
+        shapes.slice_sensitivities(self.scenario)
+        return shapes
+
+    def run(self, solve_demand, solve_supply, load_demand, load_supply, export_results, save_models, shape_owner):
         self.scenario = Scenario(self.scenario_id)
+        rio_scenario = self.scenario_id
+        self.shapes = self.setup_shapes(shape_owner)
         self.rio_scenario = rio_scenario
+        # self.remove_old_results()
+
         if solve_demand and not (load_demand or load_supply):
             self.calculate_demand(save_models)
 
-        if not append_results:
-            self.remove_old_results()
-
         # it is nice if when loading a demand side object to rerun supply, it doesn't re-output these results every time
-        if self.demand_solved and export_results and not self.api_run and not (load_demand and solve_supply):
+        if self.demand_solved and export_results and not (load_demand and solve_supply):
             # self.demand.create_electricity_reconciliation()
             # self.demand.output_subsector_electricity_profiles()
             self.export_result_to_csv('demand_outputs')
@@ -76,9 +79,9 @@ class PathwaysModel(object):
                 self.calculate_d_payback_energy()
         if save_models:
             if cfg.rio_supply_run:
-                Output.pickle(self, file_name=str(self.scenario_id) + cfg.demand_model_append_name, path=cfg.workingdir)
+                Output.pickle(self, file_name=str(self.scenario_id) + cfg.demand_model_append_name, path=os.path.join(cfg.workingdir, str(self.scenario_id)))
             else:
-                Output.pickle(self, file_name=str(self.scenario_id) + cfg.demand_model_append_name, path=cfg.workingdir)
+                Output.pickle(self, file_name=str(self.scenario_id) + cfg.demand_model_append_name, path=os.path.join(cfg.workingdir, str(self.scenario_id)))
 
     def calculate_supply(self, save_models):
         if not self.demand_solved:
@@ -93,13 +96,9 @@ class PathwaysModel(object):
         self.supply_solved = True
         if save_models:
             if cfg.rio_supply_run:
-                Output.pickle(self, file_name=self.rio_scenario + cfg.full_model_append_name, path=cfg.workingdir)
+                Output.pickle(self, file_name=self.rio_scenario + cfg.full_model_append_name, path=os.path.join(cfg.workingdir, str(self.scenario_id)))
             else:
-                Output.pickle(self, file_name=str(self.scenario_id) + cfg.full_model_append_name, path=cfg.workingdir)
-            # we don't need the demand side object any more, so we can remove it to save drive space
-            # if not cfg.rio_supply_run:
-            #     if os.path.isfile(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name)):
-            #         os.remove(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name))
+                Output.pickle(self, file_name=str(self.scenario_id) + cfg.full_model_append_name, path=os.path.join(cfg.workingdir, str(self.scenario_id)))
 
     def pass_supply_results_back_to_demand(self):
         # we need to geomap to the combined output geography
@@ -138,9 +137,9 @@ class PathwaysModel(object):
     def remove_old_results(self):
         folder_names = ['combined_outputs', 'demand_outputs', 'supply_outputs', 'dispatch_outputs']
         for folder_name in folder_names:
-            folder = os.path.join(cfg.workingdir, folder_name)
+            folder = os.path.join(cfg.workingdir, self.scenario_id, folder_name)
             if os.path.isdir(folder):
-                shutil.rmtree(folder)
+                shutil.rmtree(folder, ignore_errors=True)
 
     def export_result_to_csv(self, result_name):
         if result_name=='combined_outputs':
@@ -166,12 +165,11 @@ class PathwaysModel(object):
             for key, name in zip(keys, names):
                 result_df = pd.concat([result_df], keys=[key], names=[name])
                 result_df = result_df.fillna(0)
-            if attribute in (
-            'hourly_dispatch_results', 'electricity_reconciliation', 'hourly_marginal_cost', 'hourly_production_cost'):
+            if attribute in ('hourly_dispatch_results', 'electricity_reconciliation', 'hourly_marginal_cost', 'hourly_production_cost'):
                 # Special case for hourly dispatch results where we want to write them outside of supply_outputs
-                Output.write(result_df, attribute + '.csv', os.path.join(cfg.workingdir, 'dispatch_outputs'))
+                Output.write(result_df, attribute + '.csv', os.path.join(cfg.workingdir, self.scenario_id, 'dispatch_outputs'), compression='gzip', append_when_existing=False)
             else:
-                Output.write(result_df, attribute + '.csv', os.path.join(cfg.workingdir, result_name))
+                Output.write(result_df, attribute + '.csv', os.path.join(cfg.workingdir, self.scenario_id, result_name), compression='gzip', append_when_existing=False)
 
         for attribute in dir(res_obj):
             if isinstance(getattr(res_obj, attribute), list):
@@ -420,7 +418,8 @@ class PathwaysModel(object):
         emissions_unit = cfg.getParam('mass_unit', section='UNITS')
         for x in self.outputs.c_emissions:
             x.columns = [emissions_unit.upper()]
-        for x in self.outputs.c_emissions: x.index = x.index.reorder_levels([l for l in embodied_emissions_list[0].index.names if l in x.index.names])
+            x.index = x.index.reorder_levels([l for l in embodied_emissions_list[0].index.names if l in x.index.names])
+
     def calc_and_format_export_energy(self):
         if self.supply.export_energy is None:
             return None
@@ -469,7 +468,7 @@ class PathwaysModel(object):
             x.index = x.index.reorder_levels(embodied_energy_list[0].index.names)
 
     def export_io(self):
-        io_table_write_step = cfg.getParamAsInt('supply_od_io_table_write_step', section='SUPPLY_OUTPUT_DETAIL')
+        io_table_write_step = cfg.getParamAsInt('sod_io_table_write_step', section='SUPPLY_OUTPUT_DETAIL')
         io_table_years = sorted([min(self.supply.years)] + range(max(self.supply.years), min(self.supply.years), -io_table_write_step))
         df_list = []
         for year in io_table_years:
@@ -490,7 +489,7 @@ class PathwaysModel(object):
         names = ['SCENARIO','TIMESTAMP']
         for key, name in zip(keys,names):
             result_df = pd.concat([result_df], keys=[key],names=[name])
-        Output.write(result_df, 's_io.csv', os.path.join(cfg.workingdir, 'supply_outputs'))
+        Output.write(result_df, 's_io.csv', os.path.join(cfg.workingdir, self.scenario_id, 'supply_outputs'), compression='gzip', append_when_existing=False)
 #        self.export_stacked_io()
 
     def export_stacked_io(self):
@@ -504,4 +503,4 @@ class PathwaysModel(object):
         names = ['SCENARIO','TIMESTAMP']
         for key, name in zip(keys,names):
             result_df = pd.concat([result_df], keys=[key],names=[name])
-        Output.write(result_df, 's_stacked_io.csv', os.path.join(cfg.workingdir, 'supply_outputs'))
+        Output.write(result_df, 's_stacked_io.csv', os.path.join(cfg.workingdir, self.scenario_id, 'supply_outputs'), compression='gzip', append_when_existing=False)

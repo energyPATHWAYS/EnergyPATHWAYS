@@ -14,10 +14,14 @@ import logging
 import time
 import inspect
 import csv
+import re
+import gzip
 from collections import defaultdict, OrderedDict
 import cPickle as pickle
 import pdb
 from geomapper import GeoMapper
+
+ZIP_PATTERN = re.compile('.*\.gz$', re.IGNORECASE)
 
 class Output(object):
     def __init__(self):
@@ -89,19 +93,22 @@ class Output(object):
             pickle.dump(obj, outfile, pickle.HIGHEST_PROTOCOL)
 
     @staticmethod
-    def write(df, file_name, path, compression=None,index=True):
+    def write(df, file_name, path, compression=None, index=True, append_when_existing=True):
         # roughly follows the solutions here: http://stackoverflow.com/questions/11114492/check-if-a-file-is-not-open-not-used-by-other-process-in-python
         # note that there is still a small, but real chance of a race condition causing an error error, thus this is "safer" but not safe
         if not os.path.exists(path):
-            try:
-                os.makedirs(path)
-            except:
-                pdb.set_trace()
+            while True:
+                try:
+                    os.mkdir(path)
+                    break
+                except Exception as e:
+                    logging.info(e)
+                    raw_input('Please press any key to continue...')
 
         if compression == 'gzip':
             file_name += '.gz'
 
-        if os.path.isfile(os.path.join(path, file_name)):
+        if os.path.isfile(os.path.join(path, file_name)) and append_when_existing:
             tries = 1
             while True:
                 try:
@@ -109,7 +116,7 @@ class Output(object):
                     os.rename(os.path.join(path, file_name), os.path.join(path, "_" + file_name))
                     os.rename(os.path.join(path, "_" + file_name), os.path.join(path, file_name))
                     # append and don't write header because the file already exists
-                    df.to_csv(os.path.join(path, file_name), header=False, mode='a', compression=compression,index=index)
+                    df.to_csv(os.path.join(path, file_name), header=False, mode='a', compression=compression, index=index)
                     return
                 except OSError:
                     wait_time = min(60, 2 ** tries)
@@ -119,7 +126,7 @@ class Output(object):
                         raise
                     tries += 1
         else:
-            df.to_csv(os.path.join(path, file_name), header=True, mode='w',index=index)
+            df.to_csv(os.path.join(path, file_name), header=True, mode='w', compression=compression, index=index)
 
     @staticmethod
     def write_rio(df, file_name, path, compression=None, index=True, force_lower=True):
@@ -254,3 +261,60 @@ class Output(object):
                     csv_writer.writerow(row)
                 else:
                     csv_writer.writerow([row])
+
+
+def delete_csv_files_in_folder(folder):
+    if not os.path.exists(folder):
+        return
+    for file_name in os.listdir(folder):
+        if file_name[-4:] == '.csv' or file_name[-3:] == '.gz':
+            os.remove(os.path.join(folder, file_name))
+
+def check_valid_gzip(path):
+    try:
+        with gzip.open(path, 'rb') as infile:
+            csvreader = csv.reader(infile, delimiter=',')
+            csvreader.next()
+        return True
+    except IOError:
+        return False
+
+def append_write(write_from, write_to):
+    write_to_already_exists = os.path.isfile(write_to)
+    # for some reason sometimes the gzip fails and it's actually a csv file with a .gz ending
+    open_fun = gzip.open if check_valid_gzip(write_from) else open
+    with open_fun(write_from, 'rb') as infile:
+        csvreader = csv.reader(infile, delimiter=',')
+        if write_to_already_exists:
+            # get rid of the header row in this case
+            csvreader.next()
+        with open(write_to, 'ab') as outfile:
+            csvwriter = csv.writer(outfile, delimiter=',')
+            for row in csvreader:
+                csvwriter.writerow(row)
+
+def traverse_files(input_directory, output_directory):
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+    for f in os.listdir(input_directory):
+        if re.match(ZIP_PATTERN, f):
+            print "        {}".format(f)
+            append_write(os.path.join(input_directory, f), os.path.join(output_directory, f[:-3])) #drop the .gz
+        elif os.path.isdir(os.path.join(input_directory, f)):
+            traverse_files(os.path.join(input_directory, f), os.path.join(output_directory, f))
+
+def aggregate_scenario_results(scenarios, clear_results=True):
+    logging.info('Aggregating run results')
+    for results_folder in ['combined_outputs', 'demand_outputs', 'supply_outputs', 'dispatch_outputs']:
+        agg_results_path = os.path.join(cfg.workingdir, '_aggregate_outputs', results_folder)
+        util.makedirs_if_needed(agg_results_path)
+
+        if clear_results:
+            delete_csv_files_in_folder(agg_results_path)
+
+        for scenario in util.ensure_iterable(scenarios):
+            scenario_results = os.path.join(cfg.workingdir, scenario, results_folder)
+            if not os.path.exists(scenario_results):
+                continue
+            print "    {}.{}".format(scenario, results_folder)
+            traverse_files(scenario_results, agg_results_path)

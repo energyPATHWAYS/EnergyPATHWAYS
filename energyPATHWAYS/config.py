@@ -149,22 +149,22 @@ def init_output_levels():
     global output_demand_levels, output_supply_levels, output_combined_levels,combined_years_subset
     output_demand_levels = ['year', 'vintage', 'demand_technology', geomapper.GeoMapper.demand_primary_geography, 'sector', 'subsector', 'final_energy','other_index_1','other_index_2','cost_type','new/replacement']
     output_supply_levels = ['year', 'vintage', 'supply_technology', geomapper.GeoMapper.supply_primary_geography,  'demand_sector', 'supply_node', 'ghg', 'resource_bin','cost_type']
-    output_combined_levels = list(set(output_supply_levels + output_demand_levels + [geomapper.GeoMapper.combined_outputs_geography + "_supply"]))
-    output_combined_levels = list(set(output_combined_levels) - {geomapper.GeoMapper.demand_primary_geography, geomapper.GeoMapper.supply_primary_geography}) + [geomapper.GeoMapper.combined_outputs_geography]
+    output_combined_levels = list(set(output_supply_levels + output_demand_levels) - {geomapper.GeoMapper.demand_primary_geography, geomapper.GeoMapper.supply_primary_geography})
+    output_combined_levels = output_combined_levels + [geomapper.GeoMapper.combined_outputs_geography + "_supply", geomapper.GeoMapper.combined_outputs_geography]
 
-    for x in [x[0] for x in _ConfigParser.items('DEMAND_OUTPUT_DETAIL')]:
-        if x in output_demand_levels and _ConfigParser.get('DEMAND_OUTPUT_DETAIL', x).lower() != 'true':
-            output_demand_levels.remove(x)
-    for x in [x[0] for x in _ConfigParser.items('SUPPLY_OUTPUT_DETAIL')]:
-        if x in output_supply_levels and _ConfigParser.get('SUPPLY_OUTPUT_DETAIL',x).lower() != 'true':
-            output_supply_levels.remove(x)
-    for x in [x[0] for x in _ConfigParser.items('COMBINED_OUTPUT_DETAIL')]:
-        if _ConfigParser.get('COMBINED_OUTPUT_DETAIL',x).lower() != 'true':
-            if x == 'supply_geography':
-                x = geomapper.GeoMapper.combined_outputs_geography + "_supply"
-            if x in output_combined_levels:
-                output_combined_levels.remove(x)
-    years_subset = _ConfigParser.get('COMBINED_OUTPUT_DETAIL', 'combined_od_years_subset')
+    levels_to_remove = set([x[0][4:] for x in _ConfigParser.items('DEMAND_OUTPUT_DETAIL') if x[1].lower()!='true'])
+    output_demand_levels = list(set(output_demand_levels) - levels_to_remove)
+
+    levels_to_remove = set([x[0][4:] for x in _ConfigParser.items('SUPPLY_OUTPUT_DETAIL') if x[1].lower()!='true'])
+    output_supply_levels = list(set(output_supply_levels) - levels_to_remove)
+
+    levels_to_remove = set([x[0][4:] for x in _ConfigParser.items('COMBINED_OUTPUT_DETAIL') if x[1].lower()!='true'])
+    output_combined_levels = list(set(output_combined_levels) - levels_to_remove)
+
+    if not getParamAsBoolean('cod_supply_geography', 'COMBINED_OUTPUT_DETAIL'):
+        output_combined_levels.remove(geomapper.GeoMapper.combined_outputs_geography + "_supply")
+
+    years_subset = getParam('cod_years_subset', 'COMBINED_OUTPUT_DETAIL')
     if years_subset != 'None' and len(years_subset):
         combined_years_subset = [int(y) for y in years_subset.split(',') if int(y) in supply_years]
     else:

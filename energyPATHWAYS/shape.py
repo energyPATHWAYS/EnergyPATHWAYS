@@ -15,6 +15,7 @@ import logging
 import pdb
 import pathos
 import helper_multiprocess
+import time
 from csvdb import CsvDatabase
 import config as cfg
 from energyPATHWAYS.geomapper import GeoMapper
@@ -111,14 +112,8 @@ class Shapes(object):
         return cfg_hash_tuple
 
     @classmethod
-    def get_instance(cls, database_path=None):
-        if Shapes._instance is not None:
-            return Shapes._instance
-
-        if database_path is None:
-            from .error import PathwaysException
-            raise PathwaysException("Shapes.get_instance: No Shapes instance exists and no database_path was specified")
-
+    def load_shape_pickle(cls, database_path, wait_time=0):
+        time.sleep(wait_time)
         # load from pickle
         cfg_hash = hash(cls.get_hash_tuple())
         pickles_dir = os.path.join(database_path, 'ShapeData', 'pickles')
@@ -129,14 +124,40 @@ class Shapes(object):
             with open(pickle_path, 'rb') as infile:
                 shapes = pickle.load(infile)
             Shapes._instance = shapes
-            return Shapes._instance
+            return True
+        return False
 
+    @classmethod
+    def make_shapes(cls, database_path):
         # pickle didn't exist or was not what was needed
         Shapes._instance = Shapes(database_path)
         logging.info('Pickling shapes')
+        cfg_hash = hash(cls.get_hash_tuple())
+        pickles_dir = os.path.join(database_path, 'ShapeData', 'pickles')
+        pickle_path = os.path.join(pickles_dir, 'shapes_{}.p'.format(cfg_hash))
         util.makedirs_if_needed(pickles_dir)
         with open(pickle_path, 'wb') as outfile:
             pickle.dump(Shapes._instance, outfile, pickle.HIGHEST_PROTOCOL)
+
+    @classmethod
+    def get_instance(cls, database_path=None, shape_owner=True):
+        if Shapes._instance is not None:
+            return Shapes._instance
+
+        if database_path is None:
+            from .error import PathwaysException
+            raise PathwaysException("Shapes.get_instance: No Shapes instance exists and no database_path was specified")
+
+        # load from pickle
+        success = Shapes.load_shape_pickle(database_path, wait_time=0)
+        if shape_owner and not success:
+            Shapes.make_shapes(database_path)
+        else:
+            wait_time = 30
+            while success is False:
+                logging.info('Waiting {} seconds for shape process to finish before trying to load shapes...'.format(wait_time))
+                success = Shapes.load_shape_pickle(database_path, wait_time=wait_time)
+
         return Shapes._instance
 
     def get_active_dates(self, years):
@@ -162,10 +183,8 @@ class Shapes(object):
 
     def slice_sensitivities(self, sensitivities):
         logging.info(' slicing shape sensitivities')
-        index_divider = '--'
         for shape_name in self.data:
-            sensitivity_id = shape_name + index_divider + shape_name
-            sensitivity_name = sensitivities[sensitivity_id] if sensitivity_id in sensitivities.index else '_reference_'
+            sensitivity_name = sensitivities.get_sensitivity('ShapeData', shape_name) or '_reference_'
             self.data[shape_name].slice_sensitivity(sensitivity_name)
 
 class Shape(DataObject):

@@ -195,6 +195,11 @@ def tuple_subset(tup, header, head_to_remove):
     index_to_remove = [header.index(e) for e in head_to_remove]
     return tuple([t for i, t in enumerate(tup) if i not in index_to_remove])
 
+def get_all_scenario_names(path):
+    if not os.path.exists(os.path.join(path, 'runs_key.csv')):
+        return []
+    sensitivities = pd.read_csv(os.path.join(path, 'runs_key.csv'), index_col=0, nrows=1)
+    return sensitivities.columns
 
 def id_to_name(id_col, id_num, return_type='item'):
     if not hasattr(id_to_name, 'lookup_dict'):

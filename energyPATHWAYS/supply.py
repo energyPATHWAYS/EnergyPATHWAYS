@@ -203,14 +203,6 @@ class Supply(object):
                     node.calculate(calculate_residual=False)
                 else:
                     node.calculate()
-        for node in self.nodes.values():
-            if node.name in self.blend_nodes and node.name in cfg.evolved_blend_nodes and cfg.evolved_run=='true':
-                node.values = node.values.groupby(level=[x for x in node.values.index.names if x !='supply_node']).transform(lambda x: 1/float(x.count()))
-                for x in node.nodes:
-                    if x in self.storage_nodes:
-                        indexer = util.level_specific_indexer(node.values,'supply_node',x)
-                        node.values.loc[indexer,:] = 1e-7 * 4
-                node.values = node.values.groupby(level=[x for x in node.values.index.names if x !='supply_node']).transform(lambda x: x/x.sum())/4.0
 
 
     def create_IO(self):
@@ -1406,7 +1398,7 @@ class Supply(object):
                 names = ['SCENARIO','TIMESTAMP']
                 for key, name in zip(keys, names):
                     result_df = pd.concat([result_df], keys=[key], names=[name])
-                Output.write(result_df, 'hourly_dispatch_results.csv', os.path.join(cfg.workingdir, 'dispatch_outputs'))
+                Output.write(result_df, 'hourly_dispatch_results.csv', os.path.join(cfg.workingdir, self.scenario.name, 'dispatch_outputs'))
         self.calculate_thermal_totals(year)
         self.calculate_curtailment(year)
 
@@ -1436,7 +1428,7 @@ class Supply(object):
                 names = ['SCENARIO','TIMESTAMP']
                 for key, name in zip(keys, names):
                     result_df = pd.concat([result_df], keys=[key], names=[name])
-                Output.write(result_df, 'hourly_dispatch_results.csv', os.path.join(cfg.workingdir, 'dispatch_outputs'))
+                Output.write(result_df, 'hourly_dispatch_results.csv', os.path.join(cfg.workingdir, self.scenario.name, 'dispatch_outputs'))
 
 
 
@@ -1665,7 +1657,7 @@ class Supply(object):
                     names = ['SCENARIO','TIMESTAMP']
                     for key, name in zip(keys, names):
                         result_df = pd.concat([result_df], keys=[key], names=[name])
-                    Output.write(result_df, obj_name + '.csv', os.path.join(cfg.workingdir, 'dispatch_outputs'))
+                    Output.write(result_df, obj_name + '.csv', os.path.join(cfg.workingdir, self.scenario.name, 'dispatch_outputs'))
 
 
         for node_name in self.thermal_dispatch_nodes:
@@ -1820,10 +1812,6 @@ class Supply(object):
         thermal_df = copy.deepcopy(self.nodes[self.bulk_electricity_node_name].values.loc[indexer, year])
         thermal_df[thermal_df>1]=1
         self.nodes[self.bulk_electricity_node_name].values.loc[indexer, year] =0
-        #don't normalize these if it's an evolved run. Leave curtailment. Simplifies per-unit accounting
-        if cfg.evolved_run == 'false':
-            pass
-            #self.nodes[self.bulk_electricity_node_name].values.loc[:, year] = util.DfOper.mult([self.nodes[self.bulk_electricity_node_name].values.loc[:, year].to_frame().groupby(level=[GeoMapper.supply_primary_geography,'demand_sector']).transform(lambda x: x/x.sum()),1-util.remove_df_levels(thermal_df,'supply_node').to_frame()],expandable=True)
         self.nodes[self.bulk_electricity_node_name].values.loc[indexer, year] = thermal_df
         self.nodes[self.bulk_electricity_node_name].calculate_active_coefficients(year, 3)
 

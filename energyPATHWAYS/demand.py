@@ -204,7 +204,7 @@ class Demand(object):
         ['gau', 'dispatch_feeder', 'weather_datetime']
         """
         indexer = util.level_specific_indexer(self.outputs.d_energy, levels=['year', 'final_energy'], elements=[[year], [cfg.electricity_energy_type]])
-        ele_energy_helper = self.outputs.d_energy.loc[indexer].groupby(level=('subsector', GeoMapper.demand_primary_geography)).sum()
+        ele_energy_helper = self.outputs.d_energy.loc[indexer,].groupby(level=('subsector', GeoMapper.demand_primary_geography)).sum()
 
         df_list = []
         for sector in self.sectors.values():
@@ -340,12 +340,12 @@ class Demand(object):
         self.aggregate_sector_energy_for_supply_side()
 
         # we are going to output the shapes for all the demand subsectors for specific years
-        if cfg.getParamAsBoolean('demand_od_subsector_profile_years', section='DEMAND_OUTPUT_DETAIL'):
+        if cfg.getParamAsBoolean('dod_subsector_electricity_profiles', section='DEMAND_OUTPUT_DETAIL'):
             self.create_electricity_reconciliation()
             self.output_subsector_electricity_profiles()
 
     def output_subsector_electricity_profiles(self):
-        subsector_profile_years = cfg.getParam('demand_od_subsector_profile_years', section='DEMAND_OUTPUT_DETAIL')
+        subsector_profile_years = cfg.getParam('dod_subsector_profile_years', section='DEMAND_OUTPUT_DETAIL')
         if subsector_profile_years.lower().rstrip().lstrip() == 'all':
             output_years = cfg.supply_years
         else:
@@ -364,7 +364,7 @@ class Demand(object):
     def stack_subsector_electricity_profiles(self, year):
         # df_zeros = pd.DataFrame(0, columns=['value'], index=pd.MultiIndex.from_product((GeoMapper.demand_geographies, shape.shapes.active_dates_index), names=[GeoMapper.demand_primary_geography, 'weather_datetime']))
         stack = []
-        aggregate_subsector_profiles_to_sector = cfg.getParamAsBoolean('demand_od_aggregate_subsector_profiles_to_sector', section='DEMAND_OUTPUT_DETAIL')
+        aggregate_subsector_profiles_to_sector = cfg.getParamAsBoolean('dod_aggregate_subsector_profiles_to_sector', section='DEMAND_OUTPUT_DETAIL')
         if aggregate_subsector_profiles_to_sector:
             index_levels = ['year', GeoMapper.demand_primary_geography, 'dispatch_feeder', 'sector', 'weather_datetime']
             # index_levels = ['year', GeoMapper.demand_primary_geography, 'dispatch_feeder', 'sector', 'timeshift_type', 'weather_datetime']
@@ -1469,14 +1469,12 @@ class Subsector(schema.DemandSubsectors):
                     if hasattr(getattr(self.technologies[tech], tech_class), 'reference_tech') and getattr(getattr(self.technologies[tech], tech_class), 'reference_tech') is not None:
                         tests[getattr(getattr(self.technologies[tech], tech_class), 'reference_tech')].append(False)
             for tech in self.technologies.keys():
-                if cfg.evolved_run == 'false':
-                    if all(tests[tech]):
-                        self.techs.remove(tech)
-                        del self.technologies[tech]
-                    else:
-                        self.technologies[tech].calculate([self.vintages[0] - 1] + self.vintages, self.years)
+                if all(tests[tech]):
+                    self.techs.remove(tech)
+                    del self.technologies[tech]
                 else:
                     self.technologies[tech].calculate([self.vintages[0] - 1] + self.vintages, self.years)
+
 
             self.remap_tech_attrs(tech_classes)
 
