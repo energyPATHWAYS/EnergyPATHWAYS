@@ -461,6 +461,19 @@ class Demand(object):
         df = util.loop_geo_multiply(demand_df, supply_link, geo_label, GeoMapper.combined_geographies, levels_to_keep)
         return df
 
+    def group_linked_output_rio(self, input_df, supply_link, levels_to_keep=None):
+        demand_df = input_df.copy()
+        if GeoMapper.combined_outputs_geography + '_supply' in supply_link:
+            geo_label = GeoMapper.combined_outputs_geography + '_supply'
+        else:
+            geo_label = GeoMapper.combined_outputs_geography
+        levels_to_keep = cfg.output_combined_levels if levels_to_keep is None else levels_to_keep
+        demand_levels_to_keep = [x for x in levels_to_keep if x in demand_df.index.names]
+        demand_df = demand_df.groupby(level=demand_levels_to_keep).sum()
+        demand_df = demand_df[demand_df.index.get_level_values('year').isin(cfg.years_subset)]
+        df = util.loop_geo_multiply(demand_df, supply_link, geo_label, GeoMapper.combined_geographies, levels_to_keep)
+        return df
+
     def group_linked_output_tco(self, input_df, supply_link, levels_to_keep=None):
         demand_df = input_df.copy()
         supply_link = supply_link.groupby(level=[GeoMapper.combined_outputs_geography,'year', 'final_energy', 'sector']).sum()
@@ -816,10 +829,7 @@ class Subsector(schema.DemandSubsectors):
         return util.DfOper.add(result, collapsible=False)
 
     def aggr_elect_shapes_techs_not_unique(self, techs_with_energy_and_shapes, active_shape, energy_slice):
-        try:
-            tech_shapes = pd.concat([self.technologies[tech].get_shape(default_shape=active_shape) for tech in techs_with_energy_and_shapes],keys=techs_with_energy_and_shapes, names=['demand_technology'])
-        except:
-            pdb.set_trace()
+        tech_shapes = pd.concat([self.technologies[tech].get_shape(default_shape=active_shape) for tech in techs_with_energy_and_shapes],keys=techs_with_energy_and_shapes, names=['demand_technology'])
         energy_with_shapes = util.df_slice(energy_slice, techs_with_energy_and_shapes, 'demand_technology', drop_level=False, reset_index=True)
         return util.remove_df_levels(util.DfOper.mult((energy_with_shapes, tech_shapes)), levels='demand_technology')
 

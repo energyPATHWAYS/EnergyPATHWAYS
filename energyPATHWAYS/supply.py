@@ -547,32 +547,24 @@ class Supply(object):
             self.calculate_annual_costs(year)
             self.calculated_years.append(year)
 
-    def calculate_ep2rio_loop(self, years, calculated_years):
+    def calculate_ep2rio_loop(self, years):
         """Performs all IO loop calculations"""
         self.set_dispatch_years()
         first_year = min(self.years)
         self._calculate_initial_loop()
-        self.calculated_years = calculated_years
-        for year in [x for x in self.dispatch_years if x not in self.calculated_years]:
-            logging.info("Starting supply side calculations for {}".format(year))
-            for loop in [1, 2, 3]:
-                # starting loop
-                if loop == 1:
-                    logging.info("   loop {}: input-output calculation".format(loop))
-                    if year is not first_year:
-                        # initialize year is not necessary in the first year
-                        self.initialize_year(year, loop)
-                    self._recalculate_ep2rio_io(year,loop)
-                elif loop == 2 :
-                    logging.info("   loop {}: supply reconciliation".format(loop))
-                    # sets a flag for whether any reconciliation occurs in the loop determined in the reconcile function
-                    self.reconciled = False
-                    # each time, if reconciliation has occured, we have to recalculate coefficients and resolve the io
-                    self.reconcile_trades(year, loop)
-                    self._recalculate_ep2rio_after_reconciliation(year, loop, update_demand=True)
-                elif loop == 3:
-                    self.prepare_dispatch_inputs_RIO(year,loop)
-            self.calculated_years.append(year)
+        for loop in [1, 2]:
+            # starting loop
+            if loop == 1:
+                logging.info("   loop {}: input-output calculation".format(loop))
+                self._recalculate_ep2rio_io(first_year,loop)
+            elif loop == 2 :
+                logging.info("   loop {}: supply reconciliation".format(loop))
+                # sets a flag for whether any reconciliation occurs in the loop determined in the reconcile function
+                self.reconciled = False
+                # each time, if reconciliation has occured, we have to recalculate coefficients and resolve the io
+                self.reconcile_trades(first_year, loop)
+                self._recalculate_ep2rio_after_reconciliation(first_year, loop, update_demand=True)
+                self.prepare_dispatch_inputs_RIO(first_year,loop)
 
 
     def discover_bulk_name(self):
@@ -1351,6 +1343,33 @@ class Supply(object):
         else:
             self.non_flexible_load = None
 
+    def prepare_non_flexible_load_ep2rio(self, year):
+        # MOVE
+        """Calculates the demand from non-flexible load on the supply-side
+        Args:
+            year (int) = year of analysis
+            loop (int or str) = loop identifier
+        Sets:
+            non_flexible_load (df)
+
+        """
+        non_flexible_load_list = []
+        for zone in self.dispatch_zones:
+            for node_name in self.electricity_load_nodes[zone]['non_flexible']:
+                node = self.nodes[node_name]
+                indexer = util.level_specific_indexer(self.io_rio_supply_df,levels=['supply_node'], elements = [node.name])
+                supply_energy = self.io_rio_supply_df.loc[indexer, year].groupby(level=[GeoMapper.supply_primary_geography, 'demand_sector']).sum().to_frame()
+                indexer = util.level_specific_indexer(node.active_coefficients_untraded, 'supply_node', [list(set(self.electricity_nodes[zone] + [zone]))])
+                energy = DfOper.mult([supply_energy, node.active_coefficients_untraded.loc[indexer,:]])
+                energy = util.remove_df_levels(energy, ['supply_node', 'efficiency_type']) # supply node is electricity transmission or distribution
+                energy = self._help_prepare_non_flexible_load_or_gen(energy, year, node, zone)
+                non_flexible_load_list.append(energy) # important that the order of the columns be correct
+        if len(non_flexible_load_list):
+            return util.df_list_concatenate(non_flexible_load_list)
+        else:
+            return None
+
+
     def prepare_non_flexible_gen(self,year):
         # MOVE
         """Calculates the supply from non-flexible generation on the supply-side
@@ -1372,6 +1391,34 @@ class Supply(object):
             self.non_flexible_gen = util.df_list_concatenate(self.non_flexible_gen)
         else:
             self.non_flexible_gen = None
+
+
+    def prepare_non_flexible_gen_ep2rio(self,year):
+        # MOVE
+        """Calculates the supply from non-flexible generation on the supply-side
+        Args:
+            year (int) = year of analysis
+            loop (int or str) = loop identifier
+        Sets:
+            non_flexible_load (df)
+        """
+        non_flexible_gen_list = []
+        for zone in self.dispatch_zones:
+            non_thermal_dispatch_nodes = [x for x in self.electricity_gen_nodes[zone]['non_flexible'] if x not in self.nodes[self.thermal_dispatch_node_name].values.index.get_level_values('supply_node')]
+            for node_name in non_thermal_dispatch_nodes:
+                node = self.nodes[node_name]
+                indexer = util.level_specific_indexer(self.io_rio_supply_df, levels=['supply_node'], elements=[node.name])
+                energy = self.io_rio_supply_df.loc[indexer, year].groupby(level=[GeoMapper.supply_primary_geography, 'demand_sector']).sum().to_frame()
+                energy = self._help_prepare_non_flexible_load_or_gen(energy, year, node, zone)
+                non_flexible_gen_list.append(energy)
+        if len(non_flexible_gen_list):
+            return util.df_list_concatenate(non_flexible_gen_list)
+        else:
+            return None
+
+
+
+
 
     def prepare_dispatch_inputs(self, year, loop):
         # MOVE
@@ -1410,14 +1457,10 @@ class Supply(object):
         self.solved_gen_list = []
         self.set_electricity_load_nodes()
         self.set_dispatchability()
-        self.prepare_non_flexible_gen(year)
-        self.prepare_flexible_gen(year)
-        self.prepare_non_flexible_load(year)
-        self.prepare_flexible_load(year)
         self.set_distribution_losses(year)
         self.set_transmission_losses(year)
         self.set_shapes(year)
-        self.set_initial_net_load_signals(year)
+
 
     def solve_electricity_dispatch(self, year):
         # MOVE
@@ -2073,8 +2116,8 @@ class Supply(object):
             df_output.columns = [cfg.calculation_energy_unit.upper()]
             if generation:
                 df_output*=-1
-            self.bulk_dispatch = pd.concat([self.bulk_dispatch, df_output.reorder_levels(self.bulk_dispatch.index.names)])
-            # self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, df_output])
+            if hasattr(self,'bulk_dispatch'):
+                self.bulk_dispatch = pd.concat([self.bulk_dispatch, df_output.reorder_levels(self.bulk_dispatch.index.names)])
         df = util.remove_df_levels(df, 'supply_node') # only necessary when we origionally kept supply node as a level
         return df
 
@@ -2094,9 +2137,9 @@ class Supply(object):
                 df_output =  self.outputs.clean_df(df_output)
                 util.replace_index_name(df_output,'DISPATCH_OUTPUT','SUPPLY_NODE')
                 df_output.columns = [cfg.calculation_energy_unit.upper()]
-                df_output = util.reorder_b_to_match_a(df_output, self.bulk_dispatch)
-                self.bulk_dispatch = pd.concat([self.bulk_dispatch, df_output.reorder_levels(self.bulk_dispatch.index.names)])
-                # self.bulk_dispatch = util.DfOper.add([self.bulk_dispatch, df_output])
+                if hasattr(self,'bulk_dispatch'):
+                    df_output = util.reorder_b_to_match_a(df_output, self.bulk_dispatch)
+                    self.bulk_dispatch = pd.concat([self.bulk_dispatch, df_output.reorder_levels(self.bulk_dispatch.index.names)])
                 df = util.remove_df_levels(df, 'supply_node') # only necessary when we origionally kept supply node as a level
             return df
         else:
@@ -2118,7 +2161,7 @@ class Supply(object):
         if not cfg.getParamAsBoolean('rio_db_run', section='rio'):
             self.rio_distribution_load[year] =copy.deepcopy(self.distribution_load)
         else:
-            final_demand = self.demand_object.aggregate_electricity_shapes(year, exclude_subsectors=cfg.rio_opt_demand_subsectors)
+            final_demand = self.demand_object.aggregate_electricity_shapes(year)
             distribution_native_load = final_demand.xs(0, level='timeshift_type')
             self.rio_distribution_load[year]= util.DfOper.add([distribution_native_load, self.shaped_dist(year, self.non_flexible_load, generation=False)])
             self.rio_flex_load[year] = util.df_slice(final_demand, ['advanced','delayed','native'], 'timeshift_type', drop_level=False, reset_index=True)
@@ -2198,7 +2241,7 @@ class Supply(object):
             self.emissions_dict[year][sector] = pd.DataFrame(emissions * inverse.values,index=row_index, columns=col_index).sort_index(axis=0).sort_index(axis=1)
 
 
-    def map_embodied_to_demand(self, embodied_dict, link_dict,result_type):
+    def map_embodied_to_demand(self, embodied_dict, link_dict,result_type,years=cfg.years_subset):
         """Maps embodied emissions results for supply node to their associated final energy type and then
         to final energy demand.
         Args:
@@ -2216,13 +2259,16 @@ class Supply(object):
         remap_order = np.array([sorted_map_dict_values.index(self.map_dict[key]) for key in sorted(self.map_dict.keys())])
         remap_order = np.hstack([len(self.map_dict) * i + remap_order for i in range(len(GeoMapper.supply_geographies))])
         df_list = []
-        for year in cfg.years_subset:
+        for year in years:
             sector_df_list = []
             keys = self.demand_sectors
             name = ['sector']
             idx = pd.IndexSlice
             for sector in self.demand_sectors:
-                link_dict[year][sector].loc[:,:] = embodied_dict[year][sector].loc[:,idx[:, self.map_dict.values()]].values[:,remap_order]
+                try:
+                    link_dict[year][sector].loc[:,:] = embodied_dict[year][sector].loc[:,idx[:, self.map_dict.values()]].values[:,remap_order]
+                except:
+                    pdb.set_trace()
                 link_dict[year][sector] = link_dict[year][sector].stack([GeoMapper.supply_primary_geography,'final_energy']).to_frame()
                 link_dict[year][sector] = link_dict[year][sector][link_dict[year][sector][0]!=0]
                 levels_to_keep = [x for x in link_dict[year][sector].index.names if x in cfg.output_combined_levels or x == GeoMapper.supply_primary_geography]
@@ -2238,7 +2284,7 @@ class Supply(object):
             df_list.append(year_df)
         self.sector_df_list  = sector_df_list
         self.df_list = df_list
-        keys = cfg.years_subset
+        keys = years
         name = ['year']
         df = pd.concat(df_list,keys=keys,names=name)
         df.columns = ['value']
@@ -2888,9 +2934,11 @@ class Supply(object):
         self.io_rio_supply_df = copy.deepcopy(self.io_supply_df)
         self.demand_object.aggregate_sector_energy_for_supply_side(db_run=True,ignored_subsectors=ignored_subsectors)
         self.map_demand_to_io()
+        index = pd.MultiIndex.from_product([GeoMapper.supply_geographies, self.all_nodes
+                                                                ], names=[GeoMapper.supply_primary_geography,'supply_node'])
+
+        self.rio_inverse_dict = util.recursivedict()
         for year in self.dispatch_years:
-        #for year in [2050]:
-            logging.info("calculating rio blend demand in year %s" %year)
             total_demand = self.io_demand_df.loc[:,year].to_frame()
             for sector in self.demand_sectors:
                 indexer = util.level_specific_indexer(self.io_total_active_demand_df,'demand_sector', sector)
@@ -2900,8 +2948,47 @@ class Supply(object):
                 temp = solve_IO(rio_io.values, active_demand.values)
                 temp[np.nonzero(rio_io.values.sum(axis=1) + active_demand.values.flatten()==0)[0]] = 0
                 self.io_rio_supply_df.loc[indexer,year] = temp
-        self.io_rio_supply_df = util.remove_df_levels(self.io_rio_supply_df,'demand_sector')
+                temp = solve_IO(rio_io.values)
+                temp[np.nonzero(self.active_io.values.sum(axis=1) + self.active_demand.values.flatten() == 0)[0]] = 0
+                self.inverse_dict_rio['energy'][year][sector] = pd.DataFrame(temp, index=index, columns=index).sort_index(axis=0).sort_index(axis=1)
 
+
+
+    def calculate_rio_electricity_demand(self):
+        self.io_rio_supply_df = copy.deepcopy(self.io_supply_df)
+        self.demand_object.aggregate_sector_energy_for_supply_side(db_run=True)
+        self.map_demand_to_io()
+        for year in self.dispatch_years:
+            total_demand = self.io_demand_df.loc[:,year].to_frame()
+            for sector in self.demand_sectors:
+                indexer = util.level_specific_indexer(self.io_total_active_demand_df,'demand_sector', sector)
+                rio_io = self.io_dict[year][sector]
+                rio_io = self.rio_adjust(rio_io)
+                active_demand = total_demand.loc[indexer,:]
+                temp = solve_IO(rio_io.values, active_demand.values)
+                temp[np.nonzero(rio_io.values.sum(axis=1) + active_demand.values.flatten()==0)[0]] = 0
+                self.io_rio_supply_df.loc[indexer,year] = temp
+            non_flexible_gen = self.prepare_non_flexible_gen_ep2rio(year)
+            non_flexible_load = self.prepare_non_flexible_load_ep2rio(year)
+            final_demand = self.demand_object.aggregate_electricity_shapes(year)
+            distribution_native_load = final_demand.xs(0, level='timeshift_type')
+            if tuple(final_demand.index.get_level_values('timeshift_type').unique()) == (0,):
+                self.distribution_flex_load = None
+            elif tuple(final_demand.index.get_level_values('timeshift_type').unique()) == (0, 'advanced', 'delayed', 'native'):
+                self.distribution_flex_load = util.df_slice(final_demand, ['advanced', 'delayed', 'native'], 'timeshift_type', drop_level=False, reset_index=True)
+            else:
+                raise ValueError('Unrecognized timeshift types in the electricity shapes, found: {}'.format(tuple(final_demand.index.get_level_values('timeshift_type').unique())))
+            self.distribution_gen = self.shaped_dist(year, non_flexible_gen, generation=True)
+            self.distribution_load = util.DfOper.add([distribution_native_load, self.shaped_dist(year, non_flexible_load, generation=False)])
+            final_demand = self.demand_object.aggregate_electricity_shapes(year, exclude_subsectors=None)
+            distribution_native_load = final_demand.xs(0, level='timeshift_type')
+            self.rio_distribution_load[year] = util.DfOper.add([distribution_native_load, self.shaped_dist(year, non_flexible_load, generation=False)])
+            self.rio_flex_load[year] = util.df_slice(final_demand, ['advanced', 'delayed', 'native'], 'timeshift_type', drop_level=False, reset_index=True)
+            self.bulk_gen = self.shaped_bulk(year, non_flexible_gen, generation=True)
+            for blend_name in [x for x in self.blend_nodes if x not in cfg.rio_excluded_blends]:
+                for node_name in self.nodes[blend_name].nodes:
+                    non_flexible_load[non_flexible_load.index.get_level_values('supply_node') == node_name] = 0
+            self.rio_bulk_load[year] = self.shaped_bulk(year, non_flexible_load, generation=False)
     
     def add_initial_demand_dfs(self, year):
 
@@ -2949,6 +3036,16 @@ class Supply(object):
                 for sector in util.ensure_iterable(self.demand_sectors):
                     self.inverse_dict[key][year][sector]= df
 
+    def create_inverse_dict_rio(self):
+        index = pd.MultiIndex.from_product([GeoMapper.geography_to_gau[GeoMapper.supply_primary_geography], self.all_nodes
+                                                                ], names=[GeoMapper.supply_primary_geography,'supply_node'])
+        df = util.empty_df(index = index, columns = index)
+        self.inverse_dict_rio = util.recursivedict()
+        for key in ['energy', 'cost']:
+            for year in self.years:
+                for sector in util.ensure_iterable(self.demand_sectors):
+                    self.inverse_dict_rio[key][year][sector]= df
+
     def create_embodied_cost_and_energy_demand_link(self):
         map_dict = self.map_dict
         keys = sorted(map_dict.items(), key=operator.itemgetter(1))
@@ -2962,6 +3059,18 @@ class Supply(object):
             for sector in self.demand_sectors:
                 self.embodied_cost_link_dict[year][sector] = util.empty_df(index = index, columns = columns).sort_index(axis=0).sort_index(axis=1)
                 self.embodied_energy_link_dict[year][sector] = util.empty_df(index = index, columns = columns).sort_index(axis=0).sort_index(axis=1)
+
+    def create_embodied_energy_demand_link_rio(self):
+        map_dict = self.map_dict
+        keys = sorted(map_dict.items(), key=operator.itemgetter(1))
+        keys = [x[0] for x in keys]
+        #sorts final energy in the same order as the supply node dataframes
+        index = pd.MultiIndex.from_product([GeoMapper.supply_geographies, self.all_nodes], names=[GeoMapper.supply_primary_geography+"_supply",'supply_node'])
+        columns = pd.MultiIndex.from_product([GeoMapper.supply_geographies,keys], names=[GeoMapper.supply_primary_geography,'final_energy'])
+        self.embodied_energy_link_dict_rio = util.recursivedict()
+        for year in self.years:
+            for sector in self.demand_sectors:
+                self.embodied_energy_link_dict_rio[year][sector] = util.empty_df(index = index, columns = columns).sort_index(axis=0).sort_index(axis=1)
 
 
     def create_embodied_emissions_demand_link(self):

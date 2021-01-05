@@ -103,20 +103,17 @@ class PathwaysModel(object):
         self.supply.initial_calculate()
         self.supply.calculated_years = []
         if cfg.rio_db_run:
-            self.supply.calculate_ep2rio_loop(self.supply.years, self.supply.calculated_years)
+            self.supply.calculate_ep2rio_loop(self.supply.years)
         else:
             self.supply.calculate_loop(self.supply.years, self.supply.calculated_years)
-        self.supply.final_calculate()
+            self.supply.final_calculate()
         self.supply_solved = True
         if save_models:
             if cfg.rio_supply_run:
                 Output.pickle(self, file_name=self.write_scenario_name + cfg.full_model_append_name, path=cfg.workingdir)
             else:
                 Output.pickle(self, file_name=str(self.scenario_id) + cfg.full_model_append_name, path=cfg.workingdir)
-            # we don't need the demand side object any more, so we can remove it to save drive space
-            # if not cfg.rio_supply_run:
-            #     if os.path.isfile(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name)):
-            #         os.remove(os.path.join(cfg.workingdir, str(self.scenario_id) + cfg.demand_model_append_name))
+
 
     def pass_supply_results_back_to_demand(self):
         # we need to geomap to the combined output geography

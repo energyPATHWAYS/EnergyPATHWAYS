@@ -1,9 +1,9 @@
 
-from outputs import Output
+from energyPATHWAYS.outputs import Output
 import os
 import util
 import shutil
-import config as cfg
+import energyPATHWAYS.config as cfg
 import pandas as pd
 import logging
 import pdb
@@ -12,10 +12,9 @@ import numpy as np
 from collections import defaultdict
 import glob
 import cPickle as pickle
-from energyPATHWAYS.supply import StorageNode, BlendNode, SupplyStockNode, ImportNode, PrimaryNode
-import ast
-from shape import Shapes, Shape
-from dateutil.relativedelta import relativedelta
+import energyPATHWAYS.supply as supply
+import energyPATHWAYS.shape as shape
+import energyPATHWAYS.scenario_loader as scenario_loader
 from energyPATHWAYS.geomapper import GeoMapper
 from unit_converter import UnitConverter
 import datetime as DT
@@ -24,17 +23,21 @@ class RioExport(object):
     def __init__(self, model, scenario_index,scenario):
         self.scenario = scenario
         self.supply = model.supply
+        self.demand = model.demand
         self.supply.bulk_electricity_node_name = 'Bulk Electricity Blend'
         self.db_dir = os.path.join(cfg.workingdir, 'rio_db_export')
         self.meta_dict = defaultdict(list)
         self.scenario_index = scenario_index
-        # self.shapes = Shapes.get_instance(cfg.getParam('database_path'))
+        # self.shapes = shape.Shapes.get_instance(cfg.getParam('database_path'))
 
 
     def write_all(self):
         # logging.info("writing blends")
-        self.write_demand_subsector()
+        #self.write_demand_subsector()
         self.write_blend()
+        self.write_electricity_demand()
+
+
         #logging.info("writing flex load df")
         self.flex_load_df = self.flatten_flex_load_dict()
         if self.scenario_index == 0:
@@ -73,7 +76,7 @@ class RioExport(object):
         weather_years = [int(y) for y in cfg.getParam('weather_years').split(',')]
         self.active_dates_index = get_active_dates(weather_years)
         shapes = {}
-        for subsector_name in cfg.rio_opt_demand_subsectors:
+        for subsector_name in cfg.getParam('rio_opt_demand_subsectors'):
             for sector in model.demand.sectors.values():
                 if subsector_name in sector.subsectors.keys():
                     subsector = sector.subsectors[subsector_name]
@@ -81,11 +84,11 @@ class RioExport(object):
                         if not 'electricity' in tech.efficiency_main.values.index.get_level_values('final_energy'):
                             continue
                         if tech.shape is not None:
-                            shapes[tech.name] = Shapes.get_values(tech.shape)
+                            shapes[tech.name] = shape.Shapes.get_values(tech.shape)
                         elif subsector.shape is not None:
-                            shapes[tech.name] = Shapes.get_values(subsector.shape)
+                            shapes[tech.name] = shape.Shapes.get_values(subsector.shape)
                         else:
-                            shapes[tech.name] = Shapes.get_values('flat_demand_side')
+                            shapes[tech.name] = shape.Shapes.get_values('flat_demand_side')
         for shape_name, shape in shapes.iteritems():
             self.meta_dict['name'].append(shape_name.lower())
             self.meta_dict['shape_type'].append( 'weather date')
@@ -149,7 +152,7 @@ class RioExport(object):
         df = util.df_slice(self.flex_load_df,'native','timeshift_type')
         df = UnitConverter.unit_convert(df.groupby(level=[x for x in df.index.names if x not in 'weather_datetime']).sum(),
                                unit_from_num=cfg.calculation_energy_unit,unit_to_num='megawatt_hour')
-        df /= len(Shapes.get_instance().cfg_weather_years)
+        df /= len(shape.Shapes.get_instance().cfg_weather_years)
         df_list = []
         for geography in cfg.rio_feeder_geographies:
             for feeder in self.supply.dispatch_feeders:
@@ -367,6 +370,7 @@ class RioExport(object):
         self.determine_blends()
         self.write_blend_exo_demand()
 
+
     def write_topography(self):
         self.write_capacity_zone_load()
 
@@ -388,21 +392,24 @@ class RioExport(object):
 
     def input_compatibility_check(self, nodes):
         for node in nodes:
-            if isinstance(self.supply.nodes[node], SupplyStockNode):
+            if isinstance(self.supply.nodes[node], supply.SupplyStockNode):
                 return True
-            elif isinstance(self.supply.nodes[node], ImportNode):
+            elif isinstance(self.supply.nodes[node], supply.ImportNode):
                 return True
-            elif isinstance(self.supply.nodes[node], PrimaryNode):
+            elif isinstance(self.supply.nodes[node], supply.PrimaryNode):
                 return True
             else:
                 continue
 
     def write_blend_exo_demand(self):
+        self.supply.create_inverse_dict_rio()
+        self.supply.create_embodied_energy_demand_link_rio()
         self.supply.calculate_rio_blend_demand(cfg.rio_opt_demand_subsectors)
-        idx = pd.IndexSlice
-        df = self.supply.io_rio_supply_df.loc[idx[:, self.blend_node_subset], :]
-        df = df.stack().to_frame()
-        util.replace_index_name(df, 'year')
+        energy_link = self.supply.map_embodied_to_demand(self.supply.inverse_dict_rio['energy'], self.supply.embodied_energy_link_dict_rio, 'energy',self.supply.dispatch_years)
+        energy_link = energy_link[energy_link.index.get_level_values('supply_node').isin(self.blend_node_subset)]
+        blend_demand = self.demand.group_linked_output(GeoMapper.geo_map(self.demand.outputs.d_energy, GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total'), energy_link)
+        df = util.remove_df_levels(blend_demand,'final_energy')
+        pdb.set_trace()
         #df[df.index.get_level_values('supply_node') == 'co2 utilization blend A'] = df[df.index.get_level_values('supply_node')== 'Captured CO2 Blend'].values*-1
         df = df[df.index.get_level_values('supply_node') != 'Captured CO2 Blend']
         df = df[df.index.get_level_values('year').isin(self.supply.dispatch_years)]
@@ -423,7 +430,13 @@ class RioExport(object):
                      'year', 'value', 'sensitivity']]
         except:
             pdb.set_trace()
+
+
         Output.write_rio(df, "BLEND_EXO_DEMAND" + '.csv', self.db_dir+'\\Fuel Inputs\\Blends', index=False)
+
+
+    def write_electricity_demand(self):
+        self.supply.calculate_rio_electricity_demand()
 
 
 
@@ -474,8 +487,7 @@ class RioExport(object):
                         y  + "_" + x.lower())
                     level.append('local')
                     gau.append(y)
-                    shape.append(
-                        y + "_" + x.lower())
+                    shape.append(y + "_" + x.lower())
         else:
             name = ['bulk']
             level = ['bulk']
@@ -498,7 +510,7 @@ class RioExport(object):
                     load_shape_df = Output.clean_rio_df(load_shape_df,add_geography=False)
                     load_shape_df['sensitivity'] = self.scenario
                     df = util.remove_df_levels(df,'weather_datetime')
-                    df /= len(Shapes.get_instance().cfg_weather_years)
+                    df /= len(shape.Shapes.get_instance().cfg_weather_years)
                     df *= UnitConverter.unit_convert(unit_from=cfg.calculation_energy_unit,unit_to='TWh')
                     df = Output.clean_rio_df(df)
                     df['interpolation_method'] = 'linear_interpolation'
@@ -531,7 +543,7 @@ class RioExport(object):
             load_shape_df['sensitivity'] = self.scenario
             df = util.remove_df_levels(df,'weather_datetime')
             df *=  UnitConverter.unit_convert(unit_from_num=cfg.calculation_energy_unit, unit_to_num='TWh')
-            df/=len(Shapes.get_instance().cfg_weather_years)
+            df/=len(shape.Shapes.get_instance().cfg_weather_years)
             df = Output.clean_rio_df(df)
             df['interpolation_method'] = 'linear_interpolation'
             df['extrapolation_method'] = 'nearest'
@@ -993,11 +1005,10 @@ class RioExport(object):
         df = pd.DataFrame(dct)
         Output.write_rio(df, "DEMAND_TECH_MAIN" + '.csv', self.db_dir + "\\Technology Inputs\\Demand", index=False)
 
-def run(path, config, scenarios):
+def run(scenarios):
     global model
     cfg.initialize_config()
     GeoMapper.get_instance().log_geo()
-    Shapes.get_instance(cfg.getParam('database_path'))
     if not scenarios:
         scenarios = [os.path.basename(p) for p in glob.glob(os.path.join(cfg.workingdir, '*.json'))]
         if not scenarios:
@@ -1018,10 +1029,14 @@ def run(path, config, scenarios):
             if os.path.isdir(os.path.join(folder,dir)) and dir != 'System Inputs':
                  shutil.rmtree(os.path.join(folder,dir))
     for scenario_index, scenario in enumerate(scenarios):
+        shapes = shape.Shapes.get_instance(cfg.getParam('database_path'))
+        scenario_obj = scenario_loader.Scenario(scenario)
+        shapes.slice_sensitivities(scenario_obj)
         model = load_model(False, True, False, scenario)
         export = RioExport(model,scenario_index,scenario)
         export.write_all()
         logging.info('EnergyPATHWAYS to RIO  for scenario {} successful!'.format(scenario))
+        del shape.Shapes._instance
     return export
 
 
@@ -1054,11 +1069,10 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'E:\EP_Runs\West'
+    workingdir = r'E:\EP_Runs\Restart'
     os.chdir(workingdir)
-    config = 'config.INI'
-    scenario = ['low demand','slow electricity','100% renewable','reference','central']
-    export = run(workingdir, config, scenario)
+    scenario = ['Net Zero by 2050']
+    export = run(scenario)
     self = export
 
 
