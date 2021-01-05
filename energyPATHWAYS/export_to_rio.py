@@ -20,15 +20,15 @@ from unit_converter import UnitConverter
 import datetime as DT
 
 class RioExport(object):
-    def __init__(self, model, scenario_index,scenario):
+    def __init__(self, model, scenario_index,scenario,riodbdir):
         self.scenario = scenario
         self.supply = model.supply
         self.demand = model.demand
         self.supply.bulk_electricity_node_name = 'Bulk Electricity Blend'
         self.db_dir = os.path.join(cfg.workingdir, 'rio_db_export')
+        self.riodbdir = riodbdir
         self.meta_dict = defaultdict(list)
         self.scenario_index = scenario_index
-        # self.shapes = shape.Shapes.get_instance(cfg.getParam('database_path'))
 
 
     def write_all(self):
@@ -410,13 +410,6 @@ class RioExport(object):
         blend_demand = self.demand.group_linked_output(GeoMapper.geo_map(self.demand.outputs.d_energy, GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total'), energy_link)
         df = util.remove_df_levels(blend_demand,'final_energy')
         pdb.set_trace()
-        #df[df.index.get_level_values('supply_node') == 'co2 utilization blend A'] = df[df.index.get_level_values('supply_node')== 'Captured CO2 Blend'].values*-1
-        df = df[df.index.get_level_values('supply_node') != 'Captured CO2 Blend']
-        df = df[df.index.get_level_values('year').isin(self.supply.dispatch_years)]
-        df.columns = ['value']
-        #todo
-        #df[(df.index.get_level_values('supply_node') != 'co2 utilization blend') &(df.values<=0)]=0
-        #df[df.values<=0] = 0
         df *= UnitConverter.unit_convert(unit_from_num=cfg.calculation_energy_unit,unit_to_num='TBTU')
         df = Output.clean_rio_df(df)
         util.replace_column_name(df, 'name', 'supply_node')
@@ -1005,7 +998,7 @@ class RioExport(object):
         df = pd.DataFrame(dct)
         Output.write_rio(df, "DEMAND_TECH_MAIN" + '.csv', self.db_dir + "\\Technology Inputs\\Demand", index=False)
 
-def run(scenarios):
+def run(scenarios,riodbdir):
     global model
     cfg.initialize_config()
     GeoMapper.get_instance().log_geo()
@@ -1033,7 +1026,7 @@ def run(scenarios):
         scenario_obj = scenario_loader.Scenario(scenario)
         shapes.slice_sensitivities(scenario_obj)
         model = load_model(False, True, False, scenario)
-        export = RioExport(model,scenario_index,scenario)
+        export = RioExport(model,scenario_index,scenario,riodbdir)
         export.write_all()
         logging.info('EnergyPATHWAYS to RIO  for scenario {} successful!'.format(scenario))
         del shape.Shapes._instance
@@ -1070,9 +1063,10 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 if __name__ == "__main__":
     workingdir = r'E:\EP_Runs\Restart'
+    riodbdir = 'C:\GitHub\RIO_US_db\database'
     os.chdir(workingdir)
     scenario = ['Net Zero by 2050']
-    export = run(scenario)
+    export = run(scenario,riodbdir)
     self = export
 
 

@@ -2936,8 +2936,6 @@ class Supply(object):
         self.map_demand_to_io()
         index = pd.MultiIndex.from_product([GeoMapper.supply_geographies, self.all_nodes
                                                                 ], names=[GeoMapper.supply_primary_geography,'supply_node'])
-
-        self.rio_inverse_dict = util.recursivedict()
         for year in self.dispatch_years:
             total_demand = self.io_demand_df.loc[:,year].to_frame()
             for sector in self.demand_sectors:
@@ -2949,7 +2947,7 @@ class Supply(object):
                 temp[np.nonzero(rio_io.values.sum(axis=1) + active_demand.values.flatten()==0)[0]] = 0
                 self.io_rio_supply_df.loc[indexer,year] = temp
                 temp = solve_IO(rio_io.values)
-                temp[np.nonzero(self.active_io.values.sum(axis=1) + self.active_demand.values.flatten() == 0)[0]] = 0
+                temp[np.nonzero(rio_io.values.sum(axis=1) + active_demand.values.flatten() == 0)[0]] = 0
                 self.inverse_dict_rio['energy'][year][sector] = pd.DataFrame(temp, index=index, columns=index).sort_index(axis=0).sort_index(axis=1)
 
 
@@ -3042,7 +3040,7 @@ class Supply(object):
         df = util.empty_df(index = index, columns = index)
         self.inverse_dict_rio = util.recursivedict()
         for key in ['energy', 'cost']:
-            for year in self.years:
+            for year in self.dispatch_years:
                 for sector in util.ensure_iterable(self.demand_sectors):
                     self.inverse_dict_rio[key][year][sector]= df
 
@@ -3068,7 +3066,7 @@ class Supply(object):
         index = pd.MultiIndex.from_product([GeoMapper.supply_geographies, self.all_nodes], names=[GeoMapper.supply_primary_geography+"_supply",'supply_node'])
         columns = pd.MultiIndex.from_product([GeoMapper.supply_geographies,keys], names=[GeoMapper.supply_primary_geography,'final_energy'])
         self.embodied_energy_link_dict_rio = util.recursivedict()
-        for year in self.years:
+        for year in self.dispatch_years:
             for sector in self.demand_sectors:
                 self.embodied_energy_link_dict_rio[year][sector] = util.empty_df(index = index, columns = columns).sort_index(axis=0).sort_index(axis=1)
 
