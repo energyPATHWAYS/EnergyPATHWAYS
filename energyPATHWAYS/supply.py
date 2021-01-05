@@ -2936,19 +2936,20 @@ class Supply(object):
         self.map_demand_to_io()
         index = pd.MultiIndex.from_product([GeoMapper.supply_geographies, self.all_nodes
                                                                 ], names=[GeoMapper.supply_primary_geography,'supply_node'])
-        for year in self.dispatch_years:
-            total_demand = self.io_demand_df.loc[:,year].to_frame()
-            for sector in self.demand_sectors:
-                indexer = util.level_specific_indexer(self.io_total_active_demand_df,'demand_sector', sector)
-                rio_io = self.io_dict[year][sector]
-                rio_io = self.rio_adjust(rio_io)
+
+        min_year = min(self.dispatch_years)
+        for sector in self.demand_sectors:
+            rio_io = self.io_dict[min_year][sector]
+            rio_io = self.rio_adjust(rio_io)
+            rio_inverse = solve_IO(rio_io.values)
+            for year in self.dispatch_years:
+                total_demand = DfOper.add([self.io_demand_df.loc[:,year].to_frame(),self.io_export_df.loc[:,year].to_frame()])
+                indexer = util.level_specific_indexer(total_demand,'demand_sector', sector)
                 active_demand = total_demand.loc[indexer,:]
                 temp = solve_IO(rio_io.values, active_demand.values)
                 temp[np.nonzero(rio_io.values.sum(axis=1) + active_demand.values.flatten()==0)[0]] = 0
                 self.io_rio_supply_df.loc[indexer,year] = temp
-                temp = solve_IO(rio_io.values)
-                temp[np.nonzero(rio_io.values.sum(axis=1) + active_demand.values.flatten() == 0)[0]] = 0
-                self.inverse_dict_rio['energy'][year][sector] = pd.DataFrame(temp, index=index, columns=index).sort_index(axis=0).sort_index(axis=1)
+                self.inverse_dict_rio['energy'][year][sector] = pd.DataFrame(rio_inverse, index=index, columns=index).sort_index(axis=0).sort_index(axis=1)
 
 
 
