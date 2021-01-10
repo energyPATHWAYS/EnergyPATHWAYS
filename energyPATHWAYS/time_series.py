@@ -582,9 +582,13 @@ class TimeSeries:
 #
 #newdata = TimeSeries.clean_dict(data, newindex=newindex)
 
-# newindex = np.arange(2015, 2051) * 1000
-# data = pd.read_csv(r'C:\github\delete_me.csv')
-# data = data.set_index([col for col in data.columns if col != "Difference"]).sort()
-# interpolation_method = 'linear_interpolation'
-# extrapolation_method = 'linear_interpolation'
+# newindex = np.arange(2000, 2051)
+#
+# data = pd.read_csv(r'C:\github\TransportationemissionFactors.csv')
+# data = data.set_index([u'Census Region', u'Vehicle Class', u'Fuel', u'Vintage', u'Pollutant', u'Year']).sort_index()
+# interpolation_method = 'exponential_regression'
+# extrapolation_method = 'exponential_regression'
 # filled = TimeSeries.clean(data, newindex, interpolation_method, extrapolation_method, time_index_name='Year')
+# filled = TimeSeries.clean(filled, newindex, interpolation_method, extrapolation_method, time_index_name='Vintage')
+#
+# filled.to_csv(r'C:\github\interpolated_emissions.csv')

@@ -134,7 +134,7 @@ def df_list_concatenate(df_list, keys=None, new_names=None, levels_to_keep=None)
     if len(df_list)==0:
         return None
     else:
-        df = pd.concat(df_list, keys=keys, names=new_names).sort()
+        df = pd.concat(df_list, keys=keys, names=new_names).sort_index()
 
     #eliminate any new_names we picked up that are not in levels_to_keep, also reorder levels
     return df.groupby(level=levels_to_keep, sort=False).sum()
@@ -206,6 +206,11 @@ def tuple_subset(tup, header, head_to_remove):
     index_to_remove = [header.index(e) for e in head_to_remove]
     return tuple([t for i, t in enumerate(tup) if i not in index_to_remove])
 
+def get_all_scenario_names(path):
+    if not os.path.exists(os.path.join(path, 'runs_key.csv')):
+        return []
+    sensitivities = pd.read_csv(os.path.join(path, 'runs_key.csv'), index_col=0, nrows=1)
+    return sensitivities.columns
 
 def id_to_name(id_col, id_num, return_type='item'):
     if not hasattr(id_to_name, 'lookup_dict'):
@@ -296,11 +301,11 @@ def csv_read_table(table_name, column_names=None, return_unique=False, return_it
     else:
         data = list(df.itertuples(index=False, name=None))
 
-    # pull out the first element if length is 1 and we don't want to return an iterable
     if len(data) == 0 or data == [None]:
         return [] if return_iterable else None
 
     elif len(data) == 1:
+        # pull out the first element if length is 1 and we don't want to return an iterable
         return data if return_iterable else data[0]
 
     else:
@@ -461,10 +466,11 @@ def position_in_index(df, level_name):
 def elements_in_index_level(df, level_name):
     return df.index.levels[position_in_index(df, level_name)]
 
-def replace_index_name(df, replace_label, label=None):
+def replace_index_name(df, replace_label, label=None, inplace=False):
     " Use replace_label to replace specified index label"
     df.index.names = [replace_label if x == label else x for x in df.index.names]
-
+    if inplace:
+        return df
 
 def ix_excl(df, exclude=None,axis=0):
     exclude = ensure_iterable(exclude)
@@ -1025,11 +1031,11 @@ class DfOper:
         alen, blen = max(alen, 1), max(blen, 1)  # avoid error from dividing by zero
         average_location = [a_names.index(cand) / alen if cand in a_names else b_names.index(cand) / blen for cand in new_index]
         new_index = [new_index[ni] for ni in np.argsort(average_location)]
-        c = c.set_index(new_index).sort()
+        c = c.set_index(new_index).sort_index()
         # new_a, new_b = c[new_index + merged_a_cols], c[new_index + merged_b_cols]
         new_a, new_b = c[merged_a_cols], c[merged_b_cols]
-        # new_a = new_a.set_index(new_index).sort()
-        # new_b = new_b.set_index(new_index).sort()
+        # new_a = new_a.set_index(new_index).sort_index()
+        # new_b = new_b.set_index(new_index).sort_index()
 
         # new_a.sort(inplace=True)
         # new_b.sort(inplace=True)
@@ -1115,10 +1121,10 @@ def reindex_df_level_with_new_elements(df, level_name, new_elements, fill_value=
         new_labels = flatten_list([[tuple([z if i != index_i else n for i, z in enumerate(lab)]) for n in range(len(new_elements))] for lab in const_labels])
         full_elements = [new_elements if name == level_name else level for name, level in zip(df.index.names, df.index.levels)]
         temp = df.reindex(index=pd.MultiIndex(levels=full_elements, labels=zip(*new_labels), names=df.index.names), fill_value=fill_value)
-        return temp.reset_index().set_index(temp.index.names).sort()
+        return temp.reset_index().set_index(temp.index.names).sort_index()
     else:
         temp = df.reindex(index=pd.Index(new_elements, name=df.index.name), fill_value=fill_value)
-        return temp.reset_index().set_index(temp.index.names).sort()
+        return temp.reset_index().set_index(temp.index.names).sort_index()
 
 def find_weibul_beta(mean_lifetime, lifetime_variance):
     """http://interstat.statjournals.net/YEAR/2000/articles/0010001.pdf"""
