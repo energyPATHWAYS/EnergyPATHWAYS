@@ -146,26 +146,15 @@ class Demand(object):
         """
         if reconciliation_step==False and self.electricity_reconciliation is None:
             self.create_electricity_reconciliation()
-        inflexible = [sector.aggregate_inflexible_electricity_shape(year, exclude_subsectors) for sector in self.sectors.values()]
-        no_shape = [self.shape_from_subsectors_with_no_shape(year, exclude_subsectors)]
-        inflex_load = util.DfOper.add(no_shape + inflexible, expandable=False, collapsible=False)
-        inflex_load = util.DfOper.mult((inflex_load, self.electricity_reconciliation))
-        inflex_load = pd.concat([inflex_load], keys=[0], names=['timeshift_type'])
-        flex_load = util.DfOper.add([sector.aggregate_flexible_electricity_shape(year, exclude_subsectors) for sector in self.sectors.values()], expandable=False, collapsible=False)
-        # add all the dispatch feeders if they don't exist. If not, it will break in the dispatch.
-        if flex_load is not None:
-            flex_load = util.reindex_df_level_with_new_elements(flex_load, 'dispatch_feeder', inflex_load.index.get_level_values('dispatch_feeder').unique()).fillna(0)
-        agg_load = inflex_load if flex_load is None else util.DfOper.add((inflex_load, flex_load), expandable=False, collapsible=False)
-
+        agg_load = pd.concat([sector.aggregate_sector_electricity_shape(year, exclude_subsectors) for sector in self.sectors.values()])
         df = GeoMapper.geo_map(agg_load, GeoMapper.demand_primary_geography, GeoMapper.dispatch_geography, current_data_type='total') if geomap_to_dispatch_geography else agg_load
         group_by_geo = GeoMapper.dispatch_geography if geomap_to_dispatch_geography else GeoMapper.demand_primary_geography
-        df = df.groupby(level=['timeshift_type', group_by_geo, 'dispatch_feeder', 'weather_datetime']).sum()
+        df = df.groupby(level=['timeshift_type', group_by_geo, 'sector', 'dispatch_feeder', 'weather_datetime']).sum()
         exclude_subsectors = util.put_in_list(exclude_subsectors)
         filtered_energy_demand = self.outputs.d_energy[~self.outputs.d_energy.index.get_level_values('subsector').isin(exclude_subsectors)]
         numer = filtered_energy_demand.xs([cfg.electricity_energy_type, year], level=['final_energy', 'year']).sum().sum()
         denom = df.xs(0, level='timeshift_type').sum().sum() / len(shape.Shapes.get_instance().cfg_weather_years)
         if not np.isclose(numer, denom, rtol=0.01, atol=0):
-            pdb.set_trace()
             logging.warning("Electricity energy is {} and bottom up load shape sums to {}".format(numer, denom))
         df *= numer / denom
         df = df.rename(columns={'value':year})
@@ -211,43 +200,19 @@ class Demand(object):
         # this will return None if we don't have any flexible load
         return pmin, pmax
 
-    def shape_from_subsectors_with_no_shape(self, year, exclude_subsectors=None):
-        """ Final levels that will always return from this function
-        ['gau', 'dispatch_feeder', 'weather_datetime']
-        """
-        indexer = util.level_specific_indexer(self.outputs.d_energy, levels=['year', 'final_energy'], elements=[[year], [cfg.electricity_energy_type]])
-        ele_energy_helper = self.outputs.d_energy.loc[indexer,].groupby(level=('subsector', GeoMapper.demand_primary_geography)).sum()
-
-        df_list = []
-        for sector in self.sectors.values():
-            subsectors_with_no_shape = sector.get_subsectors_with_no_shape(year, exclude_subsectors)
-            if len(subsectors_with_no_shape) == 0:
-                continue
-            feeder_allocation = sector.get_subsectors_feeder_allocation(year, subsectors_with_no_shape)
-            feeder_allocation = pd.concat(feeder_allocation, keys=subsectors_with_no_shape, names=['subsector'])
-            energy = ele_energy_helper.loc[subsectors_with_no_shape].reset_index().set_index(ele_energy_helper.index.names)
-            allocated_energy = util.DfOper.mult((feeder_allocation, energy))
-            allocated_energy = allocated_energy.groupby(level=[GeoMapper.demand_primary_geography, 'dispatch_feeder']).sum()
-            shape_name = sector.shape if sector.shape else cfg.elect_default_shape_key
-            result = util.DfOper.mult((allocated_energy, shape.Shapes.get_values(shape_name)))
-            df_list.append(result)
-
-        df = util.DfOper.add(df_list)
-        return df
-
     def create_electricity_reconciliation(self):
         logging.info('Creating electricity shape reconciliation')
         # weather_year is the year for which we have top down load data
-        weather_year = max(int(np.round(np.mean(shape.Shapes.get_active_dates_index().year))), cfg.getParamAsInt('current_year', section='TIME'))
+        load_shape_base_year = shape.Shapes.get_load_shape_base_year()
 
         # the next four lines create the top down load shape in the weather_year
         levels_to_keep = [GeoMapper.demand_primary_geography, 'year', 'final_energy']
-        temp_energy = self.group_output('energy', levels_to_keep=levels_to_keep, specific_years=weather_year)
+        temp_energy = self.group_output('energy', levels_to_keep=levels_to_keep, specific_years=load_shape_base_year)
         top_down_energy = util.remove_df_levels(util.df_slice(temp_energy, cfg.electricity_energy_type, 'final_energy'), levels='year')
         top_down_shape = top_down_energy * shape.Shapes.get_values(cfg.elect_default_shape_key)
 
         # this calls the functions that create the bottom up load shape for the weather_year
-        bottom_up_shape = self.aggregate_electricity_shapes(weather_year, geomap_to_dispatch_geography=False, reconciliation_step=True)
+        bottom_up_shape = self.aggregate_electricity_shapes(load_shape_base_year, geomap_to_dispatch_geography=False, reconciliation_step=True)
         # 0 is inflexible, 2 is native flexible
         bottom_up_shape = util.df_slice(bottom_up_shape, 0, 'timeshift_type')
         bottom_up_shape = util.remove_df_levels(bottom_up_shape, 'dispatch_feeder')
@@ -380,7 +345,7 @@ class Demand(object):
         for sector in self.sectors.values():
             sector_stack = []
             for subsector in sector.subsectors.values():
-                df = subsector.aggregate_electricity_shapes(year, for_direct_use=True)
+                df = subsector.aggregate_subsector_electricity_shape(year, for_direct_use=True)
                 if df is None:
                     continue
                 # todo make this a config param
@@ -717,33 +682,16 @@ class Sector(schema.DemandSectors):
         pmin = util.DfOper.add([util.DfOper.mult((allo, self.subsectors[id].flexible_load_pmin[year])) for id, allo in zip(subsectors_with_flex, feeder_allocations)], expandable=False, collapsible=False)
         return pmin, pmax
 
-    def aggregate_inflexible_electricity_shape(self, year, exclude_subsectors=None):
-        """ Final levels that will always return from this function
-        ['gau', 'dispatch_feeder', 'weather_datetime']
-        """
-        exclude_subsectors = [] if exclude_subsectors is None else exclude_subsectors
-        subsectors_with_shape_only = [sub.name for sub in self.subsectors.values() if (sub.has_electricity_consumption(year)
-                                                                                       and sub.has_shape()
-                                                                                       and not sub.has_flexible_load(year)
-                                                                                       and sub.name not in exclude_subsectors)]
-        return self.aggregate_electricity_shape(year, ids=subsectors_with_shape_only) if len(subsectors_with_shape_only) else None
-
-    def aggregate_flexible_electricity_shape(self, year, exclude_subsectors):
-        """ Final levels that will always return from this function
-        ['timeshift_type', 'gau', 'dispatch_feeder', 'weather_datetime']
-        """
-        exclude_subsectors = [] if exclude_subsectors is None else exclude_subsectors
-        subsectors_with_flex = [sub.name for sub in self.subsectors.values() if (sub.has_electricity_consumption(year)
-                                                                                 and sub.has_flexible_load(year)
-                                                                                 and sub.name not in exclude_subsectors)]
-        if len(subsectors_with_flex):
-            return self.aggregate_electricity_shape(year, ids=subsectors_with_flex).reorder_levels(['timeshift_type', GeoMapper.demand_primary_geography, 'dispatch_feeder', 'weather_datetime'])
-        else:
-            return None
-
-    def aggregate_electricity_shape(self, year, ids=None):
+    def aggregate_sector_electricity_shape(self, year, exclude_subsectors, collapse_subsector=True):
         # we make this expandable because sometimes it has dispatch feeder
-        return util.DfOper.add([self.subsectors[id].aggregate_electricity_shapes(year) for id in (self.subsectors.keys() if ids is None else ids)], expandable=True, collapsible=False)
+        exclude_subsectors = [] if exclude_subsectors is None else exclude_subsectors
+        subsectors = [sub.name for sub in self.subsectors.values() if (sub.has_electricity_consumption(year) and sub.name not in exclude_subsectors)]
+        shapes_list = [self.subsectors[name].aggregate_subsector_electricity_shape(year) for name in subsectors]
+        if collapse_subsector:
+            agg_shape = util.DfOper.add(shapes_list, expandable=True, collapsible=False)
+        else:
+            agg_shape = pd.concat(shapes_list, keys=[subsectors], names=['subsector'])
+        return pd.concat([agg_shape], keys=[[self.name]], names=['sector'])
 
     def set_default_shape(self, default_shape):
         if self.shape is None:
@@ -816,7 +764,7 @@ class Subsector(schema.DemandSubsectors):
         else:
             return None
 
-    def aggr_elect_shapes_unique_techs_with_flex_load(self, unique_techs, active_shape, active_hours, year, energy_slice, annual_flexible):
+    def aggr_elect_shapes_unique_techs_with_flex_load(self, unique_techs, active_shape, active_hours, energy_slice, annual_flexible, percent_of_energy_reconciled):
         unique_techs_with_energy = self._filter_techs_without_energy(unique_techs, energy_slice)
         result = []
         # we have something unique about each of these technologies which means we have to calculate each separately
@@ -826,7 +774,7 @@ class Subsector(schema.DemandSubsectors):
             percent_flexible = annual_flexible.xs(tech, level='demand_technology') if 'demand_technology' in annual_flexible.index.names else annual_flexible
             tech_max_lag_hours = self.technologies[tech].get_max_lag_hours() or active_hours['lag']
             tech_max_lead_hours = self.technologies[tech].get_max_lead_hours() or active_hours['lead']
-            flex = self.return_shape_after_flex_load(shape_values, percent_flexible, tech_max_lag_hours, tech_max_lead_hours)
+            flex = self.return_shape_after_flex_load(shape_values, percent_flexible, tech_max_lag_hours, tech_max_lead_hours, percent_of_energy_reconciled)
             result.append(util.DfOper.mult((flex, tech_energy_slice)))
         return util.DfOper.add(result, collapsible=False)
 
@@ -835,11 +783,19 @@ class Subsector(schema.DemandSubsectors):
         energy_with_shapes = util.df_slice(energy_slice, techs_with_energy_and_shapes, 'demand_technology', drop_level=False, reset_index=True)
         return util.remove_df_levels(util.DfOper.mult((energy_with_shapes, tech_shapes)), levels='demand_technology')
 
-    def return_shape_after_flex_load(self, shape_values, percent_flexible, max_lag_hours, max_lead_hours):
+    def return_shape_after_flex_load(self, shape_values, percent_flexible, max_lag_hours, max_lead_hours, percent_of_energy_reconciled):
         # using electricity reconciliation with a profile with a timeshift type can cause big problems, so it is avoided
-        shape_df = util.DfOper.mult((shape_values, self.electricity_reconciliation))
+        shape_df = self.shape_reconcile(shape_values, percent_of_energy_reconciled)
         flex = shape.Shape.produce_flexible_load(shape_df, percent_flexible=percent_flexible, hr_delay=max_lag_hours, hr_advance=max_lead_hours)
         return flex
+
+    def shape_reconcile(self, shape_values, P_R):
+        # P_R is the percent of the shape energy that gets reconciled
+        R = self.electricity_reconciliation
+        if P_R is None:
+            return shape_values
+        else:
+            return util.DfOper.mult((shape_values, R, P_R)) + util.DfOper.mult((shape_values, 1 - P_R))
 
     def _filter_techs_without_energy(self, candidate_techs, energy_slice):
         if not 'demand_technology' in energy_slice.index.names:
@@ -847,7 +803,7 @@ class Subsector(schema.DemandSubsectors):
         techs_with_energy = sorted(energy_slice[energy_slice['value'] != 0].index.get_level_values('demand_technology').unique())
         return [tech for tech in candidate_techs if tech in techs_with_energy]
 
-    def aggregate_electricity_shapes(self, year, for_direct_use=False):
+    def aggregate_subsector_electricity_shape(self, year):
         """ Final levels that will always return from this function
         ['gau', 'weather_datetime'] or ['timeshift_type', 'gau', 'weather_datetime']
         if for_direct_use, we are outputing the shape directly to csv
@@ -858,14 +814,25 @@ class Subsector(schema.DemandSubsectors):
             2 - native flexible load
             3 - advanced flexible load
         """
+
         energy_slice = self.get_electricity_consumption(year)
+
         # if we have no electricity consumption, we don't make a shape
         if energy_slice is None or len(energy_slice[energy_slice['value'] != 0])==0:
             return None
-        # to speed this up, we are removing anything that has zero energy
-        energy_slice = energy_slice[energy_slice['value'] != 0]
 
-        active_shape = self.shape if self.shape is not None else self.default_shape
+        load_shape_base_year = shape.Shapes.get_load_shape_base_year()
+        base_year_energy_slice = self.get_electricity_consumption(load_shape_base_year, keep_technology=False)
+        # this would mean the base year has zero energy
+        if base_year_energy_slice is None:
+            percent_of_energy_reconciled = None
+        else:
+            # We calcuate the % of energy that gets reconciled
+            # We need to reconcile the first year, if energy shrinks, we still reconcile the whole thing (it just scales down)
+            # If energy grows, we don't want to keep reconciling the load growth because this can introduce bias difficult to explain, so a portion becomes unreconciled
+            percent_of_energy_reconciled = (base_year_energy_slice / self.get_electricity_consumption(year, keep_technology=False)).clip(None, 1)
+
+        active_shape = self.shape or self.default_shape
         active_hours = {}
         active_hours['lag'] = self.max_lag_hours if self.max_lag_hours is not None else self.default_max_lag_hours
         active_hours['lead'] = self.max_lead_hours if self.max_lead_hours is not None else self.default_max_lead_hours
@@ -883,10 +850,10 @@ class Subsector(schema.DemandSubsectors):
                                                  (self.technologies[tech].get_max_lag_hours() and self.technologies[tech].get_max_lag_hours()!=active_hours['lag'])])
                 # if we have a flexible load measure, sometimes techs will be called out specifically
                 if 'demand_technology' in self.flexible_load_measure.values.index.names:
-                    special_flex_techs =  special_flex_techs | set(self.flexible_load_measure.values.index.get_level_values('demand_technology'))
+                    special_flex_techs = special_flex_techs | set(self.flexible_load_measure.values.index.get_level_values('demand_technology'))
                 special_flex_techs = self._filter_techs_without_energy(sorted(special_flex_techs), energy_slice)
                 if special_flex_techs:
-                    flexible_tech_load = self.aggr_elect_shapes_unique_techs_with_flex_load(special_flex_techs, active_shape, active_hours, year, energy_slice, percent_flexible)
+                    flexible_tech_load = self.aggr_elect_shapes_unique_techs_with_flex_load(special_flex_techs, active_shape, active_hours, energy_slice, percent_flexible, percent_of_energy_reconciled)
                 else:
                     flexible_tech_load = None
 
@@ -911,19 +878,16 @@ class Subsector(schema.DemandSubsectors):
                 remaining_shape = util.DfOper.add((remaining_shape, inflexible_tech_load), collapsible=False)
                 if remaining_shape is not None:
                     # we need to add in the electricity reconciliation because we have flexible load for the other parts and it's expected by the function calling this one
-                    remaining_shape = util.DfOper.mult((remaining_shape, self.electricity_reconciliation), collapsible=False)
+                    remaining_shape = self.shape_reconcile(remaining_shape, percent_of_energy_reconciled)
                     remaining_shape = pd.concat([remaining_shape], keys=[0], names=['timeshift_type'])
                     return_shape = pd.concat((flexible_tech_load, remaining_shape))
                 else:
                     return_shape = flexible_tech_load
             else:
                 # here we have flexible load, but it is not indexed by technology
-                try:
-                    remaining_shape = util.DfOper.mult((shape.Shapes.get_values(active_shape), remaining_energy), collapsible=False)
-                except:
-                    pdb.set_trace()
+                remaining_shape = util.DfOper.mult((shape.Shapes.get_values(active_shape), remaining_energy), collapsible=False)
                 remaining_shape = util.DfOper.add((remaining_shape, inflexible_tech_load), collapsible=False)
-                return_shape = self.return_shape_after_flex_load(remaining_shape, percent_flexible, active_hours['lag'], active_hours['lead'])
+                return_shape = self.return_shape_after_flex_load(remaining_shape, percent_flexible, active_hours['lag'], active_hours['lead'], percent_of_energy_reconciled)
             flex_native = return_shape.xs('native', level='timeshift_type')
             # we add native flex load to level zero, total flexible load
             return_shape = util.DfOper.add((return_shape, pd.concat([flex_native], keys=[0], names=['timeshift_type'])))
@@ -940,18 +904,16 @@ class Subsector(schema.DemandSubsectors):
             remaining_shape = util.DfOper.mult((shape.Shapes.get_values(active_shape), remaining_energy))
             return_shape = util.DfOper.add((inflexible_tech_load, remaining_shape), collapsible=False, expandable=False)
 
-            if for_direct_use:
-                return_shape = util.DfOper.mult((return_shape, self.electricity_reconciliation), collapsible=False)
-                return_shape = pd.concat([return_shape], keys=[0], names=['timeshift_type'])
+            return_shape = self.shape_reconcile(return_shape, percent_of_energy_reconciled)
+            return_shape = pd.concat([return_shape], keys=[0], names=['timeshift_type'])
 
         # allocate to dispatch feeders
         return_shape = util.DfOper.mult((self.feeder_allocation_class.values.xs(year, level='year'), return_shape))
 
-        if for_direct_use:
-            # doing this will make the energy for the subsector match, but it won't exactly match the system shape used in the dispatch
-            native = return_shape.xs(0, level='timeshift_type').groupby(level=GeoMapper.demand_primary_geography).sum()
-            correction_factors = util.remove_df_levels(energy_slice, 'demand_technology') / native
-            return_shape = util.DfOper.mult((return_shape, correction_factors))
+        # doing this will make the energy for the subsector match, but it won't exactly match the system shape used in the dispatch
+        native = return_shape.xs(0, level='timeshift_type').groupby(level=GeoMapper.demand_primary_geography).sum()
+        correction_factors = util.remove_df_levels(energy_slice, 'demand_technology') / native
+        return_shape = util.DfOper.mult((return_shape, correction_factors))
 
         return return_shape
 

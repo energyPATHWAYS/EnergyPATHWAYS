@@ -131,7 +131,9 @@ if __name__ == "__main__":
     solve_demand  = False,
     load_supply   = True,
     solve_supply  = False,
-    export_results= True,
-    save_models   = True,
+    export_results= False,
+    save_models   = False,
     compile_mode  = False,
     )
+
+    test = model.demand.aggregate_electricity_shapes(2050)

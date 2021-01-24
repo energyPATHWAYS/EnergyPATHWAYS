@@ -2076,7 +2076,7 @@ class Supply(object):
     def set_shapes(self,year):
        for zone in self.dispatch_zones:
            for node_name in self.electricity_load_nodes[zone]['non_flexible'] + self.electricity_gen_nodes[zone]['non_flexible']:
-               self.nodes[node_name].active_shape = self.nodes[node_name].aggregate_electricity_shapes(year, util.remove_df_levels(util.df_slice(self.dispatch_feeder_allocation,year,'year'),year))
+               self.nodes[node_name].active_shape = self.nodes[node_name].aggregate_subsector_electricity_shape(year, util.remove_df_levels(util.df_slice(self.dispatch_feeder_allocation, year, 'year'), year))
 
     def _helper_shaped_bulk_and_dist(self, year, energy_slice):
         node_names = list(set(energy_slice.index.get_level_values('supply_node')))
@@ -2143,7 +2143,7 @@ class Supply(object):
             return self.bulk_gen * 0
 
     def set_initial_net_load_signals(self,year):
-        final_demand = self.demand_object.aggregate_electricity_shapes(year)
+        final_demand = self.demand_object.aggregate_subsector_electricity_shape(year)
         distribution_native_load = final_demand.xs(0, level='timeshift_type')
         if tuple(final_demand.index.get_level_values('timeshift_type').unique()) == (0,):
             self.distribution_flex_load = None
@@ -2158,7 +2158,7 @@ class Supply(object):
         if not cfg.getParamAsBoolean('rio_db_run', section='rio'):
             self.rio_distribution_load[year] =copy.deepcopy(self.distribution_load)
         else:
-            final_demand = self.demand_object.aggregate_electricity_shapes(year)
+            final_demand = self.demand_object.aggregate_subsector_electricity_shape(year)
             distribution_native_load = final_demand.xs(0, level='timeshift_type')
             self.rio_distribution_load[year]= util.DfOper.add([distribution_native_load, self.shaped_dist(year, self.non_flexible_load, generation=False)])
             self.rio_flex_load[year] = util.df_slice(final_demand, ['advanced','delayed','native'], 'timeshift_type', drop_level=False, reset_index=True)
@@ -2967,7 +2967,7 @@ class Supply(object):
                 self.io_rio_supply_df.loc[indexer,year] = temp
             non_flexible_gen = self.prepare_non_flexible_gen_ep2rio(year)
             non_flexible_load = self.prepare_non_flexible_load_ep2rio(year)
-            final_demand = self.demand_object.aggregate_electricity_shapes(year)
+            final_demand = self.demand_object.aggregate_subsector_electricity_shape(year)
             distribution_native_load = final_demand.xs(0, level='timeshift_type')
             if tuple(final_demand.index.get_level_values('timeshift_type').unique()) == (0,):
                 self.distribution_flex_load = None
@@ -2977,7 +2977,7 @@ class Supply(object):
                 raise ValueError('Unrecognized timeshift types in the electricity shapes, found: {}'.format(tuple(final_demand.index.get_level_values('timeshift_type').unique())))
             self.distribution_gen = self.shaped_dist(year, non_flexible_gen, generation=True)
             self.distribution_load = util.DfOper.add([distribution_native_load, self.shaped_dist(year, non_flexible_load, generation=False)])
-            final_demand = self.demand_object.aggregate_electricity_shapes(year, exclude_subsectors=None)
+            final_demand = self.demand_object.aggregate_subsector_electricity_shape(year, exclude_subsectors=None)
             distribution_native_load = final_demand.xs(0, level='timeshift_type')
             self.rio_distribution_load[year] = util.DfOper.add([distribution_native_load, self.shaped_dist(year, non_flexible_load, generation=False)])
             self.rio_flex_load[year] = util.df_slice(final_demand, ['advanced', 'delayed', 'native'], 'timeshift_type', drop_level=False, reset_index=True)

@@ -76,6 +76,7 @@ class Shapes(object):
         self.cfg_weather_years = [int(y) for y in cfg.getParam('weather_years', section='TIME').split(',')]
         self.active_dates_index = self.get_active_dates(self.cfg_weather_years)
         self.active_dates_index_unique = self.active_dates_index.unique()
+        self.load_shape_base_year = max(int(np.round(np.mean(self.cfg_weather_years))), cfg.getParamAsInt('current_year', section='TIME'))
         self.time_slice_elements = create_time_slice_elements(self.active_dates_index)
         self.num_active_years = num_active_years(self.active_dates_index)
         self.cfg_hash_tuple = self.get_hash_tuple()
@@ -110,6 +111,10 @@ class Shapes(object):
     @classmethod
     def get_active_dates_index(cls, database_path=None):
         return cls.get_instance(database_path).active_dates_index
+
+    @classmethod
+    def get_load_shape_base_year(cls, database_path=None):
+        return cls.get_instance(database_path).load_shape_base_year
 
     @classmethod
     def get_hash_tuple(cls):
