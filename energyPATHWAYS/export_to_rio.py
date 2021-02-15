@@ -34,17 +34,14 @@ class RioExport(object):
     def write_all(self):
         # logging.info("writing blends")
         #self.write_demand_subsector()
-        self.write_blend()
-        self.write_electricity_demand()
-
-
+        self.determine_blends()
+        self.write_exo_demand()
         #logging.info("writing flex load df")
         self.flex_load_df = self.flatten_flex_load_dict()
         if self.scenario_index == 0:
             logging.info("writing new flex techs")
             if self.flex_load_df is not None:
                self.write_flex_tech_main()
-        self.write_conversion()
         logging.info("writing topography")
         self.write_topography()
         logging.info("writing flex load")
@@ -367,8 +364,7 @@ class RioExport(object):
         self.write_conversion_schedule()
 
     def write_blend(self):
-        self.determine_blends()
-        self.write_blend_exo_demand()
+
 
 
     def write_topography(self):
@@ -401,31 +397,51 @@ class RioExport(object):
             else:
                 continue
 
-    def write_blend_exo_demand(self):
+
+    def write_exo_demand(self):
         self.supply.create_inverse_dict_rio()
         self.supply.create_embodied_energy_demand_link_rio()
         self.supply.calculate_rio_blend_demand(cfg.rio_opt_demand_subsectors)
         energy_link = self.supply.map_embodied_to_demand(self.supply.inverse_dict_rio['energy'], self.supply.embodied_energy_link_dict_rio, 'energy',self.supply.dispatch_years)
-        energy_link = energy_link[energy_link.index.get_level_values('supply_node').isin(self.blend_node_subset)]
-        blend_demand = self.demand.group_linked_output(GeoMapper.geo_map(self.demand.outputs.d_energy, GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total'), energy_link)
-        df = util.remove_df_levels(blend_demand,'final_energy')
-        pdb.set_trace()
-        df *= UnitConverter.unit_convert(unit_from_num=cfg.calculation_energy_unit,unit_to_num='TBTU')
-        df = Output.clean_rio_df(df)
-        util.replace_column_name(df, 'name', 'supply_node')
-        df['unit'] = 'TBTU'
-        df['interpolation_method'] = 'linear_interpolation'
-        df['extrapolation_method'] = 'nearest'
-        df['sensitivity'] = self.scenario
-        try:
-            df = df[['name', 'unit', 'geography', 'gau',
-                     'interpolation_method', 'extrapolation_method',
-                     'year', 'value', 'sensitivity']]
-        except:
-            pdb.set_trace()
+        def write_blend_exo_demand(self,energy_link):
+            energy_link = energy_link[energy_link.index.get_level_values('supply_node').isin(self.blend_node_subset)]
+            blend_demand = self.demand.group_linked_output(GeoMapper.geo_map(self.demand.outputs.d_energy, GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total'), energy_link)
+            df = util.remove_df_levels(blend_demand,'final_energy')
+            df *= UnitConverter.unit_convert(unit_from_num=cfg.calculation_energy_unit,unit_to_num='TBTU')
+            df = Output.clean_rio_df(df)
+            util.replace_column_name(df, 'name', 'supply_node')
+            df['unit'] = 'TBTU'
+            df['interpolation_method'] = 'linear_interpolation'
+            df['extrapolation_method'] = 'nearest'
+            df['sensitivity'] = self.scenario
+            try:
+                df = df[['name', 'sector','subsector','unit', 'geography', 'gau',
+                         'interpolation_method', 'extrapolation_method',
+                         'year', 'value', 'sensitivity']]
+            except:
+                pdb.set_trace()
+            Output.write_rio(df, "BLEND_EXO_DEMAND" + '.csv', self.db_dir+'\\Fuel Inputs\\Blends', index=False)
+        def write_electricity_demand(self,energy_link):
+            energy_link = energy_link[energy_link.index.get_level_values('supply_node').isin([cfg.getParam('distribution_node', 'opt'),self.supply.bulk_electricity_node_name])]
+            electricity_demand = self.demand.group_linked_output(GeoMapper.geo_map(self.demand.outputs.d_energy, GeoMapper.demand_primary_geography, GeoMapper.combined_outputs_geography, 'total'), energy_link)
+            df = util.remove_df_levels(electricity_demand,['final_energy','supply_node'])
+            df *= UnitConverter.unit_convert(unit_from_num=cfg.calculation_energy_unit,unit_to_num='GWh')
+            df = Output.clean_rio_df(df)
+            util.replace_column_name(df, 'name', 'supply_node')
+            df['unit'] = 'GWh'
+            df['interpolation_method'] = 'linear_interpolation'
+            df['extrapolation_method'] = 'nearest'
+            df['sensitivity'] = self.scenario
+            try:
+                df = df[['sector','subsector','unit', 'geography', 'gau',
+                         'interpolation_method', 'extrapolation_method',
+                         'year', 'value', 'sensitivity']]
+            except:
+                pdb.set_trace()
+            Output.write_rio(df, "ELECTRICITY_DEMAND" + '.csv', self.db_dir+'\\Fuel Inputs\\Blends', index=False)
+        write_blend_exo_demand(self,energy_link)
+        write_electricity_demand(self,energy_link)
 
-
-        Output.write_rio(df, "BLEND_EXO_DEMAND" + '.csv', self.db_dir+'\\Fuel Inputs\\Blends', index=False)
 
 
     def write_electricity_demand(self):
@@ -490,8 +506,7 @@ class RioExport(object):
         df = df[['name','level','gau','shape']]
         Output.write_rio(df, "CAPACITY_ZONE_MAIN" + '.csv', self.db_dir + "\\Topography Inputs\\Capacity Zones", index=False)
 
-    def write_capacity_zone_load(self):
-        df_list = []
+    def write_load_shape(self):
         dist_load, bulk_load = self.flatten_load_dicts()
         if len(cfg.rio_feeder_geographies)>0:
             for geography in cfg.rio_feeder_geographies:
@@ -502,23 +517,9 @@ class RioExport(object):
                     #load_shape_df = load_shape_df.tz_localize(None, level='weather_datetime')
                     load_shape_df = Output.clean_rio_df(load_shape_df,add_geography=False)
                     load_shape_df['sensitivity'] = self.scenario
-                    df = util.remove_df_levels(df,'weather_datetime')
-                    df /= len(shape.Shapes.get_instance().cfg_weather_years)
-                    df *= UnitConverter.unit_convert(unit_from=cfg.calculation_energy_unit,unit_to='TWh')
-                    df = Output.clean_rio_df(df)
-                    df['interpolation_method'] = 'linear_interpolation'
-                    df['extrapolation_method'] = 'nearest'
-                    df['unit'] = 'TWh'
-                    df['sensitivity'] = self.scenario
-                    df['name'] = geography.lower() + "_" + feeder.lower()
-                    df = df[['name', 'geography', 'gau', 'unit', 'interpolation_method', 'extrapolation_method', \
-                         'year', 'value', 'sensitivity']]
-                    df_list.append(copy.deepcopy(df))
                     for year in self.supply.years:
                         Output.write_rio(load_shape_df['year']==year, geography.lower() + "_" + feeder.lower() +"_" + str(year)+"_"+ self.scenario + ".csv", self.db_dir + "\\ShapeData\\"+geography.lower() + "_" + feeder.lower() + ".csvd", index=False, compression='gzip')
-            df = pd.concat(df_list)
-            Output.write_rio(df, "LOCAL_CAPACITY_ZONE_LOAD" + '.csv', self.db_dir + "\\Topography Inputs\Capacity Zones", index=False)
-        df_list, load_shape_list = [], []
+        load_shape_list =  []
         for geography in GeoMapper.supply_geographies:
             if geography not in cfg.rio_feeder_geographies:
                 dist_load, bulk_load = self.flatten_load_dicts()
@@ -534,24 +535,12 @@ class RioExport(object):
             #load_shape_df = load_shape_df.tz_localize(None, level='weather_datetime')
             load_shape_df = Output.clean_rio_df(load_shape_df,add_geography=False)
             load_shape_df['sensitivity'] = self.scenario
-            df = util.remove_df_levels(df,'weather_datetime')
-            df *=  UnitConverter.unit_convert(unit_from_num=cfg.calculation_energy_unit, unit_to_num='TWh')
-            df/=len(shape.Shapes.get_instance().cfg_weather_years)
-            df = Output.clean_rio_df(df)
-            df['interpolation_method'] = 'linear_interpolation'
-            df['extrapolation_method'] = 'nearest'
-            df['unit'] = 'TWh'
-            df['sensitivity'] = self.scenario
-            df['name'] = 'bulk'
-            df = df[['name', 'geography', 'gau', 'unit', 'interpolation_method', 'extrapolation_method', \
-                     'year', 'value', 'sensitivity']]
-            df_list.append(df)
             load_shape_list.append(load_shape_df)
         load_shape = pd.concat(load_shape_list)
         for year in self.supply.dispatch_years:
             Output.write_rio(load_shape[load_shape['year']==year], "bulk" + "_"+ str(year)+ "_"+ self.scenario +".csv", self.db_dir + "\\ShapeData\\bulk.csvd", index=False, compression='gzip')
-        df = pd.concat(df_list)
-        Output.write_rio(df, "BULK_CAPACITY_ZONE_LOAD" + '.csv', self.db_dir + "\\Topography Inputs\Capacity Zones", index=False)
+
+
 
     def flatten_load_dicts(self):
         dist_list = []

@@ -44,10 +44,11 @@ run_start_time = time.time()
 @click.option('--clear_results/--no_clear_results', default=False, help='Should results be cleared or appended when starting a new model run')
 @click.option('--subfolders/--no_subfolders', default=False, help='Most users do not need this! Used when a system of subfolders has been created for different runs')
 @click.option('-r', '--rio_scenario', type=str, multiple=True, help='RIO scenario name to run. More than one can be specified by repeating this option.')
-def click_run(scenario, load_demand, solve_demand, load_supply, solve_supply, load_error, export_results, save_models, clear_results, subfolders, rio_scenario):
-    run(scenario, load_demand, solve_demand, load_supply, solve_supply, load_error, export_results, save_models, clear_results, subfolders, rio_scenario)
+@click.option('-wsn', '--write_scenario_name', type=str, multiple=True, help='Write scenario name to run. More than one can be specified by repeating this option.')
+def click_run(scenario, load_demand, solve_demand, load_supply, solve_supply, load_error, export_results, save_models, clear_results, subfolders, rio_scenario, write_scenario_name):
+    run(scenario, load_demand, solve_demand, load_supply, solve_supply, load_error, export_results, save_models, clear_results, subfolders, rio_scenario, write_scenario_name)
 
-def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, load_error=False, export_results=True, save_models=True, clear_results=False, subfolders=False, rio_scenario=None):
+def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solve_supply=True, load_error=False, export_results=True, save_models=True, clear_results=False, subfolders=False, rio_scenario=None, write_scenario_name=None):
     global model
     cfg.initialize_config()
     if not subfolders:
@@ -61,10 +62,11 @@ def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solv
     scenarios = util.ensure_iterable(scenarios)
     scenarios = [os.path.splitext(s)[0] for s in scenarios]
     rio_scenario = [None]*len(scenarios) if rio_scenario is None or not len(rio_scenario) else util.ensure_iterable(rio_scenario)
+    write_scenario_name = [None] * len(scenarios) if write_scenario_name is None or not len(write_scenario_name) else util.ensure_iterable(write_scenario_name)
 
-    combined_scenarios = zip(scenarios, rio_scenario)
+    combined_scenarios = zip(scenarios, rio_scenario, write_scenario_name)
     logging.info('Scenario run list: {}'.format(', '.join(scenarios)))
-    for scenario, rio_scenario in combined_scenarios:
+    for scenario, rio_scenario, write_scenario_name in combined_scenarios:
         if subfolders:
             logging.shutdown()
             logging.getLogger(None).handlers = []
@@ -75,9 +77,9 @@ def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solv
         logging.info('Starting scenario {}'.format(scenario))
         logging.info('Start time {}'.format(str(datetime.datetime.now()).split('.')[0]))
         if cfg.rio_supply_run:
-            model = load_model(load_demand, load_supply, load_error, scenario, rio_scenario)
+            model = load_model(load_demand, load_supply, scenario, write_scenario_name, rio_scenario)
         else:
-            model = load_model(load_demand, load_supply, load_error, scenario, None)
+            model = load_model(load_demand, load_supply, scenario, None, None)
         if not load_error:
             model.run(scenario,
                       solve_demand=solve_demand,
@@ -86,7 +88,13 @@ def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solv
                       load_supply=load_supply,
                       export_results=export_results,
                       save_models=save_models,
+<<<<<<< Updated upstream
                       append_results=False if (scenario == scenarios[0] and clear_results) else True,rio_scenario=rio_scenario,write_scenario_name=None)
+=======
+                      append_results=False if (scenario == scenarios[0] and clear_results) else True,
+                      rio_scenario=rio_scenario,
+                      write_scenario_name=write_scenario_name)
+>>>>>>> Stashed changes
 
         shape.Shapes._instance = None  # needed because we filter shapes and need to reload it during the next for loop
         logging.info('EnergyPATHWAYS run for scenario {} successful!'.format(scenario))
@@ -95,39 +103,37 @@ def run(scenarios, load_demand=False, solve_demand=True, load_supply=False, solv
     logging.shutdown()
     logging.getLogger(None).handlers = [] # necessary to totally flush the logger
 
-def load_model(load_demand, load_supply, load_error, scenario,rio_scenario):
-    pathways_scenario = scenario
-    scenario = scenario if rio_scenario is None else rio_scenario
-    if load_error:
-        with open(os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.model_error_append_name), 'rb+') as infile:
-#        with open(os.path.join(cfg.workingdir, 'dispatch_class.p'), 'rb') as infile:
-            model = pickle.load(infile)
-        logging.info('Loaded crashed EnergyPATHWAYS model from pickle')
-    elif load_supply:
-        try:
-            with open(os.path.join(cfg.workingdir, str(scenario) + cfg.full_model_append_name), 'rb') as infile:
-                model = pickle.load(infile)
-            logging.info('Loaded complete EnergyPATHWAYS model from pickle')
-        except:
-            with open(os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.full_model_append_name), 'rb') as infile:
-                model = pickle.load(infile)
-            logging.info('Loaded complete EnergyPATHWAYS model from pickle')
-    elif load_demand:
-        demand_file = os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.demand_model_append_name)
-        supply_file = os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.full_model_append_name)
-        if os.path.isfile(demand_file):
-            with open(os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.demand_model_append_name), 'rb') as infile:
-                model = pickle.load(infile)
-                logging.info('Loaded demand-side EnergyPATHWAYS model from pickle')
-        elif os.path.isfile(supply_file):
-            with open(os.path.join(cfg.workingdir, str(pathways_scenario) + cfg.full_model_append_name), 'rb') as infile:
-                model = pickle.load(infile)
+def load_model(load_demand, load_supply, scenario, write_scenario_name, rio_scenario):
+    name_load_order = [write_scenario_name, scenario, rio_scenario]
+    model = None
+    if load_supply:
+        for load_name in name_load_order:
+            supply_file = os.path.join(cfg.workingdir, str(load_name) + cfg.full_model_append_name)
+            if os.path.isfile(supply_file):
+                with open(supply_file, 'rb') as infile:
+                    model = pickle.load(infile)
                 logging.info('Loaded complete EnergyPATHWAYS model from pickle')
-        else:
-            raise("No model file exists")
+                break
+    elif load_demand:
+        for load_name in name_load_order:
+            demand_file = os.path.join(cfg.workingdir, str(load_name) + cfg.demand_model_append_name)
+            supply_file = os.path.join(cfg.workingdir, str(load_name) + cfg.full_model_append_name)
+            if os.path.isfile(demand_file):
+                with open(demand_file, 'rb') as infile:
+                    model = pickle.load(infile)
+                logging.info('Loaded demand-side EnergyPATHWAYS demand model from pickle')
+                break
+            elif os.path.isfile(supply_file):
+                with open(supply_file, 'rb') as infile:
+                    model = pickle.load(infile)
+                logging.info('Loaded complete EnergyPATHWAYS supply model from pickle')
+                break
     else:
-        model = PathwaysModel(pathways_scenario)
-    return model
+        model = PathwaysModel(scenario)
+    if model is None:
+        raise IOError("No model file with the names {} exists".format(name_load_order))
+    else:
+        return model
 
 class SubsectorPerturbation(object):
     def __init__(self, sales_share_changes, flexible_operation, subsector):
