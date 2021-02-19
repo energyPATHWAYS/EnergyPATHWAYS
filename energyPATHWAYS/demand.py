@@ -900,10 +900,7 @@ class Subsector(schema.DemandSubsectors):
                     return_shape = flexible_tech_load
             else:
                 # here we have flexible load, but it is not indexed by technology
-                try:
-                    remaining_shape = util.DfOper.mult((shape.Shapes.get_values(active_shape), remaining_energy), collapsible=False)
-                except:
-                    pdb.set_trace()
+                remaining_shape = util.DfOper.mult((shape.Shapes.get_values(active_shape), remaining_energy), collapsible=False)
                 remaining_shape = util.DfOper.add((remaining_shape, inflexible_tech_load), collapsible=False)
                 return_shape = self.return_shape_after_flex_load(remaining_shape, percent_flexible, active_hours['lag'], active_hours['lead'])
             flex_native = return_shape.xs('native', level='timeshift_type')
@@ -2742,7 +2739,7 @@ class Subsector(schema.DemandSubsectors):
     def helper_calc_sales_share_reference_new(self, elements, initial_stock):
         num_techs, num_years = len(self.techs), len(self.years)
         tech_lookup = dict(zip(self.techs, range(num_techs)))
-        tech_lifetimes = np.array([x.book_life for x in self.technologies.values()])
+        tech_lifetimes = np.array([self.technologies[x].book_life for x in self.techs])
         if initial_stock is None:
             # this is a special case where we don't have an initial stock specified, so we just want to return the reference sales shares
             sales_ratio = np.zeros(num_techs)
