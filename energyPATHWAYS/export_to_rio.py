@@ -2541,19 +2541,14 @@ def load_model(load_demand, load_supply, load_error, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'E:\ep_runs\socalgas\EP2RIO3'
+    workingdir = r'E:\ep_runs\TNC\EP2RIO'
     os.chdir(workingdir)
     config = 'config.INI'
     scenario = [
-        'Full Electrification',
-        'High Electrification',
-        'High Electrification low flex',
-        'No Electrification',
-        'Partial 40x40 - Sequestration',
-        'Partial 40x40 - fuels',
-        'Partial 50x35 - Sequestration',
-        'Partial 50x35 - fuels',
-        'Reference',
+        'reference',
+        'high electrification',
+        'high electrification 100RE',
+        'slow electrification',
                 ]
     export = run(workingdir, config, scenario)
     self = export
