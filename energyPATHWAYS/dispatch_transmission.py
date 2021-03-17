@@ -21,13 +21,13 @@ class TransmissionSuper(DataObject):
         if self.raw_values is None:
             self._setup_zero_constraints()
             return""
-        self._validate_gaus()
+       # self._validate_gaus()
         self.values = self.clean_timeseries(attr='raw_values', inplace=False, time_index=cfg.supply_years, time_index_name='year', interpolation_method=self.interpolation_method, extrapolation_method=self.extrapolation_method)
         # fill in any missing combinations of geographies
         self.values = util.reindex_df_level_with_new_elements(self.values, 'gau_from', GeoMapper.dispatch_geographies)
         self.values = util.reindex_df_level_with_new_elements(self.values, 'gau_to', GeoMapper.dispatch_geographies)
         self.values = self.values.fillna(0)
-        self.values = self.values.sort()
+        self.values = self.values.sort_index()
 
     def _setup_zero_constraints(self):
         index = pd.MultiIndex.from_product([cfg.supply_years,GeoMapper.dispatch_geographies, GeoMapper.dispatch_geographies], names=['year', 'gau_from', 'gau_to'])
@@ -128,7 +128,7 @@ class DispatchTransmissionCost(schema.DispatchTransmissionCost, TransmissionSupe
         """
         self.values = UnitConverter.currency_convert(self.values, self.currency, self.currency_year)
         model_energy_unit = cfg.calculation_energy_unit
-        model_time_step = cfg.getParam('time_step')
+        model_time_step = cfg.getParam('time_step', section='TIME')
         if self.time_unit is not None:
             # if a cost has a time_unit, then the unit is energy and must be converted to capacity
             self.values = UnitConverter.unit_convert(self.values,
@@ -140,7 +140,7 @@ class DispatchTransmissionCost(schema.DispatchTransmissionCost, TransmissionSupe
                                                 unit_to_den=model_energy_unit)
 
     def levelize_costs(self):
-        inflation = cfg.getParamAsFloat('inflation_rate')
+        inflation = cfg.getParamAsFloat('inflation_rate', section='UNITS')
         rate = self.cost_of_capital - inflation
         self.values_level = - np.pmt(rate, self.lifetime, 1, 0, 'end') * self.values
 

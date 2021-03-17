@@ -62,35 +62,35 @@ class GeoMapper:
         GeoMapper.geography_to_gau = geography_to_gau
         GeoMapper.gau_to_geography = gau_to_geography
 
-        GeoMapper.breakout_geography = [g.lstrip().rstrip() for g in cfg.getParam('breakout_geography').split(',') if len(g)]
+        GeoMapper.breakout_geography = [g.lstrip().rstrip() for g in cfg.getParam('breakout_geography', section='GEOGRAPHY').split(',') if len(g)]
 
-        GeoMapper.base_demand_primary_geography = cfg.getParam('demand_primary_geography')
-        GeoMapper.breakout_geography = util.splitclean(cfg.getParam('breakout_geography'))
+        GeoMapper.base_demand_primary_geography = cfg.getParam('demand_primary_geography', section='GEOGRAPHY')
+        GeoMapper.breakout_geography = util.splitclean(cfg.getParam('breakout_geography', section='GEOGRAPHY'))
         GeoMapper.demand_primary_geography = self.make_new_geography_name(GeoMapper.base_demand_primary_geography, GeoMapper.breakout_geography)
 
-        GeoMapper.base_supply_primary_geography = cfg.getParam('supply_primary_geography')
+        GeoMapper.base_supply_primary_geography = cfg.getParam('supply_primary_geography', section='GEOGRAPHY')
         GeoMapper.supply_primary_geography = self.make_new_geography_name(GeoMapper.base_supply_primary_geography, GeoMapper.breakout_geography)
 
-        GeoMapper.base_dispatch_geography = cfg.getParam('dispatch_geography')
-        GeoMapper.dispatch_breakout_geography = util.splitclean(cfg.getParam('dispatch_breakout_geography'))
+        GeoMapper.base_dispatch_geography = cfg.getParam('dispatch_geography', section='GEOGRAPHY')
+        GeoMapper.dispatch_breakout_geography = util.splitclean(cfg.getParam('dispatch_breakout_geography', section='GEOGRAPHY'))
         GeoMapper.dispatch_geography = self.make_new_geography_name(GeoMapper.base_dispatch_geography, GeoMapper.dispatch_breakout_geography)
 
-        GeoMapper.base_disagg_geography = cfg.getParam('disagg_geography')
-        GeoMapper.disagg_breakout_geography = util.splitclean(cfg.getParam('disagg_breakout_geography'))
+        GeoMapper.base_disagg_geography = cfg.getParam('disagg_geography', section='GEOGRAPHY')
+        GeoMapper.disagg_breakout_geography = util.splitclean(cfg.getParam('disagg_breakout_geography', section='GEOGRAPHY'))
         GeoMapper.disagg_geography = self.make_new_geography_name(GeoMapper.base_disagg_geography, GeoMapper.disagg_breakout_geography)
 
-        combined_outputs_geography_side = cfg.getParam('combined_outputs_geography_side')
+        combined_outputs_geography_side = cfg.getParam('combined_outputs_geography_side', section='GEOGRAPHY')
         assert combined_outputs_geography_side.lower() == 'demand' or combined_outputs_geography_side.lower() == 'supply'
         GeoMapper.combined_outputs_geography = GeoMapper.demand_primary_geography if combined_outputs_geography_side.lower() == 'demand' else GeoMapper.supply_primary_geography
 
-        GeoMapper.primary_subset = util.splitclean(cfg.getParam('primary_subset'))
-        GeoMapper.include_foreign_gaus = cfg.getParamAsBoolean('include_foreign_gaus')
-        GeoMapper.default_geography_map_key = cfg.getParam('default_geography_map_key')
+        GeoMapper.primary_subset = util.splitclean(cfg.getParam('primary_subset', section='GEOGRAPHY'))
+        GeoMapper.include_foreign_gaus = cfg.getParamAsBoolean('include_foreign_gaus', section='GEOGRAPHY')
+        GeoMapper.default_geography_map_key = cfg.getParam('default_geography_map_key', section='GEOGRAPHY')
 
         self._create_composite_geography_levels()
         GeoMapper.geography_to_gau_unfiltered = copy.copy(self.geography_to_gau)
 
-        GeoMapper.cfg_gau_subset = [g.lstrip().rstrip() for g in cfg.getParam('primary_subset').split(',') if len(g)]
+        GeoMapper.cfg_gau_subset = [g.lstrip().rstrip() for g in cfg.getParam('primary_subset', section='GEOGRAPHY').split(',') if len(g)]
         if GeoMapper.cfg_gau_subset:
             self._update_geographies_after_subset()
 
@@ -233,7 +233,7 @@ class GeoMapper:
         """
         assert normalize_as=='total' or normalize_as=='intensity', "normalize_as is {} and must be either total or intensity".format(normalize_as)
         geomap_data = self.data if geomap_data=='from self' else geomap_data
-        map_key = cfg.getParam('default_geography_map_key') if map_key is None else map_key
+        map_key = cfg.getParam('default_geography_map_key', section='GEOGRAPHY') if map_key is None else map_key
         table = geomap_data[map_key].to_frame()
 
         if primary_subset == 'from config' and filter_geo:
@@ -369,7 +369,7 @@ class GeoMapper:
 
         # update foreign GAUs after clean timeseries
         allocated_gau_years = list(allocated_foreign_gau_slice_foreign_geo.index.get_level_values(y_or_v).values)
-        allocated_foreign_gau_slice_foreign_geo = allocated_foreign_gau_slice_foreign_geo.reorder_levels(df.index.names).sort()
+        allocated_foreign_gau_slice_foreign_geo = allocated_foreign_gau_slice_foreign_geo.reorder_levels(df.index.names).sort_index()
         afgsfg = allocated_foreign_gau_slice_foreign_geo # to give it a shorter name
         afgsfg = afgsfg.reindex(index=pd.MultiIndex.from_product(afgsfg.index.levels, names=afgsfg.index.names), fill_value=np.nan)
         indexer = util.level_specific_indexer(afgsfg, [current_geography, y_or_v], [foreign_gau, allocated_gau_years])
@@ -377,7 +377,7 @@ class GeoMapper:
         df.loc[indexer, :] = afgsfg.loc[indexer, :]
 
         new_impacted_gaus = util.DfOper.subt((impacted_gaus_slice, allocated_foreign_gau_slice_new_geo), fill_value=np.nan, non_expandable_levels=[])
-        new_impacted_gaus = new_impacted_gaus.reorder_levels(df.index.names).sort()
+        new_impacted_gaus = new_impacted_gaus.reorder_levels(df.index.names).sort_index()
         if new_impacted_gaus.min().min() < 0:
             if not zero_out_negatives:
                 raise ValueError(
@@ -415,13 +415,13 @@ class GeoMapper:
                 continue
             needed_elements = list(set(df.index.get_level_values(index_name)))
             df = util.reindex_df_level_with_new_elements(df, index_name, needed_elements)
-        df = df.fillna(0).sort()
+        df = df.fillna(0).sort_index()
         return df
 
     def incorporate_foreign_gaus(self, df, current_geography, data_type, map_key, keep_oth_index_over_oth_gau=False, zero_out_negatives=True):
         native_gaus, current_gaus, foreign_gaus = self.get_native_current_foreign_gaus(df, current_geography)
         # we don't have any foreign gaus
-        if not foreign_gaus or not cfg.getParamAsBoolean('include_foreign_gaus'):
+        if not foreign_gaus or not cfg.getParamAsBoolean('include_foreign_gaus', section='GEOGRAPHY'):
             return df, current_geography
 
         y_or_v = GeoMapper._get_df_time_index_name(df)

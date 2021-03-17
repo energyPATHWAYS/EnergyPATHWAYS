@@ -64,7 +64,7 @@ class DemandTechCost():
 
     def levelize_costs(self):
         if hasattr(self, 'is_levelized') and (self.definition=='absolute' or (self.definition=='relative' and self.reference_tech_operation=='add')):
-            inflation = cfg.getParamAsFloat('inflation_rate')
+            inflation = cfg.getParamAsFloat('inflation_rate', section='UNITS')
             rate = self.cost_of_capital - inflation
             if self.is_levelized == 0:
                 self.values_level = - np.pmt(rate, self.book_life, 1, 0, 'end') * self.values
@@ -310,7 +310,7 @@ class AirPollution(schema.DemandTechsAirPollution):
             self.values = UnitConverter.unit_convert(self.raw_values, unit_from_den=self.energy_unit,
                                             unit_from_num=self.mass_unit,
                                                      unit_to_den=cfg.calculation_energy_unit,
-                                            unit_to_num=cfg.getParam('mass_unit'))
+                                            unit_to_num=cfg.getParam('mass_unit', section='UNITS'))
             self.absolute = True
         else:
             self.values = self.raw_values.copy()
@@ -377,7 +377,7 @@ class DemandTechnology(schema.DemandTechs, StockItem):
         Used to determine start year of subsector for analysis."""
 
         attributes = vars(self)
-        self.min_year = cfg.getParam('current_year')
+        self.min_year = cfg.getParam('current_year', section='TIME')
         for att in attributes:
             obj = getattr(self, att)
             if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'raw_values'):

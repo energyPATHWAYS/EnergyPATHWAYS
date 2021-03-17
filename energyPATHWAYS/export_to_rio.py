@@ -70,7 +70,7 @@ class RioExport(object):
                 # todo, change the frequency to change the timestep
                 active_dates_index.append(pd.date_range(start_date, end_date, freq='H'))
             return reduce(pd.DatetimeIndex.append, active_dates_index)
-        weather_years = [int(y) for y in cfg.getParam('weather_years').split(',')]
+        weather_years = [int(y) for y in cfg.getParam('weather_years', section='TIME').split(',')]
         self.active_dates_index = get_active_dates(weather_years)
         shapes = {}
         for subsector_name in cfg.getParam('rio_opt_demand_subsectors'):
@@ -106,7 +106,7 @@ class RioExport(object):
             self.meta_dict['shape_type'].append('weather date')
             self.meta_dict['input_type'].append('intensity')
             self.meta_dict['shape_unit_type'].append('power')
-            self.meta_dict['time_zone'].append(cfg.getParam('dispatch_outputs_timezone'))
+            self.meta_dict['time_zone'].append(cfg.getParam('dispatch_outputs_timezone', section='TIME'))
             self.meta_dict['geography'].append(GeoMapper.dispatch_geography)
             self.meta_dict['geography_map_key'].append(None)
             self.meta_dict['interpolation_method'].append('linear_interpolation')
@@ -207,7 +207,7 @@ class RioExport(object):
                     self.meta_dict['shape_type'].append( 'weather date')
                     self.meta_dict['input_type'].append( 'intensity')
                     self.meta_dict['shape_unit_type'].append('power')
-                    self.meta_dict['time_zone'].append(cfg.getParam('dispatch_outputs_timezone'))
+                    self.meta_dict['time_zone'].append(cfg.getParam('dispatch_outputs_timezone', section='TIME'))
                     self.meta_dict['geography'].append(GeoMapper.dispatch_geography)
                     self.meta_dict['geography_map_key'].append(None)
                     self.meta_dict['interpolation_method'].append('linear_interpolation')
@@ -227,7 +227,7 @@ class RioExport(object):
             self.meta_dict['input_type'].append('intensity')
             self.meta_dict['shape_unit_type'].append('power')
             self.meta_dict['time_zone'].append(
-               cfg.getParam('dispatch_outputs_timezone'))
+               cfg.getParam('dispatch_outputs_timezone', section='TIME'))
             self.meta_dict['geography'].append(GeoMapper.dispatch_geography)
             self.meta_dict['geography_map_key'].append(None)
             self.meta_dict['interpolation_method'].append('linear_interpolation')

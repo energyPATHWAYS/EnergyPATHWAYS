@@ -13,6 +13,7 @@ from geomapper import GeoMapper
 from unit_converter import UnitConverter
 from energyPATHWAYS.generated import schema
 from data_object import DataObject
+import pdb
         
 # class SupplyStock(Stock, StockItem):
 #     def __init__(self, id, drivers, sql_id_table='SupplyStock', sql_data_table='SupplyStockData',
@@ -51,7 +52,7 @@ class SupplySales(DataObject):
 
     def convert(self):
         model_energy_unit = cfg.calculation_energy_unit
-        model_time_step = cfg.getParam('time_step')
+        model_time_step = cfg.getParam('time_step', section='TIME')
         if self.time_unit is not None:
             # if sales has a time_unit, then the unit is energy and must be converted to capacity
             self.values = UnitConverter.unit_convert(self.values, unit_from_num=self.capacity_or_energy_unit,
@@ -99,7 +100,7 @@ class SupplySalesShare(object):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        self.remap(time_index_name='vintage', converted_geography=GeoMapper.supply_primary_geography,)
+        self.remap(time_index_name='vintage', converted_geography=GeoMapper.supply_primary_geography)
 
     def reconcile_with_stock_levels(self, needed_sales_share_levels, needed_sales_share_names):
         if self.input_type == 'intensity':
@@ -192,7 +193,7 @@ class SupplySpecifiedStock(schema.SupplyStockMeasures, SpecifiedStock):
         """
         if self.values is not None:
             model_energy_unit = cfg.calculation_energy_unit
-            model_time_step = cfg.getParam('time_step')
+            model_time_step = cfg.getParam('time_step', section='TIME')
             if self.time_unit is not None:
                 self.values = UnitConverter.unit_convert(self.values, unit_from_num=self.capacity_or_energy_unit,
                                             unit_from_den=self.time_unit, unit_to_num=model_energy_unit,
@@ -237,7 +238,7 @@ class RioSpecifiedStock(DataObject):
         """
         if self.values is not None:
             model_energy_unit = cfg.calculation_energy_unit
-            model_time_step = cfg.getParam('time_step')
+            model_time_step = cfg.getParam('time_step', section='TIME')
             if self.time_unit is not None:
                 self.values = UnitConverter.unit_convert(self.values/self.input_timestep, unit_from_num=self.capacity_or_energy_unit,
                                                 unit_from_den=self.time_unit, unit_to_num=model_energy_unit,

@@ -15,6 +15,7 @@ import logging
 import pdb
 import pathos
 import helper_multiprocess
+import time
 from csvdb import CsvDatabase
 import config as cfg
 from energyPATHWAYS.geomapper import GeoMapper
@@ -72,16 +73,18 @@ class Shapes(object):
     def __init__(self, database_path=None):
         db = CsvDatabase.get_database(database_path)
         db.shapes.load_all()
-        self.cfg_weather_years = [int(y) for y in cfg.getParam('weather_years').split(',')]
+        self.cfg_weather_years = [int(y) for y in cfg.getParam('weather_years', section='TIME').split(',')]
         self.active_dates_index = self.get_active_dates(self.cfg_weather_years)
         self.active_dates_index_unique = self.active_dates_index.unique()
+        self.load_shape_base_year = max(int(np.round(np.mean(self.cfg_weather_years))), cfg.getParamAsInt('current_year', section='TIME'))
         self.time_slice_elements = create_time_slice_elements(self.active_dates_index)
         self.num_active_years = num_active_years(self.active_dates_index)
         self.cfg_hash_tuple = self.get_hash_tuple()
         self.cfg_hash = hash(self.cfg_hash_tuple)
 
         if len(db.shapes.slices.keys()) == 0:
-            raise ValueError("No shapes data found, check path to the database. The folder ShapeData must be located in the database folder specified")
+            raise ValueError("No shapes data found, check database path ({}).\nThe folder ShapeData must be located in the database folder specified".format(
+                database_path))
 
         shape_meta = db.get_table("Shapes").data
         self.data = {}
@@ -110,33 +113,63 @@ class Shapes(object):
         return cls.get_instance(database_path).active_dates_index
 
     @classmethod
+    def get_load_shape_base_year(cls, database_path=None):
+        return cls.get_instance(database_path).load_shape_base_year
+
+    @classmethod
     def get_hash_tuple(cls):
-        cfg_weather_years = [int(y) for y in cfg.getParam('weather_years').split(',')]
+        cfg_weather_years = [int(y) for y in cfg.getParam('weather_years', section='TIME').split(',')]
         geography_check = (GeoMapper.demand_primary_geography, GeoMapper.supply_primary_geography, tuple(sorted(GeoMapper.primary_subset)), tuple(GeoMapper.breakout_geography))
         cfg_hash_tuple = geography_check + tuple(cfg_weather_years)
         return cfg_hash_tuple
 
     @classmethod
-    def get_instance(cls, database_path=None):
-        if Shapes._instance is not None:
-            return Shapes._instance
-
+    def load_shape_pickle(cls, database_path, wait_time=0):
+        time.sleep(wait_time)
         # load from pickle
         cfg_hash = hash(cls.get_hash_tuple())
-        pickle_path = os.path.join(database_path, 'ShapeData', 'pickles', 'shapes_{}.p'.format(cfg_hash))
+        pickles_dir = os.path.join(database_path, 'ShapeData', 'pickles')
+        pickle_path = os.path.join(pickles_dir, 'shapes_{}.p'.format(cfg_hash))
+
         if os.path.isfile(pickle_path) and os.path.getmtime(pickle_path) > newest_shape_file_modified_date(database_path):
             logging.info('Loading shapes')
             with open(pickle_path, 'rb') as infile:
                 shapes = pickle.load(infile)
             Shapes._instance = shapes
-            return Shapes._instance
+            return True
+        return False
 
+    @classmethod
+    def make_shapes(cls, database_path):
         # pickle didn't exist or was not what was needed
         Shapes._instance = Shapes(database_path)
         logging.info('Pickling shapes')
-        util.makedirs_if_needed(os.path.join(database_path, 'ShapeData', 'pickles'))
+        cfg_hash = hash(cls.get_hash_tuple())
+        pickles_dir = os.path.join(database_path, 'ShapeData', 'pickles')
+        pickle_path = os.path.join(pickles_dir, 'shapes_{}.p'.format(cfg_hash))
+        util.makedirs_if_needed(pickles_dir)
         with open(pickle_path, 'wb') as outfile:
             pickle.dump(Shapes._instance, outfile, pickle.HIGHEST_PROTOCOL)
+
+    @classmethod
+    def get_instance(cls, database_path=None, shape_owner=True):
+        if Shapes._instance is not None:
+            return Shapes._instance
+
+        if database_path is None:
+            from .error import PathwaysException
+            raise PathwaysException("Shapes.get_instance: No Shapes instance exists and no database_path was specified")
+
+        # load from pickle
+        success = Shapes.load_shape_pickle(database_path, wait_time=0)
+        if shape_owner and not success:
+            Shapes.make_shapes(database_path)
+        else:
+            wait_time = 30
+            while success is False:
+                logging.info('Waiting {} seconds for shape process to finish before trying to load shapes...'.format(wait_time))
+                success = Shapes.load_shape_pickle(database_path, wait_time=wait_time)
+
         return Shapes._instance
 
     def get_active_dates(self, years):
@@ -150,8 +183,8 @@ class Shapes(object):
     def process_active_shapes(self):
         logging.info(' mapping data for:')
 
-        if cfg.getParamAsBoolean('parallel_process'):
-            pool = pathos.multiprocessing.Pool(processes=cfg.getParamAsInt('num_cores'), maxtasksperchild=1)
+        if cfg.getParamAsBoolean('parallel_process', section='CALCULATION_PARAMETERS'):
+            pool = pathos.multiprocessing.Pool(processes=cfg.getParamAsInt('num_cores', section='CALCULATION_PARAMETERS'), maxtasksperchild=1)
             shapes = pool.map(helper_multiprocess.process_shapes, self.data.values(), chunksize=1)
             pool.close()
             pool.join()
@@ -377,7 +410,7 @@ class Shape(DataObject):
         return df_no_tz.sort_index()
 
     def standardize_time_across_timezones(self, df):
-        tz = pytz.timezone(cfg.getParam('dispatch_outputs_timezone'))
+        tz = pytz.timezone(cfg.getParam('dispatch_outputs_timezone', section='TIME'))
         offset = (tz.utcoffset(DT.datetime(2015, 1, 1)) + tz.dst(DT.datetime(2015, 1, 1))).total_seconds() / 60.
         new_index = pd.DatetimeIndex(self.active_dates_index_unique, tz=pytz.FixedOffset(offset))
         # if we have hydro year, when this does a reindex, it can introduce NaNs, so we want to remove them after
@@ -391,9 +424,9 @@ class Shape(DataObject):
         return standardize_df
 
     def localize_shapes(self, df):
-        """ Step through time zone and put each profile maped to time zone in that time zone
+        """ Step through time zone and put each profile mapped to time zone in that time zone
         """
-        local_df = []
+        dfs = []
         for tz, group in df.groupby(level='time zone'):
             # get the time zone name and figure out the offset from UTC
             tz = pytz.timezone(self.time_zone or format_timezone_str(tz))
@@ -401,11 +434,12 @@ class Shape(DataObject):
             offset = (tz.utcoffset(_dt) + tz.dst(_dt)).total_seconds() / 60.
             # localize and then convert to dispatch_outputs_timezone
             df2 = group.tz_localize(pytz.FixedOffset(offset), level='weather_datetime')
-            local_df.append(df2)
+            dfs.append(df2)
 
-        tz = pytz.timezone(cfg.getParam('dispatch_outputs_timezone'))
+        tz = pytz.timezone(cfg.getParam('dispatch_outputs_timezone', section='TIME'))
         offset = (tz.utcoffset(DT.datetime(2015, 1, 1)) + tz.dst(DT.datetime(2015, 1, 1))).total_seconds() / 60.
-        local_df = pd.concat(local_df).tz_convert(pytz.FixedOffset(offset), level='weather_datetime')
+        local_df = pd.concat(dfs)
+        local_df = local_df.tz_convert(pytz.FixedOffset(offset), level='weather_datetime')
         return local_df.sort_index()
 
     @staticmethod
