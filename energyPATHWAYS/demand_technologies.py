@@ -17,7 +17,7 @@ import pdb
 from energyPATHWAYS.generated import schema
 from unit_converter import UnitConverter
 from geomapper import GeoMapper
-from shape import Shapes
+import shapes2
 
 class DemandTechCost():
     def __init__(self, tech):
@@ -342,7 +342,7 @@ class DemandTechnology(schema.DemandTechs, StockItem):
         self.geography_map_key = geography_map_key
 
     def get_shape(self, default_shape):
-        return Shapes.get_values(default_shape) if self.shape is None else Shapes.get_values(self.shape)
+        return shapes2.ShapeContainer.get_values(default_shape) if self.shape is None else shapes2.ShapeContainer.get_values(self.shape)
 
     def get_max_lead_hours(self):
         return self.max_lead_hours if self.max_lead_hours else None
