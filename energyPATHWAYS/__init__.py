@@ -1,8 +1,8 @@
-import config
-import shape
-import util
-import dispatch_classes
-import pathways_model
+from energyPATHWAYS import config
+from energyPATHWAYS import shape
+from energyPATHWAYS import util
+from energyPATHWAYS import dispatch_classes
+from energyPATHWAYS import pathways_model
 
 from .generated.new_database import _Metadata, EnergyPathwaysDatabase
 

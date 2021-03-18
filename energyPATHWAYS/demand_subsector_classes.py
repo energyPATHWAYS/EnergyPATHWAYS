@@ -27,7 +27,7 @@ class SubDemand():
         denominator_driver_ids = [getattr(self, col) for col in cfg.dnmtr_col_names if getattr(self, col) is not None]
 
         drivers = driver_ids + denominator_driver_ids
-        self.drivers = {k: v for k, v in self.drivers.iteritems() if k in drivers}
+        self.drivers = {k: v for k, v in self.drivers.items() if k in drivers}
 
     def convert_and_remap(self, unit_type, stock_unit):
         """convert service demand to stock unit for stocks defined as service demand"""

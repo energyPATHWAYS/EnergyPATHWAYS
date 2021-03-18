@@ -5,6 +5,7 @@ import itertools
 from collections import defaultdict
 import pdb
 import pandas as pd
+import six
 from energyPATHWAYS.util import csv_read_table
 from csvdb.data_object import get_database
 
@@ -57,7 +58,7 @@ class Scenario(AbstractScenario):
         except KeyError:
             raise ScenarioFileError(self.pathname, "Scenario '{}' not found.".format(self.name))
 
-        for key, sens_name in scenario_data.iteritems():
+        for key, sens_name in scenario_data.items():
             # TODO (RJP): skip measures with no value in the current sensitivity column?
             if sens_name == '':
                 continue
@@ -226,7 +227,7 @@ class Scenario(AbstractScenario):
         measure doesn't applies to a whole subsector/node rather than a technology, the second member of the
         bucket_id tuple will be None.
         """
-        for key, subtree in tree.iteritems():
+        for key, subtree in tree.items():
             if key.lower() == 'sensitivities':
                 self._load_sensitivities_JSON(subtree)
 
@@ -245,7 +246,7 @@ class Scenario(AbstractScenario):
 
                     self._measures[key][bucket_id].append(measure)
 
-            elif not isinstance(subtree, basestring):
+            elif not isinstance(subtree, six.string_types):
                 pdb.set_trace()
                 raise ValueError("Encountered an uninterpretable non-string leaf node while loading the scenario. "
                                  "The node is '{}: {}'".format(key, subtree))
@@ -276,4 +277,4 @@ class Scenario(AbstractScenario):
     def all_measure_ids_by_category(self):
         # This list(itertools...) nonsense is just to flatten to a single list from a list-of-lists
         return {category: list(itertools.chain.from_iterable(contents.values()))
-                for category, contents in self._measures.iteritems()}
+                for category, contents in self._measures.items()}

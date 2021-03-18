@@ -1,8 +1,8 @@
 __author__ = 'Ben Haley & Ryan Jones'
 
 import errno
-import ConfigParser
-import geomapper
+import configparser
+from energyPATHWAYS import geomapper
 from energyPATHWAYS.util import splitclean, csv_read_table, upper_dict, ensure_iterable
 import warnings
 from collections import defaultdict
@@ -13,9 +13,9 @@ from pyomo.opt import SolverFactory
 import pdb
 import os
 import platform
-from error import ConfigFileError, PathwaysException
+from energyPATHWAYS.error import ConfigFileError, PathwaysException
 from energyPATHWAYS.generated.new_database import EnergyPathwaysDatabase
-import unit_converter
+from energyPATHWAYS import unit_converter
 # Don't print warnings
 warnings.simplefilter("ignore")
 
@@ -284,7 +284,7 @@ def getConfig(reload=False):
 def readConfigFiles():
     global _ConfigParser
 
-    _ConfigParser = ConfigParser.ConfigParser()
+    _ConfigParser = configparser.ConfigParser()
     config_path = os.path.join(os.getcwd(), PROJ_CONFIG_FILE)
 
     if not os.path.isfile(config_path):
@@ -346,13 +346,13 @@ def getParam(name, section=None, raw=False, raiseError=True):
     try:
         value = _ConfigParser.get(section, name, raw=raw)
 
-    except ConfigParser.NoSectionError:
+    except configparser.NoSectionError:
         if raiseError:
             raise PathwaysException('getParam: unknown section "%s"' % section)
         else:
             return None
 
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         if raiseError:
             raise PathwaysException('getParam: unknown variable "%s"' % name)
         else:

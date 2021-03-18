@@ -5,7 +5,7 @@ Created on Fri Jul 29 10:12:07 2016
 @author: ryandrewjones
 """
 
-import config as cfg
+from energyPATHWAYS import config as cfg
 import logging
 from multiprocessing import Pool
 from pyomo.opt import SolverFactory
@@ -19,7 +19,7 @@ def process_shapes(shape):
         cfg.initialize_config()
         shape.process_shape()
     except Exception as e:
-        print 'Caught exception in shape {}'.format(shape.name)
+        print('Caught exception in shape {}'.format(shape.name))
         traceback.print_exc()
         raise e
     return shape

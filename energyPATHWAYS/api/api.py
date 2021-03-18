@@ -152,7 +152,7 @@ class Scenarios(Resource):
             grouped_pgs = defaultdict(list)
             for pg in found_pgs:
                 grouped_pgs[getattr(pg, group_column)].append(pg.id)
-            for group_id, pg_ids in grouped_pgs.iteritems():
+            for group_id, pg_ids in grouped_pgs.items():
                 if len(pg_ids) > 1:
                     messages[ds_key].append("Too many package group ids specified for %s %i: %s" %
                                             (group_column, group_id, str(pg_ids)))

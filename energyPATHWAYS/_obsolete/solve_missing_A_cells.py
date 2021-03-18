@@ -50,8 +50,8 @@ repaired = completeA(A_incomplete, x, b)
 
 # varify
 
-print np.sum(A)
-print np.sum(A) - np.sum(repaired)
+print(np.sum(A))
+print(np.sum(A) - np.sum(repaired))
 
 
 

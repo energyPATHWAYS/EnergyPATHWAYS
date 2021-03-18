@@ -7,7 +7,7 @@ import logging
 import pdb
 import pint
 
-import config as cfg
+from energyPATHWAYS import config as cfg
 from csvdb.data_object import get_database
 
 class UnitConverter:
@@ -148,55 +148,55 @@ if __name__ == "__main__":
 
     currency_from, year_from, currency_to, year_to = 'EUR', 2001, 'USD', 2015
     factor = UnitConverter.currency_convert(1, currency_from, year_from, currency_to, year_to)
-    print currency_from, year_from, currency_to, year_to, factor
+    print(currency_from, year_from, currency_to, year_to, factor)
 
     currency_from, year_from, currency_to, year_to = 'EUR', 2015, 'USD', 2001
     factor = UnitConverter.currency_convert(1, currency_from, year_from, currency_to, year_to)
-    print currency_from, year_from, currency_to, year_to, factor
+    print(currency_from, year_from, currency_to, year_to, factor)
 
     currency_from, year_from, currency_to, year_to = 'USD', 2015, 'EUR', 2001
     factor = UnitConverter.currency_convert(1, currency_from, year_from, currency_to, year_to)
-    print currency_from, year_from, currency_to, year_to, factor
+    print(currency_from, year_from, currency_to, year_to, factor)
 
     currency_from, year_from, currency_to, year_to = 'USD', 2001, 'USD', 2015
     factor = UnitConverter.currency_convert(1, currency_from, year_from, currency_to, year_to)
-    print currency_from, year_from, currency_to, year_to, factor
+    print(currency_from, year_from, currency_to, year_to, factor)
 
     currency_from, year_from, currency_to, year_to = 'AUD', 2001, 'CAD', 2015
     factor = UnitConverter.currency_convert(1, currency_from, year_from, currency_to, year_to)
-    print currency_from, year_from, currency_to, year_to, factor
+    print(currency_from, year_from, currency_to, year_to, factor)
 
     unit_from_num, unit_from_den = 'kilowatt_hour', 'year'
     unit_to_num, unit_to_den = 'megawatt_hour', 'month'
     factor = UnitConverter.unit_convert(1, unit_from_num, unit_from_den, unit_to_num, unit_to_den)
-    print unit_from_num, unit_from_den, unit_to_num, unit_to_den, factor
+    print(unit_from_num, unit_from_den, unit_to_num, unit_to_den, factor)
 
     unit_from_num, unit_from_den = 'gallons', 'kilometer'
     unit_to_num, unit_to_den = 'mile', 'gallons'
     factor = UnitConverter.unit_convert(10, unit_from_num, unit_from_den, unit_to_num, unit_to_den)
-    print unit_from_num, unit_from_den, unit_to_num, unit_to_den, factor
+    print(unit_from_num, unit_from_den, unit_to_num, unit_to_den, factor)
 
     unit_from_num, unit_from_den = 'kilometer', 'gallons'
     unit_to_num, unit_to_den = 'mile', 'gallons'
     factor = UnitConverter.unit_convert(10, unit_from_num, unit_from_den, unit_to_num, unit_to_den)
-    print unit_from_num, unit_from_den, unit_to_num, unit_to_den, factor
+    print(unit_from_num, unit_from_den, unit_to_num, unit_to_den, factor)
 
     unit_from_num, unit_from_den = 'miles', 'gallons'
     unit_to_num, unit_to_den = 'liters', 'miles'
     factor = UnitConverter.unit_convert(10, unit_from_num, unit_from_den, unit_to_num, unit_to_den)
-    print unit_from_num, unit_from_den, unit_to_num, unit_to_den, factor
+    print(unit_from_num, unit_from_den, unit_to_num, unit_to_den, factor)
 
     unit_from_num, unit_from_den = 'miles', 'gallons'
     unit_to_num, unit_to_den = 'miles', 'liters'
     factor = UnitConverter.unit_convert(10, unit_from_num, unit_from_den, unit_to_num, unit_to_den)
-    print unit_from_num, unit_from_den, unit_to_num, unit_to_den, factor
+    print(unit_from_num, unit_from_den, unit_to_num, unit_to_den, factor)
 
     unit_from_num, unit_from_den = 'test_non_unit', 'gallons'
     unit_to_num, unit_to_den = 'test_non_unit', 'liters'
     factor = UnitConverter.unit_convert(10, unit_from_num, unit_from_den, unit_to_num, unit_to_den)
-    print unit_from_num, unit_from_den, unit_to_num, unit_to_den, factor
+    print(unit_from_num, unit_from_den, unit_to_num, unit_to_den, factor)
 
     unit_from_num, unit_from_den = 'gallons', 'test_non_unit'
     unit_to_num, unit_to_den = 'test_non_unit', 'liters'
     factor = UnitConverter.unit_convert(10, unit_from_num, unit_from_den, unit_to_num, unit_to_den)
-    print unit_from_num, unit_from_den, unit_to_num, unit_to_den, factor
+    print(unit_from_num, unit_from_den, unit_to_num, unit_to_den, factor)

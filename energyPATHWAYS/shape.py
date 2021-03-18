@@ -9,17 +9,18 @@ import pandas as pd
 import pytz
 import datetime as DT
 import numpy as np
-import cPickle as pickle
+import pickle
+import functools
 import os
 import logging
 import pdb
 import pathos
-import helper_multiprocess
+from energyPATHWAYS import helper_multiprocess
 import time
 from csvdb import CsvDatabase
-import config as cfg
+from energyPATHWAYS import config as cfg
 from energyPATHWAYS.geomapper import GeoMapper
-import util
+from energyPATHWAYS import util
 from energyPATHWAYS.data_object import DataObject
 
 
@@ -178,7 +179,7 @@ class Shapes(object):
             start_date, end_date = DT.datetime(year, 1, 1), DT.datetime(year, 12, 31, 23)
             # todo, change the frequency to change the timestep
             active_dates_index.append(pd.date_range(start_date, end_date, freq='H'))
-        return reduce(pd.DatetimeIndex.append, active_dates_index)
+        return functools.reduce(pd.DatetimeIndex.append, active_dates_index)
 
     def process_active_shapes(self):
         logging.info(' mapping data for:')
@@ -264,7 +265,7 @@ class Shape(DataObject):
         self._non_time_keys = [ind for ind in raw_values.index.names if ind not in self._active_time_keys]
         self._non_time_dict = dict([(ind, loc) for loc, ind in enumerate(raw_values.index.names) if ind in self._non_time_keys])
 
-        data = pd.DataFrame(index=pd.Index(self.active_dates_index, name='weather_datetime'))
+        data = pd.DataFrame(index=pd.DatetimeIndex(self.active_dates_index, name='weather_datetime'))
 
         for ti in self._active_time_keys:
             # hour is given as 1-24 not 0-23
@@ -300,7 +301,7 @@ class Shape(DataObject):
                     raise ValueError('Shape unit type energy with week timeslice is not recommended due to edge effects')
                 final_data = self.convert_energy_to_power(final_data)
             if final_data.isnull().values.any():
-                print final_data[final_data.isnull().values]
+                print(final_data[final_data.isnull().values])
                 raise ValueError('Shape {} time slice data did not give full coverage of the active dates.'.format(self.name))
             # reindex to remove the helper columns
             active_time_keys_keep_hydro_year = list(set(self._active_time_keys) - set(['hydro_year']))
@@ -426,20 +427,18 @@ class Shape(DataObject):
     def localize_shapes(self, df):
         """ Step through time zone and put each profile mapped to time zone in that time zone
         """
-        dfs = []
+        df_list = []
         for tz, group in df.groupby(level='time zone'):
             # get the time zone name and figure out the offset from UTC
             tz = pytz.timezone(self.time_zone or format_timezone_str(tz))
             _dt = DT.datetime(2015, 1, 1)
-            offset = (tz.utcoffset(_dt) + tz.dst(_dt)).total_seconds() / 60.
+            offset = (tz.utcoffset(_dt) + tz.dst(_dt)).total_seconds()/60.
             # localize and then convert to dispatch_outputs_timezone
             df2 = group.tz_localize(pytz.FixedOffset(offset), level='weather_datetime')
-            dfs.append(df2)
+            df2 = df2.tz_convert(pytz.FixedOffset(offset), level='weather_datetime')
+            df_list.append(df2)
 
-        tz = pytz.timezone(cfg.getParam('dispatch_outputs_timezone', section='TIME'))
-        offset = (tz.utcoffset(DT.datetime(2015, 1, 1)) + tz.dst(DT.datetime(2015, 1, 1))).total_seconds() / 60.
-        local_df = pd.concat(dfs)
-        local_df = local_df.tz_convert(pytz.FixedOffset(offset), level='weather_datetime')
+        local_df = pd.concat(df_list)
         return local_df.sort_index()
 
     @staticmethod

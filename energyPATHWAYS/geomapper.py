@@ -1,17 +1,17 @@
 __author__ = 'ryan'
 
-import config as cfg
+from energyPATHWAYS import config as cfg
 import pandas as pd
 import numpy as np
 import os
 import copy
-import util
+from energyPATHWAYS import util
 from collections import OrderedDict, defaultdict
 import textwrap
 import logging
 import pdb
 from csvdb.data_object import get_database
-import time_series
+from energyPATHWAYS import time_series
 
 class GeoMapper:
     _instance = None
@@ -129,7 +129,7 @@ class GeoMapper:
             logging.warning('Extra spatial join table columns were found that are not in map keys: {}'.format(data_cols_not_in_map_keys))
 
         # check to make sure that duplicate gaus in different geographies refer to the exact same geography slice
-        for gau, geography_list in gau_to_geography.iteritems():
+        for gau, geography_list in gau_to_geography.items():
             # in this case it is unique and we can continue
             if len(geography_list)==1:
                 continue
@@ -252,7 +252,10 @@ class GeoMapper:
         converted_geography = util.ensure_iterable(converted_geography)
         union_geo = list(set(current_geography) | set(converted_geography))
 
-        table = table.groupby(level=union_geo).sum()
+        try:
+            table = table.groupby(level=union_geo).sum()
+        except:
+            pdb.set_trace()
         if normalize_as=='total':
             table = self._normalize(table, current_geography)
 
@@ -300,7 +303,7 @@ class GeoMapper:
                 slice_map_df = cls.get_instance().map_df(current_geography, converted_geography, normalize_as=current_data_type,
                                      map_key=geography_map_key, filter_geo=filter_geo, active_gaus=active_gaus)
                 map_df.append(slice_map_df)
-            map_df = pd.concat(map_df, keys=groups.keys(), names=levels)
+            map_df = pd.concat(map_df, keys=list(groups.keys()), names=levels)
         else:
             # create dataframe with map from one geography to another
             active_gaus = df.index.get_level_values(current_geography).unique()

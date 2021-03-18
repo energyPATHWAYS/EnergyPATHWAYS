@@ -10,8 +10,7 @@ import signal
 import click
 import os
 import glob
-import cPickle as pickle
-import psycopg2
+import pickle
 import energyPATHWAYS.config as cfg
 import energyPATHWAYS.util as util
 from energyPATHWAYS.pathways_model import PathwaysModel
@@ -123,17 +122,15 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Users\ryandrewjones\Dropbox (EER)\Evolved Energy Research\Tools\EnergyPATHWAYS\Active Runs\project_restart'
+    workingdir = r'C:\Users\ryand\Dropbox (EER)\Evolved Energy Research\Tools\EnergyPATHWAYS\Active Runs\project_restart'
     os.chdir(workingdir)
     scenario = ['Net Zero by 2050']
     run(scenario,
     load_demand   = False,
-    solve_demand  = False,
-    load_supply   = True,
+    solve_demand  = True,
+    load_supply   = False,
     solve_supply  = False,
-    export_results= False,
-    save_models   = False,
+    export_results= True,
+    save_models   = True,
     compile_mode  = False,
     )
-
-    test = model.demand.aggregate_electricity_shapes(2050)

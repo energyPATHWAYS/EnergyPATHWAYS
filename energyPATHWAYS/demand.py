@@ -277,7 +277,7 @@ class Demand(object):
         output_list = ['energy', 'stock', 'sales','annual_costs','annual_costs_documentation', 'levelized_costs', 'service_demand','air_pollution']
         unit_flag = [True, True, True, False, True, True, True,True]
         for output_name, include_unit in zip(output_list, unit_flag):
-            print "aggregating %s" %output_name
+            print("aggregating %s" %output_name)
             df = self.group_output(output_name, include_unit=include_unit)
             if df is not None:
                 df.dropna(inplace=True)
@@ -479,7 +479,7 @@ class Demand(object):
         """Aggregates for the supply side, works with function in sector"""
         names = ['sector', GeoMapper.demand_primary_geography, 'final_energy', 'year']
         sectors_aggregates = [sector.aggregate_subsector_energy_for_supply_side(db_run,ignored_subsectors) for sector in self.sectors.values()]
-        self.energy_demand = pd.concat([s for s in sectors_aggregates if s is not None], keys=self.sectors.keys(), names=names)
+        self.energy_demand = pd.concat([s for s in sectors_aggregates if s is not None], keys=list(self.sectors.keys()), names=names)
         self.energy_supply_geography = GeoMapper.geo_map(self.energy_demand, GeoMapper.demand_primary_geography, GeoMapper.supply_primary_geography, current_data_type='total')
 
 
@@ -541,7 +541,7 @@ class Sector(schema.DemandSectors):
             for demand_technology in subsector.technologies.values():
                 linked_tech = demand_technology.linked
                 for lookup_subsector in subsectors_with_techs:
-                    if linked_tech in lookup_subsector.technologies.keys():
+                    if linked_tech in lookup_subsector.technologies:
                         self.subsector_precursors[lookup_subsector.name].append(subsector.name)
 
     def make_precursors_reversed_dict(self):
@@ -610,7 +610,7 @@ class Sector(schema.DemandSectors):
                 if not hasattr(dependent, 'technologies'):
                     continue
                 for demand_technology in precursor.output_demand_technology_stocks.keys():
-                    if demand_technology in dependent.technologies.keys():
+                    if demand_technology in dependent.technologies:
                         # updates stock_precursor values dictionary with linked demand_technology stocks
                         self.stock_precursors[dependent].update({demand_technology: precursor.output_demand_technology_stocks[demand_technology]})
 
@@ -622,7 +622,7 @@ class Sector(schema.DemandSectors):
                 if precursor.output_service_drivers.has_key(subsector.name):
                     self.service_precursors[subsector.name].update({precursor.name: precursor.output_service_drivers[subsector.name]})
                 for demand_technology in precursor.output_demand_technology_stocks.keys():
-                    if hasattr(subsector,'technologies') and demand_technology in subsector.technologies.keys():
+                    if hasattr(subsector,'technologies') and demand_technology in subsector.technologies:
                         # updates stock_precursor values dictionary with linked demand_technology stocks
                         self.stock_precursors[subsector.name].update({demand_technology: precursor.output_demand_technology_stocks[demand_technology]})
             subsector.linked_service_demand_drivers = self.service_precursors[subsector.name]
@@ -1719,7 +1719,7 @@ class Subsector(schema.DemandSubsectors):
         names = util.csv_read_table("DemandTechs", column_names='name', subsector=self.name, return_unique=True, return_iterable=True)
         for name in names:
             self.add_demand_technology(name, service_demand_unit, stock_time_unit, self.cost_of_capital, self.scenario)
-        self.techs = self.technologies.keys()
+        self.techs = list(self.technologies.keys())
         self.techs.sort()
 
     def add_demand_technology(self, name, service_demand_unit, stock_time_unit, cost_of_capital, scenario):
@@ -2451,13 +2451,13 @@ class Subsector(schema.DemandSubsectors):
             rollover_groups = util.remove_df_levels(stock.total,'year').groupby(level=levels[0]).groups
         else:
             rollover_groups = util.remove_df_levels(stock.total,'year').groupby(level=levels).groups
-        full_levels = stock.rollover_group_levels + [measures.keys()] + [
+        full_levels = stock.rollover_group_levels + [list(measures.keys())] + [
             [self.vintages[0] - 1] + self.vintages]
         full_names = stock.rollover_group_names + ['measure', 'vintage']
         columns = self.years
         index = pd.MultiIndex.from_product(full_levels, names=full_names)
         stock.values = util.empty_df(index=index, columns=pd.Index(columns, dtype='object'))
-        full_levels = stock.rollover_group_levels + [measures.keys()] + [self.vintages]
+        full_levels = stock.rollover_group_levels + [list(measures.keys())] + [self.vintages]
         index = pd.MultiIndex.from_product(full_levels, names=full_names)
         stock.retirements = util.empty_df(index=index, columns=['value'])
         stock.sales = util.empty_df(index=index, columns=['value'])
@@ -2577,7 +2577,7 @@ class Subsector(schema.DemandSubsectors):
         for fun in ['survival_vintaged', 'survival_initial_stock', 'decay_vintaged', 'decay_initial_stock']:
             for measure in measures.values():
                 functions[fun].append(getattr(measure, fun))
-            setattr(stock, fun, pd.DataFrame(np.array(functions[fun]).T, columns=measures.keys()))
+            setattr(stock, fun, pd.DataFrame(np.array(functions[fun]).T, columns=list(measures.keys())))
 
     def create_tech_survival_functions(self):
         functions = defaultdict(list)
@@ -2891,7 +2891,7 @@ class Subsector(schema.DemandSubsectors):
 
     def tech_sd_modifier_calc(self):
         if self.stock.is_service_demand_dependent and self.stock.demand_stock_unit_type == 'equipment':
-            full_levels = self.stock.rollover_group_levels + [self.technologies.keys()] + [[self.vintages[0] - 1] + self.vintages]
+            full_levels = self.stock.rollover_group_levels + [list(self.technologies.keys())] + [[self.vintages[0] - 1] + self.vintages]
             full_names = self.stock.rollover_group_names + ['demand_technology', 'vintage']
             columns = self.years
             index = pd.MultiIndex.from_product(full_levels, names=full_names)
@@ -2938,7 +2938,7 @@ class Subsector(schema.DemandSubsectors):
             self.stock.total[self.stock.total<util.remove_df_levels(spec_tech_stock,'demand_technology')] = util.remove_df_levels(spec_tech_stock,'demand_technology')
 
     def set_up_empty_stock_rollover_output_dataframes(self):
-        full_levels = self.stock.rollover_group_levels + [self.technologies.keys()] + [[self.vintages[0] - 1] + self.vintages]
+        full_levels = self.stock.rollover_group_levels + [list(self.technologies.keys())] + [[self.vintages[0] - 1] + self.vintages]
         full_names = self.stock.rollover_group_names + ['demand_technology', 'vintage']
         columns = self.years
         index = pd.MultiIndex.from_product(full_levels, names=full_names)
@@ -2946,7 +2946,7 @@ class Subsector(schema.DemandSubsectors):
         self.stock.values_new = copy.deepcopy(self.stock.values)
         self.stock.values_replacement = copy.deepcopy(self.stock.values)
         self.stock.ones = util.empty_df(index=index, columns=pd.Index(columns, dtype='object'), fill_value=1.0)
-        full_levels = self.stock.rollover_group_levels + [self.technologies.keys()] + [self.vintages]
+        full_levels = self.stock.rollover_group_levels + [list(self.technologies.keys())] + [self.vintages]
         index = pd.MultiIndex.from_product(full_levels, names=full_names)
         self.stock.retirements = util.empty_df(index=index, columns=['value'])
         self.stock.retirements_early = copy.deepcopy(self.stock.retirements)

@@ -13,8 +13,6 @@ setup(name='energyPATHWAYS',
                         'pyomo',
                         'datetime',
                         'pytz',
-                        'profilehooks',
-                        'psycopg2',
                         'matplotlib', # util.py
                         'scikit-learn', # dispatch_classes.py
                         'click'

@@ -7,8 +7,8 @@ Created on Mon Oct 26 19:11:59 2015
 
 import pandas as pd
 import numpy as np
-import util
-import config as cfg
+from energyPATHWAYS import util
+from energyPATHWAYS import config as cfg
 import os
 import logging
 import time
@@ -17,9 +17,10 @@ import csv
 import re
 import gzip
 from collections import defaultdict, OrderedDict
-import cPickle as pickle
+import pickle
 import pdb
-from geomapper import GeoMapper
+import six
+from energyPATHWAYS.geomapper import GeoMapper
 
 ZIP_PATTERN = re.compile('.*\.gz$', re.IGNORECASE)
 
@@ -31,7 +32,7 @@ class Output(object):
         if not hasattr(self, output_type):
             return None
         elif getattr(self,output_type) is None:
-            print "%s is not calculated in this model run" %output_type
+            print("%s is not calculated in this model run" %output_type)
             return None
         elif type(getattr(self, output_type)) is not pd.core.frame.DataFrame:
             raise ValueError('output_type must be a pandas dataframe')
@@ -51,13 +52,13 @@ class Output(object):
         dct = cfg.outputs_id_map
         index = df.index
         index.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(index.names, index.levels)], inplace=True)
-        index.names = [x.upper() if isinstance(x, basestring) else x for x in index.names]
+        index.names = [x.upper() if isinstance(x, six.string_types) else x for x in index.names]
         if isinstance(df.columns,pd.MultiIndex):
             columns = df.columns
             columns.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(columns.names, columns.levels)], inplace=True)
-            columns.names = [x.upper() if isinstance(x, basestring) else x for x in columns.names]
+            columns.names = [x.upper() if isinstance(x, six.string_types) else x for x in columns.names]
         else:
-            df.columns = [x.upper() if isinstance(x, basestring) else x for x in df.columns]
+            df.columns = [x.upper() if isinstance(x, six.string_types) else x for x in df.columns]
         return df
     
     @staticmethod
@@ -298,7 +299,7 @@ def traverse_files(input_directory, output_directory):
         os.makedirs(output_directory)
     for f in os.listdir(input_directory):
         if re.match(ZIP_PATTERN, f):
-            print "        {}".format(f)
+            print("        {}".format(f))
             append_write(os.path.join(input_directory, f), os.path.join(output_directory, f[:-3])) #drop the .gz
         elif os.path.isdir(os.path.join(input_directory, f)):
             traverse_files(os.path.join(input_directory, f), os.path.join(output_directory, f))
@@ -316,5 +317,5 @@ def aggregate_scenario_results(scenarios, clear_results=True):
             scenario_results = os.path.join(cfg.workingdir, scenario, results_folder)
             if not os.path.exists(scenario_results):
                 continue
-            print "    {}.{}".format(scenario, results_folder)
+            print("    {}.{}".format(scenario, results_folder))
             traverse_files(scenario_results, agg_results_path)

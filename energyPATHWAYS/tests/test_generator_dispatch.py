@@ -283,7 +283,7 @@ dispatch_results = dispatch_generators.generator_stack_dispatch(load=load, pmaxs
                                             gen_categories=gen_categories, return_dispatch_by_category=return_dispatch_by_category,
                                             reserves=reserves, thermal_capacity_multiplier=thermal_capacity_multiplier)
 
-print dispatch_results['stock_changes'].sum()
+print(dispatch_results['stock_changes'].sum())
 
 group_cuts = list(np.where(np.diff(dispatch_periods) != 0)[0] + 1) if dispatch_periods is not None else None
 group_lengths = np.array([group_cuts[0]] + list(np.diff(group_cuts)) + [len(load) - group_cuts[-1]])

@@ -648,7 +648,7 @@ class Supply(object):
         index = pd.MultiIndex.from_product([GeoMapper.supply_geographies, self.demand_sectors, map_dict.keys(),self.years, self.ghgs], names=[GeoMapper.supply_primary_geography, 'sector', 'final_energy','year','ghg'])
         self.demand_emissions_rates = util.empty_df(index, ['value'])
 
-        for final_energy, node_name in map_dict.iteritems():
+        for final_energy, node_name in map_dict.items():
             node = self.nodes[node_name]
             for year in self.years:
                 df = node.pass_through_df_dict[year].groupby(level='ghg').sum()
@@ -658,7 +658,7 @@ class Supply(object):
                 emissions_rate_indexer = util.level_specific_indexer(self.demand_emissions_rates, ['final_energy', 'year'], [final_energy, year])
                 self.demand_emissions_rates.loc[emissions_rate_indexer,:] = df.values
 
-        for final_energy, node_name in map_dict.iteritems():
+        for final_energy, node_name in map_dict.items():
             node = self.nodes[node_name]
             if hasattr(node,'emissions') and hasattr(node.emissions, 'values_physical'):
                 if 'demand_sector' not in node.emissions.values_physical.index.names:
@@ -5925,7 +5925,7 @@ class SupplyStockNode(Node):
         if cfg.rio_supply_run and 'supply_node' in self.stock.coefficients.index.names:
                 self.stock.coefficients.loc[:, year][(self.stock.coefficients.loc[:, year].to_frame().index.get_level_values('supply_node').isin(cfg.rio_no_negative_blends)) & (self.stock.coefficients.loc[:, year].to_frame().values<0).flatten()] = 0
         if 'supply_node' not in self.stock.coefficients.index.names:
-            print ("no efficiency has been input for technologies in the %s supply node" %self.name)
+            print("no efficiency has been input for technologies in the %s supply node" %self.name)
             index = pd.MultiIndex.from_product([self.name,GeoMapper.supply_geographies],names = ['supply_node', GeoMapper.supply_primary_geography],)
             columns = [year]
             self.stock.coefficients = pd.DataFrame(0, index=index, columns = columns)
@@ -6878,7 +6878,7 @@ class RioInputs(DataObject):
 
     def clean_timeseries_and_fill_with_zeros(self,attr):
         if getattr(self,attr) is None or len(getattr(self,attr))==0:
-            print attr
+            print(attr)
             return None
         df = getattr(self,attr)
         df = df.reset_index('year')

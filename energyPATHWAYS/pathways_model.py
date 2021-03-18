@@ -130,12 +130,12 @@ class PathwaysModel(object):
             if hasattr(self,'d_energy_tco'):
                 self.demand.link_to_supply_tco(emissions_demand_link, demand_emissions_rates, cost_demand_link)
             else:
-               print  "demand side has not been run with tco outputs set to 'true'"
+               print("demand side has not been run with tco outputs set to 'true'")
         if cfg.output_payback == 'true':
             if hasattr(self,'demand.d_all_energy_demand_payback'):
                 self.demand.link_to_supply_payback(emissions_demand_link, demand_emissions_rates, cost_demand_link)
             else:
-               print  "demand side has not been run with tco outputs set to 'true'"
+               print("demand side has not been run with tco outputs set to 'true'")
 
     def calculate_combined_results(self):
 

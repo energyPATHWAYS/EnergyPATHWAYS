@@ -19,6 +19,9 @@ from csvdb.data_object import get_database
 from csvdb.utils import filter_query
 import pdb
 import copy
+import six
+
+pd.set_option('display.expand_frame_repr', False)
 
 def makedirs_if_needed(path):
     '''Checks to see if a directory exists, and creates it if not
@@ -37,7 +40,7 @@ class DateTimeLookup:
         re-parse these, we store all unique dates, parse them, and
         use a lookup to convert all dates.
         """
-        cls.dates.update({date: pd.to_datetime(date) for date in series.unique() if not cls.dates.has_key(date)})
+        cls.dates.update({date: pd.to_datetime(date) for date in series.unique() if date not in cls.dates})
         return series.apply(lambda v: cls.dates[v])
 
 def splitclean(s, delim=',', allow_empties=False, as_type=None):
@@ -107,7 +110,7 @@ def freeze_recursivedict(recursivedict):
 
 def upper_dict(query, append=None):
     id_dict = {} if query is None else dict([(id, name.upper()) for id, name in (query if is_iterable(query[0]) else [query])])
-    for key,value in id_dict.iteritems():
+    for key,value in id_dict.items():
         if append is not None:
             id_dict[key] = value + append
     return id_dict
@@ -123,7 +126,7 @@ def df_list_concatenate(df_list, keys=None, new_names=None, levels_to_keep=None)
         starting_names = df.index.names if df.index.nlevels>1 else df.index.name
         missing_names = list(set(levels_to_keep) - set(starting_names) - set(new_names))
         for missing_name in missing_names:
-            df[missing_name] = "N/A"
+            df[missing_name] = "not applicable"
         df.set_index(missing_names, append=True, inplace=True)
 
     #aggregate extra levels and order
@@ -150,7 +153,7 @@ def time_stamp(t):
     Returns:
         current time: float
     """
-    print "%(time).6f seconds to execute \n" % {"time": time.time() - t}
+    print("%(time).6f seconds to execute \n" % {"time": time.time() - t})
     return time.time()
 
 
@@ -280,7 +283,7 @@ def csv_read_table(table_name, column_names=None, return_unique=False, return_it
     df  = tbl.data
 
     if filters:
-        verify_columns(table_name, df, filters.keys())
+        verify_columns(table_name, df, list(filters.keys()))
         df = filter_query(df, filters)
 
     if column_names:
@@ -336,7 +339,7 @@ def unpack_dict(dictionary, _keys=None, return_items=True):
 
 
 def ensure_iterable(obj):
-    if isinstance(obj, basestring):
+    if isinstance(obj, six.string_types):
         return [obj]
     else:
         try:
@@ -382,7 +385,7 @@ def intersect(a, b):
 
 
 def put_in_list(obj):
-    if isinstance(obj, basestring) or isinstance(obj, pd.DataFrame):
+    if isinstance(obj, six.string_types) or isinstance(obj, pd.DataFrame):
         return [obj]
     else:
         try:
@@ -495,7 +498,7 @@ def replace_column_name(df, replace_labels, labels=None):
     elif df.columns.dtype == 'O' and np.all(df.columns==[None]):
         df.columns.names = [replace_labels if x == labels else x for x in df.columns.names]
     else:
-        if not isinstance(replace_labels,basestring):
+        if not isinstance(replace_labels,six.string_types):
             for replace_label in replace_labels:
                     index = replace_labels.index(replace_label)
                     df.columns.names = [replace_label if x == labels[index]  else x for x in df.columns.names]
@@ -504,7 +507,7 @@ def replace_column_name(df, replace_labels, labels=None):
 
 def replace_column(df, replace_labels, labels=None):
     " Use replace_label to replace specified name label"
-    if not isinstance(replace_labels,basestring):
+    if not isinstance(replace_labels,six.string_types):
         for replace_label in replace_labels:
                 index = replace_labels.index(replace_label)
                 df.columns = [replace_label if x == labels[index]  else x for x in df.columns.names]
@@ -985,13 +988,13 @@ class DfOper:
                     if not a_can_collapse:
                         raise ValueError(
                             'No fill value specified for missing elements in b and DataFrame a cannot be collapsed')
-                    new_a = remove_df_levels(new_a, elements_a_not_in_b.keys())
+                    new_a = remove_df_levels(new_a, list(elements_a_not_in_b.keys()))
 
                 if elements_b_not_in_a:
                     if not b_can_collapse:
                         raise ValueError(
                             'No fill value specified for missing elements in a and DataFrame b cannot be collapsed')
-                    new_b = remove_df_levels(new_b, elements_b_not_in_a.keys())
+                    new_b = remove_df_levels(new_b, list(elements_b_not_in_a.keys()))
 
             return new_a, new_b
         else:
@@ -1117,10 +1120,10 @@ def reindex_df_level_with_new_elements(df, level_name, new_elements, fill_value=
         return df
     if df.index.nlevels > 1:
         index_i = df.index.names.index(level_name)
-        const_labels = OrderedSet([tuple([z if i != index_i else -1 for i, z in enumerate(lab)]) for lab in zip(*df.index.labels)])
+        const_labels = OrderedSet([tuple([z if i != index_i else -1 for i, z in enumerate(lab)]) for lab in zip(*df.index.codes)])
         new_labels = flatten_list([[tuple([z if i != index_i else n for i, z in enumerate(lab)]) for n in range(len(new_elements))] for lab in const_labels])
         full_elements = [new_elements if name == level_name else level for name, level in zip(df.index.names, df.index.levels)]
-        temp = df.reindex(index=pd.MultiIndex(levels=full_elements, labels=zip(*new_labels), names=df.index.names), fill_value=fill_value)
+        temp = df.reindex(index=pd.MultiIndex(levels=full_elements, codes=list(zip(*new_labels)), names=df.index.names), fill_value=fill_value)
         return temp.reset_index().set_index(temp.index.names).sort_index()
     else:
         temp = df.reindex(index=pd.Index(new_elements, name=df.index.name), fill_value=fill_value)

@@ -227,7 +227,7 @@ class RioSpecifiedStock(DataObject):
             try:
                 self.remap(fill_value=np.nan, converted_geography=GeoMapper.supply_primary_geography)
             except:
-                print self.raw_values
+                print(self.raw_values)
                 raise
         else:
             self.values = None

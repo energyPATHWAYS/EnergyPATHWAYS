@@ -123,7 +123,7 @@ class Stock(object):
         denominator_driver_ids = [getattr(self, col) for col in cfg.dnmtr_col_names if getattr(self, col) is not None]
 
         drivers = driver_ids + denominator_driver_ids
-        self.drivers = {k: v for k, v in self.drivers.iteritems() if k in drivers}
+        self.drivers = {k: v for k, v in self.drivers.items() if k in drivers}
 
 
     def calc_annual_stock_changes(self):
@@ -165,7 +165,7 @@ class SpecifiedStock(object):
             try:
                 self.remap(fill_value=np.nan, converted_geography=self.primary_geography)
             except:
-                print self.raw_values
+                print(self.raw_values)
                 raise
         else:
             self.values = None

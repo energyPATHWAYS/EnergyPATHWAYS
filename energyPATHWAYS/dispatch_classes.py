@@ -4,31 +4,31 @@ Created on Mon Feb 15 22:06:19 2016
 
 @author: Ben
 """
-import util
+from energyPATHWAYS import util
 import numpy as np
 import copy
 import pandas as pd
-import config as cfg
-from config import getParam, getParamAsBoolean
+from energyPATHWAYS import config as cfg
+from energyPATHWAYS.config import getParam, getParamAsBoolean
 import os
 from pyomo.opt import SolverFactory
 import csv
 import logging
 import matplotlib.pyplot as plt
 from energyPATHWAYS.outputs import Output
-import dispatch_formulation
+from energyPATHWAYS import dispatch_formulation
 import pdb
-import shape
-import helper_multiprocess
-import cPickle as pickle
-import dispatch_generators
-import dispatch_transmission
-import dispatch_long_duration
+from energyPATHWAYS import shape
+from energyPATHWAYS import helper_multiprocess
+import pickle
+from energyPATHWAYS import dispatch_generators
+from energyPATHWAYS import dispatch_transmission
+from energyPATHWAYS import dispatch_long_duration
 from pyomo.opt import TerminationCondition
 from pyomo.environ import Constraint
-from unit_converter import UnitConverter
+from energyPATHWAYS.unit_converter import UnitConverter
 import time
-from geomapper import GeoMapper
+from energyPATHWAYS.geomapper import GeoMapper
 from energyPATHWAYS.generated import schema
 
 class DispatchFeederAllocation(schema.DispatchFeedersAllocation):
@@ -61,19 +61,19 @@ def all_results_to_list(instance):
             'Flexible_Load':flexible_load_result_to_list(instance.Flexible_Load)}
 
 def storage_result_to_list(charge_or_discharge):
-    items = charge_or_discharge.iteritems()
+    items = charge_or_discharge.items()
     lists = [[string for string in key[0].replace("')", '').replace("('", '').split("', '")] + [key[1]] + [value.value] for key, value in items]
     return lists
 
 
 def flexible_load_result_to_list(flexible_load):
-    items = flexible_load.iteritems()
+    items = flexible_load.items()
     lists = [key + (value.value,) for key, value in items]
     return lists
 
 
 def ld_result_to_list(provide_power):
-    items = provide_power.iteritems()
+    items = provide_power.items()
     ld_list = [[key[0]] + [key[1]] + [value.value] for key, value in items]
     return ld_list
 
@@ -554,7 +554,7 @@ class Dispatch(object):
             if solution.solver.termination_condition == TerminationCondition.infeasible:
                 pass
             else:
-                print c.name
+                print(c.name)
                 c.activate()
 
 
@@ -614,7 +614,7 @@ class Dispatch(object):
                 self.storage_df, self.flex_load_df, self.ld_df, self.transmission_flow_df, self.generator_df = self.parse_optimization_results(results)
                 break
             except:
-                print "Optimization failed... waiting 10 seconds before attempting again. Memory errors sometimes clear on the second try."
+                print("Optimization failed... waiting 10 seconds before attempting again. Memory errors sometimes clear on the second try.")
                 time.sleep(10)
                 attempts += 1
                 if attempts > 5:
@@ -636,7 +636,7 @@ class Dispatch(object):
             temp_df = pd.DataFrame([[r[0], r[-2], r[-1]] for r in storage_result_to_list(results.Provide_Power)], columns=[GeoMapper.dispatch_geography, 'hour', self.year])
             temp_df = temp_df.set_index([GeoMapper.dispatch_geography, 'hour']).groupby(level=[GeoMapper.dispatch_geography, 'hour']).sum()
             # this doesn't have transmission losses, so it is an approximation
-            transmit_power = pd.DataFrame([[key[0], key[1], value.value] for key, value in results.Net_Transmit_Power_by_Geo.iteritems()], columns=[GeoMapper.dispatch_geography, 'hour', self.year])
+            transmit_power = pd.DataFrame([[key[0], key[1], value.value] for key, value in results.Net_Transmit_Power_by_Geo.items()], columns=[GeoMapper.dispatch_geography, 'hour', self.year])
             self.ld_bulk_net_load_df_updated = self.ld_bulk_net_load_df - temp_df - transmit_power.set_index([GeoMapper.dispatch_geography, 'hour'])
             ld_energy_budgets = util.recursivedict()
             def split_and_apply(array, dispatch_periods, fun):

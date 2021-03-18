@@ -260,9 +260,9 @@ class Rollover(object):
 
             # Here, if stock changes as min, gross up stock changes
             if self.stock_changes_as_min and self.use_stock_changes:
-                if self.stock_changes[i]>0 and self.sum_defined_sales<>0:
+                if self.stock_changes[i]>0 and self.sum_defined_sales!=0:
                     self.stock_changes[i] = max(self.stock_changes[i], self.sum_defined_sales - self.rolloff_summed)
-                elif self.stock_changes[i]<0 and self.sum_defined_sales<>0:
+                elif self.stock_changes[i]<0 and self.sum_defined_sales!=0:
                     self.stock_changes[i] = min(self.stock_changes[i], self.sum_defined_sales - self.rolloff_summed)
             elif self.stock_changes_as_min and not self.use_stock_changes:
                 self.stock_changes[i] = self.sum_defined_sales - self.rolloff_summed

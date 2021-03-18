@@ -1,7 +1,7 @@
 
 from energyPATHWAYS.outputs import Output
 import os
-import util
+from energyPATHWAYS import util
 import shutil
 import energyPATHWAYS.config as cfg
 import pandas as pd
@@ -11,12 +11,12 @@ import copy
 import numpy as np
 from collections import defaultdict
 import glob
-import cPickle as pickle
+import pickle
 import energyPATHWAYS.supply as supply
 import energyPATHWAYS.shape as shape
 import energyPATHWAYS.scenario_loader as scenario_loader
 from energyPATHWAYS.geomapper import GeoMapper
-from unit_converter import UnitConverter
+from energyPATHWAYS.unit_converter import UnitConverter
 import datetime as DT
 
 class RioExport(object):
@@ -89,7 +89,7 @@ class RioExport(object):
                             shapes[tech.name] = shape.Shapes.get_values(subsector.shape)
                         else:
                             shapes[tech.name] = shape.Shapes.get_values('flat_demand_side')
-        for shape_name, shape in shapes.iteritems():
+        for shape_name, shape in shapes.items():
             self.meta_dict['name'].append(shape_name.lower())
             self.meta_dict['shape_type'].append( 'weather date')
             self.meta_dict['input_type'].append( 'intensity')
@@ -563,8 +563,8 @@ class RioExport(object):
             bulk_df = self.supply.rio_bulk_load[year]
             bulk_df.columns = ['value']
             bulk_list.append(bulk_df)
-        return pd.concat(dist_list, keys=self.supply.rio_distribution_load.keys(), names=['year']), \
-               pd.concat(bulk_list, keys=self.supply.rio_distribution_load.keys(), names=['year'])
+        return pd.concat(dist_list, keys=list(self.supply.rio_distribution_load.keys()), names=['year']), \
+               pd.concat(bulk_list, keys=list(self.supply.rio_distribution_load.keys()), names=['year'])
 
     def flatten_flex_load_dict(self):
         df_list = []
@@ -590,7 +590,7 @@ class RioExport(object):
             bulk_df = self.supply.rio_transmission_losses[year]
             bulk_df.columns = ['value']
             bulk_list.append(bulk_df)
-        return pd.concat(dist_list), pd.concat(bulk_list,keys=self.supply.rio_distribution_losses.keys(),names=['year'])
+        return pd.concat(dist_list), pd.concat(bulk_list,keys=list(self.supply.rio_distribution_losses.keys()),names=['year'])
 
     def write_demand_subsector(self):
         if self.scenario_index == 0:
@@ -686,7 +686,7 @@ class RioExport(object):
                     df2 = subsector.stock.total
                     df = util.DfOper.divi([df1,df2])
                     df.columns = ['value']
-                    df = util.add_and_set_index(df,'name',subsector.technologies.keys(),)
+                    df = util.add_and_set_index(df,'name', list(subsector.technologies.keys()))
                     util.replace_index_name(df, 'gau', GeoMapper.supply_primary_geography)
                     if subsector.service_demand.other_index_1 not in df.index.names:
                         df['other_index'] = None
@@ -1005,7 +1005,7 @@ def run(scenarios,riodbdir):
     if not scenarios:
         scenarios = [os.path.basename(p) for p in glob.glob(os.path.join(cfg.workingdir, '*.json'))]
         if not scenarios:
-            raise ValueError, "No scenarios specified and no .json files found in working directory."
+            raise ValueError("No scenarios specified and no .json files found in working directory.")
 
     # Users may have specified a scenario using the full filename, but for our purposes the 'id' of the scenario
     # is just the part before the .json

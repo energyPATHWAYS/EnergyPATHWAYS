@@ -554,7 +554,7 @@ class TimeSeries:
 
 # frames = []
 # for group in data.groupby(level=group_levels).groups.keys():
-# if isinstance(group, basestring):
+# if isinstance(group, six.string_types):
 # group = (group,)
 #
 # data_slice = data.xs(group, level=group_levels)
