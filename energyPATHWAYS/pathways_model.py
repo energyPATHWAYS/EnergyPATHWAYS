@@ -78,10 +78,7 @@ class PathwaysModel(object):
                 self.calculate_d_payback()
                 self.calculate_d_payback_energy()
         if save_models:
-            if cfg.rio_supply_run:
-                Output.pickle(self, file_name=str(self.scenario_id) + cfg.demand_model_append_name, path=os.path.join(cfg.workingdir, str(self.scenario_id)))
-            else:
-                Output.pickle(self, file_name=str(self.scenario_id) + cfg.demand_model_append_name, path=os.path.join(cfg.workingdir, str(self.scenario_id)))
+            Output.pickle(self, file_name=str(self.scenario_id) + cfg.demand_model_append_name, path=os.path.join(cfg.workingdir, str(self.scenario_id)))
 
     def calculate_supply(self, save_models):
         if not self.demand_solved:
@@ -98,10 +95,7 @@ class PathwaysModel(object):
             self.supply.final_calculate()
         self.supply_solved = True
         if save_models:
-            if cfg.rio_supply_run:
-                Output.pickle(self, file_name=self.write_scenario_name + cfg.full_model_append_name, path=os.path.join(cfg.workingdir, str(self.scenario_id)))
-            else:
-                Output.pickle(self, file_name=str(self.scenario_id) + cfg.full_model_append_name, path=os.path.join(cfg.workingdir, str(self.scenario_id)))
+            Output.pickle(self, file_name=str(self.scenario_id) + cfg.full_model_append_name, path=os.path.join(cfg.workingdir, str(self.scenario_id)))
 
     def pass_supply_results_back_to_demand(self):
         # we need to geomap to the combined output geography
@@ -178,10 +172,7 @@ class PathwaysModel(object):
             :param result_df: pandas dataframe
             :param attribute: string
             """
-            if cfg.rio_supply_run and self.supply is not None:
-                keys = [self.write_scenario_name.upper(), cfg.timestamp]
-            else:
-                keys = [self.scenario.name.upper(), cfg.timestamp]
+            keys = [self.scenario.name.upper(), cfg.timestamp]
             names = ['SCENARIO', 'TIMESTAMP']
             for key, name in zip(keys, names):
                 result_df = pd.concat([result_df], keys=[key], names=[name])

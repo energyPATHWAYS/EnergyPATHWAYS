@@ -46,8 +46,6 @@ class SupplySales(DataObject):
         self.vintages = vintages
         self.years = years
         self.remap(time_index_name='vintage',fill_timeseries=True, converted_geography=GeoMapper.supply_primary_geography, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method, fill_value=np.nan)
-        if cfg.rio_supply_run:
-            self.values[self.values.index.get_level_values('vintage')>min(cfg.supply_years)] = np.nan
         self.convert()
 
     def convert(self):

@@ -1363,9 +1363,9 @@ class Subsector(schema.DemandSubsectors):
             df = util.df_list_concatenate([x.set_index(['cost_type', 'new/replacement'] ,append=True) for x in values if x is not None],keys=None, new_names=None)
         except:
             pdb.set_trace()
-
-        df.columns = [cfg.output_currency]
-        return df
+        if df is not None:
+            df.columns = [cfg.output_currency]
+            return df
 
     def calculate_measures(self):
         """calculates measures for use in subsector calculations """
@@ -2739,7 +2739,7 @@ class Subsector(schema.DemandSubsectors):
     def helper_calc_sales_share_reference_new(self, elements, initial_stock):
         num_techs, num_years = len(self.techs), len(self.years)
         tech_lookup = dict(zip(self.techs, range(num_techs)))
-        tech_lifetimes = np.array([x.book_life for x in self.technologies.values()])
+        tech_lifetimes = np.array([self.technologies[x].book_life for x in self.techs])
         if initial_stock is None:
             # this is a special case where we don't have an initial stock specified, so we just want to return the reference sales shares
             sales_ratio = np.zeros(num_techs)
@@ -3077,8 +3077,11 @@ class Subsector(schema.DemandSubsectors):
             for demand_technology in self.technologies.keys():
                 demand_technology_class = self.technologies[demand_technology]
                 indexer = util.level_specific_indexer(self.stock.values_efficiency_main, 'demand_technology', demand_technology)
-                self.stock.values_efficiency_main.loc[indexer, :] = self.stock.values_efficiency_main.loc[indexer,:] * demand_technology_class.efficiency_main.utility_factor
-                self.stock.values_efficiency_main.loc[indexer, 'final_energy'] = demand_technology_class.efficiency_main.final_energy
+                try:
+                    self.stock.values_efficiency_main.loc[indexer, :] = self.stock.values_efficiency_main.loc[indexer,:] * demand_technology_class.efficiency_main.utility_factor
+                    self.stock.values_efficiency_main.loc[indexer, 'final_energy'] = demand_technology_class.efficiency_main.final_energy
+                except:
+                    pdb.set_trace()
                 if self.stock.aux:
                     self.stock.values_efficiency_aux.loc[indexer, :] = self.stock.values.loc[indexer, :] * (
                         1 - demand_technology_class.efficiency_main.utility_factor)

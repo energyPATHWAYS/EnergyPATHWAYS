@@ -123,13 +123,13 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'C:\Users\ryandrewjones\Dropbox (EER)\Evolved Energy Research\Tools\EnergyPATHWAYS\Active Runs\project_restart'
+    workingdir = r'E:\EP_Runs\Coned'
     os.chdir(workingdir)
-    scenario = ['Net Zero by 2050']
+    scenario = ['DDP']
     run(scenario,
     load_demand   = False,
-    solve_demand  = False,
-    load_supply   = True,
+    solve_demand  = True,
+    load_supply   = False,
     solve_supply  = False,
     export_results= False,
     save_models   = False,

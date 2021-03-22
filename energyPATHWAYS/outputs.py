@@ -129,7 +129,7 @@ class Output(object):
             df.to_csv(os.path.join(path, file_name), header=True, mode='w', compression=compression, index=index)
 
     @staticmethod
-    def write_rio(df, file_name, path, compression=None, index=True, force_lower=True):
+    def write_rio(df, file_name, path, compression=None, index=True, force_lower=True, update=False):
         # roughly follows the solutions here: http://stackoverflow.com/questions/11114492/check-if-a-file-is-not-open-not-used-by-other-process-in-python
         # note that there is still a small, but real chance of a race condition causing an error error, thus this is "safer" but not safe
         if not os.path.exists(path):
@@ -157,6 +157,10 @@ class Output(object):
                     os.rename(os.path.join(path, file_name), os.path.join(path, "_" + file_name))
                     os.rename(os.path.join(path, "_" + file_name), os.path.join(path, file_name))
                     # append and don't write header because the file already exists
+                    if update:
+                        old_df = pd.read_csv(os.path.join(path, file_name))
+                        df = pd.concat([old_df,df])
+                        df.drop_duplicates(subset=[x for x in df.columns if x !='value'],keep='last')
                     df.to_csv(os.path.join(path, file_name), header=False, mode='a', compression=compression, index=index)
                     return
                 except OSError:

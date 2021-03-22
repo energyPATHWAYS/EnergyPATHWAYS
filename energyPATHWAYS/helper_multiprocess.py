@@ -28,10 +28,7 @@ def process_shapes(shape):
 def node_calculate(node):
     try:
         cfg.initialize_config()
-        if node.name.lower() == 'bulk electricity blend' and cfg.rio_supply_run:
-            node.calculate(calculate_residual=False)
-        else:
-            node.calculate()
+        node.calculate()
     except Exception as e:
         traceback.print_exc()
         raise e
