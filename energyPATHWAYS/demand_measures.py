@@ -169,7 +169,10 @@ class FuelSwitchingEnergyIntensity(schema.DemandFuelSwitchingMeasuresEnergyInten
 
     def calculate(self, years, vintages, unit_to):
         self.years = years
-        self.remap(map_from='raw_values', map_to='values', converted_geography=GeoMapper.demand_primary_geography, time_index=self.years)
+        try:
+            self.remap(map_from='raw_values', map_to='values', converted_geography=GeoMapper.demand_primary_geography, time_index=self.years)
+        except:
+            pdb.set_trace()
 
 
 class DemandMeasureCost(DataObject):

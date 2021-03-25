@@ -2712,8 +2712,6 @@ class Subsector(schema.DemandSubsectors):
             projected =  True
         if 'demand_technology' in getattr(self.energy_demand,map_from).index.names:
             setattr(self.energy_demand, map_from, getattr(self.energy_demand,map_from).groupby(level='demand_technology').filter(lambda x: x.sum()>0))
-        #if self.name == 'residential water heating':
-         #   pdb.set_trace()
         self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
                                    converted_geography=GeoMapper.demand_primary_geography,
                                    additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent,stock_dependent=stock_dependent),current_data_type=current_data_type, projected=projected)
@@ -2834,7 +2832,9 @@ class Subsector(schema.DemandSubsectors):
             ss_tile = np.reshape(np.repeat(ss_array_ref[:, replaced_index, :], num_techs, axis=0), (num_years, num_techs, num_techs))
             np.repeat(ss_array_ref[:, replaced_index, :], num_techs, axis=0)
             ss_array_meas_w_rep += temp_array * ss_tile
+
         ss_array_meas_w_rep[ss_array_meas_w_rep == -0] = 0
+
         return ss_array_meas_w_rep
 
     def calculate_total_sales_share_new(self, elements, initial_stock, reference_run):

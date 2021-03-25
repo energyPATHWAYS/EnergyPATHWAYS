@@ -125,15 +125,13 @@ class SubsectorPerturbation(object):
 if __name__ == "__main__":
     workingdir = r'E:\EP_Runs\Coned'
     os.chdir(workingdir)
-    scenario = ['DDP']
+    scenario = ['Baseline']
     run(scenario,
-    load_demand   = False,
-    solve_demand  = True,
+    load_demand   = True,
+    solve_demand  = False,
     load_supply   = False,
-    solve_supply  = False,
+    solve_supply  = True,
     export_results= False,
     save_models   = False,
     compile_mode  = False,
     )
-
-    test = model.demand.aggregate_electricity_shapes(2050)

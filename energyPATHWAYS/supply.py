@@ -1965,7 +1965,7 @@ class Supply(object):
     def set_shapes(self,year):
        for zone in self.dispatch_zones:
            for node_name in self.electricity_load_nodes[zone]['non_flexible'] + self.electricity_gen_nodes[zone]['non_flexible']:
-               self.nodes[node_name].active_shape = self.nodes[node_name].aggregate_subsector_electricity_shape(year, util.remove_df_levels(util.df_slice(self.dispatch_feeder_allocation, year, 'year'), year))
+               self.nodes[node_name].active_shape = self.nodes[node_name].aggregate_electricity_shapes(year, util.remove_df_levels(util.df_slice(self.dispatch_feeder_allocation, year, 'year'), year))
 
     def _helper_shaped_bulk_and_dist(self, year, energy_slice):
         node_names = list(set(energy_slice.index.get_level_values('supply_node')))

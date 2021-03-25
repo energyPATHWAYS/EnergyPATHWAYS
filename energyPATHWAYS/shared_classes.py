@@ -19,7 +19,10 @@ class StockItem(object):
     def calculate_sales_shares(self, sales_shares,reference_run=False):
         sales_shares = getattr(self, sales_shares)
         for sales_share in sales_shares.values():
-            sales_share.calculate(vintages=self.vintages[1:], years=self.years)
+            try:
+                sales_share.calculate(vintages=self.vintages[1:], years=self.years)
+            except:
+                pdb.set_trace()
                 
     def calculate_sales(self, sales):
         sales= getattr(self, sales)
