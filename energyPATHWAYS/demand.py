@@ -345,7 +345,7 @@ class Demand(object):
         for sector in self.sectors.values():
             sector_stack = []
             for subsector in sector.subsectors.values():
-                df = subsector.aggregate_subsector_electricity_shape(year, for_direct_use=True)
+                df = subsector.aggregate_subsector_electricity_shape(year)
                 if df is None:
                     continue
                 # todo make this a config param
