@@ -13,7 +13,7 @@ from collections import defaultdict
 import glob
 import pickle
 import energyPATHWAYS.supply as supply
-import energyPATHWAYS.shape as shape
+from energyPATHWAYS import shapes2
 import energyPATHWAYS.scenario_loader as scenario_loader
 from energyPATHWAYS.geomapper import GeoMapper
 from energyPATHWAYS.unit_converter import UnitConverter
@@ -84,11 +84,11 @@ class RioExport(object):
                         if not 'electricity' in tech.efficiency_main.values.index.get_level_values('final_energy'):
                             continue
                         if tech.shape is not None:
-                            shapes[tech.name] = shape.Shapes.get_values(tech.shape)
+                            shapes[tech.name] = shapes2.ShapeContainer.get_values(tech.shape)
                         elif subsector.shape is not None:
-                            shapes[tech.name] = shape.Shapes.get_values(subsector.shape)
+                            shapes[tech.name] = shapes2.ShapeContainer.get_values(subsector.shape)
                         else:
-                            shapes[tech.name] = shape.Shapes.get_values('flat_demand_side')
+                            shapes[tech.name] = shapes2.ShapeContainer.get_values('flat_demand_side')
         for shape_name, shape in shapes.items():
             self.meta_dict['name'].append(shape_name.lower())
             self.meta_dict['shape_type'].append( 'weather date')
@@ -152,7 +152,7 @@ class RioExport(object):
         df = util.df_slice(self.flex_load_df,'native','timeshift_type')
         df = UnitConverter.unit_convert(df.groupby(level=[x for x in df.index.names if x not in 'weather_datetime']).sum(),
                                unit_from_num=cfg.calculation_energy_unit,unit_to_num='megawatt_hour')
-        df /= len(shape.Shapes.get_instance().cfg_weather_years)
+        df /= len(shapes2.ShapeContainer.get_instance().cfg_weather_years)
         df_list = []
         for geography in cfg.rio_feeder_geographies:
             for feeder in self.supply.dispatch_feeders:
@@ -503,7 +503,7 @@ class RioExport(object):
                     load_shape_df = Output.clean_rio_df(load_shape_df,add_geography=False)
                     load_shape_df['sensitivity'] = self.scenario
                     df = util.remove_df_levels(df,'weather_datetime')
-                    df /= len(shape.Shapes.get_instance().cfg_weather_years)
+                    df /= len(shapes2.ShapeContainer.get_instance().cfg_weather_years)
                     df *= UnitConverter.unit_convert(unit_from=cfg.calculation_energy_unit,unit_to='TWh')
                     df = Output.clean_rio_df(df)
                     df['interpolation_method'] = 'linear_interpolation'
@@ -536,7 +536,7 @@ class RioExport(object):
             load_shape_df['sensitivity'] = self.scenario
             df = util.remove_df_levels(df,'weather_datetime')
             df *=  UnitConverter.unit_convert(unit_from_num=cfg.calculation_energy_unit, unit_to_num='TWh')
-            df/=len(shape.Shapes.get_instance().cfg_weather_years)
+            df/=len(shapes2.ShapeContainer.get_instance().cfg_weather_years)
             df = Output.clean_rio_df(df)
             df['interpolation_method'] = 'linear_interpolation'
             df['extrapolation_method'] = 'nearest'

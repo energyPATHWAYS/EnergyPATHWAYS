@@ -15,7 +15,7 @@ import energyPATHWAYS.config as cfg
 import energyPATHWAYS.util as util
 from energyPATHWAYS.pathways_model import PathwaysModel
 from energyPATHWAYS import outputs
-import energyPATHWAYS.shape as shape
+import energyPATHWAYS.shapes2 as shapes2
 from energyPATHWAYS.outputs import Output
 from energyPATHWAYS.dispatch_classes import Dispatch
 from energyPATHWAYS.geomapper import GeoMapper
@@ -126,7 +126,7 @@ if __name__ == "__main__":
     os.chdir(workingdir)
     scenario = ['Net Zero by 2050']
     run(scenario,
-    load_demand   = False,
+    load_demand   = True,
     solve_demand  = True,
     load_supply   = False,
     solve_supply  = False,
