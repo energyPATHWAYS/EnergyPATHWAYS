@@ -1,12 +1,12 @@
 
-import util
+from energyPATHWAYS import util
 import numpy as np
 import copy
 import pandas as pd
 import logging
 from sklearn.cluster import KMeans
 import pdb
-import dispatch_maintenance
+from energyPATHWAYS import dispatch_maintenance
 
 def cluster_generators(n_clusters, pmax, marginal_cost, FORs, MORs, must_run, pad_stack=False, zero_mc_4_must_run=False):
     """ Cluster generators is a function that takes a generator stack and clusters them by marginal_cost and must run status.

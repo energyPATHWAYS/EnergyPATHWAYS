@@ -6,18 +6,17 @@ Created on Wed Oct 28 16:06:06 2015
 """
 
 import inspect
-import util
+from energyPATHWAYS import util
 import copy
 import numpy as np
-import config as cfg
-from shared_classes import StockItem
-from supply_classes import SupplySalesShareObj, SupplySalesShareMeasuresObj, SupplySalesMeasuresObj, SupplySalesObj, SupplySpecifiedStock,RioSpecifiedStock
+from energyPATHWAYS import config as cfg
+from energyPATHWAYS.shared_classes import StockItem
+from energyPATHWAYS.supply_classes import SupplySalesShareObj, SupplySalesShareMeasuresObj, SupplySalesMeasuresObj, SupplySalesObj, SupplySpecifiedStock,RioSpecifiedStock
 import pandas as pd
-import shape
 import logging
 import pdb
-from unit_converter import UnitConverter
-from geomapper import GeoMapper
+from energyPATHWAYS.unit_converter import UnitConverter
+from energyPATHWAYS.geomapper import GeoMapper
 from energyPATHWAYS.generated import schema
 
 class SupplyTechnology(schema.SupplyTechs, StockItem):

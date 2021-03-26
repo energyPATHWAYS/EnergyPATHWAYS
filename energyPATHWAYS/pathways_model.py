@@ -1,20 +1,20 @@
 __author__ = 'Ben Haley & Ryan Jones'
 
 import os
-from demand import Demand
-import util
-from outputs import Output
+from energyPATHWAYS.demand import Demand
+from energyPATHWAYS import util
+from energyPATHWAYS.outputs import Output
 import shutil
-import config as cfg
-from supply import Supply
+from energyPATHWAYS import config as cfg
+from energyPATHWAYS.supply import Supply
 import pandas as pd
 import logging
 import energyPATHWAYS.shapes2 as shapes2
 import pdb
-from scenario_loader import Scenario
+from energyPATHWAYS.scenario_loader import Scenario
 import copy
 import numpy as np
-from geomapper import GeoMapper
+from energyPATHWAYS.geomapper import GeoMapper
 
 class PathwaysModel(object):
     """

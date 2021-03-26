@@ -7,8 +7,6 @@ Created on Thu Jul 30 09:35:30 2015
 
 import numpy as np
 import pdb
-# import os
-# import pandas as pd
                                         
 def solve_IO(IO_matrix, f=None):
     """ Given, the IO_matrix and intermediate demand, solve for final demand

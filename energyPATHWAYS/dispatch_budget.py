@@ -1,5 +1,5 @@
 
-import util
+from energyPATHWAYS import util
 import numpy as np 
 from scipy import optimize
 import logging

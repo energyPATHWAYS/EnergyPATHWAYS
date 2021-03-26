@@ -5,11 +5,10 @@ from collections import OrderedDict
 
 import numpy as np
 
-import config as cfg
+from energyPATHWAYS import config as cfg
 from energyPATHWAYS.config import getParam, getParamAsBoolean
 from energyPATHWAYS.time_series import TimeSeries
-from energyPATHWAYS.util import (DfOper, put_in_list, get_elements_from_level,
-                   reindex_df_level_with_new_elements,remove_df_levels)
+from energyPATHWAYS.util import (DfOper, put_in_list, get_elements_from_level, reindex_df_level_with_new_elements,remove_df_levels)
 from energyPATHWAYS.geomapper import GeoMapper
 
 from csvdb.data_object import DataObject as CsvDataObject, get_database
@@ -362,7 +361,7 @@ class DataObject(CsvDataObject):
             denominator_drivers = None
         else:
             denominators = [self.driver_denominator_1, self.driver_denominator_2]
-            denominator_drivers = filter(None, denominators)
+            denominator_drivers = list(filter(None, denominators))
 
         setattr(self, map_to, getattr(self, map_from).copy())
 

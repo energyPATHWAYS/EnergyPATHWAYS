@@ -7,7 +7,7 @@ Created on Thu Oct 01 09:26:56 2015
 
 import numpy as np
 import pandas as pd
-import util
+from energyPATHWAYS import util
 import logging
 import pdb
 

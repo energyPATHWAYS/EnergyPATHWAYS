@@ -5,19 +5,18 @@ Created on Mon Sep 28 10:01:16 2015
 @author: Ben
 """
 
-import config as cfg
-import util
+from energyPATHWAYS import config as cfg
+from energyPATHWAYS import util
 import numpy as np
 import copy
 import inspect
-from shared_classes import StockItem, DemandSalesShareMeasure, DemandSales, DemandStockMeasure
-import shape
+from energyPATHWAYS.shared_classes import StockItem, DemandSalesShareMeasure, DemandSales, DemandStockMeasure
 import logging
 import pdb
 from energyPATHWAYS.generated import schema
-from unit_converter import UnitConverter
-from geomapper import GeoMapper
-import shapes2
+from energyPATHWAYS.unit_converter import UnitConverter
+from energyPATHWAYS.geomapper import GeoMapper
+from energyPATHWAYS import shapes2
 
 class DemandTechCost():
     def __init__(self, tech):
@@ -375,9 +374,8 @@ class DemandTechnology(schema.DemandTechs, StockItem):
     def min_year(self):
         """calculates the minimum or start year of data in the technology specification.
         Used to determine start year of subsector for analysis."""
-
         attributes = vars(self)
-        self.min_year = cfg.getParam('current_year', section='TIME')
+        self.min_year = cfg.getParamAsInt('current_year', section='TIME')
         for att in attributes:
             obj = getattr(self, att)
             if inspect.isclass(type(obj)) and hasattr(obj, '__dict__') and hasattr(obj, 'raw_values'):

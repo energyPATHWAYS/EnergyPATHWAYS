@@ -1,12 +1,12 @@
 
 from pyomo.environ import *
 import numpy as np
-import util
-import config as cfg
+from energyPATHWAYS import util
+from energyPATHWAYS import config as cfg
 import pdb
 import pandas as pd
 import copy
-import dispatch_budget
+from energyPATHWAYS import dispatch_budget
 import logging
 
 def surplus_capacity(model):

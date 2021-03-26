@@ -4,19 +4,18 @@ Created on Mon Sep 28 09:55:19 2015
 
 @author: Ben
 """
-import config as cfg
+from energyPATHWAYS import config as cfg
 import pandas as pd
-import util
+from energyPATHWAYS import util
 import numpy as np
 import inspect
-from util import DfOper
-from shared_classes import StockItem
+from energyPATHWAYS.shared_classes import StockItem
 import logging
 import pdb
 from energyPATHWAYS.generated import schema
-from unit_converter import UnitConverter
-from geomapper import GeoMapper
-from data_object import DataObject
+from energyPATHWAYS.unit_converter import UnitConverter
+from energyPATHWAYS.geomapper import GeoMapper
+from energyPATHWAYS.data_object import DataObject
 
 
 class FlexibleLoadMeasure(schema.DemandFlexibleLoadMeasures):
@@ -118,7 +117,7 @@ class FuelSwitchingMeasure(schema.DemandFuelSwitchingMeasures, StockItem):
                 obj.calculate(self.vintages, self.years, self.unit_to)
 
     def energy_replace(self):
-        self.replace_impact = DfOper.mult([self.energy_intensity, self.impact])
+        self.replace_impact = util.DfOper.mult([self.energy_intensity, self.impact])
 
     def calculate_book_life(self):
         """ 

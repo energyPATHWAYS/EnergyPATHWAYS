@@ -5,15 +5,14 @@ Created on Tue Oct 27 15:36:21 2015
 @author: Ben
 """
 
-import config as cfg
+from energyPATHWAYS import config as cfg
 import pandas as pd
-import util
+from energyPATHWAYS import util
 import numpy as np
-from util import DfOper
 import pdb
-from geomapper import GeoMapper
+from energyPATHWAYS. geomapper import GeoMapper
 from energyPATHWAYS.generated import schema
-from data_object import DataObject
+from energyPATHWAYS.data_object import DataObject
 
 class SupplyMeasure(object):
     def __init__(self):

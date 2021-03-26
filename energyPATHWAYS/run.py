@@ -126,11 +126,11 @@ if __name__ == "__main__":
     os.chdir(workingdir)
     scenario = ['Net Zero by 2050']
     run(scenario,
-    load_demand   = True,
+    load_demand   = False,
     solve_demand  = True,
     load_supply   = False,
     solve_supply  = False,
-    export_results= True,
-    save_models   = True,
+    export_results= False,
+    save_models   = False,
     compile_mode  = False,
     )

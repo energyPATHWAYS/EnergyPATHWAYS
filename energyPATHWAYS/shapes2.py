@@ -4,20 +4,21 @@ import pandas as pd
 import pytz
 import datetime as DT
 import numpy as np
-import cPickle as pickle
+import pickle
 import os
 import logging
 import pdb
 import pathos
-import helper_multiprocess
+from energyPATHWAYS import helper_multiprocess
 import time
 import shutil
 from csvdb import CsvDatabase
-import config as cfg
+import energyPATHWAYS.config as cfg
 from energyPATHWAYS.geomapper import GeoMapper
-import util
+from energyPATHWAYS import util
 from energyPATHWAYS.data_object import DataObject
 from csvdb.table import REF_SENSITIVITY
+import functools
 
 #http://stackoverflow.com/questions/27491988/canonical-offset-from-utc-using-pytz
 
@@ -75,7 +76,7 @@ def get_active_dates(years):
     for year in util.ensure_iterable(years):
         start_date, end_date = DT.datetime(year, 1, 1), DT.datetime(year, 12, 31, 23)
         active_dates_index.append(pd.date_range(start_date, end_date, freq='H'))
-    return reduce(pd.DatetimeIndex.append, active_dates_index)
+    return functools.reduce(pd.DatetimeIndex.append, active_dates_index)
 
 PICKLE_NAME_DELIMITER = "^v^"
 
@@ -194,7 +195,7 @@ class ShapePickler():
 
         if len(self.shape_objects):
             self.process_active_shapes()
-        print "Shape pickles are complete"
+        print("Shape pickles are complete")
 
     def pre_process_weather_datetime_shape(self, raw_values, meta):
         raw_values['weather_datetime'] = util.DateTimeLookup.lookup(raw_values['weather_datetime'])
@@ -211,7 +212,7 @@ class ShapePickler():
                     shape_obj = pickle.load(infile)
                 return shape_obj
             except:
-                print "unable to read from pickle path {}".format(pickle_path)
+                print("unable to read from pickle path {}".format(pickle_path))
                 input("press any key to retry")
 
 
@@ -325,7 +326,7 @@ class ShapeObj(DataObject):
         self._non_time_keys = [ind for ind in raw_values.index.names if ind not in self._active_time_keys]
         self._non_time_dict = dict([(ind, loc) for loc, ind in enumerate(raw_values.index.names) if ind in self._non_time_keys])
 
-        data = pd.DataFrame(index=pd.Index(self.active_dates_index, name='weather_datetime'))
+        data = pd.DataFrame(index=pd.DatetimeIndex(self.active_dates_index, name='weather_datetime'))
 
         for ti in self._active_time_keys:
             # hour is given as 1-24 not 0-23
@@ -361,7 +362,7 @@ class ShapeObj(DataObject):
                     raise ValueError('Shape unit type energy with week timeslice is not recommended due to edge effects')
                 final_data = self.convert_energy_to_power(final_data)
             if final_data.isnull().values.any():
-                print final_data[final_data.isnull().values]
+                print(final_data[final_data.isnull().values])
                 raise ValueError('Shape {} time slice data did not give full coverage of the active dates.'.format(self.name))
             # reindex to remove the helper columns
             active_time_keys_keep_hydro_year = list(set(self._active_time_keys) - set(['hydro_year']))
@@ -494,20 +495,18 @@ class ShapeObj(DataObject):
     def localize_shapes(self, df):
         """ Step through time zone and put each profile mapped to time zone in that time zone
         """
-        dfs = []
+        df_list = []
         for tz, group in df.groupby(level='time zone'):
             # get the time zone name and figure out the offset from UTC
             tz = pytz.timezone(self.time_zone or format_timezone_str(tz))
             _dt = DT.datetime(2015, 1, 1)
-            offset = (tz.utcoffset(_dt) + tz.dst(_dt)).total_seconds() / 60.
+            offset = (tz.utcoffset(_dt) + tz.dst(_dt)).total_seconds()/60.
             # localize and then convert to dispatch_outputs_timezone
             df2 = group.tz_localize(pytz.FixedOffset(offset), level='weather_datetime')
-            dfs.append(df2)
+            df2 = df2.tz_convert(pytz.FixedOffset(offset), level='weather_datetime')
+            df_list.append(df2)
 
-        tz = pytz.timezone(cfg.getParam('dispatch_outputs_timezone', section='TIME'))
-        offset = (tz.utcoffset(DT.datetime(2015, 1, 1)) + tz.dst(DT.datetime(2015, 1, 1))).total_seconds() / 60.
-        local_df = pd.concat(dfs)
-        local_df = local_df.tz_convert(pytz.FixedOffset(offset), level='weather_datetime')
+        local_df = pd.concat(df_list)
         return local_df.sort_index()
 
     @staticmethod

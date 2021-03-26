@@ -1,3 +1,5 @@
+
+
 import json
 import os
 import logging
@@ -8,7 +10,6 @@ import pandas as pd
 import six
 from energyPATHWAYS.util import csv_read_table
 from csvdb.data_object import get_database
-
 from csvdb.error import ScenarioFileError
 from csvdb.scenario import AbstractScenario, CsvdbFilter
 

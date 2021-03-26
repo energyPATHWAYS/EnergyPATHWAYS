@@ -5,14 +5,14 @@ Created on Tue Nov 17 09:36:07 2015
 @author: Ben
 """
 
-from shared_classes import Stock, StockItem, SpecifiedStock
-import util
+from energyPATHWAYS.shared_classes import Stock, StockItem, SpecifiedStock
+from energyPATHWAYS import util
 import numpy as np    
-import config as cfg
-from geomapper import GeoMapper
-from unit_converter import UnitConverter
+from energyPATHWAYS import config as cfg
+from energyPATHWAYS.geomapper import GeoMapper
+from energyPATHWAYS.unit_converter import UnitConverter
 from energyPATHWAYS.generated import schema
-from data_object import DataObject
+from energyPATHWAYS.data_object import DataObject
 import pdb
         
 # class SupplyStock(Stock, StockItem):

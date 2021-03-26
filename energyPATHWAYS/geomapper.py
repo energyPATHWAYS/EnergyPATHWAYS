@@ -252,10 +252,7 @@ class GeoMapper:
         converted_geography = util.ensure_iterable(converted_geography)
         union_geo = list(set(current_geography) | set(converted_geography))
 
-        try:
-            table = table.groupby(level=union_geo).sum()
-        except:
-            pdb.set_trace()
+        table = table.groupby(level=union_geo).sum()
         if normalize_as=='total':
             table = self._normalize(table, current_geography)
 

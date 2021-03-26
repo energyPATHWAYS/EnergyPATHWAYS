@@ -1151,7 +1151,7 @@ def sum_chunk(x, chunk_size, axis=-1):
     shape = x.shape
     if axis < 0:
         axis += x.ndim
-    shape = shape[:axis] + (shape[axis]/chunk_size, chunk_size) + shape[axis+1:]
+    shape = shape[:axis] + (shape[axis]//chunk_size, chunk_size) + shape[axis+1:]
     return np.sum(x.reshape(shape), axis=axis+1)
 
 
@@ -1160,7 +1160,7 @@ def mean_chunk(x, chunk_size, axis=-1):
     shape = x.shape
     if axis < 0:
         axis += x.ndim
-    shape = shape[:axis] + (shape[axis]/chunk_size, chunk_size) + shape[axis+1:]
+    shape = shape[:axis] + (shape[axis]//chunk_size, chunk_size) + shape[axis+1:]
     return np.mean(x.reshape(shape), axis=axis+1)
 
 def sum_chunk_vintage(x, chunk_size, axis=-1):
@@ -1173,6 +1173,6 @@ def sum_chunk_vintage(x, chunk_size, axis=-1):
         axis += x.ndim
 
     residual_shape = shape[:axis] + (1,) + shape[axis+1:]
-    shape = shape[:axis] + ((shape[axis]-1)/chunk_size, chunk_size) + shape[axis+1:]
+    shape = shape[:axis] + ((shape[axis]-1)//chunk_size, chunk_size) + shape[axis+1:]
     return np.concatenate((x[residual_index].reshape(residual_shape), np.sum(x[slice_index].reshape(shape), axis=axis+1)), axis=axis)
 

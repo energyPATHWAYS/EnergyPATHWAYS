@@ -3,7 +3,7 @@ __author__ = 'Ben Haley & Ryan Jones'
 import pandas as pd
 import numpy as np
 from scipy import optimize, interpolate, stats
-import util
+from energyPATHWAYS import util
 import logging
 import pdb
 

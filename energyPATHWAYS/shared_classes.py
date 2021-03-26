@@ -4,10 +4,10 @@ Created on Tue Nov 17 08:46:24 2015
 
 @author: Ben
 """
-import util 
+from energyPATHWAYS import util
 import numpy as np
 import pandas as pd
-import config as cfg
+from energyPATHWAYS import config as cfg
 import pdb
 from energyPATHWAYS.generated import schema
 from energyPATHWAYS.geomapper import GeoMapper

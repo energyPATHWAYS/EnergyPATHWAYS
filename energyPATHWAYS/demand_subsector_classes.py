@@ -5,13 +5,13 @@ Created on Mon Sep 28 10:03:57 2015
 @author: Ben
 """
 
-import config as cfg
+from energyPATHWAYS import config as cfg
 import pdb
 from collections import defaultdict
-from shared_classes import Stock
+from energyPATHWAYS.shared_classes import Stock
 from energyPATHWAYS.generated import schema
-from geomapper import GeoMapper
-from unit_converter import UnitConverter
+from energyPATHWAYS.geomapper import GeoMapper
+from energyPATHWAYS.unit_converter import UnitConverter
 
 class SubDemand():
     def __init__(self):

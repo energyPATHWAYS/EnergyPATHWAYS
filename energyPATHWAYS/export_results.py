@@ -4,7 +4,7 @@ Currently exports basic results to CSVs.
 
 import os
 import csv
-import util
+from energyPATHWAYS import util
 from ast import literal_eval
 import numpy as np
 
