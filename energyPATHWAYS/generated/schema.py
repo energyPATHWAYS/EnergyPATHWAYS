@@ -1179,7 +1179,7 @@ class DemandSubsectors(DataObject):
     _table_name = "DemandSubsectors"
     _key_col = 'name'
     _cols = ["cost_of_capital", "is_active", "max_lag_hours", "max_lead_hours", "name", "sector",
-             "shape"]
+             "shape","override_service_demand_unit"]
     _df_cols = []
     _df_filters = []
     _data_table_name = None
@@ -1196,9 +1196,10 @@ class DemandSubsectors(DataObject):
         self.name = name
         self.sector = None
         self.shape = None
+        self.override_service_demand_unit = None
 
     def set_args(self, scenario, cost_of_capital=None, is_active=None, max_lag_hours=None, max_lead_hours=None, name=None,
-                 sector=None, shape=None):
+                 sector=None, shape=None, override_service_demand_unit=None):
         self.check_scenario(scenario)
 
         self.cost_of_capital = cost_of_capital
@@ -1208,12 +1209,13 @@ class DemandSubsectors(DataObject):
         self.name = name
         self.sector = sector
         self.shape = shape
+        self.override_service_demand_unit = override_service_demand_unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, sector, cost_of_capital, is_active, shape, max_lead_hours, max_lag_hours,) = tup
+        (name, sector, cost_of_capital, is_active, shape, max_lead_hours, max_lag_hours, override_service_demand_unit,) = tup
 
         self.set_args(scenario, cost_of_capital=cost_of_capital, is_active=is_active, max_lag_hours=max_lag_hours,
-                  max_lead_hours=max_lead_hours, name=name, sector=sector, shape=shape)
+                  max_lead_hours=max_lead_hours, name=name, sector=sector, shape=shape, override_service_demand_unit=override_service_demand_unit)
 
 class DemandTechs(DataObject):
     _instances_by_key = {}

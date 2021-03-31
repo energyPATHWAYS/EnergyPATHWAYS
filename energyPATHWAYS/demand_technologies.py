@@ -190,11 +190,15 @@ class DemandTechEfficiency(object):
                 numerator_unit = self.numerator_unit
                 denominator_unit = self.denominator_unit
                 self.flipped = False
-            self.values = UnitConverter.unit_convert(self.values, unit_from_num=numerator_unit,
-                                            unit_from_den=denominator_unit,
-                                            unit_to_num=cfg.calculation_energy_unit,
-                                            unit_to_den=self.service_demand_unit)
-            self.absolute = True
+            try:
+                self.values = UnitConverter.unit_convert(self.values, unit_from_num=numerator_unit,
+                                                unit_from_den=denominator_unit,
+                                                unit_to_num=cfg.calculation_energy_unit,
+                                                unit_to_den=self.service_demand_unit)
+                self.absolute = True
+            except:
+                import pdb
+                pdb.set_trace()
         else:
             self.values = self.raw_values.copy()
             self.absolute = False
