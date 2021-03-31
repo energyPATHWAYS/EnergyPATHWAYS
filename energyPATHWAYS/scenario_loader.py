@@ -77,8 +77,9 @@ class Scenario(AbstractScenario):
 
             else: # sensitivity scenario
                 tbl_key = parts[1]
-                constraints = [tuple(c.split(':')) for c in parts[2:]]
-                self._add_sensitivity(tbl_name, tbl_key, sens_name, constraints)
+                constraints = dict([tuple(c.split(':')) for c in parts[2:]])
+                sorted_constraints = list((key, constraints[key]) for key in sorted(constraints.keys()))
+                self._add_sensitivity(tbl_name, tbl_key, sens_name, sorted_constraints)
 
     def _add_sensitivity(self, tbl_name, tbl_key, sens_name, constraints):
         obj = CsvdbFilter(tbl_name, tbl_key, sens_name, constraints)

@@ -87,7 +87,7 @@ def loop_geo_multiply(df1, df2, geo_label, geographies, levels_to_keep=None):
     df = DfOper.mult([demand_df,supply_df])
     if levels_to_keep:
         filtered_ltk = [x for x in levels_to_keep if x in df.index.names]
-        df = df.groupby(level=filtered_ltk).sum()
+        df = df.groupby(level=filtered_ltk).sum(min_count=1)
     return df
 
 def add_to_df_index(df, names, keys):
@@ -131,7 +131,7 @@ def df_list_concatenate(df_list, keys=None, new_names=None, levels_to_keep=None)
 
     #aggregate extra levels and order
     try:
-        df_list = [df.groupby(level=list(set(levels_to_keep)-set(new_names)), sort=False).sum() for df in df_list]
+        df_list = [df.groupby(level=list(set(levels_to_keep)-set(new_names)), sort=False).sum(min_count=1) for df in df_list]
     except:
         pdb.set_trace()
     if len(df_list)==0:
@@ -140,7 +140,7 @@ def df_list_concatenate(df_list, keys=None, new_names=None, levels_to_keep=None)
         df = pd.concat(df_list, keys=keys, names=new_names).sort_index()
 
     #eliminate any new_names we picked up that are not in levels_to_keep, also reorder levels
-    return df.groupby(level=levels_to_keep, sort=False).sum()
+    return df.groupby(level=levels_to_keep, sort=False).sum(min_count=1)
 
 def order_of_magnitude_difference(df_numerator, df_denominator):
     return 10**int(round(np.log10(df_numerator.mean().mean())-np.log10(df_denominator.mean().mean())))
@@ -410,14 +410,13 @@ def remove_df_levels(data, levels, total_label=None, agg_function='sum'):
         if total_label in group_slice:
             data = data.loc[group_slice]
         if agg_function == 'sum':
-            return data.groupby(level=levels_to_keep).sum()
+            return data.groupby(level=levels_to_keep).sum(min_count=1)
         elif agg_function =='mean':
-            return data.groupby(level=levels_to_keep).mean()
-
+            return data.groupby(level=levels_to_keep).mean(min_count=1)
         elif agg_function == 'max':
-            return data.groupby(level=levels_to_keep).max()
+            return data.groupby(level=levels_to_keep).max(min_count=1)
         elif agg_function == 'min':
-            return data.groupby(level=levels_to_keep).min()
+            return data.groupby(level=levels_to_keep).min(min_count=1)
         else:
             raise ValueError('unknown agg function specified')
     else:
@@ -1015,8 +1014,8 @@ class DfOper:
         merged_b_cols = [str(col) + "_b" if col in a_cols else col for col in b_cols]
 
         # Eliminate levels for one when the other is not expandable
-        new_a = a.groupby(level=common_names).sum() if (len(names_a_not_in_b) > 0 and not b_can_expand) and a_can_collapse else a
-        new_b = b.groupby(level=common_names).sum() if (len(names_b_not_in_a) > 0 and not a_can_expand) and b_can_collapse else b
+        new_a = a.groupby(level=common_names).sum(min_count=1) if (len(names_a_not_in_b) > 0 and not b_can_expand) and a_can_collapse else a
+        new_b = b.groupby(level=common_names).sum(min_count=1) if (len(names_b_not_in_a) > 0 and not a_can_expand) and b_can_collapse else b
 
         # Reindex so that elements within levels match
         if fill_value is not None:

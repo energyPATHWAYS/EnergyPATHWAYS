@@ -355,7 +355,7 @@ class GeoMapper:
         # do the allocation, take the ratio of foreign to native, do a clean timeseries, then reconstitute the foreign gau data over all years
         allocation = self.map_df(foreign_geography, current_geography, map_key=map_key, primary_subset=[foreign_gau])
         allocated_foreign_gau_slice = util.DfOper.mult((foreign_gau_slice_reduced_years, allocation), fill_value=np.nan)
-        allocated_foreign_gau_slice = allocated_foreign_gau_slice.reorder_levels([-1]+range(df.index.nlevels))
+        allocated_foreign_gau_slice = allocated_foreign_gau_slice.reorder_levels([-1]+list(range(df.index.nlevels)))
         ratio_allocated_to_impacted = util.DfOper.divi((allocated_foreign_gau_slice, impacted_gaus_slice_reduced_years), fill_value=np.nan, non_expandable_levels=[])
         ratio_allocated_to_impacted.iloc[np.nonzero(impacted_gaus_slice_reduced_years.values==0)] = 0
         ratio_allocated_to_impacted = ratio_allocated_to_impacted.dropna().reset_index().set_index(ratio_allocated_to_impacted.index.names)
@@ -425,8 +425,7 @@ class GeoMapper:
             return df, current_geography
 
         y_or_v = GeoMapper._get_df_time_index_name(df)
-
-        index_with_nans = [df.index.names[i] for i in set(np.nonzero([[ri is np.nan for ri in row] for row in df.index.get_values()])[1])]
+        index_with_nans = [df.index.names[i] for i in set(np.nonzero([[ri is np.nan for ri in row] for row in df.index.to_numpy()])[1])]
         # if we have an index with nan, that typically indicates that one of the foreign gaus didn't have all the index levels
         # if this is the case, we have two options (1) ignore the foreign gau (2) get rid of the other index
         if index_with_nans and (keep_oth_index_over_oth_gau or data_type=='intensity'):
@@ -459,7 +458,7 @@ class GeoMapper:
             elif data_type == 'intensity':
                 logging.debug('Foreign GAUs with intensities is not yet implemented, totals will not be conserved')
 
-        assert not any([any([ri is np.nan for ri in row]) for row in df.index.get_values()])
+        assert not any([any([ri is np.nan for ri in row]) for row in df.index.to_numpy()])
         new_geography_name = self.make_new_geography_name(current_geography, list(foreign_gaus))
         df.index = df.index.rename(new_geography_name, level=current_geography)
         if new_geography_name not in self.geography_to_gau:

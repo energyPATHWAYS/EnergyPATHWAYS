@@ -184,10 +184,9 @@ def table_dict(table_name, columns=['id', 'name'], append=False,
 
 
 def init_output_parameters():
-    global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes, evolved_years,\
-    rio_supply_run,rio_db_run, rio_geography, rio_feeder_geographies, rio_energy_unit, rio_time_unit, rio_timestep_multiplier, rio_non_zonal_blend_nodes, rio_excluded_technologies, \
-    rio_excluded_blends, rio_export_blends, rio_no_negative_blends, rio_excluded_nodes, rio_mass_unit, rio_distance_unit, rio_outflow_products, rio_standard_energy_unit, rio_volume_unit,\
-    calculate_costs, calculate_energy, calculate_emissions, rio_opt_demand_subsectors, rio_start_year
+    global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes, evolved_years, \
+    rio_excluded_blends, rio_standard_energy_unit, rio_standard_mass_unit, rio_standard_distance_unit, rio_standard_volume_unit,\
+    calculate_costs, calculate_energy, calculate_emissions, rio_start_year, rio_mass_blends, rio_distance_blends, rio_volume_blends,rio_db_run
 
     try:
         calculate_costs = getParamAsBoolean("calculate_costs",section='COMBINED_OUTPUT_DETAIL')
@@ -202,35 +201,17 @@ def init_output_parameters():
     output_currency = getParam('currency_year', section='UNITS') + ' ' + currency_name
     output_tco = getParamAsBoolean('output_tco', section='DEMAND_CALCULATION_PARAMETERS')
     output_payback = getParamAsBoolean('output_payback', section='DEMAND_CALCULATION_PARAMETERS')
-    rio_supply_run = getParamAsBoolean('rio_supply_run', section='RIO')
     rio_db_run = getParamAsBoolean('rio_db_run', section='RIO')
-    rio_geography = getParam('rio_geography', section='RIO')
-    rio_feeder_geographies = [feeder_geo.strip() for feeder_geo in getParam('rio_feeder_geographies', section='RIO').split(',') if len(feeder_geo)]
-    rio_energy_unit = getParam('rio_energy_unit', section='RIO')
-    rio_time_unit = getParam('rio_time_unit', section='RIO')
-    rio_timestep_multiplier = getParamAsInt('rio_timestep_multiplier', section='RIO')
-    # rio_non_zonal_blend_nodes = [g.strip() for g in getParam('rio_non_zonal_blends').split(',') if len(g)]
-    rio_non_zonal_blend_nodes = None
-    # rio_opt_demand_subsectors = [g.strip() for g in _ConfigParser.get('rio', 'rio_opt_demand_subsectors', section='RIO').split(',') if len(g)]
-    rio_opt_demand_subsectors = None
-    rio_excluded_technologies = [g.strip() for g in getParam('rio_excluded_technologies', section='RIO').split(',') if len(g)]
     rio_excluded_blends = [g.strip()  for g in getParam('rio_excluded_blends', section='RIO').split(',') if len(g)]
-    rio_export_blends = [g.strip()  for g in getParam('rio_export_blends', section='RIO').split(',') if len(g)]
-    rio_outflow_products = [g.strip()  for g in getParam('rio_outflow_products', section='RIO').split(',') if len(g)]
-    rio_excluded_nodes = [g.strip()  for g in getParam('rio_excluded_nodes', section='RIO').split(',') if len(g)]
-    rio_no_negative_blends = [g.strip()  for g in getParam('rio_no_negative_blends', section='RIO').split(',') if len(g)]
-    # evolved_run = getParam('evolved','evolved_run').lower()
-    # evolved_years = [x for x in ensure_iterable(getParam('evolved', 'evolved_years'))]
-    # evolved_blend_nodes = splitclean(getParam('evolved','evolved_blend_nodes'), as_type=int)
-    rio_mass_unit = getParam('rio_mass_unit', section='RIO')
-    rio_volume_unit = getParam('rio_volume_unit', section='RIO')
-    rio_distance_unit = getParam('rio_distance_unit', section='RIO')
+    rio_mass_blends = [g.strip() for g in getParam('rio_mass_blends', section='RIO').split(',') if len(g)]
+    rio_volume_blends = [g.strip() for g in getParam('rio_excluded_blends', section='RIO').split(',') if len(g)]
+    rio_distance_blends = [g.strip() for g in getParam('rio_excluded_blends', section='RIO').split(',') if len(g)]
+
     rio_standard_energy_unit = getParam('rio_standard_energy_unit', section='RIO')
     rio_standard_mass_unit = getParam('rio_standard_mass_unit', section='RIO')
     rio_standard_volume_unit = getParam('rio_standard_volume_unit', section='RIO')
     rio_standard_distance_unit = getParam('rio_standard_distance_unit', section='RIO')
-    # rio_start_year = getParamAsInt('rio_start_year',section='RIO')
-    rio_start_year = None
+    rio_start_year = getParamAsInt('rio_start_year',section='RIO')
     init_removed_levels()
     init_output_levels()
 

@@ -280,7 +280,7 @@ class Demand(object):
             if df is not None:
                 df.dropna(inplace=True)
                 df = remove_na_levels(df)  # if a level only as N/A values, we should remove it from the final outputs
-                setattr(self.outputs,"d_"+ output_name, df.sortlevel())
+                setattr(self.outputs,"d_"+ output_name, df.sort_index())
             else:
                 setattr(self.outputs, "d_" + output_name, None)
         if cfg.output_tco == 'true':
@@ -289,7 +289,7 @@ class Demand(object):
             for output_name, include_unit in zip(output_list,unit_flag):
                 df = self.group_output_tco(output_name, include_unit=include_unit)
                 df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
-                setattr(self,"d_"+ output_name, df.sortlevel())
+                setattr(self,"d_"+ output_name, df.sort_index())
         if cfg.output_payback == 'true':
             output_list = ['annual_costs','all_energy_demand']
             unit_flag = [False,False]
@@ -300,7 +300,7 @@ class Demand(object):
                 levels_to_keep = list(set(levels_to_keep))
                 df = self.group_output(output_name, levels_to_keep=levels_to_keep, include_unit=include_unit)
                 df = remove_na_levels(df) # if a level only as N/A values, we should remove it from the final outputs
-                setattr(self,"d_"+ output_name+"_payback", df.sortlevel())
+                setattr(self,"d_"+ output_name+"_payback", df.sort_index())
         self.aggregate_drivers()
 
         # this may be redundant with the above code
@@ -1357,9 +1357,9 @@ class Subsector(schema.DemandSubsectors):
             values[index]['cost_type'] = keys[index][0].upper()
             values[index]['new/replacement'] = keys[index][1].upper()
         df = util.df_list_concatenate([x.set_index(['cost_type', 'new/replacement'] ,append=True) for x in values if x is not None],keys=None, new_names=None)
-
-        df.columns = [cfg.output_currency]
-        return df
+        if df is not None:
+            df.columns = [cfg.output_currency]
+            return df
 
     def calculate_measures(self):
         """calculates measures for use in subsector calculations """
@@ -2187,7 +2187,7 @@ class Subsector(schema.DemandSubsectors):
             years = [min_year]
         else:
             years = list(range(int(min_year), int(max_year)+1))
-        df = df.loc[:, years]
+        df = df.reindex(years, axis=1)
         df = pd.DataFrame(df.stack())
         util.replace_index_name(df, 'year')
         util.replace_column(df, 'value')
@@ -2328,7 +2328,7 @@ class Subsector(schema.DemandSubsectors):
             full_names = self.stock.total.index.names + ['demand_technology']
             full_levels = self.stock.total.index.levels + [self.techs]
             index = pd.MultiIndex.from_product(full_levels, names=full_names)
-            self.stock.technology = self.stock.total.reindex(index)
+            self.stock.technology = pd.DataFrame(index=index, columns=['value'])
         self.stock.technology = util.remove_df_levels(self.stock.technology, cfg.removed_demand_levels)
         if not self.stock.specify_stocks_past_current_year:
             self.stock.technology[self.stock.technology.index.get_level_values('year')>cfg.getParamAsInt('current_year', section='TIME')] = np.nan
@@ -2337,8 +2337,7 @@ class Subsector(schema.DemandSubsectors):
             # if a stock a demand_technology stock that is linked from other subsectors, we goup by the levels found in the stotal stock of the subsector
             full_names = [x for x in self.stock.total.index.names]
             full_names.insert(-1,'demand_technology')
-            linked_demand_technology = self.stock.linked_demand_technology.groupby(
-                level=[x for x in self.stock.linked_demand_technology.index.names if x in full_names]).sum()
+            linked_demand_technology = self.stock.linked_demand_technology.groupby(level=[x for x in self.stock.linked_demand_technology.index.names if x in full_names]).apply(lambda x: x.sum(skipna=False))
             linked_demand_technology = linked_demand_technology.reorder_levels(full_names)
             linked_demand_technology.sort_index(inplace=True)
             self.stock.technology = self.stock.technology.reorder_levels(full_names)
@@ -2599,9 +2598,9 @@ class Subsector(schema.DemandSubsectors):
         """ formats demand_technology stock and linked demand_technology stocks from other subsectors
         overwrites demand_technology stocks with linked demand_technology stocks"""
         needed_names = self.stock.rollover_group_names + ['demand_technology'] + ['year']
-        groupby_levels = [x for x in self.stock.technology.index.names if x  in needed_names]
+        groupby_levels = [x for x in self.stock.technology.index.names if x in needed_names]
         if len(groupby_levels) > 0:
-            self.stock.technology = self.stock.technology.groupby(level=groupby_levels).sum()
+            self.stock.technology = self.stock.technology.groupby(level=groupby_levels).apply(lambda x: x.sum(skipna=False))
         self.stock.technology = util.reindex_df_level_with_new_elements(self.stock.technology,'demand_technology',self.techs)
         self.stock.technology = self.stock.technology.unstack(level='demand_technology')
 
@@ -2618,7 +2617,7 @@ class Subsector(schema.DemandSubsectors):
             self.stock.remap(map_from='linked_demand_technology', map_to='linked_demand_technology', drivers=subsector_stock.replace([0,np.nan],[1e-10,1e-10]),
                              current_geography=GeoMapper.demand_primary_geography, converted_geography=GeoMapper.demand_primary_geography, current_data_type='total',
                              time_index=self.years, driver_geography=GeoMapper.demand_primary_geography, interpolation_method=None, extrapolation_method=None)
-            self.stock.linked_demand_technology[self.stock.linked_demand_technology==0]=np.nan
+            self.stock.linked_demand_technology[self.stock.linked_demand_technology==0] = np.nan
             self.stock.linked_demand_technology = self.stock.linked_demand_technology[self.stock.linked_demand_technology.index.get_level_values(GeoMapper.demand_primary_geography).isin(GeoMapper.geography_to_gau[GeoMapper.demand_primary_geography])]
             self.stock.has_linked_demand_technology = True
         else:
@@ -2707,8 +2706,6 @@ class Subsector(schema.DemandSubsectors):
             projected =  True
         if 'demand_technology' in getattr(self.energy_demand,map_from).index.names:
             setattr(self.energy_demand, map_from, getattr(self.energy_demand,map_from).groupby(level='demand_technology').filter(lambda x: x.sum()>0))
-        #if self.name == 'residential water heating':
-         #   pdb.set_trace()
         self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
                                    converted_geography=GeoMapper.demand_primary_geography,
                                    additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent,stock_dependent=stock_dependent),current_data_type=current_data_type, projected=projected)
@@ -2829,7 +2826,9 @@ class Subsector(schema.DemandSubsectors):
             ss_tile = np.reshape(np.repeat(ss_array_ref[:, replaced_index, :], num_techs, axis=0), (num_years, num_techs, num_techs))
             np.repeat(ss_array_ref[:, replaced_index, :], num_techs, axis=0)
             ss_array_meas_w_rep += temp_array * ss_tile
+
         ss_array_meas_w_rep[ss_array_meas_w_rep == -0] = 0
+
         return ss_array_meas_w_rep
 
     def calculate_total_sales_share_new(self, elements, initial_stock, reference_run):
@@ -3031,7 +3030,6 @@ class Subsector(schema.DemandSubsectors):
             initial_stock = self.stock.technology.loc[elements+(chosen_year,),:]
             initial_stock = initial_stock/np.nansum(initial_stock) * initial_total
         else:
-            pdb.set_trace()
             raise ValueError(
                 'user has not input stock data with technologies or sales share data so the model cannot determine the demand_technology composition of the initial stock in subsector %s' % self.name)
         return initial_stock
@@ -3069,8 +3067,11 @@ class Subsector(schema.DemandSubsectors):
             for demand_technology in self.technologies.keys():
                 demand_technology_class = self.technologies[demand_technology]
                 indexer = util.level_specific_indexer(self.stock.values_efficiency_main, 'demand_technology', demand_technology)
-                self.stock.values_efficiency_main.loc[indexer, :] = self.stock.values_efficiency_main.loc[indexer,:] * demand_technology_class.efficiency_main.utility_factor
-                self.stock.values_efficiency_main.loc[indexer, 'final_energy'] = demand_technology_class.efficiency_main.final_energy
+                try:
+                    self.stock.values_efficiency_main.loc[indexer, :] = self.stock.values_efficiency_main.loc[indexer,:] * demand_technology_class.efficiency_main.utility_factor
+                    self.stock.values_efficiency_main.loc[indexer, 'final_energy'] = demand_technology_class.efficiency_main.final_energy
+                except:
+                    pdb.set_trace()
                 if self.stock.aux:
                     self.stock.values_efficiency_aux.loc[indexer, :] = self.stock.values.loc[indexer, :] * (
                         1 - demand_technology_class.efficiency_main.utility_factor)

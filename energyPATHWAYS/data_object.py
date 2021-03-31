@@ -329,17 +329,14 @@ class DataObject(CsvDataObject):
             if current_data_type == 'total':
                 setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo),fill_value=fill_value))
                 if len(set(getattr(self,map_to).index.get_level_values(current_geography)))>len(set(getattr(self,map_to).index.get_level_values(driver_geography))):
-                    setattr(self,map_to,remove_df_levels(getattr(self,map_to),driver_geography))
-                elif len(set(getattr(self, map_to).index.get_level_values(current_geography))) < len(
-                            set(getattr(self, map_to).index.get_level_values(driver_geography))):
+                    setattr(self,map_to,remove_df_levels(getattr(self,map_to), driver_geography))
+                elif len(set(getattr(self, map_to).index.get_level_values(current_geography))) < len(set(getattr(self, map_to).index.get_level_values(driver_geography))):
                     setattr(self, map_to, remove_df_levels(getattr(self, map_to), current_geography))
                     current_geography = driver_geography
                 elif current_geography!=driver_geography:
                     setattr(self, map_to, remove_df_levels(getattr(self, map_to), driver_geography))
             else:
-                setattr(self, map_to,
-                        DfOper.mult((getattr(self, map_to), total_driver_current_geo), expandable=(True, False),
-                                    collapsible=(False, True), fill_value=fill_value))
+                setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo), expandable=(True, False), collapsible=(False, True), fill_value=fill_value))
             self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
                          current_data_type='total', fill_value=fill_value, filter_geo=filter_geo)
             # we don't want to keep this around

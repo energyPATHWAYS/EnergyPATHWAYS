@@ -365,15 +365,7 @@ class SupplyTechEfficiency(schema.SupplyTechsEfficiency):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self._has_data and self.raw_values is not None and cfg.rio_supply_run and 'year' in self.raw_values.index.names:
-            self.remap(map_from='raw_values', map_to='values', current_geography=cfg.rio_geography,converted_geography=GeoMapper.supply_primary_geography,
-                       time_index_name='year', lower=None, missing_intensity_geos=False)
-            self.values = self.values.unstack('year')
-            self.values.columns = self.values.columns.droplevel()
-            self.values = pd.concat([self.values] *len(self.vintages),keys=self.vintages,names=['vintage'])
-            self.values['efficiency_type'] = 'consumed'
-            self.values = self.values.set_index('efficiency_type',append=True)
-        elif self._has_data and self.raw_values is not None:
+        if self._has_data and self.raw_values is not None:
             self.convert()
             self.remap(map_from='values', map_to='values', converted_geography=GeoMapper.supply_primary_geography, time_index_name='vintage', lower=None,missing_intensity_geos=False)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
@@ -426,19 +418,13 @@ class SupplyTechCapacityFactor(schema.SupplyTechsCapacityFactor):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        if self._has_data and self.raw_values is not None and (cfg.rio_supply_run is not True or 'vintage' in self.raw_values.index.names):
+        if self._has_data and self.raw_values is not None and 'vintage' in self.raw_values.index.names:
             try:
                 self.remap(time_index_name='vintage', converted_geography=GeoMapper.supply_primary_geography,fill_value=np.nan)
             except:
                 pdb.set_trace()
             self.values.replace(0,1,inplace=True)
             util.convert_age(self, vintages=self.vintages, years=self.years, attr_from='values', attr_to='values', reverse=True)
-        elif self._has_data and self.raw_values is not None and cfg.rio_supply_run==True:
-            self.remap(time_index_name='year', converted_geography=GeoMapper.supply_primary_geography, fill_value=np.nan)
-            self.values.replace(0, 1, inplace=True)
-            self.values = util.add_and_set_index(self.values,'vintage',self.vintages,index_location=-1)
-            self.values = self.values.squeeze().unstack(level='year')
-
 
 class SupplyTechCO2Capture(schema.SupplyTechsCO2Capture):
     def __init__(self, name, scenario):
