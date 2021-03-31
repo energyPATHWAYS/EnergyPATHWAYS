@@ -342,7 +342,7 @@ class Demand(object):
         for sector in self.sectors.values():
             sector_stack = []
             for subsector in sector.subsectors.values():
-                df = subsector.aggregate_subsector_electricity_shape(year, for_direct_use=True)
+                df = subsector.aggregate_subsector_electricity_shape(year)
                 if df is None:
                     continue
                 # todo make this a config param
@@ -925,7 +925,8 @@ class Subsector(schema.DemandSubsectors):
             self.service_demand = ServiceDemand(self.name, scenario=self.scenario, drivers=self.drivers)
             self.add_stock()
             if self.stock.demand_stock_unit_type == 'equipment' or self.stock.demand_stock_unit_type == 'capacity factor':
-                self.add_technologies(self.service_demand.unit, self.stock.time_unit)
+                service_demand_unit = self.override_service_demand_unit or self.service_demand.unit
+                self.add_technologies(service_demand_unit, self.stock.time_unit)
             else:
                 self.add_technologies(self.stock.unit, self.stock.time_unit)
             self.sub_type = 'stock and service'
@@ -935,8 +936,8 @@ class Subsector(schema.DemandSubsectors):
             if self.stock.demand_stock_unit_type == 'equipment':
                 # service demand unit is equal to the energy demand unit for equipment stocks
                 # where no additional service demand information is given in the form of stock units
-
-                self.add_technologies(self.energy_demand.unit, self.stock.time_unit)
+                service_demand_unit = self.override_service_demand_unit or self.energy_demand.unit
+                self.add_technologies(service_demand_unit , self.stock.time_unit)
             else:
                 # service demand unit is equal to the stock unit for stock input types
                 # of capacity factor and service demand
@@ -2214,6 +2215,7 @@ class Subsector(schema.DemandSubsectors):
                                                       unit_to_num=cfg.calculation_energy_unit)
         # make a copy of energy demand for use as service demand
         self.service_demand = copy.deepcopy(self.energy_demand)
+        self.service_demand.unit = self.override_service_demand_unit or self.service_demand.unit
         self.service_demand.raw_values = self.service_demand.values
         self.service_demand.int_values = util.DfOper.divi([self.service_demand.raw_values, eff])
         self.service_demand.int_values.replace([np.inf, -np.inf], 1, inplace=True)
@@ -2706,9 +2708,12 @@ class Subsector(schema.DemandSubsectors):
             projected =  True
         if 'demand_technology' in getattr(self.energy_demand,map_from).index.names:
             setattr(self.energy_demand, map_from, getattr(self.energy_demand,map_from).groupby(level='demand_technology').filter(lambda x: x.sum()>0))
-        self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
-                                   converted_geography=GeoMapper.demand_primary_geography,
-                                   additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent,stock_dependent=stock_dependent),current_data_type=current_data_type, projected=projected)
+        try:
+            self.energy_demand.project(map_from=map_from, map_to='values', current_geography=current_geography,
+                                       converted_geography=GeoMapper.demand_primary_geography,
+                                       additional_drivers=self.additional_drivers(stock_or_service='service',service_dependent=service_dependent,stock_dependent=stock_dependent),current_data_type=current_data_type, projected=projected)
+        except:
+            pdb.set_trace()
         self.energy_demand.values = util.remove_df_levels(self.energy_demand.values,cfg.removed_demand_levels)
 
     def calculate_sales_shares(self,reference_run=False):
