@@ -51,11 +51,6 @@ date_lookup = None
 time_slice_col = None
 electricity_energy_type = None
 elect_default_shape_key = None
-opt_period_length = None
-solver_name = None
-transmission_constraint = None
-filter_dispatch_less_than_x = None
-keep_dispatch_outputs_in_model=None
 
 # outputs
 output_levels = None
@@ -63,10 +58,6 @@ currency_name = None
 output_energy_unit = None
 output_currency = None
 output_demand_levels = None
-output_supply_levels = None
-output_combined_levels = None
-outputs_id_map = defaultdict(dict)
-dispatch_write_years = None
 timestamp = None
 
 # parallel processing
@@ -80,19 +71,17 @@ def initialize_config():
     global years, supply_years, workingdir, years_subset
     workingdir = os.getcwd()
 
-    years = range(getParamAsInt('demand_start_year', section='TIME'),
+    years = range(2000,
                    getParamAsInt('end_year', section='TIME') + 1,
-                   getParamAsInt('year_step', section='TIME'))
+                   1)
 
     supply_years = range(getParamAsInt('current_year', section='TIME'),
                           getParamAsInt('end_year', section='TIME') + 1,
                           getParamAsInt('year_step', section='TIME'))
 
 
-    if len(getParam('cod_years_subset', section='COMBINED_OUTPUT_DETAIL')) and getParam('cod_years_subset',section='COMBINED_OUTPUT_DETAIL')!='None':
-        years_subset = [int(x.strip()) for x in getParam('cod_years_subset',section='COMBINED_OUTPUT_DETAIL').split(',') ]
-    else:
-        years_subset = supply_years
+
+    years_subset = supply_years
 
     log_name = '{} energyPATHWAYS log.log'.format(str(datetime.datetime.now())[:-4].replace(':', '.'))
     setuplogging()
@@ -105,7 +94,6 @@ def initialize_config():
     unit_converter.UnitConverter.get_instance()
     # used when reading in raw_values from data tables
     index_levels = csv_read_table('IndexLevels', column_names=['index_level', 'data_column_name'])
-    solver_name = find_solver()
 
     available_cpus = getParamAsInt('num_cores', section='CALCULATION_PARAMETERS')
     timestamp = str(datetime.datetime.now().replace(second=0,microsecond=0))
@@ -130,23 +118,17 @@ def init_units():
     # Initiate pint for unit conversions
     global calculation_energy_unit
 
-    calculation_energy_unit = getParam('calculation_energy_unit', section='UNITS')
+    calculation_energy_unit = getParam('energy_unit', section='UNITS')
 
 
 def init_date_lookup():
-    global date_lookup, time_slice_col, electricity_energy_type, electricity_energy_type_shape, opt_period_length, transmission_constraint, filter_dispatch_less_than_x, keep_dispatch_outputs_in_model, elect_default_shape_key
+    global date_lookup, time_slice_col, electricity_energy_type, elect_default_shape_key
     time_slice_col = ['year', 'month', 'week', 'hour', 'day_type']
 
     # electricity_energy_type_shape = csv_read_table('FinalEnergy', column_names=['shape'], name='electricity')
     electricity_energy_type = 'electricity'
     elect_default_shape_key = csv_read_table('FinalEnergy', column_names=['shape'], name='electricity')
 
-    opt_period_length = getParamAsInt('period_length', section='ELECTRICITY_DISPATCH')
-    transmission_constraint = getParam('transmission_constraint', section='ELECTRICITY_DISPATCH')
-    transmission_constraint = transmission_constraint if transmission_constraint != "" else None
-    filter_dispatch_less_than_x = getParamAsFloat('filter_dispatch_less_than_x', section='ELECTRICITY_DISPATCH')
-    keep_dispatch_outputs_in_model = getParamAsBoolean('keep_dispatch_outputs_in_model', section='ELECTRICITY_DISPATCH')
-    filter_dispatch_less_than_x = float(filter_dispatch_less_than_x) if filter_dispatch_less_than_x != "" else None
 
 def init_removed_levels():
     global removed_demand_levels
@@ -155,22 +137,10 @@ def init_removed_levels():
 def init_output_levels():
     global output_demand_levels, output_supply_levels, output_combined_levels
     output_demand_levels = ['year', 'vintage', 'demand_technology', 'air pollution', geomapper.GeoMapper.demand_primary_geography, 'sector', 'subsector', 'final_energy','other_index_1','other_index_2','cost_type','new/replacement']
-    output_supply_levels = ['year', 'vintage', 'supply_technology', geomapper.GeoMapper.supply_primary_geography,  'demand_sector', 'supply_node', 'ghg', 'resource_bin','cost_type']
-    output_combined_levels = list(set(output_supply_levels + output_demand_levels) - {geomapper.GeoMapper.demand_primary_geography, geomapper.GeoMapper.supply_primary_geography})
-    output_combined_levels = output_combined_levels + [geomapper.GeoMapper.combined_outputs_geography + "_supply", geomapper.GeoMapper.combined_outputs_geography]
 
     levels_to_remove = set([x[0][4:] for x in _ConfigParser.items('DEMAND_OUTPUT_DETAIL') if x[1].lower()!='true'])
     output_demand_levels = list(set(output_demand_levels) - levels_to_remove)
 
-    levels_to_remove = set([x[0][4:] for x in _ConfigParser.items('SUPPLY_OUTPUT_DETAIL') if x[1].lower()!='true'])
-    output_supply_levels = list(set(output_supply_levels) - levels_to_remove)
-
-    levels_to_remove = set([x[0][4:] for x in _ConfigParser.items('COMBINED_OUTPUT_DETAIL') if x[1].lower()!='true'])
-    output_combined_levels = list(set(output_combined_levels) - levels_to_remove)
-
-
-    if not getParamAsBoolean('cod_supply_geography', 'COMBINED_OUTPUT_DETAIL'):
-        output_combined_levels.remove(geomapper.GeoMapper.combined_outputs_geography + "_supply")
 
 def table_dict(table_name, columns=['id', 'name'], append=False,
                other_index_id=id, return_iterable=False, return_unique=True):
@@ -184,24 +154,14 @@ def table_dict(table_name, columns=['id', 'name'], append=False,
 
 
 def init_output_parameters():
-    global currency_name, output_currency, output_tco, output_payback, evolved_run, evolved_blend_nodes, evolved_years, \
+    global currency_name, output_currency, \
     rio_excluded_blends, rio_standard_energy_unit, rio_standard_mass_unit, rio_standard_distance_unit, rio_standard_volume_unit,\
-    calculate_costs, calculate_energy, calculate_emissions, rio_start_year, rio_mass_blends, rio_distance_blends, rio_volume_blends,rio_db_run
+    rio_start_year, rio_mass_blends, rio_distance_blends, rio_volume_blends,rio_flex_load_subsectors, rio_optimizable_subsectors
 
-    try:
-        calculate_costs = getParamAsBoolean("calculate_costs",section='COMBINED_OUTPUT_DETAIL')
-        calculate_energy= getParamAsBoolean("calculate_energy", section='COMBINED_OUTPUT_DETAIL')
-        calculate_emissions = getParamAsBoolean("calculate_emissions", section='COMBINED_OUTPUT_DETAIL')
-    except:
-        calculate_costs = True
-        calculate_energy = True
-        calculate_emissions = True
+
 
     currency_name = getParam('currency_name', section='UNITS')
     output_currency = getParam('currency_year', section='UNITS') + ' ' + currency_name
-    output_tco = getParamAsBoolean('output_tco', section='DEMAND_CALCULATION_PARAMETERS')
-    output_payback = getParamAsBoolean('output_payback', section='DEMAND_CALCULATION_PARAMETERS')
-    rio_db_run = getParamAsBoolean('rio_db_run', section='RIO')
     rio_excluded_blends = [g.strip()  for g in getParam('rio_excluded_blends', section='RIO').split(',') if len(g)]
     rio_mass_blends = [g.strip() for g in getParam('rio_mass_blends', section='RIO').split(',') if len(g)]
     rio_volume_blends = [g.strip() for g in getParam('rio_excluded_blends', section='RIO').split(',') if len(g)]
@@ -212,30 +172,14 @@ def init_output_parameters():
     rio_standard_volume_unit = getParam('rio_standard_volume_unit', section='RIO')
     rio_standard_distance_unit = getParam('rio_standard_distance_unit', section='RIO')
     rio_start_year = getParamAsInt('rio_start_year',section='RIO')
+    rio_flex_load_subsectors = [g.strip() for g in getParam('rio_flex_load_subsectors', section='RIO').split(',') if len(g)]
+    rio_optimizable_subsectors = [g.strip() for g in getParam('rio_optimizable_subsectors', section='RIO').split(',') if len(g)]
+
     init_removed_levels()
     init_output_levels()
 
 
 
-def find_solver():
-    requested_solvers = [g.strip() for g in getParam('dispatch_solver', section='ELECTRICITY_DISPATCH').split(',') if len(g)]
-    solver_name = None
-    # inspired by the solver detection code at https://software.sandia.gov/trac/pyomo/browser/pyomo/trunk/pyomo/scripting/driver_help.py#L336
-    # suppress logging of warnings for solvers that are not found
-    logger = logging.getLogger('pyomo.solvers')
-    _level = logger.getEffectiveLevel()
-    logger.setLevel(logging.ERROR)
-    for requested_solver in requested_solvers:
-        logging.debug("Looking for %s solver" % requested_solver)
-        if SolverFactory(requested_solver).available(False):
-            solver_name = requested_solver
-            logging.debug("Using %s solver" % requested_solver)
-            break
-    # restore logging
-    logger.setLevel(_level)
-
-    assert solver_name is not None, "Dispatch could not find any of the solvers requested in your configuration (%s) please see README.md, check your configuration, and make sure you have at least one requested solver installed." % ', '.join(requested_solvers)
-    return solver_name
 
 CALCULATION_PARAMETERS_SECTION = 'CALCULATION_PARAMETERS'
 PROJ_CONFIG_FILE = 'config.ini'
