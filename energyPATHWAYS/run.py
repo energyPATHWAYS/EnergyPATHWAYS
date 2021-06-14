@@ -136,10 +136,10 @@ class SubsectorPerturbation(object):
         self.subsector = subsector
 
 if __name__ == "__main__":
-    workingdir = r'E:\ep_runs\socalgas\RIO2EP'
+    workingdir = r'E:\ep_runs\TNC\RIO2EP'
     os.chdir(workingdir)
-    rio_scenario = ['Accel Clean Fuels']
-    scenario = ['Accel Clean Fuels']
+    rio_scenario = ['high elec 100pRE level 1']
+    scenario = ['high elec 100pRE level 1']
     run(scenario,
     load_demand   = True,
     solve_demand  = False,
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     solve_supply  = True,
     export_results= True,
     load_error    = False,
-    save_models   = False,
+    save_models   = True,
     clear_results = False,
     rio_scenario=rio_scenario)
 

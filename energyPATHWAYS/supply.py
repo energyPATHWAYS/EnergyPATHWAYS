@@ -6447,8 +6447,8 @@ class RioInputs(DataObject):
         x = [x for x in x if x not in gen_regions and x not in ['existing']]
         x = [x.replace("existing_", "") for x in x]
         x = [x.replace("li_ion", "li-ion") for x in x]
-        x = [x.replace("oos_nm", "oos nm_1") for x in x]
-        x = [x.replace("oos_wy", "oos wy_1") for x in x]
+        x = [x.replace(" bin ", "_") for x in x]
+        x = [x.replace("geothermal_hydrothermal", "geothermal power plant") for x in x]
         x = [x.lower() for x in x]
         x = [x.strip('*') for x in x]
         x = '_'.join(x)
@@ -6475,6 +6475,7 @@ class RioInputs(DataObject):
             return None
         levelized_cost = util.df_slice(levelized_cost,scenario,'run name')
         df = util.remove_df_levels(levelized_cost[levelized_cost.index.get_level_values('output').isin(['blend energy storage','conversion delivery cost','product delivery cost'])],'vintage')
+        df = df[~df.index.get_level_values('resource_agg').isin(['biochar blend'])] # HARD CODE, I DON'T WANT TO BOTHER WITH THIS
         df = df.reset_index('year')
         df['year'] = df['year'].astype(int)
         df = df.set_index('year',append=True)
@@ -6561,6 +6562,7 @@ class RioInputs(DataObject):
         tx_capacity['gau_to'] = [self.geography_mapping[x] for x in tx_capacity['gau_to'].values]
         tx_capacity = tx_capacity.set_index(['gau_from','gau_to'], append=True)
         tx_capacity.index = tx_capacity.index.reorder_levels(['gau_from','gau_to','year'])
+        tx_capacity = tx_capacity.groupby(level=tx_capacity.index.names).sum() # needs to be done because we have multiple lines now
         tx_capacity = util.reindex_df_level_with_new_elements(tx_capacity, 'gau_from', GeoMapper.dispatch_geographies)
         tx_capacity = util.reindex_df_level_with_new_elements(tx_capacity, 'gau_to', GeoMapper.dispatch_geographies)
         tx_capacity = UnitConverter.unit_convert(tx_capacity,unit_from_num = cfg.rio_energy_unit,unit_to_num=cfg.calculation_energy_unit)
@@ -6881,6 +6883,8 @@ class RioInputs(DataObject):
     def calc_fuel_annual_energy_zone_from(self, fuel_energy, scenario):
         df = util.df_slice(fuel_energy, scenario, 'run name')
         df = df[df.index.get_level_values('output').isin(['conversion inflow'])]
+        df = df[~df.index.get_level_values('blend').isin(['biochar blend'])]  # HARD CODE, I DON'T WANT TO BOTHER WITH THIS
+        df = df[[("biomass slow pyrolysis" not in x) for x in df.index.get_level_values('fuel')]]  # HARD CODE, I DON'T WANT TO BOTHER WITH THIS
         df = util.remove_df_levels(df,'output')
         df = df.reset_index('fuel')
         gen_regions = list(set(df.index.get_level_values('zone')))
@@ -6979,6 +6983,7 @@ class RioInputs(DataObject):
 
     def calc_blend_exports(self,scenario,fuel_outputs):
         df = util.df_slice(fuel_outputs,scenario,'run name')
+        df = df[~df.index.get_level_values('blend').isin(['biochar blend'])]  # HARD CODE, I DON'T WANT TO BOTHER WITH THIS
         df = df.groupby(level=['unit','blend','zone','year']).sum()
         df = df[df.values>0]
         df *= np.vstack(np.array([ UnitConverter.unit_convert(1,a,b) for a,b in zip(df.index.get_level_values('unit'),[self.rio_standard_unit_dict[x] for x in df.index.get_level_values('unit')])]))
@@ -6997,8 +7002,8 @@ class RioInputs(DataObject):
 
     def calc_product_exports(self,scenario,fuel_outputs):
         df = util.df_slice(fuel_outputs,scenario,'run name')
-        df = df[df.index.get_level_values('output').isin(
-            ['product flow'])]
+        df = df[~df.index.get_level_values('blend').isin(['biochar blend'])]  # HARD CODE, I DON'T WANT TO BOTHER WITH THIS
+        df = df[df.index.get_level_values('output').isin(['product flow'])]
         df = df[df.values<0]*-1
         if len(df) == 0:
             return None
